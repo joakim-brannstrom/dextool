@@ -217,12 +217,12 @@ struct InstructionRange {
 
     InstructionValue front() {
         assert(!empty, "Can't get front of an empty range");
-        return cur;
+        return cur.get;
     }
 
     void popFront() {
         assert(!empty, "Can't pop front of an empty range");
-        cur = cur.nextInstr;
+        cur = cur.get.nextInstr;
     }
 
     bool empty() {
@@ -246,7 +246,7 @@ mixin template BasicBlockAccept(VisitorT, UserT) {
             return;
         }
 
-        foreach (b; term.successors) {
+        foreach (b; term.get.successors) {
             maybeCallVisit(this, user, b);
         }
     }
@@ -261,7 +261,7 @@ mixin template BasicBlockAccept(VisitorT, UserT) {
             return;
         }
 
-        foreach (b; term.successors) {
+        foreach (b; term.get.successors) {
             maybeCallVisit(this, user, b);
         }
     }

@@ -21,10 +21,8 @@ import dextool.plugin.types;
 
 import dextool.plugin.fuzzer.type;
 
-import dextool.plugin.fuzzer.frontend.raw_args : RawConfiguration, XmlConfig,
-    Symbols;
-import dextool.plugin.fuzzer.backend.interface_ : Controller, Parameter,
-    Product, Transform;
+import dextool.plugin.fuzzer.frontend.raw_args : RawConfiguration, XmlConfig, Symbols;
+import dextool.plugin.fuzzer.backend.interface_ : Controller, Parameter, Product, Transform;
 
 private struct FileData {
     import dextool.type : FileName, WriteStrategy;
@@ -53,8 +51,7 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
     import std.typecons : Flag;
     import dextool.compilation_db : CompileCommandFilter;
     import dextool.type : FileName;
-    import cpptooling.testdouble.header_filter : TestDoubleIncludes,
-        LocationType;
+    import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
     import dsrcgen.cpp : CppModule, CppHModule;
 
     private {
@@ -118,8 +115,9 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
             return this;
         }
 
-        compiler_flag_filter = CompileCommandFilter(conf.filterClangFlags, conf.skipCompilerArgs);
-        symbols = conf.symbols;
+        compiler_flag_filter = CompileCommandFilter(conf.get.filterClangFlags,
+                conf.get.skipCompilerArgs);
+        symbols = conf.get.symbols;
 
         return this;
     }

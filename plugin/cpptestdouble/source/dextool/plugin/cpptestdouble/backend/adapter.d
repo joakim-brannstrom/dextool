@@ -15,8 +15,7 @@ import dextool.type : MainNs, MainInterface;
 // TODO this is a mega include. Reduce it.
 import cpptooling.data;
 
-import cpptooling.data : CppClass, CppNamespace, CppClassName, CppMethodName,
-    USRType;
+import cpptooling.data : CppClass, CppNamespace, CppClassName, CppMethodName, USRType;
 
 // dfmt off
 @safe:
@@ -127,7 +126,7 @@ void generateImpl(CppClass c, CppModule impl) {
         }();
         // dfmt on
 
-        with (impl.ctor_body(m.name, E(p0.type.toStringDecl(p0.name)))) {
+        with (impl.ctor_body(m.name.get, E(p0.type.toStringDecl(p0.name)))) {
             stmt(E("test_double_inst") = E("&" ~ p0.name));
         }
         impl.sep(2);

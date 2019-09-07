@@ -75,8 +75,8 @@ auto filterMutable(RangeT)(RangeT range, const ref Container container) {
         return !element.type.attr.isConst;
     }
 
-    return range.filter!(a => isNotConst(a)).map!(a => MutableGlobal(a,
-            resolveTypedef(a.type.kind, container)));
+    return range.filter!(a => isNotConst(a))
+        .map!(a => MutableGlobal(a, resolveTypedef(a.type.kind, container)));
 }
 
 /** Make a C++ "interface" class of all mutable globals.
@@ -95,7 +95,7 @@ CppClass makeGlobalInterface(RangeT)(RangeT range, const CppClassName main_if) @
     const void_ = CxReturnType(makeSimple("void"));
 
     foreach (a; range) {
-        auto method = CppMethod(a.usr, CppMethodName(a.name), CxParam[].init,
+        auto method = CppMethod(a.usr.get, CppMethodName(a.name), CxParam[].init,
                 void_, CppAccess(AccessType.Public), CppConstMethod(false),
                 CppVirtualMethod(MemberVirtualType.Pure));
         globals_if.put(method);
@@ -123,7 +123,7 @@ CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
     const void_ = CxReturnType(makeSimple("void"));
 
     foreach (a; range) {
-        auto method = CppMethod(a.usr, CppMethodName(a.name), CxParam[].init,
+        auto method = CppMethod(a.usr.get, CppMethodName(a.name), CxParam[].init,
                 void_, CppAccess(AccessType.Public), CppConstMethod(false),
                 CppVirtualMethod(MemberVirtualType.Virtual));
 

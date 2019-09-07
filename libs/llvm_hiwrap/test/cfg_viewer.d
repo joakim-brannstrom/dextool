@@ -47,8 +47,7 @@ int main(string[] args) {
             );
         // dfmt on
         help = help_info.helpWanted;
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
         help = true;
     }
 
@@ -118,8 +117,7 @@ struct IRFile {
         if (remove_tmpdir) {
             try {
                 rmdirRecurse(tmpdir);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 collectException(writeln("error: ", e.msg));
             }
         }
@@ -148,8 +146,7 @@ IRFile makeIRFile(AbsolutePath p, string[] cflags) {
 
             writeln("creating temporary LLVM IR: ", ir);
             return IRFile(true, ir, AbsolutePath(t.idup), true);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             collectException(writeln("error: ", e.msg));
         }
     }
@@ -381,7 +378,7 @@ void dumpCFG(ref const IRFile ir, bool dump_onlycfg) {
 
             app.writefln("%s : BasicBlock", me);
 
-            if (n.terminator.isNull || n.terminator.successors.length == 0) {
+            if (n.terminator.isNull || n.terminator.get.successors.length == 0) {
                 last_block = null;
                 app.writefln("%s --> [*]", me);
             }

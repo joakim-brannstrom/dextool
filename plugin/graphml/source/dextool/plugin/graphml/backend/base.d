@@ -15,12 +15,10 @@ import std.traits : isSomeString, Unqual;
 import std.typecons : scoped, Nullable, Flag, Yes;
 import logger = std.experimental.logger;
 
-import cpptooling.analyzer.clang.analyze_helper : VarDeclResult,
-    FieldDeclResult;
+import cpptooling.analyzer.clang.analyze_helper : VarDeclResult, FieldDeclResult;
 import cpptooling.analyzer.clang.ast : Visitor;
-import cpptooling.data : resolveCanonicalType, resolvePointeeType, TypeKindAttr,
-    TypeKind, TypeAttr, toStringDecl, CppAccess, LocationTag, Location, USRType,
-    AccessType;
+import cpptooling.data : resolveCanonicalType, resolvePointeeType, TypeKindAttr, TypeKind,
+    TypeAttr, toStringDecl, CppAccess, LocationTag, Location, USRType, AccessType;
 import cpptooling.data.symbol : Container;
 
 import dextool.plugin.graphml.backend.xml;
@@ -45,14 +43,13 @@ static import cpptooling.data.class_classification;
 
 final class GraphMLAnalyzer(ReceiveT) : Visitor {
     import cpptooling.analyzer.clang.ast : TranslationUnit, ClassDecl, VarDecl,
-        FunctionDecl, Namespace, UnexposedDecl, StructDecl, CompoundStmt,
-        Constructor, Destructor, CxxMethod, Declaration, ClassTemplate,
+        FunctionDecl, Namespace, UnexposedDecl, StructDecl,
+        CompoundStmt, Constructor, Destructor, CxxMethod, Declaration, ClassTemplate,
         ClassTemplatePartialSpecialization, FunctionTemplate, UnionDecl;
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl, analyzeRecord, analyzeTranslationUnit;
-    import cpptooling.data : CppRoot, CppNs, CFunction, CxReturnType,
-        LocationTag, Location;
+    import cpptooling.data : CppRoot, CppNs, CFunction, CxReturnType, LocationTag, Location;
     import cpptooling.data.symbol : Container;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
@@ -115,7 +112,7 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
         if (!ctrl.doFile(v.cursor.location.spelling.file.name))
             return;
 
-        auto type = () @trusted{
+        auto type = () @trusted {
             return retrieveType(v.cursor, *container, indent);
         }();
         put(type, *container, indent);
@@ -163,7 +160,7 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
         recv.put(result);
         assert(result.isValid);
 
-        () @trusted{
+        () @trusted {
             auto visitor = scoped!(BodyVisitor!(ReceiveT))(result.type, ctrl,
                     recv, *container, indent + 1);
             v.accept(visitor);
@@ -173,7 +170,7 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
     override void visit(const(Namespace) v) {
         mixin(mixinNodeLog!());
 
-        () @trusted{ scope_stack ~= CppNs(v.cursor.spelling); }();
+        () @trusted { scope_stack ~= CppNs(v.cursor.spelling); }();
         // pop the stack when done
         scope (exit)
             scope_stack = scope_stack[0 .. $ - 1];
@@ -304,7 +301,7 @@ final class GraphMLAnalyzer(ReceiveT) : Visitor {
 
         auto result = analyzeRecord(parent, *container, indent);
 
-        () @trusted{
+        () @trusted {
             auto visitor = scoped!(BodyVisitor!(ReceiveT))(result.type, ctrl,
                     recv, *container, indent + 1);
             v.accept(visitor);
@@ -329,12 +326,10 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
     import cpptooling.analyzer.clang.ast : ClassDecl, ClassTemplate,
         ClassTemplatePartialSpecialization, StructDecl, CxxBaseSpecifier,
-        Constructor, Destructor, CxxMethod, FieldDecl, CxxAccessSpecifier,
-        TypedefDecl, UnionDecl;
+        Constructor, Destructor, CxxMethod, FieldDecl, CxxAccessSpecifier, TypedefDecl, UnionDecl;
     import cpptooling.analyzer.clang.ast.visitor : generateIndentIncrDecr;
-    import cpptooling.analyzer.clang.analyze_helper : analyzeRecord,
-        analyzeConstructor, analyzeDestructor, analyzeCxxMethod,
-        analyzeFieldDecl, analyzeCxxBaseSpecified, toAccessType;
+    import cpptooling.analyzer.clang.analyze_helper : analyzeRecord, analyzeConstructor, analyzeDestructor,
+        analyzeCxxMethod, analyzeFieldDecl, analyzeCxxBaseSpecified, toAccessType;
     import cpptooling.data : CppNsStack, CppNs, AccessType, CppAccess, CppDtor,
         CppCtor, CppMethod, CppClassName, MemberVirtualType;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
@@ -513,7 +508,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
         recv.put(this_, result, access);
 
-        () @trusted{
+        () @trusted {
             auto visitor = scoped!(BodyVisitor!(ReceiveT))(result.type, ctrl,
                     recv, *container, indent + 1);
             v.accept(visitor);
@@ -535,7 +530,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
         recv.put(this_, result, access);
 
-        () @trusted{
+        () @trusted {
             auto visitor = scoped!(BodyVisitor!(ReceiveT))(result.type, ctrl,
                     recv, *container, indent + 1);
             v.accept(visitor);
@@ -560,7 +555,7 @@ private final class ClassVisitor(ReceiveT) : Visitor {
 
         recv.put(this_, result, access);
 
-        () @trusted{
+        () @trusted {
             auto visitor = scoped!(BodyVisitor!(ReceiveT))(result.type, ctrl,
                     recv, *container, indent + 1);
             v.accept(visitor);
@@ -595,13 +590,13 @@ private final class ClassVisitor(ReceiveT) : Visitor {
         if (!ctrl.doFile(v.cursor.location.spelling.file.name))
             return;
 
-        auto result = () @trusted{
+        auto result = () @trusted {
             return retrieveType(v.cursor, *container, indent + 1);
         }();
         put(result, *container, indent + 1);
 
         if (!result.isNull) {
-            auto tnode = NodeType(result.primary.type);
+            auto tnode = NodeType(result.get.primary.type);
             node.types.put(tnode);
         }
     }
@@ -944,7 +939,7 @@ private final class RefVisitor : Visitor {
     // End: Generic
 }
 
-private T toInternal(T, S)(S value) @safe pure nothrow @nogc 
+private T toInternal(T, S)(S value) @safe pure nothrow @nogc
         if (isSomeString!T && (is(S == CppAccess) || is(S == AccessType))) {
     import cpptooling.data : AccessType;
 
@@ -958,7 +953,7 @@ private T toInternal(T, S)(S value) @safe pure nothrow @nogc
     }
 }
 
-private T toInternal(T, S)(S value) @safe pure nothrow @nogc 
+private T toInternal(T, S)(S value) @safe pure nothrow @nogc
         if (is(T == StereoType) && is(S == cpptooling.data.class_classification.State)) {
     final switch (value) with (cpptooling.data.class_classification.State) {
     case Unknown:
@@ -1083,8 +1078,8 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
     import std.typecons : NullableRef;
 
     import cpptooling.analyzer.clang.analyze_helper : CxxBaseSpecifierResult,
-        RecordResult, FieldDeclResult, CxxMethodResult, ConstructorResult,
-        DestructorResult, VarDeclResult, FunctionDeclResult,
+        RecordResult, FieldDeclResult, CxxMethodResult,
+        ConstructorResult, DestructorResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
     import cpptooling.data.type : USRType, LocationTag, Location, CppNs,
         TypeKindAttr, TypeKind, TypeAttr, toStringDecl;
@@ -1277,7 +1272,8 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
 
         if (!parent.isNull) {
             // connect namespace to instance
-            addEdge(streamed_nodes, node_cache, streamed_edges, recv, parent, result.instanceUSR);
+            addEdge(streamed_nodes, node_cache, streamed_edges, recv,
+                    parent.get, result.instanceUSR);
         }
 
         // type node
@@ -1369,7 +1365,8 @@ class TransformToXmlStream(RecvXmlT, LookupT) if (isOutputRange!(RecvXmlT, char)
 
         auto ns_usr = addNamespaceNode(streamed_nodes, recv, ns);
         if (!ns_usr.isNull) {
-            addEdge(streamed_nodes, node_cache, streamed_edges, recv, ns_usr, result.type);
+            addEdge(streamed_nodes, node_cache, streamed_edges, recv,
+                    ns_usr.get, result.type.kind.usr);
         }
     }
 
@@ -1506,7 +1503,7 @@ private:
         }
 
         string rel;
-        () @trusted{ rel = relativePath(loc.file); }();
+        () @trusted { rel = relativePath(loc.file); }();
 
         return LocationTag(Location(rel, loc.line, loc.column));
     }
@@ -1585,31 +1582,12 @@ private:
             return;
         }
 
-        addEdge(nodup_nodes, node_store, edges, recv, src, target);
+        addEdge(nodup_nodes, node_store, edges, recv, src.kind.usr, target.kind.usr);
     }
 
-    static void addEdge(NoDupNodesT, NodeStoreT, EdgeStoreT, RecvT, SrcT, TargetT)(
-            ref NoDupNodesT nodup_nodes, ref NodeStoreT node_store,
-            ref EdgeStoreT edges, ref RecvT recv, SrcT src, TargetT target,
-            EdgeKind kind = EdgeKind.Directed) {
-        string target_usr;
-        static if (is(Unqual!TargetT == TypeKindAttr)) {
-            if (target.kind.info.kind == TypeKind.Info.Kind.null_) {
-                return;
-            }
-
-            target_usr = cast(string) target.kind.usr;
-        } else {
-            target_usr = cast(string) target;
-        }
-
-        string src_usr;
-        static if (is(Unqual!SrcT == TypeKindAttr)) {
-            src_usr = cast(string) src.kind.usr;
-        } else {
-            src_usr = cast(string) src;
-        }
-
+    static void addEdge(NoDupNodesT, NodeStoreT, EdgeStoreT, RecvT)(
+            ref NoDupNodesT nodup_nodes, ref NodeStoreT node_store, ref EdgeStoreT edges,
+            ref RecvT recv, string src_usr, string target_usr, EdgeKind kind = EdgeKind.Directed) {
         // skip self edges
         if (target_usr == src_usr) {
             return;
@@ -1623,7 +1601,9 @@ private:
 
         xmlEdge(recv, src_usr, target_usr, kind);
         edges[edge_key] = true;
-        addFallbackNodes(nodup_nodes, node_store, [USRType(src_usr), USRType(target_usr)]);
+        addFallbackNodes(nodup_nodes, node_store, [
+                USRType(src_usr), USRType(target_usr)
+                ]);
     }
 
     static void addFallbackNodes(NoDupNodesT, NodeStoreT, NodeT)(

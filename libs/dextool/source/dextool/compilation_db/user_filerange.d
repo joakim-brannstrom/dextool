@@ -69,7 +69,7 @@ struct UserFileRange {
         case RangeOver.database:
             curr = SearchResult(db.payload[0].parseFlag(ccFilter,
                     userCompiler), db.payload[0].absoluteFile);
-            curr.flags.cflags = cflags ~ curr.flags.cflags;
+            curr.get.flags.cflags = cflags ~ curr.get.flags.cflags;
             break;
         }
 

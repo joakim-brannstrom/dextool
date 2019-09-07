@@ -31,8 +31,8 @@ import cpptooling.data : CppNsStack;
 import cpptooling.testdouble.header_filter : LocationType;
 
 import dextool.plugin.cpptestdouble.backend.generate_cpp : generate;
-import dextool.plugin.cpptestdouble.backend.interface_ : Controller, Parameters,
-    Products, Transform;
+import dextool.plugin.cpptestdouble.backend.interface_ : Controller,
+    Parameters, Products, Transform;
 import dextool.plugin.cpptestdouble.backend.type : Code, GeneratedData,
     ImplData, IncludeHooks, Kind;
 import dextool.plugin.cpptestdouble.backend.visitor : AnalyzeData, CppTUVisitor;
@@ -78,7 +78,7 @@ struct Backend {
         auto fl = rawFilter(visitor.root, ctrl, products,
                 (USRType usr) => container.find!LocationTag(usr));
 
-        analyze.root.merge(fl, MergeMode.full);
+        analyze.get.root.merge(fl, MergeMode.full);
 
         return ExitStatusType.Ok;
     }
@@ -105,13 +105,13 @@ struct Backend {
 
         debug logger.trace(container.toString);
 
-        logger.tracef("Filtered:\n%u", analyze.root);
+        logger.tracef("Filtered:\n%u", analyze.get.root);
 
         auto impl_data = ImplData.make();
         impl_data.includeHooks = IncludeHooks.make(transform);
 
-        impl_data.putForLookup(analyze.classes);
-        translate(analyze.root, container, ctrl, params, impl_data);
+        impl_data.putForLookup(analyze.get.classes);
+        translate(analyze.get.root, container, ctrl, params, impl_data);
         analyze.nullify();
 
         logger.tracef("Translated to implementation:\n%u", impl_data.root);
@@ -223,8 +223,9 @@ void translate(CppRoot root, ref Container container, Controller ctrl,
                 CppNsStack.init, params.getMainNs, params.getMainInterface, impl.root);
     }
 
-    foreach (a; root.namespaceRange.map!(a => translate(a, impl, container,
-            ctrl, params)).filter!(a => !a.empty)) {
+    foreach (a; root.namespaceRange
+            .map!(a => translate(a, impl, container, ctrl, params))
+            .filter!(a => !a.empty)) {
         impl.root.put(a);
     }
 
@@ -252,8 +253,7 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
         const ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
-    import cpptooling.data : CppNsStack, CppNs, mergeClassInherit,
-        FullyQualifiedNameType;
+    import cpptooling.data : CppNsStack, CppNs, mergeClassInherit, FullyQualifiedNameType;
 
     static auto makeGmockInNs(CppClass c, CppNsStack ns_hier, ref ImplData data) {
         import cpptooling.data : CppNs;
@@ -274,8 +274,9 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
                 ns.resideInNs, params.getMainNs, params.getMainInterface, ns);
     }
 
-    input.namespaceRange().map!(a => translate(a, data, container, ctrl,
-            params)).filter!(a => !a.empty).each!(a => ns.put(a));
+    input.namespaceRange().map!(a => translate(a, data, container, ctrl, params))
+        .filter!(a => !a.empty)
+        .each!(a => ns.put(a));
 
     foreach (class_; input.classRange.map!(a => mergeClassInherit(a, container,
             a => data.lookupClass(a)))) {
@@ -300,8 +301,7 @@ void translateToTestDoubleForFreeFunctions(InT, OutT)(ref InT input, ref ImplDat
         Flag!"doGoogleMock" do_gmock, const CppNsStack reside_in_ns,
         MainNs main_ns, MainInterface main_if, ref OutT ns) {
     import std.algorithm : each;
-    import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter,
-        makeSingleton;
+    import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter, makeSingleton;
     import cpptooling.data : CppNs, CppClassName;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;

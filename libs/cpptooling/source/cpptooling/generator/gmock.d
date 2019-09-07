@@ -251,8 +251,9 @@ auto makeGmock(const CppClass c) {
 
         auto params = m_.paramRange.array();
 
-        auto m = CppMethod(m_.usr, m_.name, params, m_.returnType, CppAccess(AccessType.Public),
-                CppConstMethod(m_.isConst), CppVirtualMethod(MemberVirtualType.Pure));
+        auto m = CppMethod(m_.usr.get, m_.name, params, m_.returnType,
+                CppAccess(AccessType.Public), CppConstMethod(m_.isConst),
+                CppVirtualMethod(MemberVirtualType.Pure));
 
         return m;
     }

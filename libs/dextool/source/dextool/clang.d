@@ -73,10 +73,11 @@ Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compd
         auto found = translation_unit.cursor.hasInclude!isMatch();
         if (!found.isNull) {
             r = IncludeResult();
-            r.original = entry;
-            r.derived = entry;
-            r.derived.file = found.get;
-            r.derived.absoluteFile = CompileCommand.AbsoluteFileName(entry.directory, found.get);
+            r.get.original = entry;
+            r.get.derived = entry;
+            r.get.derived.file = found.get;
+            r.get.derived.absoluteFile = CompileCommand.AbsoluteFileName(entry.directory,
+                    found.get);
             return r;
         }
     }
@@ -97,8 +98,8 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname, con
 
     auto db_search_result = compdb.appendOrError(flags, fname, flag_filter);
     if (!db_search_result.isNull) {
-        rval = SearchResult(db_search_result.flags, db_search_result.absoluteFile);
-        logger.trace(rval.flags);
+        rval = SearchResult(db_search_result.get.flags, db_search_result.get.absoluteFile);
+        logger.trace(rval.get.flags);
         return rval;
     }
 
@@ -118,16 +119,16 @@ Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname, con
 
     if (!exists(p)) {
         logger.tracef("Unable to locate '%s' on the filesystem", p);
-        p = sres.derived.absoluteFile;
+        p = sres.get.derived.absoluteFile;
         logger.tracef("Using the filename from the compile DB instead '%s'", p);
     }
 
     logger.warningf(`Using compiler flags derived from '%s' because it has an '#include' for '%s'`,
-            sres.original.absoluteFile, sres.derived.absoluteFile);
+            sres.get.original.absoluteFile, sres.get.derived.absoluteFile);
 
-    rval = SearchResult(flags ~ sres.derived.parseFlag(flag_filter, user_compiler), p);
+    rval = SearchResult(flags ~ sres.get.derived.parseFlag(flag_filter, user_compiler), p);
     // the user may want to see the flags but usually uninterested
-    logger.trace(rval.flags);
+    logger.trace(rval.get.flags);
 
     return rval;
 }

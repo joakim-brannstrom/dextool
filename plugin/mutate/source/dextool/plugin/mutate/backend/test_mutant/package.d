@@ -483,7 +483,7 @@ nothrow:
         }
 
         try {
-            mut_file = AbsolutePath(FileName(mutp.file), DirName(fio.getOutputDir));
+            mut_file = AbsolutePath(FileName(mutp.get.file), DirName(fio.getOutputDir));
             original = fio.makeInput(mut_file);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
@@ -495,7 +495,7 @@ nothrow:
         // mutate
         try {
             auto fout = fio.makeOutput(mut_file);
-            auto mut_res = generateMutant(db.get, mutp, original, fout);
+            auto mut_res = generateMutant(db.get, mutp.get, original, fout);
 
             final switch (mut_res.status) with (GenerateMutantStatus) {
             case error:
@@ -517,9 +517,9 @@ nothrow:
             case ok:
                 driver_sig = MutationDriverSignal.next;
                 try {
-                    logger.infof("%s from '%s' to '%s' in %s:%s:%s", mutp.id,
+                    logger.infof("%s from '%s' to '%s' in %s:%s:%s", mutp.get.id,
                             cast(const(char)[]) mut_res.from, cast(const(char)[]) mut_res.to,
-                            mut_file, mutp.sloc.line, mutp.sloc.column);
+                            mut_file, mutp.get.sloc.line, mutp.get.sloc.column);
 
                 } catch (Exception e) {
                     logger.warning("Mutation ID", e.msg);
@@ -540,7 +540,7 @@ nothrow:
 
         if (test_case_cmd.length != 0 || tc_analyze_builtin.length != 0) {
             try {
-                auto tmpdir = createTmpDir(mutp.id);
+                auto tmpdir = createTmpDir(mutp.get.id);
                 if (tmpdir.length == 0)
                     return;
                 test_tmp_output = Path(tmpdir).AbsolutePath;
@@ -635,12 +635,13 @@ nothrow:
         }();
 
         spinSqlQuery!(() {
-            db.updateMutation(mutp.id, mut_status, sw.peek, test_cases.failedAsArray, cnt_action);
+            db.updateMutation(mutp.get.id, mut_status, sw.peek,
+                test_cases.failedAsArray, cnt_action);
         });
 
-        logger.infof("%s %s (%s)", mutp.id, mut_status, sw.peek).collectException;
+        logger.infof("%s %s (%s)", mutp.get.id, mut_status, sw.peek).collectException;
         logger.infof(test_cases.failed.length != 0, `%s killed by [%-(%s, %)]`,
-                mutp.id, test_cases.failedAsArray.sort.map!"a.name").collectException;
+                mutp.get.id, test_cases.failedAsArray.sort.map!"a.name").collectException;
     }
 
     void restoreCode() {

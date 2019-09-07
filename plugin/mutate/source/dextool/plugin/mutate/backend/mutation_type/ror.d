@@ -30,12 +30,12 @@ import dextool.clang_extensions : OpKind;
  * See SPC-mutation_ror for the subsumed table.
  */
 auto rorMutations(const OpKind op, const OpTypeInfo tyi) @safe pure nothrow {
-    import std.typecons : Tuple, Nullable;
+    import std.typecons : Tuple;
     import std.algorithm : among;
 
     alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "expr");
 
-    Nullable!Rval rval;
+    Rval rval;
 
     with (Mutation.Kind) {
         if (op.among(OpKind.LT, OpKind.OO_Less)) {
@@ -157,7 +157,11 @@ shared static this() {
     // dfmt on
 
     with (Mutation.Kind) {
-        rorMutationsAll = [rorLT, rorLE, rorGT, rorGE, rorEQ, rorNE, rorTrue, rorFalse];
-        rorpMutationsAll = [rorpLT, rorpLE, rorpGT, rorpGE, rorpEQ, rorpNE, rorTrue, rorFalse];
+        rorMutationsAll = [
+            rorLT, rorLE, rorGT, rorGE, rorEQ, rorNE, rorTrue, rorFalse
+        ];
+        rorpMutationsAll = [
+            rorpLT, rorpLE, rorpGT, rorpGE, rorpEQ, rorpNE, rorTrue, rorFalse
+        ];
     }
 }

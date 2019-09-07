@@ -162,7 +162,7 @@ struct TranslationUnit {
     }
 
     File file() @safe {
-        return file(spelling);
+        return file(spelling).get;
     }
 
     @property string spelling() @trusted {

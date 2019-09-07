@@ -251,7 +251,8 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     TestCase[TestCaseId] tc_cache2;
     TestCase getTestCase(TestCaseId id) @trusted {
         return tc_cache2.require(id, spinSqlQuery!(() {
-                return db.getTestCase(id);
+                // assuming it can never be null
+                return db.getTestCase(id).get;
             }));
     }
 
@@ -825,21 +826,21 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
     // associate mutants with their file
     foreach (const m; db.getMutantsInfo(kinds, tc_stat.tcKilled.setToList!MutationStatusId)) {
         auto fid = db.getFileId(m.id);
-        r.killed[fid] ~= m;
+        r.killed[fid.get] ~= m;
 
-        if (fid !in r.files) {
-            r.files[fid] = Path.init;
-            r.files[fid] = db.getFile(fid);
+        if (fid.get !in r.files) {
+            r.files[fid.get] = Path.init;
+            r.files[fid.get] = db.getFile(fid.get);
         }
     }
 
     foreach (const m; db.getMutantsInfo(kinds, tc_stat.alive.setToList!MutationStatusId)) {
         auto fid = db.getFileId(m.id);
-        r.alive[fid] ~= m;
+        r.alive[fid.get] ~= m;
 
-        if (fid !in r.files) {
-            r.files[fid] = Path.init;
-            r.files[fid] = db.getFile(fid);
+        if (fid.get !in r.files) {
+            r.files[fid.get] = Path.init;
+            r.files[fid.get] = db.getFile(fid.get);
         }
     }
 
@@ -954,13 +955,13 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         bool has_mutants;
         foreach (line; setToRange!uint(kv.value)) {
             auto muts = db.getMutantsInfo(kinds, db.getMutationsOnLine(kinds,
-                    fid, SourceLoc(line, 0)));
+                    fid.get, SourceLoc(line, 0)));
             foreach (m; muts) {
                 has_mutants = true;
                 if (m.status == Mutation.Status.alive)
-                    rval.alive[fid] ~= m;
+                    rval.alive[fid.get] ~= m;
                 else {
-                    rval.killed[fid] ~= m;
+                    rval.killed[fid.get] ~= m;
                     killing_mutants.add(m.id);
                     ++killed;
                 }
@@ -969,8 +970,8 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         }
 
         if (has_mutants) {
-            rval.files[fid] = kv.key;
-            rval.rawDiff[fid] = diff.rawDiff[kv.absPath];
+            rval.files[fid.get] = kv.key;
+            rval.rawDiff[fid.get] = diff.rawDiff[kv.absPath];
         } else {
             logger.info("This file in the diff has no mutants on changed lines: ", kv.key);
         }

@@ -265,8 +265,7 @@ final class CVisitor : Visitor {
 
     import cpptooling.analyzer.clang.ast : VarDecl, FunctionDecl,
         TranslationUnit, generateIndentIncrDecr;
-    import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
-        analyzeVarDecl;
+    import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl, analyzeVarDecl;
     import cpptooling.data : CppRoot;
     import cpptooling.data.symbol : Container;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
@@ -327,7 +326,7 @@ final class CVisitor : Visitor {
         mixin(mixinNodeLog!());
 
         LocationTag tu_loc;
-        () @trusted{ tu_loc = LocationTag(Location(v.cursor.spelling, 0, 0)); }();
+        () @trusted { tu_loc = LocationTag(Location(v.cursor.spelling, 0, 0)); }();
 
         if (tu_loc.kind != LocationTag.Kind.noloc && ctrl.doFile(tu_loc.file,
                 "root " ~ tu_loc.toString)) {
@@ -489,8 +488,7 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
         CppAccess, AccessType, makeUniqueUSR, nextUniqueID, MergeMode;
     import cpptooling.generator.func : makeFuncInterface;
     import cpptooling.generator.gmock : makeGmock;
-    import dextool.plugin.ctestdouble.backend.adapter : makeSingleton,
-        makeAdapter;
+    import dextool.plugin.ctestdouble.backend.adapter : makeSingleton, makeAdapter;
     import dextool.plugin.ctestdouble.backend.global : makeGlobalInterface,
         makeZeroGlobal, filterMutable;
 
@@ -618,7 +616,7 @@ void generateGlobal(RangeT)(RangeT r, Controller ctrl, Parameters params,
 
         if (loc_as_comment) {
             // dfmt off
-            foreach (loc; container.find!LocationTag(global.usr)
+            foreach (loc; container.find!LocationTag(global.usr.get)
                 // both declaration and definition is OK
                 .map!(a => a.any)
                 .joiner) {
