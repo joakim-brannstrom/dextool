@@ -508,23 +508,15 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
 
-        // assert
-	/*
-        testConsecutiveSparseOrder!SubStr([
-            `var g_muts_meta = ["","","","","","","","","","","","","","","","","","","nomut","nomut","nomut","nomut","nomut","nomut","nomut","nomut","nomut","nomut","","","","","","","","","nomut","","","","","","","","","","nomut"]`
+    testConsecutiveSparseOrder!SubStr([
+        "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''","'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",             "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",
+        "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'",
+        "'meta' : 'nomut'",
+        "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",
+        "'meta' : 'nomut'",
+        "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",
+        "'meta' : 'nomut'",
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
-	*/
-	testConsecutiveSparseOrder!SubStr([
-		"'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", 			"'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", 
-		"'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'",
-		"'meta' : 'nomut'", 
-		"'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",
-		"'meta' : 'nomut'",
-		"'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",
-		"'meta' : 'nomut'",
-		
-        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
-	
     }
 }
 
