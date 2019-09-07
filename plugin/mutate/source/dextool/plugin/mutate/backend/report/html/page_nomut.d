@@ -43,7 +43,7 @@ private:
 // the database. It "works" as long as there are only a limited amount of
 // nomut.
 void toHtml(MutantMetaData[] data, ref Database db, Element root) {
-    import std.algorithm : sort;
+    import std.algorithm : sort, map;
     import std.array : array, empty;
     import std.path : buildPath;
     import std.typecons : Tuple;
@@ -53,11 +53,17 @@ void toHtml(MutantMetaData[] data, ref Database db, Element root) {
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
 
     alias IdComment = Tuple!(MutationId, "id", string, "comment");
-    IdComment[][string] tags;
+    string[MutationId][string] tags;
 
+    // group by the tag that can be added to a nomut via
+    // // NOMUT (tag) <comment>
     foreach (x; data) {
         x.attr.match!((NoMetadata a) {}, (NoMut a) {
-            tags[a.tag.toLower] ~= IdComment(x.id, a.comment);
+            if (auto v = a.tag.toLower in tags) {
+                (*v)[x.id] = a.comment;
+            } else {
+                tags[a.tag.toLower] = [x.id: a.comment];
+            }
         });
     }
 
@@ -66,7 +72,10 @@ void toHtml(MutantMetaData[] data, ref Database db, Element root) {
             root.addChild("h2", tag);
 
         auto tbl = tmplDefaultTable(root, ["Mutant"]);
-        foreach (m; tags[tag].array.sort!((a, b) => a.comment < b.comment)) {
+        foreach (m; tags[tag].byKeyValue
+                .map!(a => IdComment(a.key, a.value))
+                .array
+                .sort!((a, b) => a.comment < b.comment)) {
             auto r = tbl.appendRow();
 
             auto file = db.getPath(m.id);
