@@ -124,6 +124,15 @@ mkdir build
 cd build && cmake .. -DSQLITE3_LIB="-L/opt/sqlite -lsqlite3"
 ```
 
+### Cmake is unable to find the D compiler
+
+If you have a D compiler installed in such a way that it isn't available in
+your `$PATH` you can specify it manully.
+
+```sh
+cmake .. -DD_COMPILER=/foo/bar/dmd/2.088/linux64/bin/dmd
+```
+
 # Usage
 
 See the usage examples in respective plugin directory:
