@@ -1,0 +1,64 @@
+[workarea]
+# path used as the root for accessing files
+# dextool will not modify files with a path outside the root when it perform mutation testing
+# root = "."
+# restrict analysis to files in this directory tree
+# this make it possible to only mutate certain parts of an application
+# use relative paths that are inside the root
+restrict = [ "src" ]
+
+[database]
+# path to where to store the sqlite3 database
+# db = "dextool_mutate.sqlite3"
+
+[compiler]
+# extra flags to pass on to the compiler such as the C++ standard
+# extra_flags = []
+# toggle this to force system include paths to use -I instead of -isystem
+# force_system_includes = true
+# use this compilers system includes instead of the one used in the compile_commands.json
+# use_compiler_system_includes = "/path/to/c++"
+
+[compile_commands]
+# search for compile_commands.json in this paths
+search_paths = ["./build/compile_commands.json"]
+# flags to remove when analyzing a file in the DB
+# filter = ["-c", "-o", "-m", "-nodevicelib", "-Waddr-space-convert", "-non-static", "-Bstatic", "-Bdynamic", "-Xbind-lazy", "-Xbind-now", "-f", "-static", "-shared", "-rdynamic", "-s", "-l", "-L", "-z", "-u", "-T", "-Xlinker", "-l", "-MT", "-MF", "-MD", "-MQ", "-MMD", "-MP", "-MG", "-E", "-cc1", "-S", "-M", "-MM", "-###"]
+# compiler arguments to skip from the beginning. Needed when the first argument is NOT a compiler but rather a wrapper
+# skip_compiler_args = 0
+
+[mutant_test]
+# (required) program used to run the test suite
+test_cmd = "./build/rl_test"
+# timeout to use for the test suite (msecs)
+# test_cmd_timeout = 1000
+# (required) program used to build the application
+build_cmd = "./build.sh"
+# program used to analyze the output from the test suite for test cases that killed the mutant
+# analyze_cmd = "analyze.sh"
+# builtin analyzer of output from testing frameworks to find failing test cases
+analyze_using_builtin = ["gtest"]
+# determine in what order mutations are chosen
+# order = "random"|"consecutive"
+# how to behave when new test cases are found
+detected_new_test_case = "resetAlive"
+# how to behave when test cases are detected as having been removed
+# should the test and the gathered statistics be remove too?
+detected_dropped_test_case = "remove"
+# how the oldest mutants should be treated.
+# It is recommended to test them again.
+# Because you may have changed the test suite so mutants that where previously killed by the test suite now survive.
+oldest_mutants = "test"
+# How many of the oldest mutants to do the above with
+oldest_mutants_nr = 10
+
+[report]
+# default style to use
+# style = "plain"|"markdown"|"compiler"|"json"|"csv"|"html"
+
+[test_group]
+# subgroups with a description and pattern. Example:
+# [test_group.uc1]
+# description = "use case 1"
+# pattern = "uc_1.*"
+# see for regex syntax: http://dlang.org/phobos/std_regex.html

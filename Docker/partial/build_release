@@ -1,3 +1,5 @@
 RUN cd build && make all -j$(nproc)
 RUN cd build && make install
 RUN rm -rf build
+
+ENV PATH "/opt/dextool_install/bin:$PATH"

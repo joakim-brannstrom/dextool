@@ -1,0 +1,4 @@
+RUN cd dextool/plugin/mutate/examples/game_tutorial && ./setup.sh
+RUN cd dextool/plugin/mutate/examples/game_tutorial && dextool mutate analyze
+RUN cd dextool/plugin/mutate/examples/game_tutorial && dextool mutate test --mutant lcrb
+RUN cd dextool/plugin/mutate/examples/game_tutorial && dextool mutate report --style html --section tc_similarity --section tc_min_set --section tc_full_overlap_with_mutation_id --section tc_killed_no_mutants --section tc_full_overlap --mutant lcr --mutant lcrb

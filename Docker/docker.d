@@ -85,6 +85,12 @@ int main(string[] args) {
                     "fix_repo", "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
+    tests["dmd-ubuntu-bionic-release"] ~= () {
+        build(mergeFiles([
+                    "ubuntu_bionic_base", "dmd_latest_version", "dmd", "fix_repo",
+                    "prepare_release_build_ubuntu", "build_release", "examples"
+                ]), tag.next);
+    };
     tests["dmd-ubuntu-bionic-dub"] ~= () {
         build(mergeFiles([
                     "ubuntu_bionic_base", "dmd_latest_version", "dmd",
