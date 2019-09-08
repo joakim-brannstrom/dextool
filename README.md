@@ -26,7 +26,9 @@ The plugins in a standard installation of Dextool are:
 
 Dextool depends on the following software packages:
 
- * [llvm](http://releases.llvm.org/download.html) (4.0+, both libclang and LLVM is needed)
+ * [llvm](http://releases.llvm.org/download.html) (4.0+, both libclang and LLVM, see below)
+    * llvm-xyz-dev (4.0+)
+    * libclang-xyz-dev (4.0+)
  * [cmake](https://cmake.org/download) (3.5+)
  * [D compiler](https://dlang.org/download.html) (dmd 2.081.2+, ldc 1.11.0+)
  * [sqlite3](https://sqlite.org/download.html) (3.19.3-3+)
