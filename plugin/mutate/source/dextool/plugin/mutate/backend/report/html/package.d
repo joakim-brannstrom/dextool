@@ -318,20 +318,26 @@ struct FileIndex {
         }
         addSubPage(() => makeLongTermView(db, conf, humanReadableKinds, kinds),
                 "long_term_view", "Long Term View");
-        addSubPage(() => makeTreeMapPage(files.data), "tree_map", "Treemap");
-        if (ReportSection.tc_groups in sections)
+        if (ReportSection.treemap in sections) {
+            addSubPage(() => makeTreeMapPage(files.data), "tree_map", "Treemap");
+        }
+        if (ReportSection.tc_groups in sections) {
             addSubPage(() => makeTestGroups(db, conf, humanReadableKinds,
                     kinds), "test_groups", "Test Groups");
+        }
         addSubPage(() => makeNomut(db, conf, humanReadableKinds, kinds), "nomut", "NoMut Details");
-        if (ReportSection.tc_min_set in sections)
+        if (ReportSection.tc_min_set in sections) {
             addSubPage(() => makeMinimalSetAnalyse(db, conf, humanReadableKinds,
                     kinds), "minimal_set", "Minimal Test Set");
-        if (ReportSection.tc_similarity in sections)
+        }
+        if (ReportSection.tc_similarity in sections) {
             addSubPage(() => makeTestCaseSimilarityAnalyse(db, conf, humanReadableKinds,
                     kinds), "test_case_similarity", "Test Case Similarity");
-        if (ReportSection.tc_groups_similarity in sections)
+        }
+        if (ReportSection.tc_groups_similarity in sections) {
             addSubPage(() => makeTestGroupSimilarityAnalyse(db, conf, humanReadableKinds,
                     kinds), "test_group_similarity", "Test Group Similarity");
+        }
 
         files.data.toIndex(index.mainBody, htmlFileDir);
         File(buildPath(logDir, "index" ~ htmlExt), "w").write(index.toPrettyString);
