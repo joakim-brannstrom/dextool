@@ -103,6 +103,8 @@ enum ReportSection {
     tc_similarity,
     /// Similarity between test groups
     tc_groups_similarity,
+    /// A treemap of the mutation scores
+    treemap,
 }
 
 /// How to sort test cases when reporting them by their kill statistics.
