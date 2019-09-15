@@ -49,9 +49,9 @@ void toHtml(const MutantSample mut_sample, Element root) {
     root.addChild("h2", "High Interest Mutants");
 
     if (mut_sample.hardestToKill.length != 0) {
-        root.addChild("h3", "Longest Surviving Mutant");
+        root.addChild("h3", "Longest surviving Mutants");
         root.addChild("p",
-                "These mutants has survived countless test runs. Slay one or more of them to be the hero of the team.");
+                "These mutants survived countless test runs.");
         auto tbl_container = root.addChild("div").addClass("tbl_container");
         auto tbl = tmplDefaultTable(tbl_container, [
                 "Link", "Discovered", "Last Updated", "Survived"
@@ -70,7 +70,7 @@ void toHtml(const MutantSample mut_sample, Element root) {
     }
 
     if (mut_sample.oldest.length != 0) {
-        root.addChild("p", format("This is a list of the %s oldest mutants containing when they where last tested and thus had their status updated.",
+        root.addChild("p", format("This is a list of the %s oldest mutants. This list contains information when they where last tested and had their status updated.",
                 mut_sample.oldest.length));
 
         auto tbl_container = root.addChild("div").addClass("tbl_container");
