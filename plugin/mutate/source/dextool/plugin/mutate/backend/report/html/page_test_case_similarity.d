@@ -36,12 +36,11 @@ auto makeTestCaseSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
     doc.title(format("Test Case Similarity Analyse %(%s %) %s",
             humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");
-    doc.mainBody.addChild("p", "This is the similarity between test cases.")
-        .appendText(" The closer to 1.0 the more similare the test cases are in what they verify.");
+    doc.mainBody.addChild("p", "This is the similarity between test cases.");
     {
         auto p = doc.mainBody.addChild("p");
         p.addChild("b", "Note");
-        p.appendText(": The analyse is based on the mutants that the test cases kill thus it is dependent on the mutation operators that are used when generating the report.");
+        p.appendText(": The analysis is based on the mutants that the test cases kill; thus, it is dependent on the mutation operators that are used when generating the report.");
     }
 
     toHtml(db, reportTestCaseSimilarityAnalyse(db, kinds, 5), doc.mainBody);
