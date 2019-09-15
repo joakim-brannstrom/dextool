@@ -40,12 +40,12 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "# Mutation Type",
         "## Summary",
-        "Untested:",
         "Score:",
+        "Total:",
+        "Untested:",
         "Alive:",
         "Killed:",
         "Timeout:",
-        "Total:"
     ]).shouldBeIn(r.stdout);
 }
 
@@ -76,12 +76,13 @@ unittest {
         "|------------|-------|------|------|",
         "| 100        | 2     | `>`  | `>=` |",
         "## Summary",
-        "Mutation execution time:",
+        "Time spent:",
+        "Score:",
+        "Total:",
         "Untested:",
         "Alive:",
         "Killed:",
         "Timeout:",
-        "Total:"
     ]).shouldBeIn(r.stdout);
 }
 
@@ -430,21 +431,23 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            "Score:   0.808",
-            "Alive:   15",
-            "Killed:  11",
-            "Timeout: 0",
-            "Total:   26",
+            "Score:       0.808",
+            "Total:       26",
+            "Untested:    19",
+            "Alive:       15",
+            "Killed:      11",
+            "Timeout:     0",
             "Killed by compiler: 0",
             "Suppressed (nomut): 10 (0.385",
         ]).shouldBeIn(plain.stdout);
 
         testConsecutiveSparseOrder!SubStr([
-            "Score:   0.808",
-            "Alive:   15",
-            "Killed:  11",
-            "Timeout: 0",
-            "Total:   26",
+            "Score:       0.808",
+            "Total:       26",
+            "Untested:    19",
+            "Alive:       15",
+            "Killed:      11",
+            "Timeout:     0",
             "Killed by compiler: 0",
             "Suppressed (nomut): 10 (0.385",
         ]).shouldBeIn(markdown.stdout);
@@ -472,20 +475,22 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
         // assert
         testConsecutiveSparseOrder!SubStr([
             "Mutation Score <b>0.808</b>",
+            "Total",
+            "26",
+            "Untested",
+            "19",
             "Alive",
             "15",
             "Killed",
             "11",
             "Timeout",
             "0",
-            "Total",
-            "26",
             "Killed by compiler",
             "0",
             "NoMut",
             "10",
             "NoMut/total",
-            "0.38",
+            "0.385",
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "stats.html")).byLineCopy.array);
     }
 }

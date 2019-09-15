@@ -468,27 +468,31 @@ struct MutationStat {
         import std.range : put;
         import dextool.plugin.mutate.backend.utility;
 
-        immutable align_ = 8;
+        immutable align_ = 12;
 
-        // execution time
-        if (untested > 0 && predictedDone > 0.dur!"msecs")
-            formattedWrite(w, "Predicted time until mutation testing is done: %s (%s)\n",
-                    predictedDone, Clock.currTime + predictedDone);
-        formattedWrite(w, "%-*s %s\n", align_ * 4, "Mutation execution time:", totalTime);
-        if (killedByCompiler > 0)
-            formattedWrite(w, "%-*s %s\n", align_ * 4,
-                    "Mutants killed by compiler:", killedByCompilerTime);
+        formattedWrite(w, "%-*s %s\n", align_, "Time spent:", totalTime);
+        if (untested > 0 && predictedDone > 0.dur!"msecs") {
+            const pred = Clock.currTime + predictedDone;
+            formattedWrite(w, "Remaining: %s (%s)\n", predictedDone, pred.toISOExtString);
+        }
+        if (killedByCompiler > 0) {
+            formattedWrite(w, "%-*s %s\n", align_ * 3,
+                    "Time spent on mutants killed by compiler:", killedByCompilerTime);
+        }
+
         put(w, newline);
 
         // mutation score and details
-        if (untested > 0)
-            formattedWrite(w, "Untested: %s\n", untested);
         formattedWrite(w, "%-*s %.3s\n", align_, "Score:", score);
+        formattedWrite(w, "%-*s %s\n", align_, "Total:", total);
+        if (untested > 0) {
+            formattedWrite(w, "%-*s %s\n", align_, "Untested:", untested);
+        }
         formattedWrite(w, "%-*s %s\n", align_, "Alive:", alive);
         formattedWrite(w, "%-*s %s\n", align_, "Killed:", killed);
         formattedWrite(w, "%-*s %s\n", align_, "Timeout:", timeout);
-        formattedWrite(w, "%-*s %s\n", align_, "Total:", total);
         formattedWrite(w, "%-*s %s\n", align_, "Killed by compiler:", killedByCompiler);
+
         if (aliveNoMut != 0)
             formattedWrite(w, "%-*s %s (%.3s)\n", align_,
                     "Suppressed (nomut):", aliveNoMut, suppressedOfTotal);

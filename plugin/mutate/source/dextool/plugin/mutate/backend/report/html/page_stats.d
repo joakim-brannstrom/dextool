@@ -50,6 +50,7 @@ string makeStats(ref Database db, ref const ConfigReport conf,
 
 private:
 
+// TODO: this function contains duplicated logic from the one in ../utility.d
 void overallStat(const MutationStat s, Element n) {
     import std.conv : to;
     import std.typecons : tuple;
@@ -69,21 +70,22 @@ void overallStat(const MutationStat s, Element n) {
     auto heading = comp_container.addChild("h2").addClass("tbl_header");
 
     comp_container.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score));
-    comp_container.addChild("p", format("Execution time %s", s.totalTime));
+    comp_container.addChild("p", format("Time spent: %s", s.totalTime));
     heading.addChild("i").addClass("right");
     heading.appendText(" Summary");
     if (s.untested > 0 && s.predictedDone > 0.dur!"msecs") {
-        comp_container.addChild("p", format("Predicted time until mutation testing is done %s (%s)",
-                s.predictedDone, Clock.currTime + s.predictedDone));
+        const pred = Clock.currTime + s.predictedDone;
+        comp_container.addChild("p", format("Remaining: %s (%s)",
+                s.predictedDone, pred.toISOExtString));
     }
 
     auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
     tbl_container.setAttribute("style", "display: none;");
     auto tbl = tmplDefaultTable(tbl_container, ["Type", "Value"]);
     foreach (const d; [
+            tuple("Total", s.total), tuple("Untested", s.untested),
             tuple("Alive", s.alive), tuple("Killed", s.killed),
-            tuple("Timeout", s.timeout), tuple("Total", s.total),
-            tuple("Untested", s.untested),
+            tuple("Timeout", s.timeout),
             tuple("Killed by compiler", s.killedByCompiler),
         ]) {
         tbl.appendRow(d[0], d[1]);
@@ -91,7 +93,7 @@ void overallStat(const MutationStat s, Element n) {
 
     if (s.aliveNoMut != 0) {
         tbl.appendRow("NoMut", s.aliveNoMut.to!string);
-        tbl.appendRow("NoMut/total", s.suppressedOfTotal.to!string);
+        tbl.appendRow("NoMut/total", format("%.3s", s.suppressedOfTotal));
 
         auto p = comp_container.addChild("p",
                 "NoMut is the number of mutants that are alive but ignored.");
