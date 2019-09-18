@@ -18,13 +18,20 @@ set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/xml.d
     )
 
-set(flags "-I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/libs/cpptooling/source -I${CMAKE_SOURCE_DIR}/libs/clang/source -I${CMAKE_SOURCE_DIR}/libs/libclang/source -J${CMAKE_SOURCE_DIR}/libs/clang/resources -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
+set(flags "-I${CMAKE_SOURCE_DIR}/source
+-I${CMAKE_SOURCE_DIR}/libs/cpptooling/source
+-I${CMAKE_SOURCE_DIR}/libs/clang/source
+-I${CMAKE_SOURCE_DIR}/libs/libclang/source
+-J${CMAKE_SOURCE_DIR}/libs/clang/resources
+-I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
+-I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
+")
 
 compile_d_static_lib(dextool_dextool
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_cpptooling")
+    "dextool_cpptooling;dextool_sumtype")
 
 add_dependencies(dextool_dextool dextool_embedded_version)
 

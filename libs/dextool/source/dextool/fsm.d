@@ -16,136 +16,104 @@ or the state transitions.
 */
 module dextool.fsm;
 
-/** Generate a mixin of callbacks for each literal in `EnumT`.
- *
- * Example:
- * ---
- * enum MyAct { foo }
- * mixin(makeCallback!MyAct.switchOn("act").callbackOn("obj").finalize);
- * // generates a callback such as this
- * obj.actFoo();
- * ---
- *
- * Params:
- *  EnumT = enum to switch on. All literals must be implemented as callbacks.
- */
-BuildCallbacks!EnumT makeCallbacks(EnumT)() {
-    return BuildCallbacks!EnumT();
+import logger = std.experimental.logger;
+
+version (unittest) {
+    import unit_threaded.assertions;
 }
 
-struct BuildCallbacks(EnumT) {
-    private {
-        /// variable determining the callback.
-        string callbackSwitch_;
-        /// if specified it will be the object to do the callbacks on.
-        string objVar_;
-        /// prefi all callbacks with this string.
-        string prefix_;
-        /// default parameters used in the callback
-        string[] defaultParams_;
-        /// if accessing EnumT requires lookup specification
-        string lookup_;
+/** A state machine derived from the types it is based on.
+ *
+ * Each state have its unique data that it works on.
+ *
+ * The state transitions are calculated by `next` and the actions are performed
+ * by `act`.
+ */
+struct Fsm(StateTT...) {
+    static import sumtype;
+
+    alias StateT = sumtype.SumType!StateTT;
+
+    /// The states and state specific data.
+    StateT state;
+
+    /// Helper function to convert the return type to `StateT`.
+    static StateT opCall(T)(auto ref T a) {
+        return StateT(a);
     }
 
-    /// specific parameters for an enum literal.
-    string[][EnumT] specificParams;
+    /// Returns: true if the fsm is in the specified state.
+    bool isState(Ts...)() {
+        import std.meta : AliasSeq;
 
-    /// How to lookup `EnumT`, if needed.
-    auto lookup(string v) {
-        this.lookup_ = v;
-        return this;
-    }
-
-    /// Determine which callback to use.
-    auto switchOn(string v) {
-        this.callbackSwitch_ = v;
-        return this;
-    }
-
-    /// Object to do the callbacks on, if specified.
-    auto callbackOn(string v) {
-        this.objVar_ = v;
-        return this;
-    }
-
-    /// Prefix all callbacks with `v`.
-    auto prefix(string v) {
-        this.prefix_ = v;
-        return this;
-    }
-
-    /// Default parameters to pass on to all callbacks.
-    auto defaultParams(string[] v) {
-        this.defaultParams_ = v;
-        return this;
-    }
-
-    /// If a specific callback requires unique parameters.
-    auto specificParam(EnumT e, string[] v) {
-        this.specificParams[e] = v;
-        return this;
-    }
-
-    /// Returns: the mixin code doing the callbacks as specified.
-    string finalize() {
-        import std.conv : to;
-        import std.format : format;
-        import std.traits : EnumMembers;
-        import std.uni : toUpper;
-
-        const enumFqn = () {
-            if (lookup_.length == 0)
-                return EnumT.stringof;
-            return lookup_ ~ "." ~ EnumT.stringof;
-        }();
-        string s = format("final switch(%s) {\n", callbackSwitch_);
-        static foreach (a; EnumMembers!EnumT) {
-            {
-                const literal = a.to!string;
-                const callback = () {
-                    if (prefix_.length == 0)
-                        return literal;
-                    else if (literal.length == 1)
-                        return prefix_ ~ literal.toUpper;
-                    return format("%s%s%s", prefix_, literal[0].toUpper, literal[1 .. $]);
-                }();
-                const obj = objVar_ is null ? null : objVar_ ~ ".";
-                const paramsRaw = () {
-                    if (auto p = a in specificParams)
-                        return *p;
-                    return defaultParams_;
-                }();
-                const params = format("%-(%s, %)", paramsRaw);
-                s ~= format("case %s.%s: %s%s(%s);break;\n", enumFqn, literal,
-                        obj, callback, params);
+        template Fns(Ts...) {
+            static if (Ts.length == 0) {
+                alias Fns = AliasSeq!();
+            } else static if (Ts.length == 1) {
+                alias Fns = AliasSeq!((Ts[0] a) => true);
+            } else {
+                alias Fns = AliasSeq!(Fns!(Ts[0 .. $ / 2]), Fns!(Ts[$ / 2 .. $]));
             }
         }
-        s ~= "}";
 
-        return s;
+        try {
+            return sumtype.tryMatch!(Fns!Ts)(state);
+        } catch (Exception e) {
+        }
+        return false;
     }
 }
 
-@("shall construct a string with callbacks for each enum literal")
+/// Transition to the next state.
+template next(handlers...) {
+    void next(Self)(auto ref Self self) if (is(Self : Fsm!StateT, StateT...)) {
+        static import sumtype;
+
+        auto nextSt = sumtype.match!handlers(self.state);
+        logger.tracef("state: %s -> %s", self.state.toString, nextSt.toString);
+        self.state = nextSt;
+    }
+}
+
+/// Act on the current state. Use `(ref S)` to modify the states data.
+template act(handlers...) {
+    void act(Self)(auto ref Self self) if (is(Self : Fsm!StateT, StateT...)) {
+        static import sumtype;
+
+        logger.trace("act: ", self.state.toString);
+        sumtype.match!handlers(self.state);
+    }
+}
+
+@("shall transition the fsm from A to B|C")
 unittest {
-    static struct Struct {
-        enum Dummy {
-            a,
-            fortyTwo
-        }
+    struct Global {
+        int x;
     }
 
-    void preA(string x) {
+    struct A {
     }
 
-    void preFortyTwo(string a, string b) {
+    struct B {
+        int x;
     }
 
-    Struct.Dummy sw;
-    enum r = makeCallbacks!(Struct.Dummy).lookup("Struct").switchOn("sw")
-            .prefix("pre").specificParam(Struct.Dummy.fortyTwo, ["foo", "bar"]).finalize;
-    assert(r == "final switch(sw) {
-case Struct.Dummy.a: preA();break;
-case Struct.Dummy.fortyTwo: preFortyTwo(foo, bar);break;
-}", r);
+    struct C {
+        bool x;
+    }
+
+    Global global;
+    Fsm!(A, B, C) fsm;
+
+    while (!fsm.isState!(B, C)) {
+        fsm.next!((A a) { global.x++; return fsm(B(0)); }, (B a) {
+            if (a.x > 3)
+                return fsm(C(true));
+            return fsm(a);
+        }, (C a) { return fsm(a); });
+
+        fsm.act!((A a) {}, (ref B a) { a.x++; }, (C a) {});
+    }
+
+    global.x.shouldEqual(1);
 }
