@@ -5,6 +5,25 @@ can be applied.
 
 The test cases are written using [GoogleTest](https://github.com/google/googletest).
 
+## Preparations
+
+If you have installed dextool as a local user I recommend you to create an
+alias to the `dextool` binary. It will make the rest of this README easier to
+follow because you are able to *just* copy/paste the commands.
+
+Set an alias for dextool:
+```sh
+alias dextool="path/to/dextool/"
+```
+
+**Note**: Change `path/to/dextool` to the correct path to were you previously
+installed it. For example: `/home/myUser/dextool/build/bin/dextool`. This is
+needed when you want to run dextool in coming steps as well, we therefore
+create an alias.
+
+Now that you have done that quality of life improvement we are ready for the
+fun stuff.
+
 To setup the mutation testing and coverage environment:
 ```sh
 ./setup.sh
