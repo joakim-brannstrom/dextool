@@ -450,7 +450,7 @@ string toSqliteDateTime(SysTime ts) {
             ts.fracSecs.total!"msecs");
 }
 
-class SpinSqlTimeout : Exception {
+@safe class SpinSqlTimeout : Exception {
     this() {
         super(null);
     }
@@ -460,7 +460,7 @@ class SpinSqlTimeout : Exception {
  *
  * Note: If there are any errors in the query it will go into an infinite loop.
  */
-auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout = Duration.max) {
+auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout) {
     import core.thread : Thread;
     import core.time : dur;
     import std.datetime.stopwatch : StopWatch, AutoStart;
@@ -475,9 +475,18 @@ auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout = Durat
         } catch (Exception e) {
             logFn(e.msg).collectException;
             // even though the database have a builtin sleep it still result in too much spam.
-            Thread.sleep(uniform(50, 150).dur!"msecs");
+            () @trusted { Thread.sleep(uniform(50, 150).dur!"msecs"); }();
         }
     }
 
     throw new SpinSqlTimeout();
+}
+
+auto spinSql(alias query, alias logFn = logger.warning)() nothrow {
+    while (true) {
+        try {
+            return spinSql!(query, logFn)(Duration.max);
+        } catch (Exception e) {
+        }
+    }
 }

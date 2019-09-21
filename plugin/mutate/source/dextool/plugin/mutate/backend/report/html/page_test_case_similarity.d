@@ -57,7 +57,7 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
     import std.path : buildPath;
     import cachetools : CacheLRU;
     import dextool.cachetools;
-    import dextool.plugin.mutate.backend.database : spinSqlQuery, MutationId;
+    import dextool.plugin.mutate.backend.database : spinSql, MutationId;
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
     import dextool.type : Path;
 
@@ -65,7 +65,7 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
     link_cache.ttl = 30; // magic number
     Path getPath(MutationId id) {
         return dextool.cachetools.cacheToolsRequire(link_cache, id, {
-            auto path = spinSqlQuery!(() => db.getPath(id)).get;
+            auto path = spinSql!(() => db.getPath(id)).get;
             return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
         }()).Path;
     }

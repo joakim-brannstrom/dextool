@@ -22,7 +22,7 @@ import blob_model : Blob, Uri;
 
 import dextool.fsm : Fsm, next, act, get, TypeDataMap;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
-    NextMutationEntry, spinSqlQuery;
+    NextMutationEntry, spinSql;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config;
@@ -411,7 +411,7 @@ nothrow:
         import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
             GenerateMutantResult, GenerateMutantStatus;
 
-        auto next_m = spinSqlQuery!(() {
+        auto next_m = spinSql!(() {
             return global.db.nextMutation(local.get!MutateCode.mut_kind);
         });
         if (next_m.st == NextMutationEntry.Status.done) {
@@ -580,7 +580,7 @@ nothrow:
             return Database.CntAction.reset;
         }();
 
-        spinSqlQuery!(() {
+        spinSql!(() {
             global.db.updateMutation(global.mutp.get.id, global.mut_status,
                 global.sw.peek, global.test_cases.failedAsArray, cnt_action);
         });
@@ -773,14 +773,12 @@ nothrow:
         import dextool.plugin.mutate.backend.type : Checksum;
 
         const(Path)[] files;
-        spinSqlQuery!(() { files = global.data.db.getFiles; });
+        spinSql!(() { files = global.data.db.getFiles; });
 
         bool has_sanity_check_failed;
         for (size_t i; i < files.length;) {
             Checksum db_checksum;
-            spinSqlQuery!(() {
-                db_checksum = global.data.db.getFileChecksum(files[i]);
-            });
+            spinSql!(() { db_checksum = global.data.db.getFileChecksum(files[i]); });
 
             try {
                 auto abs_f = AbsolutePath(FileName(files[i]),
@@ -875,7 +873,7 @@ nothrow:
 
         // the test cases before anything has potentially changed.
         Set!string old_tcs;
-        spinSqlQuery!(() {
+        spinSql!(() {
             foreach (tc; global.data.db.getDetectedTestCases)
                 old_tcs.add(tc.name);
         });
@@ -883,26 +881,24 @@ nothrow:
         final switch (global.data.conf.onRemovedTestCases) with (
             ConfigMutationTest.RemovedTestCases) {
         case doNothing:
-            spinSqlQuery!(() {
-                global.data.db.addDetectedTestCases(all_found_tc);
-            });
+            spinSql!(() { global.data.db.addDetectedTestCases(all_found_tc); });
             break;
         case remove:
             import dextool.plugin.mutate.backend.database : MutationStatusId;
 
             MutationStatusId[] ids;
-            spinSqlQuery!(() {
+            spinSql!(() {
                 ids = global.data.db.setDetectedTestCases(all_found_tc);
             });
             foreach (id; ids)
-                spinSqlQuery!(() {
+                spinSql!(() {
                     global.data.db.updateMutationStatus(id, Mutation.Status.unknown);
                 });
             break;
         }
 
         Set!string found_tcs;
-        spinSqlQuery!(() {
+        spinSql!(() {
             found_tcs = null;
             foreach (tc; global.data.db.getDetectedTestCases)
                 found_tcs.add(tc.name);
@@ -928,13 +924,13 @@ nothrow:
         logger.infof("Resetting the %s oldest mutants",
                 global.data.conf.oldMutantsNr).collectException;
         MutationStatusTime[] oldest;
-        spinSqlQuery!(() {
+        spinSql!(() {
             oldest = global.data.db.getOldestMutants(global.data.mutKind,
                 global.data.conf.oldMutantsNr);
         });
         foreach (const old; oldest) {
             logger.info("  Last updated ", old.updated).collectException;
-            spinSqlQuery!(() {
+            spinSql!(() {
                 global.data.db.updateMutationStatus(old.id, Mutation.Status.unknown);
             });
         }
@@ -945,7 +941,7 @@ nothrow:
     }
 
     void opCall(ref CheckMutantsLeft data) {
-        auto mutant = spinSqlQuery!(() {
+        auto mutant = spinSql!(() {
             return global.data.db.nextMutation(global.data.mutKind);
         });
 
@@ -1017,7 +1013,7 @@ nothrow:
     }
 
     void opCall(ref CheckTimeout data) {
-        auto entry = spinSqlQuery!(() {
+        auto entry = spinSql!(() {
             return global.data.db.timeoutMutants(global.data.mutKind);
         });
 
@@ -1210,7 +1206,7 @@ void resetAliveMutants(ref Database db) @safe nothrow {
     // are part of "this" execution because new test cases can only mean one
     // thing: re-test all alive mutants.
 
-    spinSqlQuery!(() {
+    spinSql!(() {
         db.resetMutant([EnumMembers!(Mutation.Kind)], Mutation.Status.alive,
             Mutation.Status.unknown);
     });
