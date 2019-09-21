@@ -11,15 +11,16 @@ module dextool.plugin.mutate.backend.test_mutant;
 
 import core.thread : Thread;
 import core.time : Duration, dur;
+import std.array : empty;
 import std.datetime : SysTime;
-import std.typecons : Nullable, NullableRef, nullableRef;
 import std.exception : collectException;
+import std.typecons : Nullable, NullableRef, nullableRef, Tuple;
 
 import logger = std.experimental.logger;
 
 import blob_model : Blob, Uri;
 
-import dextool.fsm : Fsm, next, act;
+import dextool.fsm : Fsm, next, act, get, TypeDataMap;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     NextMutationEntry, spinSqlQuery;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
@@ -68,13 +69,16 @@ nothrow:
             import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
 
             try {
-                auto global = MutationTestDriver.Global(d.filesysIO, d.db, d.autoCleanup,
-                        d.mutKind, d.conf.mutationCompile, d.conf.mutationTester,
-                        d.conf.mutationTestCaseAnalyze,
-                        d.conf.mutationTestCaseBuiltin, test_base_timeout);
+                auto global = MutationTestDriver.Global(d.filesysIO, d.db, d.autoCleanup);
                 // TODO: this may not be needed.
                 global.test_cases = new GatherTestCase;
-                return Unique!MutationTestDriver(new MutationTestDriver(global));
+                return Unique!MutationTestDriver(new MutationTestDriver(global,
+                        MutationTestDriver.MutateCodeData(d.mutKind),
+                        MutationTestDriver.TestMutantData(!(d.conf.mutationTestCaseAnalyze.empty
+                        && d.conf.mutationTestCaseBuiltin.empty), d.conf.mutationCompile,
+                        d.conf.mutationTester, test_base_timeout),
+                        MutationTestDriver.TestCaseAnalyzeData(d.conf.mutationTestCaseAnalyze,
+                        d.conf.mutationTestCaseBuiltin,)));
             } catch (Exception e) {
                 logger.error(e.msg).collectException;
             }
@@ -86,7 +90,7 @@ nothrow:
 
         auto driver_data = DriverData(db_ref, fio, data.mut_kinds, new AutoCleanup, data.config);
 
-        auto test_driver = TestDriver2!mutationFactory(driver_data);
+        auto test_driver = TestDriver!mutationFactory(driver_data);
 
         while (test_driver.isRunning) {
             test_driver.execute;
@@ -243,25 +247,35 @@ struct MutationTestDriver {
         FilesysIO fio;
         NullableRef!Database db;
         AutoCleanup auto_cleanup;
-        const(Mutation.Kind)[] mut_kind;
-        ShellCommand compile_cmd;
-        ShellCommand test_cmd;
-        AbsolutePath test_case_cmd;
-        const TestCaseAnalyzeBuiltin[] tc_analyze_builtin;
-        Duration tester_runtime;
 
         Nullable!MutationEntry mutp;
         AbsolutePath mut_file;
         Blob original;
-
-        /// Temporary directory where stdout/stderr should be written.
-        AbsolutePath test_tmp_output;
 
         Mutation.Status mut_status;
 
         GatherTestCase test_cases;
 
         StopWatch sw;
+    }
+
+    static struct MutateCodeData {
+        const(Mutation.Kind)[] mut_kind;
+    }
+
+    static struct TestMutantData {
+        /// If the user has configured that the test cases should be analyzed.
+        bool hasTestCaseOutputAnalyzer;
+        ShellCommand compile_cmd;
+        ShellCommand test_cmd;
+        Duration tester_runtime;
+    }
+
+    static struct TestCaseAnalyzeData {
+        AbsolutePath test_case_cmd;
+        const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin;
+        /// Temporary directory where stdout/stderr should be written.
+        AbsolutePath test_tmp_output;
     }
 
     static struct None {
@@ -316,10 +330,15 @@ struct MutationTestDriver {
     alias Fsm = dextool.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode, TestCaseAnalyze,
             StoreResult, Done, AllMutantsTested, FilesysError, NoResultRestoreCode, NoResult);
     Fsm fsm;
+
     Global global;
 
-    this(Global global) {
+    alias LocalStateDataT = Tuple!(MutateCodeData, TestMutantData, TestCaseAnalyzeData);
+    TypeDataMap!(LocalStateDataT, MutateCode, TestMutant, TestCaseAnalyze) local;
+
+    this(Global global, MutateCodeData l0, TestMutantData l1, TestCaseAnalyzeData l2) {
         this.global = global;
+        this.local = LocalStateDataT(l0, l1, l2);
     }
 
     void execute_() {
@@ -393,7 +412,7 @@ nothrow:
             GenerateMutantResult, GenerateMutantStatus;
 
         auto next_m = spinSqlQuery!(() {
-            return global.db.nextMutation(global.mut_kind);
+            return global.db.nextMutation(local.get!MutateCode.mut_kind);
         });
         if (next_m.st == NextMutationEntry.Status.done) {
             logger.info("Done! All mutants are tested").collectException;
@@ -461,15 +480,15 @@ nothrow:
         // TODO: move mutp to the state local data.
         assert(!global.mutp.isNull);
 
-        if (global.test_case_cmd.length != 0 || global.tc_analyze_builtin.length != 0) {
+        if (local.get!TestMutant.hasTestCaseOutputAnalyzer) {
             try {
                 auto tmpdir = createTmpDir(global.mutp.get.id);
                 if (tmpdir.length == 0) {
                     data.mutationError = true;
                     return;
                 }
-                global.test_tmp_output = Path(tmpdir).AbsolutePath;
-                global.auto_cleanup.add(global.test_tmp_output);
+                local.get!TestCaseAnalyze.test_tmp_output = Path(tmpdir).AbsolutePath;
+                global.auto_cleanup.add(local.get!TestCaseAnalyze.test_tmp_output);
             } catch (Exception e) {
                 logger.warning(e.msg).collectException;
                 data.mutationError = true;
@@ -480,10 +499,10 @@ nothrow:
         try {
             import dextool.plugin.mutate.backend.watchdog : StaticTime;
 
-            auto watchdog = StaticTime!StopWatch(global.tester_runtime);
+            auto watchdog = StaticTime!StopWatch(local.get!TestMutant.tester_runtime);
 
-            global.mut_status = runTester(global.compile_cmd, global.test_cmd,
-                    global.test_tmp_output, watchdog, global.fio);
+            global.mut_status = runTester(local.get!TestMutant.compile_cmd, local.get!TestMutant.test_cmd,
+                    local.get!TestCaseAnalyze.test_tmp_output, watchdog, global.fio);
             data.next = true;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -500,14 +519,15 @@ nothrow:
         import std.process : execute;
         import std.string : strip;
 
-        if (global.mut_status != Mutation.Status.killed || global.test_tmp_output.length == 0) {
+        if (global.mut_status != Mutation.Status.killed
+                || local.get!TestCaseAnalyze.test_tmp_output.empty) {
             data.next = true;
             return;
         }
 
         try {
-            auto stdout_ = buildPath(global.test_tmp_output, stdoutLog);
-            auto stderr_ = buildPath(global.test_tmp_output, stderrLog);
+            auto stdout_ = buildPath(local.get!TestCaseAnalyze.test_tmp_output, stdoutLog);
+            auto stderr_ = buildPath(local.get!TestCaseAnalyze.test_tmp_output, stderrLog);
 
             if (!exists(stdout_) || !exists(stderr_)) {
                 logger.warningf("Unable to open %s and %s for test case analyze", stdout_, stderr_);
@@ -522,18 +542,18 @@ nothrow:
             // fails.
             bool success = true;
 
-            if (global.test_case_cmd.length != 0) {
+            if (!local.get!TestCaseAnalyze.test_case_cmd.empty) {
                 success = success && externalProgram([
-                        global.test_case_cmd, stdout_, stderr_
+                        local.get!TestCaseAnalyze.test_case_cmd, stdout_, stderr_
                         ], gather_tc);
             }
-            if (global.tc_analyze_builtin.length != 0) {
+            if (!local.get!TestCaseAnalyze.tc_analyze_builtin.empty) {
                 success = success && builtin(global.fio.getOutputDir, [
                         stdout_, stderr_
-                        ], global.tc_analyze_builtin, gather_tc);
+                        ], local.get!TestCaseAnalyze.tc_analyze_builtin, gather_tc);
             }
 
-            if (gather_tc.unstable.length != 0) {
+            if (!gather_tc.unstable.empty) {
                 logger.warningf("Unstable test cases found: [%-(%s, %)]",
                         gather_tc.unstableAsArray);
                 logger.info(
@@ -584,24 +604,11 @@ nothrow:
             return;
         }
 
-        if (global.test_tmp_output.length != 0) {
-            import std.file : rmdirRecurse;
-
-            // trusted: test_tmp_output is tested to be valid data.
-            () @trusted {
-                try {
-                    rmdirRecurse(global.test_tmp_output);
-                } catch (Exception e) {
-                    logger.info(e.msg).collectException;
-                }
-            }();
-        }
-
         data.next = true;
     }
 }
 
-struct TestDriver2(alias mutationDriverFactory) {
+struct TestDriver(alias mutationDriverFactory) {
     import std.typecons : Unique;
     import dextool.plugin.mutate.backend.watchdog : ProgressivWatchdog;
 
@@ -609,6 +616,9 @@ struct TestDriver2(alias mutationDriverFactory) {
         DriverData data;
         ProgressivWatchdog prog_wd;
         Unique!MutationTestDriver mut_driver;
+    }
+
+    static struct CheckTimeoutData {
         long last_timeout_mutant_count = long.max;
     }
 
@@ -676,7 +686,11 @@ struct TestDriver2(alias mutationDriverFactory) {
             MutationTest, CheckTimeout, IncrWatchdog, ResetTimeout, Done, Error);
 
     Fsm fsm;
+
     Global global;
+
+    alias LocalStateDataT = Tuple!(CheckTimeoutData);
+    TypeDataMap!(LocalStateDataT, CheckTimeout) local;
 
     this(DriverData data) {
         this.global = Global(data);
@@ -1014,15 +1028,15 @@ nothrow:
                 data.timeoutUnchanged = true;
             } else if (entry.count == 0) {
                 data.timeoutUnchanged = true;
-            } else if (entry.count == global.last_timeout_mutant_count) {
+            } else if (entry.count == local.get!CheckTimeout.last_timeout_mutant_count) {
                 // no change between current pool of timeout mutants and the previous
                 data.timeoutUnchanged = true;
-            } else if (entry.count < global.last_timeout_mutant_count) {
+            } else if (entry.count < local.get!CheckTimeout.last_timeout_mutant_count) {
                 data.next = true;
                 logger.info("Mutants with the status timeout: ", entry.count);
             }
 
-            global.last_timeout_mutant_count = entry.count;
+            local.get!CheckTimeout.last_timeout_mutant_count = entry.count;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
@@ -1265,7 +1279,7 @@ class AutoCleanup {
         import std.array : array;
         import std.file : rmdirRecurse, exists;
 
-        foreach (ref p; remove_dirs.filter!(a => a.length != 0)) {
+        foreach (ref p; remove_dirs.filter!(a => !a.empty)) {
             try {
                 if (exists(p))
                     rmdirRecurse(p);
@@ -1276,6 +1290,6 @@ class AutoCleanup {
             }
         }
 
-        remove_dirs = remove_dirs.filter!(a => a.length != 0).array;
+        remove_dirs = remove_dirs.filter!(a => !a.empty).array;
     }
 }
