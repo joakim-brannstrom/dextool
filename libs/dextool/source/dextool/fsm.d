@@ -117,3 +117,57 @@ unittest {
 
     global.x.shouldEqual(1);
 }
+
+/** Hold a mapping between a Type and data.
+ *
+ * The get function is used to get the corresponding data.
+ *
+ * This is useful when e.g. combined with a state machine to retrieve the state
+ * local data if a state is represented as a type.
+ *
+ * Params:
+ *  RawDataT = type holding the data, retrieved via opIndex
+ *  Ts = the types mapping to RawDataT by their position
+ */
+struct TypeDataMap(RawDataT, Ts...)
+        if (is(RawDataT : DataT!Args, alias DataT, Args...)) {
+    alias SrcT = Ts;
+    RawDataT data;
+
+    this(RawDataT a) {
+        this.data = a;
+    }
+
+    void opAssign(RawDataT a) {
+        this.data = a;
+    }
+
+    static if (is(RawDataT : DataT!Args, alias DataT, Args...))
+        static assert(Ts.length == Args.length,
+                "Mismatch between Tuple and TypeMap template arguments");
+}
+
+auto ref get(T, TMap)(auto ref TMap tmap)
+        if (is(TMap : TypeDataMap!(W, SrcT), W, SrcT...)) {
+    template Index(size_t Idx, T, Ts...) {
+        static if (Ts.length == 0) {
+            static assert(0, "Type " ~ T.stringof ~ " not found in the TypeMap");
+        } else static if (is(T == Ts[0])) {
+            enum Index = Idx;
+        } else {
+            enum Index = Index!(Idx + 1, T, Ts[1 .. $]);
+        }
+    }
+
+    return tmap.data[Index!(0, T, TMap.SrcT)];
+}
+
+@("shall retrieve the data for the type")
+unittest {
+    import std.typecons : Tuple;
+
+    TypeDataMap!(Tuple!(int, bool), bool, int) a;
+    static assert(is(typeof(a.get!bool) == int), "wrong type");
+    a.data[1] = true;
+    assert(a.get!int == true);
+}
