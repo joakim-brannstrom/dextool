@@ -19,7 +19,7 @@ import std.typecons : Nullable;
 import std.utf : validate;
 
 import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
-import dextool.plugin.mutate.backend.database : Database, MutationEntry, MutationId, spinSqlQuery;
+import dextool.plugin.mutate.backend.database : Database, MutationEntry, MutationId, spinSql;
 import dextool.plugin.mutate.backend.type : Language;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput, ValidateLoc;
 import dextool.plugin.mutate.type : MutationKind;
@@ -41,12 +41,12 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
 
     Nullable!MutationEntry mutp;
     if (!user_mutation.isNull) {
-        mutp = spinSqlQuery!(() {
+        mutp = spinSql!(() {
             return db.getMutation(MutationId(user_mutation.get));
         });
         logger.error(mutp.isNull, "No such mutation id: ", user_mutation.get).collectException;
     } else {
-        auto next_m = spinSqlQuery!(() { return db.nextMutation(kind.toInternal); });
+        auto next_m = spinSql!(() { return db.nextMutation(kind.toInternal); });
         mutp = next_m.entry;
     }
     if (mutp.isNull)

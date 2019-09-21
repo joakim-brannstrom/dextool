@@ -32,6 +32,8 @@ import std.array : Appender, appender, array;
 import std.datetime : SysTime;
 import std.format : format;
 
+import miniorm : toSqliteDateTime, fromSqLiteDateTime;
+
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.database.schema;
@@ -1257,46 +1259,4 @@ struct Database {
             del_stmt.execute;
         }
     }
-}
-
-/** This is only intended to be used when interacting with the SQLite database.
- *
- * It spins in a loop until the query stop throwing exceptions.
- */
-auto spinSqlQuery(alias Callback)() nothrow {
-    import core.time : dur;
-    import std.exception : collectException;
-    import dextool.plugin.mutate.backend.utility : rndSleep;
-
-    while (true) {
-        try {
-            return Callback();
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-            // even though the database have a builtin sleep it still result in too much spam.
-            rndSleep(50.dur!"msecs", 100);
-        }
-    }
-
-    assert(0, "this should never happen");
-}
-
-SysTime fromSqLiteDateTime(string raw_dt) {
-    import core.time : dur;
-    import std.datetime : DateTime, UTC;
-    import std.format : formattedRead;
-
-    int year, month, day, hour, minute, second, msecs;
-    formattedRead(raw_dt, "%s-%s-%sT%s:%s:%s.%s", year, month, day, hour, minute, second, msecs);
-    auto dt = DateTime(year, month, day, hour, minute, second);
-
-    return SysTime(dt, msecs.dur!"msecs", UTC());
-}
-
-string toSqliteDateTime(SysTime ts) {
-    import std.format;
-
-    return format("%04s-%02s-%02sT%02s:%02s:%02s.%s", ts.year,
-            cast(ushort) ts.month, ts.day, ts.hour, ts.minute, ts.second,
-            ts.fracSecs.total!"msecs");
 }

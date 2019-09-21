@@ -13,7 +13,7 @@ import logger = std.experimental.logger;
 import std.exception : collectException;
 import std.typecons : Flag, Yes, No;
 
-import dextool.plugin.mutate.backend.database : Database, spinSqlQuery, MutationId;
+import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, Language, TestGroup;
@@ -125,12 +125,11 @@ void reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds,
     import std.conv : to;
     import std.range : take, retro;
     import std.typecons : Tuple;
-    import dextool.plugin.mutate.backend.database : spinSqlQuery;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
 
     alias TcInfo = Tuple!(string, "name", TestCaseInfo, "tc");
 
-    const total = spinSqlQuery!(() { return db.totalMutants(kinds).count; });
+    const total = spinSql!(() { return db.totalMutants(kinds).count; });
 
     // nothing to do. this also ensure that we do not divide by zero.
     if (total == 0)
@@ -157,9 +156,9 @@ void reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds,
         }
     }
 
-    const test_cases = spinSqlQuery!(() { return db.getDetectedTestCases; });
+    const test_cases = spinSql!(() { return db.getDetectedTestCases; });
 
-    foreach (v; takeOrder(test_cases.map!(a => TcInfo(a.name, spinSqlQuery!(() {
+    foreach (v; takeOrder(test_cases.map!(a => TcInfo(a.name, spinSql!(() {
                 return db.getTestCaseInfo(a, kinds);
             })))
             .array
@@ -235,7 +234,6 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     import std.range : take;
     import std.typecons : Tuple;
     import dextool.cachetools;
-    import dextool.plugin.mutate.backend.database : spinSqlQuery;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
 
     // TODO: reduce the code duplication of the caches.
@@ -243,14 +241,14 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
 
     MutationId[][TestCaseId] kill_cache2;
     MutationId[] getKills(TestCaseId id) @trusted {
-        return kill_cache2.require(id, spinSqlQuery!(() {
+        return kill_cache2.require(id, spinSql!(() {
                 return db.getTestCaseMutantKills(id, kinds);
             }));
     }
 
     TestCase[TestCaseId] tc_cache2;
     TestCase getTestCase(TestCaseId id) @trusted {
-        return tc_cache2.require(id, spinSqlQuery!(() {
+        return tc_cache2.require(id, spinSql!(() {
                 // assuming it can never be null
                 return db.getTestCase(id).get;
             }));
@@ -258,7 +256,7 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
 
     alias TcKills = Tuple!(TestCaseId, "id", MutationId[], "kills");
 
-    const test_cases = spinSqlQuery!(() { return db.getDetectedTestCaseIds; });
+    const test_cases = spinSql!(() { return db.getDetectedTestCaseIds; });
 
     auto rval = new typeof(return);
 
@@ -505,17 +503,17 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     import std.range : only;
     import dextool.plugin.mutate.backend.utility;
 
-    const alive = spinSqlQuery!(() { return db.aliveSrcMutants(kinds, file); });
-    const alive_nomut = spinSqlQuery!(() {
+    const alive = spinSql!(() { return db.aliveSrcMutants(kinds, file); });
+    const alive_nomut = spinSql!(() {
         return db.aliveNoMutSrcMutants(kinds, file);
     });
-    const killed = spinSqlQuery!(() { return db.killedSrcMutants(kinds, file); });
-    const timeout = spinSqlQuery!(() { return db.timeoutSrcMutants(kinds, file); });
-    const untested = spinSqlQuery!(() { return db.unknownSrcMutants(kinds, file); });
-    const killed_by_compiler = spinSqlQuery!(() {
+    const killed = spinSql!(() { return db.killedSrcMutants(kinds, file); });
+    const timeout = spinSql!(() { return db.timeoutSrcMutants(kinds, file); });
+    const untested = spinSql!(() { return db.unknownSrcMutants(kinds, file); });
+    const killed_by_compiler = spinSql!(() {
         return db.killedByCompilerSrcMutants(kinds, file);
     });
-    const total = spinSqlQuery!(() { return db.totalSrcMutants(kinds, file); });
+    const total = spinSql!(() { return db.totalSrcMutants(kinds, file); });
 
     MutationStat st;
     st.alive = alive.count;
@@ -706,15 +704,15 @@ TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
 
     alias TgKills = Tuple!(TestGroupSimilarity.TestGroup, "testGroup", MutationId[], "kills");
 
-    const test_cases = spinSqlQuery!(() { return db.getDetectedTestCaseIds; }).map!(
-            a => Tuple!(TestCaseId, "id", TestCase, "tc")(a, spinSqlQuery!(() {
+    const test_cases = spinSql!(() { return db.getDetectedTestCaseIds; }).map!(
+            a => Tuple!(TestCaseId, "id", TestCase, "tc")(a, spinSql!(() {
                 return db.getTestCase(a);
             }))).array;
 
     MutationId[] gatherKilledMutants(const(TestGroup) tg) {
         auto kills = appender!(MutationId[])();
         foreach (tc; test_cases.filter!(a => a.tc.isTestCaseInTestGroup(tg.re))) {
-            kills.put(spinSqlQuery!(() {
+            kills.put(spinSql!(() {
                     return db.getTestCaseMutantKills(tc.id, kinds);
                 }));
         }
