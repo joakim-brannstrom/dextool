@@ -90,7 +90,7 @@ nothrow:
 
         auto driver_data = DriverData(db_ref, fio, data.mut_kinds, new AutoCleanup, data.config);
 
-        auto test_driver = TestDriver2!mutationFactory(driver_data);
+        auto test_driver = TestDriver!mutationFactory(driver_data);
 
         while (test_driver.isRunning) {
             test_driver.execute;
@@ -608,7 +608,7 @@ nothrow:
     }
 }
 
-struct TestDriver2(alias mutationDriverFactory) {
+struct TestDriver(alias mutationDriverFactory) {
     import std.typecons : Unique;
     import dextool.plugin.mutate.backend.watchdog : ProgressivWatchdog;
 
