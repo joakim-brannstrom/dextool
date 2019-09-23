@@ -29,11 +29,34 @@ class ShallDeleteBodyOfFuncsReturningVoid : SdlFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv);
-        testAnyOrder!SubStr([`from ' f1Global = 2.2; ' to ''`,
-                `from ' z = 1.2; ' to ''`, `from ' method1 = 2.2; ' to ''`]).shouldBeIn(r.stdout);
+        testAnyOrder!SubStr([
+                `from ' f1Global = 2.2; ' to ''`, `from ' z = 1.2; ' to ''`,
+                `from ' method1 = 2.2; ' to ''`
+                ]).shouldBeIn(r.stdout);
 
-        testAnyOrder!SubStr([`from ' return static_cast<int>(w);`, `from ' return method2`]).shouldNotBeIn(
-                r.stdout);
+        testAnyOrder!SubStr([
+                `from ' return static_cast<int>(w);`, `from ' return method2`
+                ]).shouldNotBeIn(r.stdout);
+    }
+}
+
+class ShallDeleteReturnStmt : SdlFixture {
+    override string programFile() {
+        return "sdl_return_del.cpp";
+    }
+
+    override string op() {
+        return "sdl";
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        auto r = precondition(testEnv);
+        testAnyOrder!SubStr([
+                `from ' return; ' to ''`, `from 'return' to ''`,
+                `from 'return' to ''`,
+                ]).shouldBeIn(r.stdout);
+        testAnyOrder!SubStr([`return false`,]).shouldNotBeIn(r.stdout);
     }
 }
 
@@ -45,9 +68,10 @@ class ShallDeleteFuncCalls : SdlFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv);
-        testAnyOrder!SubStr(["'gun()' to ''", "'wun(5)' to ''", "'calc(6)' to ''",
-                "'wun(calc(6))' to ''", "'calc(7)' to ''", "'calc(8)' to ''",]).shouldBeIn(
-                r.stdout);
+        testAnyOrder!SubStr([
+                "'gun()' to ''", "'wun(5)' to ''", "'calc(6)' to ''",
+                "'wun(calc(6))' to ''", "'calc(7)' to ''", "'calc(8)' to ''",
+                ]).shouldBeIn(r.stdout);
         //TODO: maybe these should be deletable too? But it would require forward
         //looking.
         //"'calc(10)' to ''",
@@ -82,7 +106,9 @@ class ShallDeleteAssignment : SdlFixture {
         auto r = precondition(testEnv);
         testAnyOrder!SubStr([`from 'w = 4' to ''`]).shouldBeIn(r.stdout);
 
-        testAnyOrder!SubStr([`from 'int x = 2' to ''`,
-                `from 'bool y = true' to ''`, `from 'int w = 3' to ''`,]).shouldNotBeIn(r.stdout);
+        testAnyOrder!SubStr([
+                `from 'int x = 2' to ''`, `from 'bool y = true' to ''`,
+                `from 'int w = 3' to ''`,
+                ]).shouldNotBeIn(r.stdout);
     }
 }
