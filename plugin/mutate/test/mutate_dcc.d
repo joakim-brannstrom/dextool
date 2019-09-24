@@ -207,7 +207,7 @@ unittest {
     ]).shouldBeIn(r.stdout);
 }
 
-@("shall produce 2 predicate mutants for the bool function")
+@(testId ~ "shall produce 2 predicate mutants for the bool function")
 unittest {
     mixin(EnvSetup(globalTestdir));
 

@@ -90,7 +90,9 @@ VisitorResult makeRootVisitor(FilesysIO fio, ValidateLoc val_loc_, TokenStream t
     rval.transf.binaryOpExprCallback ~= (OpKind k) {
         return k in isDcc ? dccBranchMutations : null;
     };
+
     rval.transf.returnBoolFuncCallback ~= () => dccBranchMutations;
+    rval.transf.returnVoidFuncCallback ~= () => stmtDelMutations;
 
     rval.transf.caseSubStmtCallback ~= () => dccCaseMutations;
     rval.transf.caseStmtCallback ~= () => dcrCaseMutations;
@@ -286,14 +288,15 @@ class BaseVisitor : ExtendedVisitor {
 
         const is_func = kind_stack.hasValue(CXCursorKind.functionDecl)
             || kind_stack.hasValue(CXCursorKind.cxxMethod);
-        const is_bool_func = is_func && return_type_func.hasValue(CXTypeKind.bool_);
         const is_return_stmt = kind_stack.hasValue(CXCursorKind.returnStmt);
+        const is_bool_func = is_func && return_type_func.hasValue(CXTypeKind.bool_);
 
         if (is_bool_func && is_return_stmt) {
+            // allow modifying the return value by mutating the function call.
             transf.returnBoolFunc(v.cursor);
         } else if (is_return_stmt) {
-            // a function that should return a value but is mutated to exit
-            // without a "return" statement introduce UB.
+            // a function call in a return statement is handled by the
+            // ReturnStmt node.
         } else if (kind_stack.hasValue(CXCursorKind.cxxThrowExpr)) {
             // mutating from "throw exception();" to "throw ;" is just stupid.
         } else {
@@ -355,6 +358,15 @@ class BaseVisitor : ExtendedVisitor {
     override void visit(const(ReturnStmt) v) {
         mixin(mixinNodeLog!());
         mixin(pushPopStack("kind_stack", "v.cursor.kind"));
+
+        const is_func = kind_stack.hasValue(CXCursorKind.functionDecl)
+            || kind_stack.hasValue(CXCursorKind.cxxMethod);
+        const is_void_func = is_func && return_type_func.hasValue(CXTypeKind.void_);
+
+        if (is_void_func) {
+            // allow modifying the whole return statement such as deleting it.
+            transf.returnVoidFunc(v.cursor);
+        }
 
         v.accept(this);
     }
@@ -467,6 +479,7 @@ class Transform {
     StatementEvent[] funcCallCallback;
     StatementEvent[] voidFuncBodyCallback;
     StatementEvent[] returnBoolFuncCallback;
+    StatementEvent[] returnVoidFuncCallback;
     StatementEvent[] assignStmtCallback;
     StatementEvent[] throwStmtCallback;
 
@@ -548,8 +561,14 @@ class Transform {
         noArgCallback(c, funcCallCallback);
     }
 
+    /// Called for the function body.
     void returnBoolFunc(const Cursor c) {
         noArgCallback(c, returnBoolFuncCallback);
+    }
+
+    /// Called for the function body.
+    void returnVoidFunc(const Cursor c) {
+        noArgCallback(c, returnVoidFuncCallback);
     }
 
     void throwStmt(const Cursor c) {
@@ -1178,18 +1197,21 @@ final class IfStmtVisitor : ExtendedVisitor {
     override void visit(const IfStmtCond v) {
         mixin(mixinNodeLog!());
         transf.branchCond(v.cursor, enum_cache);
+
         v.accept(cond_visitor);
     }
 
     override void visit(const IfStmtThen v) {
         mixin(mixinNodeLog!());
         transf.branchThen(v.cursor);
+
         v.accept(sub_visitor);
     }
 
     override void visit(const IfStmtElse v) {
         mixin(mixinNodeLog!());
         transf.branchElse(v.cursor);
+
         v.accept(sub_visitor);
     }
 }
@@ -1452,6 +1474,9 @@ class ExtendedVisitor : Visitor {
     }
 }
 
+// using dispatch because the wrapped cursor has to be re-visited as its
+// original `type`. Not just the colored `IfStmt` node.
+
 final class IfStmtInit : cpptooling.analyzer.clang.ast.Statement {
     this(Cursor cursor) @safe {
         super(cursor);
@@ -1460,7 +1485,7 @@ final class IfStmtInit : cpptooling.analyzer.clang.ast.Statement {
     void accept(ExtendedVisitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        cpptooling.analyzer.clang.ast.dispatch(cursor, v);
     }
 }
 
@@ -1472,7 +1497,7 @@ final class IfStmtCond : cpptooling.analyzer.clang.ast.Expression {
     void accept(ExtendedVisitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        cpptooling.analyzer.clang.ast.dispatch(cursor, v);
     }
 }
 
@@ -1484,7 +1509,7 @@ final class IfStmtThen : cpptooling.analyzer.clang.ast.Statement {
     void accept(ExtendedVisitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        cpptooling.analyzer.clang.ast.dispatch(cursor, v);
     }
 }
 
@@ -1496,7 +1521,7 @@ final class IfStmtElse : cpptooling.analyzer.clang.ast.Statement {
     void accept(ExtendedVisitor v) @safe const {
         static import cpptooling.analyzer.clang.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        cpptooling.analyzer.clang.ast.dispatch(cursor, v);
     }
 }
 
@@ -1514,29 +1539,22 @@ void accept(T)(ref dextool.clang_extensions.IfStmt n, T v)
 
     static if (hasMember!(T, "incr"))
         v.incr;
-    {
-        if (n.init_.isValid) {
-            auto sub = new IfStmtInit(n.init_);
-            v.visit(sub);
-        }
+
+    if (n.init_.isValid) {
+        auto sub = new IfStmtInit(n.init_);
+        v.visit(sub);
     }
-    {
-        if (n.cond.isValid) {
-            auto sub = new IfStmtCond(n.cond);
-            v.visit(sub);
-        }
+    if (n.cond.isValid) {
+        auto sub = new IfStmtCond(n.cond);
+        v.visit(sub);
     }
-    {
-        if (n.then.isValid) {
-            auto sub = new IfStmtThen(n.then);
-            v.visit(sub);
-        }
+    if (n.then.isValid) {
+        auto sub = new IfStmtThen(n.then);
+        v.visit(sub);
     }
-    {
-        if (n.else_.isValid) {
-            auto sub = new IfStmtElse(n.else_);
-            v.visit(sub);
-        }
+    if (n.else_.isValid) {
+        auto sub = new IfStmtElse(n.else_);
+        v.visit(sub);
     }
 
     static if (hasMember!(T, "decr"))
