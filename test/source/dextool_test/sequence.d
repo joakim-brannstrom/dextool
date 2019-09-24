@@ -57,6 +57,8 @@ auto testAnyOrder(T)(T expected, in string file = __FILE__, in size_t line = __L
 
 /** Make an object that compares expected with actual where the test passes if
  * all expected elements are found in the tested range in consecutive order.
+ *
+ * It is OK to be other *things* in between the expected values.
  */
 auto testConsecutiveSparseOrder(ElementType, T)(T expected,
         in string file = __FILE__, in size_t line = __LINE__) {
@@ -71,6 +73,9 @@ auto testConsecutiveSparseOrder(T)(T expected, in string file = __FILE__, in siz
 
 /** Make an object that compares expected with actual where the test passes if
  * all expected elements are found in the tested range in consecutive order.
+ *
+ * When the first element is found then the following elements in `expected`
+ * must be found too.
  */
 auto testBlockOrder(ElementType, T)(T expected, in string file = __FILE__, in size_t line = __LINE__) {
     return testOrder!(ElementType, T, predBlockOrder)(expected, file, line);
