@@ -11,6 +11,7 @@ module dextool.plugin.mutate.backend.utility;
 
 import core.time : Duration;
 import std.algorithm : filter;
+import std.typecons : Flag, No;
 
 import dextool.type : Path, AbsolutePath;
 import dextool.from;
@@ -68,21 +69,51 @@ void rndSleep(Duration min_, int span) nothrow @trusted {
  *
  * This is a bit slow, I think. Optimize by reducing the created strings.
  * trusted: none of the unsafe accessed data escape this function.
+ *
+ * Params:
+ *  splitMultiLineTokens = a token, mostly comment tokens, can be over multiple
+ *      lines. If true then this split it into multiple tokens where a token is at
+ *      most one per line.
  */
-auto tokenize(ref from!"cpptooling.analyzer.clang.context".ClangContext ctx, Path file) @trusted {
+auto tokenize(Flag!"splitMultiLineTokens" splitTokens = No.splitMultiLineTokens)(
+        ref from!"cpptooling.analyzer.clang.context".ClangContext ctx, Path file) @trusted {
+    import std.algorithm : splitter;
     import std.array : appender;
-    import clang.Index;
-    import clang.TranslationUnit;
+    import std.range : enumerate;
 
     auto tu = ctx.makeTranslationUnit(file);
-
     auto toks = appender!(Token[])();
     foreach (ref t; tu.cursor.tokens) {
-        auto ext = t.extent;
-        auto start = ext.start;
-        auto end = ext.end;
-        toks.put(Token(t.kind, Offset(start.offset, end.offset),
-                SourceLoc(start.line, start.column), SourceLoc(end.line, end.column), t.spelling));
+        const ext = t.extent;
+        const start = ext.start;
+        const end = ext.end;
+        const spell = t.spelling;
+
+        static if (splitTokens) {
+            // TODO: this do not correctly count the utf-8 graphems but rather
+            // the code points because `.length` is used.
+
+            auto offset = Offset(start.offset, start.offset);
+            auto startLoc = SourceLoc(start.line, start.column);
+            auto endLoc = startLoc;
+            foreach (ts; spell.splitter('\n').enumerate) {
+                offset = Offset(offset.end, cast(uint)(offset.end + ts.length));
+
+                if (ts.index == 0) {
+                    endLoc = SourceLoc(start.line, cast(uint)(start.column + ts.value.length));
+                } else {
+                    startLoc = SourceLoc(startLoc.line + 1, 1);
+                    endLoc = SourceLoc(startLoc.line, cast(uint) ts.value.length);
+                }
+
+                toks.put(Token(t.kind, offset, startLoc, endLoc, ts.value));
+            }
+        } else {
+            auto offset = Offset(start.offset, end.offset);
+            auto startLoc = SourceLoc(start.line, start.column);
+            auto endLoc = SourceLoc(end.line, end.column);
+            toks.put(Token(t.kind, offset, startLoc, endLoc, spell));
+        }
     }
 
     return toks.data;
