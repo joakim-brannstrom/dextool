@@ -95,6 +95,8 @@ struct Token {
         return SourceRange(r);
     }
 
+    // TODO: maybe this should be remove. If so then it would be possible to
+    // remove translationUnit and thus make this struct lighter.
     /// The Cursor this Token corresponds to.
     @property Cursor cursor() {
         auto c = Cursor.empty;

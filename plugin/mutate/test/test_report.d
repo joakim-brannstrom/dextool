@@ -340,6 +340,32 @@ class ShallProduceHtmlReport : SimpleAnalyzeFixture {
     }
 }
 
+class ShallProduceHtmlReportOfMultiLineComment : SimpleAnalyzeFixture {
+    override string programFile() {
+        return (testData ~ "report_multi_line_comment.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto r = makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
+        testConsecutiveSparseOrder!SubStr([
+            `"loc-7"`,
+            `"loc-8"`,
+            `"loc-9"`,
+            `"loc-10"`,
+            `"loc-11"`,
+            `"loc-12"`,
+            `"loc-13"`,
+        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_multi_line_comment.cpp.html")).byLineCopy.array);
+    }
+}
+
 class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
     override void test() {
         import dextool.plugin.mutate.backend.type : TestCase;
