@@ -432,14 +432,18 @@ unittest {
 
 SysTime fromSqLiteDateTime(string raw_dt) {
     import core.time : dur;
-    import std.datetime : DateTime, UTC;
+    import std.datetime : DateTime, UTC, Clock;
     import std.format : formattedRead;
 
-    int year, month, day, hour, minute, second, msecs;
-    formattedRead(raw_dt, "%s-%s-%s %s:%s:%s.%s", year, month, day, hour, minute, second, msecs);
-    auto dt = DateTime(year, month, day, hour, minute, second);
-
-    return SysTime(dt, msecs.dur!"msecs", UTC());
+    try {
+        int year, month, day, hour, minute, second, msecs;
+        formattedRead(raw_dt, "%s-%s-%s %s:%s:%s.%s", year, month, day, hour, minute, second, msecs);
+        auto dt = DateTime(year, month, day, hour, minute, second);
+        return SysTime(dt, msecs.dur!"msecs", UTC());
+    } catch (Exception e) {
+        logger.trace(e.msg);
+        return Clock.currTime(UTC());
+    }
 }
 
 string toSqliteDateTime(SysTime ts) {
