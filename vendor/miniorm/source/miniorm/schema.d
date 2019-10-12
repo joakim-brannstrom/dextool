@@ -12,6 +12,8 @@ version (unittest) {
     import unit_threaded.assertions;
 }
 
+@safe:
+
 /// UDA controlling the name of the table.
 struct TableName {
     string value;

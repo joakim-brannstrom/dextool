@@ -7,8 +7,8 @@ Author: Oleg Butko (deviator)
 */
 module miniorm.api;
 
+import core.time : dur;
 import logger = std.experimental.logger;
-
 import std.array : Appender;
 import std.datetime : SysTime, Duration;
 import std.range;
@@ -51,8 +51,13 @@ struct Miniorm {
         cleanupCache;
     }
 
+    /// Start a RAII handled transaction.
+    Transaction transaction() {
+        return Transaction(this);
+    }
+
     /// Toggle logging.
-    void log(bool v) {
+    void log(bool v) nothrow {
         this.log_ = v;
     }
 
@@ -198,9 +203,16 @@ struct Miniorm {
 
         const sql = q.toSql.toString;
 
-        if (sql !in cachedStmt)
-            cachedStmt[sql] = db.prepare(sql);
-        auto stmt = cachedStmt[sql];
+        auto stmt = () {
+            if (auto v = sql in cachedStmt) {
+                (*v).reset;
+                return *v;
+            } else {
+                auto r = db.prepare(sql);
+                cachedStmt[sql] = r;
+                return r;
+            }
+        }();
 
         static if (all == AggregateInsert.yes) {
             int n;
@@ -308,7 +320,6 @@ unittest {
 unittest {
     import std.datetime : Clock;
     import core.thread : Thread;
-    import core.time : dur;
 
     struct One {
         ulong id;
@@ -431,13 +442,13 @@ unittest {
 }
 
 SysTime fromSqLiteDateTime(string raw_dt) {
-    import core.time : dur;
     import std.datetime : DateTime, UTC, Clock;
     import std.format : formattedRead;
 
     try {
         int year, month, day, hour, minute, second, msecs;
-        formattedRead(raw_dt, "%s-%s-%s %s:%s:%s.%s", year, month, day, hour, minute, second, msecs);
+        formattedRead(raw_dt, "%s-%s-%s %s:%s:%s.%s", year, month, day, hour,
+                minute, second, msecs);
         auto dt = DateTime(year, month, day, hour, minute, second);
         return SysTime(dt, msecs.dur!"msecs", UTC());
     } catch (Exception e) {
@@ -454,9 +465,9 @@ string toSqliteDateTime(SysTime ts) {
             ts.fracSecs.total!"msecs");
 }
 
-@safe class SpinSqlTimeout : Exception {
-    this() {
-        super(null);
+class SpinSqlTimeout : Exception {
+    this(string msg, string file = __FILE__, int line = __LINE__) @safe pure nothrow {
+        super(msg, file, line);
     }
 }
 
@@ -464,9 +475,9 @@ string toSqliteDateTime(SysTime ts) {
  *
  * Note: If there are any errors in the query it will go into an infinite loop.
  */
-auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout) {
+auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout,
+        Duration minTime = 50.dur!"msecs", Duration maxTime = 150.dur!"msecs") {
     import core.thread : Thread;
-    import core.time : dur;
     import std.datetime.stopwatch : StopWatch, AutoStart;
     import std.exception : collectException;
     import std.random : uniform;
@@ -479,11 +490,13 @@ auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout) {
         } catch (Exception e) {
             logFn(e.msg).collectException;
             // even though the database have a builtin sleep it still result in too much spam.
-            () @trusted { Thread.sleep(uniform(50, 150).dur!"msecs"); }();
+            () @trusted {
+                Thread.sleep(uniform(minTime.total!"msecs", maxTime.total!"msecs").dur!"msecs");
+            }();
         }
     }
 
-    throw new SpinSqlTimeout();
+    throw new SpinSqlTimeout(null);
 }
 
 auto spinSql(alias query, alias logFn = logger.warning)() nothrow {
@@ -492,5 +505,29 @@ auto spinSql(alias query, alias logFn = logger.warning)() nothrow {
             return spinSql!(query, logFn)(Duration.max);
         } catch (Exception e) {
         }
+    }
+}
+
+/// RAII handling of a transaction.
+struct Transaction {
+    Miniorm db;
+    bool isDone;
+
+    this(Miniorm db) {
+        this.db = db;
+        spinSql!(() { db.begin; });
+    }
+
+    ~this() {
+        scope (exit)
+            isDone = true;
+        if (!isDone)
+            db.rollback;
+    }
+
+    void commit() {
+        scope (exit)
+            isDone = true;
+        db.commit;
     }
 }
