@@ -76,7 +76,7 @@ void rndSleep(Duration min_, int span) nothrow @trusted {
  *      most one per line.
  */
 auto tokenize(Flag!"splitMultiLineTokens" splitTokens = No.splitMultiLineTokens)(
-        ref from!"cpptooling.analyzer.clang.context".ClangContext ctx, Path file) @trusted {
+        ref from.cpptooling.analyzer.clang.context.ClangContext ctx, Path file) @trusted {
     import std.algorithm : splitter;
     import std.array : appender;
     import std.range : enumerate;
