@@ -30,7 +30,7 @@ Dextool depends on the following software packages:
     * llvm-xyz-dev (4.0+)
     * libclang-xyz-dev (4.0+)
  * [cmake](https://cmake.org/download) (3.5+)
- * [D compiler](https://dlang.org/download.html) (dmd 2.081.2+, ldc 1.11.0+)
+ * [D compiler](https://dlang.org/download.html) (dmd 2.086.1+, ldc 1.16.0+)
  * [sqlite3](https://sqlite.org/download.html) (3.19.3-3+)
 
 Dextool has been tested with libclang [4.0, 5.0, 6.0, 7.0, 8.0].
