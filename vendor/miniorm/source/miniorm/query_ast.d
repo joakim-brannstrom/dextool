@@ -158,6 +158,10 @@ struct Select {
     SumType!(None, OrderBy) orderBy;
     SumType!(None, Limit) limit;
 
+    mixin(makeAssign!(typeof(this))([
+                "columns", "from", "where", "orderBy", "limit"
+            ]));
+
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
         put(w, "SELECT ");
         columns.toString(w);
@@ -195,18 +199,21 @@ struct ResultColumn {
     SumType!(Star, ResultColumnExpr) value;
     mixin ToStringSumType!(value);
     mixin(makeCtor!(typeof(value))("value"));
+    mixin(makeAssign!(typeof(this))(["value"]));
 }
 
 struct ResultColumnExpr {
     SumType!(Blob, Query*) value;
     mixin ToStringSumType!value;
     mixin(makeCtor!(typeof(value))("value"));
+    mixin(makeAssign!(typeof(this))(["value"]));
 }
 
 struct From {
     SumType!(TableOrSubQueries, Blob) value;
     alias value this;
     mixin(makeCtor!(typeof(value))("value"));
+    mixin(makeAssign!(typeof(this))(["value"]));
 
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
         put(w, "FROM ");
@@ -220,6 +227,7 @@ struct Where {
     SumType!(None, WhereExpr) value;
     alias value this;
     mixin(makeCtor!(typeof(value))("value"));
+    mixin(makeAssign!(typeof(this))(["value"]));
 
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
         // TODO: should it quote strings?
@@ -256,6 +264,7 @@ enum WhereOp {
 struct TableOrSubQueries {
     TableOrQuery required;
     TableOrQuery[] optional;
+    mixin(makeAssign!(typeof(this))(["required", "optional"]));
 
     ///
     this(TableOrQuery r, TableOrQuery[] o = null) @safe pure nothrow @nogc {
@@ -276,6 +285,7 @@ struct TableOrQuery {
     SumType!(TableOrSubQuerySelect*, TableOrSubQueries*, TableRef, Blob) value;
     alias value this;
     mixin(makeCtor!(typeof(value))("value"));
+    mixin(makeAssign!(typeof(this))(["value"]));
 
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
         value.match!((TableOrSubQuerySelect* v) { v.toString(w); }, (TableOrSubQueries* v) {
@@ -289,6 +299,7 @@ struct TableOrQuery {
 struct TableOrSubQuerySelect {
     Select select;
     TableAlias alias_;
+    mixin(makeAssign!(typeof(this))(["select", "alias_"]));
 
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
         put(w, "(");
@@ -301,6 +312,7 @@ struct TableOrSubQuerySelect {
 struct OrderBy {
     OrderingTerm required;
     OrderingTerm[] optional;
+    mixin(makeAssign!(typeof(this))(["required", "optional"]));
 
     this(typeof(required) r, typeof(optional) o = null) @safe pure nothrow @nogc {
         required = r;
@@ -320,8 +332,8 @@ struct OrderBy {
 struct OrderingTerm {
     SumType!(None, Blob) expr;
     SumType!(None, OrderingTermSort) sortTerm;
-
     mixin(makeCtor!(typeof(expr))("expr"));
+    mixin(makeAssign!(typeof(this))(["expr", "sortTerm"]));
 
     this(Blob expr, OrderingTermSort sortTerm) @safe pure nothrow @nogc {
         this.expr = expr;
@@ -345,8 +357,8 @@ enum OrderingTermSort {
 struct Limit {
     SumType!(None, Blob) expr;
     SumType!(None, LimitOffset, Blob) optional;
-
     mixin(makeCtor!(typeof(expr))("expr"));
+    mixin(makeAssign!(typeof(this))(["expr", "optional"]));
 
     this(Blob expr, LimitOffset l) @safe pure nothrow @nogc {
         this.expr = expr;
@@ -433,6 +445,7 @@ struct Insert {
 struct InsertColumns {
     SumType!(None, ColumnNames) value;
     mixin(makeCtor!(typeof(value))("value"));
+    mixin(makeAssign!(typeof(this))(["value"]));
 
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
         value.match!((None v) {}, (ColumnNames v) => v.toString(w));
@@ -610,6 +623,16 @@ alias None = Constant!(string.init);
 alias Star = Constant!"*";
 alias Window = Blob;
 
+/// A node representing a constant value.
+struct Constant(string s) {
+    string value = s;
+    alias value this;
+
+    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
+        put(w, value);
+    }
+}
+
 private:
 
 /// Create a match that calls `.toString(w)` on all matches of the SumType.
@@ -649,6 +672,16 @@ string makeCtor(SumT)(string var) {
     return rval;
 }
 
+/// an opAssign that assign to `var` of type `SumT`.
+string makeAssign(T)(string[] members) {
+    string rval = format(`void opAssign(%1$s rhs) @trusted pure nothrow @nogc {`, T.stringof);
+    foreach (m; members) {
+        rval ~= format("%1$s = rhs.%1$s;", m);
+    }
+    rval ~= "}\n";
+    return rval;
+}
+
 /// Returns: a string that can be mixed in to create a setter for the member
 mixin template makeBuilder(members...) {
     static string buildMember(alias member)() {
@@ -669,19 +702,12 @@ mixin template makeBuilder(members...) {
     }
 }
 
-/// A node representing a constant value.
-struct Constant(string s) {
-    string value = s;
-    alias value this;
-
-    void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {
-        put(w, value);
-    }
-}
-
 version (unittest) {
     import unit_threaded.assertions : shouldEqual;
 }
+
+// TODO: investigate why this is needed to be system.
+@system:
 
 @("shall convert a query at compile time to SQL")
 unittest {

@@ -49,7 +49,7 @@ struct Select(T) {
     }
 
     /// Order the result by `s` in the order the fields are defined in `T`.
-    auto orderBy(OrderingTermSort s, string[] fields = null) @safe pure {
+    auto orderBy(OrderingTermSort s, string[] fields = null) @trusted pure {
         OrderingTerm required;
         OrderingTerm[] optional;
 
@@ -73,7 +73,7 @@ struct Select(T) {
     }
 
     /// Limit the query to this number of answers
-    auto limit(long value) @safe pure {
+    auto limit(long value) @trusted pure {
         import std.conv : to;
 
         miniorm.query_ast.Select rval = query;
@@ -118,6 +118,10 @@ auto insert(T)() {
 
 auto insertOrReplace(T)() {
     return Insert!T(tableName!T).insertOrReplace;
+}
+
+auto insertOrIgnore(T)() {
+    return Insert!T(tableName!T).insertOrIgnore;
 }
 
 struct Insert(T) {
@@ -192,6 +196,10 @@ struct Insert(T) {
         return op(InsertOpt.InsertOrReplace).setColumns(false);
     }
 
+    auto insertOrIgnore() @safe pure nothrow const {
+        return op(InsertOpt.InsertOrIgnore).setColumns(false);
+    }
+
     // TODO the name is bad.
     /// Specify columns to insert/replace values in.
     private auto setColumns(bool insert_) @safe pure const {
@@ -235,6 +243,9 @@ unittest {
     insertOrReplace!Foo.values(2).toSql.toString.shouldEqual(
             "INSERT OR REPLACE INTO Foo ('id','text','val','ts','version') VALUES (?,?,?,?,?),(?,?,?,?,?);");
 
+    insertOrIgnore!Foo.values(2).toSql.toString.shouldEqual(
+            "INSERT OR IGNORE INTO Foo ('id','text','val','ts','version') VALUES (?,?,?,?,?),(?,?,?,?,?);");
+
     insert!Foo.values(2).toSql.toString.shouldEqual(
             "INSERT INTO Foo ('text','val','ts','version') VALUES (?,?,?,?),(?,?,?,?);");
 }
@@ -255,6 +266,8 @@ unittest {
 
     insertOrReplace!Bar.values(1).toSql.toString.shouldEqual(
             "INSERT OR REPLACE INTO Bar ('id','value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?,?);");
+    insertOrIgnore!Bar.values(1).toSql.toString.shouldEqual(
+            "INSERT OR IGNORE INTO Bar ('id','value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?,?);");
     insert!Bar.values(1).toSql.toString.shouldEqual(
             "INSERT INTO Bar ('value','foo.id','foo.text','foo.val','foo.ts') VALUES (?,?,?,?,?);");
     insert!Bar.values(3).toSql.toString.shouldEqual(
@@ -338,14 +351,14 @@ mixin template WhereMixin(T, QueryT, AstT) {
     }
 
     /// Add a WHERE condition.
-    auto where(string condition) @safe pure {
+    auto where(string condition) @trusted pure {
         import miniorm.query_ast;
 
         static struct WhereOptional {
             QueryT!T value;
             alias value this;
 
-            private auto where(string condition, WhereOp op) @safe pure {
+            private auto where(string condition, WhereOp op) @trusted pure {
                 import sumtype;
 
                 QueryT!T rval = value;
