@@ -79,21 +79,21 @@ int main(string[] args) {
                     "fix_repo", "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
-    tests["dmd-ubuntu-bionic-test"] ~= () {
+    tests["dmd-ubuntu-latest-test"] ~= () {
         build(mergeFiles([
-                    "ubuntu_bionic_base", "dmd_latest_version", "dmd",
+                    "ubuntu_latest_base", "dmd_latest_version", "dmd",
                     "fix_repo", "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
-    tests["dmd-ubuntu-bionic-release"] ~= () {
+    tests["dmd-ubuntu-latest-release"] ~= () {
         build(mergeFiles([
-                    "ubuntu_bionic_base", "dmd_latest_version", "dmd", "fix_repo",
+                    "ubuntu_latest_base", "dmd_latest_version", "dmd", "fix_repo",
                     "prepare_release_build_ubuntu", "build_release", "examples"
                 ]), tag.next);
     };
-    tests["dmd-ubuntu-bionic-dub"] ~= () {
+    tests["dmd-ubuntu-latest-dub"] ~= () {
         build(mergeFiles([
-                    "ubuntu_bionic_base", "dmd_latest_version", "dmd",
+                    "ubuntu_latest_base", "dmd_latest_version", "dmd",
                     "fix_repo", "build_with_dub"
                 ]), tag.next);
     };
