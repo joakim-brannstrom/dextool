@@ -31,7 +31,7 @@ int main(string[] args) {
     cmds["ldflags"] = &llvmLdflags;
     cmds["libs"] = &llvmLibs;
     cmds["version"] = &llvmVersion;
-    cmds["cxx-flags"] = &llvmCxxFlags;
+    cmds["cpp-flags"] = &llvmCppFlags;
     cmds["libdir"] = &llvmLibdir;
     cmds["libclang"] = &llvmLibClang;
     cmds["libclang-flags"] = &llvmClangFlags;
@@ -109,7 +109,7 @@ string llvmVersion() {
     return "LLVM_" ~ parts.joiner("_").toUTF8;
 }
 
-string llvmCxxFlags() {
+string llvmCppFlags() {
     const flags = execute([llvmCmd, "--cxxflags"]);
     return flags.output.strip;
 }

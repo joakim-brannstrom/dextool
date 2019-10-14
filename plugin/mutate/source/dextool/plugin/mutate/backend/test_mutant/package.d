@@ -117,34 +117,20 @@ struct DriverData {
  *  p = ?
  *  timeout = timeout threshold.
  */
-
 Mutation.Status runTester(WatchdogT)(ShellCommand compile_p, ShellCommand tester_p,
         AbsolutePath test_output_dir, WatchdogT watchdog, FilesysIO fio) nothrow {
-    import std.datetime.stopwatch: StopWatch, AutoStart;
     import std.algorithm : among;
+    import std.datetime.stopwatch : StopWatch;
+    import dextool.plugin.mutate.backend.linux_process : spawnSession, tryWait, kill, wait;
     import std.stdio : File;
     import core.sys.posix.signal : SIGKILL;
-    import dextool.plugin.mutate.backend.linux_process : spawnSession, tryWait, kill, wait;
     import dextool.plugin.mutate.backend.utility : rndSleep;
-
-    void writeToFile(StopWatch sw, string filename){
-      import std.stdio;
-      import std.file;
-      import std.conv: to;
-      try {
-	File file = File(filename, "a");
-	file.writeln(to!string(sw.peek.total!"msecs"));
-	file.close();
-      } catch (Exception e){}
-    }
 
     Mutation.Status rval;
 
-    auto swCompile = StopWatch(AutoStart.no);
-    swCompile.start();
     try {
         auto p = spawnSession(compile_p.program ~ compile_p.arguments);
-	 auto res = p.wait;
+        auto res = p.wait;
         if (res.terminated && res.status != 0)
             return Mutation.Status.killedByCompiler;
         else if (!res.terminated) {
@@ -154,8 +140,6 @@ Mutation.Status runTester(WatchdogT)(ShellCommand compile_p, ShellCommand tester
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }
-    swCompile.stop();
-    writeToFile(swCompile, "compileTimes.txt");
 
     string stdout_p;
     string stderr_p;
@@ -167,8 +151,6 @@ Mutation.Status runTester(WatchdogT)(ShellCommand compile_p, ShellCommand tester
         stderr_p = buildPath(test_output_dir, stderrLog);
     }
 
-    auto swTest = StopWatch(AutoStart.no);
-    swTest.start();
     try {
         auto p = spawnSession(tester_p.program ~ tester_p.arguments, stdout_p, stderr_p);
         // trusted: killing the process started in this scope
@@ -203,8 +185,6 @@ Mutation.Status runTester(WatchdogT)(ShellCommand compile_p, ShellCommand tester
         logger.warning(e.msg).collectException;
         return Mutation.Status.unknown;
     }
-    swTest.stop();
-    writeToFile(swTest, "testTimes.txt");
 
     return rval;
 }

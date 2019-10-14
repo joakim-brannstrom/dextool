@@ -46,8 +46,8 @@ execute_process(COMMAND ${LLVM_CMD} version
     RESULT_VARIABLE llvm_config_VERSION_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND ${LLVM_CMD} cxx-flags
-    OUTPUT_VARIABLE llvm_config_CXXFLAGS
+execute_process(COMMAND ${LLVM_CMD} cpp-flags
+    OUTPUT_VARIABLE llvm_config_CPPFLAGS
     RESULT_VARIABLE llvm_config_INCLUDE_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
@@ -69,7 +69,7 @@ execute_process(COMMAND ${LLVM_CMD} libclang-flags
 message(STATUS "llvm-config VERSION: ${llvm_config_VERSION}")
 message(STATUS "llvm-config LIBDIR: ${llvm_config_LIBDIR}")
 message(STATUS "llvm-config LDFLAGS: ${llvm_config_LDFLAGS}")
-message(STATUS "llvm-config INCLUDE: ${llvm_config_CXXFLAGS}")
+message(STATUS "llvm-config INCLUDE: ${llvm_config_CPPFLAGS}")
 message(STATUS "llvm-config LIBS: ${llvm_config_LIBS}")
 message(STATUS "clang-config LDFLAGS: ${clang_config_LDFLAGS}")
 
@@ -113,7 +113,7 @@ function(try_llvm_config_find)
 
     set(LIBLLVM_LDFLAGS "${llvm_config_LDFLAGS}" CACHE string "Linker flags for libLLVM")
 
-    set(LIBLLVM_CXX_FLAGS "${llvm_config_CXXFLAGS} ${LIBLLVM_CXX_EXTRA_FLAGS}" CACHE string "Compiler flags for C++ using LLVM")
+    set(LIBLLVM_CXX_FLAGS "${llvm_config_CPPFLAGS} ${LIBLLVM_CXX_EXTRA_FLAGS}" CACHE string "Compiler flags for C++ using LLVM")
 
     set(LIBLLVM_CONFIG_DONE YES CACHE bool "LLVM Configuration status" FORCE)
 endfunction()

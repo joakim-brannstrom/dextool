@@ -1,12 +1,12 @@
-FROM ubuntu:bionic AS base
+FROM ubuntu:xenial AS base
 MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
 
 RUN apt-get update && \
-    apt-get -y --no-install-recommends install wget gnupg
+    apt-get -y --no-install-recommends install wget
 
 RUN wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 
-RUN echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-4.0 main" >> /etc/apt/sources.list.d/llvm.list
+RUN echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-3.9 main" >> /etc/apt/sources.list.d/llvm.list
 
 # Dependencies:
 # ca-certificates - "Problem with the SSL CA cert" when cloning dextool otherwise.
@@ -26,7 +26,7 @@ RUN apt-get -y --no-install-recommends install \
 
 WORKDIR /opt
 
-RUN git clone --depth 1 https://github.com/Sten-Vercammen/dextool.git
+RUN git clone --depth 1 https://github.com/joakim-brannstrom/dextool.git
 
 ENV LDC_VERSION=1.11.0
 RUN curl -fsS https://dlang.org/install.sh | bash -s ldc-$LDC_VERSION
