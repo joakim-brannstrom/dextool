@@ -1,4 +1,4 @@
-FROM ubuntu:bionic
+FROM ubuntu:disco
 MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
 
 # Dependencies:
@@ -10,7 +10,7 @@ RUN apt-get update && \
         git \
         sqlite3 libsqlite3-dev \
         make cmake ninja-build \
-        llvm-6.0 llvm-6.0-dev clang-6.0 libclang-6.0-dev
+        llvm-8 llvm-8-dev clang-8 libclang-8-dev
 
 RUN apt-get -y --no-install-recommends install \
         gcc g++ \
