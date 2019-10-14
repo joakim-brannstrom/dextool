@@ -13,26 +13,16 @@ String implementation for sending strings back and forth between D and C++
 
 namespace CppString {
 
-const void* CppStr::ptr() {
-    return cppStr->c_str();
-}
-int CppStr::length() {
-    return cppStr->size();
-}
-void CppStr::destroy() {
-    delete cppStr;
-}
-void CppStr::put(char c){
-    cppStr->append(ONE_CHARACTER, c);
-}
+const void* CppStr::ptr() { return cppStr->c_str(); }
+int CppStr::length() { return cppStr->size(); }
+void CppStr::destroy() { delete cppStr; }
+void CppStr::put(char c) { cppStr->append(ONE_CHARACTER, c); }
 CppStr getStr(const char* text) {
     CppStr r;
     r.cppStr = new std::string(text);
 
     return r;
 }
-CppStr createCppStr(){
-    return getStr("");
-}
+CppStr createCppStr() { return getStr(""); }
 
-} // CppString
+} // namespace CppString

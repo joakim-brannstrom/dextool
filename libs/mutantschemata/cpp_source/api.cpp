@@ -13,17 +13,18 @@ in order to call D code and insert/select mutants from db obtained from Dextool 
 #include "api.hpp"
 #include "rewrite.hpp"
 
-#include <iostream>
-#include <cstring>
-#include <sstream>
 #include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <sstream>
 
-void runSchemataCpp(SchemataApiCpp *sac, CppString::CppStr cs, CppString::CppStr ccdbPath, CppString::CppStr restricted){
-    std::string buf; // Have a buffer string
+void runSchemataCpp(SchemataApiCpp* sac, CppString::CppStr cs, CppString::CppStr ccdbPath,
+                    CppString::CppStr restricted) {
+    std::string buf;                          // Have a buffer string
     std::stringstream ss(cs.cppStr->c_str()); // Insert the string into a stream
-    std::vector<std::string> filesToMutate; // Create vector to hold our words
+    std::vector<std::string> filesToMutate;   // Create vector to hold our words
 
-    while(getline(ss, buf, ',')) {
+    while (getline(ss, buf, ',')) {
         filesToMutate.push_back(buf);
     }
 
@@ -41,6 +42,6 @@ void runSchemataCpp(SchemataApiCpp *sac, CppString::CppStr cs, CppString::CppStr
     // Call setup of clang
     setupClang(argv.size() - 1, argv.data(), sac, restricted);
 }
-int setEnvironmentVariable(CppString::CppStr variable, CppString::CppStr value){
+int setEnvironmentVariable(CppString::CppStr variable, CppString::CppStr value) {
     return setenv(variable.cppStr->c_str(), value.cppStr->c_str(), 1);
 }

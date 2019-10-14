@@ -12,5 +12,4 @@ C++ types for easier communication between C++ and D code.
 #include "type.hpp"
 #include <iostream>
 
-namespace CppType {
-} // CppType
+namespace CppType {} // namespace CppType

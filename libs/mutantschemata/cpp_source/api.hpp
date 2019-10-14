@@ -13,8 +13,8 @@ in order to call D code and insert/select mutants from db obtained from Dextool 
 */
 #pragma once
 
-#include "type.hpp"
 #include "cpp_string.hpp"
+#include "type.hpp"
 
 class SchemataApiCpp {
 public:
@@ -25,5 +25,5 @@ public:
     virtual void apiClose();
 };
 
-void runSchemataCpp (SchemataApiCpp, CppString::CppStr, CppString::CppStr, CppString::CppStr);
+void runSchemataCpp(SchemataApiCpp, CppString::CppStr, CppString::CppStr, CppString::CppStr);
 int setEnvironmentVariable(CppString::CppStr, CppString::CppStr);

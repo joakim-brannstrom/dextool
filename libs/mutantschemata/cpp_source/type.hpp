@@ -33,4 +33,4 @@ struct SchemataMutant {
     CppString::CppStr filePath;
 };
 
-} // CppType
+} // namespace CppType

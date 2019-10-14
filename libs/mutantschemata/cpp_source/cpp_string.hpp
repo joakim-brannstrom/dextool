@@ -12,16 +12,16 @@ String implementation for sending strings back and forth between D and C++
 */
 #pragma once
 
+#include <iostream>
 #include <stdint.h>
 #include <string.h>
 #include <string>
-#include <iostream>
 
 const int ONE_CHARACTER = 1;
 
 namespace CppString {
 
-struct CppStr{
+struct CppStr {
     std::string* cppStr;
 
     const void* ptr();
@@ -32,4 +32,4 @@ struct CppStr{
 CppStr getStr(const char*);
 CppStr createCppStr();
 
-} // CppString
+} // namespace CppString
