@@ -25,15 +25,14 @@ set(flags "-I${CMAKE_SOURCE_DIR}/libs/cpptooling/source
 -I${CMAKE_SOURCE_DIR}/vendor/cachetools/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
 -I${CMAKE_SOURCE_DIR}/vendor/miniorm/source
--I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
--I${CMAKE_SOURCE_DIR}/libs/mutantschemata/source")
+-I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
 
 build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_colorlog;dextool_toml;dextool_arsd;dextool_cachetools;dextool_mutantschemata;dextool_mutantschemata_cpp_source"
+    "dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_colorlog;dextool_toml;dextool_arsd;dextool_cachetools"
 )
 
 collect_binary_in_root(${EXE_NAME})
@@ -45,7 +44,7 @@ list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main
 list(APPEND SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
-compile_d_unittest(mutate "${SRC_FILES}" "${flags}" "" "dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools;dextool_mutantschemata;dextool_mutantschemata_cpp_source")
+compile_d_unittest(mutate "${SRC_FILES}" "${flags}" "" "dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools")
 
 setup_integration_testing_env()
 
@@ -58,4 +57,4 @@ list(APPEND SUT_REUSED_FILES
     )
 file(GLOB_RECURSE TEST_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/test/*.d)
 file(GLOB_RECURSE TESTDATA_FILES ${CMAKE_SOURCE_DIR}/test/testdata/* ${CMAKE_CURRENT_LIST_DIR}/testdata/*)
-compile_d_integration_test(${EXE_NAME} "${TEST_SRC_FILES};${SUT_REUSED_FILES}" "${flags}" "" "dextool_dextool_test;dextool_miniorm;dextool_d2sqlite3;dextool_dextool;dextool_mutantschemata;dextool_mutantschemata_cpp_source" "${TESTDATA_FILES}")
+compile_d_integration_test(${EXE_NAME} "${TEST_SRC_FILES};${SUT_REUSED_FILES}" "${flags}" "" "dextool_dextool_test;dextool_miniorm;dextool_d2sqlite3;dextool_dextool" "${TESTDATA_FILES}")

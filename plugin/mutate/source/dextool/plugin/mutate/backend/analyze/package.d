@@ -14,7 +14,6 @@ TODO cache the checksums. They are *heavy*.
 module dextool.plugin.mutate.backend.analyze;
 
 import logger = std.experimental.logger;
-import std.typecons : Nullable;
 
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB;
 import dextool.set;
@@ -28,8 +27,6 @@ import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
 import dextool.plugin.mutate.config : ConfigCompiler;
 
-import mutantschemata;
-
 version (unittest) {
     import unit_threaded.assertions;
 }
@@ -37,27 +34,16 @@ version (unittest) {
 /** Analyze the files in `frange` for mutations.
  */
 ExitStatusType runAnalyzer(ref Database db, ConfigCompiler conf,
-        ref UserFileRange frange, ValidateLoc val_loc, FilesysIO fio, Nullable!SchemataInformation si) @safe {
-
+        ref UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @safe {
     auto analyzer = Analyzer(db, val_loc, fio, conf);
-    SchemataApi sa;
-
-    if (!si.isNull)
-        sa = makeSchemataApi(si);
 
     foreach (in_file; frange) {
         try {
-            analyzer.process(in_file, sa);
+            analyzer.process(in_file);
         } catch (Exception e) {
             () @trusted { logger.trace(e); logger.warning(e.msg); }();
         }
     }
-
-    if (!si.isNull) {
-	sa.runSchemataAnalyzer(val_loc.getOutputDir());
-        sa.apiClose();
-    }
-
     analyzer.finalize;
 
     return ExitStatusType.Ok;
@@ -108,7 +94,7 @@ struct Analyzer {
         db.removeAllFiles;
     }
 
-    void process(Nullable!SearchResult in_file, SchemataApi schemataApi) @safe {
+    void process(Nullable!SearchResult in_file) @safe {
         if (in_file.isNull)
             return;
 
@@ -124,28 +110,20 @@ struct Analyzer {
             return;
         }
 
-        if (!shouldAnalyze(checked_in_file))
+        if (analyzed_files.contains(checked_in_file))
             return;
 
         analyzed_files.add(checked_in_file);
 
-        if (schemataApi !is null) {
-            schemataApi.addFileToMutate(checked_in_file);
-        } else {
-            () @trusted {
-                auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-                auto tstream = new TokenStreamImpl(ctx);
+        () @trusted {
+            auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+            auto tstream = new TokenStreamImpl(ctx);
 
-                auto files = analyzeForMutants(in_file, checked_in_file, ctx, tstream);
-                // TODO: filter files so they are only analyzed once for comments
-                foreach (f; files)
-                    analyzeForComments(f, tstream);
-            }();
-        }
-    }
-
-    bool shouldAnalyze(AbsolutePath file) @safe {
-        return val_loc.shouldAnalyze(file) && !analyzed_files.contains(file);
+            auto files = analyzeForMutants(in_file.get, checked_in_file, ctx, tstream);
+            // TODO: filter files so they are only analyzed once for comments
+            foreach (f; files)
+                analyzeForComments(f, tstream);
+        }();
     }
 
     Path[] analyzeForMutants(SearchResult in_file,

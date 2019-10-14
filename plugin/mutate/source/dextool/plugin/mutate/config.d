@@ -95,7 +95,6 @@ struct ConfigMutationTest {
     Nullable!Duration mutationTesterRuntime;
     MutationOrder mutationOrder;
     bool dryRun;
-    bool schemata;
 
     /// How to behave when new test cases are detected.
     enum NewTestCases {
