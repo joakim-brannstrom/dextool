@@ -11,6 +11,7 @@ module dextool.plugin.mutate.frontend.frontend;
 
 import logger = std.experimental.logger;
 import std.exception : collectException;
+import std.typecons : Nullable;
 
 import dextool.compilation_db;
 import dextool.type : AbsolutePath, FileName, ExitStatusType;
@@ -20,6 +21,8 @@ import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
     ReportLevel, AdminOperation;
 import dextool.plugin.mutate.config;
 import dextool.utility : asAbsNormPath;
+
+import mutantschemata: makeSchemataApi, runSchemataTester, SchemataInformation, SchemataApi;
 
 @safe:
 
@@ -271,7 +274,8 @@ ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
 
     printFileAnalyzeHelp(conf);
 
-    return runAnalyzer(dacc.db, conf.compiler, dacc.frange, dacc.validateLoc, dacc.io);
+    return runAnalyzer(dacc.db, conf.compiler, dacc.frange, dacc.validateLoc,
+                        dacc.io, makeSchemataInformation(conf, dacc));
 }
 
 ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {
@@ -283,9 +287,17 @@ ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {
 
 ExitStatusType modeTestMutants(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : makeTestMutant;
+    import std.range.primitives: empty;
 
-    return makeTestMutant.config(conf.mutationTest)
-        .mutations(conf.data.mutation).run(dacc.db, dacc.io);
+    if (!conf.data.testSchemata.empty) {
+	SchemataApi sa = makeSchemataApi(makeSchemataInformation(conf, dacc));
+	ExitStatusType est = runSchemataTester(sa, conf.mutationTest);
+	sa.apiClose();
+	return est;
+    } else {
+        return makeTestMutant.config(conf.mutationTest).mutations(conf.data.mutation).run(dacc.db, dacc.io);
+    }
+
 }
 
 ExitStatusType modeReport(ref ArgParser conf, ref DataAccess dacc) {
@@ -300,4 +312,28 @@ ExitStatusType modeAdmin(ref ArgParser conf, ref DataAccess dacc) {
     return makeAdmin().operation(conf.admin.adminOp).mutations(conf.data.mutation)
         .fromStatus(conf.admin.mutantStatus).toStatus(conf.admin.mutantToStatus)
         .testCaseRegex(conf.admin.testCaseRegex).run(dacc.db);
+}
+
+Nullable!SchemataInformation makeSchemataInformation(ref ArgParser conf, ref DataAccess dacc){
+    import std.range.primitives: empty;
+    import dextool.type: Path;
+
+    typeof(return) rval;
+    import std.stdio: writeln;
+
+    if (!conf.data.analyzeSchemata.empty) {
+        rval = SchemataInformation(
+            AbsolutePath(Path(conf.data.db)),
+            dacc.fusedCompileDb,
+            AbsolutePath(Path(conf.compileDb.dbs[0])),
+            !conf.data.analyzeSchemata.empty);
+    } else if (!conf.data.testSchemata.empty) {
+      rval = SchemataInformation(
+            AbsolutePath(Path(conf.data.db)),
+            dacc.fusedCompileDb,
+            AbsolutePath(Path("")),
+            !conf.data.testSchemata.empty);
+    }
+
+    return rval;
 }

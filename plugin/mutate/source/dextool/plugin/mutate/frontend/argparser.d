@@ -26,6 +26,8 @@ import dextool.plugin.mutate.config;
 import dextool.utility : asAbsNormPath;
 import dextool.type : AbsolutePath, Path, ExitStatusType, ShellCommand;
 
+import mutantschemata : SchemataInformation;
+
 @safe:
 
 /// Extract and cleanup user input from the command line.
@@ -47,6 +49,9 @@ struct ArgParser {
 
     struct Data {
         string[] inFiles;
+	string analyzeSchemata;
+	string testSchemata;
+        //string mainfile;
 
         AbsolutePath db;
 
@@ -184,8 +189,13 @@ struct ArgParser {
 
         const db_help = "sqlite3 database to use (default: dextool_mutate.sqlite3)";
         const restrict_help = "restrict analysis to files in this directory tree (default: .)";
+        const in_help = "Input file to parse (default: all files in the compilation database)";
         const out_help = "path used as the root for mutation/reporting of files (default: .)";
         const conf_help = "load configuration (default: .dextool_mutate.toml)";
+        const compiledb_help = "Retrieve compilation parameters from the file";
+        const schemata_help = "Use mutantschemata while mutation testing (default: no)";
+        //const main_help = "Mainfile to set MUTANT_NR in (default: none)";
+
 
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
@@ -197,12 +207,14 @@ struct ArgParser {
             data.toolMode = ToolMode.analyzer;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile-db", "Retrieve compilation parameters from the file", &compile_dbs,
+                   "compile-db", compiledb_help, &compile_dbs,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
-                   "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
+                   "in", in_help, &data.inFiles,
                    "out", out_help, &workArea.rawRoot,
                    "restrict", restrict_help, &workArea.rawRestrict,
+                   "schemata", schemata_help, &data.analyzeSchemata,
+                   //"main", main_help, &data.mainfile,
                    );
             // dfmt on
 
@@ -254,6 +266,7 @@ struct ArgParser {
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
+                   "schemata", "schemata mode for executing the mutants", &data.testSchemata,
                    );
             // dfmt on
 
