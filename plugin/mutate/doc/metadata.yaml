@@ -8,4 +8,12 @@ language: en-US
 stylesheet: epub.css
 abstract: |
     The purpose of this plugin is to perform mutation testing of a _target_.
+numbersections: true
+links-as-notes: true
+colorlinks: true
+lof: true
+header-includes:
+  - \usepackage{graphicx}
+  - \usepackage{float}
+  - \usepackage{wrapfig}
 ...
