@@ -19,10 +19,11 @@ import std.typecons : Nullable, NullableRef, nullableRef, Tuple;
 import logger = std.experimental.logger;
 
 import blob_model : Blob, Uri;
+import sumtype;
 
 import dextool.fsm : Fsm, next, act, get, TypeDataMap;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
-    NextMutationEntry, spinSql;
+    NextMutationEntry, spinSql, MutantTimeoutCtx, MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config;
@@ -64,16 +65,14 @@ nothrow:
     }
 
     ExitStatusType run(ref Database db, FilesysIO fio) nothrow {
-        auto mutationFactory(DriverData d, Duration test_base_timeout) @safe nothrow {
+        auto mutationFactory(DriverData d, Duration test_base_timeout, MutationEntry mutp) @safe nothrow {
             import std.typecons : Unique;
             import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
 
             try {
-                auto global = MutationTestDriver.Global(d.filesysIO, d.db, d.autoCleanup);
-                // TODO: this may not be needed.
+                auto global = MutationTestDriver.Global(d.filesysIO, d.db, d.autoCleanup, mutp);
                 global.test_cases = new GatherTestCase;
                 return Unique!MutationTestDriver(new MutationTestDriver(global,
-                        MutationTestDriver.MutateCodeData(d.mutKind),
                         MutationTestDriver.TestMutantData(!(d.conf.mutationTestCaseAnalyze.empty
                         && d.conf.mutationTestCaseBuiltin.empty), d.conf.mutationCompile,
                         d.conf.mutationTester, test_base_timeout),
@@ -247,8 +246,8 @@ struct MutationTestDriver {
         FilesysIO fio;
         NullableRef!Database db;
         AutoCleanup auto_cleanup;
+        MutationEntry mutp;
 
-        Nullable!MutationEntry mutp;
         AbsolutePath mut_file;
         Blob original;
 
@@ -257,10 +256,6 @@ struct MutationTestDriver {
         GatherTestCase test_cases;
 
         StopWatch sw;
-    }
-
-    static struct MutateCodeData {
-        const(Mutation.Kind)[] mut_kind;
     }
 
     static struct TestMutantData {
@@ -286,7 +281,6 @@ struct MutationTestDriver {
 
     static struct MutateCode {
         bool next;
-        bool allMutantsTested;
         bool filesysError;
         bool mutationError;
     }
@@ -313,9 +307,6 @@ struct MutationTestDriver {
     static struct Done {
     }
 
-    static struct AllMutantsTested {
-    }
-
     static struct FilesysError {
     }
 
@@ -327,18 +318,19 @@ struct MutationTestDriver {
     static struct NoResult {
     }
 
-    alias Fsm = dextool.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode, TestCaseAnalyze,
-            StoreResult, Done, AllMutantsTested, FilesysError, NoResultRestoreCode, NoResult);
+    alias Fsm = dextool.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode,
+            TestCaseAnalyze, StoreResult, Done, FilesysError, NoResultRestoreCode, NoResult);
     Fsm fsm;
 
     Global global;
+    MutationTestResult result;
 
-    alias LocalStateDataT = Tuple!(MutateCodeData, TestMutantData, TestCaseAnalyzeData);
-    TypeDataMap!(LocalStateDataT, MutateCode, TestMutant, TestCaseAnalyze) local;
+    alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData);
+    TypeDataMap!(LocalStateDataT, TestMutant, TestCaseAnalyze) local;
 
-    this(Global global, MutateCodeData l0, TestMutantData l1, TestCaseAnalyzeData l2) {
+    this(Global global, TestMutantData l1, TestCaseAnalyzeData l2) {
         this.global = global;
-        this.local = LocalStateDataT(l0, l1, l2);
+        this.local = LocalStateDataT(l1, l2);
     }
 
     void execute_() {
@@ -346,8 +338,6 @@ struct MutationTestDriver {
                 (Initialize a) => fsm(MutateCode.init), (MutateCode a) {
             if (a.next)
                 return fsm(TestMutant.init);
-            else if (a.allMutantsTested)
-                return fsm(AllMutantsTested.init);
             else if (a.filesysError)
                 return fsm(FilesysError.init);
             else if (a.mutationError)
@@ -372,11 +362,11 @@ struct MutationTestDriver {
                 return fsm(FilesysError.init);
             return fsm(a);
         }, (StoreResult a) { return fsm(Done.init); }, (Done a) => fsm(a),
-                (AllMutantsTested a) => fsm(a), (FilesysError a) => fsm(a),
+                (FilesysError a) => fsm(a),
                 (NoResultRestoreCode a) => fsm(NoResult.init), (NoResult a) => fsm(a),);
 
         fsm.act!((None a) {}, (Initialize a) { global.sw.start; }, this, (Done a) {
-        }, (AllMutantsTested a) {}, (FilesysError a) {
+        }, (FilesysError a) {
             logger.warning("Filesystem error").collectException;
         }, (NoResultRestoreCode a) { RestoreCode tmp; this.opCall(tmp); }, (NoResult a) {
         },);
@@ -394,15 +384,11 @@ nothrow:
 
     /// Returns: true as long as the driver is processing a mutant.
     bool isRunning() {
-        return !fsm.isState!(Done, NoResult, FilesysError, AllMutantsTested);
+        return !fsm.isState!(Done, NoResult, FilesysError);
     }
 
     bool stopBecauseError() {
         return fsm.isState!(FilesysError);
-    }
-
-    bool stopMutationTesting() {
-        return fsm.isState!(AllMutantsTested);
     }
 
     void opCall(ref MutateCode data) {
@@ -411,19 +397,8 @@ nothrow:
         import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
             GenerateMutantResult, GenerateMutantStatus;
 
-        auto next_m = spinSql!(() {
-            return global.db.nextMutation(local.get!MutateCode.mut_kind);
-        });
-        if (next_m.st == NextMutationEntry.Status.done) {
-            logger.info("Done! All mutants are tested").collectException;
-            data.allMutantsTested = true;
-            return;
-        } else {
-            global.mutp = next_m.entry;
-        }
-
         try {
-            global.mut_file = AbsolutePath(FileName(global.mutp.get.file),
+            global.mut_file = AbsolutePath(FileName(global.mutp.file),
                     DirName(global.fio.getOutputDir));
             global.original = global.fio.makeInput(global.mut_file);
         } catch (Exception e) {
@@ -436,7 +411,7 @@ nothrow:
         // mutate
         try {
             auto fout = global.fio.makeOutput(global.mut_file);
-            auto mut_res = generateMutant(global.db.get, global.mutp.get, global.original, fout);
+            auto mut_res = generateMutant(global.db.get, global.mutp, global.original, fout);
 
             final switch (mut_res.status) with (GenerateMutantStatus) {
             case error:
@@ -458,10 +433,9 @@ nothrow:
             case ok:
                 data.next = true;
                 try {
-                    logger.infof("%s from '%s' to '%s' in %s:%s:%s", global.mutp.get.id,
+                    logger.infof("%s from '%s' to '%s' in %s:%s:%s", global.mutp.id,
                             cast(const(char)[]) mut_res.from, cast(const(char)[]) mut_res.to,
-                            global.mut_file, global.mutp.get.sloc.line,
-                            global.mutp.get.sloc.column);
+                            global.mut_file, global.mutp.sloc.line, global.mutp.sloc.column);
 
                 } catch (Exception e) {
                     logger.warning("Mutation ID", e.msg);
@@ -477,12 +451,9 @@ nothrow:
     void opCall(ref TestMutant data) {
         import dextool.type : Path;
 
-        // TODO: move mutp to the state local data.
-        assert(!global.mutp.isNull);
-
         if (local.get!TestMutant.hasTestCaseOutputAnalyzer) {
             try {
-                auto tmpdir = createTmpDir(global.mutp.get.id);
+                auto tmpdir = createTmpDir(global.mutp.id);
                 if (tmpdir.length == 0) {
                     data.mutationError = true;
                     return;
@@ -570,26 +541,9 @@ nothrow:
     }
 
     void opCall(StoreResult data) {
-        import std.algorithm : sort, map;
-
         global.sw.stop;
-
-        const cnt_action = () {
-            if (global.mut_status == Mutation.Status.alive)
-                return Database.CntAction.incr;
-            return Database.CntAction.reset;
-        }();
-
-        spinSql!(() {
-            global.db.updateMutation(global.mutp.get.id, global.mut_status,
-                global.sw.peek, global.test_cases.failedAsArray, cnt_action);
-        });
-
-        logger.infof("%s %s (%s)", global.mutp.get.id, global.mut_status,
-                global.sw.peek).collectException;
-        logger.infof(global.test_cases.failed.length != 0, `%s killed by [%-(%s, %)]`,
-                global.mutp.get.id, global.test_cases.failedAsArray.sort.map!"a.name")
-            .collectException;
+        result.value = MutationTestResult.StatusUpdate(global.mutp.id,
+                global.mut_status, global.sw.peek, global.test_cases.failedAsArray);
     }
 
     void opCall(ref RestoreCode data) {
@@ -610,16 +564,26 @@ nothrow:
 
 struct TestDriver(alias mutationDriverFactory) {
     import std.typecons : Unique;
-    import dextool.plugin.mutate.backend.watchdog : ProgressivWatchdog;
+    import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
 
     static struct Global {
         DriverData data;
-        ProgressivWatchdog prog_wd;
         Unique!MutationTestDriver mut_driver;
+
+        TimeoutFsm timeoutFsm;
+        /// The time it takes to execute the test suite when no mutant is injected.
+        Duration testSuiteRuntime;
+
+        /// the next mutant to test, if there are any.
+        MutationEntry nextMutant;
+
+        // when the user manually configure the timeout it means that the
+        // timeout algorithm should not be used.
+        bool hardcodedTimeout;
     }
 
-    static struct CheckTimeoutData {
-        long last_timeout_mutant_count = long.max;
+    static struct UpdateTimeoutData {
+        long lastTimeoutIter;
     }
 
     static struct None {
@@ -659,19 +623,11 @@ struct TestDriver(alias mutationDriverFactory) {
     static struct MutationTest {
         bool next;
         bool mutationError;
-        bool allMutantsTested;
+        MutationTestResult result;
     }
 
     static struct CheckTimeout {
-        bool next;
         bool timeoutUnchanged;
-    }
-
-    static struct IncrWatchdog {
-    }
-
-    static struct ResetTimeout {
-        bool next;
     }
 
     static struct Done {
@@ -680,23 +636,39 @@ struct TestDriver(alias mutationDriverFactory) {
     static struct Error {
     }
 
+    static struct UpdateTimeout {
+    }
+
+    static struct NextMutant {
+        bool noUnknownMutantsLeft;
+    }
+
+    static struct HandleTestResult {
+        MutationTestResult result;
+    }
+
     alias Fsm = dextool.fsm.Fsm!(None, Initialize, SanityCheck,
             UpdateAndResetAliveMutants, ResetOldMutants, CleanupTempDirs,
-            CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
-            MutationTest, CheckTimeout, IncrWatchdog, ResetTimeout, Done, Error);
+            CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest, NextMutant,
+            MutationTest, HandleTestResult, CheckTimeout, Done, Error, UpdateTimeout);
 
     Fsm fsm;
 
     Global global;
 
-    alias LocalStateDataT = Tuple!(CheckTimeoutData);
-    TypeDataMap!(LocalStateDataT, CheckTimeout) local;
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData);
+    TypeDataMap!(LocalStateDataT, UpdateTimeout) local;
 
     this(DriverData data) {
         this.global = Global(data);
+        this.global.timeoutFsm = TimeoutFsm(data.mutKind);
+        this.global.hardcodedTimeout = !global.data.conf.mutationTesterRuntime.isNull;
     }
 
     void execute_() {
+        // see test_mutant/basis.md and figures/test_mutant_fsm.pu for a
+        // graphical view of the state machine.
+
         fsm.next!((None a) => fsm(Initialize.init),
                 (Initialize a) => fsm(SanityCheck.init), (SanityCheck a) {
             if (a.sanityCheckFailed)
@@ -704,7 +676,7 @@ struct TestDriver(alias mutationDriverFactory) {
             return fsm(PreCompileSut.init);
         }, (UpdateAndResetAliveMutants a) => fsm(ResetOldMutants.init),
                 (ResetOldMutants a) => fsm(CheckMutantsLeft.init),
-                (CleanupTempDirs a) => fsm(PreMutationTest.init), (CheckMutantsLeft a) {
+                (CleanupTempDirs a) => fsm(NextMutant.init), (CheckMutantsLeft a) {
             if (a.allMutantsTested)
                 return fsm(Done.init);
             return fsm(MeasureTestSuite.init);
@@ -715,25 +687,22 @@ struct TestDriver(alias mutationDriverFactory) {
         }, (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
-            return fsm(CleanupTempDirs.init);
-        }, (PreMutationTest a) => fsm(MutationTest.init), (MutationTest a) {
-            if (a.next)
-                return fsm(CleanupTempDirs.init);
-            else if (a.allMutantsTested)
+            return fsm(UpdateTimeout.init);
+        }, (NextMutant a) {
+            if (a.noUnknownMutantsLeft)
                 return fsm(CheckTimeout.init);
+            return fsm(PreMutationTest.init);
+        }, (PreMutationTest a) => fsm(MutationTest.init),
+                (UpdateTimeout a) => fsm(CleanupTempDirs.init), (MutationTest a) {
+            if (a.next)
+                return fsm(HandleTestResult(a.result));
             else if (a.mutationError)
                 return fsm(Error.init);
             return fsm(a);
-        }, (CheckTimeout a) {
-            if (a.next)
-                return fsm(IncrWatchdog.init);
-            else if (a.timeoutUnchanged)
+        }, (HandleTestResult a) => fsm(UpdateTimeout.init), (CheckTimeout a) {
+            if (a.timeoutUnchanged)
                 return fsm(Done.init);
-            return fsm(a);
-        }, (IncrWatchdog a) => fsm(ResetTimeout.init), (ResetTimeout a) {
-            if (a.next)
-                return fsm(CleanupTempDirs.init);
-            return fsm(a);
+            return fsm(UpdateTimeout.init);
         }, (Done a) => fsm(a), (Error a) => fsm(a),);
 
         fsm.act!((None a) {}, (Initialize a) {}, this,);
@@ -941,13 +910,12 @@ nothrow:
     }
 
     void opCall(ref CheckMutantsLeft data) {
-        auto mutant = spinSql!(() {
-            return global.data.db.nextMutation(global.data.mutKind);
-        });
+        spinSql!(() { global.timeoutFsm.execute(global.data.db); });
 
-        if (mutant.st == NextMutationEntry.Status.done) {
+        data.allMutantsTested = global.timeoutFsm.output.done;
+
+        if (global.timeoutFsm.output.done) {
             logger.info("Done! All mutants are tested").collectException;
-            data.allMutantsTested = true;
         }
     }
 
@@ -984,7 +952,7 @@ nothrow:
                 // A proper fix requires an update of the sampler in runTester.
                 auto t = tester.runtime < 1.dur!"seconds" ? 1.dur!"seconds" : tester.runtime;
                 logger.info("Tester measured to: ", t).collectException;
-                global.prog_wd = ProgressivWatchdog(t);
+                global.testSuiteRuntime = t;
             } else {
                 data.unreliableTestSuite = true;
                 logger.error(
@@ -992,12 +960,14 @@ nothrow:
                     .collectException;
             }
         } else {
-            global.prog_wd = ProgressivWatchdog(global.data.conf.mutationTesterRuntime.get);
+            global.testSuiteRuntime = global.data.conf.mutationTesterRuntime.get;
         }
     }
 
     void opCall(PreMutationTest) {
-        global.mut_driver = mutationDriverFactory(global.data, global.prog_wd.timeout);
+        global.mut_driver = mutationDriverFactory(global.data,
+                calculateTimeout(global.timeoutFsm.output.iter, global.testSuiteRuntime),
+                global.nextMutant);
     }
 
     void opCall(ref MutationTest data) {
@@ -1005,53 +975,78 @@ nothrow:
             global.mut_driver.execute();
         } else if (global.mut_driver.stopBecauseError) {
             data.mutationError = true;
-        } else if (global.mut_driver.stopMutationTesting) {
-            data.allMutantsTested = true;
         } else {
+            data.result = global.mut_driver.result;
             data.next = true;
         }
     }
 
     void opCall(ref CheckTimeout data) {
-        auto entry = spinSql!(() {
-            return global.data.db.timeoutMutants(global.data.mutKind);
+        data.timeoutUnchanged = global.hardcodedTimeout || global.timeoutFsm.output.done;
+    }
+
+    void opCall(UpdateTimeout) {
+        spinSql!(() { global.timeoutFsm.execute(global.data.db); });
+
+        const lastIter = local.get!UpdateTimeout.lastTimeoutIter;
+
+        if (lastIter != global.timeoutFsm.output.iter) {
+            logger.infof("Changed the timeout from %s to %s (iteration %s)",
+                    calculateTimeout(lastIter, global.testSuiteRuntime),
+                    calculateTimeout(global.timeoutFsm.output.iter, global.testSuiteRuntime),
+                    global.timeoutFsm.output.iter).collectException;
+            local.get!UpdateTimeout.lastTimeoutIter = global.timeoutFsm.output.iter;
+        }
+    }
+
+    void opCall(ref NextMutant data) {
+        global.nextMutant = MutationEntry.init;
+
+        auto next = spinSql!(() {
+            return global.data.db.nextMutation(global.data.mutKind);
         });
 
-        try {
-            if (!global.data.conf.mutationTesterRuntime.isNull) {
-                // the user have supplied a timeout thus ignore this algorithm
-                // for increasing the timeout
-                data.timeoutUnchanged = true;
-            } else if (entry.count == 0) {
-                data.timeoutUnchanged = true;
-            } else if (entry.count == local.get!CheckTimeout.last_timeout_mutant_count) {
-                // no change between current pool of timeout mutants and the previous
-                data.timeoutUnchanged = true;
-            } else if (entry.count < local.get!CheckTimeout.last_timeout_mutant_count) {
-                data.next = true;
-                logger.info("Mutants with the status timeout: ", entry.count);
-            }
+        data.noUnknownMutantsLeft = next.st == NextMutationEntry.Status.done;
 
-            local.get!CheckTimeout.last_timeout_mutant_count = entry.count;
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
+        if (!next.entry.isNull) {
+            global.nextMutant = next.entry.get;
         }
     }
 
-    void opCall(IncrWatchdog data) {
-        global.prog_wd.incrTimeout;
-        logger.info("Increasing timeout to: ", global.prog_wd.timeout).collectException;
-    }
+    void opCall(HandleTestResult data) {
+        void statusUpdate(MutationTestResult.StatusUpdate result) {
+            import std.algorithm : sort, map;
+            import dextool.plugin.mutate.backend.test_mutant.timeout : updateMutantStatus;
 
-    void opCall(ref ResetTimeout data) {
-        try {
-            global.data.db.resetMutant(global.data.mutKind,
-                    Mutation.Status.timeout, Mutation.Status.unknown);
-            data.next = true;
-        } catch (Exception e) {
-            // database is locked
-            logger.warning(e.msg).collectException;
+            const cnt_action = () {
+                if (result.status == Mutation.Status.alive)
+                    return Database.CntAction.incr;
+                return Database.CntAction.reset;
+            }();
+
+            auto statusId = spinSql!(() {
+                return global.data.db.getMutationStatusId(result.id);
+            });
+            if (statusId.isNull)
+                return;
+
+            spinSql!(() @trusted {
+                auto t = global.data.db.transaction;
+                updateMutantStatus(global.data.db, statusId.get, result.status,
+                    global.timeoutFsm.output.iter);
+                global.data.db.updateMutation(statusId.get, cnt_action);
+                global.data.db.updateMutation(statusId.get, result.testTime);
+                global.data.db.updateMutationTestCases(statusId.get, result.testCases);
+                t.commit;
+            });
+
+            logger.infof("%s %s (%s)", result.id, result.status, result.testTime).collectException;
+            logger.infof(result.testCases.length != 0, `%s killed by [%-(%s, %)]`,
+                    result.id, result.testCases.sort.map!"a.name").collectException;
         }
+
+        data.result.value.match!((MutationTestResult.NoResult a) {},
+                (MutationTestResult.StatusUpdate a) => statusUpdate(a));
     }
 }
 
@@ -1288,4 +1283,20 @@ class AutoCleanup {
 
         remove_dirs = remove_dirs.filter!(a => !a.empty).array;
     }
+}
+
+/// The result of testing a mutant.
+struct MutationTestResult {
+    static struct NoResult {
+    }
+
+    static struct StatusUpdate {
+        MutationId id;
+        Mutation.Status status;
+        Duration testTime;
+        TestCase[] testCases;
+    }
+
+    alias Value = SumType!(NoResult, StatusUpdate);
+    Value value;
 }

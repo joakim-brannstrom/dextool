@@ -189,8 +189,14 @@ struct Analyzer {
         db.put(mdata.data);
     }
 
-    void finalize() @safe {
+    void finalize() @trusted {
+        import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
+
+        auto t = db.transaction;
+        resetTimeoutContext(db);
         db.removeOrphanedMutants;
+        t.commit;
+
         printPrunedFiles(before_files, files_with_mutations, fio.getOutputDir);
     }
 }

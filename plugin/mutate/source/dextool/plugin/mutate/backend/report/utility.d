@@ -522,7 +522,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.timeout = timeout.count;
     st.untested = untested.count;
     st.total = total.count;
-	st.killedByCompiler = killed_by_compiler.count;
+    st.killedByCompiler = killed_by_compiler.count;
 
     st.totalTime = total.time;
     st.predictedDone = st.total > 0 ? (st.untested * (st.totalTime / st.total)) : 0.dur!"msecs";

@@ -67,14 +67,16 @@ import miniorm : Miniorm, TableName, buildSchema, ColumnParam, TableForeignKey,
 immutable allTestCaseTable = "all_test_case";
 immutable filesTable = "files";
 immutable killedTestCaseTable = "killed_test_case";
+immutable mutantTimeoutCtxTable = "mutant_timeout_ctx";
+immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
 immutable mutationPointTable = "mutation_point";
 immutable mutationStatusTable = "mutation_status";
 immutable mutationTable = "mutation";
-immutable srcMetadataTable = "src_metadata";
+immutable nomutDataTable = "nomut_data";
+immutable nomutTable = "nomut";
 immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable schemaVersionTable = "schema_version";
-immutable nomutTable = "nomut";
-immutable nomutDataTable = "nomut_data";
+immutable srcMetadataTable = "src_metadata";
 
 private immutable testCaseTableV1 = "test_case";
 
@@ -381,6 +383,34 @@ struct MutationStatusTbl {
     ulong checksum1;
 }
 
+@TableName(mutantTimeoutWorklistTable)
+@TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+struct MutantTimeoutWorklist {
+    ulong id;
+}
+
+/** The defaults for the schema is the state that the state machine start in.
+ *
+ * This mean that if there are nothing in the database then `.init` is the correct starting point.
+ */
+@TableName(mutantTimeoutCtxTable)
+struct MutantTimeoutCtx {
+    /// What iteration the timeout testing is at.
+    long iter;
+
+    /// Last count of the mutants in the worklist that where in the timeout state.
+    long worklistCount;
+
+    enum State {
+        init_,
+        running,
+        done
+    }
+
+    /// State of the timeout algorithm.
+    State state;
+}
+
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
         db.run(delete_!VersionTbl);
@@ -449,8 +479,8 @@ void upgrade(ref Miniorm db) nothrow {
 void upgradeV0(ref Miniorm db) {
     enum tbl = makeUpgradeTable;
 
-    db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl, MutationPointTbl,
-            MutationTbl, TestCaseKilledTbl, AllTestCaseTbl, MutationStatusTbl));
+    db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl, MutationPointTbl, MutationTbl, TestCaseKilledTbl,
+            AllTestCaseTbl, MutationStatusTbl, MutantTimeoutCtx, MutantTimeoutWorklist));
 
     makeSrcMetadataView(db);
 
@@ -769,6 +799,12 @@ void upgradeV11(ref Miniorm db) {
     makeSrcMetadataView(db);
 
     updateSchemaVersion(db, 12);
+}
+
+/// 2019-08-28
+void upgradeV12(ref Miniorm db) {
+    db.run(buildSchema!(MutantTimeoutCtx, MutantTimeoutWorklist));
+    updateSchemaVersion(db, 13);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
