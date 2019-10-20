@@ -3,13 +3,13 @@
 start
 :get context from db;
 if (state is) then (init)
-    :add mutant to worklist;
-    :set mutant status to timeout;
+    if (status is) then (timeout)
+        :add mutant to worklist;
+    endif
+    :set mutant status;
 elseif (state is) then (running)
     if (local_iter == db_iter) then (yes)
         :set mutant status;
-    else
-        :local_iter = db_iter;
     endif
 endif
 stop
