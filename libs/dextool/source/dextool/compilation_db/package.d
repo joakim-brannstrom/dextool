@@ -647,6 +647,8 @@ struct ParseFlags {
 ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
         const Compiler user_compiler = Compiler.init) @safe {
     import std.algorithm : among, map;
+    import std.algorithm.mutation: strip;
+    import std.string: indexOf;
 
     static bool excludeStartWith(const string raw_flag, const FilterClangFlag[] flag_filter) @safe {
         import std.algorithm : startsWith, filter, count;
@@ -701,6 +703,17 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
         return 0 != flag.among("-D");
     }
 
+    /// Flags that is includes but contains spaces are wrapped in quotation marks.
+    static bool isSpacedInclude(string flag) @safe {
+	return flag[0 .. 2] == "-I" && indexOf(flag, '"') == 2;
+    }
+
+    /// When we know we are building a path that is space separated,
+    /// the last index of the last string should be a quotation mark.
+    static bool isEndingWithQuotation(string flag) @safe {
+	return indexOf(flag, '"') == (flag.length-1);
+    }
+
     static ParseFlags filterPair(string[] r,
             CompileCommand.AbsoluteDirectory workdir, const FilterClangFlag[] flag_filter) @safe {
         enum State {
@@ -714,9 +727,11 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
             skip,
             /// skip the next arg, if it is not a flag
             skipIfNotFlag,
+	    /// use the next arg to create a complete path
+	    checkingForQuotation,
         }
 
-        import std.path : buildNormalizedPath, absolutePath;
+	import std.path : buildNormalizedPath, absolutePath;
         import std.array : appender, array;
         import std.range : ElementType;
 
@@ -724,6 +739,13 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
         auto rval = appender!(string[]);
         auto includes = appender!(string[]);
         auto compiler = Compiler(r.length == 0 ? null : r[0]);
+	auto path = appender!(string);
+
+	void putNormalizedAbsolute(string arg) {
+	  auto p = buildNormalizedPath(workdir, arg).absolutePath;
+          rval.put(p);
+          includes.put(p);
+	}
 
         foreach (arg; r) {
             // First states and how to handle those.
@@ -739,19 +761,25 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
                 st = State.keep;
             } else if (st == State.pathArgumentToAbsolute) {
                 st = State.keep;
-                auto p = buildNormalizedPath(workdir, arg).absolutePath;
-                rval.put(p);
-                includes.put(p);
+                putNormalizedAbsolute(arg);
             } else if (st == State.priorityKeepNextArg) {
                 st = State.keep;
                 rval.put(arg);
+	    } else if (st == State.checkingForQuotation) {
+		path.put(" " ~ arg);
+		if (isEndingWithQuotation(arg)) {
+		  st = State.keep;
+		  putNormalizedAbsolute(path.data.strip('"'));
+		}
             } else if (excludeStartWith(arg, flag_filter)) {
                 st = State.skipIfNotFlag;
-            } else if (isCombinedIncludeFlag(arg)) {
+	    } else if (isSpacedInclude(arg)) {
+		st = State.checkingForQuotation;
+		path.put(arg[2 .. $]);
+		rval.put("-I");
+	    } else if (isCombinedIncludeFlag(arg)) {
                 rval.put("-I");
-                auto p = buildNormalizedPath(workdir, arg[2 .. $]).absolutePath;
-                rval.put(p);
-                includes.put(p);
+		putNormalizedAbsolute(arg[2 .. $]);
             } else if (isFlagAndPath(arg)) {
                 rval.put(arg);
                 st = State.pathArgumentToAbsolute;
@@ -765,12 +793,10 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
                 rval.put(arg);
             }
         }
-
         return ParseFlags(compiler, includes.data.map!(a => ParseFlags.Include(a)).array, rval.data);
     }
 
     import std.algorithm : filter, splitter, min;
-
     string[] skipArgs = () @safe {
         string[] args;
         if (cmd.command.hasValue)
