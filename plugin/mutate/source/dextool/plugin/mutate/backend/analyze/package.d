@@ -112,8 +112,6 @@ struct Analyzer {
 
         if (analyzed_files.contains(checked_in_file))
             return;
-        if (!val_loc.shouldAnalyze(checked_in_file))
-            return;
 
         analyzed_files.add(checked_in_file);
 
