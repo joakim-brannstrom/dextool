@@ -646,13 +646,12 @@ struct ParseFlags {
  */
 ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
         const Compiler user_compiler = Compiler.init) @safe {
-    import std.algorithm : among, map;
-    import std.algorithm.mutation: strip;
-    import std.string: indexOf;
+    import std.algorithm : among, map, strip;
+    import std.string : indexOf, empty;
 
     static bool excludeStartWith(const string raw_flag, const FilterClangFlag[] flag_filter) @safe {
         import std.algorithm : startsWith, filter, count;
-        import std.array : split, empty;
+        import std.array : split;
 
         // the purpuse is to find if any of the flags in flag_filter matches
         // the start of flag.
@@ -679,10 +678,14 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
         // dfmt on
     }
 
+    static bool isInclude(string flag) @safe {
+        return flag[0 .. 2] == "-I";
+    }
+
     static bool isCombinedIncludeFlag(string flag) @safe {
         // if an include flag make it absolute, as one argument by checking
         // length. 3 is to only match those that are -Ixyz
-        return flag.length >= 3 && flag[0 .. 2] == "-I";
+        return flag.length >= 3 && isInclude(flag);
     }
 
     static bool isNotAFlag(string flag) @safe {
@@ -705,13 +708,13 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
 
     /// Flags that is includes but contains spaces are wrapped in quotation marks.
     static bool isSpacedInclude(string flag) @safe {
-	return flag[0 .. 2] == "-I" && indexOf(flag, '"') == 2;
+        return isCombinedIncludeFlag(flag) && (indexOf(flag, '"') == 2 || indexOf(flag, '"') == 3);
     }
 
     /// When we know we are building a path that is space separated,
     /// the last index of the last string should be a quotation mark.
     static bool isEndingWithQuotation(string flag) @safe {
-	return indexOf(flag, '"') == (flag.length-1);
+        return flag.length != 0 && indexOf(flag, '"') == (flag.length - 1);
     }
 
     static ParseFlags filterPair(string[] r,
@@ -727,25 +730,25 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
             skip,
             /// skip the next arg, if it is not a flag
             skipIfNotFlag,
-	    /// use the next arg to create a complete path
-	    checkingForQuotation,
+            /// use the next arg to create a complete path
+            checkingForQuotation,
         }
 
-	import std.path : buildNormalizedPath, absolutePath;
-        import std.array : appender, array;
+        import std.path : buildNormalizedPath, absolutePath;
+        import std.array : Appender, appender, array, join;
         import std.range : ElementType;
 
         auto st = State.keep;
         auto rval = appender!(string[]);
         auto includes = appender!(string[]);
         auto compiler = Compiler(r.length == 0 ? null : r[0]);
-	auto path = appender!(string);
+        Appender!(string[]) path;
 
-	void putNormalizedAbsolute(string arg) {
-	  auto p = buildNormalizedPath(workdir, arg).absolutePath;
-          rval.put(p);
-          includes.put(p);
-	}
+        void putNormalizedAbsolute(string arg) {
+            auto p = buildNormalizedPath(workdir, arg).absolutePath;
+            rval.put(p);
+            includes.put(p);
+        }
 
         foreach (arg; r) {
             // First states and how to handle those.
@@ -765,21 +768,27 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
             } else if (st == State.priorityKeepNextArg) {
                 st = State.keep;
                 rval.put(arg);
-	    } else if (st == State.checkingForQuotation) {
-		path.put(" " ~ arg);
-		if (isEndingWithQuotation(arg)) {
-		  st = State.keep;
-		  putNormalizedAbsolute(path.data.strip('"'));
-		}
+            } else if (st == State.checkingForQuotation) {
+                if (!path.data.empty) {
+                    path.put(" ");
+                }
+                path.put(arg);
+                if (isEndingWithQuotation(arg)) {
+                    st = State.keep;
+                    putNormalizedAbsolute(path.data.join.strip('"'));
+                    path.clear();
+                }
             } else if (excludeStartWith(arg, flag_filter)) {
                 st = State.skipIfNotFlag;
-	    } else if (isSpacedInclude(arg)) {
-		st = State.checkingForQuotation;
-		path.put(arg[2 .. $]);
-		rval.put("-I");
-	    } else if (isCombinedIncludeFlag(arg)) {
+            } else if (isSpacedInclude(arg)) {
+                st = State.checkingForQuotation;
                 rval.put("-I");
-		putNormalizedAbsolute(arg[2 .. $]);
+                if (!arg[2 .. $].empty) {
+                    path.put(arg[2 .. $]);
+                }
+            } else if (isCombinedIncludeFlag(arg)) {
+                rval.put("-I");
+                putNormalizedAbsolute(arg[2 .. $]);
             } else if (isFlagAndPath(arg)) {
                 rval.put(arg);
                 st = State.pathArgumentToAbsolute;
@@ -797,6 +806,7 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
     }
 
     import std.algorithm : filter, splitter, min;
+
     string[] skipArgs = () @safe {
         string[] args;
         if (cmd.command.hasValue)
@@ -1205,4 +1215,30 @@ unittest {
     assert(found.length == 1);
 
     found[0].absoluteFile.baseName.shouldEqual("file3.cpp");
+}
+
+@("shall extract filepath from includes correctly when there is spaces in the path")
+unittest {
+    auto cmd = toCompileCommand("/home", "file.cpp", [
+            "-I", "dir with spaces/src"
+            ], AbsoluteCompileDbDirectory("/home"), null);
+    auto pargs = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    pargs.cflags.shouldEqual(["-I", "/home/dir with spaces/src"]);
+    pargs.includes.shouldEqual(["/home/dir with spaces/src"]);
+}
+
+@("shall handle path with spaces, both as separate string and combined")
+unittest {
+    auto cmd = toCompileCommand("/project", "file.cpp", [
+            "-I", "separate dir/with space", "-Icombined dir/with space/src"
+            ], AbsoluteCompileDbDirectory("/project"), null);
+    auto pargs = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    pargs.cflags.shouldEqual([
+            "-I", "/project/separate dir/with space", "-I",
+            "/project/combined dir/with space/src"
+            ]);
+    pargs.includes.shouldEqual([
+            "/project/separate dir/with space",
+            "/project/combined dir/with space/src"
+            ]);
 }
