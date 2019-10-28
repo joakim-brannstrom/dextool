@@ -25,12 +25,17 @@ The only acceptable dependency are:
 */
 module dextool.plugin.mutate.backend.database.standalone;
 
-import core.time : Duration;
+import core.time : Duration, dur;
 import logger = std.experimental.logger;
-import std.algorithm : map;
+import std.algorithm : copy, map, joiner;
 import std.array : Appender, appender, array;
-import std.datetime : SysTime;
+import std.conv : to;
+import std.datetime : SysTime, Clock;
+import std.exception : collectException;
 import std.format : format;
+import std.path : relativePath;
+import std.regex : Regex, matchFirst;
+import std.typecons : Nullable, Flag, No;
 
 import miniorm : toSqliteDateTime, fromSqLiteDateTime;
 
@@ -43,10 +48,7 @@ import dextool.plugin.mutate.backend.type : Language;
 /** Database wrapper with minimal dependencies.
  */
 struct Database {
-    import std.conv : to;
-    import std.exception : collectException;
-    import std.typecons : Nullable, Flag, No;
-    import miniorm : Miniorm, select, insert;
+    import miniorm : Miniorm, select, insert, delete_;
     import d2sqlite3 : SqlDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
@@ -61,10 +63,6 @@ struct Database {
     static auto make(string db) @safe {
         return Database(initializeDB(db));
     }
-
-    // Not movable. The database should only be passed around as a reference,
-    // if at all.
-    @disable this(this);
 
     /// If the file has already been analyzed.
     bool isAnalyzed(const Path p) @trusted {
@@ -162,8 +160,6 @@ struct Database {
      */
     void updateMutation(const MutationId id, const Mutation.Status st,
             const Duration d, const(TestCase)[] tcs, CntAction counter = CntAction.incr) @trusted {
-        import std.datetime : SysTime, Clock;
-
         enum sql = "UPDATE %s SET
             status=:st,time=:time,update_ts=:update_ts,%s
             WHERE
@@ -172,11 +168,11 @@ struct Database {
         auto stmt = () {
             final switch (counter) {
             case CntAction.incr:
-                return db.prepare(format(sql,
-                        mutationStatusTable, "test_cnt=test_cnt+1", mutationTable));
+                return db.prepare(format!sql(mutationStatusTable,
+                        "test_cnt=test_cnt+1", mutationTable));
             case CntAction.reset:
-                return db.prepare(format(sql,
-                        mutationStatusTable, "test_cnt=0", mutationTable));
+                return db.prepare(format!sql(mutationStatusTable,
+                        "test_cnt=0", mutationTable));
             }
         }();
 
@@ -189,6 +185,38 @@ struct Database {
         updateMutationTestCases(id, tcs);
     }
 
+    /** Update the counter of how many times the mutants has been alive.
+     *
+     * Params:
+     *  id = ID of the mutant
+     *  counter = how to act with the counter
+     */
+    void updateMutation(const MutationStatusId id, const CntAction counter) @trusted {
+        enum sql = "UPDATE %s SET %s WHERE id = :id";
+
+        auto stmt = () {
+            final switch (counter) {
+            case CntAction.incr:
+                return db.prepare(format!sql(mutationStatusTable,
+                        "test_cnt=test_cnt+1"));
+            case CntAction.reset:
+                return db.prepare(format!sql(mutationStatusTable, "test_cnt=0"));
+            }
+        }();
+
+        stmt.bind(":id", id.to!long);
+        stmt.execute;
+    }
+
+    /// Update the time used to test the mutant.
+    void updateMutation(const MutationStatusId id, const Duration testTime) @trusted {
+        enum sql = format!"UPDATE %s SET time=:time WHERE id = :id"(mutationStatusTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":id", id.to!long);
+        stmt.bind(":time", testTime.total!"msecs");
+        stmt.execute;
+    }
+
     /** Update the status of a mutant.
      *
      * Params:
@@ -198,17 +226,16 @@ struct Database {
      */
     void updateMutationStatus(const MutationStatusId id, const Mutation.Status st,
             Flag!"updateTs" update_ts = No.updateTs) @trusted {
-        import std.datetime : SysTime, Clock;
 
         auto stmt = () {
             if (update_ts) {
                 const ts = Clock.currTime.toUTC.toSqliteDateTime;
-                auto s = db.prepare(format("UPDATE %s SET status=:st,update_ts=:update_ts WHERE id=:id",
+                auto s = db.prepare(format!"UPDATE %s SET status=:st,update_ts=:update_ts WHERE id=:id"(
                         mutationStatusTable));
                 s.bind(":update_ts", ts);
                 return s;
             } else
-                return db.prepare(format("UPDATE %s SET status=:st WHERE id=:id",
+                return db.prepare(format!"UPDATE %s SET status=:st WHERE id=:id"(
                         mutationStatusTable));
         }();
         stmt.bind(":st", st.to!long);
@@ -266,8 +293,6 @@ struct Database {
         auto file = Path(FileName(v.peek!string(7)));
         auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
         auto lang = v.peek!long(8).to!Language;
-
-        import core.time : dur;
 
         rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
 
@@ -539,8 +564,6 @@ struct Database {
      */
     private MutationReportEntry countMutants(int[] status, bool distinct)(
             const Mutation.Kind[] kinds, string file = null) @trusted {
-        import core.time : dur;
-
         static if (distinct) {
             auto qq = "
                 SELECT count(*),sum(time)
@@ -761,10 +784,6 @@ struct Database {
 
     /// Store all found mutants.
     void put(MutationPointEntry2[] mps, AbsolutePath rel_dir) @trusted {
-        import std.algorithm : map, joiner;
-        import std.datetime : SysTime, Clock;
-        import std.path : relativePath;
-
         db.begin;
         scope (failure)
             db.rollback;
@@ -845,21 +864,21 @@ struct Database {
      * may reconnect with a mutation status.
      */
     void removeAllMutationPoints() @trusted {
-        enum del_mp_sql = format("DELETE FROM %s", mutationPointTable);
-        db.run(del_mp_sql);
+        enum sql = format!"DELETE FROM %s"(mutationPointTable);
+        db.run(sql);
     }
 
     /// ditto
     void removeAllFiles() @trusted {
-        enum del_f_sql = format("DELETE FROM %s", filesTable);
-        db.run(del_f_sql);
+        enum sql = format!"DELETE FROM %s"(filesTable);
+        db.run(sql);
     }
 
     /// Remove mutants that have no connection to a mutation point, orphened mutants.
     void removeOrphanedMutants() @trusted {
-        enum del_orp_m_sql = format("DELETE FROM %s WHERE id NOT IN (SELECT st_id FROM %s)",
+        enum sql = format!"DELETE FROM %s WHERE id NOT IN (SELECT st_id FROM %s)"(
                     mutationStatusTable, mutationTable);
-        db.run(del_orp_m_sql);
+        db.run(sql);
     }
 
     /** Add a link between the mutation and what test case killed it.
@@ -872,21 +891,29 @@ struct Database {
         if (tcs.length == 0)
             return;
 
-        db.begin;
-        scope (failure)
-            db.rollback;
-
         immutable st_id = () {
             enum st_id_for_mutation_q = format("SELECT st_id FROM %s WHERE id=:id", mutationTable);
             auto stmt = db.prepare(st_id_for_mutation_q);
             stmt.bind(":id", cast(long) id);
             return stmt.execute.oneValue!long;
         }();
+        updateMutationTestCases(MutationStatusId(st_id), tcs);
+    }
+
+    /** Add a link between the mutation and what test case killed it.
+     *
+     * Params:
+     *  id = ?
+     *  tcs = test cases to add
+     */
+    void updateMutationTestCases(const MutationStatusId st_id, const(TestCase)[] tcs) @trusted {
+        if (tcs.length == 0)
+            return;
 
         try {
             enum remove_old_sql = format("DELETE FROM %s WHERE st_id=:id", killedTestCaseTable);
             auto stmt = db.prepare(remove_old_sql);
-            stmt.bind(":id", st_id);
+            stmt.bind(":id", cast(ulong) st_id);
             stmt.execute;
         } catch (Exception e) {
         }
@@ -908,7 +935,7 @@ struct Database {
                 stmt_insert_tc.execute;
 
                 stmt_insert.reset;
-                stmt_insert.bind(":st_id", st_id);
+                stmt_insert.bind(":st_id", cast(ulong) st_id);
                 stmt_insert.bind(":loc", tc.location);
                 stmt_insert.bind(":tc", tc.name);
                 stmt_insert.execute;
@@ -916,8 +943,6 @@ struct Database {
                 logger.warning(e.msg);
             }
         }
-
-        db.commit;
     }
 
     /** Set detected test cases.
@@ -1010,8 +1035,6 @@ struct Database {
 
     /// Returns: detected test cases.
     TestCase[] getDetectedTestCases() @trusted {
-        import std.algorithm : copy;
-
         auto rval = appender!(TestCase[])();
         db.run(select!AllTestCaseTbl).map!(a => TestCase(a.name)).copy(rval);
         return rval.data;
@@ -1019,8 +1042,6 @@ struct Database {
 
     /// Returns: detected test cases.
     TestCaseId[] getDetectedTestCaseIds() @trusted {
-        import std.algorithm : copy;
-
         auto rval = appender!(TestCaseId[])();
         db.run(select!AllTestCaseTbl).map!(a => TestCaseId(a.id)).copy(rval);
         return rval.data;
@@ -1071,8 +1092,6 @@ struct Database {
 
     /// Returns: the test case id.
     Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc, const Mutation.Kind[] kinds) @trusted {
-        import core.time : dur;
-
         const sql = format("SELECT sum(t2.time),count(t1.st_id)
             FROM %s t0, %s t1, %s t2, %s t3
             WHERE
@@ -1093,8 +1112,6 @@ struct Database {
     }
 
     TestCaseInfo2[] getAllTestCaseInfo2(const FileId file, const Mutation.Kind[] kinds) @trusted {
-        import std.algorithm : copy;
-
         // row of test case name and mutation id.
         const sql = format("SELECT t0.name,t3.id
             FROM %s t0, %s t1, %s t2, %s t3, %s t4
@@ -1237,11 +1254,7 @@ struct Database {
         return rval.data;
     }
 
-    import std.regex : Regex;
-
     void removeTestCase(const Regex!char rex, const(Mutation.Kind)[] kinds) @trusted {
-        import std.regex : matchFirst;
-
         immutable sql = format!"SELECT t1.id,t1.name FROM %s t1,%s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.st_id = t3.st_id AND t3.kind IN (%(%s,%))"(
                 allTestCaseTable, killedTestCaseTable, mutationTable,
                 kinds.map!(a => cast(long) a));
@@ -1258,5 +1271,60 @@ struct Database {
             del_stmt.bind(":id", id);
             del_stmt.execute;
         }
+    }
+
+    /// Returns: the context for the timeout algorithm.
+    MutantTimeoutCtx getMutantTimeoutCtx() @trusted {
+        foreach (res; db.run(select!MutantTimeoutCtx))
+            return res;
+        return MutantTimeoutCtx.init;
+    }
+
+    void putMutantTimeoutCtx(const MutantTimeoutCtx ctx) @trusted {
+        db.run(delete_!MutantTimeoutCtx);
+        db.run(insert!MutantTimeoutCtx.insert, ctx);
+    }
+
+    void putMutantInTimeoutWorklist(const MutationStatusId id) @trusted {
+        const sql = format!"INSERT OR IGNORE INTO %s (id) VALUES (:id)"(mutantTimeoutWorklistTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":id", cast(ulong) id);
+        stmt.execute;
+    }
+
+    /** Remove all mutants that are in the worklist that do NOT have the
+     * mutation status timeout.
+     */
+    void reduceMutantTimeoutWorklist() @trusted {
+        immutable sql = format!"DELETE FROM %1$s
+            WHERE
+            id IN (SELECT id FROM %2$s WHERE status != :status)"(
+                mutantTimeoutWorklistTable, mutationStatusTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":status", cast(ubyte) Mutation.Status.timeout);
+        stmt.execute;
+    }
+
+    /// Remove all mutants from the worklist.
+    void clearMutantTimeoutWorklist() @trusted {
+        immutable sql = format!"DELETE FROM %1$s"(mutantTimeoutWorklistTable);
+        db.run(sql);
+    }
+
+    /// Returns: the number of mutants in the worklist.
+    long countMutantTimeoutWorklist() @trusted {
+        immutable sql = format!"SELECT count(*) FROM %1$s"(mutantTimeoutWorklistTable);
+        auto stmt = db.prepare(sql);
+        auto res = stmt.execute();
+        return res.oneValue!long;
+    }
+
+    /// Changes the status of mutants in the timeout worklist to unknown.
+    void resetMutantTimeoutWorklist() @trusted {
+        immutable sql = format!"UPDATE %1$s SET status=:st WHERE id IN (SELECT id FROM %2$s)"(
+                mutationStatusTable, mutantTimeoutWorklistTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":st", cast(ubyte) Mutation.Status.unknown);
+        stmt.execute;
     }
 }

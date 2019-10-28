@@ -46,10 +46,6 @@ struct Database {
         return Database(SDatabase.make(db), mut_order);
     }
 
-    // Not movable. The database should only be passed around as a reference,
-    // if at all.
-    @disable this(this);
-
     Nullable!Checksum getFileChecksum(const Path p) @trusted {
         import dextool.plugin.mutate.backend.utility : checksum;
 

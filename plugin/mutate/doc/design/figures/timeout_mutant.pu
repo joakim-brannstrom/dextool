@@ -1,0 +1,42 @@
+@startuml
+'setting a mutant status
+start
+:get context from db;
+if (state is) then (init)
+    if (status is) then (timeout)
+        :add mutant to worklist;
+    endif
+    :set mutant status;
+elseif (state is) then (running)
+    if (local_iter == db_iter) then (yes)
+        :set mutant status;
+    endif
+endif
+stop
+@enduml
+
+@startuml
+hide empty description
+
+Init: **init**
+Running: **running**
+Done: **done**
+Done: set state to done
+Purge: remove mutants in worklist
+Purge: with a state other than
+Purge: timeout
+ResetWorkList: set mutants in worklist
+ResetWorkList: to unknown
+UpdateCtx: set iter+=1
+UpdateCtx: set worklist_cnt=count(worklist)
+
+[*] -> Init
+Init -> ResetWorkList : evAllStatus
+ResetWorkList --> UpdateCtx
+UpdateCtx --> Running
+Running -> Purge : evAllStatus
+Purge --> ResetWorkList : evChange
+Purge -> ClearWorkList : evSame
+ClearWorkList -> Done
+Done --> [*]
+@enduml

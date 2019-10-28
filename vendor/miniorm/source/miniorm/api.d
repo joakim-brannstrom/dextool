@@ -30,7 +30,7 @@ struct Miniorm {
     private bool log_;
 
     ///
-    Database db;
+    private Database db;
     alias getUnderlyingDb this;
 
     ref Database getUnderlyingDb() {
@@ -53,7 +53,7 @@ struct Miniorm {
 
     /// Start a RAII handled transaction.
     Transaction transaction() {
-        return Transaction(this);
+        return Transaction(db);
     }
 
     /// Toggle logging.
@@ -510,10 +510,14 @@ auto spinSql(alias query, alias logFn = logger.warning)() nothrow {
 
 /// RAII handling of a transaction.
 struct Transaction {
-    Miniorm db;
+    Database db;
     bool isDone;
 
     this(Miniorm db) {
+        this(db.db);
+    }
+
+    this(Database db) {
         this.db = db;
         spinSql!(() { db.begin; });
     }
@@ -521,13 +525,13 @@ struct Transaction {
     ~this() {
         scope (exit)
             isDone = true;
-        if (!isDone)
+        if (!isDone) {
             db.rollback;
+        }
     }
 
     void commit() {
-        scope (exit)
-            isDone = true;
         db.commit;
+        isDone = true;
     }
 }

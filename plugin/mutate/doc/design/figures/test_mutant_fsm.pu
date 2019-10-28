@@ -1,0 +1,45 @@
+@startuml
+hide empty description
+
+[*] -> Initialize
+
+Initialize -> SanityCheck
+
+SanityCheck --> Error : failed
+SanityCheck -> PreCompileSut
+
+PreCompileSut --> Error : failed
+PreCompileSut -> UpdateAndResetAliveMutants
+
+UpdateAndResetAliveMutants -> ResetOldMutants
+
+ResetOldMutants --> CheckMutantsLeft
+
+UpdateTimeout --> CleanupTempDirs
+
+CleanupTempDirs --> NextMutant
+
+CheckMutantsLeft --> Done : allTested
+CheckMutantsLeft --> MeasureTestSuite
+
+MeasureTestSuite --> Error : unreliable
+MeasureTestSuite --> UpdateTimeout
+
+NextMutant --> CheckTimeout : allTested
+NextMutant --> PreMutationTest
+
+PreMutationTest --> MutationTest
+
+MutationTest --> HandleTestResult : next
+MutationTest --> Error : error
+MutationTest --> MutationTest
+
+HandleTestResult --> UpdateTimeout
+
+CheckTimeout --> Done : unchanged
+CheckTimeout --> UpdateTimeout
+
+Done --> Done
+
+Error --> Error
+@enduml

@@ -50,7 +50,7 @@ struct SourceLoc {
 struct Mutation {
     /// States what kind of mutations that can be performed on this mutation point.
     // ONLY ADD NEW ITEMS TO THE END
-    enum Kind {
+    enum Kind : uint {
         /// the kind is not initialized thus can only ignore the point
         none,
         /// Relational operator replacement

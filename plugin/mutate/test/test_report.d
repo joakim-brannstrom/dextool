@@ -414,7 +414,7 @@ class ShallTagLinesWithNoMutAttr : LinesWithNoMut {
         fid.isNull.shouldBeFalse;
         fid2.isNull.shouldBeFalse;
         foreach (line; [11,12,14,24,32]) {
-            auto m = db.getLineMetadata(fid, SourceLoc(line,0));
+            auto m = db.getLineMetadata(fid.get, SourceLoc(line,0));
             m.attr.match!((NoMetadata a) {shouldBeFalse(true);},
                      (NoMut) {
                          m.id.shouldEqual(fid);
@@ -422,7 +422,7 @@ class ShallTagLinesWithNoMutAttr : LinesWithNoMut {
             });
         }
         foreach (line; [8,9])
-            db.getLineMetadata(fid, SourceLoc(line,0)).isNoMut.shouldBeFalse;
+            db.getLineMetadata(fid.get, SourceLoc(line,0)).isNoMut.shouldBeFalse;
     }
 }
 
