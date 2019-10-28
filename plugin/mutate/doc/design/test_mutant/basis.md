@@ -16,7 +16,12 @@ The implementation testing mutants should separate the drivers in three parts:
      * mutation timeout reduction algorithm
  * test a mutant
 
-## Drivers
+## Driver
+
+This is the state machine used in the test driver when the plugin is testing
+mutants in the database.
+
+![The test drivers FSM](figures/test_mutant_fsm.eps)
 
 # SPC-test_mutant_timeout
 partof: SPC-test_mutant
