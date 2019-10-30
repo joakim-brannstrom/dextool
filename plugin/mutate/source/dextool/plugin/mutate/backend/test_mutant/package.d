@@ -563,6 +563,7 @@ nothrow:
 }
 
 struct TestDriver(alias mutationDriverFactory) {
+    import std.datetime : SysTime;
     import std.typecons : Unique;
     import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
 
@@ -580,6 +581,9 @@ struct TestDriver(alias mutationDriverFactory) {
         // when the user manually configure the timeout it means that the
         // timeout algorithm should not be used.
         bool hardcodedTimeout;
+
+        /// Max time to run the mutation testing for.
+        SysTime maxRuntime;
     }
 
     static struct UpdateTimeoutData {
@@ -647,10 +651,18 @@ struct TestDriver(alias mutationDriverFactory) {
         MutationTestResult result;
     }
 
+    static struct CheckRuntime {
+        bool reachedMax;
+    }
+
+    static struct SetMaxRuntime {
+    }
+
     alias Fsm = dextool.fsm.Fsm!(None, Initialize, SanityCheck,
             UpdateAndResetAliveMutants, ResetOldMutants, CleanupTempDirs,
-            CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest, NextMutant,
-            MutationTest, HandleTestResult, CheckTimeout, Done, Error, UpdateTimeout);
+            CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
+            NextMutant, MutationTest, HandleTestResult,
+            CheckTimeout, Done, Error, UpdateTimeout, CheckRuntime, SetMaxRuntime);
 
     Fsm fsm;
 
@@ -687,8 +699,8 @@ struct TestDriver(alias mutationDriverFactory) {
         }, (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
-            return fsm(UpdateTimeout.init);
-        }, (NextMutant a) {
+            return fsm(SetMaxRuntime.init);
+        }, (SetMaxRuntime a) => fsm(UpdateTimeout.init), (NextMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(CheckTimeout.init);
             return fsm(PreMutationTest.init);
@@ -699,7 +711,11 @@ struct TestDriver(alias mutationDriverFactory) {
             else if (a.mutationError)
                 return fsm(Error.init);
             return fsm(a);
-        }, (HandleTestResult a) => fsm(UpdateTimeout.init), (CheckTimeout a) {
+        }, (HandleTestResult a) => fsm(CheckRuntime.init), (CheckRuntime a) {
+            if (a.reachedMax)
+                return fsm(Done.init);
+            return fsm(UpdateTimeout.init);
+        }, (CheckTimeout a) {
             if (a.timeoutUnchanged)
                 return fsm(Done.init);
             return fsm(UpdateTimeout.init);
@@ -729,6 +745,8 @@ nothrow:
 
     void opCall(Done data) {
         global.data.autoCleanup.cleanup;
+
+        logger.info("Stopping!").collectException;
     }
 
     void opCall(Error data) {
@@ -915,7 +933,7 @@ nothrow:
         data.allMutantsTested = global.timeoutFsm.output.done;
 
         if (global.timeoutFsm.output.done) {
-            logger.info("Done! All mutants are tested").collectException;
+            logger.info("All mutants are tested").collectException;
         }
     }
 
@@ -1047,6 +1065,22 @@ nothrow:
 
         data.result.value.match!((MutationTestResult.NoResult a) {},
                 (MutationTestResult.StatusUpdate a) => statusUpdate(a));
+    }
+
+    void opCall(SetMaxRuntime) {
+        import std.datetime : Clock;
+
+        global.maxRuntime = Clock.currTime + global.data.conf.maxRuntime;
+    }
+
+    void opCall(ref CheckRuntime data) {
+        import std.datetime : Clock;
+
+        data.reachedMax = Clock.currTime > global.maxRuntime;
+        if (data.reachedMax) {
+            logger.infof("Max runtime of %s reached at %s",
+                    global.data.conf.maxRuntime, global.maxRuntime).collectException;
+        }
     }
 }
 
