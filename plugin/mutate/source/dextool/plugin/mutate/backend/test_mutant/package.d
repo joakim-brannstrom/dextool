@@ -746,7 +746,7 @@ nothrow:
     void opCall(Done data) {
         global.data.autoCleanup.cleanup;
 
-        logger.info("Stopping!").collectException;
+        logger.info("Done!").collectException;
     }
 
     void opCall(Error data) {

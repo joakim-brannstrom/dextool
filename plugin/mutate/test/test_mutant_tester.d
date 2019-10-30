@@ -500,6 +500,7 @@ exit 1
     }
 }
 
+// TODO: this test is missing a void test() thus it is doing nothing
 class TestCaseDetection : SimpleFixture {
     override string scriptTest() {
         return "#!/bin/bash
@@ -826,5 +827,30 @@ class ShallResetMutationCounter : DatabaseFixture {
         hardest.length.should == 1;
         auto hr = hardest[0];
         mst_id.should.not == hr.statusId;
+    }
+}
+
+class ShallStopAtMaxRuntime : SimpleFixture {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["--max-runtime", "5 msecs"])
+            .run;
+        // dfmt on
+
+        testConsecutiveSparseOrder!SubStr([`Max runtime of`, `Done!`]).shouldBeIn(r.stdout);
     }
 }
