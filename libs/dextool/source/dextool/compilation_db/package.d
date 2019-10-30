@@ -647,7 +647,7 @@ struct ParseFlags {
 ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
         const Compiler user_compiler = Compiler.init) @safe {
     import std.algorithm : among, map, strip, startsWith, filter, count;
-    import std.string : indexOf, empty, split;
+    import std.string : empty, split;
 
     static bool excludeStartWith(const string raw_flag, const FilterClangFlag[] flag_filter) @safe {
         // the purpuse is to find if any of the flags in flag_filter matches
@@ -752,13 +752,14 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
         auto rval = appender!(string[]);
         auto includes = appender!(string[]);
         auto compiler = Compiler(r.length == 0 ? null : r[0]);
-        string path;
-        const string EMPTY_STRING;
+        auto path = appender!(char[])();
 
         string removeBackslashesAndQuotes(string arg) {
-            import std.string : replace;
+            import std.conv : text;
+            import std.uni : byCodePoint, byGrapheme, Grapheme;
 
-            return arg.replace(`\"`, EMPTY_STRING).replace(`"`, EMPTY_STRING);
+            return arg.byGrapheme.filter!(a => !a.among(Grapheme('\\'),
+                    Grapheme('"'))).byCodePoint.text;
         }
 
         void putNormalizedAbsolute(string arg) {
@@ -788,7 +789,7 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
                         putNormalizedAbsolute(arg);
                     } else {
                         st = State.checkingForEndQuotation;
-                        path ~= arg;
+                        path.put(arg);
                     }
                 } else {
                     st = State.keep;
@@ -798,13 +799,13 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
                 st = State.keep;
                 rval.put(arg);
             } else if (st == State.checkingForEndQuotation) {
-                path ~= " ";
-                path ~= arg;
+                path.put(" ");
+                path.put(arg);
                 if (isEndingWithQuotationMark(arg)) {
                     // the end of a divided path
                     st = State.keep;
-                    putNormalizedAbsolute(path);
-                    path = EMPTY_STRING;
+                    putNormalizedAbsolute(path.data.idup);
+                    path.clear;
                 }
             } else if (excludeStartWith(arg, flag_filter)) {
                 st = State.skipIfNotFlag;
@@ -817,7 +818,7 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
                     } else {
                         // the path is divided (ex ['-I"path/to', 'src"'] or ['-I\"path/to', 'src\"'])
                         st = State.checkingForEndQuotation;
-                        path ~= arg[2 .. $];
+                        path.put(arg[2 .. $]);
                     }
                 }
             } else if (isCombinedIncludeFlag(arg)) {
@@ -1286,10 +1287,12 @@ unittest {
 
 @("shall handle path with consecutive spaces")
 unittest {
-    auto cmd = toCompileCommand("/project", "file.cpp", [
-            `-I"one`, `space/lots`, `of     space"`, `-I\"one`, `space/lots`,
-            `of     space\"`, `-I`, `"one`, `space/lots`, `of     space"`,
-            `-I`, `\"one`, `space/lots`, `of     space\"`,
+    auto cmd = toCompileCommand("/project", "file.cpp",
+            [
+                `-I"one space/lots of     space"`,
+                `-I\"one space/lots of     space\"`, `-I`,
+                `"one space/lots of     space"`, `-I`,
+                `\"one space/lots of     space\"`,
             ], AbsoluteCompileDbDirectory("/project"), null);
     auto pargs = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     pargs.cflags.shouldEqual([
