@@ -144,7 +144,8 @@ plugin do an analyse.
 
 Description of the events used in figure \ref{fig-timeout-mutant-fsm}:
  * evAllStatus. All mutants has a status other thatn `unknown`.
- * evChange. The mutants that are left in the worklist has changed compared to the counter in the context. $worklist_{count} != count(worklist)$
+ * evChange. The mutants that are left in the worklist has changed compared to
+   the counter in the context. $worklist_{count} != count(worklist)$
  * evSame. The inverse of evChange. $worklist_{count} == count(worklist)$
 
 The status of a mutant is update as described in figure \ref{fig-timeout-mutant-act}.
@@ -179,7 +180,8 @@ Failing means either or a combination of these:
    errors in the middle dextool is unable to discern all the test cases that
    killed the mutant.
 
-The two scenarios described will most likely require that two or more tools are provided to the user.
+The two scenarios described will most likely require that two or more tools are
+provided to the user.
 
 ## TODO
 
@@ -206,3 +208,15 @@ test suite.
 The user is free to use this or to ignore the instability because if the user
 chooses to **not** write "retest:" to stdout the exist status will be used to
 write the status of the mutant.
+
+# REQ-configurable_max_mutant_test_time
+partof: REQ-test_mutant
+###
+
+The user wants to configure the maximum time used for mutation testing. If the
+limit is reached the plugin should exit cleanly. This is to make it possible
+for the user to run the plugin between 22.00 to 07.00 and thus avoid using the
+build servers unnecessarily during the workday.
+
+This is also a feature that can be used to quickly finish a report for a pull
+request.

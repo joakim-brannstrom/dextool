@@ -23,7 +23,12 @@ CheckMutantsLeft --> Done : allTested
 CheckMutantsLeft --> MeasureTestSuite
 
 MeasureTestSuite --> Error : unreliable
-MeasureTestSuite --> UpdateTimeout
+MeasureTestSuite --> SetMaxRuntime
+
+SetMaxRuntime --> UpdateTimeout
+
+CheckRuntime --> UpdateTimeout
+CheckRuntime --> Done : runtime>max
 
 NextMutant --> CheckTimeout : allTested
 NextMutant --> PreMutationTest
@@ -34,7 +39,7 @@ MutationTest --> HandleTestResult : next
 MutationTest --> Error : error
 MutationTest --> MutationTest
 
-HandleTestResult --> UpdateTimeout
+HandleTestResult --> CheckRuntime
 
 CheckTimeout --> Done : unchanged
 CheckTimeout --> UpdateTimeout
