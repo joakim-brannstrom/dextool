@@ -13,8 +13,9 @@ configuration of how the mutation plugin should behave.
 module dextool.plugin.mutate.frontend.argparser;
 
 import core.time : dur;
-import std.array : empty;
 import logger = std.experimental.logger;
+import std.algorithm : joiner, sort, map, filter;
+import std.array : empty, array, appender;
 import std.exception : collectException;
 import std.traits : EnumMembers;
 
@@ -25,6 +26,10 @@ public import dextool.plugin.mutate.type;
 import dextool.plugin.mutate.config;
 import dextool.utility : asAbsNormPath;
 import dextool.type : AbsolutePath, Path, ExitStatusType, ShellCommand;
+
+version (unittest) {
+    import unit_threaded.assertions;
+}
 
 @safe:
 
@@ -79,12 +84,9 @@ struct ArgParser {
 
     /// Convert the configuration to a TOML file.
     string toTOML() @trusted {
-        import std.algorithm : joiner, map;
-        import std.array : appender, array;
         import std.ascii : newline;
         import std.conv : to;
         import std.format : format;
-        import std.traits : EnumMembers;
         import std.utf : toUTF8;
 
         auto app = appender!(string[])();
@@ -176,8 +178,6 @@ struct ArgParser {
     }
 
     void parse(string[] args) {
-        import std.algorithm : filter, map;
-        import std.array : array;
         import std.format : format;
 
         static import std.getopt;
@@ -238,6 +238,7 @@ struct ArgParser {
             string mutationCompile;
             string mutationTestCaseAnalyze;
             long mutationTesterRuntime;
+            string maxRuntime;
 
             data.toolMode = ToolMode.test_mutants;
             // dfmt off
@@ -254,6 +255,7 @@ struct ArgParser {
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
+                   "max-runtime", "max time to run the mutation testing for (default: infinite)", &maxRuntime,
                    );
             // dfmt on
 
@@ -265,6 +267,8 @@ struct ArgParser {
                 mutationTest.mutationTestCaseAnalyze = Path(mutationTestCaseAnalyze).AbsolutePath;
             if (mutationTesterRuntime != 0)
                 mutationTest.mutationTesterRuntime = mutationTesterRuntime.dur!"msecs";
+            if (!maxRuntime.empty)
+                mutationTest.maxRuntime = parseDuration(maxRuntime);
         }
 
         void reportG(string[] args) {
@@ -366,7 +370,6 @@ struct ArgParser {
         }
 
         import std.algorithm : find;
-        import std.array : array;
         import std.range : drop;
 
         if (db.length != 0)
@@ -397,8 +400,6 @@ struct ArgParser {
      * Assuming that getopt in phobos behave well.
      */
     void printHelp() @trusted {
-        import std.array : array;
-        import std.algorithm : joiner, sort, map;
         import std.ascii : newline;
         import std.stdio : writeln;
 
@@ -417,6 +418,9 @@ struct ArgParser {
         case test_mutants:
             logger.infof("--test-case-analyze-builtin possible values: %(%s|%)",
                     [EnumMembers!TestCaseAnalyzeBuiltin]);
+            logger.infof(
+                    "--max-runtime supported units are [weeks, days, hours, minutes, seconds, msecs]");
+            logger.infof(`example: --max-runtime "1 hours 30 minutes"`);
             break;
         case report:
             break;
@@ -432,9 +436,6 @@ struct ArgParser {
 
 /// Update the config from the users input.
 void updateCompileDb(ref ConfigCompileDb db, string[] compile_dbs) {
-    import std.array : array;
-    import std.algorithm : filter, map;
-
     if (compile_dbs.length != 0)
         db.rawDbs = compile_dbs;
     db.dbs = db.rawDbs
@@ -476,8 +477,6 @@ void printFileAnalyzeHelp(ref ArgParser ap) @safe {
  * ---
  */
 void loadConfig(ref ArgParser rval) @trusted {
-    import std.algorithm : filter, map;
-    import std.array : array;
     import std.conv : to;
     import std.file : exists, readText;
     import std.path : dirName, buildPath;
@@ -575,7 +574,9 @@ void loadConfig(ref ArgParser rval) @trusted {
         try {
             c.mutationTest.onOldMutants = v.str.to!(ConfigMutationTest.OldMutant);
         } catch (Exception e) {
-            logger.info("Available alternatives: ", [EnumMembers!(ConfigMutationTest.OldMutant)]);
+            logger.info("Available alternatives: ", [
+                    EnumMembers!(ConfigMutationTest.OldMutant)
+                    ]);
         }
     };
     callbacks["mutant_test.oldest_mutants_nr"] = (ref ArgParser c, ref TOMLValue v) {
@@ -665,4 +666,47 @@ MiniConfig cliToMiniConfig(string[] args) @trusted nothrow {
     }
 
     return conf;
+}
+
+auto parseDuration(string timeSpec) {
+    import std.conv : to;
+    import std.string : split;
+    import std.datetime : Duration, dur;
+    import std.range : chunks;
+
+    Duration d;
+    const parts = timeSpec.split;
+
+    if (parts.length % 2 != 0) {
+        logger.warning("Invalid time specification because either the number or unit is missing");
+        return d;
+    }
+
+    foreach (const p; parts.chunks(2)) {
+        const nr = p[0].to!long;
+        bool validUnit;
+        immutable Units = [
+            "msecs", "seconds", "minutes", "hours", "days", "weeks"
+        ];
+        static foreach (Unit; Units) {
+            if (p[1] == Unit) {
+                d += nr.dur!Unit;
+                validUnit = true;
+            }
+        }
+        if (!validUnit) {
+            logger.warningf("Invalid unit '%s'. Valid are %-(%s, %).", p[1], Units);
+            return d;
+        }
+    }
+
+    return d;
+}
+
+@("shall parse a string to a duration")
+unittest {
+    const expected = 1.dur!"weeks" + 1.dur!"days" + 3.dur!"hours"
+        + 2.dur!"minutes" + 5.dur!"seconds" + 9.dur!"msecs";
+    const d = parseDuration("1 weeks 1 days 3 hours 2 minutes 5 seconds 9 msecs");
+    d.should == expected;
 }

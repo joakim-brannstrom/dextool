@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.config;
 
-import core.time : Duration;
+import core.time : Duration, dur;
 import std.typecons : Nullable;
 
 import dextool.plugin.mutate.type;
@@ -122,6 +122,10 @@ struct ConfigMutationTest {
 
     OldMutant onOldMutants;
     long oldMutantsNr;
+
+    /// Max time to run mutation testing.
+    // note that Duration.max + Clock.currTime results in a negative time...
+    Duration maxRuntime = 52.dur!"weeks";
 }
 
 /// Settings for the administration mode

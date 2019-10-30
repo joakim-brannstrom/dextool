@@ -18,6 +18,7 @@ int main(string[] args) {
                           "dextool.plugin.mutate.backend.test_mutant.makefile_post_analyze",
                           "dextool.plugin.mutate.backend.type",
                           "dextool.plugin.mutate.backend.watchdog",
+                          "dextool.plugin.mutate.frontend.argparser",
                           );
     //dfmt on
 }
