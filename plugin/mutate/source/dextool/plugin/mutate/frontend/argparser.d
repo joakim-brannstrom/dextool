@@ -563,7 +563,9 @@ void loadConfig(ref ArgParser rval) @trusted {
         try {
             c.mutationTest.onOldMutants = v.str.to!(ConfigMutationTest.OldMutant);
         } catch (Exception e) {
-            logger.info("Available alternatives: ", [EnumMembers!(ConfigMutationTest.OldMutant)]);
+            logger.info("Available alternatives: ", [
+                    EnumMembers!(ConfigMutationTest.OldMutant)
+                    ]);
         }
     };
     callbacks["mutant_test.oldest_mutants_nr"] = (ref ArgParser c, ref TOMLValue v) {
