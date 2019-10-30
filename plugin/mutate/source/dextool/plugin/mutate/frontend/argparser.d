@@ -13,8 +13,9 @@ configuration of how the mutation plugin should behave.
 module dextool.plugin.mutate.frontend.argparser;
 
 import core.time : dur;
-import std.array : empty;
 import logger = std.experimental.logger;
+import std.algorithm : joiner, sort, map, filter;
+import std.array : empty, array, appender;
 import std.exception : collectException;
 import std.traits : EnumMembers;
 
@@ -79,12 +80,9 @@ struct ArgParser {
 
     /// Convert the configuration to a TOML file.
     string toTOML() @trusted {
-        import std.algorithm : joiner, map;
-        import std.array : appender, array;
         import std.ascii : newline;
         import std.conv : to;
         import std.format : format;
-        import std.traits : EnumMembers;
         import std.utf : toUTF8;
 
         auto app = appender!(string[])();
@@ -176,8 +174,6 @@ struct ArgParser {
     }
 
     void parse(string[] args) {
-        import std.algorithm : filter, map;
-        import std.array : array;
         import std.format : format;
 
         static import std.getopt;
@@ -366,7 +362,6 @@ struct ArgParser {
         }
 
         import std.algorithm : find;
-        import std.array : array;
         import std.range : drop;
 
         if (db.length != 0)
@@ -397,8 +392,6 @@ struct ArgParser {
      * Assuming that getopt in phobos behave well.
      */
     void printHelp() @trusted {
-        import std.array : array;
-        import std.algorithm : joiner, sort, map;
         import std.ascii : newline;
         import std.stdio : writeln;
 
@@ -432,9 +425,6 @@ struct ArgParser {
 
 /// Update the config from the users input.
 void updateCompileDb(ref ConfigCompileDb db, string[] compile_dbs) {
-    import std.array : array;
-    import std.algorithm : filter, map;
-
     if (compile_dbs.length != 0)
         db.rawDbs = compile_dbs;
     db.dbs = db.rawDbs
@@ -476,8 +466,6 @@ void printFileAnalyzeHelp(ref ArgParser ap) @safe {
  * ---
  */
 void loadConfig(ref ArgParser rval) @trusted {
-    import std.algorithm : filter, map;
-    import std.array : array;
     import std.conv : to;
     import std.file : exists, readText;
     import std.path : dirName, buildPath;
