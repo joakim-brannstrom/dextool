@@ -105,3 +105,24 @@ partof: REQ-uc_understand_analyze
 ###
 
 The plugin shall print a message containing the root directory and restrictions when beginning analyze for mutants.
+
+# REQ-mutant_analyze_speedup
+partof: REQ-purpose
+###
+
+The user may have source code in its repository that is part of the build
+system but that is uninteresting to perform mutation testing on. This code can
+be of a significant size that negatively affects the performance of the plugin
+when it is analysing the source code for mutants. This has an exceptional
+negative impact when the user wants fast feedback from the mutation testing
+when it is integrated in a pull request workflow.
+
+It is thus important for the analysis phase to be as fast as possible but to
+also provide the user with the needed tools to control what is analyzed.
+
+# SPC-exclude_files_from_analysis
+partof: REQ-mutant_analyze_speedup
+###
+
+The plugin shall exclude files from being analyzed based on a list of
+directories/files to ignore when analysing for mutants.
