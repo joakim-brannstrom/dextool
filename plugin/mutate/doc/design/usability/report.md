@@ -507,13 +507,17 @@ There is a psychology game to play with the user here when it comes to visualizi
 partof: REQ-suppress_mutants
 ###
 
-The plugin shall **not** count suppressed mutants as killed when calculating
+The plugin shall count alive, suppressed mutants as equivalent when calculating
 the mutation score.
+
+## Note
+
+The formula for the mutation score is `killed / (total - equivalent)`.
 
 ## Why?
 
 Previously the suppressed mutants where counted as killed. After discussing the
-matter we changed direction. This is because a suppressed mutant is an
+matter we revised the decision. This is because a suppressed mutant is an
 *unproductive* mutant.
 
 An *unproductive* mutant encompasses two things. It is either:
