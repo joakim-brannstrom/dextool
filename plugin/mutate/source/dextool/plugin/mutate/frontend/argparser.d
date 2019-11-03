@@ -43,12 +43,13 @@ struct ArgParser {
     /// Minimal data needed to bootstrap the configuration.
     MiniConfig miniConf;
 
+    ConfigAdmin admin;
+    ConfigAnalyze analyze;
     ConfigCompileDb compileDb;
     ConfigCompiler compiler;
     ConfigMutationTest mutationTest;
-    ConfigAdmin admin;
-    ConfigWorkArea workArea;
     ConfigReport report;
+    ConfigWorkArea workArea;
 
     struct Data {
         string[] inFiles;
@@ -101,6 +102,11 @@ struct ArgParser {
         app.put("# use relative paths that are inside the root");
         app.put("# restrict = []");
         app.put(null);
+
+        app.put("[analyze]");
+        app.put("# exclude files in these directory tree(s) from analysis");
+        app.put("# relative paths are relative to the directory dextool is executed in");
+        app.put("# exclude = []");
 
         app.put("[database]");
         app.put("# path to where to store the sqlite3 database");
@@ -183,17 +189,18 @@ struct ArgParser {
         static import std.getopt;
 
         const db_help = "sqlite3 database to use (default: dextool_mutate.sqlite3)";
-        const restrict_help = "restrict analysis to files in this directory tree (default: .)";
+        const restrict_help = "restrict mutation to the files in this directory tree (default: .)";
         const out_help = "path used as the root for mutation/reporting of files (default: .)";
         const conf_help = "load configuration (default: .dextool_mutate.toml)";
 
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
-
         string db;
 
         void analyzerG(string[] args) {
             string[] compile_dbs;
+            string[] exclude_files;
+
             data.toolMode = ToolMode.analyzer;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
@@ -203,10 +210,12 @@ struct ArgParser {
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "out", out_help, &workArea.rawRoot,
                    "restrict", restrict_help, &workArea.rawRestrict,
+                   "file-exclude", "exclude files in these directory tree from the analysis (default: none)", &exclude_files,
                    );
             // dfmt on
 
             updateCompileDb(compileDb, compile_dbs);
+            analyze.exclude = exclude_files.map!(a => a.Path.AbsolutePath).array;
         }
 
         void generateMutantG(string[] args) {
@@ -255,7 +264,7 @@ struct ArgParser {
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
-                   "max-runtime", "max time to run the mutation testing for (default: infinite)", &maxRuntime,
+                   "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
                    );
             // dfmt on
 
@@ -457,7 +466,7 @@ void printFileAnalyzeHelp(ref ArgParser ap) @safe {
     logger.info("  User input: ", ap.workArea.rawRoot);
     logger.info("  Real path: ", ap.workArea.outputDirectory);
     logger.info(ap.workArea.rawRestrict.length != 0,
-            "Further restricted to those inside these paths");
+            "Restricting mutation to files in the following directory tree(s)");
 
     assert(ap.workArea.rawRestrict.length == ap.workArea.restrictDir.length);
     foreach (idx; 0 .. ap.workArea.rawRestrict.length) {
@@ -466,6 +475,10 @@ void printFileAnalyzeHelp(ref ArgParser ap) @safe {
         logger.info("  User input: ", ap.workArea.rawRestrict[idx]);
         logger.info("  Real path: ", ap.workArea.restrictDir[idx]);
     }
+
+    logger.info("Excluding files inside the following directory tree(s) from analysis");
+    foreach (root; ap.analyze.exclude)
+        logger.info("  Real path: ", root);
 }
 
 /** Load the configuration from file.
@@ -504,15 +517,21 @@ void loadConfig(ref ArgParser rval) @trusted {
     alias Fn = void delegate(ref ArgParser c, ref TOMLValue v);
     Fn[string] callbacks;
 
+    callbacks["analyze.exclude"] = (ref ArgParser c, ref TOMLValue v) {
+        c.analyze.exclude = v.array.map!(a => a.str.Path.AbsolutePath).array;
+    };
+
     callbacks["workarea.root"] = (ref ArgParser c, ref TOMLValue v) {
         c.workArea.rawRoot = v.str;
     };
     callbacks["workarea.restrict"] = (ref ArgParser c, ref TOMLValue v) {
         c.workArea.rawRestrict = v.array.map!(a => a.str).array;
     };
+
     callbacks["database.db"] = (ref ArgParser c, ref TOMLValue v) {
         c.db = v.str.Path.AbsolutePath;
     };
+
     callbacks["compile_commands.search_paths"] = (ref ArgParser c, ref TOMLValue v) {
         c.compileDb.rawDbs = v.array.map!"a.str".array;
     };

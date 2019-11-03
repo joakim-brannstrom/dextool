@@ -70,6 +70,12 @@ struct ConfigCompileDb {
     CompileCommandFilter flagFilter;
 }
 
+/// Configuration of how the mutation analyzer should act.
+struct ConfigAnalyze {
+    /// Exclude any files that are in these directory trees from the analysis.
+    AbsolutePath[] exclude;
+}
+
 /// Settings for the compiler
 struct ConfigCompiler {
     import dextool.compilation_db : SystemCompiler = Compiler;

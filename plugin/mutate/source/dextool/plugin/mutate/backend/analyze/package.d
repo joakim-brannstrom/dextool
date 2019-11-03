@@ -25,7 +25,7 @@ import dextool.plugin.mutate.backend.analyze.visitor : makeRootVisitor;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
-import dextool.plugin.mutate.config : ConfigCompiler;
+import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -33,11 +33,15 @@ version (unittest) {
 
 /** Analyze the files in `frange` for mutations.
  */
-ExitStatusType runAnalyzer(ref Database db, ConfigCompiler conf,
-        ref UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @safe {
-    auto analyzer = Analyzer(db, val_loc, fio, conf);
+ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
+        ConfigCompiler conf_compiler, ref UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @safe {
+    import std.algorithm : filter, map;
 
-    foreach (in_file; frange) {
+    auto analyzer = Analyzer(db, val_loc, fio, conf_compiler);
+
+    foreach (in_file; frange.filter!(a => !a.isNull)
+            .map!(a => a.get)
+            .filter!(a => !isPathInsideAnyRoot(conf_analyze.exclude, a.absoluteFile))) {
         try {
             analyzer.process(in_file);
         } catch (Exception e) {
@@ -94,17 +98,14 @@ struct Analyzer {
         db.removeAllFiles;
     }
 
-    void process(Nullable!SearchResult in_file) @safe {
-        if (in_file.isNull)
-            return;
-
+    void process(SearchResult in_file) @safe {
         // TODO: this should be generic for Dextool.
-        in_file.get.flags.forceSystemIncludes = conf.forceSystemIncludes;
+        in_file.flags.forceSystemIncludes = conf.forceSystemIncludes;
 
         // find the file and flags to analyze
         Exists!AbsolutePath checked_in_file;
         try {
-            checked_in_file = makeExists(in_file.get.absoluteFile);
+            checked_in_file = makeExists(in_file.absoluteFile);
         } catch (Exception e) {
             logger.warning(e.msg);
             return;
@@ -119,7 +120,7 @@ struct Analyzer {
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
             auto tstream = new TokenStreamImpl(ctx);
 
-            auto files = analyzeForMutants(in_file.get, checked_in_file, ctx, tstream);
+            auto files = analyzeForMutants(in_file, checked_in_file, ctx, tstream);
             // TODO: filter files so they are only analyzed once for comments
             foreach (f; files)
                 analyzeForComments(f, tstream);
@@ -283,4 +284,16 @@ FileStatus isFileChanged(ref Database db, Path relp, Checksum f_checksum) @safe 
     debug logger.trace(rval == FileStatus.changed, "db: ", db_checksum, " file: ", f_checksum);
 
     return rval;
+}
+
+/// Returns: true if `f` is inside any `roots`.
+bool isPathInsideAnyRoot(AbsolutePath[] roots, AbsolutePath f) @safe {
+    import dextool.utility : isPathInsideRoot;
+
+    foreach (root; roots) {
+        if (isPathInsideRoot(root, f))
+            return true;
+    }
+
+    return false;
 }

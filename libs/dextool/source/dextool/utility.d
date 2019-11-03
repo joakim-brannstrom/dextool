@@ -109,3 +109,11 @@ string asAbsNormPath(string path) @trusted {
 
     return to!string(path.asAbsolutePath.asNormalizedPath);
 }
+
+/// Returns. true if `path` is inside `root`.
+bool isPathInsideRoot(AbsolutePath root, AbsolutePath path) {
+    import std.string : startsWith;
+    import dextool.utility;
+
+    return (cast(string) path).startsWith(cast(string) root);
+}

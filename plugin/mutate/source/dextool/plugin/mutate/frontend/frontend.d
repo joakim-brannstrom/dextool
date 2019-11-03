@@ -178,6 +178,7 @@ final class FrontendIO : FilesysIO {
 
 private:
     // assuming that root is already a realpath
+    // TODO: replace this function with dextool.utility.isPathInsideRoot
     static void verifyPathInsideRoot(AbsolutePath root, AbsolutePath p, bool dry_run) {
         import std.format : format;
         import std.string : startsWith;
@@ -271,7 +272,8 @@ ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
 
     printFileAnalyzeHelp(conf);
 
-    return runAnalyzer(dacc.db, conf.compiler, dacc.frange, dacc.validateLoc, dacc.io);
+    return runAnalyzer(dacc.db, conf.analyze, conf.compiler, dacc.frange,
+            dacc.validateLoc, dacc.io);
 }
 
 ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {
