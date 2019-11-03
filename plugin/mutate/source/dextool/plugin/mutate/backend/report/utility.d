@@ -437,7 +437,7 @@ struct MutationStat {
     /// Adjust the score with the alive mutants that are suppressed.
     double score() @safe pure nothrow const @nogc {
         if (total > 0)
-            return cast(double)(killed + timeout + aliveNoMut) / cast(double) total;
+            return cast(double)(killed + timeout) / cast(double)(total - aliveNoMut);
         if (untested > 0)
             return 0.0;
         return 1.0;
