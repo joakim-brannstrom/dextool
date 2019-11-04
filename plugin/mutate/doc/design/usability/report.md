@@ -473,7 +473,7 @@ The user wants to be able to disregard equivalent mutants and undesirable mutant
 
 The user wants to categories suppressed mutants when they are marked.
 
-**Note**: User feedback is that the categories should be case insensitive so a case "change" doesn't lead to the mutant being placed in a new category. Keep it simple and avoid common mistakes that can occure by forcing the sorting of suppressed mutants into categories to be case insensitive.
+**Note**: User feedback is that the categories should be case insensitive so a case "change" doesn't lead to the mutant being placed in a new category. Keep it simple and avoid common mistakes that can occur by forcing the sorting of suppressed mutants into categories to be case insensitive.
 
 The user wants to be able to add a comment to suppressed mutants.
 
@@ -507,7 +507,27 @@ There is a psychology game to play with the user here when it comes to visualizi
 partof: REQ-suppress_mutants
 ###
 
-The plugin shall count suppressed mutants as killed when calculating the mutation score.
+The plugin shall **not** count suppressed mutants as killed when calculating
+the mutation score.
+
+## Why?
+
+Previously the suppressed mutants where counted as killed. After discussing the
+matter we changed direction. This is because a suppressed mutant is an
+*unproductive* mutant.
+
+An *unproductive* mutant encompasses two things. It is either:
+
+ * never intended to be killed because the mutant is *bad*. The tool should,
+   according to the user, not produce them.
+ * the user *kills* the mutant by inspecting that it is OK as is but the user
+   do not want to write a test case to kill it.
+
+It isn't possible to distinguish these two cases from each other without
+further annotations which would complicate the tool unnecessarily. By changing
+the formula for calculating the mutation score it is kind a solved because the
+score then reflects *only* those mutants that aren't debatable if they are good
+or bad.
 
 # REQ-overlap_between_test_cases
 partof: REQ-report
