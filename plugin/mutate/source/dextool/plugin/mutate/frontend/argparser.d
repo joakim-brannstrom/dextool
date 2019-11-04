@@ -107,6 +107,7 @@ struct ArgParser {
         app.put("# exclude files in these directory tree(s) from analysis");
         app.put("# relative paths are relative to the directory dextool is executed in");
         app.put("# exclude = []");
+        app.put(null);
 
         app.put("[database]");
         app.put("# path to where to store the sqlite3 database");
@@ -215,7 +216,8 @@ struct ArgParser {
             // dfmt on
 
             updateCompileDb(compileDb, compile_dbs);
-            analyze.exclude = exclude_files.map!(a => a.Path.AbsolutePath).array;
+            if (!exclude_files.empty)
+                analyze.exclude = exclude_files.map!(a => a.Path.AbsolutePath).array;
         }
 
         void generateMutantG(string[] args) {
@@ -622,6 +624,7 @@ void loadConfig(ref ArgParser rval) @trusted {
         }
     }
 
+    iterSection(rval, "analyze");
     iterSection(rval, "workarea");
     iterSection(rval, "database");
     iterSection(rval, "compiler");
