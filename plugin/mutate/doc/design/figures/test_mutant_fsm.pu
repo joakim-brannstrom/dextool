@@ -6,7 +6,10 @@ hide empty description
 Initialize -> SanityCheck
 
 SanityCheck --> Error : failed
+SanityCheck --> ParseStdin : fromStdin
 SanityCheck -> PreCompileSut
+
+ParseStdin -> PreCompileSut
 
 PreCompileSut --> Error : failed
 PreCompileSut -> UpdateAndResetAliveMutants
