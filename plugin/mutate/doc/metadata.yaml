@@ -8,6 +8,10 @@ language: en-US
 stylesheet: epub.css
 abstract: |
     The purpose of this plugin is to perform mutation testing of a _target_.
+titlepage: true
+# titlepage-color: "D8DE2C"
+toc-own-page: true
+listings-no-page-break: true
 numbersections: true
 links-as-notes: true
 colorlinks: true

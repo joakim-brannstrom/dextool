@@ -192,15 +192,15 @@ Categories are error and warning.
 
 Example:
 ```cpp
-foo.cpp: In function ‘int main(int, char**)’:
-foo.cpp:2:9: error: ‘argcc’ was not declared in this scope
+foo.cpp: In function int main(int, char**):
+foo.cpp:2:9: error: argcc was not declared in this scope
      if (argcc > 3)
          ^~~~~
 ```
 
 Fixit format is (this is directly after the error in the previous example):
 ```cpp
-foo.cpp:2:9: note: suggested alternative: ‘argc’
+foo.cpp:2:9: note: suggested alternative: argc
      if (argcc > 3)
          ^~~~~
          argc
@@ -648,11 +648,11 @@ Present the test cases that killed a mutant that is *near* the surviving mutant.
 
 When inspecting a surviving mutant in the html code view the user would like a convenient way to find test cases that killed a *near* mutant. For example if:
 
-    > ‘a || b’ -> ‘false’
+    > a || b -> false
 
 was killed but
 
-    > ‘a || b’ -> ‘true’
+    > a || b -> true
 
 survived The user would like to know which test case(s) that killed the first mutation so that they can use it to assess the surviving mutant. One such assessment could be to extend one of the test suites that killed the first mutant so it kills the second mutant.
 
