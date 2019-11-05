@@ -6,7 +6,7 @@
  * documentation for the Dextool mutation testing plugin.
  *
  * Dependent on the following packages (Ubuntu):
- * `sudo apt install texlive-bibtex-extra biber pandoc pandoc-citeproc texlive-font-utils latexmk`
+ * `sudo apt install texlive-bibtex-extra biber pandoc pandoc-citeproc texlive-font-utils latexmk texlive-fonts-extra`
  */
 import core.stdc.stdlib;
 import logger = std.experimental.logger;
@@ -73,6 +73,7 @@ void pandoc(Pandoc dat, string[] files, const string output) {
          "--template", dat.latexTemplate,
          "-f", "markdown+smart+pipe_tables+raw_html+fenced_code_blocks+auto_identifiers+gfm_auto_identifiers+backtick_code_blocks+autolink_bare_uris+space_in_atx_header+strikeout+shortcut_reference_links+angle_brackets_escapable+lists_without_preceding_blankline+citations+yaml_metadata_block+tex_math_dollars+raw_tex+footnotes+header_attributes+link_attributes",
          "-t", "latex",
+         "--listings",
          "--standalone",
          "--toc",
          "--bibliography", biblio,
