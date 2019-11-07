@@ -135,6 +135,9 @@ struct ConfigMutationTest {
     /// Max time to run mutation testing.
     // note that Duration.max + Clock.currTime results in a negative time...
     Duration maxRuntime = 52.dur!"weeks";
+
+    // Constrain the mutation testing.
+    TestConstraint constraint;
 }
 
 /// Settings for the administration mode

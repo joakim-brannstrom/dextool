@@ -11,12 +11,13 @@ module dextool.plugin.mutate.backend.test_mutant;
 
 import core.thread : Thread;
 import core.time : Duration, dur;
-import std.array : empty;
-import std.datetime : SysTime;
-import std.exception : collectException;
-import std.typecons : Nullable, NullableRef, nullableRef, Tuple;
-
 import logger = std.experimental.logger;
+import std.algorithm : sort, map, splitter, filter;
+import std.array : empty, array;
+import std.datetime : SysTime, Clock;
+import std.exception : collectException;
+import std.path : buildPath;
+import std.typecons : Nullable, NullableRef, nullableRef, Tuple;
 
 import blob_model : Blob, Uri;
 import sumtype;
@@ -25,10 +26,12 @@ import dextool.fsm : Fsm, next, act, get, TypeDataMap;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     NextMutationEntry, spinSql, MutantTimeoutCtx, MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
+import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin;
-import dextool.type : AbsolutePath, ShellCommand, ExitStatusType, FileName, DirName;
+import dextool.set;
+import dextool.type : AbsolutePath, ShellCommand, ExitStatusType, FileName, DirName, Path;
 
 @safe:
 
@@ -144,8 +147,6 @@ Mutation.Status runTester(WatchdogT)(ShellCommand compile_p, ShellCommand tester
     string stderr_p;
 
     if (test_output_dir.length != 0) {
-        import std.path : buildPath;
-
         stdout_p = buildPath(test_output_dir, stdoutLog);
         stderr_p = buildPath(test_output_dir, stderrLog);
     }
@@ -219,8 +220,7 @@ MeasureTestDurationResult measureTesterDuration(ShellCommand cmd) nothrow {
     }
 
     import std.datetime.stopwatch : benchmark;
-    import std.algorithm : minElement, map;
-    import core.time : dur;
+    import std.algorithm : minElement;
 
     try {
         auto bench = benchmark!fun(3);
@@ -392,7 +392,6 @@ nothrow:
     }
 
     void opCall(ref MutateCode data) {
-        import core.thread : Thread;
         import std.random : uniform;
         import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
             GenerateMutantResult, GenerateMutantStatus;
@@ -449,8 +448,6 @@ nothrow:
     }
 
     void opCall(ref TestMutant data) {
-        import dextool.type : Path;
-
         if (local.get!TestMutant.hasTestCaseOutputAnalyzer) {
             try {
                 auto tmpdir = createTmpDir(global.mutp.id);
@@ -482,11 +479,8 @@ nothrow:
     }
 
     void opCall(ref TestCaseAnalyze data) {
-        import std.algorithm : splitter, map, filter;
-        import std.array : array;
         import std.ascii : newline;
         import std.file : exists;
-        import std.path : buildPath;
         import std.process : execute;
         import std.string : strip;
 
@@ -596,6 +590,9 @@ struct TestDriver(alias mutationDriverFactory) {
     static struct Initialize {
     }
 
+    static struct PullRequest {
+    }
+
     static struct SanityCheck {
         bool sanityCheckFailed;
     }
@@ -643,6 +640,16 @@ struct TestDriver(alias mutationDriverFactory) {
     static struct UpdateTimeout {
     }
 
+    static struct NextPullRequestMutant {
+        bool noUnknownMutantsLeft;
+    }
+
+    static struct NextPullRequestMutantData {
+        import dextool.plugin.mutate.backend.database : MutationStatusId;
+
+        MutationStatusId[] mutants;
+    }
+
     static struct NextMutant {
         bool noUnknownMutantsLeft;
     }
@@ -661,15 +668,16 @@ struct TestDriver(alias mutationDriverFactory) {
     alias Fsm = dextool.fsm.Fsm!(None, Initialize, SanityCheck,
             UpdateAndResetAliveMutants, ResetOldMutants, CleanupTempDirs,
             CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
-            NextMutant, MutationTest, HandleTestResult,
-            CheckTimeout, Done, Error, UpdateTimeout, CheckRuntime, SetMaxRuntime);
+            NextMutant, MutationTest, HandleTestResult, CheckTimeout,
+            Done, Error, UpdateTimeout, CheckRuntime, SetMaxRuntime,
+            PullRequest, NextPullRequestMutant);
 
     Fsm fsm;
 
     Global global;
 
-    alias LocalStateDataT = Tuple!(UpdateTimeoutData);
-    TypeDataMap!(LocalStateDataT, UpdateTimeout) local;
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData);
+    TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant) local;
 
     this(DriverData data) {
         this.global = Global(data);
@@ -687,20 +695,29 @@ struct TestDriver(alias mutationDriverFactory) {
                 return fsm(Error.init);
             return fsm(PreCompileSut.init);
         }, (UpdateAndResetAliveMutants a) => fsm(ResetOldMutants.init),
-                (ResetOldMutants a) => fsm(CheckMutantsLeft.init),
-                (CleanupTempDirs a) => fsm(NextMutant.init), (CheckMutantsLeft a) {
+                (ResetOldMutants a) => fsm(CheckMutantsLeft.init), (CleanupTempDirs a) {
+            if (global.data.conf.constraint.empty)
+                return fsm(NextMutant.init);
+            return fsm(NextPullRequestMutant.init);
+        }, (CheckMutantsLeft a) {
             if (a.allMutantsTested)
                 return fsm(Done.init);
             return fsm(MeasureTestSuite.init);
         }, (PreCompileSut a) {
             if (a.compilationError)
                 return fsm(Error.init);
-            return fsm(UpdateAndResetAliveMutants.init);
-        }, (MeasureTestSuite a) {
+            if (global.data.conf.constraint.empty)
+                return fsm(UpdateAndResetAliveMutants.init);
+            return fsm(PullRequest.init);
+        }, (PullRequest a) => fsm(CheckMutantsLeft.init), (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
             return fsm(SetMaxRuntime.init);
-        }, (SetMaxRuntime a) => fsm(UpdateTimeout.init), (NextMutant a) {
+        }, (SetMaxRuntime a) => fsm(UpdateTimeout.init), (NextPullRequestMutant a) {
+            if (a.noUnknownMutantsLeft)
+                return fsm(Done.init);
+            return fsm(PreMutationTest.init);
+        }, (NextMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(CheckTimeout.init);
             return fsm(PreMutationTest.init);
@@ -755,7 +772,6 @@ nothrow:
 
     void opCall(ref SanityCheck data) {
         // #SPC-sanity_check_db_vs_filesys
-        import dextool.type : Path;
         import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath;
         import dextool.plugin.mutate.backend.type : Checksum;
 
@@ -800,11 +816,7 @@ nothrow:
 
     // TODO: refactor. This method is too long.
     void opCall(UpdateAndResetAliveMutants data) {
-        import core.time : dur;
-        import std.algorithm : map;
         import std.datetime.stopwatch : StopWatch;
-        import std.path : buildPath;
-        import dextool.type : Path;
         import dextool.plugin.mutate.backend.type : TestCase;
 
         if (global.data.conf.mutationTestCaseAnalyze.length == 0
@@ -871,11 +883,8 @@ nothrow:
             spinSql!(() { global.data.db.addDetectedTestCases(all_found_tc); });
             break;
         case remove:
-            import dextool.plugin.mutate.backend.database : MutationStatusId;
-
-            MutationStatusId[] ids;
-            spinSql!(() {
-                ids = global.data.db.setDetectedTestCases(all_found_tc);
+            auto ids = spinSql!(() {
+                return global.data.db.setDetectedTestCases(all_found_tc);
             });
             foreach (id; ids)
                 spinSql!(() {
@@ -909,9 +918,8 @@ nothrow:
 
         logger.infof("Resetting the %s oldest mutants",
                 global.data.conf.oldMutantsNr).collectException;
-        MutationStatusTime[] oldest;
-        spinSql!(() {
-            oldest = global.data.db.getOldestMutants(global.data.mutKind,
+        auto oldest = spinSql!(() {
+            return global.data.db.getOldestMutants(global.data.mutKind,
                 global.data.conf.oldMutantsNr);
         });
         foreach (const old; oldest) {
@@ -956,6 +964,41 @@ nothrow:
             // unable to for example execute the compiler
             logger.error(e.msg).collectException;
         }
+    }
+
+    void opCall(PullRequest data) {
+        import std.array : appender;
+        import dextool.plugin.mutate.backend.database : MutationStatusId;
+        import dextool.plugin.mutate.backend.type : SourceLoc;
+        import dextool.set;
+
+        Set!MutationStatusId mut_ids;
+
+        foreach (kv; global.data.conf.constraint.value.byKeyValue) {
+            const file_id = spinSql!(() => global.data.db.getFileId(kv.key));
+            if (file_id.isNull) {
+                logger.infof("The file %s do not exist in the database. Skipping...",
+                        kv.key).collectException;
+                continue;
+            }
+
+            foreach (l; kv.value) {
+                auto mutants = spinSql!(() {
+                    return global.data.db.getMutationsOnLine(global.data.mutKind,
+                        file_id.get, SourceLoc(l.value, 0));
+                });
+
+                const pre_cnt = mut_ids.length;
+                foreach (v; mutants)
+                    mut_ids.add(v);
+
+                logger.infof(mut_ids.length - pre_cnt > 0, "Found %s mutant(s) to test (%s:%s)",
+                        mut_ids.length - pre_cnt, kv.key, l.value).collectException;
+            }
+        }
+
+        local.get!NextPullRequestMutant.mutants = mut_ids.toArray;
+        logger.trace(local.get!NextPullRequestMutant.mutants.sort).collectException;
     }
 
     void opCall(ref MeasureTestSuite data) {
@@ -1016,6 +1059,33 @@ nothrow:
         }
     }
 
+    void opCall(ref NextPullRequestMutant data) {
+        global.nextMutant = MutationEntry.init;
+        data.noUnknownMutantsLeft = true;
+
+        while (!local.get!NextPullRequestMutant.mutants.empty) {
+            const id = local.get!NextPullRequestMutant.mutants[$ - 1];
+            const status = spinSql!(() => global.data.db.getMutationStatus(id));
+            local.get!NextPullRequestMutant.mutants
+                = local.get!NextPullRequestMutant.mutants[0 .. $ - 1];
+
+            if (status.isNull)
+                continue;
+            if (status.get != Mutation.Status.unknown)
+                continue;
+
+            const info = spinSql!(() => global.data.db.getMutantsInfo(global.data.mutKind, [
+                        id
+                    ]));
+            if (info.empty)
+                continue;
+
+            global.nextMutant = spinSql!(() => global.data.db.getMutation(info[0].id));
+            data.noUnknownMutantsLeft = false;
+            break;
+        }
+    }
+
     void opCall(ref NextMutant data) {
         global.nextMutant = MutationEntry.init;
 
@@ -1032,7 +1102,6 @@ nothrow:
 
     void opCall(HandleTestResult data) {
         void statusUpdate(MutationTestResult.StatusUpdate result) {
-            import std.algorithm : sort, map;
             import dextool.plugin.mutate.backend.test_mutant.timeout : updateMutantStatus;
 
             const cnt_action = () {
@@ -1067,14 +1136,10 @@ nothrow:
     }
 
     void opCall(SetMaxRuntime) {
-        import std.datetime : Clock;
-
         global.maxRuntime = Clock.currTime + global.data.conf.maxRuntime;
     }
 
     void opCall(ref CheckRuntime data) {
-        import std.datetime : Clock;
-
         data.reachedMax = Clock.currTime > global.maxRuntime;
         if (data.reachedMax) {
             logger.infof("Max runtime of %s reached at %s",
@@ -1085,17 +1150,12 @@ nothrow:
 
 private:
 
-import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
-import dextool.plugin.mutate.backend.type : TestCase;
-import dextool.set;
-
 /// Run an external program that analyze the output from the test suite for test cases that failed.
 bool externalProgram(string[] cmd, TestCaseReport report) nothrow {
-    import std.algorithm : copy, splitter, filter, map;
+    import std.algorithm : copy;
     import std.ascii : newline;
     import std.process : execute;
     import std.string : strip, startsWith;
-    import dextool.plugin.mutate.backend.type : TestCase;
 
     immutable passed = "passed:";
     immutable failed = "failed:";
@@ -1299,8 +1359,6 @@ class AutoCleanup {
 
     // trusted: the paths are forced to be valid paths.
     void cleanup() @trusted nothrow {
-        import std.algorithm : filter;
-        import std.array : array;
         import std.file : rmdirRecurse, exists;
 
         foreach (ref p; remove_dirs.filter!(a => !a.empty)) {
