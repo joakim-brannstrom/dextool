@@ -278,9 +278,10 @@ ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
 
 ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : runGenerateMutant;
+    import dextool.plugin.mutate.backend.database.type : MutationId;
 
-    return runGenerateMutant(dacc.db, conf.data.mutation, conf.data.mutationId,
-            dacc.io, dacc.validateLoc);
+    return runGenerateMutant(dacc.db, conf.data.mutation,
+            MutationId(conf.generate.mutationId), dacc.io, dacc.validateLoc);
 }
 
 ExitStatusType modeTestMutants(ref ArgParser conf, ref DataAccess dacc) {
