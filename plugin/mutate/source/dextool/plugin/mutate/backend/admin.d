@@ -39,6 +39,8 @@ nothrow:
         Mutation.Status status;
         Mutation.Status to_status;
         Regex!char test_case_regex;
+        ulong mutant_id;
+        string mutant_rationale;
     }
 
     private InternalData data;
@@ -75,6 +77,16 @@ nothrow:
         return this;
     }
 
+    auto mutant_id(ulong v) {
+        data.mutant_id = v;
+        return this;
+    }
+
+    auto mutant_rationale(string v) {
+        data.mutant_rationale = v;
+        return this;
+    }
+
     ExitStatusType run(ref Database db) {
         if (data.errorInData) {
             logger.error("Invalid parameters").collectException;
@@ -93,6 +105,9 @@ nothrow:
         case AdminOperation.removeTestCase:
             return removeTestCase(db,
                     data.kinds, data.test_case_regex);
+        case AdminOperation.markMutant:
+            return markMutant(db, data.mutant_id,
+                    data.to_status, data.mutant_rationale);
         }
     }
 }
@@ -127,5 +142,16 @@ ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, cons
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }
+    return ExitStatusType.Ok;
+}
+
+ExitStatusType markMutant(ref Database db, ulong id, Mutation.Status status, string rationale) @safe nothrow {
+    try {
+        db.markMutant(id, status, rationale);
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+        return ExitStatusType.Errors;
+    }
+
     return ExitStatusType.Ok;
 }

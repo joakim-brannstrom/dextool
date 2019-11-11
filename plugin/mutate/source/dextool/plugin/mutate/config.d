@@ -140,6 +140,8 @@ struct ConfigAdmin {
     Mutation.Status mutantStatus;
     Mutation.Status mutantToStatus;
     string testCaseRegex;
+    ulong mutant_id;
+    string mutant_rationale;
 }
 
 struct ConfigWorkArea {

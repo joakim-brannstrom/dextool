@@ -48,7 +48,7 @@ import dextool.plugin.mutate.backend.type : Language;
 /** Database wrapper with minimal dependencies.
  */
 struct Database {
-    import miniorm : Miniorm, select, insert, delete_;
+    import miniorm : Miniorm, select, insert, delete_, buildSchema;
     import d2sqlite3 : SqlDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
@@ -399,6 +399,16 @@ struct Database {
             rval = MutationStatusId(res.peek!long(0));
         return rval;
     }
+    // Returns: the status of the mutant
+    Nullable!Mutation.Status getMutationStatus(const MutationId id) @trusted {
+        auto stmt = db.prepare(format("SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)",
+                mutationStatusTable, mutationTable));
+        stmt.bind(":mut_id", cast(long) id);
+        typeof(return) rval;
+        foreach (res; stmt.execute)
+            rval = res.peek!long(0).to!(Mutation.Status);
+        return rval;
+    }
 
     /// Returns: the mutants in the file at the line.
     MutationStatusId[] getMutationsOnLine(const(Mutation.Kind)[] kinds, FileId fid, SourceLoc sloc) @trusted {
@@ -523,6 +533,42 @@ struct Database {
         auto stmt = db.prepare(s);
         stmt.execute;
     }
+    /** Mark mutant as suppressed
+	Can be used both for ignoring and "accepting" mutants after investigation
+     */
+    void markMutant(ulong mutant_id, string rationale) @trusted {
+        const s = format!"UPDATE %s SET status=%s WHERE id = %s"(
+                mutationStatusTable, Mutation.Status.suppressed.to!long,
+		mutant_id.to!long);
+        auto stmt = db.prepare(s);
+        stmt.execute;
+
+	// TODO: add rationale to separate table
+	/*const rationale = format!"UPDATE %s SET status=%s WHERE id = %s"(
+                mutationStatusTable, Mutation.Status.suppressed.to!long,
+		mutant_id.to!long);
+        auto statusStmt = db.prepare(status);
+        statusStmt.execute;*/
+    }
+
+    /** Set mutantStatus by using MutantId.
+	Can be used both for ignoring and "accepting" mutants.
+     */
+    void markMutant(ulong id, Mutation.Status to_status, string rationale = "") @trusted {
+        Mutation.Status from_status = Mutation.Status(getMutationStatus(MutationId(id)));
+
+        // mark mutantStatus in mutationStatus-table
+        const s = format!"UPDATE %s SET status=%s WHERE id IN (SELECT st_id FROM %s WHERE id = %s)"(
+                mutationStatusTable, to_status.to!long, mutationTable, id.to!long);
+        auto stmt = db.prepare(s);
+        stmt.execute;
+
+        // add mutant to separate table for marked mutants
+        db.run(buildSchema!MarkedMutant); // TODO: can probably be done somewhere else
+        db.run(insert!MarkedMutant.insert, MarkedMutant(MutationId(id),
+                Path(getPath(MutationId(id))), from_status, to_status,
+                Rationale(Clock.currTime.toUTC.toSqliteDateTime, rationale)));
+    }
 
     import dextool.plugin.mutate.backend.type;
 
@@ -553,6 +599,7 @@ struct Database {
     alias killedByCompilerSrcMutants = countMutants!([
             Mutation.Status.killedByCompiler
             ], true);
+  alias suppressedSrcMutants = countMutants!([Mutation.Status.suppressed], true);
 
     /** Count the mutants with the nomut metadata.
      *
