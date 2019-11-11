@@ -13,13 +13,12 @@ import logger = std.experimental.logger;
 import std.exception : collectException;
 
 import dextool.compilation_db;
-import dextool.type : AbsolutePath, FileName, ExitStatusType;
+import dextool.type : Path, AbsolutePath, FileName, ExitStatusType;
 
 import dextool.plugin.mutate.frontend.argparser;
 import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
     ReportLevel, AdminOperation;
 import dextool.plugin.mutate.config;
-import dextool.utility : asAbsNormPath;
 
 @safe:
 
@@ -183,12 +182,9 @@ private:
         import std.format : format;
         import std.string : startsWith;
 
-        auto realp = p.asAbsNormPath;
-
-        if (!dry_run && !realp.startsWith((cast(string) root))) {
-            logger.tracef("Path '%s' escaping output directory (--out) '%s'", realp, root);
-            throw new Exception(format("Path '%s' escaping output directory (--out) '%s'",
-                    realp, root));
+        if (!dry_run && !p.startsWith((cast(string) root))) {
+            logger.tracef("Path '%s' escaping output directory (--out) '%s'", p, root);
+            throw new Exception(format("Path '%s' escaping output directory (--out) '%s'", p, root));
         }
     }
 }
@@ -214,7 +210,7 @@ final class FrontendValidateLoc : ValidateLoc {
         import std.algorithm : any;
         import std.string : startsWith;
 
-        auto realp = p.asAbsNormPath;
+        auto realp = p.Path.AbsolutePath;
 
         bool res = any!(a => realp.startsWith(a))(restrict_dir);
         logger.tracef(!res, "Path '%s' do not match any of [%(%s, %)]", realp, restrict_dir);
@@ -224,10 +220,8 @@ final class FrontendValidateLoc : ValidateLoc {
     override bool shouldMutate(AbsolutePath p) {
         import std.string : startsWith;
 
-        auto realp = p.asAbsNormPath;
-
-        bool res = realp.startsWith(output_dir);
-        logger.tracef(!res, "Path '%s' escaping output directory (--out) '%s'", realp, output_dir);
+        bool res = p.startsWith(output_dir);
+        logger.tracef(!res, "Path '%s' escaping output directory (--out) '%s'", p, output_dir);
         return res;
     }
 }
