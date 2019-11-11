@@ -147,8 +147,6 @@ struct Mutation {
         killedByCompiler,
         /// the mutant resulted in the test suite/sut reaching the timeout threshold
         timeout,
-	/// the mutant has been marked by user and suppressed
-	suppressed,
     }
 
     Kind kind;

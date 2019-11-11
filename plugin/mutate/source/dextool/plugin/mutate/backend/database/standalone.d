@@ -533,23 +533,6 @@ struct Database {
         auto stmt = db.prepare(s);
         stmt.execute;
     }
-    /** Mark mutant as suppressed
-	Can be used both for ignoring and "accepting" mutants after investigation
-     */
-    void markMutant(ulong mutant_id, string rationale) @trusted {
-        const s = format!"UPDATE %s SET status=%s WHERE id = %s"(
-                mutationStatusTable, Mutation.Status.suppressed.to!long,
-		mutant_id.to!long);
-        auto stmt = db.prepare(s);
-        stmt.execute;
-
-	// TODO: add rationale to separate table
-	/*const rationale = format!"UPDATE %s SET status=%s WHERE id = %s"(
-                mutationStatusTable, Mutation.Status.suppressed.to!long,
-		mutant_id.to!long);
-        auto statusStmt = db.prepare(status);
-        statusStmt.execute;*/
-    }
 
     /** Set mutantStatus by using MutantId.
 	Can be used both for ignoring and "accepting" mutants.
@@ -599,7 +582,6 @@ struct Database {
     alias killedByCompilerSrcMutants = countMutants!([
             Mutation.Status.killedByCompiler
             ], true);
-  alias suppressedSrcMutants = countMutants!([Mutation.Status.suppressed], true);
 
     /** Count the mutants with the nomut metadata.
      *

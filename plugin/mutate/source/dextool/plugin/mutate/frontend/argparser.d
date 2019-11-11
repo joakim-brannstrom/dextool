@@ -200,7 +200,7 @@ struct ArgParser {
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
         string db;
-	string mut_id_string;
+        string mut_id_string;
 
         void analyzerG(string[] args) {
             string[] compile_dbs;
@@ -345,10 +345,11 @@ struct ArgParser {
                 data.toolMode = ToolMode.dumpConfig;
             else if (init_conf)
                 data.toolMode = ToolMode.initConfig;
-	    if (!mut_id_string.empty) {
-		import std.conv: to;
-		data.mutant_id = to!long(mut_id_string);
-	    }
+            if (!mut_id_string.empty) {
+                import std.conv : to;
+
+                data.mutant_id = to!long(mut_id_string);
+            }
         }
 
         groups["analyze"] = &analyzerG;
