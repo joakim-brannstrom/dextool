@@ -150,3 +150,8 @@ struct ConfigWorkArea {
     AbsolutePath outputDirectory;
     AbsolutePath[] restrictDir;
 }
+
+/// Configuration of the generate mode.
+struct ConfigGenerate {
+    long mutationId;
+}

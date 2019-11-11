@@ -50,6 +50,7 @@ struct ArgParser {
     ConfigMutationTest mutationTest;
     ConfigReport report;
     ConfigWorkArea workArea;
+    ConfigGenerate generate;
 
     struct Data {
         string[] inFiles;
@@ -60,8 +61,6 @@ struct ArgParser {
         ExitStatusType exitStatus = ExitStatusType.Ok;
 
         MutationKind[] mutation;
-
-        Nullable!long mutationId;
 
         ToolMode toolMode;
     }
@@ -222,26 +221,15 @@ struct ArgParser {
 
         void generateMutantG(string[] args) {
             data.toolMode = ToolMode.generate_mutant;
-            string cli_mutation_id;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "out", out_help, &workArea.rawRoot,
                    "restrict", restrict_help, &workArea.rawRestrict,
-                   "id", "mutate the source code as mutant ID", &cli_mutation_id,
+                   std.getopt.config.required, "id", "mutate the source code as mutant ID", &generate.mutationId,
                    );
             // dfmt on
-
-            try {
-                import std.conv : to;
-
-                if (cli_mutation_id.length != 0)
-                    data.mutationId = cli_mutation_id.to!long;
-            } catch (ConvException e) {
-                logger.infof("Invalid mutation point '%s'. It must be in the range [0, %s]",
-                        cli_mutation_id, long.max);
-            }
         }
 
         void testMutantsG(string[] args) {

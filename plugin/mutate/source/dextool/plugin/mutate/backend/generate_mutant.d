@@ -36,21 +36,16 @@ enum GenerateMutantStatus {
 }
 
 ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
-        Nullable!long user_mutation, FilesysIO fio, ValidateLoc val_loc) @safe nothrow {
+        MutationId user_mutation, FilesysIO fio, ValidateLoc val_loc) @safe nothrow {
     import dextool.plugin.mutate.backend.utility : toInternal;
 
     Nullable!MutationEntry mutp;
-    if (!user_mutation.isNull) {
-        mutp = spinSql!(() {
-            return db.getMutation(MutationId(user_mutation.get));
-        });
-        logger.error(mutp.isNull, "No such mutation id: ", user_mutation.get).collectException;
-    } else {
-        auto next_m = spinSql!(() { return db.nextMutation(kind.toInternal); });
-        mutp = next_m.entry;
-    }
-    if (mutp.isNull)
+    mutp = spinSql!(() { return db.getMutation(user_mutation); });
+
+    if (mutp.isNull) {
+        logger.error("No such mutation id: ", user_mutation).collectException;
         return ExitStatusType.Errors;
+    }
 
     AbsolutePath mut_file;
     try {
