@@ -512,7 +512,7 @@ void loadConfig(ref ArgParser rval) @trusted {
     Fn[string] callbacks;
 
     callbacks["analyze.exclude"] = (ref ArgParser c, ref TOMLValue v) {
-        c.analyze.exclude = v.array.map!(a => a.str.Path.AbsolutePath).array;
+        c.analyze.rawExclude = v.array.map!(a => a.str).array;
     };
 
     callbacks["workarea.root"] = (ref ArgParser c, ref TOMLValue v) {
