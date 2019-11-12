@@ -99,17 +99,6 @@ enum dextoolVersion = DextoolVersion(import("version.txt").strip);
 
 static assert(dextoolVersion.length > 0, "Failed to import version.txt at compile time");
 
-/** Convert a string to the "real path" by converting to an absolute, normalized path.
- * TODO: optimize
- * This function is very inefficient. It creates a lot of GC garbage.
- */
-string asAbsNormPath(string path) @trusted {
-    import std.path;
-    import std.conv : to;
-
-    return to!string(path.asAbsolutePath.asNormalizedPath);
-}
-
 /// Returns. true if `path` is inside `root`.
 bool isPathInsideRoot(AbsolutePath root, AbsolutePath path) {
     import std.string : startsWith;

@@ -24,8 +24,7 @@ import toml : TOMLDocument;
 public import dextool.plugin.mutate.backend : Mutation;
 public import dextool.plugin.mutate.type;
 import dextool.plugin.mutate.config;
-import dextool.utility : asAbsNormPath;
-import dextool.type : AbsolutePath, Path, ExitStatusType, ShellCommand;
+import dextool.type : AbsolutePath, Path, ExitStatusType, ShellCommand, DirName;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -50,6 +49,7 @@ struct ArgParser {
     ConfigMutationTest mutationTest;
     ConfigReport report;
     ConfigWorkArea workArea;
+    ConfigGenerate generate;
 
     struct Data {
         string[] inFiles;
@@ -60,8 +60,6 @@ struct ArgParser {
         ExitStatusType exitStatus = ExitStatusType.Ok;
 
         MutationKind[] mutation;
-
-        Nullable!long mutationId;
 
         ToolMode toolMode;
 
@@ -221,31 +219,20 @@ struct ArgParser {
 
             updateCompileDb(compileDb, compile_dbs);
             if (!exclude_files.empty)
-                analyze.exclude = exclude_files.map!(a => a.Path.AbsolutePath).array;
+                analyze.rawExclude = exclude_files;
         }
 
         void generateMutantG(string[] args) {
             data.toolMode = ToolMode.generate_mutant;
-            string cli_mutation_id;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "out", out_help, &workArea.rawRoot,
                    "restrict", restrict_help, &workArea.rawRestrict,
-                   "id", "mutate the source code as mutant ID", &cli_mutation_id,
+                   std.getopt.config.required, "id", "mutate the source code as mutant ID", &generate.mutationId,
                    );
             // dfmt on
-
-            try {
-                import std.conv : to;
-
-                if (cli_mutation_id.length != 0)
-                    data.mutationId = cli_mutation_id.to!long;
-            } catch (ConvException e) {
-                logger.infof("Invalid mutation point '%s'. It must be in the range [0, %s]",
-                        cli_mutation_id, long.max);
-            }
         }
 
         void testMutantsG(string[] args) {
@@ -399,19 +386,19 @@ struct ArgParser {
         else if (data.db.length == 0)
             data.db = "dextool_mutate.sqlite3".Path.AbsolutePath;
 
-        if (workArea.rawRoot.length != 0)
-            workArea.outputDirectory = AbsolutePath(Path(workArea.rawRoot.asAbsNormPath));
-        else if (workArea.outputDirectory.length == 0) {
+        if (workArea.rawRoot.empty) {
             workArea.rawRoot = ".";
-            workArea.outputDirectory = workArea.rawRoot.Path.AbsolutePath;
         }
+        workArea.outputDirectory = workArea.rawRoot.Path.AbsolutePath;
 
-        if (workArea.rawRestrict.length != 0)
-            workArea.restrictDir = workArea.rawRestrict.map!(a => AbsolutePath(FileName(a))).array;
-        else if (workArea.restrictDir.length == 0) {
+        if (workArea.rawRestrict.empty) {
             workArea.rawRestrict = [workArea.rawRoot];
-            workArea.restrictDir = [workArea.outputDirectory];
         }
+        workArea.restrictDir = workArea.rawRestrict.map!(a => AbsolutePath(FileName(a),
+                DirName(workArea.outputDirectory))).array;
+
+        analyze.exclude = analyze.rawExclude.map!(a => AbsolutePath(FileName(a),
+                DirName(workArea.outputDirectory))).array;
 
         compiler.extraFlags = compiler.extraFlags ~ args.find("--").drop(1).array();
     }
@@ -472,12 +459,16 @@ void updateCompileDb(ref ConfigCompileDb db, string[] compile_dbs) {
  * It must be enough information that the user can adjust `--out` and `--restrict`.
  */
 void printFileAnalyzeHelp(ref ArgParser ap) @safe {
+    static void printPath(string user, AbsolutePath real_path) {
+        logger.info("  User input: ", user);
+        logger.info("  Real path: ", real_path);
+    }
+
     logger.infof("Reading compilation database:\n%-(%s\n%)", ap.compileDb.dbs);
 
     logger.info(
             "Analyze and mutation of files will only be done on those inside this directory root");
-    logger.info("  User input: ", ap.workArea.rawRoot);
-    logger.info("  Real path: ", ap.workArea.outputDirectory);
+    printPath(ap.workArea.rawRoot, ap.workArea.outputDirectory);
     logger.info(ap.workArea.rawRestrict.length != 0,
             "Restricting mutation to files in the following directory tree(s)");
 
@@ -485,13 +476,14 @@ void printFileAnalyzeHelp(ref ArgParser ap) @safe {
     foreach (idx; 0 .. ap.workArea.rawRestrict.length) {
         if (ap.workArea.rawRestrict[idx] == ap.workArea.rawRoot)
             continue;
-        logger.info("  User input: ", ap.workArea.rawRestrict[idx]);
-        logger.info("  Real path: ", ap.workArea.restrictDir[idx]);
+        printPath(ap.workArea.rawRestrict[idx], ap.workArea.restrictDir[idx]);
     }
 
-    logger.info("Excluding files inside the following directory tree(s) from analysis");
-    foreach (root; ap.analyze.exclude)
-        logger.info("  Real path: ", root);
+    logger.info(!ap.analyze.exclude.empty,
+            "Excluding files inside the following directory tree(s) from analysis");
+    foreach (idx; 0 .. ap.analyze.exclude.length) {
+        printPath(ap.analyze.rawExclude[idx], ap.analyze.exclude[idx]);
+    }
 }
 
 /** Load the configuration from file.
@@ -531,7 +523,7 @@ void loadConfig(ref ArgParser rval) @trusted {
     Fn[string] callbacks;
 
     callbacks["analyze.exclude"] = (ref ArgParser c, ref TOMLValue v) {
-        c.analyze.exclude = v.array.map!(a => a.str.Path.AbsolutePath).array;
+        c.analyze.rawExclude = v.array.map!(a => a.str).array;
     };
 
     callbacks["workarea.root"] = (ref ArgParser c, ref TOMLValue v) {

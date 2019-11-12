@@ -7,8 +7,6 @@ module dextool.type;
 
 public import dextool.compilation_db : FilterClangFlag;
 
-import dextool.utility : asAbsNormPath;
-
 @safe:
 
 enum ExitStatusType {
@@ -126,7 +124,8 @@ pure @nogc nothrow:
  * This divides the domain in two, one unchecked and one checked.
  */
 struct AbsolutePath {
-    import std.path : expandTilde, buildNormalizedPath;
+    import std.path : buildNormalizedPath, asAbsolutePath, asNormalizedPath;
+    import std.utf : toUTF8;
 
     Path payload;
     alias payload this;
@@ -137,24 +136,18 @@ struct AbsolutePath {
         assert(payload.length == 0 || payload.isAbsolute);
     }
 
-    immutable this(AbsolutePath p) {
-        this.payload = p.payload;
-    }
-
     this(Path p) {
-        auto p_expand = () @trusted { return p.expandTilde; }();
         // the second buildNormalizedPath is needed to correctly resolve "."
         // otherwise it is resolved to /foo/bar/.
-        payload = buildNormalizedPath(p_expand).asAbsNormPath.Path;
+        payload = buildNormalizedPath(expand(p)).asAbsolutePath.asNormalizedPath.toUTF8.Path;
     }
 
     /// Build the normalised path from workdir.
     this(Path p, DirName workdir) {
-        auto p_expand = () @trusted { return p.expandTilde; }();
-        auto workdir_expand = () @trusted { return workdir.expandTilde; }();
         // the second buildNormalizedPath is needed to correctly resolve "."
         // otherwise it is resolved to /foo/bar/.
-        payload = buildNormalizedPath(workdir_expand, p_expand).asAbsNormPath.Path;
+        payload = buildNormalizedPath(expand(workdir), expand(p))
+            .asAbsolutePath.asNormalizedPath.toUTF8.Path;
     }
 
     void opAssign(FileName p) {
@@ -171,6 +164,12 @@ struct AbsolutePath {
 
     pure nothrow const @nogc string opCast(T : string)() {
         return payload;
+    }
+
+    private static Path expand(Path p) @trusted {
+        import std.path : expandTilde;
+
+        return p.expandTilde.Path;
     }
 }
 

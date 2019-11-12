@@ -72,6 +72,9 @@ struct ConfigCompileDb {
 
 /// Configuration of how the mutation analyzer should act.
 struct ConfigAnalyze {
+    /// User input of excludes before they are adjusted to relative root
+    string[] rawExclude;
+
     /// Exclude any files that are in these directory trees from the analysis.
     AbsolutePath[] exclude;
 }
@@ -151,4 +154,9 @@ struct ConfigWorkArea {
 
     AbsolutePath outputDirectory;
     AbsolutePath[] restrictDir;
+}
+
+/// Configuration of the generate mode.
+struct ConfigGenerate {
+    long mutationId;
 }
