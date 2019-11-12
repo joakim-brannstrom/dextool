@@ -77,7 +77,7 @@ The flags for the different commands will be listed in the following format:
     - *timeout* : Mutants that timed out during test suite execution.
 
 
--   --id : Specify a specific mutant by MutationId.
+-   --id : Specify a specific mutant by Id.
 
 
 -   --rationale : Provide a rationale for marking a mutant.

@@ -64,7 +64,7 @@ struct ArgParser {
         ToolMode toolMode;
 
         Mutation.Status to_status;
-        ulong mutant_id;
+        long mutant_id;
     }
 
     Data data;
@@ -198,7 +198,6 @@ struct ArgParser {
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
         string db;
-        string mut_id_string;
 
         void analyzerG(string[] args) {
             string[] compile_dbs;
@@ -323,20 +322,15 @@ struct ArgParser {
                 "test-case-regex", "regex to use when removing test cases", &admin.testCaseRegex,
                 "status", "change mutants with this state to the value specified by --to-status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantStatus,
                 "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantToStatus,
-		"id", "specify mutant to mark", &mut_id_string,
-		"rationale", "rationale for marking mutant", &admin.mutant_rationale,
-		);
+                "id", "specify mutant to mark", &admin.mutationId,
+                "rationale", "rationale for marking mutant", &admin.mutantRationale,
+                );
             // dfmt on
 
             if (dump_conf)
                 data.toolMode = ToolMode.dumpConfig;
             else if (init_conf)
                 data.toolMode = ToolMode.initConfig;
-            if (!mut_id_string.empty) {
-                import std.conv : to;
-
-                data.mutant_id = to!long(mut_id_string);
-            }
         }
 
         groups["analyze"] = &analyzerG;

@@ -48,7 +48,7 @@ import dextool.plugin.mutate.backend.type : Language;
 /** Database wrapper with minimal dependencies.
  */
 struct Database {
-    import miniorm : Miniorm, select, insert, delete_, buildSchema;
+    import miniorm : Miniorm, select, insert, insertOrReplace, delete_;
     import d2sqlite3 : SqlDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
@@ -401,7 +401,7 @@ struct Database {
     }
     // Returns: the status of the mutant
     Nullable!Mutation.Status getMutationStatus(const MutationId id) @trusted {
-        auto stmt = db.prepare(format("SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)",
+        auto stmt = db.prepare(format!"SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)"(
                 mutationStatusTable, mutationTable));
         stmt.bind(":mut_id", cast(long) id);
         typeof(return) rval;
@@ -515,6 +515,18 @@ struct Database {
         return app.data;
     }
 
+    /** Get SourceLoc for a specific mutation id.
+     */
+    SourceLoc getSourceLocation(MutationId id) @trusted {
+        auto stmt = db.prepare(format!"SELECT line, column FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE id=:mut_id)"(
+                mutationPointTable, mutationTable));
+        stmt.bind(":mut_id", cast(long) id);
+        typeof(return) rval;
+        foreach (res; stmt.execute)
+            rval = SourceLoc(res.peek!uint(0), res.peek!uint(1));
+        return rval;
+    }
+
     /** Remove all mutations of kinds.
      */
     void removeMutant(const Mutation.Kind[] kinds) @trusted {
@@ -535,22 +547,21 @@ struct Database {
     }
 
     /** Set mutantStatus by using MutantId.
-	Can be used both for ignoring and "accepting" mutants.
      */
-    void markMutant(ulong id, Mutation.Status to_status, string rationale = "") @trusted {
-        Mutation.Status from_status = Mutation.Status(getMutationStatus(MutationId(id)));
+    void markMutant(MutationId id, Mutation.Status to_status, string rationale) @trusted {
+        auto st_id = getMutationStatusId(id);
+        auto p = getPath(id);
 
-        // mark mutantStatus in mutationStatus-table
-        const s = format!"UPDATE %s SET status=%s WHERE id IN (SELECT st_id FROM %s WHERE id = %s)"(
-                mutationStatusTable, to_status.to!long, mutationTable, id.to!long);
-        auto stmt = db.prepare(s);
-        stmt.execute;
+        if (p.isNull)
+            return;
 
-        // add mutant to separate table for marked mutants
-        db.run(buildSchema!MarkedMutant); // TODO: can probably be done somewhere else
-        db.run(insert!MarkedMutant.insert, MarkedMutant(MutationId(id),
-                Path(getPath(MutationId(id))), from_status, to_status,
-                Rationale(Clock.currTime.toUTC.toSqliteDateTime, rationale)));
+        auto sl = getSourceLocation(id);
+        auto r = Rationale(rationale);
+        auto t = Clock.currTime.toUTC;
+
+        // update mutationStatus and add mutant to separate table for marked ones.
+        updateMutationStatus(st_id, to_status);
+        db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, sl.line, sl.column, p, to_status, t, r));
     }
 
     import dextool.plugin.mutate.backend.type;

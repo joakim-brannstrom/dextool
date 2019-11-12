@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.database.type;
 
 import core.time : Duration;
-import std.datetime : SysTime, Clock;
+import std.datetime : SysTime;
 
 import sumtype;
 
@@ -227,15 +227,5 @@ struct MutantMetaData {
 }
 
 struct Rationale {
-  string time;
   string rationale;
-}
-
-// Mutant manually marked in db
-struct MarkedMutant {
-    MutationId mutant_id;
-    Path path;
-    Mutation.Status from_status;
-    Mutation.Status to_status;
-    Rationale rationale;
 }

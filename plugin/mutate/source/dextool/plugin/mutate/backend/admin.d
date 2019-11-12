@@ -17,7 +17,7 @@ import logger = std.experimental.logger;
 import dextool.type;
 
 import dextool.plugin.mutate.type : MutationKind, AdminOperation;
-import dextool.plugin.mutate.backend.database : Database;
+import dextool.plugin.mutate.backend.database : Database, MutationId;
 import dextool.plugin.mutate.backend.type : Mutation;
 
 auto makeAdmin() {
@@ -39,7 +39,7 @@ nothrow:
         Mutation.Status status;
         Mutation.Status to_status;
         Regex!char test_case_regex;
-        ulong mutant_id;
+        MutationId mutant_id;
         string mutant_rationale;
     }
 
@@ -77,13 +77,9 @@ nothrow:
         return this;
     }
 
-    auto mutant_id(ulong v) {
+    auto markMutantData(ulong v, string s) {
         data.mutant_id = v;
-        return this;
-    }
-
-    auto mutant_rationale(string v) {
-        data.mutant_rationale = v;
+        data.mutant_rationale = s;
         return this;
     }
 
@@ -145,7 +141,7 @@ ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, cons
     return ExitStatusType.Ok;
 }
 
-ExitStatusType markMutant(ref Database db, ulong id, Mutation.Status status, string rationale) @safe nothrow {
+ExitStatusType markMutant(ref Database db, MutationId id, Mutation.Status status, string rationale) @safe nothrow {
     try {
         db.markMutant(id, status, rationale);
     } catch (Exception e) {
