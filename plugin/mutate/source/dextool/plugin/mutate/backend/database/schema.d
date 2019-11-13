@@ -415,10 +415,10 @@ struct MutantTimeoutCtx {
 import dextool.plugin.mutate.backend.database.type : Rationale;
 
 @TableName(markedMutantTable)
-@TablePrimaryKey("mutationStatusId")
+@TablePrimaryKey("st_id")
 struct MarkedMutant {
     @ColumnName("st_id")
-    ulong mutationStatusId;
+    long mutationStatusId;
 
     uint line;
 
@@ -426,13 +426,10 @@ struct MarkedMutant {
 
     string path;
 
-    @ColumnName("status")
     ulong to_status;
 
-    @ColumnName("time")
     SysTime time;
 
-    @ColumnName("rationale")
     Rationale rationale;
 }
 

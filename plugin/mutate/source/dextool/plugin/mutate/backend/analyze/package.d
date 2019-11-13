@@ -145,6 +145,8 @@ struct Analyzer {
             try {
                 auto f_status = isFileChanged(db, relp, a.cs);
                 if (f_status == FileStatus.changed) {
+                    if (db.hasLostMarkings(relp))
+                        logger.warningf("Marked mutants in file '%s' will become lost!", relp);
                     logger.infof("Updating analyze of '%s'", a);
                 }
 

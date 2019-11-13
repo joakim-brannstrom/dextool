@@ -39,7 +39,7 @@ import std.typecons : Nullable, Flag, No;
 
 import miniorm : toSqliteDateTime, fromSqLiteDateTime;
 
-import dextool.type : AbsolutePath, Path;
+import dextool.type : AbsolutePath, Path, ExitStatusType;
 
 import dextool.plugin.mutate.backend.database.schema;
 import dextool.plugin.mutate.backend.database.type;
@@ -79,6 +79,14 @@ struct Database {
         stmt.bind(":path", cast(string) p);
         stmt.bind(":cs0", cs.c0);
         stmt.bind(":cs1", cs.c1);
+        auto res = stmt.execute;
+        return res.oneValue!long != 0;
+    }
+
+    bool hasLostMarkings(Path path) @trusted {
+        auto s = format!"SELECT COUNT(*) FROM %s WHERE path=:path LIMIT 1"(markedMutantTable);
+        auto stmt = db.prepare(s);
+        stmt.bind(":path", cast(string)path);
         auto res = stmt.execute;
         return res.oneValue!long != 0;
     }
@@ -401,8 +409,9 @@ struct Database {
     }
     // Returns: the status of the mutant
     Nullable!Mutation.Status getMutationStatus(const MutationId id) @trusted {
-        auto stmt = db.prepare(format!"SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)"(
-                mutationStatusTable, mutationTable));
+        auto s = format!"SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)"(
+                mutationStatusTable, mutationTable);
+        auto stmt = db.prepare(s);
         stmt.bind(":mut_id", cast(long) id);
         typeof(return) rval;
         foreach (res; stmt.execute)
@@ -517,9 +526,10 @@ struct Database {
 
     /** Get SourceLoc for a specific mutation id.
      */
-    SourceLoc getSourceLocation(MutationId id) @trusted {
-        auto stmt = db.prepare(format!"SELECT line, column FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE id=:mut_id)"(
-                mutationPointTable, mutationTable));
+    Nullable!SourceLoc getSourceLocation(MutationId id) @trusted {
+        auto s = format!"SELECT line, column FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE id=:mut_id)"(
+                mutationPointTable, mutationTable);
+        auto stmt = db.prepare(s);
         stmt.bind(":mut_id", cast(long) id);
         typeof(return) rval;
         foreach (res; stmt.execute)
@@ -548,20 +558,25 @@ struct Database {
 
     /** Set mutantStatus by using MutantId.
      */
-    void markMutant(MutationId id, Mutation.Status to_status, string rationale) @trusted {
-        auto st_id = getMutationStatusId(id);
-        auto p = getPath(id);
+    ExitStatusType markMutant(MutationId id, Mutation.Status to_status, string rationale) @trusted {
+        const st_id = getMutationStatusId(id);
+        if (st_id.isNull){
+            return ExitStatusType.Errors;
+        }
 
+        auto p = getPath(id);
         if (p.isNull)
-            return;
+            return ExitStatusType.Errors;
 
         auto sl = getSourceLocation(id);
-        auto r = Rationale(rationale);
-        auto t = Clock.currTime.toUTC;
+        if (sl.isNull)
+            return ExitStatusType.Errors;
 
         // update mutationStatus and add mutant to separate table for marked ones.
-        updateMutationStatus(st_id, to_status);
-        db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, sl.line, sl.column, p, to_status, t, r));
+        //updateMutationStatus(st_id, to_status);
+        db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, sl.line, sl.column, p, to_status, Clock.currTime.toUTC, Rationale(rationale)));
+
+        return ExitStatusType.Ok;
     }
 
     import dextool.plugin.mutate.backend.type;

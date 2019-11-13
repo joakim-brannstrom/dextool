@@ -77,7 +77,7 @@ nothrow:
         return this;
     }
 
-    auto markMutantData(ulong v, string s) {
+    auto markMutantData(long v, string s) {
         data.mutant_id = v;
         data.mutant_rationale = s;
         return this;
@@ -142,12 +142,15 @@ ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, cons
 }
 
 ExitStatusType markMutant(ref Database db, MutationId id, Mutation.Status status, string rationale) @safe nothrow {
+    ExitStatusType est = ExitStatusType.Ok;
     try {
-        db.markMutant(id, status, rationale);
+        est = db.markMutant(id, status, rationale);
+
+        if (est != ExitStatusType.Ok)
+            logger.errorf("Failure when marking mutant: %s", id);
     } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }
-
-    return ExitStatusType.Ok;
+    return est;
 }

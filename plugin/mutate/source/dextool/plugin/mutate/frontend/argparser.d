@@ -64,7 +64,6 @@ struct ArgParser {
         ToolMode toolMode;
 
         Mutation.Status to_status;
-        long mutant_id;
     }
 
     Data data;
@@ -322,7 +321,7 @@ struct ArgParser {
                 "test-case-regex", "regex to use when removing test cases", &admin.testCaseRegex,
                 "status", "change mutants with this state to the value specified by --to-status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantStatus,
                 "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantToStatus,
-                "id", "specify mutant to mark", &admin.mutationId,
+                "id", "specify mutant by Id", &admin.mutationId,
                 "rationale", "rationale for marking mutant", &admin.mutantRationale,
                 );
             // dfmt on
