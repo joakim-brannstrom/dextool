@@ -141,16 +141,22 @@ ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, cons
     return ExitStatusType.Ok;
 }
 
-ExitStatusType markMutant(ref Database db, MutationId id, Mutation.Status status, string rationale) @safe nothrow {
-    ExitStatusType est = ExitStatusType.Ok;
+ExitStatusType markMutant(ref Database db, MutationId id, Mutation.Status status, string rationale) @trusted nothrow {
     try {
-        est = db.markMutant(id, status, rationale);
+        auto trans = db.transaction;
 
-        if (est != ExitStatusType.Ok)
+        const st_id = db.getMutationStatusId(id);
+        if (st_id.isNull) {
             logger.errorf("Failure when marking mutant: %s", id);
+        } else {
+            db.markMutant(id, st_id.get, status, rationale);
+            db.updateMutationStatus(st_id.get, status);
+        }
+
+        trans.commit;
     } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }
-    return est;
+    return ExitStatusType.Ok;
 }

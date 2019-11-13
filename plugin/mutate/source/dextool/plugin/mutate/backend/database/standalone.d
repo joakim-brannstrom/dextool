@@ -556,27 +556,15 @@ struct Database {
         stmt.execute;
     }
 
-    /** Set mutantStatus by using MutantId.
+    /** Mark a mutant with status and rationale (also adds metadata).
      */
-    ExitStatusType markMutant(MutationId id, Mutation.Status to_status, string rationale) @trusted {
-        const st_id = getMutationStatusId(id);
-        if (st_id.isNull){
-            return ExitStatusType.Errors;
-        }
-
+    void markMutant(MutationId id, MutationStatusId st_id, Mutation.Status to_status, string rationale) @trusted {
         auto p = getPath(id);
         if (p.isNull)
-            return ExitStatusType.Errors;
-
-        auto sl = getSourceLocation(id);
-        if (sl.isNull)
-            return ExitStatusType.Errors;
-
-        // update mutationStatus and add mutant to separate table for marked ones.
-        //updateMutationStatus(st_id, to_status);
+            return;
+        // assuming that a mutant that exists in the system always have a location.
+        auto sl = getSourceLocation(id).get;
         db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, sl.line, sl.column, p, to_status, Clock.currTime.toUTC, Rationale(rationale)));
-
-        return ExitStatusType.Ok;
     }
 
     import dextool.plugin.mutate.backend.type;
