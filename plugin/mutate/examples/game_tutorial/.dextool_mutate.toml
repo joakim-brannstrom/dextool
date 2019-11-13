@@ -7,6 +7,11 @@
 # use relative paths that are inside the root
 restrict = [ "src" ]
 
+[analyze]
+# exclude files in these directory tree(s) from analysis
+# relative paths are relative to the directory dextool is executed in
+# exclude = []
+
 [database]
 # path to where to store the sqlite3 database
 # db = "dextool_mutate.sqlite3"
@@ -29,12 +34,15 @@ search_paths = ["./build/compile_commands.json"]
 
 [mutant_test]
 # (required) program used to run the test suite
+# the arguments for test_cmd can be an array as ["test.sh", "-x"]
 test_cmd = "./build/rl_test"
 # timeout to use for the test suite (msecs)
 # test_cmd_timeout = 1000
 # (required) program used to build the application
+# the arguments for build_cmd can be an array as ["build.sh", "-x"]
 build_cmd = "./build.sh"
 # program used to analyze the output from the test suite for test cases that killed the mutant
+# the arguments for analyze_cmd can be an array as ["analyze.sh", "-x"]
 # analyze_cmd = "analyze.sh"
 # builtin analyzer of output from testing frameworks to find failing test cases
 analyze_using_builtin = ["gtest"]

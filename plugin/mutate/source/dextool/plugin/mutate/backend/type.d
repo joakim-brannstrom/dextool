@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.type;
 
 import dextool.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
+import dextool.type : AbsolutePath, Path;
 public import dextool.plugin.mutate.backend.database.type : MutantAttr, MutantMetaData;
 
 @safe:
@@ -360,4 +361,37 @@ struct Token {
     import clang.c.Index : CXTokenKind;
 
     auto tok = Token(CXTokenKind.comment, Offset(1, 2), SourceLoc(1, 2), SourceLoc(1, 2), "smurf");
+}
+
+///
+struct ShellCommand {
+    private {
+        string program;
+        string[] arguments;
+    }
+
+    this(string cmd) {
+        import std.uni : isWhite;
+        import std.array : array;
+        import std.algorithm : splitter, filter;
+
+        this(cmd.splitter!isWhite
+                .filter!(a => a.length != 0)
+                .array);
+    }
+
+    this(string[] cmd) {
+        if (cmd.length > 0)
+            program = cmd[0];
+        if (cmd.length > 1)
+            arguments = cmd[1 .. $];
+    }
+
+    string[] toArgs() @safe pure nothrow {
+        return program ~ arguments;
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return program.length != 0;
+    }
 }

@@ -21,10 +21,10 @@ import std.traits : EnumMembers;
 
 import toml : TOMLDocument;
 
-public import dextool.plugin.mutate.backend : Mutation;
+public import dextool.plugin.mutate.backend : Mutation, ShellCommand;
 public import dextool.plugin.mutate.type;
 import dextool.plugin.mutate.config;
-import dextool.type : AbsolutePath, Path, ExitStatusType, ShellCommand, DirName;
+import dextool.type : AbsolutePath, Path, ExitStatusType, DirName;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -137,13 +137,16 @@ struct ArgParser {
 
         app.put("[mutant_test]");
         app.put("# (required) program used to run the test suite");
+        app.put(`# the arguments for test_cmd can be an array as ["test.sh", "-x"]`);
         app.put(`test_cmd = "test.sh"`);
         app.put("# timeout to use for the test suite (msecs)");
         app.put("# test_cmd_timeout = 1000");
         app.put("# (required) program used to build the application");
+        app.put(`# the arguments for build_cmd can be an array as ["build.sh", "-x"]`);
         app.put(`build_cmd = "build.sh"`);
         app.put(
                 "# program used to analyze the output from the test suite for test cases that killed the mutant");
+        app.put(`# the arguments for analyze_cmd can be an array as ["analyze.sh", "-x"]`);
         app.put(`# analyze_cmd = "analyze.sh"`);
         app.put("# builtin analyzer of output from testing frameworks to find failing test cases");
         app.put(format("# analyze_using_builtin = [%(%s, %)]",
@@ -262,7 +265,7 @@ struct ArgParser {
             if (mutationCompile.length != 0)
                 mutationTest.mutationCompile = ShellCommand(mutationCompile);
             if (mutationTestCaseAnalyze.length != 0)
-                mutationTest.mutationTestCaseAnalyze = Path(mutationTestCaseAnalyze).AbsolutePath;
+                mutationTest.mutationTestCaseAnalyze = ShellCommand(mutationTestCaseAnalyze);
             if (mutationTesterRuntime != 0)
                 mutationTest.mutationTesterRuntime = mutationTesterRuntime.dur!"msecs";
             if (!maxRuntime.empty)
@@ -508,6 +511,16 @@ void loadConfig(ref ArgParser rval) @trusted {
         return;
     }
 
+    static ShellCommand toShellCommand(ref TOMLValue v, string errorMsg) {
+        if (v.type == TOML_TYPE.STRING)
+            return ShellCommand(v.str);
+        else if (v.type == TOML_TYPE.ARRAY)
+            return ShellCommand(v.array.map!(a => a.str).array);
+        else
+            logger.warning("config: unable to parse mutant_test.test_cmd");
+        return ShellCommand.init;
+    }
+
     alias Fn = void delegate(ref ArgParser c, ref TOMLValue v);
     Fn[string] callbacks;
 
@@ -549,16 +562,19 @@ void loadConfig(ref ArgParser rval) @trusted {
     };
 
     callbacks["mutant_test.test_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationTester = ShellCommand(v.str);
+        c.mutationTest.mutationTester = toShellCommand(v,
+                "config: unable to parse mutant_test.test_cmd");
     };
     callbacks["mutant_test.test_cmd_timeout"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTesterRuntime = v.integer.dur!"msecs";
     };
     callbacks["mutant_test.build_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationCompile = ShellCommand(v.str);
+        c.mutationTest.mutationCompile = toShellCommand(v,
+                "config: unable to parse mutant_test.build_cmd");
     };
     callbacks["mutant_test.analyze_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationTestCaseAnalyze = Path(v.str).AbsolutePath;
+        c.mutationTest.mutationTestCaseAnalyze = toShellCommand(v,
+                "config: unable to parse mutation_test.analyze_cmd");
     };
     callbacks["mutant_test.analyze_using_builtin"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTestCaseBuiltin = v.array.map!(

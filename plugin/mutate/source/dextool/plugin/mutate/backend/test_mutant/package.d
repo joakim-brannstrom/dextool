@@ -25,10 +25,10 @@ import dextool.fsm : Fsm, next, act, get, TypeDataMap;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     NextMutationEntry, spinSql, MutantTimeoutCtx, MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.type : Mutation, ShellCommand;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin;
-import dextool.type : AbsolutePath, ShellCommand, ExitStatusType, FileName, DirName;
+import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
 
 @safe:
 
@@ -128,7 +128,7 @@ Mutation.Status runTester(WatchdogT)(ShellCommand compile_p, ShellCommand tester
     Mutation.Status rval;
 
     try {
-        auto p = spawnSession(compile_p.program ~ compile_p.arguments);
+        auto p = spawnSession(compile_p.toArgs);
         auto res = p.wait;
         if (res.terminated && res.status != 0)
             return Mutation.Status.killedByCompiler;
@@ -151,7 +151,7 @@ Mutation.Status runTester(WatchdogT)(ShellCommand compile_p, ShellCommand tester
     }
 
     try {
-        auto p = spawnSession(tester_p.program ~ tester_p.arguments, stdout_p, stderr_p);
+        auto p = spawnSession(tester_p.toArgs, stdout_p, stderr_p);
         // trusted: killing the process started in this scope
         void cleanup() @safe nothrow {
             import core.sys.posix.signal : SIGKILL;
@@ -203,8 +203,8 @@ struct MeasureTestDurationResult {
  *  p = ?
  */
 MeasureTestDurationResult measureTesterDuration(ShellCommand cmd) nothrow {
-    if (cmd.program.length == 0) {
-        collectException(logger.error("No test suite runner specified (--mutant-tester)"));
+    if (cmd.empty) {
+        collectException(logger.error("No test suite runner specified (--test-cmd)"));
         return MeasureTestDurationResult(ExitStatusType.Errors);
     }
 
@@ -213,7 +213,7 @@ MeasureTestDurationResult measureTesterDuration(ShellCommand cmd) nothrow {
     void fun() {
         import std.process : execute;
 
-        auto res = execute(cmd.program ~ cmd.arguments);
+        auto res = execute(cmd.toArgs);
         if (res.status != 0)
             any_failure = ExitStatusType.Errors;
     }
@@ -267,7 +267,7 @@ struct MutationTestDriver {
     }
 
     static struct TestCaseAnalyzeData {
-        AbsolutePath test_case_cmd;
+        ShellCommand test_case_cmd;
         const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin;
         /// Temporary directory where stdout/stderr should be written.
         AbsolutePath test_tmp_output;
@@ -514,8 +514,8 @@ nothrow:
             bool success = true;
 
             if (!local.get!TestCaseAnalyze.test_case_cmd.empty) {
-                success = success && externalProgram([
-                        local.get!TestCaseAnalyze.test_case_cmd, stdout_, stderr_
+                success = success && externalProgram(local.get!TestCaseAnalyze.test_case_cmd.toArgs ~ [
+                        stdout_, stderr_
                         ], gather_tc);
             }
             if (!local.get!TestCaseAnalyze.tc_analyze_builtin.empty) {
@@ -807,7 +807,7 @@ nothrow:
         import dextool.type : Path;
         import dextool.plugin.mutate.backend.type : TestCase;
 
-        if (global.data.conf.mutationTestCaseAnalyze.length == 0
+        if (global.data.conf.mutationTestCaseAnalyze.empty
                 && global.data.conf.mutationTestCaseBuiltin.length == 0)
             return;
 
@@ -839,9 +839,9 @@ nothrow:
 
             auto gather_tc = new GatherTestCase;
 
-            if (global.data.conf.mutationTestCaseAnalyze.length != 0) {
-                externalProgram([
-                        global.data.conf.mutationTestCaseAnalyze, stdout_, stderr_
+            if (!global.data.conf.mutationTestCaseAnalyze.empty) {
+                externalProgram(global.data.conf.mutationTestCaseAnalyze.toArgs ~ [
+                        stdout_, stderr_
                         ], gather_tc);
                 logger.warningf(gather_tc.unstable.length != 0,
                         "Unstable test cases found: [%-(%s, %)]", gather_tc.unstableAsArray);
@@ -944,9 +944,7 @@ nothrow:
         try {
             import std.process : execute;
 
-            const comp_res = execute(
-                    global.data.conf.mutationCompile.program
-                    ~ global.data.conf.mutationCompile.arguments);
+            const comp_res = execute(global.data.conf.mutationCompile.toArgs);
 
             if (comp_res.status != 0) {
                 data.compilationError = true;
