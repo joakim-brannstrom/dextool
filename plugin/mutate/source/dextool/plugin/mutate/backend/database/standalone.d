@@ -301,7 +301,7 @@ struct Database {
 
     MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
         auto rval = MutantMetaData(id);
-        foreach (res; db.run(select!NomutDataTable.where("mut_id =", cast(long) id))) {
+        foreach (res; db.run(select!NomutDataTbl.where("mut_id =", cast(long) id))) {
             rval.set(NoMut(res.tag, res.comment));
         }
         return rval;

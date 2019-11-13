@@ -239,7 +239,7 @@ struct NomutTbl {
 }
 
 @TableName(nomutDataTable)
-struct NomutDataTable {
+struct NomutDataTbl {
     @ColumnName("mut_id")
     long mutationId;
 
@@ -385,7 +385,7 @@ struct MutationStatusTbl {
 
 @TableName(mutantTimeoutWorklistTable)
 @TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
-struct MutantTimeoutWorklist {
+struct MutantTimeoutWorklistTbl {
     ulong id;
 }
 
@@ -394,7 +394,7 @@ struct MutantTimeoutWorklist {
  * This mean that if there are nothing in the database then `.init` is the correct starting point.
  */
 @TableName(mutantTimeoutCtxTable)
-struct MutantTimeoutCtx {
+struct MutantTimeoutCtxTbl {
     /// What iteration the timeout testing is at.
     long iter;
 
@@ -480,7 +480,7 @@ void upgradeV0(ref Miniorm db) {
     enum tbl = makeUpgradeTable;
 
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl, MutationPointTbl, MutationTbl, TestCaseKilledTbl,
-            AllTestCaseTbl, MutationStatusTbl, MutantTimeoutCtx, MutantTimeoutWorklist));
+            AllTestCaseTbl, MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl));
 
     makeSrcMetadataView(db);
 
@@ -803,7 +803,7 @@ void upgradeV11(ref Miniorm db) {
 
 /// 2019-08-28
 void upgradeV12(ref Miniorm db) {
-    db.run(buildSchema!(MutantTimeoutCtx, MutantTimeoutWorklist));
+    db.run(buildSchema!(MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl));
     updateSchemaVersion(db, 13);
 }
 
