@@ -15,13 +15,12 @@ import std.exception : collectException;
 import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
+import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.type : MutationKind, ReportLevel;
-import dextool.plugin.mutate.backend.type : Mutation;
-
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
-import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
-    window, windowSize, makeMutationText;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize;
+import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.type : MutationKind, ReportLevel;
 
 /** Report mutations as gcc would do for compilation warnings with fixit hints.
  *

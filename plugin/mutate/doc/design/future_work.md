@@ -126,6 +126,9 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * generate a html report of the test cases that uniquely kill a mutant. By unique it means that it is the only test case that kill the mutant. This is to help a user to discern if a test case can be removed or not because it is "fully redundant".
+ * show how the score is trending over time.
+ * save changes to the mutation score in the database each time it has "finished" a run. It means that the user do not need external tooling to "plot" and visualize how the mutation score change over time.
  * add a database query that returns test cases sorted by the number of mutants they killed.
    change package.d to using it instead of sort_tcs_on_kills.
  * impl execution of mutants on only changed lines.

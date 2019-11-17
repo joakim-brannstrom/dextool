@@ -100,7 +100,7 @@ struct FileIndex {
         import std.path : buildPath;
         import std.stdio : File;
         import dextool.plugin.mutate.backend.report.html.page_files;
-        import dextool.plugin.mutate.backend.report.utility : reportStatistics;
+        import dextool.plugin.mutate.backend.report.analyzers : reportStatistics;
 
         const original = fr.file.dup.pathToHtml;
         const report = (original ~ htmlExt).Path;

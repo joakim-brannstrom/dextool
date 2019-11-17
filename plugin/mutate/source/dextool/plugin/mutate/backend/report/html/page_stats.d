@@ -16,13 +16,14 @@ import std.format : format;
 import arsd.dom : Document, Element, require, Table, RawSource;
 
 import dextool.plugin.mutate.backend.database : Database;
+import dextool.plugin.mutate.backend.report.analyzers : MutationStat, TestCaseDeadStat,
+    TestCaseOverlapStat, reportStatistics, reportDeadTestCases, reportTestCaseFullOverlap;
 import dextool.plugin.mutate.backend.report.html.constants;
+import dextool.plugin.mutate.backend.report.html.js;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
-import dextool.plugin.mutate.backend.report.utility;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
-import dextool.plugin.mutate.backend.report.html.js;
 
 string makeStats(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {

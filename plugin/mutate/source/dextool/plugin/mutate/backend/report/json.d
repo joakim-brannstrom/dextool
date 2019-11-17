@@ -15,109 +15,115 @@ import logger = std.experimental.logger;
 import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
+import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
+import dextool.plugin.mutate.backend.report.type : ReportEvent;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize, toSections;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
 
-import dextool.plugin.mutate.backend.report.type : ReportEvent;
-import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
-    makeMutationText, toSections;
+@safe:
 
-    @safe:
-    /**
+/**
  * Expects locations to be grouped by file.
  *
  * TODO this is ugly. Use a JSON serializer instead.
  */
-    @safe final class ReportJson : ReportEvent {
-        import std.array : array;
-        import std.algorithm : map, joiner;
-        import std.conv : to;
-        import std.format : format;
-        import std.json;
-        import dextool.set;
+final class ReportJson : ReportEvent {
+    import std.array : array;
+    import std.algorithm : map, joiner;
+    import std.conv : to;
+    import std.format : format;
+    import std.json;
+    import dextool.set;
 
-        const Mutation.Kind[] kinds;
-        Set!ReportSection sections;
-        FilesysIO fio;
+    const Mutation.Kind[] kinds;
+    Set!ReportSection sections;
+    FilesysIO fio;
 
-        JSONValue report;
-        JSONValue current_file;
+    JSONValue report;
+    JSONValue current_file;
 
-        Path last_file;
+    Path last_file;
 
-        this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
-            this.kinds = kinds;
-            this.fio = fio;
+    this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
+        this.kinds = kinds;
+        this.fio = fio;
 
-            sections = (conf.reportSection.length == 0
-                    ? conf.reportLevel.toSections : conf.reportSection.dup).setFromList;
-        }
+        sections = (conf.reportSection.length == 0 ? conf.reportLevel.toSections
+                : conf.reportSection.dup).setFromList;
+    }
 
-        override void mutationKindEvent(const MutationKind[] kinds) {
-            report = ["types" : kinds.map!(a => a.to!string).array, "files" : []];
-        }
+    override void mutationKindEvent(const MutationKind[] kinds) {
+        report = ["types": kinds.map!(a => a.to!string).array, "files": []];
+    }
 
-        override void locationStartEvent() {
-        }
+    override void locationStartEvent() {
+    }
 
-        override void locationEvent(const ref IterateMutantRow r) @trusted {
-            bool new_file;
+    override void locationEvent(const ref IterateMutantRow r) @trusted {
+        bool new_file;
 
-            if (last_file.length == 0) {
-                current_file = ["filename" : r.file, "checksum" : format("%x", r.fileChecksum)];
-                new_file = true;
-            } else if (last_file != r.file) {
-                report["files"].array ~= current_file;
-                current_file = ["filename" : r.file, "checksum" : format("%x", r.fileChecksum)];
-                new_file = true;
-            }
-
-            auto appendMutant() {
-                JSONValue m = ["id" : r.id.to!long];
-                m.object["kind"] = r.mutation.kind.to!string;
-                m.object["status"] = r.mutation.status.to!string;
-                m.object["line"] = r.sloc.line;
-                m.object["column"] = r.sloc.column;
-                m.object["begin"] = r.mutationPoint.offset.begin;
-                m.object["end"] = r.mutationPoint.offset.end;
-
-                try {
-                    MakeMutationTextResult mut_txt;
-                    auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
-                    mut_txt = makeMutationText(fio.makeInput(abs_path),
-                            r.mutationPoint.offset, r.mutation.kind, r.lang);
-                    m.object["value"] = mut_txt.mutation;
-                } catch (Exception e) {
-                    logger.warning(e.msg);
-                }
-                if (new_file) {
-                    last_file = r.file;
-                    current_file.object["mutants"] = JSONValue([m]);
-                } else {
-                    current_file["mutants"].array ~= m;
-                }
-            }
-
-            if (sections.contains(ReportSection.all_mut) || sections.contains(ReportSection.alive)
-                    && r.mutation.status == Mutation.Status.alive
-                    || sections.contains(ReportSection.killed)
-                    && r.mutation.status == Mutation.Status.killed) {
-                appendMutant;
-            }
-        }
-
-        override void locationEndEvent() @trusted {
+        if (last_file.length == 0) {
+            current_file = [
+                "filename": r.file,
+                "checksum": format("%x", r.fileChecksum)
+            ];
+            new_file = true;
+        } else if (last_file != r.file) {
             report["files"].array ~= current_file;
+            current_file = [
+                "filename": r.file,
+                "checksum": format("%x", r.fileChecksum)
+            ];
+            new_file = true;
         }
 
-        override void locationStatEvent() {
-            import std.stdio : writeln;
+        auto appendMutant() {
+            JSONValue m = ["id" : r.id.to!long];
+            m.object["kind"] = r.mutation.kind.to!string;
+            m.object["status"] = r.mutation.status.to!string;
+            m.object["line"] = r.sloc.line;
+            m.object["column"] = r.sloc.column;
+            m.object["begin"] = r.mutationPoint.offset.begin;
+            m.object["end"] = r.mutationPoint.offset.end;
 
-            writeln(report.toJSON(true));
+            try {
+                MakeMutationTextResult mut_txt;
+                auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
+                mut_txt = makeMutationText(fio.makeInput(abs_path),
+                        r.mutationPoint.offset, r.mutation.kind, r.lang);
+                m.object["value"] = mut_txt.mutation;
+            } catch (Exception e) {
+                logger.warning(e.msg);
+            }
+            if (new_file) {
+                last_file = r.file;
+                current_file.object["mutants"] = JSONValue([m]);
+            } else {
+                current_file["mutants"].array ~= m;
+            }
         }
 
-        override void statEvent(ref Database db) {
+        if (sections.contains(ReportSection.all_mut) || sections.contains(ReportSection.alive)
+                && r.mutation.status == Mutation.Status.alive
+                || sections.contains(ReportSection.killed)
+                && r.mutation.status == Mutation.Status.killed) {
+            appendMutant;
         }
     }
+
+    override void locationEndEvent() @trusted {
+        report["files"].array ~= current_file;
+    }
+
+    override void locationStatEvent() {
+        import std.stdio : writeln;
+
+        writeln(report.toJSON(true));
+    }
+
+    override void statEvent(ref Database db) {
+    }
+}
