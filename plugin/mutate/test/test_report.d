@@ -140,6 +140,8 @@ unittest {
 
 @(testId ~ "shall report mutants as a json")
 unittest {
+    import std.json;
+
     auto input_src = testData ~ "report_tool_integration.cpp";
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
@@ -148,10 +150,24 @@ unittest {
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--mutant", "dcc"])
         .addArg(["--style", "json"])
-        .addArg(["--level", "all"])
+        .addArg(["--section", "all_mut"])
+        .addArg(["--section", "summary"])
+        .addArg(["--logdir", testEnv.outdir.toString])
         .run;
 
-    writelnUt(r.stdout);
+    auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["stat"];
+    j["alive"].integer.shouldEqual(0);
+    j["aliveNoMut"].integer.shouldEqual(0);
+    j["killed"].integer.shouldEqual(0);
+    j["killedByCompiler"].integer.shouldEqual(0);
+    j["killedByCompilerTime"].integer.shouldEqual(0);
+    j["nomutScore"].integer.shouldEqual(0);
+    j["predictedDone"].str; // lazy for now and just checking it is a string
+    j["score"].integer.shouldEqual(0);
+    j["timeout"].integer.shouldEqual(0);
+    j["total"].integer.shouldEqual(0);
+    j["totalTime"].integer.shouldEqual(0);
+    j["untested"].integer.shouldEqual(3);
 }
 
 @(testId ~ "shall report mutants in csv format")
