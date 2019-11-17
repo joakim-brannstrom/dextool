@@ -12,15 +12,14 @@ module dextool.plugin.mutate.backend.report.html.page_test_case_unique;
 import logger = std.experimental.logger;
 import std.format : format;
 
-import arsd.dom : Document, Element, require, Table, RawSource;
+import arsd.dom : Element, RawSource;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : TestCaseUniqueness,
     reportTestCaseUniqueness;
-import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.js;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
-    tmplDefaultTable, tmplDefaultMatrixTable;
+import dextool.plugin.mutate.backend.report.html.constants : htmlFileDir;
+import dextool.plugin.mutate.backend.report.html.js : js_similarity;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;

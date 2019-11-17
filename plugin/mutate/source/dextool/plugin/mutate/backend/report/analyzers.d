@@ -13,9 +13,13 @@ analyzers of the data gathered in the database.
 module dextool.plugin.mutate.backend.report.analyzers;
 
 import logger = std.experimental.logger;
-import std.algorithm : sum, map, sort, filter;
+import std.algorithm : sum, map, sort, filter, count, cmp, joiner;
+import std.array : array, appender;
+import std.conv : to;
 import std.exception : collectException;
-import std.typecons : Flag, Yes, No;
+import std.format : format;
+import std.range : take, retro, only;
+import std.typecons : Flag, Yes, No, Tuple, Nullable, tuple;
 
 import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
@@ -32,11 +36,6 @@ public import dextool.plugin.mutate.backend.report.utility : Table;
 @safe:
 
 void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat, ref Table!4 tbl) @safe nothrow {
-    import std.array : array;
-    import std.conv : to;
-    import std.format : format;
-    import std.range : take;
-
     auto profile = Profile(ReportSection.mut_stat);
 
     long total = mut_stat.byValue.sum;
@@ -71,11 +70,6 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
  */
 void reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds,
         const long take_, const ReportKillSortOrder sort_order, ref Table!3 tbl) @safe nothrow {
-    import std.algorithm : sort, map;
-    import std.array : array;
-    import std.conv : to;
-    import std.range : take, retro;
-    import std.typecons : Tuple;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
 
     auto profile = Profile(ReportSection.tc_stat);
@@ -158,7 +152,6 @@ private struct Similarity {
 // The set similairty measures how much of lhs is in rhs. This is a
 // directional metric.
 private Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
-    import std.array : array;
     import dextool.set;
 
     auto lhs = setFromList(lhs_);
@@ -180,12 +173,7 @@ private Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
  */
 TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
         const Mutation.Kind[] kinds, ulong limit) @safe {
-    import std.algorithm : map, filter;
-    import std.array : array, appender;
     import std.container.binaryheap;
-    import std.conv : to;
-    import std.range : take;
-    import std.typecons : Tuple;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
 
     auto profile = Profile(ReportSection.tc_similarity);
@@ -251,8 +239,6 @@ struct TestCaseDeadStat {
     }
 
     string toString() @safe const {
-        import std.array : appender;
-
         auto buf = appender!string;
         toString(buf);
         return buf.data;
@@ -313,9 +299,7 @@ alias MutationReprMap = MutationRepr[MutationId];
 
 void reportTestCaseKillMap(WriterTextT, WriterT)(ref const MutationsMap mut_stat,
         ref const MutationReprMap mutrepr, WriterTextT writer_txt, WriterT writer) @safe {
-    import std.conv : to;
     import std.range : put;
-    import std.format : format;
 
     auto profile = Profile(ReportSection.tc_map);
 
@@ -347,9 +331,7 @@ void reportTestCaseKillMap(WriterTextT, WriterT)(ref const MutationsMap mut_stat
 
 void reportMutationTestCaseSuggestion(WriterT)(ref Database db,
         const MutationId[] tc_sugg, WriterT writer) @safe {
-    import std.conv : to;
     import std.range : put;
-    import std.format : format;
 
     auto profile = Profile(ReportSection.tc_suggestion);
 
@@ -412,8 +394,6 @@ struct MutationStat {
     }
 
     string toString() @safe const {
-        import std.array : appender;
-
         auto buf = appender!string;
         toString(buf);
         return buf.data;
@@ -460,8 +440,6 @@ struct MutationStat {
 
 MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
     import core.time : dur;
-    import std.algorithm : map, sum;
-    import std.range : only;
     import dextool.plugin.mutate.backend.utility;
 
     auto profile = Profile(ReportSection.summary);
@@ -495,7 +473,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
 }
 
 struct TestCaseOverlapStat {
-    import std.format : formattedWrite, format;
+    import std.format : formattedWrite;
     import std.range : put;
     import dextool.hash;
     import dextool.plugin.mutate.backend.database.type : TestCaseId;
@@ -519,17 +497,12 @@ struct TestCaseOverlapStat {
     }
 
     string toString() @safe const {
-        import std.array : appender;
-
         auto buf = appender!string;
         toString(buf);
         return buf.data;
     }
 
     void toString(Writer)(ref Writer w) @safe const {
-        import std.algorithm : sort, map, filter, count;
-        import std.array : array;
-
         sumToString(w);
 
         foreach (tcs; tc_mut.byKeyValue.filter!(a => a.value.length > 1)) {
@@ -561,11 +534,6 @@ template toTable(Flag!"colWithMutants" colMutants) {
     alias RowT = TableT.Row;
 
     void toTable(ref TestCaseOverlapStat st, ref TableT tbl) {
-        import std.algorithm : sort, map, filter, count;
-        import std.array : array;
-        import std.conv : to;
-        import std.format : format;
-
         foreach (tcs; st.tc_mut.byKeyValue.filter!(a => a.value.length > 1)) {
             bool first = true;
             // TODO this is a bit slow. use a DB row iterator instead.
@@ -594,8 +562,6 @@ template toTable(Flag!"colWithMutants" colMutants) {
 
 /// Test cases that kill exactly the same mutants.
 TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Kind[] kinds) @safe {
-    import std.algorithm : sort, map, filter, count;
-    import std.array : array;
     import dextool.hash;
     import dextool.plugin.mutate.backend.database.type : TestCaseId;
 
@@ -636,8 +602,6 @@ class TestGroupSimilarity {
         string userInput;
 
         int opCmp(ref const TestGroup s) const {
-            import std.algorithm : cmp;
-
             return cmp(name, s.name);
         }
     }
@@ -664,9 +628,6 @@ class TestGroupSimilarity {
  */
 TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
         const(Mutation.Kind)[] kinds, const(TestGroup)[] test_groups) @safe {
-    import std.algorithm : map, filter;
-    import std.array : appender, array;
-    import std.typecons : Tuple;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
 
     auto profile = Profile(ReportSection.tc_groups_similarity);
@@ -747,10 +708,6 @@ private bool isTestCaseInTestGroup(const TestCase tc, const Regex!char tg) {
 
 TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
         const(TestGroup) test_g) @safe {
-    import std.algorithm : filter, map;
-    import std.array : appender;
-    import std.typecons : tuple;
-    import std.range : only;
     import dextool.plugin.mutate.backend.database : MutationStatusId;
     import dextool.set;
 
@@ -822,7 +779,6 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
 
 /// High interest mutants.
 class MutantSample {
-    import std.typecons : Nullable;
     import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo,
         MutationStatus, MutationStatusId, MutationEntry, MutationStatusTime;
 
@@ -882,8 +838,6 @@ class DiffReport {
     TestCase[] testCases;
 
     override string toString() @safe const {
-        import std.algorithm : map;
-        import std.array : appender;
         import std.format : formattedWrite;
         import std.range : put;
 
@@ -907,8 +861,6 @@ class DiffReport {
 
 DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         ref Diff diff, AbsolutePath workdir) {
-    import std.array : array;
-    import std.algorithm : map, joiner, sort;
     import dextool.plugin.mutate.backend.database : MutationId;
     import dextool.plugin.mutate.backend.type : SourceLoc;
     import dextool.set;
@@ -985,9 +937,6 @@ struct MinimalTestSet {
 }
 
 MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
-    import std.algorithm : map, filter, sort;
-    import std.array : array;
-    import std.typecons : Tuple, tuple;
     import dextool.plugin.mutate.backend.database : TestCaseId, TestCaseInfo;
     import dextool.set;
 

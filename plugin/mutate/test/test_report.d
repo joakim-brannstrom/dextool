@@ -615,6 +615,8 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
             .addArg(["--section", "tc_similarity"])
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
+
+        // Assert
         testConsecutiveSparseOrder!SubStr([
             `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
             `<td>tc_2</td>`,
@@ -663,6 +665,8 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
             .addArg(["--section", "tc_unique"])
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
+
+        // Assert
         testConsecutiveSparseOrder!SubStr([
             `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
             `<table class="overlap_tbl">`,
