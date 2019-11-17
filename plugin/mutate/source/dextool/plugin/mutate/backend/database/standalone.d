@@ -767,10 +767,6 @@ struct Database {
             VALUES(:fid, :line, :nomut, :tag, :comment)",
                     rawSrcMetadataTable);
 
-        db.begin;
-        scope (failure)
-            db.rollback;
-
         auto stmt = db.prepare(sql);
         foreach (meta; mdata) {
             auto nomut = meta.attr.match!((NoMetadata a) => NoMut.init, (NoMut a) => a);
@@ -778,16 +774,10 @@ struct Database {
             stmt.execute;
             stmt.reset;
         }
-
-        db.commit;
     }
 
     /// Store all found mutants.
     void put(MutationPointEntry2[] mps, AbsolutePath rel_dir) @trusted {
-        db.begin;
-        scope (failure)
-            db.rollback;
-
         enum insert_mp_sql = format("INSERT OR IGNORE INTO %s
             (file_id, offset_begin, offset_end, line, column, line_end, column_end)
             SELECT id,:begin,:end,:line,:column,:line_end,:column_end
@@ -850,8 +840,6 @@ struct Database {
                 insert_m.reset;
             }
         }
-
-        db.commit;
     }
 
     /** Remove all mutants points from the database.
