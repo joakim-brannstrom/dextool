@@ -671,3 +671,24 @@ partof: REQ-uc_overview_of_mutation_score
 The plugin shall generate a tree map view of the mutation score starting from the top directory branching out to the individual files when generating a html report.
 
 The tree map view shall navigate in the tree so the user can go further down or up at will.
+
+# REQ-uc_remove_redundant_tests
+partof: REQ-plugin_mutate
+###
+
+The user wants to be able to identify what mutants that a test case are alone
+of killing as to assert how *unique* the test case is.  This can for example be
+a test case that is hard to maintain and the developer have a suspicion that
+the test case may be removed because other test cases already test what this
+*bad* test case test. But the developer do not have any facts that underpins
+this suspicion.
+
+By presenting a report of the test cases and what mutants they alone kill it
+becomes possible for the developer to look at this reports.
+
+# SPC-test_case_uniqeness_report
+partof: REQ-uc_remove_redundant_tests
+###
+
+The plugin shall produce a report that for each test case contains those
+mutants that only that test case kill when commanded.
