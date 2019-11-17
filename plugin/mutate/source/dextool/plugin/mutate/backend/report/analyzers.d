@@ -13,6 +13,7 @@ analyzers of the data gathered in the database.
 module dextool.plugin.mutate.backend.report.analyzers;
 
 import logger = std.experimental.logger;
+import std.algorithm : sum, map, sort, filter;
 import std.exception : collectException;
 import std.typecons : Flag, Yes, No;
 
@@ -31,7 +32,6 @@ public import dextool.plugin.mutate.backend.report.utility : Table;
 @safe:
 
 void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat, ref Table!4 tbl) @safe nothrow {
-    import std.algorithm : sum, map, sort, filter;
     import std.array : array;
     import std.conv : to;
     import std.format : format;
@@ -186,13 +186,13 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     import std.conv : to;
     import std.range : take;
     import std.typecons : Tuple;
-    import dextool.cachetools;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
 
     auto profile = Profile(ReportSection.tc_similarity);
 
     // TODO: reduce the code duplication of the caches.
-    // The DB lookups must be cached or otherwise the algorithm becomes too slow for practical use.
+    // The DB lookups must be cached or otherwise the algorithm becomes too
+    // slow for practical use.
 
     MutationId[][TestCaseId] kill_cache2;
     MutationId[] getKills(TestCaseId id) @trusted {
@@ -1021,6 +1021,56 @@ MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
     }
 
     rval.total = rval.minimalSet.length + rval.redundant.length;
+
+    return rval;
+}
+
+struct TestCaseUniqueness {
+    MutationId[][TestCase] uniqueKills;
+
+    // test cases that have no unique kills. These are candidates for being
+    // refactored/removed.
+    TestCase[] noUniqueKills;
+}
+
+/// Returns: a report of the mutants that a test case is the only one that kills.
+TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind[] kinds) {
+    import dextool.plugin.mutate.backend.database.type : TestCaseId;
+    import dextool.set;
+
+    auto profile = Profile(ReportSection.tc_unique);
+
+    /// any time a mutant is killed by more than one test case it is removed.
+    TestCaseId[MutationId] killedBy;
+    Set!MutationId blacklist;
+
+    foreach (tc_id; db.getTestCasesWithAtLeastOneKill(kinds)) {
+        auto muts = db.getTestCaseMutantKills(tc_id, kinds);
+        foreach (m; muts.filter!(a => !blacklist.contains(a))) {
+            if (m in killedBy) {
+                killedBy.remove(m);
+                blacklist.add(m);
+            } else {
+                killedBy[m] = tc_id;
+            }
+        }
+    }
+
+    // use a cache to reduce the database access
+    TestCase[TestCaseId] idToTc;
+    TestCase getTestCase(TestCaseId id) @trusted {
+        return idToTc.require(id, spinSql!(() { return db.getTestCase(id).get; }));
+    }
+
+    typeof(return) rval;
+    Set!TestCaseId uniqueTc;
+    foreach (kv; killedBy.byKeyValue) {
+        rval.uniqueKills[getTestCase(kv.value)] ~= kv.key;
+        uniqueTc.add(kv.value);
+    }
+    foreach (tc_id; db.getDetectedTestCaseIds.filter!(a => !uniqueTc.contains(a))) {
+        rval.noUniqueKills ~= getTestCase(tc_id);
+    }
 
     return rval;
 }
