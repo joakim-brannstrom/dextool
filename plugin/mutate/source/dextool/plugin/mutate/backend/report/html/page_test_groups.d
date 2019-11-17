@@ -16,9 +16,9 @@ import arsd.dom : Document, Element, require, Table;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
+import dextool.plugin.mutate.backend.report.analyzers : TestGroupStat, reportTestGroups;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
-import dextool.plugin.mutate.backend.report.utility;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
@@ -53,9 +53,11 @@ void testGroups(const TestGroupStat test_g, Element root) {
     root.addChild("h3", test_g.description);
 
     auto stat_tbl = tmplDefaultTable(root, ["Property", "Value"]);
-    foreach (const d; [tuple("Mutation Score", test_g.stats.score.to!string),
-            tuple("Alive", test_g.stats.alive.to!string), tuple("Total",
-                test_g.stats.total.to!string)]) {
+    foreach (const d; [
+            tuple("Mutation Score", test_g.stats.score.to!string),
+            tuple("Alive", test_g.stats.alive.to!string),
+            tuple("Total", test_g.stats.total.to!string)
+        ]) {
         auto r = stat_tbl.appendRow();
         r.addChild("td", d[0]);
         r.addChild("td", d[1]);

@@ -18,16 +18,15 @@ import std.typecons : Yes, No;
 import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow, MutationId;
+import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
+import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats,
+    reportStatistics, MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr;
+import dextool.plugin.mutate.backend.report.type : ReportEvent;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table, toSections;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
-
-import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
-    makeMutationText, Table, reportMutationSubtypeStats,
-    reportStatistics, MutationsMap, reportTestCaseKillMap, MutationReprMap,
-    MutationRepr, toSections;
-import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
 @safe:
 
@@ -208,7 +207,7 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 
     override void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln, writefln;
-        import dextool.plugin.mutate.backend.report.utility : reportTestCaseFullOverlap,
+        import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap,
             reportTestCaseStats, reportMutationTestCaseSuggestion, reportDeadTestCases, toTable;
 
         auto stdout_ = () @trusted { return stdout; }();

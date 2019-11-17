@@ -15,11 +15,10 @@ import std.format : format;
 import arsd.dom : Document, Element, require, Table, RawSource;
 
 import dextool.plugin.mutate.backend.database : Database;
-import dextool.plugin.mutate.backend.diff_parser : Diff;
+import dextool.plugin.mutate.backend.report.analyzers : MutantSample, reportSelectedAliveMutants;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.js;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
-import dextool.plugin.mutate.backend.report.utility;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
@@ -50,8 +49,7 @@ void toHtml(const MutantSample mut_sample, Element root) {
 
     if (mut_sample.hardestToKill.length != 0) {
         root.addChild("h3", "Longest surviving Mutants");
-        root.addChild("p",
-                "These mutants survived countless test runs.");
+        root.addChild("p", "These mutants survived countless test runs.");
         auto tbl_container = root.addChild("div").addClass("tbl_container");
         auto tbl = tmplDefaultTable(tbl_container, [
                 "Link", "Discovered", "Last Updated", "Survived"

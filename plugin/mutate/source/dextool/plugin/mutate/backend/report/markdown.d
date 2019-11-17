@@ -17,16 +17,17 @@ import std.exception : collectException;
 import std.typecons : Yes, No;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
+import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
+import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats,
+    reportStatistics;
+import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table, toSections;
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
 import dextool.set;
 import dextool.type;
-
-import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult, makeMutationText,
-    window, windowSize, reportMutationSubtypeStats, reportStatistics, Table, toSections;
-import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
 
 @safe:
 
@@ -275,7 +276,7 @@ struct Markdown(Writer, TraceWriter) {
     }
 
     override void statEvent(ref Database db) {
-        import dextool.plugin.mutate.backend.report.utility : reportDeadTestCases,
+        import dextool.plugin.mutate.backend.report.analyzers : reportDeadTestCases,
             reportTestCaseFullOverlap, toTable;
 
         const fmt = FormatSpec!char("%s");
