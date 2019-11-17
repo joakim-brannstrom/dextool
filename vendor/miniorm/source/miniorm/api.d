@@ -511,7 +511,17 @@ auto spinSql(alias query, alias logFn = logger.warning)() nothrow {
 /// RAII handling of a transaction.
 struct Transaction {
     Database db;
-    bool isDone;
+
+    // can only do a rollback/commit if it has been constructed and thus
+    // executed begin.
+    enum State {
+        none,
+        rollback,
+        commit,
+        done,
+    }
+
+    State st;
 
     this(Miniorm db) {
         this(db.db);
@@ -520,18 +530,19 @@ struct Transaction {
     this(Database db) {
         this.db = db;
         spinSql!(() { db.begin; });
+        st = State.rollback;
     }
 
     ~this() {
         scope (exit)
-            isDone = true;
-        if (!isDone) {
+            st = State.done;
+        if (st == State.rollback) {
             db.rollback;
         }
     }
 
     void commit() {
         db.commit;
-        isDone = true;
+        st = State.commit;
     }
 }
