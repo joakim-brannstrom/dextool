@@ -39,6 +39,7 @@ final class ReportJson : ReportEvent {
     import dextool.set;
 
     const Mutation.Kind[] kinds;
+    const AbsolutePath logDir;
     Set!ReportSection sections;
     FilesysIO fio;
 
@@ -50,6 +51,7 @@ final class ReportJson : ReportEvent {
     this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
         this.kinds = kinds;
         this.fio = fio;
+        this.logDir = conf.logDir;
 
         sections = (conf.reportSection.length == 0 ? conf.reportLevel.toSections
                 : conf.reportSection.dup).setFromList;
@@ -119,11 +121,32 @@ final class ReportJson : ReportEvent {
     }
 
     override void locationStatEvent() {
-        import std.stdio : writeln;
-
-        writeln(report.toJSON(true));
     }
 
-    override void statEvent(ref Database db) {
+    override void statEvent(ref Database db) @trusted {
+        import std.datetime : Clock;
+        import std.path : buildPath;
+        import std.stdio : File;
+        import dextool.plugin.mutate.backend.report.analyzers : reportStatistics;
+
+        if (sections.contains(ReportSection.summary)) {
+            const stat = reportStatistics(db, kinds);
+            JSONValue s = ["alive" : stat.alive];
+            s.object["aliveNoMut"] = stat.aliveNoMut;
+            s.object["killed"] = stat.killed;
+            s.object["timeout"] = stat.timeout;
+            s.object["untested"] = stat.untested;
+            s.object["killedByCompiler"] = stat.killedByCompiler;
+            s.object["total"] = stat.total;
+            s.object["score"] = stat.score;
+            s.object["nomutScore"] = stat.suppressedOfTotal;
+            s.object["totalTime"] = stat.totalTime.total!"seconds";
+            s.object["killedByCompilerTime"] = stat.killedByCompilerTime.total!"seconds";
+            s.object["predictedDone"] = (Clock.currTime + stat.predictedDone).toISOExtString;
+
+            report["stat"] = s;
+        }
+
+        File(buildPath(logDir, "report.json"), "w").write(report.toJSON(true));
     }
 }
