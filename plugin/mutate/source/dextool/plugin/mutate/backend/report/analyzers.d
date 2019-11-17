@@ -37,6 +37,8 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
     import std.format : format;
     import std.range : take;
 
+    auto profile = Profile(ReportSection.mut_stat);
+
     long total = mut_stat.byValue.sum;
 
     foreach (v; mut_stat.byKeyValue.array.sort!((a, b) => a.value > b.value).take(20)) {
@@ -75,6 +77,8 @@ void reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds,
     import std.range : take, retro;
     import std.typecons : Tuple;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
+
+    auto profile = Profile(ReportSection.tc_stat);
 
     alias TcInfo = Tuple!(string, "name", TestCaseInfo, "tc");
 
@@ -185,6 +189,8 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     import dextool.cachetools;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
 
+    auto profile = Profile(ReportSection.tc_similarity);
+
     // TODO: reduce the code duplication of the caches.
     // The DB lookups must be cached or otherwise the algorithm becomes too slow for practical use.
 
@@ -281,6 +287,8 @@ void toTable(ref TestCaseDeadStat st, ref Table!2 tbl) @safe pure nothrow {
 /** Returns: report of test cases that has killed zero mutants.
  */
 TestCaseDeadStat reportDeadTestCases(ref Database db) @safe {
+    auto profile = Profile(ReportSection.tc_killed_no_mutants);
+
     TestCaseDeadStat r;
     r.total = db.getNumOfTestCases;
     r.testCases = db.getTestCasesWithZeroKills;
@@ -308,6 +316,8 @@ void reportTestCaseKillMap(WriterTextT, WriterT)(ref const MutationsMap mut_stat
     import std.conv : to;
     import std.range : put;
     import std.format : format;
+
+    auto profile = Profile(ReportSection.tc_map);
 
     alias MutTable = Table!4;
     alias Row = MutTable.Row;
@@ -340,6 +350,8 @@ void reportMutationTestCaseSuggestion(WriterT)(ref Database db,
     import std.conv : to;
     import std.range : put;
     import std.format : format;
+
+    auto profile = Profile(ReportSection.tc_suggestion);
 
     alias MutTable = Table!1;
     alias Row = MutTable.Row;
@@ -451,6 +463,8 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     import std.algorithm : map, sum;
     import std.range : only;
     import dextool.plugin.mutate.backend.utility;
+
+    auto profile = Profile(ReportSection.summary);
 
     const alive = spinSql!(() { return db.aliveSrcMutants(kinds, file); });
     const alive_nomut = spinSql!(() {
@@ -585,6 +599,8 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
     import dextool.hash;
     import dextool.plugin.mutate.backend.database.type : TestCaseId;
 
+    auto profile = Profile(ReportSection.tc_full_overlap);
+
     TestCaseOverlapStat st;
     st.total = db.getNumOfTestCases;
 
@@ -652,6 +668,8 @@ TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
     import std.array : appender, array;
     import std.typecons : Tuple;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
+
+    auto profile = Profile(ReportSection.tc_groups_similarity);
 
     alias TgKills = Tuple!(TestGroupSimilarity.TestGroup, "testGroup", MutationId[], "kills");
 
@@ -735,6 +753,8 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
     import std.range : only;
     import dextool.plugin.mutate.backend.database : MutationStatusId;
     import dextool.set;
+
+    auto profile = Profile(ReportSection.tc_groups);
 
     static struct TcStat {
         Set!MutationStatusId alive;
@@ -821,6 +841,8 @@ class MutantSample {
 /// Returns: samples of mutants that are of high interest to the user.
 MutantSample reportSelectedAliveMutants(ref Database db,
         const(Mutation.Kind)[] kinds, long history_nr) {
+    auto profile = Profile(ReportSection.mut_recommend_kill);
+
     auto rval = new typeof(return);
 
     rval.hardestToKill = db.getHardestToKillMutant(kinds, Mutation.Status.alive, history_nr);
@@ -890,6 +912,8 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
     import dextool.plugin.mutate.backend.database : MutationId;
     import dextool.plugin.mutate.backend.type : SourceLoc;
     import dextool.set;
+
+    auto profile = Profile(ReportSection.diff);
 
     auto rval = new DiffReport;
 
@@ -967,6 +991,8 @@ MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
     import dextool.plugin.mutate.backend.database : TestCaseId, TestCaseInfo;
     import dextool.set;
 
+    auto profile = Profile(ReportSection.tc_min_set);
+
     alias TcIdInfo = Tuple!(TestCase, "tc", TestCaseId, "id", TestCaseInfo, "info");
 
     MinimalTestSet rval;
@@ -997,4 +1023,41 @@ MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
     rval.total = rval.minimalSet.length + rval.redundant.length;
 
     return rval;
+}
+
+private:
+
+/** Measure how long a report takes to generate and print it as trace data.
+ *
+ * This is an example from clang-tidy for how it could be reported to the user.
+ * For now it is *just* reported as it is running.
+ *
+ * ===-------------------------------------------------------------------------===
+ *                           clang-tidy checks profiling
+ * ===-------------------------------------------------------------------------===
+ *   Total Execution Time: 0.0021 seconds (0.0021 wall clock)
+ *
+ *    ---User Time---   --System Time--   --User+System--   ---Wall Time---  --- Name ---
+ *    0.0000 (  0.1%)   0.0000 (  0.0%)   0.0000 (  0.0%)   0.0000 (  0.1%)  readability-misplaced-array-index
+ *    0.0000 (  0.2%)   0.0000 (  0.0%)   0.0000 (  0.1%)   0.0000 (  0.1%)  abseil-duration-division
+ *    0.0012 (100.0%)   0.0009 (100.0%)   0.0021 (100.0%)   0.0021 (100.0%)  Total
+ */
+struct Profile {
+    import std.datetime.stopwatch : StopWatch;
+
+    ReportSection kind;
+    StopWatch sw;
+
+    this(ReportSection kind) @safe nothrow @nogc {
+        this.kind = kind;
+        sw.start;
+    }
+
+    ~this() @safe nothrow {
+        try {
+            sw.stop;
+            logger.tracef("profiling:%s wall time:%s", kind, sw.peek);
+        } catch (Exception e) {
+        }
+    }
 }
