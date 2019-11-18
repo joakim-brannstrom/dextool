@@ -25,8 +25,8 @@ import dextool.plugin.mutate.backend.type : Mutation, Offset;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent,
     FileReport, FilesReporter;
-import dextool.plugin.mutate.backend.report.utility : MakeMutationTextResult,
-    window, windowSize, makeMutationText;
+import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize;
 import dextool.plugin.mutate.config : ConfigReport;
 
 ExitStatusType runReport(ref Database db, const MutationKind[] kind,

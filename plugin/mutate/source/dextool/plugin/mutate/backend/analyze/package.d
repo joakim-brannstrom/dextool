@@ -34,7 +34,7 @@ version (unittest) {
 /** Analyze the files in `frange` for mutations.
  */
 ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
-        ConfigCompiler conf_compiler, ref UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @safe {
+        ConfigCompiler conf_compiler, ref UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @trusted {
     import std.algorithm : filter, map;
 
     auto analyzer = Analyzer(db, val_loc, fio, conf_compiler);
@@ -58,6 +58,7 @@ private:
 struct Analyzer {
     import std.regex : Regex, regex, matchFirst;
     import std.typecons : NullableRef, Nullable, Yes;
+    import miniorm : Transaction;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.utility.virtualfilesystem;
     import dextool.compilation_db : SearchResult;
@@ -84,6 +85,8 @@ struct Analyzer {
         Cache cache;
 
         Regex!char re_nomut;
+
+        Transaction trans;
     }
 
     this(ref Database db, ValidateLoc val_loc, FilesysIO fio, ConfigCompiler conf) @trusted {
@@ -95,6 +98,7 @@ struct Analyzer {
         this.cache = new Cache;
         this.re_nomut = regex(raw_re_nomut);
 
+        trans = db.transaction;
         db.removeAllFiles;
     }
 
@@ -195,10 +199,9 @@ struct Analyzer {
     void finalize() @trusted {
         import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
 
-        auto t = db.transaction;
         resetTimeoutContext(db);
         db.removeOrphanedMutants;
-        t.commit;
+        trans.commit;
 
         printPrunedFiles(before_files, files_with_mutations, fio.getOutputDir);
     }

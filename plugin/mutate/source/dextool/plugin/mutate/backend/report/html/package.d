@@ -100,7 +100,7 @@ struct FileIndex {
         import std.path : buildPath;
         import std.stdio : File;
         import dextool.plugin.mutate.backend.report.html.page_files;
-        import dextool.plugin.mutate.backend.report.utility : reportStatistics;
+        import dextool.plugin.mutate.backend.report.analyzers : reportStatistics;
 
         const original = fr.file.dup.pathToHtml;
         const report = (original ~ htmlExt).Path;
@@ -292,6 +292,7 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_short_term_view;
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
+        import dextool.plugin.mutate.backend.report.html.page_test_case_unique;
         import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
         import dextool.plugin.mutate.backend.report.html.page_tree_map;
@@ -337,6 +338,10 @@ struct FileIndex {
         if (ReportSection.tc_groups_similarity in sections) {
             addSubPage(() => makeTestGroupSimilarityAnalyse(db, conf, humanReadableKinds,
                     kinds), "test_group_similarity", "Test Group Similarity");
+        }
+        if (ReportSection.tc_unique in sections) {
+            addSubPage(() => makeTestCaseUnique(db, conf, humanReadableKinds,
+                    kinds), "test_case_unique", "Test Case Uniqueness");
         }
 
         files.data.toIndex(index.mainBody, htmlFileDir);

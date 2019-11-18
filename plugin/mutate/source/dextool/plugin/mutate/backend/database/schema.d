@@ -240,7 +240,7 @@ struct NomutTbl {
 }
 
 @TableName(nomutDataTable)
-struct NomutDataTable {
+struct NomutDataTbl {
     @ColumnName("mut_id")
     long mutationId;
 
@@ -386,7 +386,7 @@ struct MutationStatusTbl {
 
 @TableName(mutantTimeoutWorklistTable)
 @TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
-struct MutantTimeoutWorklist {
+struct MutantTimeoutWorklistTbl {
     ulong id;
 }
 
@@ -395,7 +395,7 @@ struct MutantTimeoutWorklist {
  * This mean that if there are nothing in the database then `.init` is the correct starting point.
  */
 @TableName(mutantTimeoutCtxTable)
-struct MutantTimeoutCtx {
+struct MutantTimeoutCtxTbl {
     /// What iteration the timeout testing is at.
     long iter;
 
@@ -414,9 +414,9 @@ struct MutantTimeoutCtx {
 
 import dextool.plugin.mutate.backend.database.type : Rationale;
 
-@TableName(markedMutantTable)
+@TableName(markedMutantTbl)
 @TablePrimaryKey("st_id")
-struct MarkedMutant {
+struct MarkedMutantTbl {
     @ColumnName("st_id")
     long mutationStatusId;
 
@@ -502,7 +502,7 @@ void upgradeV0(ref Miniorm db) {
     enum tbl = makeUpgradeTable;
 
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl, MutationPointTbl, MutationTbl, TestCaseKilledTbl,
-            AllTestCaseTbl, MutationStatusTbl, MutantTimeoutCtx, MutantTimeoutWorklist, MarkedMutant));
+            AllTestCaseTbl, MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl, MarkedMutantTbl));
 
     makeSrcMetadataView(db);
 
@@ -825,13 +825,13 @@ void upgradeV11(ref Miniorm db) {
 
 /// 2019-08-28
 void upgradeV12(ref Miniorm db) {
-    db.run(buildSchema!(MutantTimeoutCtx, MutantTimeoutWorklist));
+    db.run(buildSchema!(MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl));
     updateSchemaVersion(db, 13);
 }
 
 /// 2019-11-12
 void upgradeV13(ref Miniorm db) {
-    db.run(buildSchema!(MarkedMutant));
+    db.run(buildSchema!(MarkedMutantTbl));
     updateSchemaVersion(db, 14);
 }
 

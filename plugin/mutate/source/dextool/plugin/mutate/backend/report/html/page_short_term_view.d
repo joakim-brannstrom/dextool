@@ -13,21 +13,21 @@ import logger = std.experimental.logger;
 import std.format : format;
 
 import arsd.dom : Document, Element, require, Table;
+import dextool.from;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
+import dextool.plugin.mutate.backend.report.analyzers : DiffReport, reportDiff;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
-import dextool.plugin.mutate.backend.report.utility;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
-import dextool.type : AbsolutePath;
 
 string makeShortTermView(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds,
-        ref Diff diff, AbsolutePath workdir) @trusted {
+        ref Diff diff, from.dextool.type.AbsolutePath workdir) @trusted {
     import std.datetime : Clock;
 
     auto doc = tmplBasicPage;

@@ -309,7 +309,7 @@ struct Database {
 
     MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
         auto rval = MutantMetaData(id);
-        foreach (res; db.run(select!NomutDataTable.where("mut_id =", cast(long) id))) {
+        foreach (res; db.run(select!NomutDataTbl.where("mut_id =", cast(long) id))) {
             rval.set(NoMut(res.tag, res.comment));
         }
         return rval;
@@ -810,10 +810,6 @@ struct Database {
             VALUES(:fid, :line, :nomut, :tag, :comment)",
                     rawSrcMetadataTable);
 
-        db.begin;
-        scope (failure)
-            db.rollback;
-
         auto stmt = db.prepare(sql);
         foreach (meta; mdata) {
             auto nomut = meta.attr.match!((NoMetadata a) => NoMut.init, (NoMut a) => a);
@@ -821,16 +817,10 @@ struct Database {
             stmt.execute;
             stmt.reset;
         }
-
-        db.commit;
     }
 
     /// Store all found mutants.
     void put(MutationPointEntry2[] mps, AbsolutePath rel_dir) @trusted {
-        db.begin;
-        scope (failure)
-            db.rollback;
-
         enum insert_mp_sql = format("INSERT OR IGNORE INTO %s
             (file_id, offset_begin, offset_end, line, column, line_end, column_end)
             SELECT id,:begin,:end,:line,:column,:line_end,:column_end
@@ -893,8 +883,6 @@ struct Database {
                 insert_m.reset;
             }
         }
-
-        db.commit;
     }
 
     /** Remove all mutants points from the database.
@@ -1133,7 +1121,7 @@ struct Database {
         return res.oneValue!string;
     }
 
-    /// Returns: the test case id.
+    /// Returns: stats about the test case.
     Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc, const Mutation.Kind[] kinds) @trusted {
         const sql = format("SELECT sum(t2.time),count(t1.st_id)
             FROM %s t0, %s t1, %s t2, %s t3
@@ -1154,6 +1142,7 @@ struct Database {
         return rval;
     }
 
+    /// Returns: all test cases for the file and the mutants they killed.
     TestCaseInfo2[] getAllTestCaseInfo2(const FileId file, const Mutation.Kind[] kinds) @trusted {
         // row of test case name and mutation id.
         const sql = format("SELECT t0.name,t3.id
