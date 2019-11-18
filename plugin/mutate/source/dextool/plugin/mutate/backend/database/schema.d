@@ -414,7 +414,7 @@ struct MutantTimeoutCtxTbl {
 
 import dextool.plugin.mutate.backend.database.type : Rationale;
 
-@TableName(markedMutantTbl)
+@TableName(markedMutantTable)
 @TablePrimaryKey("st_id")
 struct MarkedMutantTbl {
     @ColumnName("st_id")

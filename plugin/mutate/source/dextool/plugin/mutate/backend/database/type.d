@@ -17,9 +17,10 @@ import sumtype;
 import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.type;
 
-public import dextool.plugin.mutate.backend.database.schema : MutantTimeoutCtxTbl;
+public import dextool.plugin.mutate.backend.database.schema : MutantTimeoutCtxTbl, MarkedMutantTbl;
 
 alias MutantTimeoutCtx = MutantTimeoutCtxTbl;
+alias MarkedMutant = MarkedMutantTbl;
 
 @safe:
 
