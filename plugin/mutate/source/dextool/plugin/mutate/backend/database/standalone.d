@@ -83,7 +83,7 @@ struct Database {
         return res.oneValue!long != 0;
     }
 
-    bool hasLostMarkings(Path path) @trusted {
+    bool hasMarkings(Path path) @trusted {
         immutable s = format!"SELECT COUNT(*) FROM %s WHERE path=:path LIMIT 1"(markedMutantTable);
         auto stmt = db.prepare(s);
         stmt.bind(":path", cast(string)path);

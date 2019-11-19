@@ -151,6 +151,7 @@ ExitStatusType markMutant(ref Database db, MutationId id, Mutation.Status status
         } else {
             db.markMutant(id, st_id.get, status, rationale);
             db.updateMutationStatus(st_id.get, status);
+            logger.infof(`Mutant %s marked with status %s and rationale '%s'.`, id, status, rationale);
         }
 
         trans.commit;

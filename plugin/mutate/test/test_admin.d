@@ -32,8 +32,12 @@ unittest {
         .run;
 
     // assert
-    testAnyOrder!SubStr(["Failure when marking mutant: 12"]).shouldNotBeIn(r.stderr);
     testAnyOrder!SubStr(errorOrFailure).shouldNotBeIn(r.stderr);
+    testAnyOrder!SubStr([
+        "12",
+        "killed",
+        `"A good rationale"`
+    ]).shouldBeIn(r.stdout);
 }
 
 @(testId ~ "shall promt a failure message when marking a mutant that does not exist")
@@ -76,8 +80,12 @@ unittest {
         .run;
 
     // assert
-    testAnyOrder!SubStr(["Failure when marking mutant: 3"]).shouldNotBeIn(secondRes.stderr);
     testAnyOrder!SubStr(errorOrFailure).shouldNotBeIn(secondRes.stderr);
+    testAnyOrder!SubStr([
+        "3",
+        "unknown",
+        `"Backend was wrong, mutant is legit..."`
+    ]).shouldBeIn(secondRes.stdout);
 }
 
 // TODO: add test for plain-report for marked mutants.
