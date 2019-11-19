@@ -110,7 +110,9 @@ enum ReportSection {
     /// a section containing a diff and mutants for it
     diff,
     /// report of the mutants that only the test case kill
-    tc_unique
+    tc_unique,
+    /// mutants manually marked by user
+    marked_mutants
 }
 
 /// How to sort test cases when reporting them by their kill statistics.

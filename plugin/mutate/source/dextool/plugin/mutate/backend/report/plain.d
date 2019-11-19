@@ -20,7 +20,7 @@ import dextool.type;
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow, MutationId;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats,
+import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats, reportMarkedMutants,
     reportStatistics, MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table, toSections;
@@ -264,6 +264,16 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
                 writeln(stat.sumToString);
                 writeln(tbl);
             }
+        }
+
+        if (ReportSection.marked_mutants in sections) {
+            logger.info("Marked mutants");
+            auto r = reportMarkedMutants(db, kinds);
+
+            Table!5 tbl;
+            tbl.heading = ["File", "Line", "Column", "Status", "Rationale"];
+            r.toTable(tbl);
+            writeln(tbl);
         }
 
         if (ReportSection.summary in sections) {

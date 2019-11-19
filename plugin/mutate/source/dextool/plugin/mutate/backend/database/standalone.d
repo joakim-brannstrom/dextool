@@ -567,6 +567,17 @@ struct Database {
         db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, sl.line, sl.column, p, to_status, Clock.currTime.toUTC, Rationale(rationale)));
     }
 
+    MarkedMutant[] getMarkedMutants() @trusted {
+        immutable s = format!"SELECT * FROM %s"(markedMutantTable);
+        auto stmt = db.prepare(s);
+
+        auto app = appender!(MarkedMutant[])();
+        foreach (res; stmt.execute)
+            app.put(MarkedMutant(res.peek!long(0), res.peek!uint(1), res.peek!uint(2), res.peek!string(3),
+                                res.peek!ulong(4), res.peek!string(5).fromSqLiteDateTime, Rationale(res.peek!string(6))));
+        return app.data;
+    }
+
     import dextool.plugin.mutate.backend.type;
 
     alias aliveMutants = countMutants!([Mutation.Status.alive], false);

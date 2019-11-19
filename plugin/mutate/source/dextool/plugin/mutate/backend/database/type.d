@@ -231,4 +231,5 @@ struct MutantMetaData {
 
 struct Rationale {
   string rationale;
+  alias rationale this;
 }

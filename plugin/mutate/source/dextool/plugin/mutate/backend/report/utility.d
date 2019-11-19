@@ -160,3 +160,12 @@ struct Table(int columnsNr) {
         }
     }
 }
+
+string statusToString(Mutation.Status status) @trusted {
+    import std.conv : to;
+    return to!string(status);
+}
+string statusToString(ulong status) @trusted {
+    import std.conv : to;
+    return statusToString(status.to!(Mutation.Status));
+}
