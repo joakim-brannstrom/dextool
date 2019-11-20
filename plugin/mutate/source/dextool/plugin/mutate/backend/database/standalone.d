@@ -83,12 +83,18 @@ struct Database {
         return res.oneValue!long != 0;
     }
 
-    bool hasMarkings(Path path) @trusted {
-        immutable s = format!"SELECT COUNT(*) FROM %s WHERE path=:path LIMIT 1"(markedMutantTable);
+    bool lostMarking(long status_id) @trusted {
+        immutable s = format!"SELECT COUNT(*) FROM %s WHERE id=:id LIMIT 1"(mutationStatusTable);
         auto stmt = db.prepare(s);
-        stmt.bind(":path", cast(string)path);
+        stmt.bind(":id", status_id);
         auto res = stmt.execute;
-        return res.oneValue!long != 0;
+        return res.oneValue!long == 0;
+    }
+
+    MarkedMutant[] getLostMarkings() @trusted {
+        import std.algorithm : filter;
+        import std.array : array;
+        return getMarkedMutants.filter!(a => lostMarking(a.mutationStatusId)).array;
     }
 
     Nullable!FileId getFileId(const Path p) @trusted {
@@ -568,7 +574,8 @@ struct Database {
     }
 
     MarkedMutant[] getMarkedMutants() @trusted {
-        immutable s = format!"SELECT * FROM %s"(markedMutantTable);
+        immutable s = format!"SELECT st_id, line, column, path, to_status, time, rationale
+            FROM %s ORDER BY path"(markedMutantTable);
         auto stmt = db.prepare(s);
 
         auto app = appender!(MarkedMutant[])();

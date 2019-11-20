@@ -23,9 +23,11 @@ import dextool.user_filerange;
 import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
 import dextool.plugin.mutate.backend.analyze.visitor : makeRootVisitor;
 import dextool.plugin.mutate.backend.database : Database;
+import dextool.plugin.mutate.backend.database.type : MarkedMutant;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
 import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
+import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -149,8 +151,6 @@ struct Analyzer {
             try {
                 auto f_status = isFileChanged(db, relp, a.cs);
                 if (f_status == FileStatus.changed) {
-                    if (db.hasMarkings(relp))
-                        logger.warningf("Marked mutants in file '%s' will become lost!", relp);
                     logger.infof("Updating analyze of '%s'", a);
                 }
 
@@ -201,6 +201,8 @@ struct Analyzer {
 
         resetTimeoutContext(db);
         db.removeOrphanedMutants;
+        printLostMarkings(db.getLostMarkings);
+
         trans.commit;
 
         printPrunedFiles(before_files, files_with_mutations, fio.getOutputDir);
@@ -301,4 +303,24 @@ bool isPathInsideAnyRoot(AbsolutePath[] roots, AbsolutePath f) @safe {
     }
 
     return false;
+}
+
+/// prints a marked mutant that has become lost due to rerun of analyze
+void printLostMarkings(MarkedMutant[] lostMutants) {
+    import std.array : empty;
+    if (lostMutants.empty)
+        return;
+
+    import std.stdio: writeln;
+    import std.conv : to;
+
+    Table!5 tbl = Table!5(["File", "Line", "Column", "Status", "Rationale"]);
+    foreach(m; lostMutants) {
+        typeof(tbl).Row r = [m.path, to!string(m.line), to!string(m.column), statusToString(m.to_status), m.rationale];
+        tbl.put(r);
+    }
+
+    writeln;
+    logger.warning("Marked mutants that became obsolete:");
+    writeln(tbl);
 }
