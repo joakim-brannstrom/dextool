@@ -270,8 +270,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
             logger.info("Marked mutants");
             auto r = reportMarkedMutants(db, kinds);
 
-            Table!5 tbl;
-            tbl.heading = ["File", "Line", "Column", "Status", "Rationale"];
+            Table!6 tbl;
+            tbl.heading = ["File", "Line", "Column", "Kind", "Status", "Rationale"];
             r.toTable(tbl);
             writeln(tbl);
         }

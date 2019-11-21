@@ -431,7 +431,9 @@ struct MarkedMutantTbl {
     SysTime time;
 
     string rationale;
-}
+
+    ulong kind;
+    }
 
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {

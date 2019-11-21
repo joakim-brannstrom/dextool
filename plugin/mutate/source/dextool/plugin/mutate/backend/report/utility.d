@@ -169,3 +169,12 @@ string statusToString(ulong status) @trusted {
     import std.conv : to;
     return statusToString(status.to!(Mutation.Status));
 }
+
+string kindToString(Mutation.Kind kind) @trusted {
+    import std.conv : to;
+    return to!string(kind);
+}
+string kindToString(long kind) @trusted {
+    import std.conv : to;
+    return kindToString(kind.to!(Mutation.Kind));
+}

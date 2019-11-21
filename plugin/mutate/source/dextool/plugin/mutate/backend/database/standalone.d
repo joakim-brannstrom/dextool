@@ -83,12 +83,16 @@ struct Database {
         return res.oneValue!long != 0;
     }
 
-    bool lostMarking(long status_id) @trusted {
+    bool isInMutationStatusTable(long status_id) {
         immutable s = format!"SELECT COUNT(*) FROM %s WHERE id=:id LIMIT 1"(mutationStatusTable);
         auto stmt = db.prepare(s);
         stmt.bind(":id", status_id);
         auto res = stmt.execute;
         return res.oneValue!long == 0;
+    }
+
+    bool lostMarking(long status_id) @trusted {
+        return isInMutationStatusTable(status_id);
     }
 
     MarkedMutant[] getLostMarkings() @trusted {
@@ -568,21 +572,40 @@ struct Database {
         auto p = getPath(id);
         if (p.isNull)
             return;
-        // assuming that a mutant that exists in the system always have a location.
+        // assuming that a mutant that exists in the system always have a location and kind.
         auto sl = getSourceLocation(id).get;
-        db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, sl.line, sl.column, p, to_status, Clock.currTime.toUTC, Rationale(rationale)));
+        auto kind = getKind(id);
+        db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, sl.line,
+            sl.column, p, to_status, Clock.currTime.toUTC, Rationale(rationale), kind));
+    }
+
+    void removeMarkedMutant(MutationStatusId st_id) @trusted {
+        immutable condition = format!"st_id=%s"(st_id);
+        db.run(delete_!MarkedMutant.where(condition));
     }
 
     MarkedMutant[] getMarkedMutants() @trusted {
-        immutable s = format!"SELECT st_id, line, column, path, to_status, time, rationale
+        immutable s = format!"SELECT st_id, line, column, path, to_status, time, rationale, kind
             FROM %s ORDER BY path"(markedMutantTable);
         auto stmt = db.prepare(s);
 
         auto app = appender!(MarkedMutant[])();
         foreach (res; stmt.execute)
-            app.put(MarkedMutant(res.peek!long(0), res.peek!uint(1), res.peek!uint(2), res.peek!string(3),
-                                res.peek!ulong(4), res.peek!string(5).fromSqLiteDateTime, Rationale(res.peek!string(6))));
+            app.put(MarkedMutant(res.peek!long(0), res.peek!uint(1), res.peek!uint(2),
+                res.peek!string(3), res.peek!ulong(4), res.peek!string(5).fromSqLiteDateTime,
+                Rationale(res.peek!string(6)), res.peek!long(7).to!(Mutation.Kind)));
         return app.data;
+    }
+
+    long getKind(MutationId id) @trusted {
+        immutable s = format!"SELECT kind FROM %s WHERE id=:id"(mutationTable);
+        auto stmt = db.prepare(s);
+        stmt.bind(":id", cast(long)id);
+
+        typeof(return) rval;
+        foreach (res; stmt.execute)
+            rval = res.peek!long(0);
+        return rval;
     }
 
     import dextool.plugin.mutate.backend.type;

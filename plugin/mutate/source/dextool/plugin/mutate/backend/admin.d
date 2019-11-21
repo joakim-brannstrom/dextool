@@ -104,6 +104,8 @@ nothrow:
         case AdminOperation.markMutant:
             return markMutant(db, data.mutant_id,
                     data.to_status, data.mutant_rationale);
+        case AdminOperation.removeMarkedMutant:
+            return removeMarkedMutant(db, data.mutant_id);
         }
     }
 }
@@ -152,6 +154,28 @@ ExitStatusType markMutant(ref Database db, MutationId id, Mutation.Status status
             db.markMutant(id, st_id.get, status, rationale);
             db.updateMutationStatus(st_id.get, status);
             logger.infof(`Mutant %s marked with status %s and rationale '%s'.`, id, status, rationale);
+        }
+
+        trans.commit;
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+        return ExitStatusType.Errors;
+    }
+    return ExitStatusType.Ok;
+}
+
+ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothrow {
+    try {
+        auto trans = db.transaction;
+
+        // MutationStatusId used as check, removal of marking and updating status to unknown
+        const st_id = db.getMutationStatusId(id);
+        if (st_id.isNull) {
+            logger.errorf("Failure when removing marked mutant: %s", id);
+        } else {
+            db.removeMarkedMutant(st_id.get);
+            db.updateMutationStatus(st_id.get, Mutation.Status.unknown);
+            logger.infof(`Removed marking for mutant %s.`, id);
         }
 
         trans.commit;

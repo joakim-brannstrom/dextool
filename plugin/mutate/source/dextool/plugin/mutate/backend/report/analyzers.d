@@ -25,7 +25,7 @@ import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId, M
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.backend.report.utility : window, windowSize, statusToString;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize, statusToString, kindToString;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, Language, TestGroup;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
 import dextool.plugin.mutate.type : ReportLevel, ReportSection;
@@ -270,7 +270,7 @@ void toTable(ref TestCaseDeadStat st, ref Table!2 tbl) @safe pure nothrow {
     }
 }
 
-void toTable(ref MarkedMutantsStat st, ref Table!5 tbl) @safe {
+void toTable(ref MarkedMutantsStat st, ref Table!6 tbl) @safe {
     import std.conv: to;
     foreach (m; st.mutants.data) {
         typeof(tbl).Row r = st.toString(m);
@@ -488,7 +488,8 @@ struct MarkedMutantsStat {
 
     string[] toString(MarkedMutant m) @safe {
         import std.conv: to;
-        return [m.path, to!string(m.line), to!string(m.column), statusToString(m.to_status), m.rationale];
+        return [m.path, to!string(m.line), to!string(m.column), kindToString(m.kind),
+            statusToString(m.to_status), m.rationale];
     }
 }
 
