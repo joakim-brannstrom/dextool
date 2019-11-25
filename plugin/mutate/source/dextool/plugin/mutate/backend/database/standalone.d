@@ -94,6 +94,14 @@ struct Database {
     bool lostMarking(long status_id) @trusted {
         return isInMutationStatusTable(status_id);
     }
+    bool isMarked(MutationId id) @trusted {
+        immutable s = format!"SELECT COUNT(*) FROM %s WHERE st_id IN
+            (SELECT st_id FROM %s WHERE id=:id)"(markedMutantTable, mutationTable);
+        auto stmt = db.prepare(s);
+        stmt.bind(":id", cast(long)id);
+        auto res = stmt.execute;
+        return res.oneValue!long != 0;
+    }
 
     MarkedMutant[] getLostMarkings() @trusted {
         import std.algorithm : filter;

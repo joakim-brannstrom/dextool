@@ -173,9 +173,13 @@ ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothr
         if (st_id.isNull) {
             logger.errorf("Failure when removing marked mutant: %s", id);
         } else {
-            db.removeMarkedMutant(st_id.get);
-            db.updateMutationStatus(st_id.get, Mutation.Status.unknown);
-            logger.infof(`Removed marking for mutant %s.`, id);
+            if (db.isMarked(id)) {
+                db.removeMarkedMutant(st_id.get);
+                db.updateMutationStatus(st_id.get, Mutation.Status.unknown);
+                logger.infof("Removed marking for mutant %s.", id);
+            } else {
+                logger.errorf("Failure when removing marked mutant (mutant %s is not marked)", id);
+            }
         }
 
         trans.commit;

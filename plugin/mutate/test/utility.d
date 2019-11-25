@@ -74,3 +74,8 @@ void makeExecutable(string fname) {
     const attrs = getAttributes(fname) | S_IRWXU;
     setAttributes(fname, attrs);
 }
+
+auto createDatabase(const ref TestEnv env) {
+    import dextool.plugin.mutate.backend.database.standalone;
+    return Database.make((env.outdir ~ defaultDb).toString);
+}
