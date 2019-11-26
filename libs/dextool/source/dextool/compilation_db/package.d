@@ -262,7 +262,7 @@ private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbD
         return toCompileCommand(directory.str, file.str, command, db_dir, output);
     } catch (Exception e) {
         logger.info("Input JSON: ", v.toPrettyString).collectException;
-        logger.errorf("Unable to parse json: %s", e.msg).collectException;
+        logger.error("Unable to parse json: ", e.msg).collectException;
     }
 
     return typeof(return)();
@@ -295,7 +295,7 @@ Nullable!CompileCommand toCompileCommand(string directory, string file,
             abs_output);
         // dfmt on
     } catch (Exception ex) {
-        logger.error("Unable to parse json: " ~ ex.msg).collectException;
+        logger.error("Unable to parse json: ", ex.msg).collectException;
     }
 
     return rval;
@@ -327,7 +327,7 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
             }
             // dfmt on
         } catch (Exception ex) {
-            logger.error("Unable to parse json:" ~ ex.msg).collectException;
+            logger.error("Unable to parse json:", ex.msg).collectException;
         }
     }
 
@@ -347,15 +347,11 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
 }
 
 void fromFile(T)(CompileDbFile filename, ref T app) {
-    import std.algorithm : joiner;
-    import std.conv : text;
-    import std.stdio : File;
+    import std.file : readText;
 
-    // trusted: using the GC for memory management.
-    // assuming any UTF-8 errors in the input is validated by phobos byLineCopy.
-    auto raw = () @trusted {
-        return File(cast(string) filename).byLineCopy.joiner.text;
-    }();
+    auto raw = readText(filename);
+    if (raw.length == 0)
+        logger.warning("File is empty: ", filename);
 
     raw.parseCommands(filename, app);
 }
@@ -658,7 +654,7 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
         const parts = raw_flag.split('=');
         if (parts.length == 2) {
             // is a -foo=bar flag thus exact match is the only sensible
-            cmp = (const FilterClangFlag a) => parts[0] == a.payload;
+            cmp = (const FilterClangFlag a) => raw_flag == a.payload;
         } else {
             // the flag has the argument merged thus have to check if the start match
             cmp = (const FilterClangFlag a) => raw_flag.startsWith(a.payload);
@@ -964,6 +960,17 @@ unittest {
             ], AbsoluteCompileDbDirectory("/home"), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    s.cflags.shouldEqual(["-std=c++11"]);
+}
+
+@("shall remove -mfloat-gprs=double")
+unittest {
+    auto cmd = toCompileCommand("/home", "file1.cpp", [
+            "g++", "-std=c++11", "-mfloat-gprs=double", "-c", "a_filename.c"
+            ], AbsoluteCompileDbDirectory("/home"), null);
+    auto my_filter = CompileCommandFilter(defaultCompilerFlagFilter, 0);
+    my_filter.filter ~= FilterClangFlag("-mfloat-gprs=double", FilterClangFlag.Kind.exclude);
+    auto s = cmd.get.parseFlag(my_filter, Compiler.init);
     s.cflags.shouldEqual(["-std=c++11"]);
 }
 
