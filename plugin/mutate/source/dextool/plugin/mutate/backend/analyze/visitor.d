@@ -1088,7 +1088,7 @@ class AnalyzeResult {
 
         auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
         // the file should already be in the store of files to save to the DB.
-        assert(p in file_index);
+        assert(file_index.contains(p));
         auto fin = fio.makeInput(p);
         foreach (m; a.mp.mutations) {
             auto txt = makeMutationText(fin, mpe.offset, m.kind, lang);

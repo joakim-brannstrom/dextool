@@ -159,7 +159,7 @@ struct Markdown(Writer, TraceWriter) {
         ReportSection[] tmp_sec = conf.reportSection.length == 0
             ? conf.reportLevel.toSections : conf.reportSection.dup;
 
-        sections = setFromList(tmp_sec);
+        sections = tmp_sec.toSet;
         reportIndividualMutants = sections.contains(ReportSection.all_mut)
             || sections.contains(ReportSection.alive) || sections.contains(ReportSection.killed);
     }

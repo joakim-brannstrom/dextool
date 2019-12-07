@@ -54,7 +54,7 @@ final class ReportJson : ReportEvent {
         this.logDir = conf.logDir;
 
         sections = (conf.reportSection.length == 0 ? conf.reportLevel.toSections
-                : conf.reportSection.dup).setFromList;
+                : conf.reportSection.dup).toSet;
     }
 
     override void mutationKindEvent(const MutationKind[] kinds) {

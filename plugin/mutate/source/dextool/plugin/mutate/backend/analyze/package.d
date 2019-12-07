@@ -91,7 +91,7 @@ struct Analyzer {
 
     this(ref Database db, ValidateLoc val_loc, FilesysIO fio, ConfigCompiler conf) @trusted {
         this.db = &db;
-        this.before_files = db.getFiles.setFromList;
+        this.before_files = db.getFiles.toSet;
         this.val_loc = val_loc;
         this.fio = fio;
         this.conf = conf;
@@ -270,7 +270,7 @@ void printPrunedFiles(ref Set!Path before_files,
         ref Set!AbsolutePath analyzed_files, const AbsolutePath root_dir) @safe {
     import dextool.type : FileName;
 
-    foreach (const f; setToRange!Path(before_files)) {
+    foreach (const f; before_files.toRange) {
         auto abs_f = AbsolutePath(FileName(f), DirName(cast(string) root_dir));
         logger.infof(!analyzed_files.contains(abs_f), "Removed from files to mutate: '%s'", abs_f);
     }

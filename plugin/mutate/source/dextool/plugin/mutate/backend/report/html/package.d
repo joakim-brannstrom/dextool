@@ -85,7 +85,7 @@ struct FileIndex {
         this.diff = diff;
 
         sections = (conf.reportSection.length == 0 ? conf.reportLevel.toSections
-                : conf.reportSection.dup).setFromList;
+                : conf.reportSection.dup).toSet;
     }
 
     override void mutationKindEvent(const MutationKind[] k) {
