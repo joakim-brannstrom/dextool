@@ -999,6 +999,13 @@ nothrow:
 
         local.get!NextPullRequestMutant.mutants = mut_ids.toArray;
         logger.trace(local.get!NextPullRequestMutant.mutants.sort).collectException;
+
+        if (mut_ids.empty) {
+            logger.warning("None of the locations specified with -L exists").collectException;
+            logger.info("Available files are:").collectException;
+            foreach (f; spinSql!(() => global.data.db.getFiles))
+                logger.info(f).collectException;
+        }
     }
 
     void opCall(ref MeasureTestSuite data) {
