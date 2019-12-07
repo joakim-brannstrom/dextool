@@ -886,7 +886,6 @@ nothrow:
 
         Set!string found_tcs;
         spinSql!(() {
-            found_tcs = null;
             foreach (tc; global.data.db.getDetectedTestCases)
                 found_tcs.add(tc.name);
         });
@@ -1249,7 +1248,7 @@ bool hasNewTestCases(ref Set!string old_tcs, ref Set!string found_tcs) @safe not
     bool rval;
 
     auto new_tcs = found_tcs.setDifference(old_tcs);
-    foreach (tc; new_tcs.byKey) {
+    foreach (tc; new_tcs.toRange) {
         logger.info(!rval, "Found new test case(s):").collectException;
         logger.infof("%s", tc).collectException;
         rval = true;
@@ -1262,7 +1261,7 @@ bool hasNewTestCases(ref Set!string old_tcs, ref Set!string found_tcs) @safe not
  */
 void printDroppedTestCases(ref Set!string old_tcs, ref Set!string changed_tcs) @safe nothrow {
     auto diff = old_tcs.setDifference(changed_tcs);
-    auto removed = diff.setToList!string;
+    auto removed = diff.toArray;
 
     logger.info(removed.length != 0, "Detected test cases that has been removed:").collectException;
     foreach (tc; removed) {

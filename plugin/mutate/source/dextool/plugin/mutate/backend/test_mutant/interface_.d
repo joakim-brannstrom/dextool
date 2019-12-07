@@ -47,11 +47,11 @@ class GatherTestCase : TestCaseReport {
                 failed[kv.key] = kv.value;
         }
 
-        foreach (k; setToRange!TestCase(o.found)) {
+        foreach (k; o.found.toRange) {
             found.add(k);
         }
 
-        foreach (k; setToRange!TestCase(o.unstable)) {
+        foreach (k; o.unstable.toRange) {
             unstable.add(k);
         }
     }
@@ -61,11 +61,11 @@ class GatherTestCase : TestCaseReport {
     }
 
     TestCase[] foundAsArray() @safe nothrow {
-        return setToList!TestCase(found);
+        return found.toArray;
     }
 
     TestCase[] unstableAsArray() @safe nothrow {
-        return setToList!TestCase(unstable);
+        return unstable.toArray;
     }
 
     override void reportFailed(TestCase tc) @safe nothrow {
