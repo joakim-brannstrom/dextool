@@ -253,6 +253,18 @@ struct Database {
         return app.data;
     }
 
+    Nullable!(Mutation.Status) getMutationStatus(const MutationStatusId id) @trusted {
+        enum sql = format!"SELECT status FROM %s WHERE id=:id"(mutationStatusTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":id", cast(long) id);
+
+        typeof(return) rval;
+        foreach (a; stmt.execute) {
+            rval = cast(Mutation.Status) a.peek!long(0);
+        }
+        return rval;
+    }
+
     Nullable!MutationEntry getMutation(const MutationId id) @trusted {
         import dextool.plugin.mutate.backend.type;
         import dextool.type : FileName;

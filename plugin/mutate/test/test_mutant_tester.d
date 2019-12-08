@@ -8,6 +8,7 @@ module dextool_test.test_mutant_tester;
 import core.thread : Thread;
 import core.time : dur;
 import std.algorithm : filter;
+import std.file : readText;
 import std.stdio : File;
 import std.traits : EnumMembers;
 import std.typecons : Yes;
@@ -852,5 +853,75 @@ class ShallStopAtMaxRuntime : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!SubStr([`Max runtime of`, `Done!`]).shouldBeIn(r.stdout);
+    }
+}
+
+class ShallTestMutantsOnSpecifiedLines : SimpleFixture {
+    override void test() {
+        import std.path : relativePath;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["-L", program_cpp.relativePath(workDir.toString) ~ ":11-14"])
+            .run;
+        // dfmt on
+
+        testConsecutiveSparseOrder!Re([
+                `.*Found 1 mutant.*program.cpp:11`,
+                `.*Found 1 mutant.*program.cpp:13`
+                ]).shouldBeIn(r.stdout);
+        testAnyOrder!Re([`info:.*from 'case 3:`, `info:.*from 'case 1:`,]).shouldBeIn(r.stdout);
+    }
+
+    override string programFile() {
+        return (testData ~ "dcc_dc_switch1.cpp").toString;
+    }
+}
+
+class ShallTestMutantsInDiff : SimpleFixture {
+    override void test() {
+        import std.path : relativePath;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programFile).run;
+
+        // dfmt off
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["--diff-from-stdin"])
+            .setStdin(readText(programFile ~ ".diff"))
+            .run;
+        // dfmt on
+
+        testConsecutiveSparseOrder!Re([
+                `.*Found 1 mutant.*dcc_dc_switch1.cpp:12`,
+                ]).shouldBeIn(r.stdout);
+        testAnyOrder!Re([`info:.*from 'case 1:`, `info:.*killed`,]).shouldBeIn(r.stdout);
+    }
+
+    override string programFile() {
+        return (testData ~ "dcc_dc_switch1.cpp").toString;
     }
 }

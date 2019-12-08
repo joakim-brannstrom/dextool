@@ -22,7 +22,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
 
-import dextool.plugin.mutate.backend.diff_parser : Diff;
+import dextool.plugin.mutate.backend.diff_parser : Diff, diffFromStdin;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent,
     FileReport, FilesReporter;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
@@ -34,7 +34,7 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
     Diff diff;
     try {
         if (conf.unifiedDiff)
-            diff = fromStdin;
+            diff = diffFromStdin;
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }
@@ -189,16 +189,4 @@ struct ReportGenerator {
     void statEvent(ref Database db) {
         listeners.each!(a => a.statEvent(db));
     }
-}
-
-Diff fromStdin() @trusted {
-    import std.stdio : stdin;
-    import dextool.plugin.mutate.backend.diff_parser : UnifiedDiffParser;
-
-    UnifiedDiffParser parser;
-    foreach (l; stdin.byLine) {
-        debug logger.trace(l);
-        parser.process(l);
-    }
-    return parser.result;
 }

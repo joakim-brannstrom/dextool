@@ -6,10 +6,16 @@ hide empty description
 Initialize -> SanityCheck
 
 SanityCheck --> Error : failed
+SanityCheck --> ParseStdin : fromStdin
 SanityCheck -> PreCompileSut
+
+ParseStdin -> PreCompileSut
 
 PreCompileSut --> Error : failed
 PreCompileSut -> UpdateAndResetAliveMutants
+PreCompileSut --> PullRequest : hasConstraint
+
+PullRequest -> CheckMutantsLeft
 
 UpdateAndResetAliveMutants -> ResetOldMutants
 
@@ -18,6 +24,7 @@ ResetOldMutants --> CheckMutantsLeft
 UpdateTimeout --> CleanupTempDirs
 
 CleanupTempDirs --> NextMutant
+CleanupTempDirs --> NextPullRequestMutant : hasConstraint
 
 CheckMutantsLeft --> Done : allTested
 CheckMutantsLeft --> MeasureTestSuite
@@ -32,6 +39,9 @@ CheckRuntime --> Done : runtime>max
 
 NextMutant --> CheckTimeout : allTested
 NextMutant --> PreMutationTest
+
+NextPullRequestMutant --> PreMutationTest
+NextPullRequestMutant --> Done : allTested
 
 PreMutationTest --> MutationTest
 

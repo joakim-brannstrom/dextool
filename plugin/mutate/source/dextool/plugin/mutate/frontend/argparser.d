@@ -93,7 +93,7 @@ struct ArgParser {
         app.put("[workarea]");
         app.put("# path used as the root for accessing files");
         app.put(
-                "# dextool will not modify files with a path outside the root when it perform mutation testing");
+                "# dextool will not modify files outside the root when it perform mutation testing");
         app.put(`# root = "."`);
         app.put("# restrict analysis to files in this directory tree");
         app.put("# this make it possible to only mutate certain parts of an application");
@@ -237,23 +237,26 @@ struct ArgParser {
             string mutationTestCaseAnalyze;
             long mutationTesterRuntime;
             string maxRuntime;
+            string[] testConstraint;
 
             data.toolMode = ToolMode.test_mutants;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                   "L", "restrict testing to the requested files and lines (<file>:<start>-<end>)", &testConstraint,
                    "build-cmd", "program used to build the application", &mutationCompile,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
+                   "diff-from-stdin", "restrict testing to the mutants in the diff", &mutationTest.unifiedDiffFromStdin,
                    "dry-run", "do not write data to the filesystem", &mutationTest.dryRun,
+                   "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
                    "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
-                   "order", "determine in what order mutations are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
+                   "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &workArea.rawRoot,
                    "restrict", restrict_help, &workArea.rawRestrict,
-                   "test-cmd", "program used to run the test suite", &mutationTester,
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
+                   "test-cmd", "program used to run the test suite", &mutationTester,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
-                   "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
                    );
             // dfmt on
 
@@ -267,6 +270,7 @@ struct ArgParser {
                 mutationTest.mutationTesterRuntime = mutationTesterRuntime.dur!"msecs";
             if (!maxRuntime.empty)
                 mutationTest.maxRuntime = parseDuration(maxRuntime);
+            mutationTest.constraint = parseUserTestConstraint(testConstraint);
         }
 
         void reportG(string[] args) {
@@ -723,4 +727,48 @@ unittest {
         + 2.dur!"minutes" + 5.dur!"seconds" + 9.dur!"msecs";
     const d = parseDuration("1 weeks 1 days 3 hours 2 minutes 5 seconds 9 msecs");
     d.should == expected;
+}
+
+auto parseUserTestConstraint(string[] raw) {
+    import std.conv : to;
+    import std.regex : regex, matchFirst;
+    import std.typecons : tuple;
+    import dextool.plugin.mutate.type : TestConstraint;
+
+    TestConstraint rval;
+    const re = regex(`(?P<file>.*):(?P<start>\d*)-(?P<end>\d*)`);
+
+    foreach (r; raw.map!(a => tuple!("user", "match")(a, matchFirst(a, re)))) {
+        if (r.match.empty) {
+            logger.warning("Unable to parse ", r.user);
+            continue;
+        }
+        if (r.match["start"] > r.match["end"]) {
+            logger.warning("Unable to parse %s because start must be larger than end", r.user);
+            continue;
+        }
+
+        const start = r.match["start"].to!uint;
+        const end = r.match["end"].to!uint + 1;
+
+        foreach (const l; start .. end)
+            rval.value[Path(r.match["file"])] ~= Line(l);
+    }
+
+    return rval;
+}
+
+@("shall parse a test restriction")
+unittest {
+    const r = parseUserTestConstraint([
+            "foo/bar:1-10", "smurf bar/i oknen:ea,ting:33-45"
+            ]);
+
+    Path("foo/bar").shouldBeIn(r.value);
+    r.value[Path("foo/bar")][0].should == Line(1);
+    r.value[Path("foo/bar")][9].should == Line(10);
+
+    Path("smurf bar/i oknen:ea,ting").shouldBeIn(r.value);
+    r.value[Path("smurf bar/i oknen:ea,ting")][0].should == Line(33);
+    r.value[Path("smurf bar/i oknen:ea,ting")][12].should == Line(45);
 }
