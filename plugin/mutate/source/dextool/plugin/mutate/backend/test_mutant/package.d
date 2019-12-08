@@ -593,6 +593,12 @@ struct TestDriver(alias mutationDriverFactory) {
     static struct PullRequest {
     }
 
+    static struct PullRequestData {
+        import dextool.plugin.mutate.type : TestConstraint;
+
+        TestConstraint constraint;
+    }
+
     static struct SanityCheck {
         bool sanityCheckFailed;
     }
@@ -608,6 +614,9 @@ struct TestDriver(alias mutationDriverFactory) {
 
     static struct CheckMutantsLeft {
         bool allMutantsTested;
+    }
+
+    static struct ParseStdin {
     }
 
     static struct PreCompileSut {
@@ -670,19 +679,20 @@ struct TestDriver(alias mutationDriverFactory) {
             CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
             NextMutant, MutationTest, HandleTestResult, CheckTimeout,
             Done, Error, UpdateTimeout, CheckRuntime, SetMaxRuntime,
-            PullRequest, NextPullRequestMutant);
+            PullRequest, NextPullRequestMutant, ParseStdin);
 
     Fsm fsm;
 
     Global global;
 
-    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData);
-    TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant) local;
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData);
+    TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant, PullRequest) local;
 
     this(DriverData data) {
         this.global = Global(data);
         this.global.timeoutFsm = TimeoutFsm(data.mutKind);
         this.global.hardcodedTimeout = !global.data.conf.mutationTesterRuntime.isNull;
+        local.get!PullRequest.constraint = global.data.conf.constraint;
     }
 
     void execute_() {
@@ -693,10 +703,13 @@ struct TestDriver(alias mutationDriverFactory) {
                 (Initialize a) => fsm(SanityCheck.init), (SanityCheck a) {
             if (a.sanityCheckFailed)
                 return fsm(Error.init);
+            if (global.data.conf.unifiedDiffFromStdin)
+                return fsm(ParseStdin.init);
             return fsm(PreCompileSut.init);
-        }, (UpdateAndResetAliveMutants a) => fsm(ResetOldMutants.init),
+        }, (ParseStdin a) => fsm(PreCompileSut.init),
+                (UpdateAndResetAliveMutants a) => fsm(ResetOldMutants.init),
                 (ResetOldMutants a) => fsm(CheckMutantsLeft.init), (CleanupTempDirs a) {
-            if (global.data.conf.constraint.empty)
+            if (local.get!PullRequest.constraint.empty)
                 return fsm(NextMutant.init);
             return fsm(NextPullRequestMutant.init);
         }, (CheckMutantsLeft a) {
@@ -706,7 +719,7 @@ struct TestDriver(alias mutationDriverFactory) {
         }, (PreCompileSut a) {
             if (a.compilationError)
                 return fsm(Error.init);
-            if (global.data.conf.constraint.empty)
+            if (local.get!PullRequest.constraint.empty)
                 return fsm(UpdateAndResetAliveMutants.init);
             return fsm(PullRequest.init);
         }, (PullRequest a) => fsm(CheckMutantsLeft.init), (MeasureTestSuite a) {
@@ -811,6 +824,21 @@ nothrow:
         } else {
             logger.info("Sanity check passed. Files on the filesystem are consistent")
                 .collectException;
+        }
+    }
+
+    void opCall(ParseStdin data) {
+        import dextool.plugin.mutate.backend.diff_parser : diffFromStdin;
+        import dextool.plugin.mutate.type : Line;
+
+        try {
+            auto constraint = local.get!PullRequest.constraint;
+            foreach (pkv; diffFromStdin.toRange(global.data.filesysIO.getOutputDir)) {
+                constraint.value[pkv.key] ~= pkv.value.toRange.map!(a => Line(a)).array;
+            }
+            local.get!PullRequest.constraint = constraint;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
         }
     }
 
@@ -974,7 +1002,7 @@ nothrow:
 
         Set!MutationStatusId mut_ids;
 
-        foreach (kv; global.data.conf.constraint.value.byKeyValue) {
+        foreach (kv; local.get!PullRequest.constraint.value.byKeyValue) {
             const file_id = spinSql!(() => global.data.db.getFileId(kv.key));
             if (file_id.isNull) {
                 logger.infof("The file %s do not exist in the database. Skipping...",
