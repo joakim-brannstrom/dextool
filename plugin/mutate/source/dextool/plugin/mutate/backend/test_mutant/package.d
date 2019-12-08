@@ -657,6 +657,11 @@ struct TestDriver(alias mutationDriverFactory) {
         import dextool.plugin.mutate.backend.database : MutationStatusId;
 
         MutationStatusId[] mutants;
+
+        /// If set then stop after this many alive are found.
+        Nullable!int maxAlive;
+        /// number of alive mutants that has been found.
+        int alive;
     }
 
     static struct NextMutant {
@@ -693,6 +698,7 @@ struct TestDriver(alias mutationDriverFactory) {
         this.global.timeoutFsm = TimeoutFsm(data.mutKind);
         this.global.hardcodedTimeout = !global.data.conf.mutationTesterRuntime.isNull;
         local.get!PullRequest.constraint = global.data.conf.constraint;
+        local.get!NextPullRequestMutant.maxAlive = global.data.conf.maxAlive;
     }
 
     void execute_() {
@@ -1101,13 +1107,19 @@ nothrow:
         while (!local.get!NextPullRequestMutant.mutants.empty) {
             const id = local.get!NextPullRequestMutant.mutants[$ - 1];
             const status = spinSql!(() => global.data.db.getMutationStatus(id));
-            local.get!NextPullRequestMutant.mutants
-                = local.get!NextPullRequestMutant.mutants[0 .. $ - 1];
 
             if (status.isNull)
                 continue;
-            if (status.get != Mutation.Status.unknown)
+
+            if (status.get == Mutation.Status.alive) {
+                local.get!NextPullRequestMutant.alive++;
+            }
+
+            if (status.get != Mutation.Status.unknown) {
+                local.get!NextPullRequestMutant.mutants
+                    = local.get!NextPullRequestMutant.mutants[0 .. $ - 1];
                 continue;
+            }
 
             const info = spinSql!(() => global.data.db.getMutantsInfo(global.data.mutKind, [
                         id
@@ -1118,6 +1130,15 @@ nothrow:
             global.nextMutant = spinSql!(() => global.data.db.getMutation(info[0].id));
             data.noUnknownMutantsLeft = false;
             break;
+        }
+
+        if (!local.get!NextPullRequestMutant.maxAlive.isNull) {
+            const alive = local.get!NextPullRequestMutant.alive;
+            const maxAlive = local.get!NextPullRequestMutant.maxAlive.get;
+            logger.infof(alive > 0, "Found %s/%s alive mutants", alive, maxAlive).collectException;
+            if (alive >= maxAlive) {
+                data.noUnknownMutantsLeft = true;
+            }
         }
     }
 

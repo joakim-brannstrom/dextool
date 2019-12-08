@@ -141,6 +141,9 @@ struct ConfigMutationTest {
 
     /// If constraints should be read from a unified diff via stdin.
     bool unifiedDiffFromStdin;
+
+    /// Stop after this many alive mutants are found. Only effective if constraint.empty is false.
+    Nullable!int maxAlive;
 }
 
 /// Settings for the administration mode
