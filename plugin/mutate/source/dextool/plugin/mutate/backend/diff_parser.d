@@ -39,9 +39,32 @@ Example:
 module dextool.plugin.mutate.backend.diff_parser;
 
 import logger = std.experimental.logger;
+import std.range : ElementType;
+import std.traits : isSomeString;
 
 version (unittest) {
     import unit_threaded : shouldEqual, shouldBeTrue, should;
+}
+
+Diff diffFromStdin() @trusted {
+    import std.stdio : stdin;
+    import dextool.plugin.mutate.backend.diff_parser : UnifiedDiffParser;
+
+    return toDiff(stdin.byLine);
+}
+
+/** Parse a range of lines to a diff.
+ *
+ * Params:
+ *  r = range of strings which is the diff
+ */
+Diff toDiff(Range)(Range r) if (isSomeString!(ElementType!Range)) {
+    UnifiedDiffParser parser;
+    foreach (l; r) {
+        debug logger.trace(l);
+        parser.process(l);
+    }
+    return parser.result;
 }
 
 @safe:
