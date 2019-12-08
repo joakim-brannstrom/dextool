@@ -9,7 +9,7 @@ Convenient functions for a set.
 */
 module dextool.set;
 
-import std.range : ElementType;
+import std.range : ElementType, isOutputRange;
 
 @safe:
 
@@ -114,9 +114,22 @@ struct Set(T) {
         return app.data;
     }
 
-    /// Specify the template type or it doesn't work.
-    auto toRange() {
+    auto toRange() inout {
         return data.byKey;
+    }
+
+    string toString() @safe pure const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        import std.format : formattedWrite;
+
+        formattedWrite(w, "Set!(%s)(%-(%s, %))", T.stringof, toRange);
     }
 }
 
