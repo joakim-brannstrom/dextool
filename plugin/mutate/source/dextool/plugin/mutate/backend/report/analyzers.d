@@ -900,7 +900,7 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
 
         if (has_mutants) {
             rval.files[fid.get] = kv.key;
-            rval.rawDiff[fid.get] = diff.rawDiff[kv.absPath];
+            rval.rawDiff[fid.get] = diff.rawDiff[kv.key];
         } else {
             logger.info("This file in the diff has no mutants on changed lines: ", kv.key);
         }
