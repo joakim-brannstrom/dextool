@@ -238,6 +238,7 @@ struct ArgParser {
             long mutationTesterRuntime;
             string maxRuntime;
             string[] testConstraint;
+            int maxAlive = -1;
 
             data.toolMode = ToolMode.test_mutants;
             // dfmt off
@@ -248,6 +249,7 @@ struct ArgParser {
                    "db", db_help, &db,
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &mutationTest.unifiedDiffFromStdin,
                    "dry-run", "do not write data to the filesystem", &mutationTest.dryRun,
+                   "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
                    "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
@@ -260,6 +262,8 @@ struct ArgParser {
                    );
             // dfmt on
 
+            if (maxAlive > 0)
+                mutationTest.maxAlive = maxAlive;
             if (mutationTester.length != 0)
                 mutationTest.mutationTester = ShellCommand(mutationTester);
             if (mutationCompile.length != 0)
@@ -743,13 +747,15 @@ auto parseUserTestConstraint(string[] raw) {
             logger.warning("Unable to parse ", r.user);
             continue;
         }
-        if (r.match["start"] > r.match["end"]) {
-            logger.warning("Unable to parse %s because start must be larger than end", r.user);
-            continue;
-        }
 
         const start = r.match["start"].to!uint;
         const end = r.match["end"].to!uint + 1;
+
+        if (start > end) {
+            logger.warningf("Unable to parse %s because start (%s) must be less than end (%s)",
+                    r.user, r.match["start"], r.match["end"]);
+            continue;
+        }
 
         foreach (const l; start .. end)
             rval.value[Path(r.match["file"])] ~= Line(l);

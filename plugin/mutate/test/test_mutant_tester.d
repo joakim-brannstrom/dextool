@@ -16,7 +16,6 @@ import std.typecons : Yes;
 import dextool_test.utility;
 import dextool_test.fixtures;
 
-//@("shall report the test case that killed the mutant")
 class ShallReportTestCaseKilledMutant : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -42,7 +41,6 @@ class ShallReportTestCaseKilledMutant : SimpleFixture {
     }
 }
 
-//@("shall parse a gtest report for the test cases that killed the mutant")
 class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -135,7 +133,6 @@ exit 1
     }
 }
 
-//@("shall parse a ctest report for failing test cases when a mutant is killed")
 class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -720,7 +717,6 @@ class ShallRemoveDetectDroppedTestCases : DroppedTestCases {
     }
 }
 
-//@("shall keep the test case results linked to mutants when re-analyzing")
 class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.type;
@@ -750,8 +746,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
     }
 }
 
-//@("shall retrieve the oldest mutant")
-class ShallResetOldestMutant : DatabaseFixture {
+class ShallRetrieveOldestMutant : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.type;
         import dextool.plugin.mutate.backend.type;
@@ -774,7 +769,6 @@ class ShallResetOldestMutant : DatabaseFixture {
     }
 }
 
-//@("shall update the counter for the mutant when it survives by default")
 class ShallUpdateMutationCounter : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.type;
@@ -801,7 +795,6 @@ class ShallUpdateMutationCounter : DatabaseFixture {
     }
 }
 
-//@("shall reset the counter for the mutant")
 class ShallResetMutationCounter : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.standalone;
@@ -919,6 +912,44 @@ class ShallTestMutantsInDiff : SimpleFixture {
                 `.*Found 1 mutant.*dcc_dc_switch1.cpp:12`,
                 ]).shouldBeIn(r.stdout);
         testAnyOrder!Re([`info:.*from 'case 1:`, `info:.*killed`,]).shouldBeIn(r.stdout);
+    }
+
+    override string programFile() {
+        return (testData ~ "dcc_dc_switch1.cpp").toString;
+    }
+}
+
+class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
+    override void test() {
+        import std.path : relativePath;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--test-cmd", "/bin/true"])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["--max-alive", "3"])
+            .addPostArg(["-L", program_cpp.relativePath(workDir.toString) ~ ":8-18"])
+            .run;
+
+        testConsecutiveSparseOrder!Re([
+                `info:.*alive`,
+                `info:.*Found 1/3 alive mutants`,
+                `info:.*alive`,
+                `info:.*Found 2/3 alive mutants`,
+                `info:.*alive`,
+                `info:.*Found 3/3 alive mutants`,
+                ]).shouldBeIn(r.stdout);
+        // dfmt on
     }
 
     override string programFile() {
