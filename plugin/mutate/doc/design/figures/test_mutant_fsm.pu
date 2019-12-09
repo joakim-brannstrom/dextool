@@ -17,16 +17,14 @@ PreCompileSut --> PullRequest : hasConstraint
 
 PullRequest -> CheckMutantsLeft
 
-UpdateAndResetAliveMutants -> ResetOldMutants
-
-ResetOldMutants --> CheckMutantsLeft
+UpdateAndResetAliveMutants -> CheckMutantsLeft
 
 UpdateTimeout --> CleanupTempDirs
 
 CleanupTempDirs --> NextMutant
 CleanupTempDirs --> NextPullRequestMutant : hasConstraint
 
-CheckMutantsLeft --> Done : allTested
+CheckMutantsLeft --> Done : allTested && !resetOld
 CheckMutantsLeft --> MeasureTestSuite
 
 MeasureTestSuite --> Error : unreliable
@@ -51,8 +49,11 @@ MutationTest --> MutationTest
 
 HandleTestResult --> CheckRuntime
 
-CheckTimeout --> Done : unchanged
+CheckTimeout --> ResetOldMutant : unchanged
 CheckTimeout --> UpdateTimeout
+
+ResetOldMutant --> UpdateTimeout
+ResetOldMutant --> Done : nr >= max
 
 Done --> Done
 

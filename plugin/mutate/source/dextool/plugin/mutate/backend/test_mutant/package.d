@@ -606,7 +606,14 @@ struct TestDriver(alias mutationDriverFactory) {
     static struct UpdateAndResetAliveMutants {
     }
 
-    static struct ResetOldMutants {
+    static struct ResetOldMutant {
+        bool doneTestingOldMutants;
+    }
+
+    static struct ResetOldMutantData {
+        /// Number of mutants that where reset.
+        long resetCount;
+        long maxReset;
     }
 
     static struct CleanupTempDirs {
@@ -680,7 +687,7 @@ struct TestDriver(alias mutationDriverFactory) {
     }
 
     alias Fsm = dextool.fsm.Fsm!(None, Initialize, SanityCheck,
-            UpdateAndResetAliveMutants, ResetOldMutants, CleanupTempDirs,
+            UpdateAndResetAliveMutants, ResetOldMutant, CleanupTempDirs,
             CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
             NextMutant, MutationTest, HandleTestResult, CheckTimeout,
             Done, Error, UpdateTimeout, CheckRuntime, SetMaxRuntime,
@@ -690,8 +697,10 @@ struct TestDriver(alias mutationDriverFactory) {
 
     Global global;
 
-    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData);
-    TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant, PullRequest) local;
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData,
+            NextPullRequestMutantData, PullRequestData, ResetOldMutantData);
+    TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant,
+            PullRequest, ResetOldMutant) local;
 
     this(DriverData data) {
         this.global = Global(data);
@@ -699,6 +708,7 @@ struct TestDriver(alias mutationDriverFactory) {
         this.global.hardcodedTimeout = !global.data.conf.mutationTesterRuntime.isNull;
         local.get!PullRequest.constraint = global.data.conf.constraint;
         local.get!NextPullRequestMutant.maxAlive = global.data.conf.maxAlive;
+        local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
     }
 
     void execute_() {
@@ -713,13 +723,17 @@ struct TestDriver(alias mutationDriverFactory) {
                 return fsm(ParseStdin.init);
             return fsm(PreCompileSut.init);
         }, (ParseStdin a) => fsm(PreCompileSut.init),
-                (UpdateAndResetAliveMutants a) => fsm(ResetOldMutants.init),
-                (ResetOldMutants a) => fsm(CheckMutantsLeft.init), (CleanupTempDirs a) {
+                (UpdateAndResetAliveMutants a) => fsm(CheckMutantsLeft.init), (ResetOldMutant a) {
+            if (a.doneTestingOldMutants)
+                return fsm(Done.init);
+            return fsm(UpdateTimeout.init);
+        }, (CleanupTempDirs a) {
             if (local.get!PullRequest.constraint.empty)
                 return fsm(NextMutant.init);
             return fsm(NextPullRequestMutant.init);
         }, (CheckMutantsLeft a) {
-            if (a.allMutantsTested)
+            if (a.allMutantsTested
+                && global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
                 return fsm(Done.init);
             return fsm(MeasureTestSuite.init);
         }, (PreCompileSut a) {
@@ -753,7 +767,7 @@ struct TestDriver(alias mutationDriverFactory) {
             return fsm(UpdateTimeout.init);
         }, (CheckTimeout a) {
             if (a.timeoutUnchanged)
-                return fsm(Done.init);
+                return fsm(ResetOldMutant.init);
             return fsm(UpdateTimeout.init);
         }, (Done a) => fsm(a), (Error a) => fsm(a),);
 
@@ -944,20 +958,32 @@ nothrow:
         }
     }
 
-    void opCall(ResetOldMutants data) {
+    void opCall(ref ResetOldMutant data) {
         import dextool.plugin.mutate.backend.database.type;
 
-        if (global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
+        if (global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing) {
+            data.doneTestingOldMutants = true;
             return;
+        }
+        if (Clock.currTime > global.maxRuntime) {
+            data.doneTestingOldMutants = true;
+            return;
+        }
+        if (local.get!ResetOldMutant.resetCount >= local.get!ResetOldMutant.maxReset) {
+            data.doneTestingOldMutants = true;
+            return;
+        }
 
-        logger.infof("Resetting the %s oldest mutants",
-                global.data.conf.oldMutantsNr).collectException;
+        local.get!ResetOldMutant.resetCount++;
+
+        logger.infof("Resetting an old mutant (%s/%s)", local.get!ResetOldMutant.resetCount,
+                local.get!ResetOldMutant.maxReset).collectException;
         auto oldest = spinSql!(() {
-            return global.data.db.getOldestMutants(global.data.mutKind,
-                global.data.conf.oldMutantsNr);
+            return global.data.db.getOldestMutants(global.data.mutKind, 1);
         });
+
         foreach (const old; oldest) {
-            logger.info("  Last updated ", old.updated).collectException;
+            logger.info("Last updated ", old.updated).collectException;
             spinSql!(() {
                 global.data.db.updateMutationStatus(old.id, Mutation.Status.unknown);
             });
