@@ -314,8 +314,8 @@ struct FileIndex {
 
         addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds), "stats", "Statistics");
         if (!diff.empty) {
-            addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds),
-                    "short_term_view", "Short Term View");
+            addSubPage(() => makeShortTermView(db, conf, humanReadableKinds,
+                    kinds, diff, fio.getOutputDir), "diff_view", "Diff View");
         }
         addSubPage(() => makeLongTermView(db, conf, humanReadableKinds, kinds),
                 "long_term_view", "Long Term View");
