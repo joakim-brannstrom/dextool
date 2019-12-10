@@ -289,7 +289,7 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_long_term_view;
         import dextool.plugin.mutate.backend.report.html.page_minimal_set;
         import dextool.plugin.mutate.backend.report.html.page_nomut;
-        import dextool.plugin.mutate.backend.report.html.page_short_term_view;
+        import dextool.plugin.mutate.backend.report.html.page_diff;
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_case_unique;
@@ -314,8 +314,8 @@ struct FileIndex {
 
         addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds), "stats", "Statistics");
         if (!diff.empty) {
-            addSubPage(() => makeShortTermView(db, conf, humanReadableKinds,
-                    kinds, diff, fio.getOutputDir), "diff_view", "Diff View");
+            addSubPage(() => makeDiffView(db, conf, humanReadableKinds, kinds,
+                    diff, fio.getOutputDir), "diff_view", "Diff View");
         }
         addSubPage(() => makeLongTermView(db, conf, humanReadableKinds, kinds),
                 "long_term_view", "Long Term View");
