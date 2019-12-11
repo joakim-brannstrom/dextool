@@ -328,15 +328,6 @@ struct Database {
         return rval;
     }
 
-    Nullable!Mutation.Kind getMutationKind(MutationId id) @trusted {
-        auto stmt = db.prepare(format("SELECT kind FROM %s WHERE id=:id", mutationTable));
-        stmt.bind(":id", cast(long) id);
-        typeof(return) rval;
-        foreach (res; stmt.execute)
-            rval = res.peek!long(0).to!(Mutation.Kind);
-        return rval;
-    }
-
     MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
         auto rval = MutantMetaData(id);
         foreach (res; db.run(select!NomutDataTbl.where("mut_id =", cast(long) id))) {
@@ -597,7 +588,7 @@ struct Database {
         // assume that every mutant has a kind
         db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, id,
                 mut.sloc.line, mut.sloc.column, mut.file, to_status,
-                Clock.currTime.toUTC, Rationale(rationale), getMutationKind(id), mut.lang));
+                Clock.currTime.toUTC, Rationale(rationale), getKind(id), mut.lang));
     }
 
     void removeMarkedMutant(MutationStatusId st_id) @trusted {
