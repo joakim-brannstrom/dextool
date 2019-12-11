@@ -135,6 +135,15 @@ struct ConfigMutationTest {
     /// Max time to run mutation testing.
     // note that Duration.max + Clock.currTime results in a negative time...
     Duration maxRuntime = 52.dur!"weeks";
+
+    // Constrain the mutation testing.
+    TestConstraint constraint;
+
+    /// If constraints should be read from a unified diff via stdin.
+    bool unifiedDiffFromStdin;
+
+    /// Stop after this many alive mutants are found. Only effective if constraint.empty is false.
+    Nullable!int maxAlive;
 }
 
 /// Settings for the administration mode

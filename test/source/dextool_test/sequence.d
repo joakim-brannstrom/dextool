@@ -25,6 +25,21 @@ struct SubStr {
     }
 }
 
+/// Check that a regex match.
+struct Re {
+    import std.regex : regex, matchFirst, Regex;
+
+    Regex!char re;
+
+    this(string r) {
+        this.re = regex(r);
+    }
+
+    bool opEquals(string rhs) const {
+        return !matchFirst(rhs, re).empty;
+    }
+}
+
 /** Make an object that test that actual pass the predicate function.
  *
  * Params:

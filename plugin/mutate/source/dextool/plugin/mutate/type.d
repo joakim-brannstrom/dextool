@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.type;
 
+import dextool.type : Path;
+
 /// The kind of mutation to perform
 enum MutationKind {
     /// any kind of mutation
@@ -146,4 +148,18 @@ enum TestCaseAnalyzeBuiltin {
     ctest,
     /// Tracker for failing makefile targets
     makefile,
+}
+
+/// A line in a file.
+struct Line {
+    uint value;
+}
+
+/// A constraint for what to mutate during the test phase..
+struct TestConstraint {
+    Line[][Path] value;
+
+    bool empty() @safe pure nothrow const @nogc {
+        return value.length == 0;
+    }
 }

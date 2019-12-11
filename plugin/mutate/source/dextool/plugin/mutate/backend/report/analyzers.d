@@ -156,12 +156,12 @@ private struct Similarity {
 private Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
     import dextool.set;
 
-    auto lhs = setFromList(lhs_);
-    auto rhs = setFromList(rhs_);
+    auto lhs = lhs_.toSet;
+    auto rhs = rhs_.toSet;
     auto intersect = lhs.intersect(rhs);
     auto diff = lhs.setDifference(rhs);
     return Similarity(cast(double) intersect.length / cast(double) lhs.length,
-            intersect.byKey.array, diff.byKey.array);
+            intersect.toArray, diff.toArray);
 }
 
 /** Analyse the similarity between test cases.
@@ -792,7 +792,7 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
     r.stats.total = tc_stat.total.length;
 
     // associate mutants with their file
-    foreach (const m; db.getMutantsInfo(kinds, tc_stat.tcKilled.setToList!MutationStatusId)) {
+    foreach (const m; db.getMutantsInfo(kinds, tc_stat.tcKilled.toArray)) {
         auto fid = db.getFileId(m.id);
         r.killed[fid.get] ~= m;
 
@@ -802,7 +802,7 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
         }
     }
 
-    foreach (const m; db.getMutantsInfo(kinds, tc_stat.alive.setToList!MutationStatusId)) {
+    foreach (const m; db.getMutantsInfo(kinds, tc_stat.alive.toArray)) {
         auto fid = db.getFileId(m.id);
         r.alive[fid.get] ~= m;
 
@@ -920,7 +920,7 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         }
 
         bool has_mutants;
-        foreach (line; setToRange!uint(kv.value)) {
+        foreach (line; kv.value.toRange) {
             auto muts = db.getMutantsInfo(kinds, db.getMutationsOnLine(kinds,
                     fid.get, SourceLoc(line, 0)));
             foreach (m; muts) {
@@ -938,19 +938,17 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
 
         if (has_mutants) {
             rval.files[fid.get] = kv.key;
-            rval.rawDiff[fid.get] = diff.rawDiff[kv.absPath];
+            rval.rawDiff[fid.get] = diff.rawDiff[kv.key];
         } else {
             logger.info("This file in the diff has no mutants on changed lines: ", kv.key);
         }
     }
 
     Set!TestCase test_cases;
-    foreach (tc; killing_mutants.setToRange!MutationId
-            .map!(a => db.getTestCases(a))
-            .joiner)
+    foreach (tc; killing_mutants.toRange.map!(a => db.getTestCases(a)).joiner)
         test_cases.add(tc);
 
-    rval.testCases = test_cases.setToList!TestCase.sort.array;
+    rval.testCases = test_cases.toArray.sort.array;
 
     if (total == 0) {
         rval.score = 1.0;

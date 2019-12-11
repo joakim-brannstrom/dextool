@@ -9,115 +9,137 @@ Convenient functions for a set.
 */
 module dextool.set;
 
-import std.range : ElementType;
+import std.range : ElementType, isOutputRange;
 
-alias Set(T) = void[0][T];
+@safe:
 
-void add(T)(ref void[0][T] self, T value) {
-    self[value] = (void[0]).init;
-}
+struct Set(T) {
+    alias Type = void[0][T];
+    Type data;
 
-/// Merge set into self
-void add(T)(ref void[0][T] self, void[0][T] set) {
-    foreach (key; set.byKey) {
-        self.add(key);
+    bool opBinaryRight(string op)(T key) if (op == "in") {
+        return (key in data) !is null;
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return data.length == 0;
+    }
+
+    size_t length() @safe pure nothrow const @nogc {
+        return data.length;
+    }
+
+    void add(T value) @safe pure nothrow {
+        data[value] = (void[0]).init;
+    }
+
+    void add(Set!T set) @safe pure nothrow {
+        add(set.data);
+    }
+
+    void add(Type set) @safe pure nothrow {
+        foreach (key; set.byKey)
+            data[key] = (void[0]).init;
+    }
+
+    void add(Range)(Range r) @safe pure nothrow if (is(ElementType!Range == T)) {
+        foreach (v; r)
+            data[v] = (void[0]).init;
+    }
+
+    void remove(T value) {
+        data.remove(value);
+    }
+
+    Set!T clone() @safe pure nothrow {
+        Set!T result;
+        result.add(data);
+        return result;
+    }
+
+    bool contains(T value) {
+        return (value in data) !is null;
+    }
+
+    /** The set difference according to Set Theory.
+     *
+     * It is the set of all members in self that are not members of set.
+     */
+    Set!T setDifference(Set!T set) @safe pure nothrow {
+        import std.algorithm : filter;
+
+        typeof(this) r;
+        foreach (k; toRange.filter!(a => !set.contains(a)))
+            r.add(k);
+
+        return r;
+    }
+
+    /** The symmetric difference according to Set Theory.
+     *
+     * It is the set of all objects that are a member of exactly one of self and set.
+     */
+    Set!T symmetricDifference(Set!T set) @safe pure nothrow {
+        import std.algorithm : filter;
+
+        typeof(this) r;
+        foreach (k; toRange.filter!(a => !contains(a)))
+            r.add(k);
+        foreach (k; toRange.filter!(a => !contains(a)))
+            r.add(k);
+
+        return r;
+    }
+
+    /** The intersection according to Set Theory.
+     *
+     * It is the set of all objects that are members of both self and set.
+     */
+    Set!T intersect(Set!T set) {
+        import std.algorithm : filter;
+
+        typeof(this) r;
+        foreach (k; toRange.filter!(a => set.contains(a)))
+            r.add(k);
+
+        return r;
+    }
+
+    auto toArray() {
+        import std.array : appender;
+
+        auto app = appender!(T[])();
+        foreach (key; toRange)
+            app.put(key);
+        return app.data;
+    }
+
+    auto toRange() inout {
+        return data.byKey;
+    }
+
+    string toString() @safe pure const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        import std.format : formattedWrite;
+
+        formattedWrite(w, "Set!(%s)(%-(%s, %))", T.stringof, toRange);
     }
 }
 
-void remove(T)(ref void[0][T] self, T value) {
-    self.remove(value);
-}
+auto toSet(RangeT)(RangeT range) {
+    import std.traits : Unqual;
 
-Set!T clone(T)(ref void[0][T] self) {
-    Set!T result;
-    result.add(self);
-    return result;
-}
-
-bool contains(T)(inout(void[0][T]) set, T value) {
-    return (value in set) !is null;
-}
-
-/** The set difference according to Set Theory.
- *
- * It is the set of all members in `self` that are not members of `set`.
- */
-SetT setDifference(SetT)(ref SetT self, SetT set) {
-    import std.algorithm : filter;
-
-    SetT r;
-    foreach (k; self.byKey.filter!(a => !set.contains(a))) {
-        r.add(k);
-    }
-
-    return r;
-}
-
-/** The symmetric difference according to Set Theory.
- *
- * It is the set of all objects that are a member of exactly one of `self` and `set`.
- */
-SetT symmetricDifference(SetT)(ref SetT self, SetT set) {
-    import std.algorithm : filter;
-
-    SetT r;
-    foreach (k; self.byKey.filter!(a => !set.contains(a))) {
-        r.add(k);
-    }
-    foreach (k; set.byKey.filter!(a => !self.contains(a))) {
-        r.add(k);
-    }
-
-    return r;
-}
-
-/** The intersection according to Set Theory.
- *
- * It is the set of all objects that are members of both `self` and `set`.
- */
-SetT intersect(SetT)(ref SetT self, SetT set) {
-    import std.algorithm : filter;
-
-    SetT r;
-    foreach (k; self.byKey.filter!(a => set.contains(a))) {
-        r.add(k);
-    }
-
-    return r;
-}
-
-Set!T setFromList(T)(T[] list) {
-    import std.traits;
+    alias T = ElementType!RangeT;
 
     Set!(Unqual!T) result;
-
-    foreach (item; list)
-        result.add(item);
-
-    return result;
-}
-
-Set!T setFromRange(T, RangeT)(RangeT range) if (is(ElementType!RangeT == T)) {
-    import std.traits;
-
-    Set!(Unqual!T) result;
-
     foreach (item; range)
         result.add(item);
-
     return result;
-}
-
-auto setToList(T)(ref Set!T set) {
-    import std.array : appender;
-
-    auto app = appender!(T[])();
-    foreach (key; set.byKey)
-        app.put(key);
-    return app.data;
-}
-
-/// Specify the template type or it doesn't work.
-auto setToRange(T)(ref inout Set!T set) {
-    return set.byKey;
 }

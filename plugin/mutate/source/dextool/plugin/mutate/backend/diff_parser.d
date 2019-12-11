@@ -39,15 +39,39 @@ Example:
 module dextool.plugin.mutate.backend.diff_parser;
 
 import logger = std.experimental.logger;
+import std.range : ElementType;
+import std.traits : isSomeString;
+
+import dextool.type : AbsolutePath, Path, DirName;
 
 version (unittest) {
     import unit_threaded : shouldEqual, shouldBeTrue, should;
 }
 
+Diff diffFromStdin() @trusted {
+    import std.stdio : stdin;
+    import dextool.plugin.mutate.backend.diff_parser : UnifiedDiffParser;
+
+    return toDiff(stdin.byLine);
+}
+
+/** Parse a range of lines to a diff.
+ *
+ * Params:
+ *  r = range of strings which is the diff
+ */
+Diff toDiff(Range)(Range r) if (isSomeString!(ElementType!Range)) {
+    UnifiedDiffParser parser;
+    foreach (l; r) {
+        debug logger.trace(l);
+        parser.process(l);
+    }
+    return parser.result;
+}
+
 @safe:
 
 struct Diff {
-    import dextool.type : AbsolutePath;
     import dextool.set;
 
     static struct Line {
@@ -56,11 +80,11 @@ struct Diff {
     }
 
     /// The raw diff that where parsed.
-    Line[][AbsolutePath] rawDiff;
+    Line[][Path] rawDiff;
 
     alias ChangedLines = Set!uint;
 
-    ChangedLines[AbsolutePath] changes;
+    ChangedLines[Path] changes;
     alias changes this;
 
     bool empty() @safe pure nothrow const @nogc {
@@ -77,7 +101,6 @@ struct Diff {
 }
 
 struct DiffRange {
-    import dextool.type : AbsolutePath, Path;
     import std.path : relativePath;
     import std.array : array;
     import dextool.set;
@@ -91,7 +114,7 @@ struct DiffRange {
     private {
         Diff diff;
         AbsolutePath workdir;
-        AbsolutePath[] keys;
+        Path[] keys;
     }
 
     this(Diff d, AbsolutePath workdir) {
@@ -101,10 +124,11 @@ struct DiffRange {
         debug logger.trace(workdir);
     }
 
-    KeyValue front() @safe pure {
+    KeyValue front() @safe {
         assert(!empty, "Can't get front of an empty range");
         debug logger.trace(keys[0]);
-        return KeyValue(keys[0].relativePath(workdir).Path, diff[keys[0]], keys[0]);
+        return KeyValue(keys[0], diff[keys[0]], AbsolutePath(keys[0],
+                DirName(cast(string) workdir)));
     }
 
     void popFront() @safe pure nothrow {
@@ -246,7 +270,7 @@ struct UnifiedDiffParser {
                 return a.split('\t');
             }();
 
-            data.hdrOriginal = Path(p[0].idup).AbsolutePath;
+            data.hdrOriginal = Path(p[0].idup);
         }
 
         void saveNewAct() {
@@ -257,7 +281,7 @@ struct UnifiedDiffParser {
                 return a.split('\t');
             }();
 
-            data.hdrNew = Path(p[0].idup).AbsolutePath;
+            data.hdrNew = Path(p[0].idup);
         }
 
         void warnOriginalAct() {
@@ -320,10 +344,8 @@ struct UnifiedDiffParser {
 private:
 
 struct StateData {
-    import dextool.type : AbsolutePath;
-
-    AbsolutePath hdrOriginal;
-    AbsolutePath hdrNew;
+    Path hdrOriginal;
+    Path hdrNew;
     uint startPos;
     uint maxCount;
     uint count;
@@ -389,9 +411,9 @@ index 0123..2345 100644
         p.process(line);
 
     // assert
-    p.result[Path("standalone2.d").AbsolutePath].contains(33).shouldBeTrue;
-    p.result[Path("standalone2.d").AbsolutePath].contains(48).shouldBeTrue;
-    p.result[Path("standalone2.d").AbsolutePath].contains(51).shouldBeTrue;
+    p.result[Path("standalone2.d")].contains(33).shouldBeTrue;
+    p.result[Path("standalone2.d")].contains(48).shouldBeTrue;
+    p.result[Path("standalone2.d")].contains(51).shouldBeTrue;
     p.result.length.should == 1;
 }
 
@@ -415,7 +437,7 @@ unittest {
         p.process(line);
 
     // assert
-    p.result[Path("plugin/mutate/testdata/report_one_ror_mutation_point2.cpp")
-        .AbsolutePath].contains(6).shouldBeTrue;
+    p.result[Path("plugin/mutate/testdata/report_one_ror_mutation_point2.cpp")].contains(6)
+        .shouldBeTrue;
     p.result.length.should == 1;
 }

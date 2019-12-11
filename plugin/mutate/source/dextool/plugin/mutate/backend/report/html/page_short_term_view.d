@@ -31,7 +31,7 @@ string makeShortTermView(ref Database db, ref const ConfigReport conf,
     import std.datetime : Clock;
 
     auto doc = tmplBasicPage;
-    doc.title(format("Short Term View %(%s %) %s", humanReadableKinds, Clock.currTime));
+    doc.title(format("Diff View %(%s %) %s", humanReadableKinds, Clock.currTime));
 
     toHtml(reportDiff(db, kinds, diff, workdir), doc.mainBody);
 
@@ -153,7 +153,7 @@ void toHtml(DiffReport report, Element root) {
         }
     }
 
-    root.addChild("h2", "Short Term View");
+    root.addChild("h2", "Diff Term View");
     root.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", report.score));
 
     root.addChild("h3", "File(s) Report");

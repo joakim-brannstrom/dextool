@@ -430,9 +430,16 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
             .setStdin(readText(programFile ~ ".diff"))
             .run;
 
-        // Act
+        // Assert
         testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.stdout);
         testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.stderr);
+
+        testConsecutiveSparseOrder!SubStr([
+            "Diff View rorp",
+            "Mutation Score <b>0.66",
+            "Analyzed Diff",
+            "build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp",
+        ]).shouldBeIn(File((testEnv.outdir ~ "html/diff_view.html").toString).byLineCopy.array);
     }
 }
 

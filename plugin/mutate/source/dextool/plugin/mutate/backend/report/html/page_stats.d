@@ -30,7 +30,7 @@ string makeStats(ref Database db, ref const ConfigReport conf,
     import dextool.plugin.mutate.type : ReportSection;
     import dextool.set;
 
-    auto sections = setFromList(conf.reportSection);
+    auto sections = conf.reportSection.toSet;
 
     auto doc = tmplBasicPage;
 
