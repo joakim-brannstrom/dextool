@@ -69,10 +69,10 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
     override void locationStartEvent(ref Database db) @safe {
         import std.conv: to;
         foreach (markedMut; db.getMarkedMutants()) {
-            auto abs_path = AbsolutePath(Path(markedMut.path), DirName(fio.getOutputDir));
-            auto mut_txt = makeMutationText(fio.makeInput(abs_path),
+            auto absPath = AbsolutePath(Path(markedMut.path), DirName(fio.getOutputDir));
+            auto mutTxt = makeMutationText(fio.makeInput(absPath),
                     Offset(markedMut.line, markedMut.column), markedMut.kind.to!(Mutation.Kind), markedMut.lang);
-            markedMutantsText.put(MarkedMutantText(markedMut.id, to!string(mut_txt.mutation)));
+            markedMutantsText.put(MarkedMutantText(markedMut.id, to!string(mutTxt.mutation)));
         }
     }
 

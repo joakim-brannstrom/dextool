@@ -246,7 +246,7 @@ struct TestCaseDeadStat {
         return buf.data;
     }
 
-    void toString(Writer)(ref Writer w) @safe const 
+    void toString(Writer)(ref Writer w) @safe const
             if (isOutputRange!(Writer, char)) {
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -481,7 +481,7 @@ struct MarkedMutantsStat {
 
 struct MarkedMutantText {
     long id;
-    string mut_text;
+    string mutantText;
 }
 
 MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kinds,
@@ -490,7 +490,7 @@ MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kin
         import std.array : array;
         import std.range : front;
 
-        return markedMutantsText.filter!(a => a.id == id).array.front.mut_text;
+        return markedMutantsText.filter!(a => a.id == id).array.front.mutantText;
     }
 
     MarkedMutantsStat st;

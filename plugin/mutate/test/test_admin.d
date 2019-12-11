@@ -30,9 +30,9 @@ unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
-    MutationId id = 12.to!MutationId;
-    Status toStatus = Status.killed;
-    string rationale = `"A good rationale"`;
+    auto id = MutationId(12);
+    auto toStatus = Status.killed;
+    auto rationale = `"A good rationale"`;
 
     // act
     auto r = makeDextoolAdmin(testEnv)
@@ -57,9 +57,9 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
     auto db = createDatabase(testEnv);
-    MutationId id = 5000.to!MutationId;
-    Status toStatus = Status.killed;
-    string rationale = `"This mutant should not exist"`;
+    auto id = MutationId(5000);
+    auto toStatus = Status.killed;
+    auto rationale = `"This mutant should not exist"`;
 
     // act
     auto r = makeDextoolAdmin(testEnv)
@@ -83,11 +83,11 @@ unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
-    MutationId id = 3.to!MutationId;
-    Status wrongStatus = Status.killedByCompiler;
-    string wrongRationale = `"Backend claims mutant should not compile on target cpu"`;
-    Status correctStatus = Status.unknown;
-    string correctRationale = `"Backend was wrong, mutant is legit..."`;
+    auto id = MutationId(3);
+    auto wrongStatus = Status.killedByCompiler;
+    auto wrongRationale = `"Backend claims mutant should not compile on target cpu"`;
+    auto correctStatus = Status.unknown;
+    auto correctRationale = `"Backend was wrong, mutant is legit..."`;
 
     // act
     auto firstRes = makeDextoolAdmin(testEnv)
@@ -118,9 +118,9 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
     auto db = createDatabase(testEnv);
-    MutationId id = 10.to!MutationId;
-    Status toStatus = Status.killed;
-    string rationale = `"This marking should not exist"`;
+    auto id = MutationId(10);
+    auto toStatus = Status.killed;
+    auto rationale = `"This marking should not exist"`;
 
     // act
     makeDextoolAdmin(testEnv)
@@ -151,7 +151,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
     auto db = createDatabase(testEnv);
-    MutationId id = 20.to!MutationId;
+    auto id = MutationId(20);
 
     // act
     auto r = makeDextoolAdmin(testEnv)
@@ -173,9 +173,9 @@ unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
-    MutationId id = 3.to!MutationId;
-    Status toStatus = Status.killedByCompiler;
-    string rationale = `"Lost"`;
+    auto id = MutationId(3);
+    auto toStatus = Status.killedByCompiler;
+    auto rationale = `"Lost"`;
 
     // act
     makeDextoolAdmin(testEnv)

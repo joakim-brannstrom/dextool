@@ -312,9 +312,9 @@ unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
-    MutationId id = 3.to!MutationId;
-    Mutation.Status toStatus = Mutation.Status.killedByCompiler;
-    string rationale = `"Useless"`;
+    auto id = MutationId(3);
+    auto toStatus = Mutation.Status.killedByCompiler;
+    auto rationale = `"Useless"`;
 
     // act
     makeDextoolAdmin(testEnv)
