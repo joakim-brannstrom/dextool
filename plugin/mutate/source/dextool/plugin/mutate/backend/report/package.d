@@ -65,7 +65,7 @@ void runAllMutantReporter(ref Database db, const(MutationKind)[] kind, ref Repor
     // TODO remove this parameter. seems to be unnecessary.
     genrep.mutationKindEvent(kind is null ? [MutationKind.any] : kind);
 
-    genrep.locationStartEvent;
+    genrep.locationStartEvent(db);
     db.iterateMutants(kinds, &genrep.locationEvent);
     genrep.locationEndEvent;
 
@@ -169,8 +169,8 @@ struct ReportGenerator {
         listeners.each!(a => a.mutationKindEvent(kind_));
     }
 
-    void locationStartEvent() {
-        listeners.each!(a => a.locationStartEvent);
+    void locationStartEvent(ref Database db) {
+        listeners.each!(a => a.locationStartEvent(db));
     }
 
     // trusted: trusting that d2sqlite3 and sqlite3 is memory safe.

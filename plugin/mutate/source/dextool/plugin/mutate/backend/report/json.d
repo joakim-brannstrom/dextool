@@ -61,7 +61,7 @@ final class ReportJson : ReportEvent {
         report = ["types": kinds.map!(a => a.to!string).array, "files": []];
     }
 
-    override void locationStartEvent() {
+    override void locationStartEvent(ref Database db) {
     }
 
     override void locationEvent(const ref IterateMutantRow r) @trusted {

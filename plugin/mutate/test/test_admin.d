@@ -36,10 +36,10 @@ unittest {
 
     // act
     auto r = makeDextoolAdmin(testEnv)
-        .addArg(["--operation",     "markMutant"])
-        .addArg(["--id",            to!string(id)])
-        .addArg(["--to-status",     to!string(toStatus)])
-        .addArg(["--rationale",     rationale])
+        .addArg(["--operation", "markMutant"])
+        .addArg(["--id",        to!string(id)])
+        .addArg(["--to-status", to!string(toStatus)])
+        .addArg(["--rationale", rationale])
         .run;
 
     // assert
@@ -63,10 +63,10 @@ unittest {
 
     // act
     auto r = makeDextoolAdmin(testEnv)
-        .addArg(["--operation",     "markMutant"])
-        .addArg(["--id",            to!string(id)])
-        .addArg(["--to-status",     to!string(toStatus)])
-        .addArg(["--rationale",     rationale])
+        .addArg(["--operation", "markMutant"])
+        .addArg(["--id",        to!string(id)])
+        .addArg(["--to-status", to!string(toStatus)])
+        .addArg(["--rationale", rationale])
         .run;
 
     // assert
@@ -91,16 +91,16 @@ unittest {
 
     // act
     auto firstRes = makeDextoolAdmin(testEnv)
-        .addArg(["--operation",     "markMutant"])
-        .addArg(["--id",            to!string(id)])
-        .addArg(["--to-status",     to!string(wrongStatus)])
-        .addArg(["--rationale",     wrongRationale])
+        .addArg(["--operation", "markMutant"])
+        .addArg(["--id",        to!string(id)])
+        .addArg(["--to-status", to!string(wrongStatus)])
+        .addArg(["--rationale", wrongRationale])
         .run;
     auto secondRes = makeDextoolAdmin(testEnv)
-        .addArg(["--operation",     "markMutant"])
-        .addArg(["--id",            to!string(id)])
-        .addArg(["--to-status",     to!string(correctStatus)])
-        .addArg(["--rationale",     correctRationale])
+        .addArg(["--operation", "markMutant"])
+        .addArg(["--id",        to!string(id)])
+        .addArg(["--to-status", to!string(correctStatus)])
+        .addArg(["--rationale", correctRationale])
         .run;
 
     // assert
@@ -124,15 +124,15 @@ unittest {
 
     // act
     makeDextoolAdmin(testEnv)
-        .addArg(["--operation",     "markMutant"])
-        .addArg(["--id",            to!string(id)])
-        .addArg(["--to-status",     to!string(toStatus)])
-        .addArg(["--rationale",     rationale])
+        .addArg(["--operation", "markMutant"])
+        .addArg(["--id",        to!string(id)])
+        .addArg(["--to-status", to!string(toStatus)])
+        .addArg(["--rationale", rationale])
         .run;
     db.isMarked(id).shouldBeTrue;
     auto r = makeDextoolAdmin(testEnv)
-        .addArg(["--operation",     "removeMarkedMutant"])
-        .addArg(["--id",            to!string(id)])
+        .addArg(["--operation", "removeMarkedMutant"])
+        .addArg(["--id",        to!string(id)])
         .run;
 
     // assert
@@ -155,8 +155,8 @@ unittest {
 
     // act
     auto r = makeDextoolAdmin(testEnv)
-        .addArg(["--operation",     "removeMarkedMutant"])
-        .addArg(["--id",            to!string(id)])
+        .addArg(["--operation", "removeMarkedMutant"])
+        .addArg(["--id",        to!string(id)])
         .run;
 
     // assert
@@ -168,4 +168,28 @@ unittest {
     ]).shouldBeIn(r.stderr);
 }
 
-// TODO: add test for plain-report for marked mutants.
+@(testId ~ "shall notify lost marked mutant")
+unittest {
+    // arrange
+    mixin(EnvSetup(globalTestdir));
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
+    MutationId id = 3.to!MutationId;
+    Status toStatus = Status.killedByCompiler;
+    string rationale = `"Lost"`;
+
+    // act
+    makeDextoolAdmin(testEnv)
+        .addArg(["--operation", "markMutant"])
+        .addArg(["--id",        to!string(id)])
+        .addArg(["--to-status", to!string(toStatus)])
+        .addArg(["--rationale", rationale])
+        .run;
+    auto r = makeDextoolAnalyze(testEnv).addInputArg(testData ~ "abs.cpp").run;
+
+    // assert
+    testAnyOrder!SubStr([
+        "| ID | File                                              | Line | Column | Status           | Rationale |",
+        "|----|---------------------------------------------------|------|--------|------------------|-----------|",
+        "| 3  | build/plugin/mutate/plugin_testdata/fibonacci.cpp | 8    | 10     | killedByCompiler | \"Lost\"    |",
+    ]).shouldBeIn(r.stdout);
+}

@@ -30,7 +30,7 @@ alias SimpleWriter = void delegate(const(char)[]) @safe;
 @safe interface ReportEvent {
     /// The printer is informed of what kind of mutants there are.
     void mutationKindEvent(const MutationKind[]);
-    void locationStartEvent();
+    void locationStartEvent(ref Database db);
     void locationEvent(const ref IterateMutantRow);
     void locationEndEvent();
     void locationStatEvent();

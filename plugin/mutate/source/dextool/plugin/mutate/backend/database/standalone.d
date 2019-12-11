@@ -94,11 +94,13 @@ struct Database {
     bool lostMarking(long status_id) @trusted {
         return isInMutationStatusTable(status_id);
     }
+
     bool isMarked(MutationId id) @trusted {
         immutable s = format!"SELECT COUNT(*) FROM %s WHERE st_id IN
-            (SELECT st_id FROM %s WHERE id=:id)"(markedMutantTable, mutationTable);
+            (SELECT st_id FROM %s WHERE id=:id)"(
+                markedMutantTable, mutationTable);
         auto stmt = db.prepare(s);
-        stmt.bind(":id", cast(long)id);
+        stmt.bind(":id", cast(long) id);
         auto res = stmt.execute;
         return res.oneValue!long != 0;
     }
@@ -106,6 +108,7 @@ struct Database {
     MarkedMutant[] getLostMarkings() @trusted {
         import std.algorithm : filter;
         import std.array : array;
+
         return getMarkedMutants.filter!(a => lostMarking(a.mutationStatusId)).array;
     }
 
@@ -322,6 +325,15 @@ struct Database {
 
         rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
 
+        return rval;
+    }
+
+    Nullable!Mutation.Kind getMutationKind(MutationId id) @trusted {
+        auto stmt = db.prepare(format("SELECT kind FROM %s WHERE id=:id", mutationTable));
+        stmt.bind(":id", cast(long) id);
+        typeof(return) rval;
+        foreach (res; stmt.execute)
+            rval = res.peek!long(0).to!(Mutation.Kind);
         return rval;
     }
 
@@ -576,15 +588,16 @@ struct Database {
 
     /** Mark a mutant with status and rationale (also adds metadata).
      */
-    void markMutant(MutationId id, MutationStatusId st_id, Mutation.Status to_status, string rationale) @trusted {
-        auto p = getPath(id);
-        if (p.isNull)
+    void markMutant(MutationId id, MutationStatusId st_id,
+            Mutation.Status to_status, string rationale) @trusted {
+        auto mut = getMutation(id);
+        if (mut.isNull)
             return;
-        // assuming that a mutant that exists in the system always have a location and kind.
-        auto sl = getSourceLocation(id).get;
-        auto kind = getKind(id);
-        db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, sl.line,
-            sl.column, p, to_status, Clock.currTime.toUTC, Rationale(rationale), kind));
+
+        // assume that every mutant has a kind
+        db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, id,
+                mut.sloc.line, mut.sloc.column, mut.file, to_status,
+                Clock.currTime.toUTC, Rationale(rationale), getMutationKind(id), mut.lang));
     }
 
     void removeMarkedMutant(MutationStatusId st_id) @trusted {
@@ -593,22 +606,23 @@ struct Database {
     }
 
     MarkedMutant[] getMarkedMutants() @trusted {
-        immutable s = format!"SELECT st_id, line, column, path, to_status, time, rationale, kind
+        immutable s = format!"SELECT st_id, id, line, column, path, to_status, time, rationale, kind
             FROM %s ORDER BY path"(markedMutantTable);
         auto stmt = db.prepare(s);
 
         auto app = appender!(MarkedMutant[])();
         foreach (res; stmt.execute)
-            app.put(MarkedMutant(res.peek!long(0), res.peek!uint(1), res.peek!uint(2),
-                res.peek!string(3), res.peek!ulong(4), res.peek!string(5).fromSqLiteDateTime,
-                Rationale(res.peek!string(6)), res.peek!long(7).to!(Mutation.Kind)));
+            app.put(MarkedMutant(res.peek!long(0), res.peek!long(1),
+                    res.peek!uint(2), res.peek!uint(3), res.peek!string(4),
+                    res.peek!ulong(5), res.peek!string(6).fromSqLiteDateTime,
+                    Rationale(res.peek!string(7)), res.peek!long(8).to!(Mutation.Kind)));
         return app.data;
     }
 
     long getKind(MutationId id) @trusted {
         immutable s = format!"SELECT kind FROM %s WHERE id=:id"(mutationTable);
         auto stmt = db.prepare(s);
-        stmt.bind(":id", cast(long)id);
+        stmt.bind(":id", cast(long) id);
 
         typeof(return) rval;
         foreach (res; stmt.execute)

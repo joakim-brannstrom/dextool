@@ -21,7 +21,7 @@ import dextool.plugin.mutate.backend.database : Database, IterateMutantRow, Muta
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats, reportMarkedMutants,
-    reportStatistics, MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr;
+    reportStatistics, MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr, MarkedMutantText;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table, toSections;
 import dextool.plugin.mutate.backend.type : Mutation;
@@ -49,6 +49,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
     MutationReprMap mutationReprMap;
     Appender!(MutationId[]) testCaseSuggestions;
 
+    Appender!(MarkedMutantText[]) markedMutantsText;
+
     this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
         this.kinds = kinds;
         this.fio = fio;
@@ -64,7 +66,14 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
     override void mutationKindEvent(const MutationKind[] kind_) {
     }
 
-    override void locationStartEvent() {
+    override void locationStartEvent(ref Database db) @safe {
+        import std.conv: to;
+        foreach (markedMut; db.getMarkedMutants()) {
+            auto abs_path = AbsolutePath(Path(markedMut.path), DirName(fio.getOutputDir));
+            auto mut_txt = makeMutationText(fio.makeInput(abs_path),
+                    Offset(markedMut.line, markedMut.column), markedMut.kind.to!(Mutation.Kind), markedMut.lang);
+            markedMutantsText.put(MarkedMutantText(markedMut.id, to!string(mut_txt.mutation)));
+        }
     }
 
     override void locationEvent(const ref IterateMutantRow r) @trusted {
@@ -268,12 +277,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
 
         if (ReportSection.marked_mutants in sections) {
             logger.info("Marked mutants");
-            auto r = reportMarkedMutants(db, kinds);
-
-            Table!6 tbl;
-            tbl.heading = ["File", "Line", "Column", "Kind", "Status", "Rationale"];
-            r.toTable(tbl);
-            writeln(tbl);
+            auto r = reportMarkedMutants(db, kinds, markedMutantsText.data);
+            writeln(r.tbl);
         }
 
         if (ReportSection.summary in sections) {

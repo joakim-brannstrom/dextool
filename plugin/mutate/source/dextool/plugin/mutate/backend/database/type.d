@@ -230,6 +230,6 @@ struct MutantMetaData {
 }
 
 struct Rationale {
-  string payload;
-  alias payload this;
+    string payload;
+    alias payload this;
 }

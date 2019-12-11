@@ -55,7 +55,7 @@ final class ReportCSV : ReportEvent {
         writeCSV(writer, "ID", "Kind", "Description", "Location", "Comment");
     }
 
-    override void locationStartEvent() {
+    override void locationStartEvent(ref Database db) {
     }
 
     override void locationEvent(const ref IterateMutantRow r) @trusted {

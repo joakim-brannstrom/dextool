@@ -23,9 +23,11 @@ import std.typecons : Flag, Yes, No, Tuple, Nullable, tuple;
 
 import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId, MarkedMutant;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
-import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
+import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult,
+    makeMutationText, makeMutation;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.backend.report.utility : window, windowSize, statusToString, kindToString;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize,
+    statusToString, kindToString;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, Language, TestGroup;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
 import dextool.plugin.mutate.type : ReportLevel, ReportSection;
@@ -244,7 +246,7 @@ struct TestCaseDeadStat {
         return buf.data;
     }
 
-    void toString(Writer)(ref Writer w) @safe const
+    void toString(Writer)(ref Writer w) @safe const 
             if (isOutputRange!(Writer, char)) {
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -266,14 +268,6 @@ struct TestCaseDeadStat {
 void toTable(ref TestCaseDeadStat st, ref Table!2 tbl) @safe pure nothrow {
     foreach (tc; st.testCases) {
         typeof(tbl).Row r = [tc.name, tc.location];
-        tbl.put(r);
-    }
-}
-
-void toTable(ref MarkedMutantsStat st, ref Table!6 tbl) @safe {
-    import std.conv: to;
-    foreach (m; st.mutants.data) {
-        typeof(tbl).Row r = st.toString(m);
         tbl.put(r);
     }
 }
@@ -446,53 +440,6 @@ struct MutationStat {
     }
 }
 
-struct MarkedMutantsStat {
-    import core.time : Duration;
-    import std.range : isOutputRange;
-
-    long markedUnknown;
-    long markedKilled;
-    long markedAlive;
-    long markedKilledByCompiler;
-    long markedTimeout;
-    long markedTotal;
-    long total;
-
-    auto mutants = appender!(MarkedMutant[])();
-
-    /// Marked mutants of the total mutants.
-    double markedOfTotal() @safe pure nothrow const @nogc {
-        if (total > 0)
-            return (cast(double)(markedTotal) / cast(double) total);
-        return 0.0;
-    }
-
-    void countMarked() @safe {
-        bool isStatus(long lhs, Mutation.Status rhs) {
-            import std.conv : to;
-            return to!(Mutation.Status)(lhs) == rhs;
-        }
-        foreach (mm; mutants.data){
-            if (isStatus(mm.to_status, Mutation.Status.unknown))
-                markedUnknown++;
-            if (isStatus(mm.to_status, Mutation.Status.killed))
-                markedKilled++;
-            if (isStatus(mm.to_status, Mutation.Status.alive))
-                markedAlive++;
-            if (isStatus(mm.to_status, Mutation.Status.killedByCompiler))
-                markedKilledByCompiler++;
-            if (isStatus(mm.to_status, Mutation.Status.timeout))
-                markedTimeout++;
-        }
-    }
-
-    string[] toString(MarkedMutant m) @safe {
-        import std.conv: to;
-        return [m.path, to!string(m.line), to!string(m.column), kindToString(m.kind),
-            statusToString(m.to_status), m.rationale];
-    }
-}
-
 MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
     import core.time : dur;
     import dextool.plugin.mutate.backend.utility;
@@ -527,17 +474,39 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     return st;
 }
 
-MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe {
-    import dextool.plugin.mutate.backend.utility;
+struct MarkedMutantsStat {
+    Table!6 tbl;
+    // TODO: extend for html-report
+}
 
-    auto profile = Profile(ReportSection.marked_mutants);
-    const total = spinSql!(() { return db.totalSrcMutants(kinds, file); });
+struct MarkedMutantText {
+    long id;
+    string mut_text;
+}
+
+MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kinds,
+        MarkedMutantText[] markedMutantsText, string file = null) @safe {
+    string mutation(MutationId id) {
+        import std.array : array;
+        import std.range : front;
+
+        return markedMutantsText.filter!(a => a.id == id).array.front.mut_text;
+    }
 
     MarkedMutantsStat st;
-    st.mutants.put(db.getMarkedMutants());
-    st.total = total.count;
-    st.countMarked();
+    st.tbl.heading = [
+        "File", "Line", "Column", "Mutation", "Status", "Rationale"
+    ];
 
+    import std.conv : to;
+
+    foreach (m; db.getMarkedMutants()) {
+        typeof(st.tbl).Row r = [
+            m.path, to!string(m.line), to!string(m.column),
+            mutation(m.id.to!MutationId), statusToString(m.to_status), m.rationale
+        ];
+        st.tbl.put(r);
+    }
     return st;
 }
 

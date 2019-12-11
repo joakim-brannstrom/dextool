@@ -420,6 +420,8 @@ struct MarkedMutantTbl {
     @ColumnName("st_id")
     long mutationStatusId;
 
+    long id;
+
     uint line;
 
     uint column;
@@ -433,6 +435,8 @@ struct MarkedMutantTbl {
     string rationale;
 
     ulong kind;
+
+    Language lang;
     }
 
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {

@@ -11,6 +11,7 @@ module dextool_test.test_report;
 
 import core.time : dur;
 import std.array : array;
+import std.conv : to;
 import std.file : exists, readText;
 import std.path : buildPath, buildNormalizedPath, absolutePath, relativePath, setExtension;
 import std.stdio : File;
@@ -303,6 +304,35 @@ unittest {
         "|------------|-------|----------|",
         "| 40         | 2     | tc_1     |",
         "| 40         | 2     | tc_3     |",
+    ]).shouldBeIn(r.stdout);
+}
+
+@(testId ~ "shall report one marked mutant (plain)")
+unittest {
+    // arrange
+    mixin(EnvSetup(globalTestdir));
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
+    MutationId id = 3.to!MutationId;
+    Mutation.Status toStatus = Mutation.Status.killedByCompiler;
+    string rationale = `"Useless"`;
+
+    // act
+    makeDextoolAdmin(testEnv)
+        .addArg(["--operation", "markMutant"])
+        .addArg(["--id",        to!string(id)])
+        .addArg(["--to-status", to!string(toStatus)])
+        .addArg(["--rationale", rationale])
+        .run;
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--section",   "marked_mutants"])
+        .addArg(["--style",     "plain"])
+        .run;
+
+    // assert
+    testConsecutiveSparseOrder!SubStr([
+        "| File                                              | Line | Column | Mutation | Status           | Rationale |",
+        "|---------------------------------------------------|------|--------|----------|------------------|-----------|",
+        "| build/plugin/mutate/plugin_testdata/fibonacci.cpp | 8    | 10     | !=       | killedByCompiler | \"Useless\" |",
     ]).shouldBeIn(r.stdout);
 }
 

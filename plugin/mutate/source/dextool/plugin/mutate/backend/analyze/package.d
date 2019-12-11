@@ -314,13 +314,11 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
     import std.stdio: writeln;
     import std.conv : to;
 
-    Table!5 tbl = Table!5(["File", "Line", "Column", "Status", "Rationale"]);
+    Table!6 tbl = Table!6(["ID", "File", "Line", "Column", "Status", "Rationale"]);
     foreach(m; lostMutants) {
-        typeof(tbl).Row r = [m.path, to!string(m.line), to!string(m.column), statusToString(m.to_status), m.rationale];
+        typeof(tbl).Row r = [to!string(m.id), m.path, to!string(m.line), to!string(m.column), statusToString(m.to_status), m.rationale];
         tbl.put(r);
     }
-
-    writeln;
-    logger.warning("Marked mutants that became obsolete:");
+    logger.warning("Marked mutants was lost");
     writeln(tbl);
 }
