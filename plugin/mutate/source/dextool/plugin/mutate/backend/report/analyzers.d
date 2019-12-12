@@ -861,7 +861,7 @@ class DiffReport {
 
 DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         ref Diff diff, AbsolutePath workdir) {
-    import dextool.plugin.mutate.backend.database : MutationId;
+    import dextool.plugin.mutate.backend.database : MutationId, MutationStatusId;
     import dextool.plugin.mutate.backend.type : SourceLoc;
     import dextool.set;
 
@@ -869,10 +869,9 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
 
     auto rval = new DiffReport;
 
+    Set!MutationStatusId total;
+    // used for deriving what test cases killed mutants in the diff.
     Set!MutationId killing_mutants;
-
-    long total;
-    long killed;
 
     foreach (kv; diff.toRange(workdir)) {
         auto fid = db.getFileId(kv.key);
@@ -882,19 +881,21 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         }
 
         bool has_mutants;
-        foreach (line; kv.value.toRange) {
-            auto muts = db.getMutantsInfo(kinds, db.getMutationsOnLine(kinds,
-                    fid.get, SourceLoc(line, 0)));
-            foreach (m; muts) {
-                has_mutants = true;
-                if (m.status == Mutation.Status.alive)
-                    rval.alive[fid.get] ~= m;
-                else {
-                    rval.killed[fid.get] ~= m;
-                    killing_mutants.add(m.id);
-                    ++killed;
-                }
-                ++total;
+        foreach (id; kv.value
+                .toRange
+                .map!(line => spinSql!(() => db.getMutationsOnLine(kinds,
+                    fid.get, SourceLoc(line))))
+                .joiner
+                .filter!(id => id !in total)) {
+            has_mutants = true;
+            total.add(id);
+
+            const info = db.getMutantsInfo(kinds, [id])[0];
+            if (info.status == Mutation.Status.alive) {
+                rval.alive[fid.get] ~= info;
+            } else {
+                rval.killed[fid.get] ~= info;
+                killing_mutants.add(info.id);
             }
         }
 
@@ -912,10 +913,10 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
 
     rval.testCases = test_cases.toArray.sort.array;
 
-    if (total == 0) {
+    if (total.length == 0) {
         rval.score = 1.0;
     } else {
-        rval.score = cast(double) killed / cast(double) total;
+        rval.score = cast(double) killing_mutants.length / cast(double) total.length;
     }
 
     return rval;

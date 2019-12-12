@@ -97,6 +97,7 @@ void runFilesReporter(ref Database db, FilesReporter fps, const(MutationKind)[] 
 FilesReporter makeFilesReporter(ref Database db, const ConfigReport conf,
         const(MutationKind)[] kind, FilesysIO fio, ref Diff diff) {
     import dextool.plugin.mutate.backend.report.html;
+    import dextool.plugin.mutate.backend.report.json;
     import dextool.plugin.mutate.backend.utility;
 
     const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
@@ -105,9 +106,10 @@ FilesReporter makeFilesReporter(ref Database db, const ConfigReport conf,
     case ReportKind.plain:
     case ReportKind.markdown:
     case ReportKind.compiler:
-    case ReportKind.json:
     case ReportKind.csv:
         return null;
+    case ReportKind.json:
+        return new ReportJson(kinds, conf, fio, diff);
     case ReportKind.html:
         return new ReportHtml(kinds, conf, fio, diff);
     }
@@ -128,7 +130,6 @@ struct ReportGenerator {
     import dextool.plugin.mutate.backend.report.compiler;
     import dextool.plugin.mutate.backend.report.csv;
     import dextool.plugin.mutate.backend.report.html;
-    import dextool.plugin.mutate.backend.report.json;
     import dextool.plugin.mutate.backend.report.markdown;
     import dextool.plugin.mutate.backend.report.plain;
 
@@ -152,7 +153,7 @@ struct ReportGenerator {
             listeners = [new ReportCompiler(kinds, conf.reportLevel, fio)];
             break;
         case ReportKind.json:
-            listeners = [new ReportJson(kinds, conf, fio)];
+            listeners = null;
             break;
         case ReportKind.csv:
             listeners = [new ReportCSV(kinds, conf.reportLevel, fio)];
