@@ -1,32 +1,38 @@
 # Dextool Mutate
 
-Dextool's plugin for mutation testing of C/C++ projects. It can help you design new tests and evaluate the quality of existing tests by measuring their ability to detect artificially injected faults.
+Dextool's plugin for mutation testing of C/C++ projects. It can help you design
+new tests and evaluate the quality of existing tests by measuring their ability
+to detect artificially injected faults.
 
 ## Features
 
-* Provides support for conventional mutation operators: AOR, ROR, DCC, DCR, LCR, COR, SDL.
-* Can continue from where a testing session was interrupted.
-* Allows multiple instances to be run in parallel.
+* Supports conventional mutation operators: [AOR, ROR, DCC, DCR, LCR, COR, SDL](https://github.com/joakim-brannstrom/dextool/blob/master/plugin/mutate/doc/design/mutations.md).
+* Can [continue](#incremental-mutation-test) from where a testing session was interrupted.
+* Allows multiple instances to be [run in parallel](#parallel-run).
 * Makes type aware ROR to reduce the number of equivalent mutants.
 * Can reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
-* Provides multiple report formats (Markdown, compiler warnings, JSON).
+* Provides multiple report formats (Markdown, compiler warnings, JSON, HTML).
 * Lets a user modify it by using a SQLite database as intermediary storage.
-* Can rerun e.g. the mutations that previously survived when new tests are added to the test suite.
+* Can automatically [rerun the mutations that previously survived](#re-test-alive) when new tests are added to the test suite.
 * Does automatic handling of infinite loops (timeout).
 * Works with all C++ versions.
 * Works with C++ templates.
 * Has a simple workflow.
 * Integrates without modifications to the projects build system.
-* Detect test cases that do not kill any mutants. These test cases most *probably* do not verify anything.
-* Detect test cases that kill the same mutants. These is an indication of redundant test cases.
+* Detects "useless" test cases that do not kill any mutants.
+* Detects "redundant" test cases that kill the same mutants.
+* Detects "redundant" test cases that do not uniquely kill any mutants.
+* [Change based mutation testing by allowing a user to only test the mutants in a diff. Used to integrate in a pull request workflow to give fast feedback](#change-based).
 
 # Mutation Testing
 
 This section explains how to use Dextool Mutate to analyze a C++ project that uses the CMake build system.
 
-Note though that the Dextool work with any build system that is able to generate a JSON compilation database.
-It is just that CMake conveniently has builtin support to generate those.
-For other build systems there exists the excellent [BEAR](https://github.com/rizsotto/Bear) tool that can spy on the build process to generate such a database.
+Note though that the Dextool work with any build system that is able to
+generate a JSON compilation database.  It is just that CMake conveniently has
+builtin support to generate those.  For other build systems there exists the
+excellent [BEAR](https://github.com/rizsotto/Bear) tool that can spy on the
+build process to generate such a database.
 
 The [Google Test project](https://github.com/google/googletest) is used as an example.
 
@@ -112,7 +118,7 @@ test cases that failed when the mutant where injected. This is where the
 
 To be able to test a mutant again because the test suite is unstable when it is
 executed on the injected mutant it needs some help. This is signaled from the
-analyser by writing writing `unstable:` to stdout.
+analyser by writing `unstable:` to stdout.
 
 The requirement on the script is that it should parse the files that contains
 the output from the test suite. These are passed as argument one and two to the
@@ -145,7 +151,8 @@ To be equal to: 5
 # FAILED: 1
 ```
 
-Create a file `test_analyze.sh` that will identify passed and a failing test from stdout/stderr:
+Create a file `test_analyze.sh` that will identify passed and a failing test
+from stdout/stderr:
 ```sh
 #!/bin/bash
 # The arguments are paths to stdout ($1) and stderr ($2).
@@ -180,12 +187,13 @@ failed: TwoPlusTwo
 passed: TestStuff
 ```
 
-And configure dextool to use it. Either via CLI (`--test-case-analyze-cmd`) or config:
+And configure dextool to use it. Either via CLI (`--test-case-analyze-cmd`) or
+config:
 ```toml
 analyze_cmd = "test_analyze.sh"
 ```
 
-## Parallel Run
+## Parallel Run <a name="parallel-run"></a>
 
 Parallel mutation testing is realized in dextool mutate by using the same
 database in multiple instances via a symlink to a master database. Each
@@ -201,8 +209,8 @@ git clone https://github.com/google/googletest.git gtest1
 git clone https://github.com/google/googletest.git gtest2
 ```
 
-Configure each instance appropriately. As if they would run the mutation testing
-by them self. When you are done it should look something like this.
+Configure each instance appropriately. As if they would run the mutation
+testing by them self. When you are done it should look something like this.
 
 ```sh
 ls -a gtest1
@@ -247,7 +255,8 @@ five instances. This is the source of the scaling problem. The more instances
 the more lock contention for the database.
 
 ## Results
-To see the result of the mutation testing and thus specifically those that survived it is recommended to user the preconfigured `--level alive` parameter.
+To see the result of the mutation testing and thus specifically those that
+survived it is recommended to user the preconfigured `--level alive` parameter.
 It prints a summary and the mutants that survived.
 
 ```sh
@@ -262,25 +271,78 @@ dextool mutate report --section tc_stat --section summary --section killed --sec
 
 See `--section` for a specification of the supported sections.
 
-## Re-test Alive Mutants
+## Re-test Alive Mutants <a name="re-test-alive"></a>
 
-Lets say that we want to re-test the mutants that survived because new tests have been added to the test suite. To speed up the mutation testing run we don't want to test all mutants but just those that are currently marked as alive.
+Lets say that we want to re-test the mutants that survived because new tests
+have been added to the test suite. To speed up the mutation testing run we
+don't want to test all mutants but just those that are currently marked as
+alive.
 
-This can be achieved by resetting the status of the alive mutants to unknown followed by running the mutation testing again.
-
-Example of resetting:
-```sh
-dextool mutate admin --mutant lcr --operation resetMutant --status alive
+This is achieved by changing the configuration file from doNothing to
+resetAlive:
+```toml
+detected_new_test_case = "resetAlive"
 ```
 
-## Incremental Mutation Testing
+It is recommended to also active the detection of dropped test cases and
+re-execution of old mutants to further improve the quality of the mutation
+score.
 
-The tool have support for testing only the changes to a program by reusing a previous database containing mutation testning result.
-All we have to do to use this feature is to re-analyze the software. The tool will then remove all the mutants for files that have changed.
+This retest all mutants that a test case that is removed killed.
+```toml
+detected_dropped_test_case = "remove"
+```
+
+This option re-test old mutants to see if anything has changed regarding the
+test suite. Because dextool mutate can't "see" if a test case implementation
+has changed and thus need to re-execute it the only way that is left is to
+re-execute the mutants. Balance the number of mutants to test against how many
+that exists.
+```toml
+oldest_mutants_nr = 10
+```
+
+## Incremental Mutation Testing <a name="incremental-mutation-test"></a>
+
+The tool have support for testing only the changes to a program by reusing a
+previous database containing mutation testning result.  All we have to do to
+use this feature is to re-analyze the software. The tool will then remove all
+the mutants for files that have changed.
+
+## Change Based Testing for Pull Request Integration <a name="change-based"></a>
+
+It is important to give fast feedback on a pull request and herein lies the
+problem for mutation testing; it isn't fast. But a pull request usually only
+touch a small part of a code base, a small diff. Change based testing mean that
+only those mutants on the changed lines are tested.
+
+The recommended way of integrating this support is via git diff as follows:
+
+Analyze as usual.
+```sh
+dextool mutate analyze
+```
+
+But run the mutation testing on only those lines that changed:
+```sh
+git diff | dextool mutate test --diff-from-stdin --mutant lcr --max-runtime "10 minutes" --max-alive 10
+```
+The option `--max-runtime` and `--max-alive` add further speedups to by
+limiting the execution to a "short time" or when there are "too many" alive
+mutants.
+
+And at the end a report for the user:
+```sh
+git diff | dextool mutate report --diff-from-stdin --section summary --mutant lcr --style html
+# use json to get a handy mutation score for the diff that can be written back
+# to the pull request
+git diff | dextool mutate report --diff-from-stdin --section summary --mutant lcr --style json
+```
 
 # Code Coverage
 
-It may be interesting to compare mutation testing results with code coverage. To measure code coverage for the Google Test project, build it with:
+It may be interesting to compare mutation testing results with code coverage.
+To measure code coverage for the Google Test project, build it with:
 ```sh
 cmake -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_C_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-arcs -ftest-coverage" -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
 ```
