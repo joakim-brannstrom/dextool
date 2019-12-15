@@ -6,23 +6,21 @@ to detect artificially injected faults.
 
 ## Features
 
-* Supports conventional mutation operators: [AOR, ROR, DCC, DCR, LCR, COR, SDL](https://github.com/joakim-brannstrom/dextool/blob/master/plugin/mutate/doc/design/mutations.md).
-* Can [continue](#incremental-mutation-test) from where a testing session was interrupted.
-* Allows multiple instances to be [run in parallel](#parallel-run).
-* Makes type aware ROR to reduce the number of equivalent mutants.
-* Can reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
-* Provides multiple report formats (Markdown, compiler warnings, JSON, HTML).
-* Lets a user modify it by using a SQLite database as intermediary storage.
-* Can automatically [rerun the mutations that previously survived](#re-test-alive) when new tests are added to the test suite.
-* Does automatic handling of infinite loops (timeout).
-* Works with all C++ versions.
-* Works with C++ templates.
-* Has a simple workflow.
-* Integrates without modifications to the projects build system.
-* Detects "useless" test cases that do not kill any mutants.
-* Detects "redundant" test cases that kill the same mutants.
-* Detects "redundant" test cases that do not uniquely kill any mutants.
-* [Change based mutation testing by allowing a user to only test the mutants in a diff. Used to integrate in a pull request workflow to give fast feedback](#change-based).
+* 💉 Supports conventional mutation operators: [AOR, ROR, DCC, DCR, LCR, COR, SDL](https://github.com/joakim-brannstrom/dextool/blob/master/plugin/mutate/doc/design/mutations.md).
+* 📈 Supports multiple report formats (Markdown, Compiler warnings, JSON, HTML).
+* 💪 Detects "useless" test cases that do not kill any mutants.
+* 💪 Detects "redundant" test cases that kill the same mutants.
+* 💪 Detects "redundant" test cases that do not uniquely kill any mutants.
+* 🔄 Supports [change based mutation testing](#change-based) to give fast feedback in a pull request workflow.
+* 🐇 Can [continue](#incremental-mutation-test) from where a testing session was interrupted.
+* 🐇 Allows multiple instances to be [run in parallel](#parallel-run).
+* 🐇 Can reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
+* 🐇 Can automatically [rerun the mutations that previously survived](#re-test-alive) when new tests are added to the test suite.
+* 🐇 Does automatic handling of infinite loops (timeout).
+* 🔨 Works with all C++ versions.
+* 🔨 Works with C++ templates.
+* 🔨 Integrates without modifications to the projects build system.
+* 🔨 Lets a user modify it by using a SQLite database as intermediary storage.
 
 # Mutation Testing
 
