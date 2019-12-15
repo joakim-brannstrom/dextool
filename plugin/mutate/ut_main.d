@@ -19,6 +19,7 @@ int main(string[] args) {
                           "dextool.plugin.mutate.backend.type",
                           "dextool.plugin.mutate.backend.watchdog",
                           "dextool.plugin.mutate.frontend.argparser",
+                          "process",
                           );
     //dfmt on
 }
