@@ -1057,6 +1057,9 @@ nothrow:
             }
         }
 
+        logger.infof(!mut_ids.empty, "Found %s mutants in the diff",
+                mut_ids.length).collectException;
+
         local.get!NextPullRequestMutant.mutants = mut_ids.toArray;
         logger.trace(local.get!NextPullRequestMutant.mutants.sort).collectException;
 
