@@ -155,52 +155,56 @@ struct TimeoutFsm {
     }
 
     void execute(ref Database db) @trusted {
-        global.db = nullableRef(&db);
+        execute_(this, db);
+    }
+
+    static void execute_(ref TimeoutFsm self, ref Database db) @trusted {
+        self.global.db = nullableRef(&db);
 
         auto t = db.transaction;
-        global.ctx = db.getMutantTimeoutCtx;
+        self.global.ctx = db.getMutantTimeoutCtx;
 
         // force the local state to match the starting point in the ctx
         // (database).
-        final switch (global.ctx.state) with (MutantTimeoutCtx) {
+        final switch (self.global.ctx.state) with (MutantTimeoutCtx) {
         case State.init_:
-            fsm.state = fsm(Init.init);
+            self.fsm.state = fsm(Init.init);
             break;
         case State.running:
-            fsm.state = fsm(Running.init);
+            self.fsm.state = fsm(Running.init);
             break;
         case State.done:
-            fsm.state = fsm(Done.init);
+            self.fsm.state = fsm(Done.init);
             break;
         }
 
         // act on the inital state
         try {
-            fsm.act!this;
+            self.fsm.act!self;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
 
-        while (!fsm.isState!Stop) {
+        while (!self.fsm.isState!Stop) {
             try {
-                step(db);
+                step(self, db);
             } catch (Exception e) {
                 logger.warning(e.msg).collectException;
             }
         }
 
-        db.putMutantTimeoutCtx(global.ctx);
+        db.putMutantTimeoutCtx(self.global.ctx);
         t.commit;
 
-        output.iter = global.ctx.iter;
+        self.output.iter = self.global.ctx.iter;
     }
 
-    private void step(ref Database db) @safe {
+    private static void step(ref TimeoutFsm self, ref Database db) @safe {
         bool noUnknown() {
-            return db.unknownSrcMutants(global.kinds, null).count == 0;
+            return db.unknownSrcMutants(self.global.kinds, null).count == 0;
         }
 
-        fsm.next!((Init a) {
+        self.fsm.next!((Init a) {
             if (noUnknown)
                 return fsm(ResetWorkList.init);
             return fsm(Stop.init);
@@ -223,7 +227,7 @@ struct TimeoutFsm {
             return fsm(Init.init);
         }, (Stop a) => fsm(a),);
 
-        fsm.act!this;
+        self.fsm.act!self;
     }
 
     void opCall(Init) {
