@@ -16,6 +16,78 @@ Authors: Paul Backus, Atila Neves
 +/
 module sumtype;
 
+static if (__VERSION__ < 2089L) {
+template ReplaceTypeUnless(alias pred, From, To, T...)
+{
+    import std.meta;
+    import std.typecons;
+
+    static if (T.length == 1)
+    {
+        static if (pred!(T[0]))
+            alias ReplaceTypeUnless = T[0];
+        else static if (is(T[0] == From))
+            alias ReplaceTypeUnless = To;
+        else static if (is(T[0] == const(U), U))
+            alias ReplaceTypeUnless = const(ReplaceTypeUnless!(pred, From, To, U));
+        else static if (is(T[0] == immutable(U), U))
+            alias ReplaceTypeUnless = immutable(ReplaceTypeUnless!(pred, From, To, U));
+        else static if (is(T[0] == shared(U), U))
+            alias ReplaceTypeUnless = shared(ReplaceTypeUnless!(pred, From, To, U));
+        else static if (is(T[0] == U*, U))
+        {
+            static if (is(U == function))
+                alias ReplaceTypeUnless = replaceTypeInFunctionTypeUnless!(pred, From, To, T[0]);
+            else
+                alias ReplaceTypeUnless = ReplaceTypeUnless!(pred, From, To, U)*;
+        }
+        else static if (is(T[0] == delegate))
+        {
+            alias ReplaceTypeUnless = replaceTypeInFunctionTypeUnless!(pred, From, To, T[0]);
+        }
+        else static if (is(T[0] == function))
+        {
+            static assert(0, "Function types not supported," ~
+                " use a function pointer type instead of " ~ T[0].stringof);
+        }
+        else static if (is(T[0] == U!V, alias U, V...))
+        {
+            template replaceTemplateArgs(T...)
+            {
+                static if (is(typeof(T[0])))    // template argument is value or symbol
+                    enum replaceTemplateArgs = T[0];
+                else
+                    alias replaceTemplateArgs = ReplaceTypeUnless!(pred, From, To, T[0]);
+            }
+            alias ReplaceTypeUnless = U!(staticMap!(replaceTemplateArgs, V));
+        }
+        else static if (is(T[0] == struct))
+            // don't match with alias this struct below (Issue 15168)
+            alias ReplaceTypeUnless = T[0];
+        else static if (is(T[0] == U[], U))
+            alias ReplaceTypeUnless = ReplaceTypeUnless!(pred, From, To, U)[];
+        else static if (is(T[0] == U[n], U, size_t n))
+            alias ReplaceTypeUnless = ReplaceTypeUnless!(pred, From, To, U)[n];
+        else static if (is(T[0] == U[V], U, V))
+            alias ReplaceTypeUnless =
+                ReplaceTypeUnless!(pred, From, To, U)[ReplaceTypeUnless!(pred, From, To, V)];
+        else
+            alias ReplaceTypeUnless = T[0];
+    }
+    else static if (T.length > 1)
+    {
+        alias ReplaceTypeUnless = AliasSeq!(ReplaceTypeUnless!(pred, From, To, T[0]),
+            ReplaceTypeUnless!(pred, From, To, T[1 .. $]));
+    }
+    else
+    {
+        alias ReplaceTypeUnless = AliasSeq!();
+    }
+}
+} else {
+    import std.typecons: ReplaceTypeUnless;
+}
+
 /// $(H3 Basic usage)
 version (D_BetterC) {} else
 @safe unittest {
@@ -272,7 +344,6 @@ struct SumType(TypeArgs...)
 	import std.traits: hasElaborateCopyConstructor, hasElaborateDestructor;
 	import std.traits: isAssignable, isCopyable, isStaticArray;
 	import std.traits: ConstOf, ImmutableOf;
-	import std.typecons: ReplaceTypeUnless;
 
 	/// The types a `SumType` can hold.
 	alias Types = AliasSeq!(ReplaceTypeUnless!(isSumType, This, typeof(this), TypeArgs));
@@ -925,7 +996,7 @@ version (D_BetterC) {} else
 // Replacement does not happen inside SumType
 version (D_BetterC) {} else
 @safe unittest {
-	import std.typecons : Tuple, ReplaceTypeUnless;
+	import std.typecons : Tuple;
 	alias A = Tuple!(This*,SumType!(This*))[SumType!(This*,string)[This]];
 	alias TR = ReplaceTypeUnless!(isSumType, This, int, A);
 	static assert(is(TR == Tuple!(int*,SumType!(This*))[SumType!(This*, string)[int]]));
@@ -1203,12 +1274,14 @@ template match(handlers...)
 
     // Now, even if we put the double handler first, it will only be used for
     // doubles, not ints.
+    static if (__VERSION__ >= 2089L) {
     assert(__traits(compiles,
         x.match!(
             exactly!(double, d => "got double"),
             exactly!(int, n => "got int")
         )
     ));
+    }
 }
 
 /**
