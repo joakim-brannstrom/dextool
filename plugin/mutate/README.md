@@ -7,11 +7,12 @@ to detect artificially injected faults.
 ## Features
 
 * 💉 Supports conventional mutation operators: [AOR, ROR, DCC, DCR, LCR, COR, SDL](https://github.com/joakim-brannstrom/dextool/blob/master/plugin/mutate/doc/design/mutations.md).
-* 📈 Supports multiple report formats (Markdown, Compiler warnings, JSON, HTML).
+* 📈 Provides multiple report formats (Markdown, Compiler warnings, JSON, HTML).
 * 💪 Detects "useless" test cases that do not kill any mutants.
 * 💪 Detects "redundant" test cases that kill the same mutants.
 * 💪 Detects "redundant" test cases that do not uniquely kill any mutants.
-* 🔄 Supports [change based mutation testing](#change-based) to give fast feedback in a pull request workflow.
+* 💪 Lists "near" test cases from which a new test can be derived to kill a surviving mutant of interest.
+* 🔄 Supports [change-based mutation testing](#change-based) for fast feedback in a pull request workflow.
 * 🐇 Can [continue](#incremental-mutation-test) from where a testing session was interrupted.
 * 🐇 Allows multiple instances to be [run in parallel](#parallel-run).
 * 🐇 Can reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
