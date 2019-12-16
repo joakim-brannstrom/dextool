@@ -271,7 +271,7 @@ mixin template BasicBlockAccept(VisitorT, UserT) {
         import llvm_hiwrap.value.instruction;
         import llvm_hiwrap.types;
 
-        static void fallback(T)(ref VisitorT!UserT self, ref UserT user, ref T node) {
+        static void fallback(T)(ref VisitorT self, ref UserT user, ref T node) {
             auto n = node.value.LxInstructionValue.InstructionValue;
             maybeCallVisit(self, user, n);
         }
