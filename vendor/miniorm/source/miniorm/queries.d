@@ -355,13 +355,13 @@ mixin template WhereMixin(T, QueryT, AstT) {
         import miniorm.query_ast;
 
         static struct WhereOptional {
-            QueryT!T value;
+            QueryT value;
             alias value this;
 
             private auto where(string condition, WhereOp op) @trusted pure {
                 import sumtype;
 
-                QueryT!T rval = value;
+                QueryT rval = value;
 
                 Where w = value.query.where.tryMatch!((Where v) => v);
                 WhereExpr we = w.tryMatch!((WhereExpr v) => v);

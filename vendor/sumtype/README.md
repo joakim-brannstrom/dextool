@@ -9,6 +9,7 @@ Features
 - Pattern matching, including support for introspection-based matching
 - Self-referential types, using `This`
 - Works with `pure`, `@safe`, `@nogc`, `nothrow`, and `immutable`
+- Compatible with `-betterC` and `-dip1000`
 - Zero runtime overhead compared to hand-written C
     - No heap allocation
     - Does not rely on runtime type information (`TypeInfo`)
