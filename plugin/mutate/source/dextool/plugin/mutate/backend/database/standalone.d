@@ -83,15 +83,15 @@ struct Database {
         return res.oneValue!long != 0;
     }
 
-    bool isInMutationStatusTable(long status_id) {
+    bool isInMutationStatusTable(MutationStatusId status_id) {
         immutable s = format!"SELECT COUNT(*) FROM %s WHERE id=:id LIMIT 1"(mutationStatusTable);
         auto stmt = db.prepare(s);
-        stmt.bind(":id", status_id);
+        stmt.bind(":id", cast(long) status_id);
         auto res = stmt.execute;
         return res.oneValue!long == 0;
     }
 
-    bool lostMarking(long status_id) @trusted {
+    bool lostMarking(MutationStatusId status_id) @trusted {
         return isInMutationStatusTable(status_id);
     }
 
@@ -109,7 +109,7 @@ struct Database {
         import std.algorithm : filter;
         import std.array : array;
 
-        return getMarkedMutants.filter!(a => lostMarking(a.mutationStatusId)).array;
+        return getMarkedMutants.filter!(a => lostMarking(MutationStatusId(a.mutationStatusId))).array;
     }
 
     Nullable!FileId getFileId(const Path p) @trusted {
