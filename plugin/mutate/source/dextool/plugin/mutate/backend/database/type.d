@@ -148,7 +148,6 @@ struct MutationStatus {
     Nullable!SysTime added;
 }
 
-// TODO: rename to LineMetaData.
 /// Metadata about a line in a file.
 struct LineMetadata {
     FileId id;
@@ -165,7 +164,7 @@ struct LineMetadata {
         this.attr = attr;
     }
 
-    void set(NoMut a) @safe pure nothrow @nogc {
+    void set(NoMut a) @trusted pure nothrow @nogc {
         attr = LineAttr(a);
     }
 
@@ -205,7 +204,7 @@ struct MutantMetaData {
         this.attr = attr;
     }
 
-    void set(NoMut a) @safe pure nothrow @nogc {
+    void set(NoMut a) @trusted pure nothrow @nogc {
         attr = MutantAttr(a);
     }
 

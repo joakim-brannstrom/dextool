@@ -413,6 +413,7 @@ class ShallProduceHtmlReportOfMultiLineComment : SimpleAnalyzeFixture {
 
 class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
     override void test() {
+        import std.json;
         import dextool.plugin.mutate.backend.type : TestCase;
 
         mixin(EnvSetup(globalTestdir));
@@ -429,6 +430,14 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
             .setStdin(readText(programFile ~ ".diff"))
             .run;
 
+        makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--style", "json"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .addArg(["--mutant", "rorp"])
+            .addArg("--diff-from-stdin")
+            .setStdin(readText(programFile ~ ".diff"))
+            .run;
+
         // Assert
         testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.stdout);
         testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.stderr);
@@ -439,6 +448,9 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
             "Analyzed Diff",
             "build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp",
         ]).shouldBeIn(File((testEnv.outdir ~ "html/diff_view.html").toString).byLineCopy.array);
+
+        auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["diff"];
+        (cast(int) (100 * j["score"].floating)).shouldEqual(66);
     }
 }
 

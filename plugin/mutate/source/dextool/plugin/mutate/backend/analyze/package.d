@@ -36,7 +36,7 @@ version (unittest) {
 /** Analyze the files in `frange` for mutations.
  */
 ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
-        ConfigCompiler conf_compiler, ref UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @trusted {
+        ConfigCompiler conf_compiler, UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @trusted {
     import std.algorithm : filter, map;
 
     auto analyzer = Analyzer(db, val_loc, fio, conf_compiler);

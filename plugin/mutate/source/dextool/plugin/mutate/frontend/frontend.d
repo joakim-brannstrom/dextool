@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.frontend.frontend;
 
 import logger = std.experimental.logger;
+import std.array : empty;
 import std.exception : collectException;
 
 import dextool.compilation_db;
@@ -67,6 +68,8 @@ private:
 import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
 
 struct DataAccess {
+    import std.typecons : Nullable;
+
     import dextool.compilation_db : CompileCommandFilter,
         defaultCompilerFlagFilter, fromArgCompileDb;
     import dextool.plugin.mutate.backend : Database;
@@ -75,24 +78,30 @@ struct DataAccess {
     Database db;
     FrontendIO io;
     FrontendValidateLoc validateLoc;
-    UserFileRange frange;
-    CompileCommandDB fusedCompileDb;
 
-    static auto make(ref ArgParser conf) @trusted {
+    ConfigCompileDb compileDb;
+    ConfigCompiler compiler;
+    string[] inFiles;
+
+    // only generate it on demand. All modes do not require it.
+    UserFileRange frange() @trusted {
         CompileCommandDB fusedCompileDb;
-        if (conf.compileDb.dbs.length != 0) {
-            fusedCompileDb = conf.compileDb.dbs.fromArgCompileDb;
+        if (!compileDb.dbs.empty) {
+            fusedCompileDb = compileDb.dbs.fromArgCompileDb;
         }
 
+        return UserFileRange(fusedCompileDb, inFiles, compiler.extraFlags,
+                compileDb.flagFilter, compiler.useCompilerSystemIncludes);
+    }
+
+    static auto make(ref ArgParser conf) @trusted {
         auto fe_io = new FrontendIO(conf.workArea.restrictDir,
                 conf.workArea.outputDirectory, conf.mutationTest.dryRun);
         auto fe_validate = new FrontendValidateLoc(conf.workArea.restrictDir,
                 conf.workArea.outputDirectory);
-        auto frange = UserFileRange(fusedCompileDb, conf.data.inFiles, conf.compiler.extraFlags,
-                conf.compileDb.flagFilter, conf.compiler.useCompilerSystemIncludes);
 
         return DataAccess(Database.make(conf.db, conf.mutationTest.mutationOrder),
-                fe_io, fe_validate, frange, fusedCompileDb);
+                fe_io, fe_validate, conf.compileDb, conf.compiler, conf.data.inFiles);
     }
 }
 
