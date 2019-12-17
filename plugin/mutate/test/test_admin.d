@@ -6,6 +6,7 @@ Author: Niklas Pettersson (nikpe353@student.liu.se)
 module dextool_test.test_admin;
 
 import std.conv : to;
+import std.file : copy;
 import std.format : format;
 import std.path : relativePath;
 
@@ -29,25 +30,24 @@ void commandNotFailed(Command cmd) {
 unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
-    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
-    auto id = MutationId(12);
-    auto toStatus = Status.killed;
-    auto rationale = `"A good rationale"`;
+    immutable dst = testEnv.outdir ~ "fibonacci.cpp";
+    copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
 
     // act
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(id)])
-        .addArg(["--to-status", to!string(toStatus)])
-        .addArg(["--rationale", rationale])
+        .addArg(["--id",        to!string(MutationId(12))])
+        .addArg(["--to-status", to!string(Status.killed)])
+        .addArg(["--rationale", `"A good rationale"`])
         .run;
 
     // assert
     commandNotFailed(r);
     testAnyOrder!SubStr([
-        to!string(id),
-        to!string(toStatus),
-        rationale
+        to!string(MutationId(12)),
+        to!string(Status.killed),
+        `"A good rationale"`
     ]).shouldBeIn(r.stdout);
 }
 
@@ -55,26 +55,25 @@ unittest {
 unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
-    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
+    immutable dst = testEnv.outdir ~ "fibonacci.cpp";
+    copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
     auto db = createDatabase(testEnv);
-    auto id = MutationId(5000);
-    auto toStatus = Status.killed;
-    auto rationale = `"This mutant should not exist"`;
 
     // act
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(id)])
-        .addArg(["--to-status", to!string(toStatus)])
-        .addArg(["--rationale", rationale])
+        .addArg(["--id",        to!string(MutationId(5000))])
+        .addArg(["--to-status", to!string(Status.killed)])
+        .addArg(["--rationale", `"This mutant should not exist"`])
         .run;
 
     // assert
-    db.getMutation(id).isNull.shouldBeTrue;
+    db.getMutation(MutationId(5000)).isNull.shouldBeTrue;
 
     testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.stderr);
     testAnyOrder!SubStr([
-        format!"Failure when marking mutant: %s"(to!string(id))
+        format!"Failure when marking mutant: %s"(to!string(MutationId(5000)))
     ]).shouldBeIn(r.stderr);
 }
 
@@ -82,33 +81,30 @@ unittest {
 unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
-    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
-    auto id = MutationId(3);
-    auto wrongStatus = Status.killedByCompiler;
-    auto wrongRationale = `"Backend claims mutant should not compile on target cpu"`;
-    auto correctStatus = Status.unknown;
-    auto correctRationale = `"Backend was wrong, mutant is legit..."`;
+    immutable dst = testEnv.outdir ~ "fibonacci.cpp";
+    copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
 
     // act
     auto firstRes = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(id)])
-        .addArg(["--to-status", to!string(wrongStatus)])
-        .addArg(["--rationale", wrongRationale])
+        .addArg(["--id",        to!string(MutationId(3))])
+        .addArg(["--to-status", to!string(Status.killedByCompiler)])
+        .addArg(["--rationale", `"Backend claims mutant should not compile on target cpu"`])
         .run;
     auto secondRes = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(id)])
-        .addArg(["--to-status", to!string(correctStatus)])
-        .addArg(["--rationale", correctRationale])
+        .addArg(["--id",        to!string(MutationId(3))])
+        .addArg(["--to-status", to!string(Status.unknown)])
+        .addArg(["--rationale", `"Backend was wrong, mutant is legit..."`])
         .run;
 
     // assert
     commandNotFailed(secondRes);
     testAnyOrder!SubStr([
-        to!string(id),
-        to!string(correctStatus),
-        correctRationale
+        to!string(MutationId(3)),
+        to!string(Status.unknown),
+        `"Backend was wrong, mutant is legit..."`
     ]).shouldBeIn(secondRes.stdout);
 }
 
@@ -116,32 +112,31 @@ unittest {
 unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
-    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
+    immutable dst = testEnv.outdir ~ "fibonacci.cpp";
+    copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
     auto db = createDatabase(testEnv);
-    auto id = MutationId(10);
-    auto toStatus = Status.killed;
-    auto rationale = `"This marking should not exist"`;
 
     // act
     makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(id)])
-        .addArg(["--to-status", to!string(toStatus)])
-        .addArg(["--rationale", rationale])
+        .addArg(["--id",        to!string(MutationId(10))])
+        .addArg(["--to-status", to!string(Status.killed)])
+        .addArg(["--rationale", `"This marking should not exist"`])
         .run;
-    db.isMarked(id).shouldBeTrue;
+    db.isMarked(MutationId(10)).shouldBeTrue;
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "removeMarkedMutant"])
-        .addArg(["--id",        to!string(id)])
+        .addArg(["--id",        to!string(MutationId(10))])
         .run;
 
     // assert
     commandNotFailed(r);
-    db.isMarked(id).shouldBeFalse;
-    (db.getMutationStatus(id) == Status.unknown).shouldBeTrue;
+    db.isMarked(MutationId(10)).shouldBeFalse;
+    (db.getMutationStatus(MutationId(10)) == Status.unknown).shouldBeTrue;
 
     testAnyOrder!SubStr([
-        format!"info: Removed marking for mutant %s"(to!string(id))
+        format!"info: Removed marking for mutant %s"(to!string(MutationId(10)))
     ]).shouldBeIn(r.stdout);
 }
 
@@ -149,22 +144,23 @@ unittest {
 unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
-    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
+    immutable dst = testEnv.outdir ~ "fibonacci.cpp";
+    copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
     auto db = createDatabase(testEnv);
-    auto id = MutationId(20);
 
     // act
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "removeMarkedMutant"])
-        .addArg(["--id",        to!string(id)])
+        .addArg(["--id",        to!string(MutationId(20))])
         .run;
 
     // assert
-    db.isMarked(id).shouldBeFalse;
+    db.isMarked(MutationId(20)).shouldBeFalse;
 
     testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.stderr);
     testAnyOrder!SubStr([
-        format!"Failure when removing marked mutant (mutant %s is not marked)"(to!string(id))
+        format!"Failure when removing marked mutant (mutant %s is not marked)"(to!string(MutationId(20)))
     ]).shouldBeIn(r.stderr);
 }
 
@@ -172,24 +168,23 @@ unittest {
 unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
-    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
-    auto id = MutationId(3);
-    auto toStatus = Status.killedByCompiler;
-    auto rationale = `"Lost"`;
+    immutable dst = testEnv.outdir ~ "fibonacci.cpp";
+    copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
 
     // act
     makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(id)])
-        .addArg(["--to-status", to!string(toStatus)])
-        .addArg(["--rationale", rationale])
+        .addArg(["--id",        to!string(MutationId(3))])
+        .addArg(["--to-status", to!string(Status.killedByCompiler)])
+        .addArg(["--rationale", `"Lost"`])
         .run;
     auto r = makeDextoolAnalyze(testEnv).addInputArg(testData ~ "abs.cpp").run;
 
     // assert
-    testAnyOrder!SubStr([
-        "| ID | File                                              | Line | Column | Status           | Rationale |",
-        "|----|---------------------------------------------------|------|--------|------------------|-----------|",
-        "| 3  | build/plugin/mutate/plugin_testdata/fibonacci.cpp | 8    | 10     | killedByCompiler | \"Lost\"    |",
+    testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)
+        "| ID |", " File ", "    | Line | Column | Status           | Rationale |",
+        "|----|", "--------------|------|--------|------------------|-----------|",
+        "| 3  |", `fibonacci.cpp | 8    | 10     | killedByCompiler | "Lost"    |`,
     ]).shouldBeIn(r.stdout);
 }

@@ -27,7 +27,7 @@ auto makeDextoolAnalyze(const ref TestEnv env) {
 auto makeDextoolAdmin(const ref TestEnv env) {
     // dfmt off
     return dextool_test.makeDextool(env)
-        .setWorkdir(null)
+        .setWorkdir(workDir)
         .args(["mutate", "admin"])
         .addPostArg(["--db", (env.outdir ~ defaultDb).toString]);
     // dfmt on

@@ -12,7 +12,7 @@ module dextool_test.test_report;
 import core.time : dur;
 import std.array : array;
 import std.conv : to;
-import std.file : exists, readText;
+import std.file : copy, exists, readText;
 import std.path : buildPath, buildNormalizedPath, absolutePath, relativePath, setExtension;
 import std.stdio : File;
 
@@ -311,17 +311,16 @@ unittest {
 unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
-    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "fibonacci.cpp").run;
-    auto id = MutationId(3);
-    auto toStatus = Mutation.Status.killedByCompiler;
-    auto rationale = `"Useless"`;
+    immutable dst = testEnv.outdir ~ "fibonacci.cpp";
+    copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+    makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
     // act
     makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(id)])
-        .addArg(["--to-status", to!string(toStatus)])
-        .addArg(["--rationale", rationale])
+        .addArg(["--id",        to!string(MutationId(3))])
+        .addArg(["--to-status", to!string(Mutation.Status.killedByCompiler)])
+        .addArg(["--rationale", `"Marked mutant to be reported"`])
         .run;
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--section",   "marked_mutants"])
@@ -329,10 +328,10 @@ unittest {
         .run;
 
     // assert
-    testConsecutiveSparseOrder!SubStr([
-        "| File                                              | Line | Column | Mutation | Status           | Rationale |",
-        "|---------------------------------------------------|------|--------|----------|------------------|-----------|",
-        "| build/plugin/mutate/plugin_testdata/fibonacci.cpp | 8    | 10     | !=       | killedByCompiler | \"Useless\" |",
+    testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)
+        "| File ", "        | Line | Column | Mutation | Status           | Rationale                      |",
+        "|------", "--------|------|--------|----------|------------------|--------------------------------|",
+        "|", `fibonacci.cpp | 8    | 10     | !=       | killedByCompiler | "Marked mutant to be reported" |`,
     ]).shouldBeIn(r.stdout);
 }
 

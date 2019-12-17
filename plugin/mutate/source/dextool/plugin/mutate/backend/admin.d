@@ -18,7 +18,9 @@ import dextool.type;
 
 import dextool.plugin.mutate.type : MutationKind, AdminOperation;
 import dextool.plugin.mutate.backend.database : Database, MutationId;
-import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.type : Mutation, Offset;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO;
+import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
 auto makeAdmin() {
     return BuildAdmin();
@@ -41,6 +43,7 @@ nothrow:
         Regex!char test_case_regex;
         MutationId mutant_id;
         string mutant_rationale;
+        FilesysIO fio;
     }
 
     private InternalData data;
@@ -77,9 +80,10 @@ nothrow:
         return this;
     }
 
-    auto markMutantData(long v, string s) {
+    auto markMutantData(long v, string s, FilesysIO f) {
         data.mutant_id = v;
         data.mutant_rationale = s;
+        data.fio = f;
         return this;
     }
 
@@ -102,8 +106,8 @@ nothrow:
             return removeTestCase(db,
                     data.kinds, data.test_case_regex);
         case AdminOperation.markMutant:
-            return markMutant(db, data.mutant_id,
-                    data.to_status, data.mutant_rationale);
+            return markMutant(db, data.mutant_id, data.kinds,
+                    data.to_status, data.mutant_rationale, data.fio);
         case AdminOperation.removeMarkedMutant:
             return removeMarkedMutant(db, data.mutant_id);
         }
@@ -143,17 +147,27 @@ ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, cons
     return ExitStatusType.Ok;
 }
 
-ExitStatusType markMutant(ref Database db, MutationId id, Mutation.Status status, string rationale) @trusted nothrow {
+ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] kinds,
+        Mutation.Status status, string rationale, FilesysIO fio) @trusted nothrow {
     try {
+        import std.conv : to;
         auto trans = db.transaction;
 
         const st_id = db.getMutationStatusId(id);
         if (st_id.isNull) {
             logger.errorf("Failure when marking mutant: %s", id);
         } else {
-            db.markMutant(id, st_id.get, status, rationale);
-            db.updateMutationStatus(st_id.get, status);
-            logger.infof(`Mutant %s marked with status %s and rationale '%s'.`, id, status, rationale);
+            auto mut = db.getMutation(id);
+            if (mut.isNull)
+                logger.errorf("Failure when marking mutant: %s", id);
+            else {
+                // assume that mutant has kind
+                auto txt = makeMutationText(fio.makeInput(AbsolutePath(mut.file, DirName(fio.getOutputDir))),
+                        Offset(mut.sloc.line, mut.sloc.column), db.getKind(id), mut.lang).mutation;
+                db.markMutant(mut, st_id.get, status, rationale, to!string(txt));
+                db.updateMutationStatus(st_id.get, status);
+                logger.infof(`Mutant %s marked with status %s and rationale '%s'.`, id, status, rationale);
+            }
         }
 
         trans.commit;

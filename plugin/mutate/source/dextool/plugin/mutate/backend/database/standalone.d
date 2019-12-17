@@ -591,16 +591,9 @@ struct Database {
 
     /** Mark a mutant with status and rationale (also adds metadata).
      */
-    void markMutant(MutationId id, MutationStatusId st_id,
-            Mutation.Status to_status, string rationale) @trusted {
-        auto mut = getMutation(id);
-        if (mut.isNull)
-            return;
-
-        // assume that every mutant has a kind
-        db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, id,
-                mut.sloc.line, mut.sloc.column, mut.file, to_status,
-                Clock.currTime.toUTC, Rationale(rationale), getKind(id), mut.lang));
+    void markMutant(MutationEntry m, MutationStatusId st_id, Mutation.Status s, string r, string txt) @trusted {
+        db.run(insertOrReplace!MarkedMutant,
+            MarkedMutant(st_id, m.id, m.sloc.line, m.sloc.column, m.file, s, Clock.currTime.toUTC, Rationale(r), txt));
     }
 
     void removeMarkedMutant(MutationStatusId st_id) @trusted {
@@ -609,7 +602,7 @@ struct Database {
     }
 
     MarkedMutant[] getMarkedMutants() @trusted {
-        immutable s = format!"SELECT st_id, id, line, column, path, to_status, time, rationale, kind
+        immutable s = format!"SELECT st_id, id, line, column, path, to_status, time, rationale, text
             FROM %s ORDER BY path"(markedMutantTable);
         auto stmt = db.prepare(s);
 
@@ -618,18 +611,18 @@ struct Database {
             app.put(MarkedMutant(res.peek!long(0), res.peek!long(1),
                     res.peek!uint(2), res.peek!uint(3), res.peek!string(4),
                     res.peek!ulong(5), res.peek!string(6).fromSqLiteDateTime,
-                    Rationale(res.peek!string(7)), res.peek!long(8).to!(Mutation.Kind)));
+                    Rationale(res.peek!string(7)), res.peek!string(8)));
         return app.data;
     }
 
-    long getKind(MutationId id) @trusted {
+    Mutation.Kind getKind(MutationId id) @trusted {
         immutable s = format!"SELECT kind FROM %s WHERE id=:id"(mutationTable);
         auto stmt = db.prepare(s);
         stmt.bind(":id", cast(long) id);
 
         typeof(return) rval;
         foreach (res; stmt.execute)
-            rval = res.peek!long(0);
+            rval = res.peek!long(0).to!(Mutation.Kind);
         return rval;
     }
 

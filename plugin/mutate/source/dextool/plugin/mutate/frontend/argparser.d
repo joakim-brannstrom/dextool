@@ -331,6 +331,7 @@ struct ArgParser {
                 "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantToStatus,
                 "id", "specify mutant by Id", &admin.mutationId,
                 "rationale", "rationale for marking mutant", &admin.mutantRationale,
+                "out", out_help, &workArea.rawRoot,
                 );
             // dfmt on
 

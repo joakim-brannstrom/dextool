@@ -434,9 +434,7 @@ struct MarkedMutantTbl {
 
     string rationale;
 
-    ulong kind;
-
-    Language lang;
+    string text;
     }
 
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {

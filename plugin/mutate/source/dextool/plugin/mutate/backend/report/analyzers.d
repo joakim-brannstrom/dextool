@@ -28,7 +28,7 @@ import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult,
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize,
     statusToString, kindToString;
-import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, Language, TestGroup;
+import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, TestGroup;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
 import dextool.plugin.mutate.type : ReportLevel, ReportSection;
 import dextool.type;
