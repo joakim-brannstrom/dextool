@@ -617,6 +617,77 @@ DrainRange drain(Process p) @safe pure nothrow @nogc {
     return DrainRange(p);
 }
 
+/// Read the data from a ReadChannel by line.
+struct DrainByLineCopyRange {
+    private {
+        Process process;
+        DrainRange range;
+        const(char)[] buf;
+        const(char)[] line;
+    }
+
+    this(Process p) @safe pure nothrow @nogc {
+        process = p;
+        range = p.drain;
+    }
+
+    const(char)[] front() @safe pure nothrow const @nogc {
+        assert(!empty, "Can't get front of an empty range");
+        return line;
+    }
+
+    void popFront() @safe {
+        assert(!empty, "Can't pop front of an empty range");
+        import std.algorithm : countUntil;
+        import std.array : array;
+
+        range.popFront;
+
+        if (range.empty) {
+            line = buf;
+            buf = null;
+            if (!line.empty && line[$ - 1] == '\n') {
+                line = line[0 .. $ - 1];
+            }
+            return;
+        }
+
+        line = null;
+        buf ~= range.front.byUTF8.array;
+        const idx = buf.countUntil('\n');
+        if (idx != -1) {
+            line = buf[0 .. idx];
+            if (idx < buf.length) {
+                buf = buf[idx + 1 .. $];
+            } else {
+                buf = null;
+            }
+        }
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return range.empty && buf.empty;
+    }
+}
+
+@("shall drain the process output by line")
+unittest {
+    import std.algorithm : filter, count, joiner, map;
+    import std.array : array;
+
+    auto p = pipeProcess(["dd", "if=/dev/zero", "bs=10", "count=3"]).raii;
+    auto res = p.drainByLineCopy.filter!"!a.empty".array;
+
+    res.length.shouldEqual(3);
+    res.joiner.count.shouldBeGreaterThan(30);
+    p.wait.shouldEqual(0);
+    p.terminated.shouldBeTrue;
+}
+
+auto drainByLineCopy(Process p) @safe {
+    return DrainByLineCopyRange(p);
+}
+
 /// Drain the process output until it is done executing.
 Process drainToNull(Process p) @safe {
     foreach (l; p.drain) {
@@ -639,8 +710,6 @@ unittest {
 
     auto p = pipeProcess(["dd", "if=/dev/urandom", "bs=10", "count=3"]).raii;
     auto res = p.drain.array;
-
-    writeln(res);
 
     // this is just a sanity check. It has to be kind a high because there is
     // some wiggleroom allowed

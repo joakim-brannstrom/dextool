@@ -20,6 +20,7 @@ import std.path : buildPath;
 import std.typecons : Nullable, NullableRef, nullableRef, Tuple;
 
 import blob_model : Blob, Uri;
+import process : DrainElement;
 import sumtype;
 
 import dextool.fsm : Fsm, next, act, get, TypeDataMap;
@@ -82,9 +83,6 @@ nothrow:
     }
 }
 
-immutable stdoutLog = "stdout.log";
-immutable stderrLog = "stderr.log";
-
 struct DriverData {
     NullableRef!Database db;
     FilesysIO filesysIO;
@@ -96,56 +94,49 @@ struct DriverData {
 /** Run the test suite to verify a mutation.
  *
  * Params:
- *  p = ?
- *  timeout = timeout threshold.
+ *  compile_p = compile command
+ *  tester_p = test command
+ *  timeout = kill the test command and mark mutant as timeout if the runtime exceed this value.
+ *  fio = i/o
+ *
+ * Returns: the result of testing the mutant.
  */
-Mutation.Status runTester(ShellCommand compile_p, ShellCommand tester_p,
-        AbsolutePath test_output_dir, Duration timeout, FilesysIO fio) nothrow {
-    import core.sys.posix.signal : SIGKILL;
-    import std.algorithm : among;
-    import std.datetime.stopwatch : StopWatch;
+auto runTester(ShellCommand compile_p, ShellCommand tester_p, Duration timeout) nothrow {
+    import std.algorithm : copy;
     import std.stdio : File;
     import process;
 
-    Mutation.Status rval;
+    struct Rval {
+        Mutation.Status status;
+        DrainElement[] output;
+    }
 
     try {
         auto p = pipeProcess(compile_p.program ~ compile_p.arguments).sandbox.drainToNull.raii;
         if (p.wait != 0) {
-            return Mutation.Status.killedByCompiler;
+            return Rval(Mutation.Status.killedByCompiler);
         }
     } catch (Exception e) {
         logger.warning("Unknown error when executing build command").collectException;
         logger.warning(e.msg).collectException;
-        return Mutation.Status.unknown;
+        return Rval(Mutation.Status.unknown);
     }
 
+    Rval rval;
     try {
-        auto stdout = test_output_dir.empty ? nullOut
-            : File(buildPath(test_output_dir, stdoutLog), "w");
-        auto stderr = test_output_dir.empty ? nullOut
-            : File(buildPath(test_output_dir, stderrLog), "w");
+        auto output = appender!(DrainElement[])();
         auto p = pipeProcess(tester_p.program ~ tester_p.arguments).sandbox.timeout(timeout).raii;
-        foreach (a; p.drain) {
-            final switch (a.type) {
-            case DrainElement.Type.stdout:
-                stdout.write(a.byUTF8);
-                break;
-            case DrainElement.Type.stderr:
-                stderr.write(a.byUTF8);
-                break;
-            }
-        }
+        p.drain.copy(output);
+        rval.output = output.data;
 
-        rval = p.wait == 0 ? Mutation.Status.alive : Mutation.Status.killed;
-
+        rval.status = p.wait == 0 ? Mutation.Status.alive : Mutation.Status.killed;
         if (p.timeoutTriggered) {
-            rval = Mutation.Status.timeout;
+            rval.status = Mutation.Status.timeout;
         }
     } catch (Exception e) {
         // unable to for example execute the test suite
         logger.warning(e.msg).collectException;
-        rval = Mutation.Status.unknown;
+        rval.status = Mutation.Status.unknown;
     }
 
     return rval;
@@ -246,10 +237,9 @@ struct MutationTestDriver {
     }
 
     static struct TestCaseAnalyzeData {
+        //TODO: change to a ShellCommand
         AbsolutePath test_case_cmd;
         const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin;
-        /// Temporary directory where stdout/stderr should be written.
-        AbsolutePath test_tmp_output;
     }
 
     static struct None {
@@ -265,7 +255,7 @@ struct MutationTestDriver {
     }
 
     static struct TestMutant {
-        bool next;
+        DrainElement[] output;
         bool mutationError;
     }
 
@@ -275,6 +265,7 @@ struct MutationTestDriver {
     }
 
     static struct TestCaseAnalyze {
+        DrainElement[] output;
         bool next;
         bool mutationError;
         bool unstableTests;
@@ -312,7 +303,7 @@ struct MutationTestDriver {
         this.local = LocalStateDataT(l1, l2);
     }
 
-    static void execute_(ref MutationTestDriver self) {
+    static void execute_(ref MutationTestDriver self) @trusted {
         self.fsm.next!((None a) => fsm(Initialize.init),
                 (Initialize a) => fsm(MutateCode.init), (MutateCode a) {
             if (a.next)
@@ -323,11 +314,12 @@ struct MutationTestDriver {
                 return fsm(NoResultRestoreCode.init);
             return fsm(a);
         }, (TestMutant a) {
-            if (a.next)
-                return fsm(TestCaseAnalyze.init);
-            else if (a.mutationError)
+            if (a.mutationError)
                 return fsm(NoResultRestoreCode.init);
-            return fsm(a);
+            else if (self.global.mut_status == Mutation.Status.killed
+                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && !a.output.empty)
+                return fsm(TestCaseAnalyze(a.output));
+            return fsm(RestoreCode.init);
         }, (TestCaseAnalyze a) {
             if (a.next)
                 return fsm(RestoreCode.init);
@@ -445,27 +437,11 @@ nothrow:
     }
 
     void opCall(ref TestMutant data) {
-        if (local.get!TestMutant.hasTestCaseOutputAnalyzer) {
-            try {
-                auto tmpdir = createTmpDir(global.mutp.id);
-                if (tmpdir.length == 0) {
-                    data.mutationError = true;
-                    return;
-                }
-                local.get!TestCaseAnalyze.test_tmp_output = Path(tmpdir).AbsolutePath;
-                global.auto_cleanup.add(local.get!TestCaseAnalyze.test_tmp_output);
-            } catch (Exception e) {
-                logger.warning(e.msg).collectException;
-                data.mutationError = true;
-                return;
-            }
-        }
-
         try {
-            global.mut_status = runTester(local.get!TestMutant.compile_cmd,
-                    local.get!TestMutant.test_cmd, local.get!TestCaseAnalyze.test_tmp_output,
-                    local.get!TestMutant.tester_runtime, global.fio);
-            data.next = true;
+            auto res = runTester(local.get!TestMutant.compile_cmd,
+                    local.get!TestMutant.test_cmd, local.get!TestMutant.tester_runtime);
+            global.mut_status = res.status;
+            data.output = res.output;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
             data.mutationError = true;
@@ -477,22 +453,7 @@ nothrow:
         import std.file : exists;
         import std.string : strip;
 
-        if (global.mut_status != Mutation.Status.killed
-                || local.get!TestCaseAnalyze.test_tmp_output.empty) {
-            data.next = true;
-            return;
-        }
-
         try {
-            auto stdout_ = buildPath(local.get!TestCaseAnalyze.test_tmp_output, stdoutLog);
-            auto stderr_ = buildPath(local.get!TestCaseAnalyze.test_tmp_output, stderrLog);
-
-            if (!exists(stdout_) || !exists(stderr_)) {
-                logger.warningf("Unable to open %s and %s for test case analyze", stdout_, stderr_);
-                data.mutationError = true;
-                return;
-            }
-
             auto gather_tc = new GatherTestCase;
 
             // the post processer must succeeed for the data to be stored. if
@@ -502,13 +463,12 @@ nothrow:
 
             if (!local.get!TestCaseAnalyze.test_case_cmd.empty) {
                 success = success && externalProgram([
-                        local.get!TestCaseAnalyze.test_case_cmd, stdout_, stderr_
-                        ], gather_tc);
+                        local.get!TestCaseAnalyze.test_case_cmd
+                        ], data.output, gather_tc, global.auto_cleanup);
             }
             if (!local.get!TestCaseAnalyze.tc_analyze_builtin.empty) {
-                success = success && builtin(global.fio.getOutputDir, [
-                        stdout_, stderr_
-                        ], local.get!TestCaseAnalyze.tc_analyze_builtin, gather_tc);
+                success = success && builtin(data.output,
+                        local.get!TestCaseAnalyze.tc_analyze_builtin, gather_tc);
             }
 
             if (!gather_tc.unstable.empty) {
@@ -872,42 +832,25 @@ nothrow:
         import std.datetime.stopwatch : StopWatch;
         import dextool.plugin.mutate.backend.type : TestCase;
 
-        AbsolutePath test_tmp_output;
-        try {
-            auto tmpdir = createTmpDir(0);
-            if (tmpdir.length == 0)
-                return;
-            test_tmp_output = Path(tmpdir).AbsolutePath;
-            global.data.autoCleanup.add(test_tmp_output);
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-            return;
-        }
-
         TestCase[] all_found_tc;
 
         try {
             import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
 
-            auto stdout_ = buildPath(test_tmp_output, stdoutLog);
-            auto stderr_ = buildPath(test_tmp_output, stderrLog);
-
             // using an unreasonable timeout because this is more intended to reuse the functionality in runTester
-            runTester(global.data.conf.mutationCompile, global.data.conf.mutationTester,
-                    test_tmp_output, 999.dur!"hours", global.data.filesysIO);
+            auto res = runTester(global.data.conf.mutationCompile,
+                    global.data.conf.mutationTester, 999.dur!"hours");
 
             auto gather_tc = new GatherTestCase;
 
             if (global.data.conf.mutationTestCaseAnalyze.length != 0) {
-                externalProgram([
-                        global.data.conf.mutationTestCaseAnalyze, stdout_, stderr_
-                        ], gather_tc);
+                externalProgram([global.data.conf.mutationTestCaseAnalyze],
+                        res.output, gather_tc, global.data.autoCleanup);
                 logger.warningf(gather_tc.unstable.length != 0,
                         "Unstable test cases found: [%-(%s, %)]", gather_tc.unstableAsArray);
             }
             if (global.data.conf.mutationTestCaseBuiltin.length != 0) {
-                builtin(global.data.filesysIO.getOutputDir, [stdout_, stderr_],
-                        global.data.conf.mutationTestCaseBuiltin, gather_tc);
+                builtin(res.output, global.data.conf.mutationTestCaseBuiltin, gather_tc);
             }
 
             all_found_tc = gather_tc.foundAsArray;
@@ -1129,7 +1072,7 @@ nothrow:
                         && d.conf.mutationTestCaseBuiltin.empty), d.conf.mutationCompile,
                         d.conf.mutationTester, test_base_timeout),
                         MutationTestDriver.TestCaseAnalyzeData(d.conf.mutationTestCaseAnalyze,
-                        d.conf.mutationTestCaseBuiltin,)));
+                        d.conf.mutationTestCaseBuiltin)));
             } catch (Exception e) {
                 logger.error(e.msg).collectException;
             }
@@ -1275,36 +1218,73 @@ nothrow:
 
 private:
 
-/// Run an external program that analyze the output from the test suite for test cases that failed.
-bool externalProgram(string[] cmd, TestCaseReport report) nothrow {
+/** Run an external program that analyze the output from the test suite for
+ * test cases that failed.
+ *
+ * Params:
+ * cmd = user analyze command to execute on the output
+ * output = output from the test command to be passed on to the analyze command
+ * report = the result is stored in the report
+ *
+ * Returns: True if it successfully analyzed the output
+ */
+bool externalProgram(string[] cmd, DrainElement[] output, TestCaseReport report, AutoCleanup cleanup) @safe nothrow {
     import std.algorithm : copy;
     import std.ascii : newline;
-    import std.process : execute;
     import std.string : strip, startsWith;
+    import process;
 
     immutable passed = "passed:";
     immutable failed = "failed:";
     immutable unstable = "unstable:";
 
-    try {
-        // [test_case_cmd, stdout_, stderr_]
-        auto p = execute(cmd);
-        if (p.status == 0) {
-            foreach (l; p.output.splitter(newline).map!(a => a.strip)
-                    .filter!(a => a.length != 0)) {
-                if (l.startsWith(passed))
-                    report.reportFound(TestCase(l[passed.length .. $].strip));
-                else if (l.startsWith(failed))
-                    report.reportFailed(TestCase(l[failed.length .. $].strip));
-                else if (l.startsWith(unstable))
-                    report.reportUnstable(TestCase(l[unstable.length .. $].strip));
+    auto tmpdir = createTmpDir();
+    if (tmpdir.empty) {
+        return false;
+    }
+
+    void writeOutput() @safe {
+        import std.stdio : File;
+
+        const stdoutPath = buildPath(tmpdir, "stdout.log");
+        const stderrPath = buildPath(tmpdir, "stderr.log");
+        auto stdout = File(stdoutPath, "w");
+        auto stderr = File(stderrPath, "w");
+
+        foreach (a; output) {
+            final switch (a.type) {
+            case DrainElement.Type.stdout:
+                stdout.write(a.data);
+                break;
+            case DrainElement.Type.stderr:
+                stderr.write(a.data);
+                break;
             }
-            return true;
-        } else {
-            logger.warning(p.output);
-            logger.warning("Failed to analyze the test case output");
-            return false;
         }
+
+        cmd ~= [stdoutPath, stderrPath];
+    }
+
+    try {
+        cleanup.add(tmpdir.Path.AbsolutePath);
+        writeOutput;
+        auto p = pipeProcess(cmd).sandbox.raii;
+        foreach (l; p.drainByLineCopy
+                .map!(a => a.strip)
+                .filter!(a => !a.empty)) {
+            if (l.startsWith(passed))
+                report.reportFound(TestCase(l[passed.length .. $].strip.idup));
+            else if (l.startsWith(failed))
+                report.reportFailed(TestCase(l[failed.length .. $].strip.idup));
+            else if (l.startsWith(unstable))
+                report.reportUnstable(TestCase(l[unstable.length .. $].strip.idup));
+        }
+
+        if (p.wait == 0) {
+            return true;
+        }
+
+        logger.warningf("Failed to analyze the test case output with command '%-(%s %)'", cmd);
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }
@@ -1313,88 +1293,90 @@ bool externalProgram(string[] cmd, TestCaseReport report) nothrow {
 }
 
 /** Analyze the output from the test suite with one of the builtin analyzers.
- *
- * trusted: because the paths to the File object are created by this program
- * and can thus not lead to memory related problems.
  */
-bool builtin(AbsolutePath reldir, string[] analyze_files,
-        const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin, TestCaseReport app) @trusted nothrow {
-    import std.stdio : File;
+bool builtin(DrainElement[] output,
+        const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin, TestCaseReport app) @safe nothrow {
     import dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze;
     import dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
     import dextool.plugin.mutate.backend.test_mutant.makefile_post_analyze;
 
-    foreach (f; analyze_files) {
-        auto gtest = GtestParser(reldir);
-        CtestParser ctest;
-        MakefileParser makefile;
+    GtestParser gtest;
+    CtestParser ctest;
+    MakefileParser makefile;
 
-        File* fin;
-        try {
-            fin = new File(f);
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-            return false;
+    void analyzeLine(const(char)[] line) {
+        // this is a magic number that felt good. Why would there be a line in a test case log that is longer than this?
+        immutable magic_nr = 2048;
+        if (line.length > magic_nr) {
+            // The byLine split may fail and thus result in one huge line.
+            // The result of this is that regex's that use backtracking become really slow.
+            // By skipping these lines dextool at list doesn't hang.
+            logger.warningf("Line in test case log is too long to analyze (%s > %s). Skipping...",
+                    line.length, magic_nr);
+            return;
         }
 
-        scope (exit)
-            () {
-            try {
-                fin.close;
-                destroy(fin);
-            } catch (Exception e) {
-                logger.warning(e.msg).collectException;
+        foreach (const p; tc_analyze_builtin) {
+            final switch (p) {
+            case TestCaseAnalyzeBuiltin.gtest:
+                gtest.process(line, app);
+                break;
+            case TestCaseAnalyzeBuiltin.ctest:
+                ctest.process(line, app);
+                break;
+            case TestCaseAnalyzeBuiltin.makefile:
+                makefile.process(line, app);
+                break;
             }
-        }();
+        }
+    }
 
-        // an invalid UTF-8 char shall only result in the rest of the file being skipped
+    const(char)[] buf;
+    void parseLine() {
+        import std.algorithm : countUntil;
+
         try {
-            foreach (l; fin.byLine) {
-                // this is a magic number that felt good. Why would there be a line in a test case log that is longer than this?
-                immutable magic_nr = 2048;
-                if (l.length > magic_nr) {
-                    // The byLine split may fail and thus result in one huge line.
-                    // The result of this is that regex's that use backtracking become really slow.
-                    // By skipping these lines dextool at list doesn't hang.
-                    logger.warningf("Line in test case log is too long to analyze (%s > %s). Skipping...",
-                            l.length, magic_nr);
-                    continue;
-                }
-
-                foreach (const p; tc_analyze_builtin) {
-                    final switch (p) {
-                    case TestCaseAnalyzeBuiltin.gtest:
-                        gtest.process(l, app);
-                        break;
-                    case TestCaseAnalyzeBuiltin.ctest:
-                        ctest.process(l, app);
-                        break;
-                    case TestCaseAnalyzeBuiltin.makefile:
-                        makefile.process(l, app);
-                        break;
-                    }
+            const idx = buf.countUntil('\n');
+            if (idx != -1) {
+                analyzeLine(buf[0 .. idx]);
+                if (idx < buf.length) {
+                    buf = buf[idx + 1 .. $];
+                } else {
+                    buf = null;
                 }
             }
         } catch (Exception e) {
+            logger.warning("A error encountered when trying to analyze the output from the test suite. Dumping the rest of the buffer")
+                .collectException;
+
             logger.warning(e.msg).collectException;
+            buf = null;
         }
+    }
+
+    foreach (d; output.map!(a => a.byUTF8.array)) {
+        buf ~= d;
+        parseLine;
+    }
+    while (!buf.empty) {
+        parseLine;
     }
 
     return true;
 }
 
 /// Returns: path to a tmp directory or null on failure.
-string createTmpDir(long id) nothrow {
+string createTmpDir() @safe nothrow {
     import std.random : uniform;
     import std.format : format;
-    import std.file : mkdir, exists;
+    import std.file : mkdir;
 
     string test_tmp_output;
 
     // try 5 times or bailout
     foreach (const _; 0 .. 5) {
         try {
-            auto tmp = format("dextool_tmp_id_%s_%s", id, uniform!ulong);
+            auto tmp = format!"dextool_tmp_id_%s"(uniform!ulong);
             mkdir(tmp);
             test_tmp_output = AbsolutePath(FileName(tmp));
             break;
@@ -1489,6 +1471,8 @@ class AutoCleanup {
 
 /// The result of testing a mutant.
 struct MutationTestResult {
+    import process : DrainElement;
+
     static struct NoResult {
     }
 
@@ -1497,6 +1481,7 @@ struct MutationTestResult {
         Mutation.Status status;
         Duration testTime;
         TestCase[] testCases;
+        DrainElement[] output;
     }
 
     alias Value = SumType!(NoResult, StatusUpdate);

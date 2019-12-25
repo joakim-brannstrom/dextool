@@ -69,9 +69,7 @@ class GatherTestCase : TestCaseReport {
     }
 
     override void reportFailed(TestCase tc) @safe nothrow {
-        import std.format : format;
-
-        this.reportFound(tc);
+        found.add(tc);
 
         if (auto v = tc in failed) {
             (*v)++;
