@@ -265,7 +265,6 @@ struct MutationTestDriver {
     }
 
     static struct TestCaseAnalyze {
-        bool next;
         bool mutationError;
         bool unstableTests;
     }
@@ -316,15 +315,14 @@ struct MutationTestDriver {
             if (a.mutationError)
                 return fsm(NoResultRestoreCode.init);
             else if (self.global.mut_status == Mutation.Status.killed
-                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && !self.local.get!TestCaseAnalyze.output.empty)
+                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer
+                && !self.local.get!TestCaseAnalyze.output.empty)
                 return fsm(TestCaseAnalyze.init);
             return fsm(RestoreCode.init);
         }, (TestCaseAnalyze a) {
-            if (a.next)
-                return fsm(RestoreCode.init);
-            else if (a.mutationError || a.unstableTests)
+            if (a.mutationError || a.unstableTests)
                 return fsm(NoResultRestoreCode.init);
-            return fsm(a);
+            return fsm(RestoreCode.init);
         }, (RestoreCode a) {
             if (a.next)
                 return fsm(StoreResult.init);
@@ -448,10 +446,6 @@ nothrow:
     }
 
     void opCall(ref TestCaseAnalyze data) {
-        import std.ascii : newline;
-        import std.file : exists;
-        import std.string : strip;
-
         try {
             auto gather_tc = new GatherTestCase;
 
@@ -478,8 +472,6 @@ nothrow:
                 data.unstableTests = true;
             } else if (success) {
                 global.test_cases = gather_tc;
-                // TODO: this is stupid... do not use bools
-                data.next = true;
             }
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -488,8 +480,14 @@ nothrow:
 
     void opCall(StoreResult data) {
         global.sw.stop;
+        auto failedTestCases = () {
+            if (global.test_cases is null) {
+                return null;
+            }
+            return global.test_cases.failedAsArray;
+        }();
         result = MutationTestResult.StatusUpdate(global.mutp.id,
-                global.mut_status, global.sw.peek, global.test_cases.failedAsArray);
+                global.mut_status, global.sw.peek, failedTestCases);
     }
 
     void opCall(ref RestoreCode data) {
@@ -842,13 +840,13 @@ nothrow:
 
             auto gather_tc = new GatherTestCase;
 
-            if (global.data.conf.mutationTestCaseAnalyze.length != 0) {
+            if (!global.data.conf.mutationTestCaseAnalyze.empty) {
                 externalProgram([global.data.conf.mutationTestCaseAnalyze],
                         res.output, gather_tc, global.data.autoCleanup);
                 logger.warningf(gather_tc.unstable.length != 0,
                         "Unstable test cases found: [%-(%s, %)]", gather_tc.unstableAsArray);
             }
-            if (global.data.conf.mutationTestCaseBuiltin.length != 0) {
+            if (!global.data.conf.mutationTestCaseBuiltin.empty) {
                 builtin(res.output, global.data.conf.mutationTestCaseBuiltin, gather_tc);
             }
 
@@ -1065,7 +1063,6 @@ nothrow:
 
             try {
                 auto global = MutationTestDriver.Global(d.filesysIO, d.db, d.autoCleanup, mutp);
-                global.test_cases = new GatherTestCase;
                 return Unique!MutationTestDriver(new MutationTestDriver(global,
                         MutationTestDriver.TestMutantData(!(d.conf.mutationTestCaseAnalyze.empty
                         && d.conf.mutationTestCaseBuiltin.empty), d.conf.mutationCompile,
@@ -1194,7 +1191,7 @@ nothrow:
             });
 
             logger.infof("%s %s (%s)", result.id, result.status, result.testTime).collectException;
-            logger.infof(result.testCases.length != 0, `%s killed by [%-(%s, %)]`,
+            logger.infof(!result.testCases.empty, `%s killed by [%-(%s, %)]`,
                     result.id, result.testCases.sort.map!"a.name").collectException;
         }
 
