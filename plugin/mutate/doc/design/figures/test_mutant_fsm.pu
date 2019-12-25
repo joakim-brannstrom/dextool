@@ -12,12 +12,15 @@ SanityCheck -> PreCompileSut
 ParseStdin -> PreCompileSut
 
 PreCompileSut --> Error : failed
-PreCompileSut -> UpdateAndResetAliveMutants
+PreCompileSut -> AnalyzeTestCmdForTestCase : hasAnalyzer
 PreCompileSut --> PullRequest : hasConstraint
+PreCompileSut --> CheckMutantsLeft
 
 PullRequest -> CheckMutantsLeft
 
-UpdateAndResetAliveMutants -> CheckMutantsLeft
+AnalyzeTestCmdForTestCase --> UpdateAndResetAliveMutants
+
+UpdateAndResetAliveMutants --> CheckMutantsLeft
 
 UpdateTimeout --> CleanupTempDirs
 

@@ -13,7 +13,7 @@ import core.thread : Thread;
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
 import std.algorithm : sort, map, splitter, filter;
-import std.array : empty, array;
+import std.array : empty, array, appender;
 import std.datetime : SysTime, Clock;
 import std.exception : collectException;
 import std.path : buildPath;
@@ -99,121 +99,120 @@ struct DriverData {
  *  p = ?
  *  timeout = timeout threshold.
  */
-Mutation.Status runTester(WatchdogT)(ShellCommand compile_p, ShellCommand tester_p,
-        AbsolutePath test_output_dir, WatchdogT watchdog, FilesysIO fio) nothrow {
+Mutation.Status runTester(ShellCommand compile_p, ShellCommand tester_p,
+        AbsolutePath test_output_dir, Duration timeout, FilesysIO fio) nothrow {
+    import core.sys.posix.signal : SIGKILL;
     import std.algorithm : among;
     import std.datetime.stopwatch : StopWatch;
-    import dextool.plugin.mutate.backend.linux_process : spawnSession, tryWait, kill, wait;
     import std.stdio : File;
-    import core.sys.posix.signal : SIGKILL;
-    import dextool.plugin.mutate.backend.utility : rndSleep;
+    import process;
 
     Mutation.Status rval;
 
     try {
-        auto p = spawnSession(compile_p.program ~ compile_p.arguments);
-        auto res = p.wait;
-        if (res.terminated && res.status != 0)
+        auto p = pipeProcess(compile_p.program ~ compile_p.arguments).sandbox.drainToNull.raii;
+        if (p.wait != 0) {
             return Mutation.Status.killedByCompiler;
-        else if (!res.terminated) {
-            logger.warning("unknown error when executing the compiler").collectException;
-            return Mutation.Status.unknown;
         }
     } catch (Exception e) {
+        logger.warning("Unknown error when executing build command").collectException;
         logger.warning(e.msg).collectException;
-    }
-
-    string stdout_p;
-    string stderr_p;
-
-    if (test_output_dir.length != 0) {
-        stdout_p = buildPath(test_output_dir, stdoutLog);
-        stderr_p = buildPath(test_output_dir, stderrLog);
+        return Mutation.Status.unknown;
     }
 
     try {
-        auto p = spawnSession(tester_p.program ~ tester_p.arguments, stdout_p, stderr_p);
-        // trusted: killing the process started in this scope
-        void cleanup() @safe nothrow {
-            import core.sys.posix.signal : SIGKILL;
-
-            if (rval.among(Mutation.Status.timeout, Mutation.Status.unknown)) {
-                kill(p, SIGKILL);
-                wait(p);
+        auto stdout = test_output_dir.empty ? nullOut
+            : File(buildPath(test_output_dir, stdoutLog), "w");
+        auto stderr = test_output_dir.empty ? nullOut
+            : File(buildPath(test_output_dir, stderrLog), "w");
+        auto p = pipeProcess(tester_p.program ~ tester_p.arguments).sandbox.timeout(timeout).raii;
+        foreach (a; p.drain) {
+            final switch (a.type) {
+            case DrainElement.Type.stdout:
+                stdout.write(a.byUTF8);
+                break;
+            case DrainElement.Type.stderr:
+                stderr.write(a.byUTF8);
+                break;
             }
         }
 
-        scope (exit)
-            cleanup;
+        rval = p.wait == 0 ? Mutation.Status.alive : Mutation.Status.killed;
 
-        rval = Mutation.Status.timeout;
-        watchdog.start;
-        while (watchdog.isOk) {
-            auto res = tryWait(p);
-            if (res.terminated) {
-                if (res.status == 0)
-                    rval = Mutation.Status.alive;
-                else
-                    rval = Mutation.Status.killed;
-                break;
-            }
-
-            rndSleep(10.dur!"msecs", 50);
+        if (p.timeoutTriggered) {
+            rval = Mutation.Status.timeout;
         }
     } catch (Exception e) {
         // unable to for example execute the test suite
         logger.warning(e.msg).collectException;
-        return Mutation.Status.unknown;
+        rval = Mutation.Status.unknown;
     }
 
     return rval;
 }
 
 struct MeasureTestDurationResult {
-    ExitStatusType status;
+    bool ok;
     Duration runtime;
 }
 
-/**
+/** Measure the time it takes to run the test command.
+ *
+ * The runtime is the lowest of three executions. Anything else is assumed to
+ * be variations in the system.
+ *
  * If the tests fail (exit code isn't 0) any time then they are too unreliable
  * to use for mutation testing.
  *
- * The runtime is the lowest of the three executions.
- *
  * Params:
- *  p = ?
+ *  cmd = test command to measure
  */
-MeasureTestDurationResult measureTesterDuration(ShellCommand cmd) nothrow {
+MeasureTestDurationResult measureTestCommand(ShellCommand cmd) @safe nothrow {
+    import std.datetime.stopwatch : StopWatch, AutoStart;
+    import std.stdio : writeln;
+    import process;
+
     if (cmd.program.length == 0) {
-        collectException(logger.error("No test suite runner specified (--mutant-tester)"));
-        return MeasureTestDurationResult(ExitStatusType.Errors);
+        collectException(logger.error("No test command specified (--test-cmd)"));
+        return MeasureTestDurationResult(false);
     }
 
-    auto any_failure = ExitStatusType.Ok;
+    auto runTest(bool printToConsole) @safe {
+        const cmd = cmd.program ~ cmd.arguments;
+        auto p = pipeProcess(cmd).sandbox.measureTime.raii;
+        logger.info(printToConsole, "Test command: %-(%s %)", cmd);
+        foreach (l; p.drain) {
+            if (printToConsole) {
+                writeln(l.byUTF8);
+            }
+        }
 
-    void fun() {
-        import std.process : execute;
-
-        auto res = execute(cmd.program ~ cmd.arguments);
-        if (res.status != 0)
-            any_failure = ExitStatusType.Errors;
+        return p;
     }
 
-    import std.datetime.stopwatch : benchmark;
-    import std.algorithm : minElement;
+    auto runtime = Duration.max;
+    bool failed;
+    for (int i; i < 3 && !failed; ++i) {
+        try {
+            auto p = runTest(false).raii;
+            if (p.wait == 0) {
+                runtime = runtime < p.time ? runtime : p.time;
+            } else {
+                failed = true;
+            }
 
-    try {
-        auto bench = benchmark!fun(3);
-
-        if (any_failure != ExitStatusType.Ok)
-            return MeasureTestDurationResult(ExitStatusType.Errors);
-
-        auto a = (cast(long)((bench[0].total!"msecs") / 3.0)).dur!"msecs";
-        return MeasureTestDurationResult(ExitStatusType.Ok, a);
-    } catch (Exception e) {
-        collectException(logger.error(e.msg));
-        return MeasureTestDurationResult(ExitStatusType.Errors);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            failed = true;
+        }
     }
+
+    if (failed) {
+        collectException(runTest(true).raii.wait);
+        return MeasureTestDurationResult(false);
+    }
+
+    return MeasureTestDurationResult(true, runtime);
 }
 
 /** Drive the control flow when testing **a** mutant.
@@ -463,12 +462,9 @@ nothrow:
         }
 
         try {
-            import dextool.plugin.mutate.backend.watchdog : StaticTime;
-
-            auto watchdog = StaticTime!StopWatch(local.get!TestMutant.tester_runtime);
-
-            global.mut_status = runTester(local.get!TestMutant.compile_cmd, local.get!TestMutant.test_cmd,
-                    local.get!TestCaseAnalyze.test_tmp_output, watchdog, global.fio);
+            global.mut_status = runTester(local.get!TestMutant.compile_cmd,
+                    local.get!TestMutant.test_cmd, local.get!TestCaseAnalyze.test_tmp_output,
+                    local.get!TestMutant.tester_runtime, global.fio);
             data.next = true;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -479,7 +475,6 @@ nothrow:
     void opCall(ref TestCaseAnalyze data) {
         import std.ascii : newline;
         import std.file : exists;
-        import std.process : execute;
         import std.string : strip;
 
         if (global.mut_status != Mutation.Status.killed
@@ -601,7 +596,12 @@ struct TestDriver {
         bool sanityCheckFailed;
     }
 
+    static struct AnalyzeTestCmdForTestCase {
+        TestCase[] foundTestCases;
+    }
+
     static struct UpdateAndResetAliveMutants {
+        TestCase[] foundTestCases;
     }
 
     static struct ResetOldMutant {
@@ -685,11 +685,11 @@ struct TestDriver {
     }
 
     alias Fsm = dextool.fsm.Fsm!(None, Initialize, SanityCheck,
-            UpdateAndResetAliveMutants, ResetOldMutant, CleanupTempDirs,
-            CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
-            NextMutant, MutationTest, HandleTestResult, CheckTimeout,
-            Done, Error, UpdateTimeout, CheckRuntime, SetMaxRuntime,
-            PullRequest, NextPullRequestMutant, ParseStdin);
+            AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
+            CleanupTempDirs, CheckMutantsLeft, PreCompileSut, MeasureTestSuite,
+            PreMutationTest, NextMutant, MutationTest, HandleTestResult,
+            CheckTimeout, Done, Error, UpdateTimeout, CheckRuntime,
+            SetMaxRuntime, PullRequest, NextPullRequestMutant, ParseStdin);
 
     Fsm fsm;
 
@@ -720,7 +720,8 @@ struct TestDriver {
             if (self.global.data.conf.unifiedDiffFromStdin)
                 return fsm(ParseStdin.init);
             return fsm(PreCompileSut.init);
-        }, (ParseStdin a) => fsm(PreCompileSut.init),
+        }, (ParseStdin a) => fsm(PreCompileSut.init), (AnalyzeTestCmdForTestCase a) => fsm(
+                UpdateAndResetAliveMutants(a.foundTestCases)),
                 (UpdateAndResetAliveMutants a) => fsm(CheckMutantsLeft.init), (ResetOldMutant a) {
             if (a.doneTestingOldMutants)
                 return fsm(Done.init);
@@ -737,9 +738,12 @@ struct TestDriver {
         }, (PreCompileSut a) {
             if (a.compilationError)
                 return fsm(Error.init);
-            if (self.local.get!PullRequest.constraint.empty)
-                return fsm(UpdateAndResetAliveMutants.init);
-            return fsm(PullRequest.init);
+            if (!self.local.get!PullRequest.constraint.empty)
+                return fsm(PullRequest.init);
+            if (!self.global.data.conf.mutationTestCaseAnalyze.empty
+                || !self.global.data.conf.mutationTestCaseBuiltin.empty)
+                return fsm(AnalyzeTestCmdForTestCase.init);
+            return fsm(CheckMutantsLeft.init);
         }, (PullRequest a) => fsm(CheckMutantsLeft.init), (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
@@ -809,45 +813,43 @@ nothrow:
 
     void opCall(ref SanityCheck data) {
         // #SPC-sanity_check_db_vs_filesys
-        import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath;
-        import dextool.plugin.mutate.backend.type : Checksum;
+        import colorlog : color, Color;
+        import dextool.plugin.mutate.backend.utility : checksum, Checksum;
 
-        const(Path)[] files;
-        spinSql!(() { files = global.data.db.getFiles; });
+        logger.info("Checking that the file(s) on the filesystem match the database")
+            .collectException;
 
-        bool has_sanity_check_failed;
-        for (size_t i; i < files.length;) {
-            Checksum db_checksum;
-            spinSql!(() { db_checksum = global.data.db.getFileChecksum(files[i]); });
+        auto failed = appender!(string[])();
+        foreach (file; spinSql!(() { return global.data.db.getFiles; })) {
+            auto db_checksum = spinSql!(() {
+                return global.data.db.getFileChecksum(file);
+            });
 
             try {
-                auto abs_f = AbsolutePath(FileName(files[i]),
+                auto abs_f = AbsolutePath(FileName(file),
                         DirName(cast(string) global.data.filesysIO.getOutputDir));
                 auto f_checksum = checksum(global.data.filesysIO.makeInput(abs_f).content[]);
                 if (db_checksum != f_checksum) {
-                    logger.errorf("Mismatch between the file on the filesystem and the analyze of '%s'",
-                            abs_f);
-                    has_sanity_check_failed = true;
+                    failed.put(abs_f);
                 }
             } catch (Exception e) {
                 // assume it is a problem reading the file or something like that.
-                has_sanity_check_failed = true;
-                logger.trace(e.msg).collectException;
+                failed.put(file);
+                logger.warningf("%s: %s", file, e.msg).collectException;
             }
-
-            // all done. continue with the next file
-            ++i;
         }
 
-        if (has_sanity_check_failed) {
-            data.sanityCheckFailed = true;
-            logger.error("Detected that one or more file has changed since last analyze where done")
+        data.sanityCheckFailed = failed.data.length != 0;
+
+        if (data.sanityCheckFailed) {
+            logger.error("Detected that file(s) has changed since last analyze where done")
                 .collectException;
-            logger.error("Either restore the files to the previous state or rerun the analyzer")
-                .collectException;
+            logger.error("Either restore the file(s) or rerun the analyze").collectException;
+            foreach (f; failed.data) {
+                logger.info(f).collectException;
+            }
         } else {
-            logger.info("Sanity check passed. Files on the filesystem are consistent")
-                .collectException;
+            logger.info("Ok".color(Color.green)).collectException;
         }
     }
 
@@ -866,14 +868,9 @@ nothrow:
         }
     }
 
-    // TODO: refactor. This method is too long.
-    void opCall(UpdateAndResetAliveMutants data) {
+    void opCall(ref AnalyzeTestCmdForTestCase data) {
         import std.datetime.stopwatch : StopWatch;
         import dextool.plugin.mutate.backend.type : TestCase;
-
-        if (global.data.conf.mutationTestCaseAnalyze.length == 0
-                && global.data.conf.mutationTestCaseBuiltin.length == 0)
-            return;
 
         AbsolutePath test_tmp_output;
         try {
@@ -891,15 +888,13 @@ nothrow:
 
         try {
             import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
-            import dextool.plugin.mutate.backend.watchdog : StaticTime;
 
             auto stdout_ = buildPath(test_tmp_output, stdoutLog);
             auto stderr_ = buildPath(test_tmp_output, stderrLog);
 
             // using an unreasonable timeout because this is more intended to reuse the functionality in runTester
-            auto watchdog = StaticTime!StopWatch(999.dur!"hours");
             runTester(global.data.conf.mutationCompile, global.data.conf.mutationTester,
-                    test_tmp_output, watchdog, global.data.filesysIO);
+                    test_tmp_output, 999.dur!"hours", global.data.filesysIO);
 
             auto gather_tc = new GatherTestCase;
 
@@ -922,43 +917,60 @@ nothrow:
 
         warnIfConflictingTestCaseIdentifiers(all_found_tc);
 
+        data.foundTestCases = all_found_tc;
+    }
+
+    void opCall(UpdateAndResetAliveMutants data) {
+        import std.traits : EnumMembers;
+
         // the test cases before anything has potentially changed.
-        Set!string old_tcs;
-        spinSql!(() {
-            foreach (tc; global.data.db.getDetectedTestCases)
+        auto old_tcs = spinSql!(() {
+            Set!string old_tcs;
+            foreach (tc; global.data.db.getDetectedTestCases) {
                 old_tcs.add(tc.name);
+            }
+            return old_tcs;
         });
 
-        final switch (global.data.conf.onRemovedTestCases) with (
-            ConfigMutationTest.RemovedTestCases) {
-        case doNothing:
-            spinSql!(() { global.data.db.addDetectedTestCases(all_found_tc); });
-            break;
-        case remove:
-            auto ids = spinSql!(() {
-                return global.data.db.setDetectedTestCases(all_found_tc);
-            });
-            foreach (id; ids)
-                spinSql!(() {
+        void transaction() @safe {
+            final switch (global.data.conf.onRemovedTestCases) with (
+                ConfigMutationTest.RemovedTestCases) {
+            case doNothing:
+                global.data.db.addDetectedTestCases(data.foundTestCases);
+                break;
+            case remove:
+                foreach (id; global.data.db.setDetectedTestCases(data.foundTestCases)) {
                     global.data.db.updateMutationStatus(id, Mutation.Status.unknown);
-                });
-            break;
+                }
+                break;
+            }
         }
 
-        Set!string found_tcs;
-        spinSql!(() {
-            foreach (tc; global.data.db.getDetectedTestCases)
+        auto found_tcs = spinSql!(() @trusted {
+            auto tr = global.data.db.transaction;
+            transaction();
+
+            Set!string found_tcs;
+            foreach (tc; global.data.db.getDetectedTestCases) {
                 found_tcs.add(tc.name);
+            }
+
+            tr.commit;
+            return found_tcs;
         });
 
         printDroppedTestCases(old_tcs, found_tcs);
 
-        const new_test_cases = hasNewTestCases(old_tcs, found_tcs);
-
-        if (new_test_cases
+        if (hasNewTestCases(old_tcs, found_tcs)
                 && global.data.conf.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
             logger.info("Resetting alive mutants").collectException;
-            resetAliveMutants(global.data.db);
+            // there is no use in trying to limit the mutants to reset to those
+            // that are part of "this" execution because new test cases can
+            // only mean one thing: re-test all alive mutants.
+            spinSql!(() {
+                global.data.db.resetMutant([EnumMembers!(Mutation.Kind)],
+                    Mutation.Status.alive, Mutation.Status.unknown);
+            });
         }
     }
 
@@ -1009,25 +1021,31 @@ nothrow:
     }
 
     void opCall(ref PreCompileSut data) {
-        logger.info("Preparing for mutation testing by checking that the program and tests compile without any errors (no mutants injected)")
-            .collectException;
+        import std.stdio : write;
+        import colorlog : color, Color;
+        import process;
 
+        logger.info("Checking the build command").collectException;
         try {
-            import std.process : execute;
-
-            const comp_res = execute(
+            auto output = appender!(DrainElement[])();
+            auto p = pipeProcess(
                     global.data.conf.mutationCompile.program
-                    ~ global.data.conf.mutationCompile.arguments);
+                    ~ global.data.conf.mutationCompile.arguments).sandbox.drain(output).raii;
+            if (p.wait == 0) {
+                logger.info("Ok".color(Color.green));
+                return;
+            }
 
-            if (comp_res.status != 0) {
-                data.compilationError = true;
-                logger.info(comp_res.output);
-                logger.error("Compiler command failed: ", comp_res.status);
+            logger.error("Build commman failed");
+            foreach (l; output.data) {
+                write(l.byUTF8);
             }
         } catch (Exception e) {
             // unable to for example execute the compiler
             logger.error(e.msg).collectException;
         }
+
+        data.compilationError = true;
     }
 
     void opCall(PullRequest data) {
@@ -1076,25 +1094,25 @@ nothrow:
     }
 
     void opCall(ref MeasureTestSuite data) {
-        if (global.data.conf.mutationTesterRuntime.isNull) {
-            logger.info("Measuring the time to run the tests: ",
-                    global.data.conf.mutationTester).collectException;
-            auto tester = measureTesterDuration(global.data.conf.mutationTester);
-            if (tester.status == ExitStatusType.Ok) {
-                // The sampling of the test suite become too unreliable when the timeout is <1s.
-                // This is a quick and dirty fix.
-                // A proper fix requires an update of the sampler in runTester.
-                auto t = tester.runtime < 1.dur!"seconds" ? 1.dur!"seconds" : tester.runtime;
-                logger.info("Tester measured to: ", t).collectException;
-                global.testSuiteRuntime = t;
-            } else {
-                data.unreliableTestSuite = true;
-                logger.error(
-                        "Test suite is unreliable. It must return exit status '0' when running with unmodified mutants")
-                    .collectException;
-            }
-        } else {
+        if (!global.data.conf.mutationTesterRuntime.isNull) {
             global.testSuiteRuntime = global.data.conf.mutationTesterRuntime.get;
+            return;
+        }
+
+        logger.info("Measuring the runtime of the test command: ",
+                global.data.conf.mutationTester).collectException;
+        const tester = measureTestCommand(global.data.conf.mutationTester);
+        if (tester.ok) {
+            // The sampling of the test suite become too unreliable when the timeout is <1s.
+            // This is a quick and dirty fix.
+            // A proper fix requires an update of the sampler in runTester.
+            auto t = tester.runtime < 1.dur!"seconds" ? 1.dur!"seconds" : tester.runtime;
+            logger.info("Test command runtime: ", t).collectException;
+            global.testSuiteRuntime = t;
+        } else {
+            data.unreliableTestSuite = true;
+            logger.error("The test command is unreliable. It must return exit status '0' when no mutants are injected")
+                .collectException;
         }
     }
 
@@ -1391,20 +1409,6 @@ string createTmpDir(long id) nothrow {
     }
 
     return test_tmp_output;
-}
-
-/// Reset all alive mutants.
-void resetAliveMutants(ref Database db) @safe nothrow {
-    import std.traits : EnumMembers;
-
-    // there is no use in trying to limit the mutants to reset to those that
-    // are part of "this" execution because new test cases can only mean one
-    // thing: re-test all alive mutants.
-
-    spinSql!(() {
-        db.resetMutant([EnumMembers!(Mutation.Kind)], Mutation.Status.alive,
-            Mutation.Status.unknown);
-    });
 }
 
 /** Compare the old test cases with those that have been found this run.
