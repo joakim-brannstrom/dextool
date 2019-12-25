@@ -240,6 +240,7 @@ struct MutationTestDriver {
         //TODO: change to a ShellCommand
         AbsolutePath test_case_cmd;
         const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin;
+        DrainElement[] output;
     }
 
     static struct None {
@@ -255,7 +256,6 @@ struct MutationTestDriver {
     }
 
     static struct TestMutant {
-        DrainElement[] output;
         bool mutationError;
     }
 
@@ -265,7 +265,6 @@ struct MutationTestDriver {
     }
 
     static struct TestCaseAnalyze {
-        DrainElement[] output;
         bool next;
         bool mutationError;
         bool unstableTests;
@@ -317,8 +316,8 @@ struct MutationTestDriver {
             if (a.mutationError)
                 return fsm(NoResultRestoreCode.init);
             else if (self.global.mut_status == Mutation.Status.killed
-                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && !a.output.empty)
-                return fsm(TestCaseAnalyze(a.output));
+                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && !self.local.get!TestCaseAnalyze.output.empty)
+                return fsm(TestCaseAnalyze.init);
             return fsm(RestoreCode.init);
         }, (TestCaseAnalyze a) {
             if (a.next)
@@ -441,7 +440,7 @@ nothrow:
             auto res = runTester(local.get!TestMutant.compile_cmd,
                     local.get!TestMutant.test_cmd, local.get!TestMutant.tester_runtime);
             global.mut_status = res.status;
-            data.output = res.output;
+            local.get!TestCaseAnalyze.output = res.output;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
             data.mutationError = true;
@@ -464,10 +463,10 @@ nothrow:
             if (!local.get!TestCaseAnalyze.test_case_cmd.empty) {
                 success = success && externalProgram([
                         local.get!TestCaseAnalyze.test_case_cmd
-                        ], data.output, gather_tc, global.auto_cleanup);
+                        ], local.get!TestCaseAnalyze.output, gather_tc, global.auto_cleanup);
             }
             if (!local.get!TestCaseAnalyze.tc_analyze_builtin.empty) {
-                success = success && builtin(data.output,
+                success = success && builtin(local.get!TestCaseAnalyze.output,
                         local.get!TestCaseAnalyze.tc_analyze_builtin, gather_tc);
             }
 
