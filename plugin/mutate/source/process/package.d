@@ -60,7 +60,7 @@ interface Process {
 
     /// Non-blocking wait for the process termination.
     /// Returns: `true` if the process has terminated.
-    bool tryWait() nothrow @safe;
+    bool tryWait() @safe;
 
     /// Returns: The raw OS handle for the process ID.
     RawPid osHandle() nothrow @safe;
@@ -75,12 +75,20 @@ interface Process {
 /** Async process that do not block on read from stdin/stderr.
  */
 class PipeProcess : Process {
+    import std.algorithm : among;
+
     private {
+        enum State {
+            running,
+            terminated,
+            exitCode
+        }
+
         std.process.ProcessPipes process;
         Pipe pipe_;
         ReadChannel stderr_;
         int status_;
-        bool terminated_;
+        State st;
     }
 
     this(std.process.ProcessPipes process) @safe {
@@ -102,10 +110,18 @@ class PipeProcess : Process {
     }
 
     override void destroy() @safe {
-        if (!terminated_) {
+        final switch (st) {
+        case State.running:
             this.kill;
-            this.wait.collectException;
+            this.wait;
+            break;
+        case State.terminated:
+            this.wait;
+            break;
+        case State.exitCode:
+            break;
         }
+
         pipe_.destroy;
         stderr_.destroy;
     }
@@ -113,7 +129,12 @@ class PipeProcess : Process {
     override void kill() nothrow @trusted {
         import core.sys.posix.signal : SIGKILL;
 
-        if (terminated_) {
+        final switch (st) {
+        case State.running:
+            break;
+        case State.terminated:
+            return;
+        case State.exitCode:
             return;
         }
 
@@ -122,46 +143,56 @@ class PipeProcess : Process {
         } catch (Exception e) {
         }
 
-        terminated_ = true;
+        st = State.terminated;
     }
 
     override int wait() @safe {
-        if (!terminated_) {
+        final switch (st) {
+        case State.running:
             status_ = std.process.wait(process.pid);
-            terminated_ = true;
+            break;
+        case State.terminated:
+            status_ = std.process.wait(process.pid);
+            break;
+        case State.exitCode:
+            break;
         }
+
+        st = State.exitCode;
+
         return status_;
     }
 
-    override bool tryWait() nothrow @safe {
-        if (terminated_) {
-            return true;
-        }
-
-        try {
+    override bool tryWait() @safe {
+        final switch (st) {
+        case State.running:
             auto s = std.process.tryWait(process.pid);
-            terminated_ = s.terminated;
-            status_ = s.status;
             if (s.terminated) {
-                terminated_ = true;
+                st = State.exitCode;
                 status_ = s.status;
             }
-        } catch (Exception e) {
-            logger.trace(e.msg).collectException;
+            break;
+        case State.terminated:
+            status_ = std.process.wait(process.pid);
+            st = State.exitCode;
+            break;
+        case State.exitCode:
+            break;
         }
 
-        return terminated_;
+        return st.among(State.terminated, State.exitCode) != 0;
     }
 
     override int status() @safe {
-        if (!terminated_) {
-            throw new Exception("Process has not terminated");
+        if (st != State.exitCode) {
+            throw new Exception(
+                    "Process has not terminated and wait/tryWait been called to collect the exit status");
         }
         return status_;
     }
 
     override bool terminated() @safe {
-        return terminated_;
+        return st.among(State.terminated, State.exitCode) != 0;
     }
 }
 
@@ -247,7 +278,7 @@ class Sandbox : Process {
         return p.wait;
     }
 
-    override bool tryWait() nothrow @safe {
+    override bool tryWait() @safe {
         return p.tryWait;
     }
 
@@ -290,7 +321,7 @@ sleep 10m
     Thread.sleep(500.dur!"msecs"); // wait for the OS to kill the children
     const postChildren = getDeepChildren(p.osHandle).count;
 
-    p.wait.shouldEqual(0);
+    p.wait.shouldEqual(-9);
     p.terminated.shouldBeTrue;
     preChildren.shouldEqual(3);
     postChildren.shouldEqual(0);
@@ -340,7 +371,7 @@ class Timeout : Process {
         return p.wait;
     }
 
-    override bool tryWait() nothrow @safe {
+    override bool tryWait() @safe {
         if (!terminated && Clock.currTime > stopAt) {
             timeoutTriggered_ = true;
             p.kill;
@@ -375,8 +406,10 @@ unittest {
     sw.stop;
 
     sw.peek.shouldBeGreaterThan(100.dur!"msecs");
-    p.tryWait.shouldBeTrue;
-    p.status.shouldEqual(0);
+    sw.peek.shouldBeSmallerThan(500.dur!"msecs");
+    p.wait.shouldEqual(-9);
+    p.terminated.shouldBeTrue;
+    p.status.shouldEqual(-9);
 }
 
 /** Measure the runtime of a process.
@@ -422,7 +455,7 @@ class MeasureTime : Process {
         return p.status;
     }
 
-    override bool tryWait() nothrow @safe {
+    override bool tryWait() @safe {
         if (!terminated && p.tryWait) {
             sw.stop;
         }
