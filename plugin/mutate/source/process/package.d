@@ -300,7 +300,7 @@ class Sandbox : Process {
     }
 }
 
-Process sandbox(Process p) @safe {
+Sandbox sandbox(Process p) @safe {
     return new Sandbox(p);
 }
 
@@ -612,6 +612,10 @@ struct DrainRange {
         Process p;
         DrainElement front_;
         State st;
+    }
+
+    this(Process p) @safe pure nothrow @nogc {
+        this.p = p;
     }
 
     DrainElement front() @safe pure nothrow const @nogc {

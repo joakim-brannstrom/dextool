@@ -94,18 +94,18 @@ class Stdio : Channel {
         outputError = new FileWriteChannel(stderr);
     }
 
-    void destroy() @safe {
+    override void destroy() @safe {
         input.destroy;
         output.destroy;
         outputError.destroy;
     }
 
-    bool hasData() @safe {
+    override bool hasData() @safe {
         return input.hasData;
     }
 
     /// If there is data to read.
-    bool hasPendingData() @safe {
+    override bool hasPendingData() @safe {
         return input.hasPendingData;
     }
 
@@ -114,16 +114,16 @@ class Stdio : Channel {
      * Note that this is slow because the data is copied to keep the interface
      * memory safe. Prefer the one that takes an OutputRange.
      */
-    const(ubyte)[] read(const size_t s) return scope @safe {
+    override const(ubyte)[] read(const size_t s) return scope @safe {
         return input.read(s);
     }
 
-    void write(scope const(ubyte)[] data) @safe {
+    override void write(scope const(ubyte)[] data) @safe {
         output.write(data);
     }
 
     /// Flush the output.
-    void flush() @safe {
+    override void flush() @safe {
         output.flush;
     }
 }
@@ -143,17 +143,17 @@ class Pipe : Channel {
         this.output = new FileWriteChannel(output);
     }
 
-    void destroy() @trusted {
+    override void destroy() @trusted {
         input.destroy;
         output.destroy;
     }
 
-    bool hasData() @safe {
+    override bool hasData() @safe {
         return input.hasData;
     }
 
     /// If there is data to read.
-    bool hasPendingData() @safe {
+    override bool hasPendingData() @safe {
         return input.hasPendingData;
     }
 
@@ -162,16 +162,16 @@ class Pipe : Channel {
      * Note that this is slow because the data is copied to keep the interface
      * memory safe. Prefer the one that takes an OutputRange.
      */
-    const(ubyte)[] read(const size_t s) return scope @safe {
+    override const(ubyte)[] read(const size_t s) return scope @safe {
         return input.read(s);
     }
 
-    void write(scope const(ubyte)[] data) @safe {
+    override void write(scope const(ubyte)[] data) @safe {
         output.write(data);
     }
 
     /// Flush the output.
-    void flush() @safe {
+    override void flush() @safe {
         output.flush;
     }
 }
@@ -195,22 +195,22 @@ class FileReadChannel : ReadChannel {
         startBackground();
     }
 
-    void destroy() @safe {
+    override void destroy() @safe {
         pool.stop();
         in_.detach;
     }
 
-    bool hasData() @safe {
+    override bool hasData() @safe {
         return in_.isOpen && !in_.eof;
     }
 
-    bool hasPendingData() @safe {
+    override bool hasPendingData() @safe {
         import std.exception : ifThrown;
 
         return background.done.ifThrown!Exception(false);
     }
 
-    const(ubyte)[] read(const size_t size) return scope @trusted {
+    override const(ubyte)[] read(const size_t size) return scope @trusted {
         if (size == 0) {
             return null;
         }
@@ -267,7 +267,7 @@ class FileWriteChannel : WriteChannel {
         out_ = out__;
     }
 
-    void destroy() @safe {
+    override void destroy() @safe {
         out_.detach;
     }
 
@@ -276,11 +276,11 @@ class FileWriteChannel : WriteChannel {
      * Throws:
      * ErrnoException if the file is not opened or if the call to fwrite fails.
      */
-    void write(scope const(ubyte)[] data) @safe {
+    override void write(scope const(ubyte)[] data) @safe {
         out_.rawWrite(data);
     }
 
-    void flush() @safe {
+    override void flush() @safe {
         out_.flush();
     }
 }
