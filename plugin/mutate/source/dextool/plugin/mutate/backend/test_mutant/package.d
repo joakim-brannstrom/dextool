@@ -127,6 +127,7 @@ auto runTester(ShellCommand compile_p, ShellCommand tester_p, Duration timeout) 
         auto output = appender!(DrainElement[])();
         auto p = pipeProcess(tester_p.program ~ tester_p.arguments).sandbox.timeout(timeout).raii;
         p.drain.copy(output);
+
         rval.output = output.data;
 
         rval.status = p.wait == 0 ? Mutation.Status.alive : Mutation.Status.killed;

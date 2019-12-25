@@ -244,33 +244,42 @@ class Sandbox : Process {
     }
 
     override void kill() nothrow @safe {
-        import core.sys.posix.signal : kill, kill, SIGKILL;
-        import core.sys.posix.sys.wait;
-        import std.array : empty;
+        static import core.sys.posix.signal;
+        import core.sys.posix.sys.wait : waitpid, WNOHANG;
 
-        RawPid[] update() @trusted {
-            try {
-                return getDeepChildren(p.osHandle);
-            } catch (Exception e) {
+        static RawPid[] update(RawPid[] pids) @trusted {
+            auto app = appender!(RawPid[])();
+
+            foreach (p; pids) {
+                try {
+                    app.put(getDeepChildren(p));
+                } catch (Exception e) {
+                }
             }
-            return null;
+
+            return app.data;
         }
 
         static void killChildren(RawPid[] children) @trusted {
             foreach (const c; children) {
-                core.sys.posix.signal.kill(c, SIGKILL);
-                waitpid(c, null, WNOHANG);
+                core.sys.posix.signal.kill(c, core.sys.posix.signal.SIGKILL);
             }
         }
 
         p.kill;
-        auto children = update();
+        auto children = update([p.osHandle]);
+        auto reapChildren = appender!(RawPid[])();
         // if there ever are processes that are spawned with root permissions
         // or something happens that they can't be killed by "this" process
         // tree. Thus limit the iterations to a reasonable number
         for (int i = 0; !children.empty && i < 5; ++i) {
+            reapChildren.put(children);
             killChildren(children);
-            children = update;
+            children = update(children);
+        }
+
+        foreach (c; reapChildren.data) {
+            () @trusted { waitpid(c, null, WNOHANG); }();
         }
     }
 
