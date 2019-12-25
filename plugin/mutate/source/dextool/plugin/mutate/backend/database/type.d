@@ -225,4 +225,18 @@ struct MutantMetaData {
 
         attr.match!((NoMetadata a) {}, (NoMut a) => put(w, "nomut"));
     }
+
+    import std.range : isOutputRange;
+
+    string toString() @safe pure const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        kindToString(w);
+    }
 }
