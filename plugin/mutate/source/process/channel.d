@@ -95,6 +95,9 @@ class Stdio : Channel {
     }
 
     void destroy() @safe {
+        input.destroy;
+        output.destroy;
+        outputError.destroy;
     }
 
     bool hasData() @safe {
@@ -141,8 +144,8 @@ class Pipe : Channel {
     }
 
     void destroy() @trusted {
-        .destroy(input);
-        .destroy(output);
+        input.destroy;
+        output.destroy;
     }
 
     bool hasData() @safe {
@@ -194,7 +197,7 @@ class FileReadChannel : ReadChannel {
 
     void destroy() @safe {
         pool.stop();
-        .destroy(in_);
+        in_.detach;
     }
 
     bool hasData() @safe {
@@ -265,7 +268,7 @@ class FileWriteChannel : WriteChannel {
     }
 
     void destroy() @safe {
-        .destroy(out_);
+        out_.detach;
     }
 
     /** Write data to the output channel.
