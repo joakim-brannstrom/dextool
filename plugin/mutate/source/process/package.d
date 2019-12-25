@@ -332,16 +332,48 @@ sleep 10m
  */
 class Timeout : Process {
     import std.datetime : Clock, SysTime;
+    import std.parallelism : task, TaskPool, Task;
 
     private {
         Process p;
         SysTime stopAt;
         bool timeoutTriggered_;
+
+        TaskPool pool;
+        Task!(checkProcess, RawPid, SysTime)* background;
     }
 
-    this(Process p, Duration timeout) @safe nothrow {
+    this(Process p, Duration timeout) @safe {
         this.p = p;
         this.stopAt = Clock.currTime + timeout;
+
+        pool = new TaskPool(1);
+        pool.isDaemon = true;
+        startBackground();
+    }
+
+    private void startBackground() @safe {
+        background = task!checkProcess(this.osHandle, stopAt);
+        pool.put(background);
+    }
+
+    /// ONLY FOR INTERNAL USE.
+    static bool checkProcess(RawPid p, SysTime stopAt) {
+        import core.sys.posix.signal : SIGKILL;
+        static import core.sys.posix.signal;
+
+        while (Clock.currTime < stopAt) {
+            if (core.sys.posix.signal.kill(p, 0) == -1) {
+                break;
+            }
+            Thread.sleep(20.dur!"msecs");
+        }
+
+        if (Clock.currTime >= stopAt) {
+            core.sys.posix.signal.kill(p, SIGKILL);
+            return true;
+        }
+        return false;
     }
 
     override RawPid osHandle() nothrow @safe {
@@ -372,10 +404,6 @@ class Timeout : Process {
     }
 
     override bool tryWait() @safe {
-        if (!terminated && Clock.currTime > stopAt) {
-            timeoutTriggered_ = true;
-            p.kill;
-        }
         return p.tryWait;
     }
 
@@ -387,7 +415,11 @@ class Timeout : Process {
         return p.terminated;
     }
 
-    bool timeoutTriggered() @safe pure nothrow const @nogc {
+    bool timeoutTriggered() @safe {
+        if (background !is null && background.done) {
+            timeoutTriggered_ = background.yieldForce;
+            background = null;
+        }
         return timeoutTriggered_;
     }
 }
@@ -410,6 +442,7 @@ unittest {
     p.wait.shouldEqual(-9);
     p.terminated.shouldBeTrue;
     p.status.shouldEqual(-9);
+    p.timeoutTriggered.shouldBeTrue;
 }
 
 /** Measure the runtime of a process.
