@@ -15,8 +15,7 @@ import std.exception : collectException;
 import std.range : isInputRange, isOutputRange;
 import logger = std.experimental.logger;
 
-import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport,
-    GatherTestCase;
+import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport, GatherTestCase;
 import dextool.plugin.mutate.backend.type : TestCase;
 import dextool.type : AbsolutePath;
 
@@ -24,7 +23,6 @@ import dextool.type : AbsolutePath;
 Params:
     r = range that is chunked by line
     sink = an output that accepts values of type TestCase via `put`.
-    reldir = file paths are adjusted to be relative to this parameter.
   */
 struct GtestParser {
     import std.regex : ctRegex, matchFirst, matchAll;
@@ -38,12 +36,7 @@ struct GtestParser {
         // example: [  FAILED  ] NonfatalFailureTest.EscapesStringOperands
         enum re_failed_block = ctRegex!(`.*?\[\s*FAILED\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
 
-        AbsolutePath reldir;
         StateData data;
-    }
-
-    this(AbsolutePath reldir) @safe pure nothrow @nogc {
-        this.reldir = reldir;
     }
 
     void process(T)(T line, TestCaseReport report) {
@@ -128,46 +121,47 @@ version (unittest) {
 @("shall report the failed test case")
 unittest {
     auto app = new GatherTestCase;
-    auto reldir = AbsolutePath(FileName(getcwd));
 
-    auto parser = GtestParser(reldir);
+    GtestParser parser;
     testData1.each!(a => parser.process(a, app));
 
-    shouldEqual(app.failed.byKey.array, [TestCase("MessageTest.DefaultConstructor")]);
+    shouldEqual(app.failed.byKey.array, [
+            TestCase("MessageTest.DefaultConstructor")
+            ]);
 }
 
 @("shall report the found test cases")
 unittest {
     auto app = new GatherTestCase;
-    auto reldir = AbsolutePath(FileName(getcwd));
 
-    auto parser = GtestParser(reldir);
+    GtestParser parser;
     testData3.each!(a => parser.process(a, app));
 
-    shouldEqual(app.foundAsArray.sort, [TestCase("Comp.A", ""),
-            TestCase("Comp.B", ""), TestCase("Comp.C", ""), TestCase("Comp.D",
-                ""), TestCase("Comp.E/a", ""), TestCase("Comp.E/b", ""),]);
+    shouldEqual(app.foundAsArray.sort, [
+            TestCase("Comp.A", ""), TestCase("Comp.B", ""), TestCase("Comp.C",
+                ""), TestCase("Comp.D", ""), TestCase("Comp.E/a", ""),
+            TestCase("Comp.E/b", ""),
+            ]);
 }
 
 @("shall report the failed test cases")
 unittest {
     auto app = new GatherTestCase;
-    auto reldir = AbsolutePath(FileName(getcwd));
 
-    auto parser = GtestParser(reldir);
+    GtestParser parser;
     testData4.each!(a => parser.process(a, app));
 
-    shouldEqual(app.failedAsArray.sort, [TestCase("Foo.A", ""),
-            TestCase("Foo.B", ""), TestCase("Foo.C", ""), TestCase("Foo.D",
-                ""), TestCase("Foo.E", ""),]);
+    shouldEqual(app.failedAsArray.sort, [
+            TestCase("Foo.A", ""), TestCase("Foo.B", ""), TestCase("Foo.C",
+                ""), TestCase("Foo.D", ""), TestCase("Foo.E", ""),
+            ]);
 }
 
 @("shall report the failed test cases")
 unittest {
     auto app = new GatherTestCase;
-    auto reldir = AbsolutePath(FileName(getcwd));
 
-    auto parser = GtestParser(reldir);
+    GtestParser parser;
     testData5.each!(a => parser.process(a, app));
 
     shouldEqual(app.failedAsArray.sort, [TestCase("FooTest.ShouldFail")]);
@@ -176,9 +170,8 @@ unittest {
 @("shall report the failed test cases even though there are junk in the output")
 unittest {
     auto app = new GatherTestCase;
-    auto reldir = AbsolutePath(FileName(getcwd));
 
-    auto parser = GtestParser(reldir);
+    GtestParser parser;
     testData2.each!(a => parser.process(a, app));
 
     // dfmt off
