@@ -398,6 +398,7 @@ class Timeout : Process {
     }
 
     override void destroy() @safe {
+        pool.stop;
         p.destroy;
     }
 
