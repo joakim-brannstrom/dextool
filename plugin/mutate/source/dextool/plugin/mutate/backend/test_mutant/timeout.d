@@ -220,11 +220,11 @@ struct TimeoutFsm {
                 return fsm(ClearWorkList.init);
             }
         }, (ClearWorkList a) => fsm(Done.init), (Done a) {
-            // happens if an operation is performed that changes the status of
-            // already tested mutants to unknown.
             if (noUnknown)
                 return fsm(Stop.init);
-            return fsm(Init.init);
+            // happens if an operation is performed that changes the status of
+            // already tested mutants to unknown.
+            return fsm(Running.init);
         }, (Stop a) => fsm(a),);
 
         self.fsm.act!self;
