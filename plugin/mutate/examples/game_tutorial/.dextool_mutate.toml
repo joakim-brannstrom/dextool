@@ -7,6 +7,11 @@
 # use relative paths that are inside the root
 restrict = [ "src" ]
 
+[analyze]
+# exclude files in these directory tree(s) from analysis
+# relative paths are relative to the directory dextool is executed in
+exclude = [ "deps", "test"]
+
 [database]
 # path to where to store the sqlite3 database
 # db = "dextool_mutate.sqlite3"
@@ -50,7 +55,7 @@ detected_dropped_test_case = "remove"
 # Because you may have changed the test suite so mutants that where previously killed by the test suite now survive.
 oldest_mutants = "test"
 # How many of the oldest mutants to do the above with
-oldest_mutants_nr = 10
+oldest_mutants_nr = 5
 
 [report]
 # default style to use
