@@ -340,42 +340,43 @@ sleep 10m
  * wait/tryWait methods.
  */
 class Timeout : Process {
-    import std.datetime : Clock, SysTime;
+    import std.datetime : Clock, Duration;
     import std.parallelism : task, TaskPool, Task;
 
     private {
         Process p;
-        SysTime stopAt;
         bool timeoutTriggered_;
 
         TaskPool pool;
-        Task!(checkProcess, RawPid, SysTime)* background;
+        Task!(checkProcess, RawPid, Duration)* background;
     }
 
     this(Process p, Duration timeout) @safe {
         this.p = p;
-        this.stopAt = Clock.currTime + timeout;
 
         pool = new TaskPool(1);
         pool.isDaemon = true;
-        startBackground();
-    }
-
-    private void startBackground() @safe {
-        background = task!checkProcess(this.osHandle, stopAt);
+        background = task!checkProcess(this.osHandle, timeout);
         pool.put(background);
     }
 
     /// ONLY FOR INTERNAL USE.
-    static bool checkProcess(RawPid p, SysTime stopAt) {
+    static bool checkProcess(RawPid p, Duration timeout) {
         import core.sys.posix.signal : SIGKILL;
+        import std.algorithm : max;
         static import core.sys.posix.signal;
+
+        const stopAt = Clock.currTime + timeout;
+        // the purpose is to poll the process often "enough" that if it
+        // terminates early `Process` detects it fast enough. 1000 is chosen
+        // because it "feels good". the purpose
+        const sleepInterval = max(20, timeout.total!"msecs" / 1000).dur!"msecs";
 
         while (Clock.currTime < stopAt) {
             if (core.sys.posix.signal.kill(p, 0) == -1) {
                 break;
             }
-            Thread.sleep(20.dur!"msecs");
+            Thread.sleep(sleepInterval);
         }
 
         if (Clock.currTime >= stopAt) {
