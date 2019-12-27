@@ -112,7 +112,7 @@ auto runTester(ShellCommand compile_p, ShellCommand tester_p, Duration timeout) 
     }
 
     try {
-        auto p = pipeProcess(compile_p.program ~ compile_p.arguments).sandbox.drainToNull.raii;
+        auto p = pipeProcess(compile_p.value).sandbox.drainToNull.raii;
         if (p.wait != 0) {
             return Rval(Mutation.Status.killedByCompiler);
         }
@@ -125,7 +125,7 @@ auto runTester(ShellCommand compile_p, ShellCommand tester_p, Duration timeout) 
     Rval rval;
     try {
         auto output = appender!(DrainElement[])();
-        auto p = pipeProcess(tester_p.program ~ tester_p.arguments).sandbox.timeout(timeout).raii;
+        auto p = pipeProcess(tester_p.value).sandbox.timeout(timeout).raii;
         p.drain.copy(output);
 
         rval.output = output.data;
@@ -164,14 +164,13 @@ MeasureTestDurationResult measureTestCommand(ShellCommand cmd) @safe nothrow {
     import std.stdio : writeln;
     import process;
 
-    if (cmd.program.length == 0) {
+    if (cmd.empty) {
         collectException(logger.error("No test command specified (--test-cmd)"));
         return MeasureTestDurationResult(false);
     }
 
     auto runTest(bool printToConsole) @safe {
-        const cmd = cmd.program ~ cmd.arguments;
-        auto p = pipeProcess(cmd).sandbox.measureTime.raii;
+        auto p = pipeProcess(cmd.value).sandbox.measureTime.raii;
         logger.info(printToConsole, "Test command: %-(%s %)", cmd);
         foreach (l; p.drain) {
             if (printToConsole) {
@@ -969,9 +968,7 @@ nothrow:
         logger.info("Checking the build command").collectException;
         try {
             auto output = appender!(DrainElement[])();
-            auto p = pipeProcess(
-                    global.data.conf.mutationCompile.program
-                    ~ global.data.conf.mutationCompile.arguments).sandbox.drain(output).raii;
+            auto p = pipeProcess(global.data.conf.mutationCompile.value).sandbox.drain(output).raii;
             if (p.wait == 0) {
                 logger.info("Ok".color(Color.green));
                 return;

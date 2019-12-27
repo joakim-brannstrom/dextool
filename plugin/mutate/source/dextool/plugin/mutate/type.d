@@ -159,15 +159,35 @@ struct TestConstraint {
 }
 
 struct ShellCommand {
-    AbsolutePath program;
-    string[] arguments;
+    import std.range : isOutputRange;
 
-    this(string cmd) {
+    string[] value;
+
+    /// Split a user string by the whitespace to create an command+argument.
+    static ShellCommand fromString(string cmd) {
         import std.uni : isWhite;
         import std.array : split;
 
-        string[] argv = cmd.split!isWhite;
-        program = Path(argv[0]).AbsolutePath;
-        arguments = argv[1 .. $];
+        string[] args = cmd.split!isWhite;
+        string program = args[0].Path.AbsolutePath;
+        return ShellCommand(program ~ args[1 .. $]);
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return value.length == 0;
+    }
+
+    string toString() @safe pure const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        import std.format : formattedWrite;
+
+        formattedWrite(w, "shell command '%-(%s %)'", value);
     }
 }
