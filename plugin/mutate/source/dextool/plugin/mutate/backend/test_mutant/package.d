@@ -28,6 +28,7 @@ import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     NextMutationEntry, spinSql, MutantTimeoutCtx, MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
+import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
@@ -73,13 +74,20 @@ nothrow:
         auto db_ref = () @trusted { return nullableRef(&db); }();
 
         auto driver_data = DriverData(db_ref, fio, data.mut_kinds, new AutoCleanup, data.config);
-        auto test_driver = TestDriver(driver_data);
 
-        while (test_driver.isRunning) {
-            test_driver.execute;
+        try {
+            auto test_driver = TestDriver(driver_data);
+
+            while (test_driver.isRunning) {
+                test_driver.execute;
+            }
+
+            return test_driver.status;
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
         }
 
-        return test_driver.status;
+        return ExitStatusType.Errors;
     }
 }
 
@@ -101,9 +109,7 @@ struct DriverData {
  *
  * Returns: the result of testing the mutant.
  */
-auto runTester(ShellCommand compile_p, ShellCommand tester_p, Duration timeout) nothrow {
-    import std.algorithm : copy;
-    import std.stdio : File;
+auto runTester(ShellCommand compile_p, ref TestRunner runner) nothrow {
     import process;
 
     struct Rval {
@@ -117,22 +123,29 @@ auto runTester(ShellCommand compile_p, ShellCommand tester_p, Duration timeout) 
             return Rval(Mutation.Status.killedByCompiler);
         }
     } catch (Exception e) {
-        logger.warning("Unknown error when executing build command").collectException;
+        logger.warning("Unknown error when executing the build command").collectException;
         logger.warning(e.msg).collectException;
         return Rval(Mutation.Status.unknown);
     }
 
     Rval rval;
     try {
-        auto output = appender!(DrainElement[])();
-        auto p = pipeProcess(tester_p.value).sandbox.timeout(timeout).raii;
-        p.drain.copy(output);
+        auto res = runner.run;
+        rval.output = res.output;
 
-        rval.output = output.data;
-
-        rval.status = p.wait == 0 ? Mutation.Status.alive : Mutation.Status.killed;
-        if (p.timeoutTriggered) {
+        final switch (res.status) with (TestResult.Status) {
+        case passed:
+            rval.status = Mutation.Status.alive;
+            break;
+        case failed:
+            rval.status = Mutation.Status.killed;
+            break;
+        case timeout:
             rval.status = Mutation.Status.timeout;
+            break;
+        case error:
+            rval.status = Mutation.Status.unknown;
+            break;
         }
     } catch (Exception e) {
         // unable to for example execute the test suite
@@ -218,6 +231,9 @@ struct MutationTestDriver {
         AutoCleanup auto_cleanup;
         MutationEntry mutp;
 
+        /// Runs the test commands.
+        TestRunner* runner;
+
         AbsolutePath mut_file;
         Blob original;
 
@@ -232,8 +248,6 @@ struct MutationTestDriver {
         /// If the user has configured that the test cases should be analyzed.
         bool hasTestCaseOutputAnalyzer;
         ShellCommand compile_cmd;
-        ShellCommand test_cmd;
-        Duration tester_runtime;
     }
 
     static struct TestCaseAnalyzeData {
@@ -435,8 +449,7 @@ nothrow:
 
     void opCall(ref TestMutant data) {
         try {
-            auto res = runTester(local.get!TestMutant.compile_cmd,
-                    local.get!TestMutant.test_cmd, local.get!TestMutant.tester_runtime);
+            auto res = runTester(local.get!TestMutant.compile_cmd, *global.runner);
             global.mut_status = res.status;
             local.get!TestCaseAnalyze.output = res.output;
         } catch (Exception e) {
@@ -510,6 +523,9 @@ struct TestDriver {
     import std.datetime : SysTime;
     import std.typecons : Unique;
     import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
+
+    /// Runs the test commands.
+    TestRunner runner;
 
     static struct Global {
         DriverData data;
@@ -657,13 +673,16 @@ struct TestDriver {
     TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant,
             PullRequest, ResetOldMutant) local;
 
-    this(DriverData data) nothrow {
+    this(DriverData data) {
         this.global = Global(data);
         this.global.timeoutFsm = TimeoutFsm(data.mutKind);
         this.global.hardcodedTimeout = !global.data.conf.mutationTesterRuntime.isNull;
         local.get!PullRequest.constraint = global.data.conf.constraint;
         local.get!NextPullRequestMutant.maxAlive = global.data.conf.maxAlive;
         local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
+
+        this.runner = TestRunner.make;
+        this.runner.put(data.conf.mutationTester);
     }
 
     static void execute_(ref TestDriver self) @trusted {
@@ -835,8 +854,8 @@ nothrow:
             import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
 
             // using an unreasonable timeout because this is more intended to reuse the functionality in runTester
-            auto res = runTester(global.data.conf.mutationCompile,
-                    global.data.conf.mutationTester, 999.dur!"hours");
+            runner.timeout = 999.dur!"hours";
+            auto res = runTester(global.data.conf.mutationCompile, runner);
 
             auto gather_tc = new GatherTestCase;
 
@@ -1055,16 +1074,16 @@ nothrow:
     }
 
     void opCall(PreMutationTest) {
-        auto factory(DriverData d, Duration test_base_timeout, MutationEntry mutp) @safe nothrow {
+        auto factory(DriverData d, MutationEntry mutp, TestRunner* runner) @safe nothrow {
             import std.typecons : Unique;
             import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
 
             try {
-                auto global = MutationTestDriver.Global(d.filesysIO, d.db, d.autoCleanup, mutp);
+                auto global = MutationTestDriver.Global(d.filesysIO, d.db,
+                        d.autoCleanup, mutp, runner);
                 return Unique!MutationTestDriver(new MutationTestDriver(global,
                         MutationTestDriver.TestMutantData(!(d.conf.mutationTestCaseAnalyze.empty
-                        && d.conf.mutationTestCaseBuiltin.empty), d.conf.mutationCompile,
-                        d.conf.mutationTester, test_base_timeout),
+                        && d.conf.mutationTestCaseBuiltin.empty), d.conf.mutationCompile,),
                         MutationTestDriver.TestCaseAnalyzeData(d.conf.mutationTestCaseAnalyze,
                         d.conf.mutationTestCaseBuiltin)));
             } catch (Exception e) {
@@ -1073,8 +1092,10 @@ nothrow:
             assert(0, "should not happen");
         }
 
-        global.mut_driver = factory(global.data, calculateTimeout(global.timeoutFsm.output.iter,
-                global.testSuiteRuntime), global.nextMutant);
+        runner.timeout = calculateTimeout(global.timeoutFsm.output.iter, global.testSuiteRuntime);
+        global.mut_driver = factory(global.data, global.nextMutant, () @trusted {
+            return &runner;
+        }());
     }
 
     void opCall(ref MutationTest data) {
