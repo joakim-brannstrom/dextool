@@ -24,7 +24,7 @@ import toml : TOMLDocument;
 public import dextool.plugin.mutate.backend : Mutation;
 public import dextool.plugin.mutate.type;
 import dextool.plugin.mutate.config;
-import dextool.type : AbsolutePath, Path, ExitStatusType, ShellCommand, DirName;
+import dextool.type : AbsolutePath, Path, ExitStatusType, DirName;
 
 version (unittest) {
     import unit_threaded.assertions;

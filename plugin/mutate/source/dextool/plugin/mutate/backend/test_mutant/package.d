@@ -30,9 +30,9 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
-import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin;
+import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
 import dextool.set;
-import dextool.type : AbsolutePath, ShellCommand, ExitStatusType, FileName, DirName, Path;
+import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName, Path;
 
 @safe:
 

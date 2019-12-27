@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.type;
 
-import dextool.type : Path;
+import dextool.type : Path, AbsolutePath;
 
 /// The kind of mutation to perform
 enum MutationKind {
@@ -155,5 +155,19 @@ struct TestConstraint {
 
     bool empty() @safe pure nothrow const @nogc {
         return value.length == 0;
+    }
+}
+
+struct ShellCommand {
+    AbsolutePath program;
+    string[] arguments;
+
+    this(string cmd) {
+        import std.uni : isWhite;
+        import std.array : split;
+
+        string[] argv = cmd.split!isWhite;
+        program = Path(argv[0]).AbsolutePath;
+        arguments = argv[1 .. $];
     }
 }
