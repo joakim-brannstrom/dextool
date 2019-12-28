@@ -12,7 +12,7 @@ module dextool_test.builders;
 import core.time : dur;
 import logger = std.experimental.logger;
 import std.algorithm : map, joiner;
-import std.array : array, Appender, appender;
+import std.array : array, Appender, appender, empty;
 import std.datetime.stopwatch : StopWatch, AutoStart, Duration;
 import std.path : buildPath;
 import std.range : isInputRange;
@@ -196,6 +196,11 @@ struct BuildDextoolRun {
         auto sw = StopWatch(AutoStart.yes);
         try {
             auto p = pipeProcess(cmd).sandbox.raii;
+            if (!stdin_data.empty) {
+                p.pipe.write(cast(const(ubyte)[]) stdin_data);
+                p.pipe.closeWrite;
+            }
+
             foreach (e; p.drainByLineCopy) {
                 log.writeln(e);
                 log.flush;
@@ -355,6 +360,11 @@ struct BuildCommandRun {
         auto sw = StopWatch(AutoStart.yes);
         try {
             auto p = pipeProcess(cmd).sandbox.raii;
+            if (!stdin_data.empty) {
+                p.pipe.write(cast(const(ubyte)[]) stdin_data);
+                p.pipe.closeWrite;
+            }
+
             foreach (e; p.drainByLineCopy) {
                 log.writeln(e);
                 log.flush;

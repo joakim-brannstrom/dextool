@@ -72,6 +72,9 @@ interface WriteChannel {
 
     /// Destroy the channel.
     void destroy() @safe;
+
+    /// Close the write channel.
+    void closeWrite() @safe;
 }
 
 interface Channel : ReadChannel, WriteChannel {
@@ -128,6 +131,10 @@ class Stdio : Channel {
     override void flush() @safe {
         output.flush;
     }
+
+    override void closeWrite() @safe {
+        output.closeWrite;
+    }
 }
 
 /** Pipes to use to communicate with a process.
@@ -175,6 +182,10 @@ class Pipe : Channel {
     /// Flush the output.
     override void flush() @safe {
         output.flush;
+    }
+
+    override void closeWrite() @safe {
+        output.closeWrite;
     }
 }
 
@@ -256,6 +267,10 @@ class FileWriteChannel : WriteChannel {
 
     override void flush() @safe {
         out_.flush();
+    }
+
+    override void closeWrite() @safe {
+        out_.close;
     }
 }
 
