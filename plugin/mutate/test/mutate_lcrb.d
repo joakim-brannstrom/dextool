@@ -28,5 +28,5 @@ unittest {
         "from '|' to '&'",
         "from 'a |' to ''",
         "from '| b' to ''",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }

@@ -86,21 +86,23 @@ auto addDefine(BuildCommandRun br, string v) {
 }
 
 string[] compilerFlags() {
+    import process;
+
     auto default_flags = ["-std=c++98"];
 
-    auto r = BuildCommandRun("g++").addArg("-dumpversion").saveOutput(false)
-        .throwOnExitStatus(false).run;
-
-    if (!r.success)
-        return default_flags;
-
-    if (r.stdout.length == 0 || r.stdout[0].length == 0) {
-        return default_flags;
-    } else if (r.stdout[0][0] == '5') {
-        return default_flags ~ ["-Wpedantic", "-Werror"];
-    } else {
-        return default_flags ~ ["-pedantic", "-Werror"];
+    auto p = pipeProcess(["g++", "-dumpversion"]).raii;
+    auto output = p.drainByLineCopy.array;
+    if (p.wait != 0) {
+        throw new Exception("Failed inspecting the compiler version with g++ -dumpversion");
     }
+
+    if (output.length == 0 || output[0].length == 0) {
+        return default_flags;
+    } else if (output[0][0] == '5') {
+        return default_flags ~ ["-Wpedantic", "-Werror"];
+    }
+
+    return default_flags ~ ["-pedantic", "-Werror"];
 }
 
 deprecated("legacy function, to be removed") void testWithGTest(const Path[] src,

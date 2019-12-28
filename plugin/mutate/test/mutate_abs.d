@@ -31,5 +31,5 @@ unittest {
         "abs_dextool(b)",
         "-abs_dextool(b)",
         "fail_on_zero_dextool(b)",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }

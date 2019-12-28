@@ -18,5 +18,5 @@ unittest {
 
     testConsecutiveSparseOrder!SubStr([
         `clean-up of Database incorrectly depends on destructors called by the GC`
-    ]).shouldNotBeIn(r.stderr);
+    ]).shouldNotBeIn(r.output);
 }
