@@ -338,50 +338,75 @@ sleep 10m
  * wait/tryWait methods.
  */
 class Timeout : Process {
+    import std.algorithm : among;
     import std.datetime : Clock, Duration;
-    import std.parallelism : task, TaskPool, Task;
+    import std.concurrency;
 
     private {
+        enum Msg {
+            none,
+            stop,
+            status,
+        }
+
+        enum Reply {
+            none,
+            running,
+            normalDeath,
+            killedByTimeout,
+        }
+
         Process p;
-        bool timeoutTriggered_;
-
-        TaskPool pool;
-        Task!(checkProcess, RawPid, Duration)* background;
+        Tid background;
+        Reply backgroundReply;
     }
 
-    this(Process p, Duration timeout) @safe {
+    this(Process p, Duration timeout) @trusted {
         this.p = p;
-
-        pool = new TaskPool(1);
-        pool.isDaemon = true;
-        background = task!checkProcess(p.osHandle, timeout);
-        pool.put(background);
+        background = spawn(&checkProcess, p.osHandle, timeout);
     }
 
-    /// ONLY FOR INTERNAL USE.
-    static bool checkProcess(RawPid p, Duration timeout) {
+    private static void checkProcess(RawPid p, Duration timeout) {
         import core.sys.posix.signal : SIGKILL;
         import std.algorithm : max;
+        import std.variant : Variant;
         static import core.sys.posix.signal;
 
         const stopAt = Clock.currTime + timeout;
         // the purpose is to poll the process often "enough" that if it
         // terminates early `Process` detects it fast enough. 1000 is chosen
         // because it "feels good". the purpose
-        const sleepInterval = max(20, timeout.total!"msecs" / 1000).dur!"msecs";
+        auto sleepInterval = max(20, timeout.total!"msecs" / 1000).dur!"msecs";
 
-        while (Clock.currTime < stopAt) {
-            if (core.sys.posix.signal.kill(p, 0) == -1) {
+        bool forceStop;
+        Msg msg;
+        while (!forceStop && Clock.currTime < stopAt) {
+            msg = Msg.none;
+            const hasMsg = receiveTimeout(sleepInterval, (Msg x) { msg = x; }, (Variant x) {
+            },);
+
+            final switch (msg) {
+            case Msg.none:
+                break;
+            case Msg.stop:
+                forceStop = true;
+                break;
+            case Msg.status:
+                send(ownerTid, Reply.running);
                 break;
             }
-            Thread.sleep(sleepInterval);
+
+            if (!hasMsg && (core.sys.posix.signal.kill(p, 0) == -1)) {
+                break;
+            }
         }
 
-        if (Clock.currTime >= stopAt) {
+        if (!forceStop && Clock.currTime >= stopAt) {
             core.sys.posix.signal.kill(p, SIGKILL);
-            return true;
+            send(ownerTid, Reply.killedByTimeout);
+        } else {
+            send(ownerTid, Reply.normalDeath);
         }
-        return false;
     }
 
     override RawPid osHandle() nothrow @safe {
@@ -396,8 +421,11 @@ class Timeout : Process {
         return p.stderr;
     }
 
-    override void destroy() @safe {
-        pool.stop;
+    override void destroy() @trusted {
+        if (backgroundReply.among(Reply.none, Reply.running)) {
+            send(background, Msg.stop);
+            backgroundReply = receiveOnly!Reply;
+        }
         p.destroy;
     }
 
@@ -424,12 +452,12 @@ class Timeout : Process {
         return p.terminated;
     }
 
-    bool timeoutTriggered() @safe {
-        if (background !is null && background.done) {
-            timeoutTriggered_ = background.yieldForce;
-            background = null;
+    bool timeoutTriggered() @trusted {
+        if (backgroundReply.among(Reply.none, Reply.running)) {
+            send(background, Msg.status);
+            backgroundReply = receiveOnly!Reply;
         }
-        return timeoutTriggered_;
+        return backgroundReply == Reply.killedByTimeout;
     }
 }
 
