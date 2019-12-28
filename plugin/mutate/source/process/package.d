@@ -18,8 +18,6 @@ import std.exception : collectException;
 import std.stdio : File, fileno, writeln;
 static import std.process;
 
-import dextool.from;
-
 public import process.channel;
 
 version (unittest) {
@@ -220,7 +218,7 @@ class Sandbox : Process {
     }
 
     this(Process p) @safe nothrow {
-        import core.sys.posix.unistd;
+        import core.sys.posix.unistd : setpgid;
 
         this.p = p;
         setpgid(p.osHandle, 0);
@@ -356,7 +354,7 @@ class Timeout : Process {
 
         pool = new TaskPool(1);
         pool.isDaemon = true;
-        background = task!checkProcess(this.osHandle, timeout);
+        background = task!checkProcess(p.osHandle, timeout);
         pool.put(background);
     }
 
@@ -589,10 +587,9 @@ struct DrainElement {
 
     /// Returns: iterates the data as an input range.
     auto byUTF8() @safe pure nothrow const @nogc {
-        import std.algorithm : map;
         static import std.utf;
 
-        return std.utf.byUTF!(const(char))(data.map!(a => cast(const(char)) a));
+        return std.utf.byUTF!(const(char))(cast(const(char)[]) data);
     }
 }
 
@@ -703,7 +700,7 @@ struct DrainByLineCopyRange {
     private {
         Process process;
         DrainRange range;
-        const(char)[] buf;
+        const(ubyte)[] buf;
         const(char)[] line;
     }
 
@@ -712,42 +709,61 @@ struct DrainByLineCopyRange {
         range = p.drain;
     }
 
-    const(char)[] front() @safe pure nothrow const @nogc {
+    string front() @trusted pure nothrow const @nogc {
+        import std.exception : assumeUnique;
+
         assert(!empty, "Can't get front of an empty range");
-        return line;
+        return line.assumeUnique;
     }
 
     void popFront() @safe {
         assert(!empty, "Can't pop front of an empty range");
         import std.algorithm : countUntil;
         import std.array : array;
+        static import std.utf;
 
-        range.popFront;
+        void fillBuf() {
+            if (!range.empty) {
+                range.popFront;
+            }
+            if (!range.empty) {
+                buf ~= range.front.data;
+            }
+        }
 
-        if (range.empty) {
-            line = buf;
+        size_t idx;
+        do {
+            fillBuf();
+            idx = buf.countUntil('\n');
+        }
+        while (!range.empty && idx == -1);
+
+        const(ubyte)[] tmp;
+        if (buf.empty) {
+            // do nothing
+        } else if (idx == -1) {
+            tmp = buf;
             buf = null;
-            if (!line.empty && line[$ - 1] == '\n') {
-                line = line[0 .. $ - 1];
-            }
-            return;
+        } else {
+            idx = () {
+                if (idx < buf.length) {
+                    return idx + 1;
+                }
+                return idx;
+            }();
+            tmp = buf[0 .. idx];
+            buf = buf[idx .. $];
         }
 
-        line = null;
-        buf ~= range.front.byUTF8.array;
-        const idx = buf.countUntil('\n');
-        if (idx != -1) {
-            line = buf[0 .. idx];
-            if (idx < buf.length) {
-                buf = buf[idx + 1 .. $];
-            } else {
-                buf = null;
-            }
+        if (!tmp.empty && tmp[$ - 1] == '\n') {
+            tmp = tmp[0 .. $ - 1];
         }
+
+        line = std.utf.byUTF!(const(char))(cast(const(char)[]) tmp).array;
     }
 
     bool empty() @safe pure nothrow const @nogc {
-        return range.empty && buf.empty;
+        return range.empty && buf.empty && line.empty;
     }
 }
 
@@ -801,7 +817,7 @@ unittest {
         .joiner
         .count
         .shouldEqual(30);
-    res.filter!(a => a.type == DrainElement.Type.stderr).count.shouldEqual(1);
+    res.filter!(a => a.type == DrainElement.Type.stderr).count.shouldBeGreaterThan(0);
     p.wait.shouldEqual(0);
     p.terminated.shouldBeTrue;
 }
