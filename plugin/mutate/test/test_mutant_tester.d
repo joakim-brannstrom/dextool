@@ -37,7 +37,7 @@ class ShallReportTestCaseKilledMutant : SimpleFixture {
             .run;
         // dfmt on
 
-        testConsecutiveSparseOrder!SubStr([`killed by [Failed 42]`]).shouldBeIn(r.stdout);
+        testConsecutiveSparseOrder!SubStr([`killed by [Failed 42]`]).shouldBeIn(r.output);
     }
 }
 
@@ -65,7 +65,7 @@ class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
         testConsecutiveSparseOrder!SubStr(
                 [
                 `killed by [MessageTest.DefaultConstructor, MessageTest.StreamsNullPointer]`
-                ]).shouldBeIn(r.stdout);
+                ]).shouldBeIn(r.output);
     }
 
     override string scriptTest() {
@@ -156,7 +156,7 @@ class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
 
         testConsecutiveSparseOrder!SubStr([
                 `killed by [gtest-typed-test_test, gtest_list_tests_unittest, gtest_no_rtti_unittest, gtest_output_test, gtest_unittest, gtest_xml_output_unittest]`
-                ]).shouldBeIn(r.stdout);
+                ]).shouldBeIn(r.output);
     }
 
     override string scriptTest() {
@@ -552,11 +552,11 @@ class ShallDetectAllTestCases : TestCaseDetection {
             testConsecutiveSparseOrder!SubStr([
                 "Found new test case",
                 l,
-            ]).shouldBeIn(r.stdout);
+            ]).shouldBeIn(r.output);
         }
         // dfmt on
 
-        testConsecutiveSparseOrder!SubStr(["Resetting alive mutants"]).shouldNotBeIn(r.stdout);
+        testConsecutiveSparseOrder!SubStr(["Resetting alive mutants"]).shouldNotBeIn(r.output);
     }
 }
 
@@ -628,7 +628,7 @@ exit 1
             .run;
         // dfmt on
 
-        testConsecutiveSparseOrder!SubStr(["Resetting alive mutants"]).shouldBeIn(r1.stdout);
+        testConsecutiveSparseOrder!SubStr(["Resetting alive mutants"]).shouldBeIn(r1.output);
     }
 }
 
@@ -698,7 +698,7 @@ class ShallDoNothingWhenDetectDroppedTestCases : DroppedTestCases {
 
         testConsecutiveSparseOrder!SubStr([
                 "Detected test cases that has been removed",
-                ]).shouldNotBeIn(r1.stdout);
+                ]).shouldNotBeIn(r1.output);
     }
 }
 
@@ -713,7 +713,7 @@ class ShallRemoveDetectDroppedTestCases : DroppedTestCases {
         testConsecutiveSparseOrder!SubStr([
                 "Detected test cases that has been removed",
                 "MessageTest.StreamsDouble",
-                ]).shouldBeIn(r1.stdout);
+                ]).shouldBeIn(r1.output);
     }
 }
 
@@ -732,7 +732,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
                 "--section", "tc_stat"
                 ]).run;
         testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(
-                r0.stdout);
+                r0.output);
 
         // Act
         makeDextoolAnalyze(testEnv).addInputArg(testData ~ "report_one_ror_mutation_point.cpp").run;
@@ -742,7 +742,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
                 "--section", "tc_stat"
                 ]).run;
         testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(
-                r1.stdout);
+                r1.output);
     }
 }
 
@@ -845,7 +845,7 @@ class ShallStopAtMaxRuntime : SimpleFixture {
             .run;
         // dfmt on
 
-        testConsecutiveSparseOrder!SubStr([`Max runtime of`, `Done!`]).shouldBeIn(r.stdout);
+        testConsecutiveSparseOrder!SubStr([`Max runtime of`, `Done!`]).shouldBeIn(r.output);
     }
 }
 
@@ -875,8 +875,8 @@ class ShallTestMutantsOnSpecifiedLines : SimpleFixture {
         testConsecutiveSparseOrder!Re([
                 `.*Found 1 mutant.*program.cpp:11`,
                 `.*Found 1 mutant.*program.cpp:13`
-                ]).shouldBeIn(r.stdout);
-        testAnyOrder!Re([`info:.*from 'case 3:`, `info:.*from 'case 1:`,]).shouldBeIn(r.stdout);
+                ]).shouldBeIn(r.output);
+        testAnyOrder!Re([`info:.*from 'case 3:`, `info:.*from 'case 1:`,]).shouldBeIn(r.output);
     }
 
     override string programFile() {
@@ -910,8 +910,8 @@ class ShallTestMutantsInDiff : SimpleFixture {
 
         testConsecutiveSparseOrder!Re([
                 `.*Found 1 mutant.*dcc_dc_switch1.cpp:12`,
-                ]).shouldBeIn(r.stdout);
-        testAnyOrder!Re([`info:.*from 'case 1:`, `info:.*killed`,]).shouldBeIn(r.stdout);
+                ]).shouldBeIn(r.output);
+        testAnyOrder!Re([`info:.*from 'case 1:`, `info:.*killed`,]).shouldBeIn(r.output);
     }
 
     override string programFile() {
@@ -948,7 +948,7 @@ class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
                 `info:.*Found 2/3 alive mutants`,
                 `info:.*alive`,
                 `info:.*Found 3/3 alive mutants`,
-                ]).shouldBeIn(r.stdout);
+                ]).shouldBeIn(r.output);
         // dfmt on
     }
 

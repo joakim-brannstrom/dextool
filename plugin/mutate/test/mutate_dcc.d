@@ -26,7 +26,7 @@ unittest {
     testAnyOrder!SubStr([
         "from 'x' to 'true'",
         "from 'x' to 'false'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce 4 predicate mutations")
@@ -42,7 +42,7 @@ unittest {
     testAnyOrder!SubStr([
         "from '!otherFun()' to 'true'",
         "from '!otherFun()' to 'false'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce 4 predicate mutations")
@@ -60,7 +60,7 @@ unittest {
         "from 'x' to 'false'",
         "from 'y' to 'true'",
         "from 'y' to 'false'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce 2 predicate mutations for an expression of multiple clauses")
@@ -80,7 +80,7 @@ unittest {
     testAnyOrder!SubStr([
         "from 'x == 0 || y == 0' to 'true'",
         "from 'x == 0 || y == 0' to 'false'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce 6 clause mutations")
@@ -108,13 +108,13 @@ unittest {
         "from 'y > 0' to 'false'",
         "from 'x > 2' to 'true'",
         "from 'x > 2' to 'false'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 
-    r.stdout.joiner.count("'x == 0'").shouldEqual(2);
-    r.stdout.joiner.count("'x == 1'").shouldEqual(2);
-    r.stdout.joiner.count("'x == 2'").shouldEqual(2);
-    r.stdout.joiner.count("'y > 0'").shouldEqual(2);
-    r.stdout.joiner.count("'x > 2'").shouldEqual(2);
+    r.output.joiner.count("'x == 0'").shouldEqual(2);
+    r.output.joiner.count("'x == 1'").shouldEqual(2);
+    r.output.joiner.count("'x == 2'").shouldEqual(2);
+    r.output.joiner.count("'y > 0'").shouldEqual(2);
+    r.output.joiner.count("'x > 2'").shouldEqual(2);
 }
 
 @(testId ~ "shall produce 4 switch bomb mutations")
@@ -132,7 +132,7 @@ unittest {
         "from 'return 1;' to '*((char*)0)='x';break;'",
         "from 'break;' to '*((char*)0)='x';break;'",
         "from '' to '*((char*)0)='x';break;'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce 4 switch deletion mutations")
@@ -156,7 +156,7 @@ unittest {
         "break;' to ''",
 
         "from 'case 4:' to ''",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce 1 DCC mutant in C when the input is a C file")
@@ -172,7 +172,7 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "from 'x == 0' to '1'",
         "from 'x == 0' to '0'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce 6 predicate and 8 clause mutations for an expression of multiple clauses of C code")
@@ -204,7 +204,7 @@ unittest {
         // isPredicateFunc3
         "from 'x == TRUE' to '1'",
         "from 'x == TRUE' to '0'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce 2 predicate mutants for the bool function")
@@ -221,5 +221,5 @@ unittest {
     testAnyOrder!SubStr([
     "from 'fun(x)' to 'true'",
     "from 'fun(x)' to 'false'",
-                        ]).shouldBeIn(r.stdout);
+                        ]).shouldBeIn(r.output);
 }

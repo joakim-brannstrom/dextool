@@ -25,7 +25,7 @@ unittest {
         .addArg(["test"])
         .addArg(["--mutant", "aor"])
         .run;
-    verifyAor(r.stdout);
+    verifyAor(r.output);
 }
 
 void verifyAor(string[] txt) {

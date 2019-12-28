@@ -37,5 +37,5 @@ unittest {
         "from 'a || b' to 'false'",
         "from '|| b' to ''",
         "from 'a ||' to ''",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }

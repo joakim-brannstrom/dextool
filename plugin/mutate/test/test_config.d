@@ -57,11 +57,11 @@ unittest {
 
     testConsecutiveSparseOrder!SubStr([
             "uc1, Parameterized Tests, Value.*|TypeTrait.*|Typed.*"
-            ]).shouldBeIn(r.stdout);
+            ]).shouldBeIn(r.output);
     testConsecutiveSparseOrder!SubStr(
-            ["uc2, Test Report, TestResult.*|TestPartResult.*|TestInfo.*"]).shouldBeIn(r.stdout);
+            ["uc2, Test Report, TestResult.*|TestPartResult.*|TestInfo.*"]).shouldBeIn(r.output);
     testConsecutiveSparseOrder!SubStr(["uc3, Resetting Mocks, VerifyAndClear.*"]).shouldBeIn(
-            r.stdout);
+            r.output);
 }
 
 @(testId ~ "shall use the user specified compiler to determine system includes")
@@ -82,5 +82,5 @@ unittest {
 
     testConsecutiveSparseOrder!SubStr([
             "trace: Compiler flags: -xc++ -isystem /foo/bar"
-            ]).shouldBeIn(r.stdout);
+            ]).shouldBeIn(r.output);
 }

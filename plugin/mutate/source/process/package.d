@@ -18,8 +18,6 @@ import std.exception : collectException;
 import std.stdio : File, fileno, writeln;
 static import std.process;
 
-import dextool.from;
-
 public import process.channel;
 
 version (unittest) {
@@ -220,7 +218,7 @@ class Sandbox : Process {
     }
 
     this(Process p) @safe nothrow {
-        import core.sys.posix.unistd;
+        import core.sys.posix.unistd : setpgid;
 
         this.p = p;
         setpgid(p.osHandle, 0);
@@ -340,49 +338,75 @@ sleep 10m
  * wait/tryWait methods.
  */
 class Timeout : Process {
-    import std.datetime : Clock, SysTime;
-    import std.parallelism : task, TaskPool, Task;
+    import std.algorithm : among;
+    import std.datetime : Clock, Duration;
+    import std.concurrency;
 
     private {
+        enum Msg {
+            none,
+            stop,
+            status,
+        }
+
+        enum Reply {
+            none,
+            running,
+            normalDeath,
+            killedByTimeout,
+        }
+
         Process p;
-        SysTime stopAt;
-        bool timeoutTriggered_;
-
-        TaskPool pool;
-        Task!(checkProcess, RawPid, SysTime)* background;
+        Tid background;
+        Reply backgroundReply;
     }
 
-    this(Process p, Duration timeout) @safe {
+    this(Process p, Duration timeout) @trusted {
         this.p = p;
-        this.stopAt = Clock.currTime + timeout;
-
-        pool = new TaskPool(1);
-        pool.isDaemon = true;
-        startBackground();
+        background = spawn(&checkProcess, p.osHandle, timeout);
     }
 
-    private void startBackground() @safe {
-        background = task!checkProcess(this.osHandle, stopAt);
-        pool.put(background);
-    }
-
-    /// ONLY FOR INTERNAL USE.
-    static bool checkProcess(RawPid p, SysTime stopAt) {
+    private static void checkProcess(RawPid p, Duration timeout) {
         import core.sys.posix.signal : SIGKILL;
+        import std.algorithm : max;
+        import std.variant : Variant;
         static import core.sys.posix.signal;
 
-        while (Clock.currTime < stopAt) {
-            if (core.sys.posix.signal.kill(p, 0) == -1) {
+        const stopAt = Clock.currTime + timeout;
+        // the purpose is to poll the process often "enough" that if it
+        // terminates early `Process` detects it fast enough. 1000 is chosen
+        // because it "feels good". the purpose
+        auto sleepInterval = max(20, timeout.total!"msecs" / 1000).dur!"msecs";
+
+        bool forceStop;
+        Msg msg;
+        while (!forceStop && Clock.currTime < stopAt) {
+            msg = Msg.none;
+            const hasMsg = receiveTimeout(sleepInterval, (Msg x) { msg = x; }, (Variant x) {
+            },);
+
+            final switch (msg) {
+            case Msg.none:
+                break;
+            case Msg.stop:
+                forceStop = true;
+                break;
+            case Msg.status:
+                send(ownerTid, Reply.running);
                 break;
             }
-            Thread.sleep(20.dur!"msecs");
+
+            if (!hasMsg && (core.sys.posix.signal.kill(p, 0) == -1)) {
+                break;
+            }
         }
 
-        if (Clock.currTime >= stopAt) {
+        if (!forceStop && Clock.currTime >= stopAt) {
             core.sys.posix.signal.kill(p, SIGKILL);
-            return true;
+            send(ownerTid, Reply.killedByTimeout);
+        } else {
+            send(ownerTid, Reply.normalDeath);
         }
-        return false;
     }
 
     override RawPid osHandle() nothrow @safe {
@@ -397,8 +421,11 @@ class Timeout : Process {
         return p.stderr;
     }
 
-    override void destroy() @safe {
-        pool.stop;
+    override void destroy() @trusted {
+        if (backgroundReply.among(Reply.none, Reply.running)) {
+            send(background, Msg.stop);
+            backgroundReply = receiveOnly!Reply;
+        }
         p.destroy;
     }
 
@@ -425,12 +452,12 @@ class Timeout : Process {
         return p.terminated;
     }
 
-    bool timeoutTriggered() @safe {
-        if (background !is null && background.done) {
-            timeoutTriggered_ = background.yieldForce;
-            background = null;
+    bool timeoutTriggered() @trusted {
+        if (backgroundReply.among(Reply.none, Reply.running)) {
+            send(background, Msg.status);
+            backgroundReply = receiveOnly!Reply;
         }
-        return timeoutTriggered_;
+        return backgroundReply == Reply.killedByTimeout;
     }
 }
 
@@ -588,10 +615,9 @@ struct DrainElement {
 
     /// Returns: iterates the data as an input range.
     auto byUTF8() @safe pure nothrow const @nogc {
-        import std.algorithm : map;
         static import std.utf;
 
-        return std.utf.byUTF!(const(char))(data.map!(a => cast(const(char)) a));
+        return std.utf.byUTF!(const(char))(cast(const(char)[]) data);
     }
 }
 
@@ -702,7 +728,7 @@ struct DrainByLineCopyRange {
     private {
         Process process;
         DrainRange range;
-        const(char)[] buf;
+        const(ubyte)[] buf;
         const(char)[] line;
     }
 
@@ -711,42 +737,61 @@ struct DrainByLineCopyRange {
         range = p.drain;
     }
 
-    const(char)[] front() @safe pure nothrow const @nogc {
+    string front() @trusted pure nothrow const @nogc {
+        import std.exception : assumeUnique;
+
         assert(!empty, "Can't get front of an empty range");
-        return line;
+        return line.assumeUnique;
     }
 
     void popFront() @safe {
         assert(!empty, "Can't pop front of an empty range");
         import std.algorithm : countUntil;
         import std.array : array;
+        static import std.utf;
 
-        range.popFront;
+        void fillBuf() {
+            if (!range.empty) {
+                range.popFront;
+            }
+            if (!range.empty) {
+                buf ~= range.front.data;
+            }
+        }
 
-        if (range.empty) {
-            line = buf;
+        size_t idx;
+        do {
+            fillBuf();
+            idx = buf.countUntil('\n');
+        }
+        while (!range.empty && idx == -1);
+
+        const(ubyte)[] tmp;
+        if (buf.empty) {
+            // do nothing
+        } else if (idx == -1) {
+            tmp = buf;
             buf = null;
-            if (!line.empty && line[$ - 1] == '\n') {
-                line = line[0 .. $ - 1];
-            }
-            return;
+        } else {
+            idx = () {
+                if (idx < buf.length) {
+                    return idx + 1;
+                }
+                return idx;
+            }();
+            tmp = buf[0 .. idx];
+            buf = buf[idx .. $];
         }
 
-        line = null;
-        buf ~= range.front.byUTF8.array;
-        const idx = buf.countUntil('\n');
-        if (idx != -1) {
-            line = buf[0 .. idx];
-            if (idx < buf.length) {
-                buf = buf[idx + 1 .. $];
-            } else {
-                buf = null;
-            }
+        if (!tmp.empty && tmp[$ - 1] == '\n') {
+            tmp = tmp[0 .. $ - 1];
         }
+
+        line = std.utf.byUTF!(const(char))(cast(const(char)[]) tmp).array;
     }
 
     bool empty() @safe pure nothrow const @nogc {
-        return range.empty && buf.empty;
+        return range.empty && buf.empty && line.empty;
     }
 }
 
@@ -800,7 +845,7 @@ unittest {
         .joiner
         .count
         .shouldEqual(30);
-    res.filter!(a => a.type == DrainElement.Type.stderr).count.shouldEqual(1);
+    res.filter!(a => a.type == DrainElement.Type.stderr).count.shouldBeGreaterThan(0);
     p.wait.shouldEqual(0);
     p.terminated.shouldBeTrue;
 }

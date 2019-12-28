@@ -28,7 +28,7 @@ unittest {
         .run;
     auto r = makeCommand(testEnv, defaultBinary).run;
 
-    r.stdout.sliceContains([
+    r.output.sliceContains([
         "begin: test_expect_eq",
         "Equal check passed",
         "",
@@ -73,7 +73,7 @@ unittest {
         "Which is: int_:1 long_:2 float_:3 double_:4 long_double_:5 char_:'a' (97, 0x61) myInt_:2 myPod_:x:3",
         "end: test_expect_eq",
         ]);
-    r.stdout.sliceContains([
+    r.output.sliceContains([
         "begin: test_c_aggregate_eq",
         "Equal check passed",
         "",
@@ -98,7 +98,7 @@ unittest {
         `Which is: bool_arr:{ true, false } int_arr:{ 1, 2 } double_arr:{ 0, 0 } char_arr:"b"`,
         "end: test_c_aggregate_eq",
     ]).shouldBeTrue;
-    r.stdout.sliceContains([
+    r.output.sliceContains([
         "begin: test_pp_of_nested_struct",
         "",
         "Expected: a",
@@ -126,14 +126,14 @@ unittest {
     auto r = makeCommand(testEnv, defaultBinary)
         .run;
 
-    r.stdout.sliceContains([
+    r.output.sliceContains([
                            "Expected: a",
                            "Which is: x:1",
                            "To be equal to: b",
                            "Which is: x:2",
     ]);
 
-    r.stdout.sliceContains([
+    r.output.sliceContains([
       "Expected: a",
       "Which is: y:1",
       "To be equal to: b",

@@ -34,10 +34,12 @@ enum ChannelStatus {
 interface ReadChannel {
     alias OutRange = void delegate(const(ubyte)[] data);
 
+    // TODO: rename to isOpen.
     /// If the channel is open.
     bool hasData() @safe;
 
-    /** If there is data to read.
+    // TODO: rename to hasData.
+    /** If there is data to read, non blocking.
      *
      * If this is called before read then it is guaranteed that read will not
      * block.
@@ -70,6 +72,9 @@ interface WriteChannel {
 
     /// Destroy the channel.
     void destroy() @safe;
+
+    /// Close the write channel.
+    void closeWrite() @safe;
 }
 
 interface Channel : ReadChannel, WriteChannel {
@@ -126,6 +131,10 @@ class Stdio : Channel {
     override void flush() @safe {
         output.flush;
     }
+
+    override void closeWrite() @safe {
+        output.closeWrite;
+    }
 }
 
 /** Pipes to use to communicate with a process.
@@ -174,85 +183,61 @@ class Pipe : Channel {
     override void flush() @safe {
         output.flush;
     }
+
+    override void closeWrite() @safe {
+        output.closeWrite;
+    }
 }
 
 /** A read channel over a `File` object.
  */
 class FileReadChannel : ReadChannel {
-    import std.parallelism : Task, TaskPool;
-
     private {
         File in_;
-        TaskPool pool;
-        Task!(readChar, File*)* background;
+        bool eof;
     }
 
-    this(File in__) @safe {
-        in_ = in__;
-
-        pool = new TaskPool(1);
-        pool.isDaemon = true;
-        startBackground();
+    this(File in_) @trusted {
+        this.in_ = in_;
     }
 
     override void destroy() @safe {
-        pool.stop();
         in_.detach;
     }
 
     override bool hasData() @safe {
-        return in_.isOpen && !in_.eof;
+        return !eof;
     }
 
     override bool hasPendingData() @safe {
-        import std.exception : ifThrown;
+        import core.sys.posix.poll;
 
-        return background.done.ifThrown!Exception(false);
+        pollfd[1] fds;
+        fds[0].fd = in_.fileno;
+        fds[0].events = POLLIN;
+        auto ready = () @trusted { return poll(&fds[0], 1, 0); }();
+
+        if (ready <= 0) {
+            return false;
+        }
+        return (fds[0].revents | POLLIN) != 0;
     }
 
     override const(ubyte)[] read(const size_t size) return scope @trusted {
-        if (size == 0) {
+        static import core.sys.posix.unistd;
+
+        if (size == 0 || !hasPendingData) {
             return null;
         }
 
         auto buffer = new ubyte[size];
-
-        scope (exit) {
-            startBackground();
+        auto res = core.sys.posix.unistd.read(in_.fileno, &buffer[0], size);
+        if (res <= 0) {
+            eof = true;
+            return null;
         }
 
-        try {
-            buffer[0] = background.yieldForce();
-        } catch (Exception e) {
-            return hasData() ? in_.rawRead(buffer) : [];
-        }
-
-        if (size > 1) {
-            buffer = buffer[0 .. in_.rawRead(buffer[1 .. $]).length + 1];
-        }
-
-        return buffer.idup;
-    }
-
-    private void startBackground() @safe {
-        import std.parallelism : task;
-
-        if (hasData()) {
-            background = task!readChar(&in_);
-            pool.put(background);
-        }
-    }
-
-    /// ONLY FOR INTERNAL USE.
-    static ubyte readChar(File* fin) {
-        ubyte[1] buffer;
-        auto result = fin.rawRead(buffer);
-
-        if (result.length > 0) {
-            return result[0];
-        }
-
-        throw new Exception("No input data");
+        return cast(const(ubyte)[]) buffer[0 .. res];
     }
 }
 
@@ -282,6 +267,10 @@ class FileWriteChannel : WriteChannel {
 
     override void flush() @safe {
         out_.flush();
+    }
+
+    override void closeWrite() @safe {
+        out_.close;
     }
 }
 

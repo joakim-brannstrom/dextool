@@ -25,7 +25,7 @@ unittest {
         .addArg(["test"])
         .addArg(["--mutant", "cor"])
         .run;
-    verifyCor(r.stdout);
+    verifyCor(r.output);
 }
 
 void verifyCor(const(string)[] txt) {

@@ -407,8 +407,8 @@ unittest {
         .run;
 
     r.success.shouldBeFalse;
-    r.stderr.sliceContains("Invalid xml file").shouldBeTrue;
-    r.stderr.sliceContains("Line 2, column 1: Expected literal").shouldBeTrue;
+    r.output.sliceContains("Invalid xml file").shouldBeTrue;
+    r.output.sliceContains("Line 2, column 1: Expected literal").shouldBeTrue;
 }
 
 // END   CLI Tests ###########################################################
@@ -429,7 +429,7 @@ unittest {
 
     // an invalid plugin is always an error for the user
     r.success.shouldBeFalse;
-    r.stderr.sliceContains("No such plugin found:").shouldBeTrue;
+    r.output.sliceContains("No such plugin found:").shouldBeTrue;
 }
 
 // END   Unspecified CLI Test ################################################
