@@ -13,7 +13,8 @@ import core.sys.posix.unistd : pid_t;
 import core.thread : Thread;
 import core.time : dur, Duration;
 import logger = std.experimental.logger;
-import std.array : appender, empty;
+import std.algorithm : filter, count, joiner, map;
+import std.array : appender, empty, array;
 import std.exception : collectException;
 import std.stdio : File, fileno, writeln;
 static import std.process;
@@ -22,6 +23,7 @@ public import process.channel;
 
 version (unittest) {
     import unit_threaded.assertions;
+    import std.file : remove;
 }
 
 /// RAII handling of a process instance.
@@ -307,7 +309,7 @@ unittest {
     import core.sys.posix.sys.stat;
     import std.algorithm : count;
     import std.datetime.stopwatch : StopWatch, AutoStart;
-    import std.file : setAttributes, getAttributes, remove;
+    import std.file : setAttributes, getAttributes;
 
     immutable scriptName = "./" ~ __FUNCTION__ ~ ".sh";
     File(scriptName, "w").writeln(`#!/bin/bash
@@ -357,16 +359,38 @@ class Timeout : Process {
         }
 
         Process p;
+        shared KillProcess kp;
         Tid background;
         Reply backgroundReply;
     }
 
     this(Process p, Duration timeout) @trusted {
         this.p = p;
-        background = spawn(&checkProcess, p.osHandle, timeout);
+        this.kp = cast(shared) new KillProcess(p);
+        background = spawn(&checkProcess, p.osHandle, timeout, kp);
     }
 
-    private static void checkProcess(RawPid p, Duration timeout) {
+    private static class KillProcess {
+        import core.sync.mutex : Mutex;
+
+        private {
+            Process p;
+            Mutex mtx;
+        }
+        this(Process p) {
+            this.p = p;
+            this.mtx = new Mutex();
+        }
+
+        void kill() @trusted nothrow {
+            this.mtx.lock_nothrow();
+            scope (exit)
+                this.mtx.unlock_nothrow();
+            p.kill;
+        }
+    }
+
+    private static void checkProcess(RawPid p, Duration timeout, shared KillProcess kp) {
         import core.sys.posix.signal : SIGKILL;
         import std.algorithm : max;
         import std.variant : Variant;
@@ -402,7 +426,7 @@ class Timeout : Process {
         }
 
         if (!forceStop && Clock.currTime >= stopAt) {
-            core.sys.posix.signal.kill(p, SIGKILL);
+            (cast() kp).kill;
             send(ownerTid, Reply.killedByTimeout);
         } else {
             send(ownerTid, Reply.normalDeath);
@@ -429,8 +453,8 @@ class Timeout : Process {
         p.destroy;
     }
 
-    override void kill() nothrow @safe {
-        p.kill;
+    override void kill() nothrow @trusted {
+        (cast() kp).kill;
     }
 
     override int wait() @trusted {
@@ -618,6 +642,10 @@ struct DrainElement {
         static import std.utf;
 
         return std.utf.byUTF!(const(char))(cast(const(char)[]) data);
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return data.length == 0;
     }
 }
 
@@ -830,9 +858,6 @@ Process drain(T)(Process p, ref T range) {
 
 @("shall drain the output of a process while it is running with a separation of stdout and stderr")
 unittest {
-    import std.algorithm : filter, count, joiner, map;
-    import std.array : array;
-
     auto p = pipeProcess(["dd", "if=/dev/urandom", "bs=10", "count=3"]).raii;
     auto res = p.drain.array;
 
@@ -848,4 +873,40 @@ unittest {
     res.filter!(a => a.type == DrainElement.Type.stderr).count.shouldBeGreaterThan(0);
     p.wait.shouldEqual(0);
     p.terminated.shouldBeTrue;
+}
+
+@("shall kill the process tree when the timeout is reached")
+unittest {
+    immutable script = makeScript(`#!/bin/bash
+sleep 10m
+`);
+    scope (exit)
+        remove(script);
+
+    auto p = pipeProcess([script]).sandbox.timeout(1.dur!"seconds").raii;
+    for (int i = 0; getDeepChildren(p.osHandle).count < 1; ++i) {
+        Thread.sleep(50.dur!"msecs");
+    }
+    const preChildren = getDeepChildren(p.osHandle).count;
+    const res = p.drain.array;
+    const postChildren = getDeepChildren(p.osHandle).count;
+
+    p.wait.shouldEqual(-9);
+    p.terminated.shouldBeTrue;
+    preChildren.shouldEqual(1);
+    postChildren.shouldEqual(0);
+}
+
+string makeScript(string script, string file = __FILE__, uint line = __LINE__) {
+    import core.sys.posix.sys.stat;
+    import std.file : getAttributes, setAttributes, thisExePath;
+    import std.stdio : File;
+    import std.path : baseName;
+    import std.conv : to;
+
+    immutable fname = thisExePath ~ "_" ~ file.baseName ~ line.to!string ~ ".sh";
+
+    File(fname, "w").writeln(script);
+    setAttributes(fname, getAttributes(fname) | S_IXUSR | S_IXGRP | S_IXOTH);
+    return fname;
 }
