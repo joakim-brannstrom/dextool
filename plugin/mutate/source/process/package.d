@@ -306,20 +306,16 @@ Sandbox sandbox(Process p) @safe {
 
 @("shall terminate a group of processes")
 unittest {
-    import core.sys.posix.sys.stat;
     import std.algorithm : count;
     import std.datetime.stopwatch : StopWatch, AutoStart;
-    import std.file : setAttributes, getAttributes;
 
-    immutable scriptName = "./" ~ __FUNCTION__ ~ ".sh";
-    File(scriptName, "w").writeln(`#!/bin/bash
+    immutable scriptName = makeScript(`#!/bin/bash
 sleep 10m &
 sleep 10m &
 sleep 10m
 `);
     scope (exit)
         remove(scriptName);
-    setAttributes(scriptName, getAttributes(scriptName) | S_IXUSR | S_IXGRP | S_IXOTH);
 
     auto p = pipeProcess([scriptName]).sandbox.raii;
     for (int i = 0; getDeepChildren(p.osHandle).count < 3; ++i) {
