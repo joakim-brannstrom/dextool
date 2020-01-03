@@ -29,11 +29,11 @@ search_paths = ["./build/compile_commands.json"]
 
 [mutant_test]
 # (required) program used to run the test suite
-test_cmd = "test.sh"
+test_cmd = "./test.sh"
 # timeout to use for the test suite (msecs)
 # test_cmd_timeout = 1000
 # (required) program used to build the application
-build_cmd = "build.sh"
+build_cmd = "./build.sh"
 # program used to analyze the output from the test suite for test cases that killed the mutant
 # analyze_cmd = "analyze.sh"
 # builtin analyzer of output from testing frameworks to find failing test cases
