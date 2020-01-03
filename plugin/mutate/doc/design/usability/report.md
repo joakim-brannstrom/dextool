@@ -481,6 +481,12 @@ The user wants to be able to add a comment to suppressed mutants.
 
 The user wants to add a description to the categories so it is possible to explain what it is, when it is prudent to use, restrictions on use etc. The user then expects this description to be part of the report of the suppressed mutants.
 
+The user wants to be able to mark a mutant via an admin-command and provide a rationale for why the mutant was marked.
+
+**Rationale**: The ability to mark mutants via a commando removes the need to modify code (inserting a comment) in order to suppress a mutant. This is useful for example inspected code that *should* not be modified. By providing a rationale, the user can specify exactly the reason and motivation behind the marking. It also allows the user to chose whether or not the mutant should be included in the final score.
+
+**Note**: This is a user-based requirement. Marking mutants manually is both tedious and unstable if the analyze phase is intended to be run again. However, this also gives the user the ability to mark mutants with any status. This could be dangerous in the long term, if the tool is promoting suppression.
+
 # SPC-report_suppress_mutants
 partof: REQ-suppress_mutants
 ###

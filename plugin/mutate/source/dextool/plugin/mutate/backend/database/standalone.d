@@ -33,7 +33,7 @@ import std.typecons : Nullable, Flag, No;
 
 import miniorm : toSqliteDateTime, fromSqLiteDateTime;
 
-import dextool.type : AbsolutePath, Path;
+import dextool.type : AbsolutePath, Path, ExitStatusType;
 
 import dextool.plugin.mutate.backend.database.schema;
 import dextool.plugin.mutate.backend.database.type;
@@ -42,7 +42,7 @@ import dextool.plugin.mutate.backend.type : Language;
 /** Database wrapper with minimal dependencies.
  */
 struct Database {
-    import miniorm : Miniorm, select, insert, delete_;
+    import miniorm : Miniorm, select, insert, insertOrReplace, delete_;
     import d2sqlite3 : SqlDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
@@ -75,6 +75,29 @@ struct Database {
         stmt.bind(":cs1", cs.c1);
         auto res = stmt.execute;
         return res.oneValue!long != 0;
+    }
+
+    bool exists(MutationStatusId status_id) {
+        immutable s = format!"SELECT COUNT(*) FROM %s WHERE id=:id LIMIT 1"(mutationStatusTable);
+        auto stmt = db.prepare(s);
+        stmt.bind(":id", cast(long) status_id);
+        auto res = stmt.execute;
+        return res.oneValue!long == 0;
+    }
+
+    bool isMarked(MutationId id) @trusted {
+        immutable s = format!"SELECT COUNT(*) FROM %s WHERE st_id IN
+            (SELECT st_id FROM %s WHERE id=:id)"(
+                markedMutantTable, mutationTable);
+        auto stmt = db.prepare(s);
+        stmt.bind(":id", cast(long) id);
+        auto res = stmt.execute;
+        return res.oneValue!long != 0;
+    }
+
+    MarkedMutant[] getLostMarkings() @trusted {
+        import std.algorithm : filter;
+        return getMarkedMutants.filter!(a => exists(MutationStatusId(a.mutationStatusId))).array;
     }
 
     Nullable!FileId getFileId(const Path p) @trusted {
@@ -405,6 +428,17 @@ struct Database {
             rval = MutationStatusId(res.peek!long(0));
         return rval;
     }
+    // Returns: the status of the mutant
+    Nullable!Mutation.Status getMutationStatus(const MutationId id) @trusted {
+        auto s = format!"SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)"(
+                mutationStatusTable, mutationTable);
+        auto stmt = db.prepare(s);
+        stmt.bind(":mut_id", cast(long) id);
+        typeof(return) rval;
+        foreach (res; stmt.execute)
+            rval = res.peek!long(0).to!(Mutation.Status);
+        return rval;
+    }
 
     /// Returns: the mutants in the file at the line.
     MutationStatusId[] getMutationsOnLine(const(Mutation.Kind)[] kinds, FileId fid, SourceLoc sloc) @trusted {
@@ -511,6 +545,19 @@ struct Database {
         return app.data;
     }
 
+    /** Get SourceLoc for a specific mutation id.
+     */
+    Nullable!SourceLoc getSourceLocation(MutationId id) @trusted {
+        auto s = format!"SELECT line, column FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE id=:mut_id)"(
+                mutationPointTable, mutationTable);
+        auto stmt = db.prepare(s);
+        stmt.bind(":mut_id", cast(long) id);
+        typeof(return) rval;
+        foreach (res; stmt.execute)
+            rval = SourceLoc(res.peek!uint(0), res.peek!uint(1));
+        return rval;
+    }
+
     /** Remove all mutations of kinds.
      */
     void removeMutant(const Mutation.Kind[] kinds) @trusted {
@@ -528,6 +575,43 @@ struct Database {
                 mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
         stmt.execute;
+    }
+
+    /** Mark a mutant with status and rationale (also adds metadata).
+     */
+    void markMutant(MutationEntry m, MutationStatusId st_id, Mutation.Status s, string r, string txt) @trusted {
+        db.run(insertOrReplace!MarkedMutant,
+            MarkedMutant(st_id, m.id, m.sloc.line, m.sloc.column, m.file, s, Clock.currTime.toUTC, Rationale(r), txt));
+    }
+
+    void removeMarkedMutant(MutationStatusId st_id) @trusted {
+        immutable condition = format!"st_id=%s"(st_id);
+        db.run(delete_!MarkedMutant.where(condition));
+    }
+
+    MarkedMutant[] getMarkedMutants() @trusted {
+        immutable s = format!"SELECT st_id, mut_id, line, column, path, to_status, time, rationale, mut_text
+            FROM %s ORDER BY path"(markedMutantTable);
+        auto stmt = db.prepare(s);
+
+        auto app = appender!(MarkedMutant[])();
+        foreach (res; stmt.execute)
+            app.put(MarkedMutant(res.peek!long(0), res.peek!long(1),
+                    res.peek!uint(2), res.peek!uint(3), res.peek!string(4),
+                    res.peek!ulong(5), res.peek!string(6).fromSqLiteDateTime,
+                    Rationale(res.peek!string(7)), res.peek!string(8)));
+        return app.data;
+    }
+
+    Mutation.Kind getKind(MutationId id) @trusted {
+        immutable s = format!"SELECT kind FROM %s WHERE id=:id"(mutationTable);
+        auto stmt = db.prepare(s);
+        stmt.bind(":id", cast(long) id);
+
+        typeof(return) rval;
+        foreach (res; stmt.execute)
+            rval = res.peek!long(0).to!(Mutation.Kind);
+        return rval;
     }
 
     import dextool.plugin.mutate.backend.type;

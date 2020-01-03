@@ -21,12 +21,14 @@ import std.format : format;
 import std.range : take, retro, only;
 import std.typecons : Flag, Yes, No, Tuple, Nullable, tuple;
 
-import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId;
+import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId, MarkedMutant;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
-import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
+import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult,
+    makeMutationText, makeMutation;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.backend.report.utility : window, windowSize;
-import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, Language, TestGroup;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize,
+    statusToString, kindToString;
+import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, TestGroup;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
 import dextool.plugin.mutate.type : ReportLevel, ReportSection;
 import dextool.type;
@@ -244,7 +246,7 @@ struct TestCaseDeadStat {
         return buf.data;
     }
 
-    void toString(Writer)(ref Writer w) @safe const 
+    void toString(Writer)(ref Writer w) @safe const
             if (isOutputRange!(Writer, char)) {
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -469,6 +471,28 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.predictedDone = st.total > 0 ? (st.untested * (st.totalTime / st.total)) : 0.dur!"msecs";
     st.killedByCompilerTime = killed_by_compiler.time;
 
+    return st;
+}
+
+struct MarkedMutantsStat {
+    Table!6 tbl;
+    // TODO: extend for html-report
+}
+
+MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe {
+    MarkedMutantsStat st;
+    st.tbl.heading = [
+        "File", "Line", "Column", "Mutation", "Status", "Rationale"
+    ];
+
+    import std.conv : to;
+
+    foreach (m; db.getMarkedMutants()) {
+        typeof(st.tbl).Row r = [
+            m.path, to!string(m.line), to!string(m.column), m.mutText, statusToString(m.toStatus), m.rationale
+        ];
+        st.tbl.put(r);
+    }
     return st;
 }
 

@@ -11,7 +11,8 @@ module dextool_test.test_report;
 
 import core.time : dur;
 import std.array : array;
-import std.file : exists, readText;
+import std.conv : to;
+import std.file : copy, exists, readText;
 import std.path : buildPath, buildNormalizedPath, absolutePath, relativePath, setExtension;
 import std.stdio : File;
 
@@ -303,6 +304,34 @@ unittest {
         "|------------|-------|----------|",
         "| 40         | 2     | tc_1     |",
         "| 40         | 2     | tc_3     |",
+    ]).shouldBeIn(r.output);
+}
+
+@(testId ~ "shall report one marked mutant (plain)")
+unittest {
+    // arrange
+    mixin(EnvSetup(globalTestdir));
+    immutable dst = testEnv.outdir ~ "fibonacci.cpp";
+    copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+    makeDextoolAnalyze(testEnv).addInputArg(dst).run;
+
+    // act
+    makeDextoolAdmin(testEnv)
+        .addArg(["--operation", "markMutant"])
+        .addArg(["--id",        to!string(MutationId(3))])
+        .addArg(["--to-status", to!string(Mutation.Status.killedByCompiler)])
+        .addArg(["--rationale", `"Marked mutant to be reported"`])
+        .run;
+    auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--section",   "marked_mutants"])
+        .addArg(["--style",     "plain"])
+        .run;
+
+    // assert
+    testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)
+        "| File ", "        | Line | Column | Mutation | Status           | Rationale                      |",
+        "|------", "--------|------|--------|----------|------------------|--------------------------------|",
+        "|", `fibonacci.cpp | 8    | 10     | !=       | killedByCompiler | "Marked mutant to be reported" |`,
     ]).shouldBeIn(r.output);
 }
 

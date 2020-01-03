@@ -181,7 +181,7 @@ struct Markdown(Writer, TraceWriter) {
         markdown = markdown.heading("Mutation Type %(%s, %)", kind_);
     }
 
-    override void locationStartEvent() {
+    override void locationStartEvent(ref Database db) {
         if (reportIndividualMutants) {
             markdown_loc = markdown.heading("Mutants");
             mut_tbl.heading = ["From", "To", "File Line:Column", "ID", "Status"];

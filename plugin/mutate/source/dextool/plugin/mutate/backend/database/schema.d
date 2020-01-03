@@ -62,11 +62,12 @@ import dextool.plugin.mutate.backend.type : Language;
 
 import d2sqlite3 : SqlDatabase = Database;
 import miniorm : Miniorm, TableName, buildSchema, ColumnParam, TableForeignKey,
-    TableConstraint, KeyRef, KeyParam, ColumnName, delete_, insert, select;
+    TableConstraint, TablePrimaryKey, KeyRef, KeyParam, ColumnName, delete_, insert, select;
 
 immutable allTestCaseTable = "all_test_case";
 immutable filesTable = "files";
 immutable killedTestCaseTable = "killed_test_case";
+immutable markedMutantTable = "marked_mutant";
 immutable mutantTimeoutCtxTable = "mutant_timeout_ctx";
 immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
 immutable mutationPointTable = "mutation_point";
@@ -411,6 +412,34 @@ struct MutantTimeoutCtxTbl {
     State state;
 }
 
+import dextool.plugin.mutate.backend.database.type : Rationale;
+
+@TableName(markedMutantTable)
+@TablePrimaryKey("st_id")
+struct MarkedMutantTbl {
+    @ColumnName("st_id")
+    long mutationStatusId;
+
+    @ColumnName("mut_id")
+    long mutationId;
+
+    uint line;
+
+    uint column;
+
+    string path;
+
+    @ColumnName("to_status")
+    ulong toStatus;
+
+    SysTime time;
+
+    string rationale;
+
+    @ColumnName("mut_text")
+    string mutText;
+    }
+
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
         db.run(delete_!VersionTbl);
@@ -480,7 +509,7 @@ void upgradeV0(ref Miniorm db) {
     enum tbl = makeUpgradeTable;
 
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl, MutationPointTbl, MutationTbl, TestCaseKilledTbl,
-            AllTestCaseTbl, MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl));
+            AllTestCaseTbl, MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl, MarkedMutantTbl));
 
     makeSrcMetadataView(db);
 
@@ -805,6 +834,12 @@ void upgradeV11(ref Miniorm db) {
 void upgradeV12(ref Miniorm db) {
     db.run(buildSchema!(MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl));
     updateSchemaVersion(db, 13);
+}
+
+/// 2019-11-12
+void upgradeV13(ref Miniorm db) {
+    db.run(buildSchema!(MarkedMutantTbl));
+    updateSchemaVersion(db, 14);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

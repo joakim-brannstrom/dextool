@@ -52,7 +52,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportLevel;
         });
     }
 
-    override void locationStartEvent() {
+    override void locationStartEvent(ref Database db) {
     }
 
     override void locationEvent(const ref IterateMutantRow r) @trusted {

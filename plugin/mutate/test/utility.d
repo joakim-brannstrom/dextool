@@ -24,6 +24,15 @@ auto makeDextoolAnalyze(const ref TestEnv env) {
     // dfmt on
 }
 
+auto makeDextoolAdmin(const ref TestEnv env) {
+    // dfmt off
+    return dextool_test.makeDextool(env)
+        .setWorkdir(workDir)
+        .args(["mutate", "admin"])
+        .addPostArg(["--db", (env.outdir ~ defaultDb).toString]);
+    // dfmt on
+}
+
 auto makeDextool(const ref TestEnv env) {
     // dfmt off
     return dextool_test.makeDextool(env)
@@ -64,4 +73,9 @@ void makeExecutable(string fname) {
 
     const attrs = getAttributes(fname) | S_IRWXU;
     setAttributes(fname, attrs);
+}
+
+auto createDatabase(const ref TestEnv env) {
+    import dextool.plugin.mutate.backend.database.standalone;
+    return Database.make((env.outdir ~ defaultDb).toString);
 }

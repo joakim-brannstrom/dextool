@@ -25,6 +25,7 @@ int main(string[] args) {
                           "dextool_test.test_d2sqlite3_cleanup_bug",
                           "dextool_test.test_mutant_tester",
                           "dextool_test.test_report",
+                          "dextool_test.test_admin",
                           );
     // dfmt on
 }

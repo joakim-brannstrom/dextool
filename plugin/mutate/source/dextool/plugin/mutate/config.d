@@ -152,6 +152,8 @@ struct ConfigAdmin {
     Mutation.Status mutantStatus;
     Mutation.Status mutantToStatus;
     string testCaseRegex;
+    long mutationId;
+    string mutantRationale;
 }
 
 struct ConfigWorkArea {

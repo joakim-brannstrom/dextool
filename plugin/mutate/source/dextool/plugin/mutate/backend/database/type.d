@@ -17,9 +17,10 @@ import sumtype;
 import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.type;
 
-public import dextool.plugin.mutate.backend.database.schema : MutantTimeoutCtxTbl;
+public import dextool.plugin.mutate.backend.database.schema : MutantTimeoutCtxTbl, MarkedMutantTbl;
 
 alias MutantTimeoutCtx = MutantTimeoutCtxTbl;
+alias MarkedMutant = MarkedMutantTbl;
 
 @safe:
 
@@ -239,4 +240,9 @@ struct MutantMetaData {
     void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
         kindToString(w);
     }
+}
+
+struct Rationale {
+    string payload;
+    alias payload this;
 }

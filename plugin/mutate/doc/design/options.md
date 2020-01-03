@@ -55,6 +55,7 @@ The flags for the different commands will be listed in the following format:
     -   *resetMutant* : lets the user reset all mutants with the status/state specified with *--status* to the status specified with *--to-status*.
     -   *removeMutant* : Remove all mutants of the specified kind (*--mutant*) from the database.
     -   *removeTestCase* : Remove all test cases that match the supplied regex.
+    -   *markMutant*: Mark a mutant with a specific status and provide a rationale. Will both mark the mutant in mutationStatusTable and in a separate table.
 
 
 - --test-case-regex : Regular expression to use when removing test cases.
@@ -74,6 +75,12 @@ The flags for the different commands will be listed in the following format:
     - *alive* : Mutants that were not detected by the test suite (all tests passed).
     - *killedByCompiler* : Invalid mutants generated that caused the compilation of the project to fail.
     - *timeout* : Mutants that timed out during test suite execution.
+
+
+-   --id : Specify a specific mutant by Id.
+
+
+-   --rationale : Provide a rationale for marking a mutant.
 
 ## Analyze
 *Analyze-mode for the plugin. Is used to find mutation points in the project by traversing the AST for the eligible files. Will write results into a database that will be used later for testing and generation of mutants.*
