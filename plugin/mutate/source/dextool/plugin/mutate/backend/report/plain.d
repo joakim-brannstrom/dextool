@@ -21,7 +21,7 @@ import dextool.plugin.mutate.backend.database : Database, IterateMutantRow, Muta
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats, reportMarkedMutants,
-    reportStatistics, MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr;//, MarkedMutantText;
+    reportStatistics, MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table, toSections;
 import dextool.plugin.mutate.backend.type : Mutation;
