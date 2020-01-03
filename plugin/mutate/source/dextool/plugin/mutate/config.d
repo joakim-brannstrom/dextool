@@ -97,7 +97,7 @@ struct ConfigCompiler {
 
 /// Settings for mutation testing
 struct ConfigMutationTest {
-    ShellCommand mutationTester;
+    ShellCommand[] mutationTester;
     ShellCommand mutationCompile;
     ShellCommand mutationTestCaseAnalyze;
     TestCaseAnalyzeBuiltin[] mutationTestCaseBuiltin;

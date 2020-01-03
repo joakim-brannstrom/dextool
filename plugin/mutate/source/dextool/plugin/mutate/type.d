@@ -169,8 +169,7 @@ struct ShellCommand {
         import std.array : split;
 
         string[] args = cmd.split!isWhite;
-        string program = args[0].Path.AbsolutePath;
-        return ShellCommand(program ~ args[1 .. $]);
+        return ShellCommand(args);
     }
 
     bool empty() @safe pure nothrow const @nogc {
