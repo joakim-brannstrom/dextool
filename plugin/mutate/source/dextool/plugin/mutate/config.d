@@ -99,7 +99,7 @@ struct ConfigCompiler {
 struct ConfigMutationTest {
     ShellCommand mutationTester;
     ShellCommand mutationCompile;
-    AbsolutePath mutationTestCaseAnalyze;
+    ShellCommand mutationTestCaseAnalyze;
     TestCaseAnalyzeBuiltin[] mutationTestCaseBuiltin;
     Nullable!Duration mutationTesterRuntime;
     MutationOrder mutationOrder;
