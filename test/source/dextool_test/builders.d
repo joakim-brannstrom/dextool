@@ -9,21 +9,15 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool_test.builders;
 
-import core.thread : Thread;
-import core.time : dur, msecs;
+import core.time : dur;
 import logger = std.experimental.logger;
-import std.algorithm : map, min, each, joiner;
-import std.array : array, Appender;
-import std.datetime.stopwatch : StopWatch;
+import std.algorithm : map, joiner;
+import std.array : array, Appender, appender, empty;
+import std.datetime.stopwatch : StopWatch, AutoStart, Duration;
 import std.path : buildPath;
 import std.range : isInputRange;
 import std.stdio : File;
 import std.string : join;
-import std.traits : ReturnType;
-import std.typecons : Yes, No, Flag;
-
-static import core.thread;
-static import std.process;
 
 import dextool_test.types;
 
@@ -43,9 +37,6 @@ struct BuildDextoolRun {
 
         /// Data to stream into stdin upon execute.
         string stdin_data;
-
-        /// if the output from running the command should be saved to a logfile
-        bool save_output = true;
 
         /// if --debug is added to the arguments
         bool arg_debug = true;
@@ -174,88 +165,64 @@ struct BuildDextoolRun {
         return this;
     }
 
-    deprecated("replaced by saveOutput") auto yapOutput(bool v) {
-        save_output = v;
-        return this;
-    }
-
-    auto saveOutput(bool v) {
-        save_output = v;
-        return this;
-    }
-
     auto run() {
-        string[] cmd;
-        cmd ~= dextool;
-        cmd ~= args_.dup;
-        cmd ~= post_args;
-        if (workdir_.length != 0)
-            cmd ~= "--out=" ~ workdir_;
+        import process;
 
-        if (arg_debug) {
-            cmd ~= "--debug";
-        }
+        auto cmd = () {
+            string[] cmd;
+            cmd ~= dextool;
+            cmd ~= args_.dup;
+            cmd ~= post_args;
+            if (workdir_.length != 0)
+                cmd ~= ["--out=", workdir_];
 
-        if (flags_.length > 0) {
-            cmd ~= "--";
-            cmd ~= flags_.dup;
-        }
+            if (arg_debug) {
+                cmd ~= "--debug";
+            }
 
-        logger.tracef("run: %-(%s %)", cmd);
+            if (flags_.length > 0) {
+                cmd ~= "--";
+                cmd ~= flags_.dup;
+            }
+            return cmd;
+        }();
 
-        StopWatch sw;
-        ReturnType!(std.process.tryWait) exit_;
-        exit_.status = -1;
-        Appender!(string[]) stdout_;
-        Appender!(string[]) stderr_;
+        auto log = File(nextFreeLogfile(test_outputdir), "w");
+        log.writefln("run: %-(%s %)", cmd);
+        log.writeln("output:");
+        int exit_status = -1;
+        auto output = appender!(string[])();
 
-        sw.start;
+        auto sw = StopWatch(AutoStart.yes);
         try {
-            auto pipe_mode = std.process.Redirect.stdout | std.process.Redirect.stderr;
-            if (stdin_data.length != 0)
-                pipe_mode |= std.process.Redirect.stdin;
-
-            auto p = std.process.pipeProcess(cmd, pipe_mode);
-            if (stdin_data.length != 0) {
-                p.stdin.writeln(stdin_data);
-                p.stdin.close;
+            auto p = pipeProcess(cmd).sandbox.raii;
+            if (!stdin_data.empty) {
+                p.pipe.write(cast(const(ubyte)[]) stdin_data);
+                p.pipe.closeWrite;
             }
 
-            for (;;) {
-                exit_ = std.process.tryWait(p.pid);
-
-                foreach (l; p.stdout.byLineCopy)
-                    stdout_.put(l);
-                foreach (l; p.stderr.byLineCopy)
-                    stderr_.put(l);
-
-                if (exit_.terminated)
-                    break;
-                core.thread.Thread.sleep(20.msecs);
+            foreach (e; p.drainByLineCopy) {
+                log.writeln(e);
+                log.flush;
+                output.put(e);
             }
-            sw.stop;
+            exit_status = p.wait;
         } catch (Exception e) {
-            stderr_ ~= [e.msg];
-            sw.stop;
+            output.put(e.msg);
+            log.writeln(e.msg);
         }
+        sw.stop;
 
-        auto rval = BuildCommandRunResult(exit_.status == 0, exit_.status,
-                stdout_.data, stderr_.data, sw.peek.total!"msecs", cmd);
-        if (save_output) {
-            auto f = File(nextFreeLogfile(test_outputdir), "w");
-            f.writef("%s", rval);
+        log.writeln("exit status: ", exit_status);
+        log.writeln("execution time: ", sw.peek);
+
+        auto rval = BuildCommandRunResult(exit_status == 0, exit_status,
+                output.data, sw.peek, cmd);
+
+        if (throw_on_exit_status && exit_status != 0) {
+            throw new ErrorLevelException(exit_status, output.data.join(newline));
         }
-
-        if (throw_on_exit_status && exit_.status != 0) {
-            import std.algorithm : joiner;
-            import std.array : join;
-            import std.range : only;
-
-            throw new ErrorLevelException(exit_.status, only(stdout_.data,
-                    stderr_.data).joiner.join(newline));
-        } else {
-            return rval;
-        }
+        return rval;
     }
 }
 
@@ -275,9 +242,6 @@ struct BuildCommandRun {
         string stdin_data;
 
         bool run_in_outdir;
-
-        /// if the output from running the command should be saved to a file.
-        bool save_output = true;
 
         /// Throw an exception if the exit status is NOT zero
         bool throw_on_exit_status = true;
@@ -373,73 +337,53 @@ struct BuildCommandRun {
         return this;
     }
 
-    deprecated("replaced by saveOutput") auto yapOutput(bool v) {
-        save_output = v;
-        return this;
-    }
-
-    auto saveOutput(bool v) {
-        save_output = v;
-        return this;
-    }
-
     auto run() {
-        import std.path : buildPath;
+        import process;
 
-        string[] cmd;
-        if (run_in_outdir)
-            cmd ~= buildPath(workdir.toString, command);
-        else
-            cmd ~= command;
-        cmd ~= args_.dup;
-        cmd ~= post_args;
+        auto cmd = () {
+            string[] cmd;
+            if (run_in_outdir)
+                cmd ~= buildPath(workdir.toString, command);
+            else
+                cmd ~= command;
+            cmd ~= args_.dup;
+            cmd ~= post_args;
+            return cmd;
+        }();
 
-        StopWatch sw;
-        ReturnType!(std.process.tryWait) exit_;
-        exit_.status = -1;
-        Appender!(string[]) stdout_;
-        Appender!(string[]) stderr_;
+        auto log = File(nextFreeLogfile(workdir_), "w");
+        log.writefln("run: %-(%s %)", cmd);
+        log.writeln("output:");
+        int exit_status = -1;
+        auto output = appender!(string[])();
 
-        sw.start;
+        auto sw = StopWatch(AutoStart.yes);
         try {
-            auto pipe_mode = std.process.Redirect.stdout | std.process.Redirect.stderr;
-            if (stdin_data.length != 0)
-                pipe_mode |= std.process.Redirect.stdin;
-
-            auto p = std.process.pipeProcess(cmd, pipe_mode);
-            if (stdin_data.length != 0) {
-                p.stdin.writeln(stdin_data);
-                p.stdin.close;
+            auto p = pipeProcess(cmd).sandbox.raii;
+            if (!stdin_data.empty) {
+                p.pipe.write(cast(const(ubyte)[]) stdin_data);
+                p.pipe.closeWrite;
             }
 
-            for (;;) {
-                exit_ = std.process.tryWait(p.pid);
-
-                foreach (l; p.stdout.byLineCopy)
-                    stdout_.put(l);
-                foreach (l; p.stderr.byLineCopy)
-                    stderr_.put(l);
-
-                if (exit_.terminated)
-                    break;
-                core.thread.Thread.sleep(10.msecs);
+            foreach (e; p.drainByLineCopy) {
+                log.writeln(e);
+                log.flush;
+                output.put(e);
             }
-
-            sw.stop;
+            exit_status = p.wait;
         } catch (Exception e) {
-            stderr_ ~= [e.msg];
-            sw.stop;
+            output.put(e.msg);
         }
+        sw.stop;
 
-        auto rval = BuildCommandRunResult(exit_.status == 0, exit_.status,
-                stdout_.data, stderr_.data, sw.peek.total!"msecs", cmd);
-        if (save_output) {
-            auto f = File(nextFreeLogfile(workdir_), "w");
-            f.writef("%s", rval);
-        }
+        log.writeln("exit status: ", exit_status);
+        log.writeln("execution time: ", sw.peek);
 
-        if (throw_on_exit_status && exit_.status != 0) {
-            throw new ErrorLevelException(exit_.status, stderr_.data.join(newline));
+        auto rval = BuildCommandRunResult(exit_status == 0, exit_status,
+                output.data, sw.peek, cmd);
+
+        if (throw_on_exit_status && exit_status != 0) {
+            throw new ErrorLevelException(exit_status, output.data.join(newline));
         } else {
             return rval;
         }
@@ -448,7 +392,7 @@ struct BuildCommandRun {
 
 private auto nextFreeLogfile(string workdir) {
     import std.file : exists;
-    import std.path : baseName, buildPath;
+    import std.path : baseName;
     import std.string : format;
 
     int idx;
@@ -471,15 +415,13 @@ struct BuildCommandRunResult {
     /// actual exit status
     const int status;
     /// captured output
-    string[] stdout;
-    string[] stderr;
+    string[] output;
     /// time to execute the command. TODO: change to Duration after DMD v2.076
-    const long executionMsecs;
+    const Duration time;
 
     private string[] cmd;
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
-        import std.algorithm : joiner;
         import std.format : formattedWrite;
         import std.range.primitives : put;
 
@@ -488,16 +430,15 @@ struct BuildCommandRunResult {
 
         formattedWrite(w, "exit status: %s", status);
         put(w, newline);
-        formattedWrite(w, "execution time ms: %s", executionMsecs);
+        formattedWrite(w, "execution time ms: %s", time);
         put(w, newline);
 
-        put(w, "stdout:");
+        put(w, "output:");
         put(w, newline);
-        this.stdout.each!((a) { put(w, a); put(w, newline); });
-
-        put(w, "stderr:");
-        put(w, newline);
-        this.stderr.each!((a) { put(w, a); put(w, newline); });
+        foreach (l; output) {
+            put(w, l);
+            put(w, newline);
+        }
     }
 
     string toString() @safe pure const {

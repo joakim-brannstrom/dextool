@@ -9,6 +9,7 @@ Convenient functions for a set.
 */
 module dextool.set;
 
+import std.algorithm : filter;
 import std.range : ElementType, isOutputRange;
 
 @safe:
@@ -65,9 +66,7 @@ struct Set(T) {
      *
      * It is the set of all members in self that are not members of set.
      */
-    Set!T setDifference(Set!T set) @safe pure nothrow {
-        import std.algorithm : filter;
-
+    Set!T setDifference(Set!T set) {
         typeof(this) r;
         foreach (k; toRange.filter!(a => !set.contains(a)))
             r.add(k);
@@ -79,9 +78,7 @@ struct Set(T) {
      *
      * It is the set of all objects that are a member of exactly one of self and set.
      */
-    Set!T symmetricDifference(Set!T set) @safe pure nothrow {
-        import std.algorithm : filter;
-
+    Set!T symmetricDifference(Set!T set) {
         typeof(this) r;
         foreach (k; toRange.filter!(a => !contains(a)))
             r.add(k);
@@ -96,7 +93,6 @@ struct Set(T) {
      * It is the set of all objects that are members of both self and set.
      */
     Set!T intersect(Set!T set) {
-        import std.algorithm : filter;
 
         typeof(this) r;
         foreach (k; toRange.filter!(a => set.contains(a)))
@@ -118,7 +114,7 @@ struct Set(T) {
         return data.byKey;
     }
 
-    string toString() @safe pure const {
+    string toString() {
         import std.array : appender;
 
         auto buf = appender!string;

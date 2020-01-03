@@ -47,7 +47,7 @@ unittest {
         "Alive:",
         "Killed:",
         "Timeout:",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall report the alive in the database as human readable to stdout")
@@ -84,7 +84,7 @@ unittest {
         "Alive:",
         "Killed:",
         "Timeout:",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall report the ROR mutations in the database as gcc compiler warnings/notes with fixits to stderr")
@@ -110,7 +110,7 @@ unittest {
                       ":6:9: warning: rorp: replace 'x > 3' with 'false'",
                       ":6:9: note: status:unknown id:",
                       `fix-it:"` ~ input_src.toString ~ `":{6:9-6:14}:"false"`,
-    ]).shouldBeIn(r.stderr);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall report tool integration notes with the full text for dccTrue and dccBomb")
@@ -136,7 +136,7 @@ unittest {
                       ":11:5: note: replace 'return true;'",
                       ":11:5: note: with '*((char*)0)='x';break;'",
                       `fix-it:"` ~ input_src.toString ~ `":{11:5-12:20}:"*((char*)0)='x';break;"`,
-    ]).shouldBeIn(r.stderr);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall report mutants as a json")
@@ -192,7 +192,7 @@ unittest {
         `"9","dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
         `"27","dcr","'case 2:`,
         `        return true;' to ''","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:11:5",""`,
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall report test cases with how many mutants killed correctly counting the sum of mutants as two")
@@ -234,7 +234,7 @@ unittest {
         "| 80         | 4     | tc_2     |",
         "| 40         | 2     | tc_3     |",
         "| 40         | 2     | tc_1     |",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall report test cases that kill the same mutants (overlap)")
@@ -273,7 +273,7 @@ unittest {
         "|----------|",
         "| tc_1     |",
         "| tc_2     |",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall report the bottom (least killed) test cases stat of how many mutants they killed")
@@ -304,7 +304,7 @@ unittest {
         "|------------|-------|----------|",
         "| 40         | 2     | tc_1     |",
         "| 40         | 2     | tc_3     |",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall report one marked mutant (plain)")
@@ -364,7 +364,7 @@ class ShallReportTestCasesThatHasKilledZeroMutants : SimpleAnalyzeFixture {
             "| TestCase |",
             "|----------|",
             "| tc_4     |",
-        ]).shouldBeIn(r.stdout);
+        ]).shouldBeIn(r.output);
     }
 }
 
@@ -439,8 +439,7 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
             .run;
 
         // Assert
-        testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.stdout);
-        testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.stderr);
+        testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.output);
 
         testConsecutiveSparseOrder!SubStr([
             "Diff View rorp",
@@ -529,7 +528,7 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "Timeout:     0",
             "Killed by compiler: 0",
             "Suppressed (nomut): 10 (0.385",
-        ]).shouldBeIn(plain.stdout);
+        ]).shouldBeIn(plain.output);
 
         testConsecutiveSparseOrder!SubStr([
             "Score:       0.688",
@@ -540,7 +539,7 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "Timeout:     0",
             "Killed by compiler: 0",
             "Suppressed (nomut): 10 (0.385",
-        ]).shouldBeIn(markdown.stdout);
+        ]).shouldBeIn(markdown.output);
     }
 }
 

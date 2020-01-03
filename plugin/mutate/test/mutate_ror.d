@@ -29,7 +29,7 @@ unittest {
         .addArg(["test"])
         .addArg(["--mutant", "ror"])
         .run;
-    verifyRor(r.stdout);
+    verifyRor(r.output);
 }
 
 void verifyRor(string[] txt) {
@@ -72,7 +72,7 @@ unittest {
         .addArg(["test"])
         .addArg(["--mutant", "ror"])
         .run;
-    verifyFloatRor(r.stdout);
+    verifyFloatRor(r.output);
 }
 
 void verifyFloatRor(string[] txt) {
@@ -150,7 +150,7 @@ unittest {
         "from '>=' to '>'",
         "from '>=' to '=='",
         "from 'MyE::C >= b' to 'true'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce all ROR mutations according to the enum schema for equal when both types are enum type and one is an enum const declaration")
@@ -189,7 +189,7 @@ unittest {
 
         "from '==' to '<='",
         "from 'a == MyE::C' to 'false'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 
     testConsecutiveSparseOrder!SubStr([
         "from 'a == MyE::C' to 'false'",
@@ -197,7 +197,7 @@ unittest {
         "from '==' to '<='",
         "from '==' to '>='",
         "from 'a == MyE::A' to 'false'",
-    ]).shouldNotBeIn(r.stdout);
+    ]).shouldNotBeIn(r.output);
 }
 
 @(testId ~ "shall produce all ROR mutations according to the enum schema for not-equal when both types are enum type and one is an enum const declaration")
@@ -233,7 +233,7 @@ unittest {
 
         "from '!=' to '<'",
         "from 'a != MyE::C' to 'true'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce all ROR mutations according to floating point schema when either type are pointers")
@@ -268,7 +268,7 @@ unittest {
         "from '!=' to '<'",
         "from '!=' to '>'",
         "from 'f0 != f1' to 'true'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce all ROR mutations according to floating point schema when either type are pointers")
@@ -298,7 +298,7 @@ unittest {
 
         "from '!=' to '=='",
         "from 'd0() != 0' to 'true'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce all ROR mutations according to the bool schema when both types are bools")
@@ -319,7 +319,7 @@ unittest {
 
         "from '!=' to '=='",
         "from 'b0 != b1' to 'true'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce all ROR mutations according to the bool schema when both functions return type is bool")
@@ -340,5 +340,5 @@ unittest {
 
         "from '!=' to '=='",
         "from 'b0() != b1()' to 'true'",
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }

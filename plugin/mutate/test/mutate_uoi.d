@@ -22,5 +22,5 @@ unittest {
         .run;
 
     // shall NOT insert unary operators on the lhs of the assignment
-    r.stdout.sliceContains("'case_2_a' to 'case_2_a").shouldBeFalse;
+    r.output.sliceContains("'case_2_a' to 'case_2_a").shouldBeFalse;
 }

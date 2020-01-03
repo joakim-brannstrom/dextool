@@ -191,20 +191,6 @@ struct AbsoluteDirectory {
     }
 }
 
-struct ShellCommand {
-    AbsolutePath program;
-    string[] arguments;
-
-    this(string cmd) {
-        import std.uni : isWhite;
-        import std.array : split;
-
-        string[] argv = cmd.split!isWhite;
-        program = Path(argv[0]).AbsolutePath;
-        arguments = argv[1 .. $];
-    }
-}
-
 /** During construction checks that the file exists on the filesystem.
  *
  * If it doesn't exist it will throw an Exception.

@@ -32,11 +32,11 @@ class ShallDeleteBodyOfFuncsReturningVoid : SdlFixture {
         testAnyOrder!SubStr([
                 `from ' f1Global = 2.2; ' to ''`, `from ' z = 1.2; ' to ''`,
                 `from ' method1 = 2.2; ' to ''`
-                ]).shouldBeIn(r.stdout);
+                ]).shouldBeIn(r.output);
 
         testAnyOrder!SubStr([
                 `from ' return static_cast<int>(w);`, `from ' return method2`
-                ]).shouldNotBeIn(r.stdout);
+                ]).shouldNotBeIn(r.output);
     }
 }
 
@@ -55,8 +55,8 @@ class ShallDeleteReturnStmt : SdlFixture {
         testAnyOrder!SubStr([
                 `from ' return; ' to ''`, `from 'return' to ''`,
                 `from 'return' to ''`,
-                ]).shouldBeIn(r.stdout);
-        testAnyOrder!SubStr([`return false`,]).shouldNotBeIn(r.stdout);
+                ]).shouldBeIn(r.output);
+        testAnyOrder!SubStr([`return false`,]).shouldNotBeIn(r.output);
     }
 }
 
@@ -71,7 +71,7 @@ class ShallDeleteFuncCalls : SdlFixture {
         testAnyOrder!SubStr([
                 "'gun()' to ''", "'wun(5)' to ''", "'calc(6)' to ''",
                 "'wun(calc(6))' to ''", "'calc(7)' to ''", "'calc(8)' to ''",
-                ]).shouldBeIn(r.stdout);
+                ]).shouldBeIn(r.output);
         //TODO: maybe these should be deletable too? But it would require forward
         //looking.
         //"'calc(10)' to ''",
@@ -88,11 +88,11 @@ class ShallDeleteThrowStmt : SdlFixture {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv);
 
-        testAnyOrder!SubStr([`from 'throw Foo()' to ''`]).shouldBeIn(r.stdout);
+        testAnyOrder!SubStr([`from 'throw Foo()' to ''`]).shouldBeIn(r.output);
 
         // this would result in "throw ;" which is totally junk. This is the
         // old behavior before the introduced fix of being throw aware.
-        testAnyOrder!SubStr([`from 'Foo()' to ''`]).shouldNotBeIn(r.stdout);
+        testAnyOrder!SubStr([`from 'Foo()' to ''`]).shouldNotBeIn(r.output);
     }
 }
 
@@ -104,11 +104,11 @@ class ShallDeleteAssignment : SdlFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv);
-        testAnyOrder!SubStr([`from 'w = 4' to ''`]).shouldBeIn(r.stdout);
+        testAnyOrder!SubStr([`from 'w = 4' to ''`]).shouldBeIn(r.output);
 
         testAnyOrder!SubStr([
                 `from 'int x = 2' to ''`, `from 'bool y = true' to ''`,
                 `from 'int w = 3' to ''`,
-                ]).shouldNotBeIn(r.stdout);
+                ]).shouldNotBeIn(r.output);
     }
 }

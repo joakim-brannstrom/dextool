@@ -44,7 +44,7 @@ list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main
 list(APPEND SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
-compile_d_unittest(mutate "${SRC_FILES}" "${flags}" "" "dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools")
+compile_d_unittest(mutate "${SRC_FILES}" "${flags}" "" "dextool_colorlog;dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools")
 
 setup_integration_testing_env()
 

@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.type;
 
-import dextool.type : Path;
+import dextool.type : Path, AbsolutePath;
 
 /// The kind of mutation to perform
 enum MutationKind {
@@ -161,5 +161,39 @@ struct TestConstraint {
 
     bool empty() @safe pure nothrow const @nogc {
         return value.length == 0;
+    }
+}
+
+struct ShellCommand {
+    import std.range : isOutputRange;
+
+    string[] value;
+
+    /// Split a user string by the whitespace to create an command+argument.
+    static ShellCommand fromString(string cmd) {
+        import std.uni : isWhite;
+        import std.array : split;
+
+        string[] args = cmd.split!isWhite;
+        string program = args[0].Path.AbsolutePath;
+        return ShellCommand(program ~ args[1 .. $]);
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return value.length == 0;
+    }
+
+    string toString() @safe pure const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        import std.format : formattedWrite;
+
+        formattedWrite(w, "shell command '%-(%s %)'", value);
     }
 }

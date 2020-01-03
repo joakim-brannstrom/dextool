@@ -39,7 +39,7 @@ unittest {
         .run;
 
     r.success.shouldBeFalse;
-    r.stderr.sliceContains("error: Unable to find any compiler flags for").shouldBeTrue;
+    r.output.sliceContains("error: Unable to find any compiler flags for").shouldBeTrue;
 }
 
 @(testId ~ "shall derive the flags for parsing single_file.h via the #include in single_file_main.c in the compilation database")
@@ -54,9 +54,9 @@ unittest {
         .addInputArg(testData ~ getValue!(string[])[0])
         .run;
 
-    r.stderr.sliceContains("error: Unable to find any compiler flags for").shouldBeFalse;
+    r.output.sliceContains("error: Unable to find any compiler flags for").shouldBeFalse;
     // the file returned shall be the full path for the one searching for
-    r.stderr.sliceContains("because it has an '#include' for '" ~ (testData ~ "compile_db/dir1/single_file.h").toString).shouldBeTrue;
+    r.output.sliceContains("because it has an '#include' for '" ~ (testData ~ "compile_db/dir1/single_file.h").toString).shouldBeTrue;
 }
 
 @(testId ~ "Should load compiler settings from the second compilation database")

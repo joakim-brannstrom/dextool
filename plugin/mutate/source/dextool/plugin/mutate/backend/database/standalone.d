@@ -7,15 +7,9 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-This module contains the a basic database interface that have minimal dependencies on internal modules.
-It is intended to be reusable from the test suite.
-
-Note that a `commit` may result in an exception.
-The correct way to handle a commit that fail is to rollback. Or rather it is the easy way.
-The other way would be to try the commmit at a later time.
-For now though this mean that `scope(success) db.commit` should never be used.
-Always use `scope(failure) db.rollback`. This ensures that a failed commit results in a rollback.
-By combining this with spinSqlQuery it means that it will be retried at a later time.
+This module contains the a basic database interface that have minimal
+dependencies on internal modules.  It is intended to be reusable from the test
+suite.
 
 The only acceptable dependency are:
  * ../type.d
@@ -1042,33 +1036,28 @@ struct Database {
      * Returns: ID of affected mutation statuses.
      */
     MutationStatusId[] setDetectedTestCases(const(TestCase)[] tcs) @trusted {
-        auto mut_status_ids = appender!(MutationStatusId[])();
-
         if (tcs.length == 0)
-            return mut_status_ids.data;
+            return null;
 
-        db.begin;
-        scope (failure)
-            db.rollback;
+        auto mut_status_ids = appender!(MutationStatusId[])();
 
         immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
         internalAddDetectedTestCases(tcs, tmp_name);
 
-        enum mut_st_id = format("SELECT DISTINCT t1.st_id
+        immutable mut_st_id = format!"SELECT DISTINCT t1.st_id
             FROM %s t0, %s t1
             WHERE
             t0.name NOT IN (SELECT name FROM %s) AND
-            t0.id = t1.tc_id", allTestCaseTable,
-                    killedTestCaseTable, tmp_name);
+            t0.id = t1.tc_id"(allTestCaseTable,
+                killedTestCaseTable, tmp_name);
         foreach (res; db.prepare(mut_st_id).execute)
             mut_status_ids.put(res.peek!long(0).MutationStatusId);
 
-        enum remove_old_sql = format("DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)",
-                    allTestCaseTable, tmp_name);
+        immutable remove_old_sql = format!"DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)"(
+                allTestCaseTable, tmp_name);
         db.run(remove_old_sql);
 
         db.run(format!"DROP TABLE %s"(tmp_name));
-        db.commit;
 
         return mut_status_ids.data;
     }
@@ -1081,14 +1070,9 @@ struct Database {
         if (tcs.length == 0)
             return;
 
-        db.begin;
-        scope (failure)
-            db.rollback;
-
         immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
         internalAddDetectedTestCases(tcs, tmp_name);
         db.run(format!"DROP TABLE %s"(tmp_name));
-        db.commit;
     }
 
     /// ditto.
