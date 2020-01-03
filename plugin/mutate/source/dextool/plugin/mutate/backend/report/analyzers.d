@@ -479,20 +479,7 @@ struct MarkedMutantsStat {
     // TODO: extend for html-report
 }
 
-struct MarkedMutantText {
-    long id;
-    string mutantText;
-}
-
-MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kinds,
-        MarkedMutantText[] markedMutantsText, string file = null) @safe {
-    string mutation(MutationId id) {
-        import std.array : array;
-        import std.range : front;
-
-        return markedMutantsText.filter!(a => a.id == id).array.front.mutantText;
-    }
-
+MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe {
     MarkedMutantsStat st;
     st.tbl.heading = [
         "File", "Line", "Column", "Mutation", "Status", "Rationale"
@@ -502,8 +489,7 @@ MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kin
 
     foreach (m; db.getMarkedMutants()) {
         typeof(st.tbl).Row r = [
-            m.path, to!string(m.line), to!string(m.column),
-            mutation(m.id.to!MutationId), statusToString(m.to_status), m.rationale
+            m.path, to!string(m.line), to!string(m.column), m.mutText, statusToString(m.toStatus), m.rationale
         ];
         st.tbl.put(r);
     }

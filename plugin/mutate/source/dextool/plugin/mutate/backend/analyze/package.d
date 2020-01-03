@@ -316,7 +316,7 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
 
     Table!6 tbl = Table!6(["ID", "File", "Line", "Column", "Status", "Rationale"]);
     foreach(m; lostMutants) {
-        typeof(tbl).Row r = [to!string(m.id), m.path, to!string(m.line), to!string(m.column), statusToString(m.to_status), m.rationale];
+        typeof(tbl).Row r = [to!string(m.mutationId), m.path, to!string(m.line), to!string(m.column), statusToString(m.toStatus), m.rationale];
         tbl.put(r);
     }
     logger.warning("Marked mutants was lost");

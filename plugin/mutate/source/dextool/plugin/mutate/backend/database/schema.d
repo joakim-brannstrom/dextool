@@ -420,7 +420,8 @@ struct MarkedMutantTbl {
     @ColumnName("st_id")
     long mutationStatusId;
 
-    long id;
+    @ColumnName("mut_id")
+    long mutationId;
 
     uint line;
 
@@ -428,13 +429,15 @@ struct MarkedMutantTbl {
 
     string path;
 
-    ulong to_status;
+    @ColumnName("to_status")
+    ulong toStatus;
 
     SysTime time;
 
     string rationale;
 
-    string text;
+    @ColumnName("mut_text")
+    string mutText;
     }
 
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
