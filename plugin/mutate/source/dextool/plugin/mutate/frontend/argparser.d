@@ -24,7 +24,7 @@ import toml : TOMLDocument;
 public import dextool.plugin.mutate.backend : Mutation;
 public import dextool.plugin.mutate.type;
 import dextool.plugin.mutate.config;
-import dextool.type : AbsolutePath, Path, ExitStatusType, ShellCommand, DirName;
+import dextool.type : AbsolutePath, Path, ExitStatusType, DirName;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -265,9 +265,9 @@ struct ArgParser {
             if (maxAlive > 0)
                 mutationTest.maxAlive = maxAlive;
             if (mutationTester.length != 0)
-                mutationTest.mutationTester = ShellCommand(mutationTester);
+                mutationTest.mutationTester = ShellCommand.fromString(mutationTester);
             if (mutationCompile.length != 0)
-                mutationTest.mutationCompile = ShellCommand(mutationCompile);
+                mutationTest.mutationCompile = ShellCommand.fromString(mutationCompile);
             if (mutationTestCaseAnalyze.length != 0)
                 mutationTest.mutationTestCaseAnalyze = Path(mutationTestCaseAnalyze).AbsolutePath;
             if (mutationTesterRuntime != 0)
@@ -557,13 +557,13 @@ void loadConfig(ref ArgParser rval) @trusted {
     };
 
     callbacks["mutant_test.test_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationTester = ShellCommand(v.str);
+        c.mutationTest.mutationTester = ShellCommand.fromString(v.str);
     };
     callbacks["mutant_test.test_cmd_timeout"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTesterRuntime = v.integer.dur!"msecs";
     };
     callbacks["mutant_test.build_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationCompile = ShellCommand(v.str);
+        c.mutationTest.mutationCompile = ShellCommand.fromString(v.str);
     };
     callbacks["mutant_test.analyze_cmd"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTestCaseAnalyze = Path(v.str).AbsolutePath;
