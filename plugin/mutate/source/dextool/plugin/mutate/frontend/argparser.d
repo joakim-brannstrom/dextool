@@ -269,7 +269,8 @@ struct ArgParser {
             if (mutationCompile.length != 0)
                 mutationTest.mutationCompile = ShellCommand.fromString(mutationCompile);
             if (mutationTestCaseAnalyze.length != 0)
-                mutationTest.mutationTestCaseAnalyze = Path(mutationTestCaseAnalyze).AbsolutePath;
+                mutationTest.mutationTestCaseAnalyze = ShellCommand.fromString(
+                        mutationTestCaseAnalyze);
             if (mutationTesterRuntime != 0)
                 mutationTest.mutationTesterRuntime = mutationTesterRuntime.dur!"msecs";
             if (!maxRuntime.empty)
@@ -566,7 +567,7 @@ void loadConfig(ref ArgParser rval) @trusted {
         c.mutationTest.mutationCompile = ShellCommand.fromString(v.str);
     };
     callbacks["mutant_test.analyze_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationTestCaseAnalyze = Path(v.str).AbsolutePath;
+        c.mutationTest.mutationTestCaseAnalyze = ShellCommand.fromString(v.str);
     };
     callbacks["mutant_test.analyze_using_builtin"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTestCaseBuiltin = v.array.map!(

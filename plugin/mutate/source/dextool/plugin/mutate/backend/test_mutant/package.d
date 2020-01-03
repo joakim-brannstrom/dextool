@@ -252,7 +252,7 @@ struct MutationTestDriver {
 
     static struct TestCaseAnalyzeData {
         //TODO: change to a ShellCommand
-        AbsolutePath test_case_cmd;
+        ShellCommand test_case_cmd;
         const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin;
         DrainElement[] output;
     }
@@ -468,9 +468,8 @@ nothrow:
             bool success = true;
 
             if (!local.get!TestCaseAnalyze.test_case_cmd.empty) {
-                success = success && externalProgram([
-                        local.get!TestCaseAnalyze.test_case_cmd
-                        ], local.get!TestCaseAnalyze.output, gather_tc, global.auto_cleanup);
+                success = success && externalProgram(local.get!TestCaseAnalyze.test_case_cmd,
+                        local.get!TestCaseAnalyze.output, gather_tc, global.auto_cleanup);
             }
             if (!local.get!TestCaseAnalyze.tc_analyze_builtin.empty) {
                 success = success && builtin(local.get!TestCaseAnalyze.output,
@@ -860,7 +859,7 @@ nothrow:
             auto gather_tc = new GatherTestCase;
 
             if (!global.data.conf.mutationTestCaseAnalyze.empty) {
-                externalProgram([global.data.conf.mutationTestCaseAnalyze],
+                externalProgram(global.data.conf.mutationTestCaseAnalyze,
                         res.output, gather_tc, global.data.autoCleanup);
                 logger.warningf(gather_tc.unstable.length != 0,
                         "Unstable test cases found: [%-(%s, %)]", gather_tc.unstableAsArray);
@@ -1243,7 +1242,8 @@ private:
  *
  * Returns: True if it successfully analyzed the output
  */
-bool externalProgram(string[] cmd, DrainElement[] output, TestCaseReport report, AutoCleanup cleanup) @safe nothrow {
+bool externalProgram(ShellCommand cmd, DrainElement[] output,
+        TestCaseReport report, AutoCleanup cleanup) @safe nothrow {
     import std.algorithm : copy;
     import std.ascii : newline;
     import std.string : strip, startsWith;
@@ -1258,7 +1258,7 @@ bool externalProgram(string[] cmd, DrainElement[] output, TestCaseReport report,
         return false;
     }
 
-    void writeOutput() @safe {
+    ShellCommand writeOutput(ShellCommand cmd) @safe {
         import std.stdio : File;
 
         const stdoutPath = buildPath(tmpdir, "stdout.log");
@@ -1277,13 +1277,14 @@ bool externalProgram(string[] cmd, DrainElement[] output, TestCaseReport report,
             }
         }
 
-        cmd ~= [stdoutPath, stderrPath];
+        cmd.value ~= [stdoutPath, stderrPath];
+        return cmd;
     }
 
     try {
         cleanup.add(tmpdir.Path.AbsolutePath);
-        writeOutput;
-        auto p = pipeProcess(cmd).sandbox.raii;
+        cmd = writeOutput(cmd);
+        auto p = pipeProcess(cmd.value).sandbox.raii;
         foreach (l; p.drainByLineCopy
                 .map!(a => a.strip)
                 .filter!(a => !a.empty)) {
