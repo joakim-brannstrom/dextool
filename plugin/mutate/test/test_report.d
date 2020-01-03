@@ -332,7 +332,7 @@ unittest {
         "| File ", "        | Line | Column | Mutation | Status           | Rationale                      |",
         "|------", "--------|------|--------|----------|------------------|--------------------------------|",
         "|", `fibonacci.cpp | 8    | 10     | !=       | killedByCompiler | "Marked mutant to be reported" |`,
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 class ShallReportTestCasesThatHasKilledZeroMutants : SimpleAnalyzeFixture {

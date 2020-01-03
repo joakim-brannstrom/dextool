@@ -22,7 +22,7 @@ alias Command = BuildCommandRunResult;
 const errorOrFailure = ["error", "Failure"];
 
 void commandNotFailed(Command cmd) {
-    testAnyOrder!SubStr(errorOrFailure).shouldNotBeIn(cmd.stderr);
+    testAnyOrder!SubStr(errorOrFailure).shouldNotBeIn(cmd.output);
 }
 
 // dfmt off
@@ -48,7 +48,7 @@ unittest {
         to!string(MutationId(12)),
         to!string(Status.killed),
         `"A good rationale"`
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall promt a failure message when marking a mutant that does not exist")
@@ -71,10 +71,10 @@ unittest {
     // assert
     db.getMutation(MutationId(5000)).isNull.shouldBeTrue;
 
-    testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.stderr);
+    testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.output);
     testAnyOrder!SubStr([
         format!"Failure when marking mutant: %s"(to!string(MutationId(5000)))
-    ]).shouldBeIn(r.stderr);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall mark same mutant twice")
@@ -105,7 +105,7 @@ unittest {
         to!string(MutationId(3)),
         to!string(Status.unknown),
         `"Backend was wrong, mutant is legit..."`
-    ]).shouldBeIn(secondRes.stdout);
+    ]).shouldBeIn(secondRes.output);
 }
 
 @(testId ~ "shall remove a marked mutant")
@@ -137,7 +137,7 @@ unittest {
 
     testAnyOrder!SubStr([
         format!"info: Removed marking for mutant %s"(to!string(MutationId(10)))
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall fail to remove a marked mutant")
@@ -158,10 +158,10 @@ unittest {
     // assert
     db.isMarked(MutationId(20)).shouldBeFalse;
 
-    testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.stderr);
+    testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.output);
     testAnyOrder!SubStr([
         format!"Failure when removing marked mutant (mutant %s is not marked)"(to!string(MutationId(20)))
-    ]).shouldBeIn(r.stderr);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall notify lost marked mutant")
@@ -186,5 +186,5 @@ unittest {
         "| ID |", " File ", "    | Line | Column | Status           | Rationale |",
         "|----|", "--------------|------|--------|------------------|-----------|",
         "| 3  |", `fibonacci.cpp | 8    | 10     | killedByCompiler | "Lost"    |`,
-    ]).shouldBeIn(r.stdout);
+    ]).shouldBeIn(r.output);
 }
