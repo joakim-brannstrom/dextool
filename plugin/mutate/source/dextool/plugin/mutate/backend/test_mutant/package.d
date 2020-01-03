@@ -172,51 +172,59 @@ struct MeasureTestDurationResult {
  * Params:
  *  cmd = test command to measure
  */
-MeasureTestDurationResult measureTestCommand(ShellCommand cmd) @safe nothrow {
+MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothrow {
+    import std.algorithm : min;
     import std.datetime.stopwatch : StopWatch, AutoStart;
     import std.stdio : writeln;
     import process;
 
-    if (cmd.empty) {
-        collectException(logger.error("No test command specified (--test-cmd)"));
+    if (runner.empty) {
+        collectException(logger.error("No test command(s) specified (--test-cmd)"));
         return MeasureTestDurationResult(false);
     }
 
-    auto runTest(bool printToConsole) @safe {
-        auto p = pipeProcess(cmd.value).sandbox.measureTime.raii;
-        logger.info(printToConsole, "Test command: %-(%s %)", cmd);
-        foreach (l; p.drain) {
-            if (printToConsole) {
-                writeln(l.byUTF8);
-            }
-        }
+    static struct Rval {
+        TestResult result;
+        Duration runtime;
+    }
 
-        return p;
+    auto runTest() @safe {
+        auto sw = StopWatch(AutoStart.yes);
+        auto res = runner.run;
+        return Rval(res, sw.peek);
+    }
+
+    static void print(DrainElement[] data) {
+        foreach (l; data) {
+            writeln(l.byUTF8);
+        }
     }
 
     auto runtime = Duration.max;
     bool failed;
     for (int i; i < 3 && !failed; ++i) {
         try {
-            auto p = runTest(false).raii;
-            if (p.wait == 0) {
-                runtime = runtime < p.time ? runtime : p.time;
-            } else {
+            auto res = runTest;
+            final switch (res.result.status) with (TestResult) {
+            case Status.passed:
+                runtime = min(runtime, res.runtime);
+                break;
+            case Status.failed:
+                goto case;
+            case Status.timeout:
+                goto case;
+            case Status.error:
                 failed = true;
+                print(res.result.output);
+                break;
             }
-
         } catch (Exception e) {
             logger.error(e.msg).collectException;
             failed = true;
         }
     }
 
-    if (failed) {
-        collectException(runTest(true).raii.wait);
-        return MeasureTestDurationResult(false);
-    }
-
-    return MeasureTestDurationResult(true, runtime);
+    return MeasureTestDurationResult(!failed, runtime);
 }
 
 /** Drive the control flow when testing **a** mutant.
@@ -228,19 +236,28 @@ struct MutationTestDriver {
     static struct Global {
         FilesysIO fio;
         NullableRef!Database db;
+
+        /// Files that should be automatically removed after the testing is done is added here.
         AutoCleanup auto_cleanup;
+
+        /// The mutant to apply.
         MutationEntry mutp;
 
         /// Runs the test commands.
         TestRunner* runner;
 
+        /// File to mutate.
         AbsolutePath mut_file;
+        /// The original file.
         Blob original;
 
+        /// The result of running the test cases.
         Mutation.Status mut_status;
 
+        /// Test cases that killed the mutant.
         GatherTestCase test_cases;
 
+        /// How long it took to do the mutation testing.
         StopWatch sw;
     }
 
@@ -681,6 +698,9 @@ struct TestDriver {
         local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
 
         this.runner = TestRunner.make;
+        // using an unreasonable timeout to make it possible to analyze for
+        // test cases and measure the test suite.
+        this.runner.timeout = 999.dur!"hours";
         this.runner.put(data.conf.mutationTester);
     }
 
@@ -852,8 +872,6 @@ nothrow:
         try {
             import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
 
-            // using an unreasonable timeout because this is more intended to reuse the functionality in runTester
-            runner.timeout = 999.dur!"hours";
             auto res = runTester(global.data.conf.mutationCompile, runner);
 
             auto gather_tc = new GatherTestCase;
@@ -1057,7 +1075,7 @@ nothrow:
 
         logger.info("Measuring the runtime of the test command: ",
                 global.data.conf.mutationTester).collectException;
-        const tester = measureTestCommand(global.data.conf.mutationTester);
+        const tester = measureTestCommand(runner);
         if (tester.ok) {
             // The sampling of the test suite become too unreliable when the timeout is <1s.
             // This is a quick and dirty fix.

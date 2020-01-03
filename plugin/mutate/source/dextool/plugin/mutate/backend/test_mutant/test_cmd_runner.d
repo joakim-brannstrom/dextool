@@ -53,11 +53,19 @@ struct TestRunner {
         pool.stop;
     }
 
+    bool empty() @safe pure nothrow const @nogc {
+        return commands.length == 0;
+    }
+
     void timeout(Duration timeout) pure nothrow @nogc {
         this.timeout_ = timeout;
     }
 
     void put(ShellCommand sh) pure nothrow {
+        commands ~= sh;
+    }
+
+    void put(ShellCommand[] sh) pure nothrow {
         commands ~= sh;
     }
 

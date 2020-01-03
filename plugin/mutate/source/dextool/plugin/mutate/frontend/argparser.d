@@ -139,10 +139,14 @@ struct ArgParser {
 
         app.put("[mutant_test]");
         app.put("# (required) program used to run the test suite");
+        app.put(`# the arguments for test_cmd can be an array of multiple test commands`);
+        app.put(`# 1. ["test1.sh", "test2.sh"]`);
+        app.put(`# 2. [["test1.sh", "-x"], "test2.sh"]`);
         app.put(`test_cmd = "test.sh"`);
         app.put("# timeout to use for the test suite (msecs)");
         app.put("# test_cmd_timeout = 1000");
         app.put("# (required) program used to build the application");
+        app.put(`# the arguments for build_cmd can be an array: ["build.sh", "-x"]`);
         app.put(`build_cmd = "build.sh"`);
         app.put(
                 "# program used to analyze the output from the test suite for test cases that killed the mutant");
@@ -234,7 +238,7 @@ struct ArgParser {
         }
 
         void testMutantsG(string[] args) {
-            string mutationTester;
+            string[] mutationTester;
             string mutationCompile;
             string mutationTestCaseAnalyze;
             long mutationTesterRuntime;
@@ -267,7 +271,8 @@ struct ArgParser {
             if (maxAlive > 0)
                 mutationTest.maxAlive = maxAlive;
             if (mutationTester.length != 0)
-                mutationTest.mutationTester = ShellCommand.fromString(mutationTester);
+                mutationTest.mutationTester = mutationTester.map!(a => ShellCommand.fromString(a))
+                    .array;
             if (mutationCompile.length != 0)
                 mutationTest.mutationCompile = ShellCommand.fromString(mutationCompile);
             if (mutationTestCaseAnalyze.length != 0)
@@ -498,9 +503,7 @@ void printFileAnalyzeHelp(ref ArgParser ap) @safe {
  * ---
  */
 void loadConfig(ref ArgParser rval) @trusted {
-    import std.conv : to;
     import std.file : exists, readText;
-    import std.path : dirName, buildPath;
     import toml;
 
     if (!exists(rval.miniConf.confFile))
@@ -522,8 +525,39 @@ void loadConfig(ref ArgParser rval) @trusted {
         return;
     }
 
+    rval = loadConfig(rval, doc);
+}
+
+ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
+    import std.conv : to;
+    import std.path : dirName, buildPath;
+    import toml;
+
     alias Fn = void delegate(ref ArgParser c, ref TOMLValue v);
     Fn[string] callbacks;
+
+    static ShellCommand toShellCommand(ref TOMLValue v, string errorMsg) {
+        if (v.type == TOML_TYPE.STRING) {
+            return ShellCommand.fromString(v.str);
+        } else if (v.type == TOML_TYPE.ARRAY) {
+            return ShellCommand(v.array.map!(a => a.str).array);
+        }
+        logger.warning(errorMsg);
+        return ShellCommand.init;
+    }
+
+    static ShellCommand[] toShellCommands(ref TOMLValue v, string errorMsg) {
+        import std.format : format;
+
+        if (v.type == TOML_TYPE.STRING) {
+            return [ShellCommand.fromString(v.str)];
+        } else if (v.type == TOML_TYPE.ARRAY) {
+            return v.array.map!(a => toShellCommand(a,
+                    format!"%s: failed to parse as an array"(errorMsg))).array;
+        }
+        logger.warning(errorMsg);
+        return ShellCommand[].init;
+    }
 
     callbacks["analyze.exclude"] = (ref ArgParser c, ref TOMLValue v) {
         c.analyze.rawExclude = v.array.map!(a => a.str).array;
@@ -563,16 +597,19 @@ void loadConfig(ref ArgParser rval) @trusted {
     };
 
     callbacks["mutant_test.test_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationTester = ShellCommand.fromString(v.str);
+        c.mutationTest.mutationTester = toShellCommands(v,
+                "config: failed to parse mutant_test.test_cmd");
     };
     callbacks["mutant_test.test_cmd_timeout"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTesterRuntime = v.integer.dur!"msecs";
     };
     callbacks["mutant_test.build_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationCompile = ShellCommand.fromString(v.str);
+        c.mutationTest.mutationCompile = toShellCommand(v,
+                "config: failed to parse mutant_test.build_cmd");
     };
     callbacks["mutant_test.analyze_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationTestCaseAnalyze = ShellCommand.fromString(v.str);
+        c.mutationTest.mutationTestCaseAnalyze = toShellCommand(v,
+                "config: failed to parse mutant_test.analyze_cmd");
     };
     callbacks["mutant_test.analyze_using_builtin"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTestCaseBuiltin = v.array.map!(
@@ -639,6 +676,8 @@ void loadConfig(ref ArgParser rval) @trusted {
     iterSection(rval, "report");
 
     parseTestGroups(rval, doc);
+
+    return rval;
 }
 
 void parseTestGroups(ref ArgParser c, ref TOMLDocument doc) @trusted {
@@ -658,6 +697,55 @@ void parseTestGroups(ref ArgParser c, ref TOMLDocument doc) @trusted {
             string re = v.str;
             c.report.testGroups ~= TestGroup(k, desc, re);
         }
+    }
+}
+
+@("shall populate the test, build and analyze command of an ArgParser from a TOML document")
+@system unittest {
+    import std.format : format;
+    import toml : parseTOML;
+
+    immutable txt = `
+[mutant_test]
+test_cmd = %s
+build_cmd = %s
+analyze_cmd = %s
+`;
+
+    {
+        auto doc = parseTOML(format!txt(`"test.sh"`, `"build.sh"`, `"analyze.sh"`));
+        auto ap = loadConfig(ArgParser.init, doc);
+        ap.mutationTest.mutationTester.shouldEqual([ShellCommand(["test.sh"])]);
+        ap.mutationTest.mutationCompile.shouldEqual(ShellCommand(["build.sh"]));
+        ap.mutationTest.mutationTestCaseAnalyze.shouldEqual(ShellCommand([
+                    "analyze.sh"
+                ]));
+    }
+
+    {
+        auto doc = parseTOML(format!txt(`[["test1.sh"], ["test2.sh"]]`,
+                `["build.sh", "-y"]`, `["analyze.sh", "-z"]`));
+        auto ap = loadConfig(ArgParser.init, doc);
+        ap.mutationTest.mutationTester.shouldEqual([
+                ShellCommand(["test1.sh"]), ShellCommand(["test2.sh"])
+                ]);
+        ap.mutationTest.mutationCompile.shouldEqual(ShellCommand([
+                    "build.sh", "-y"
+                ]));
+        ap.mutationTest.mutationTestCaseAnalyze.shouldEqual(ShellCommand([
+                    "analyze.sh", "-z"
+                ]));
+    }
+
+    {
+        auto doc = parseTOML(format!txt(`[["test1.sh", "-x"], ["test2.sh", "-y"]]`,
+                `"build.sh"`, `"analyze.sh"`));
+        auto ap = loadConfig(ArgParser.init, doc);
+        ap.mutationTest.mutationTester.shouldEqual([
+                ShellCommand(["test1.sh", "-x"]), ShellCommand([
+                        "test2.sh", "-y"
+                    ])
+                ]);
     }
 }
 
