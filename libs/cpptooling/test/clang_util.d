@@ -14,8 +14,7 @@ public import cpptooling.analyzer.clang.context : ClangContext;
 static import clang.TranslationUnit;
 
 Flag!"hasError" checkForCompilerErrors(ref clang.TranslationUnit.TranslationUnit ctx) {
-    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors,
-        logDiagnostic;
+    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
 
     if (ctx.hasParseErrors) {
         logDiagnostic(ctx);

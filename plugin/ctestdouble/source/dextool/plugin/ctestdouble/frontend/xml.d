@@ -150,6 +150,8 @@ unittest {
     p.version_.dup.shouldEqual("test");
     p.command.dup.shouldEqual([]);
     p.skipCompilerArgs.shouldEqual(2);
-    p.filterClangFlags.shouldEqual([FilterClangFlag("foo"),
-            FilterClangFlag("-foo"), FilterClangFlag("--foo"), FilterClangFlag("-G 0")]);
+    p.filterClangFlags.shouldEqual([
+            FilterClangFlag("foo"), FilterClangFlag("-foo"),
+            FilterClangFlag("--foo"), FilterClangFlag("-G 0")
+            ]);
 }

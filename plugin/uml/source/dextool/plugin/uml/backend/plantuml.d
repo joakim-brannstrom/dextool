@@ -721,8 +721,10 @@ unittest {
     r.put(Relate.Key("B"), Relate.Kind.Aggregate);
     r.put(Relate.Key("B"), Relate.Kind.Associate);
 
-    r.toStringArray(Relate.Key("A")).shouldEqual(["A -Extend- [1]B",
-            "A -Compose- [1]B", "A -Aggregate- [1]B", "A -Associate- [1]B"]);
+    r.toStringArray(Relate.Key("A")).shouldEqual([
+            "A -Extend- [1]B", "A -Compose- [1]B", "A -Aggregate- [1]B",
+            "A -Associate- [1]B"
+            ]);
 }
 
 @Name("Should be two relates to the same target")
@@ -1026,15 +1028,12 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     import std.array : Appender;
     import std.typecons : scoped, NullableRef;
 
-    import cpptooling.analyzer.clang.ast : ClassDecl, CxxBaseSpecifier,
-        Constructor, Destructor, CxxMethod, FieldDecl, CxxAccessSpecifier,
-        generateIndentIncrDecr;
-    import cpptooling.analyzer.clang.analyze_helper : analyzeRecord,
-        analyzeConstructor, analyzeDestructor, analyzeCxxMethod,
-        analyzeFieldDecl, analyzeCxxBaseSpecified, toAccessType;
+    import cpptooling.analyzer.clang.ast : ClassDecl, CxxBaseSpecifier, Constructor,
+        Destructor, CxxMethod, FieldDecl, CxxAccessSpecifier, generateIndentIncrDecr;
+    import cpptooling.analyzer.clang.analyze_helper : analyzeRecord, analyzeConstructor, analyzeDestructor,
+        analyzeCxxMethod, analyzeFieldDecl, analyzeCxxBaseSpecified, toAccessType;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
-    import cpptooling.data : CppNsStack, CppNs, AccessType, CppAccess,
-        MemberVirtualType;
+    import cpptooling.data : CppNsStack, CppNs, AccessType, CppAccess, MemberVirtualType;
 
     import cpptooling.data.class_classification : ClassificationState = State;
     import cpptooling.data.class_classification : classifyClass, MethodKind;
@@ -1248,7 +1247,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
     override void visit(const(VarDecl) v) {
         mixin(mixinNodeLog!());
 
-        auto result = () @trusted{ return analyzeVarDecl(v, container, indent); }();
+        auto result = () @trusted { return analyzeVarDecl(v, container, indent); }();
 
         debug {
             logger.info("global variable: ", cast(string) result.name);
@@ -1296,7 +1295,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
     override void visit(const(Namespace) v) {
         mixin(mixinNodeLog!());
 
-        () @trusted{ ns_stack ~= CppNs(v.cursor.spelling); }();
+        () @trusted { ns_stack ~= CppNs(v.cursor.spelling); }();
         // pop the stack when done
         scope (exit)
             ns_stack = ns_stack[0 .. $ - 1];
@@ -1309,8 +1308,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
 private struct TransformToClassDiagram(ControllerT, LookupT) {
 @safe:
     import cpptooling.analyzer.clang.analyze_helper : CxxMethodResult,
-        ConstructorResult, DestructorResult, FieldDeclResult,
-        CxxBaseSpecifierResult;
+        ConstructorResult, DestructorResult, FieldDeclResult, CxxBaseSpecifierResult;
     import cpptooling.data.type : CppAccess;
     import cpptooling.data.type : CppNs;
 
@@ -1527,9 +1525,8 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
     import std.range : chain;
 
     import cpptooling.analyzer.clang.analyze_helper : CxxBaseSpecifierResult,
-        CxxMethodResult, ConstructorResult, DestructorResult, RecordResult,
-        FieldDeclResult, VarDeclResult, FunctionDeclResult,
-        TranslationUnitResult;
+        CxxMethodResult, ConstructorResult, DestructorResult,
+        RecordResult, FieldDeclResult, VarDeclResult, FunctionDeclResult, TranslationUnitResult;
     import cpptooling.data.symbol : Container;
     import cpptooling.data : CppAccess, CxReturnType;
 
@@ -1801,8 +1798,8 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
     import std.range : only;
 
     import cpptooling.analyzer.clang.analyze_helper : CxxBaseSpecifierResult,
-        RecordResult, FieldDeclResult, CxxMethodResult, ConstructorResult,
-        DestructorResult, VarDeclResult, FunctionDeclResult,
+        RecordResult, FieldDeclResult, CxxMethodResult,
+        ConstructorResult, DestructorResult, VarDeclResult, FunctionDeclResult,
         TranslationUnitResult;
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.data : TypeKind, CppNs, CppAccess;
@@ -2096,8 +2093,7 @@ private auto getClassMethodRelation(LookupT)(const(CxParam)[] params, LookupT lo
     import std.array : array;
     import std.algorithm : among, map, filter;
     import std.variant : visit;
-    import cpptooling.data : TypeKind, TypeAttr, TypeKindAttr, toStringDecl,
-        VariadicType;
+    import cpptooling.data : TypeKind, TypeAttr, TypeKindAttr, toStringDecl, VariadicType;
 
     static ClassRelate genParam(CxParam p, LookupT lookup) @trusted {
         // dfmt off
@@ -2231,8 +2227,9 @@ private void generateDotRelate(T)(T relate_range, ulong color_idx, PlantumlModul
 
     static string getColor(ulong idx) {
         static string[] colors = [
-            "red", "mediumpurple", "darkorange", "deeppink", "green", "coral", "orangered", "plum", "deepskyblue",
-            "slategray", "cadetblue", "olive", "silver", "indianred", "black"
+            "red", "mediumpurple", "darkorange", "deeppink", "green", "coral",
+            "orangered", "plum", "deepskyblue", "slategray", "cadetblue",
+            "olive", "silver", "indianred", "black"
         ];
         return colors[idx % colors.length];
     }

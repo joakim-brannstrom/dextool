@@ -316,12 +316,16 @@ string toShortHelp(Plugin[] plugins) @safe {
         assert(false); // should not happen
     }
 
-    auto fake_plugins = ["dextool-ctest", "dextool-cpp",
-        "dextool-too_many_lines", "dextool-fail_run"].map!(a => FileName(a)).array();
+    auto fake_plugins = [
+        "dextool-ctest", "dextool-cpp", "dextool-too_many_lines",
+        "dextool-fail_run"
+    ].map!(a => FileName(a)).array();
 
-    toPlugins!fakeExec(fake_plugins).shouldEqual([Plugin("ctest", "c test text", FileName("/a/dextool-ctest")),
+    toPlugins!fakeExec(fake_plugins).shouldEqual([
+            Plugin("ctest", "c test text", FileName("/a/dextool-ctest")),
             Plugin("cpp", "cpp test text", FileName("/b/dextool-cpp")),
-            Plugin("too_many_lines", "", FileName(""))]);
+            Plugin("too_many_lines", "", FileName(""))
+            ]);
 }
 
 @("A short help text with two plugins")

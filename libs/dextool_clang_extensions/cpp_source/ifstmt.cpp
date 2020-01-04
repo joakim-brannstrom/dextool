@@ -42,7 +42,8 @@ DXIfStmt dex_getIfStmt(const CXCursor cx) {
     {
         const clang::Stmt* subs = ifstmt->getInit();
         if (subs != nullptr) {
-            rval.init_ = clang::cxcursor::dex_MakeCXCursor(subs, parent, tu, subs->getSourceRange());
+            rval.init_ =
+                clang::cxcursor::dex_MakeCXCursor(subs, parent, tu, subs->getSourceRange());
         }
     }
 
@@ -63,11 +64,12 @@ DXIfStmt dex_getIfStmt(const CXCursor cx) {
     {
         const clang::Stmt* subs = ifstmt->getElse();
         if (subs != nullptr) {
-            rval.else_ = clang::cxcursor::dex_MakeCXCursor(subs, parent, tu, subs->getSourceRange());
+            rval.else_ =
+                clang::cxcursor::dex_MakeCXCursor(subs, parent, tu, subs->getSourceRange());
         }
     }
 
     return rval;
 }
 
-} // NS: dextool_clang_extension
+} // namespace dextool_clang_extension

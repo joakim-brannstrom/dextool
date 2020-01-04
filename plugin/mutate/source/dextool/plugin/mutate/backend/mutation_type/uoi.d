@@ -25,10 +25,13 @@ immutable Mutation.Kind[] uoiRvalueMutationsRaw;
 shared static this() {
     with (Mutation.Kind) {
         // inactivating unary that seem to be nonsense
-        uoiLvalueMutationsRaw = [uoiPostInc, uoiPostDec, uoiPreInc, uoiPreDec, uoiNegation /*, uoiPositive, uoiNegative, uoiAddress,
+        uoiLvalueMutationsRaw = [
+            uoiPostInc, uoiPostDec, uoiPreInc, uoiPreDec,
+            uoiNegation /*, uoiPositive, uoiNegative, uoiAddress,
             uoiIndirection, uoiComplement, uoiSizeof_,*/
         ];
-        uoiRvalueMutationsRaw = [uoiPreInc, uoiPreDec, uoiNegative, uoiNegation, /*uoiAddress,
+        uoiRvalueMutationsRaw = [
+            uoiPreInc, uoiPreDec, uoiNegative, uoiNegation, /*uoiAddress,
             uoiIndirection*, uoiPositive, uoiComplement, uoiSizeof_,*/
         ];
 

@@ -99,7 +99,7 @@ void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
             visitor.decr();
     }
 
-    () @trusted{
+    () @trusted {
         foreach (child, _; Visitor(cursor)) {
             dispatch(child, visitor);
         }
@@ -232,12 +232,17 @@ case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); bre
 
     Cursor cursor;
 
-    foreach (kind; [__traits(getMember, CXCursorKind, AttributeSeq[0]), __traits(getMember,
-            CXCursorKind, DeclarationSeq[0]), __traits(getMember, CXCursorKind, DirectiveSeq[0]), __traits(getMember,
-            CXCursorKind, ExpressionSeq[0]), __traits(getMember, CXCursorKind,
-            ExtraSeq[0]), __traits(getMember, CXCursorKind,
-            PreprocessorSeq[0]), __traits(getMember, CXCursorKind, ReferenceSeq[0]), __traits(getMember, CXCursorKind,
-            StatementSeq[0]), __traits(getMember, CXCursorKind, TranslationUnitSeq[0])]) {
+    foreach (kind; [
+            __traits(getMember, CXCursorKind, AttributeSeq[0]),
+            __traits(getMember, CXCursorKind, DeclarationSeq[0]),
+            __traits(getMember, CXCursorKind, DirectiveSeq[0]),
+            __traits(getMember, CXCursorKind, ExpressionSeq[0]),
+            __traits(getMember, CXCursorKind, ExtraSeq[0]),
+            __traits(getMember, CXCursorKind, PreprocessorSeq[0]),
+            __traits(getMember, CXCursorKind, ReferenceSeq[0]),
+            __traits(getMember, CXCursorKind, StatementSeq[0]),
+            __traits(getMember, CXCursorKind, TranslationUnitSeq[0])
+        ]) {
         switch (kind) {
             mixin(wrapCursor!(test, cursor)(AttributeSeq));
             mixin(wrapCursor!(test, cursor)(DeclarationSeq));

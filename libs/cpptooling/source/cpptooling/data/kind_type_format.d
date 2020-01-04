@@ -263,7 +263,9 @@ version (unittest) {
         char[] buf;
         arr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
             buf ~= s;
-        }, CvQ(), DeclId("x"), ArraySize([ArraySize.Size(ArraySize.Kind.const_, 42)]));
+        }, CvQ(), DeclId("x"), ArraySize([
+                    ArraySize.Size(ArraySize.Kind.const_, 42)
+                ]));
         buf.shouldEqual("int x[42]");
     }
 
@@ -271,8 +273,9 @@ version (unittest) {
         char[] buf;
         arr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
             buf ~= s;
-        }, CvQ(), DeclId("x"), ArraySize([ArraySize.Size(),
-                ArraySize.Size(ArraySize.Kind.const_, 42)]));
+        }, CvQ(), DeclId("x"), ArraySize([
+                    ArraySize.Size(), ArraySize.Size(ArraySize.Kind.const_, 42)
+                ]));
         buf.shouldEqual("int x[][42]");
     }
 }
@@ -370,7 +373,7 @@ version (unittest) {
                      CvPtrQ(CvQ(), PtrQ(kind)),
                      CvPtrQ(CvQ(), PtrQ(kind)),
                      // dfmt on
-            ], DeclId("x"));
+                    ], DeclId("x"));
             buf.shouldEqual("const int " ~ kstr ~ "const" ~ kstr ~ kstr ~ "const" ~ kstr ~ kstr
                     ~ "x");
         }
@@ -461,7 +464,7 @@ version (unittest) {
                      CvPtrQ(CvQ(), PtrQ(kind)),
                      CvPtrQ(CvQ(), PtrQ(kind)),
                      // dfmt on
-            ], DeclId("x"));
+                    ], DeclId("x"));
             buf.shouldEqual(
                     "void (const" ~ kstr ~ "const" ~ kstr ~ kstr ~ "const" ~ kstr ~ kstr ~ "x)(int)");
         }

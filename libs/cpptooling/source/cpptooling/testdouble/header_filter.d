@@ -123,7 +123,7 @@ struct GenericTestDoubleIncludes(PayloadT) {
         st = State.forceInclude;
 
         /// Assuming user defined includes are good as they are so no stripping.
-        () @trusted{ in_incls.each!(a => permanent_pool.insert(Include(a))); }();
+        () @trusted { in_incls.each!(a => permanent_pool.insert(Include(a))); }();
     }
 
     void finalize() @safe pure nothrow @nogc
@@ -154,7 +154,7 @@ struct GenericTestDoubleIncludes(PayloadT) {
         if (work_pool.length == 0)
             return;
 
-        () @trusted{
+        () @trusted {
             stripIncl(work_pool, strip_incl).each!(a => permanent_pool.insert(a));
         }();
         work_pool.length = 0;

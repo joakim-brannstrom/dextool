@@ -22,7 +22,7 @@ public import cpptooling.data.kind_type : TypeKind, TypeAttr, TypeKindAttr,
 static import cpptooling.data.class_classification;
 
 /// Convert a namespace stack to a string separated by ::.
-string toStringNs(T : const(Tx), Tx)(T ns) @safe 
+string toStringNs(T : const(Tx), Tx)(T ns) @safe
         if (is(Tx == CppNsStack) || is(Tx == CppNs[])) {
     import std.algorithm : map;
     import std.array : join;

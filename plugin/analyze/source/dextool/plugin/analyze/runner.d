@@ -17,8 +17,7 @@ ExitStatusType runPlugin(string[] args) @safe {
     import std.stdio : writeln, writefln;
     import dextool.compilation_db : CompileCommandDB, fromArgCompileDb;
     import dextool.plugin.analyze.raw_config;
-    import dextool.plugin.analyze.analyze : AnalyzeBuilder, AnalyzeResults,
-        doAnalyze;
+    import dextool.plugin.analyze.analyze : AnalyzeBuilder, AnalyzeResults, doAnalyze;
 
     RawConfiguration pargs;
     pargs.parse(args);
@@ -41,7 +40,7 @@ ExitStatusType runPlugin(string[] args) @safe {
 
     CompileCommandDB compile_db;
     if (pargs.compileDb.length != 0) {
-        compile_db = () @trusted{ return pargs.compileDb.fromArgCompileDb; }();
+        compile_db = () @trusted { return pargs.compileDb.fromArgCompileDb; }();
     }
 
     // dfmt off

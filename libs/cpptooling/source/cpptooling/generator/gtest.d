@@ -81,7 +81,8 @@ void generateGtestPrettyEqual(T)(T members, const FullyQualifiedNameType name,
     }
 
     auto ifndef = m.IFNDEF(format("%s_NO_CMP_%s", guard_prefix.toUpper,
-            name.map!(a => a.isAlphaNum ? a : '_').map!(a => a.to!char)));
+            name.map!(a => a.isAlphaNum ? a : '_')
+            .map!(a => a.to!char)));
 
     auto func = ifndef.func_body("inline bool", "operator==",
             format("const %s& lhs, const %s& rhs", name, name));

@@ -99,7 +99,7 @@ struct TemplateConfig {
         import dextool.xml : makePrelude;
 
         makePrelude(app);
-        () @trusted{ doc.pretty(4).joiner("\n").copy(app); }();
+        () @trusted { doc.pretty(4).joiner("\n").copy(app); }();
     }
 }
 

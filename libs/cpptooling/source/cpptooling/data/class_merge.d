@@ -36,7 +36,7 @@ CppClass mergeClassInherit(ref CppClass class_, const ref Container container, L
     auto methods = dedup(getMethods(class_, container, lookup));
 
     auto c = CppClass(class_.name, class_.inherits, class_.resideInNs);
-    () @trusted{ methods.each!(a => c.put(a)); }();
+    () @trusted { methods.each!(a => c.put(a)); }();
 
     return c;
 }
@@ -45,8 +45,7 @@ private:
 
 bool isMethodOrOperator(T)(T method) @trusted {
     import std.variant : visit;
-    import cpptooling.data.representation : CppMethod, CppMethodOp, CppCtor,
-        CppDtor;
+    import cpptooling.data.representation : CppMethod, CppMethodOp, CppCtor, CppDtor;
 
     // dfmt off
     return method.visit!((const CppMethod a) => true,
@@ -73,7 +72,7 @@ CppClass.CppFunc[] getMethods(const ref CppClass c, const ref Container containe
     // dfmt on
 
     auto methods = appender!(CppClass.CppFunc[])();
-    () @trusted{ local_methods.copy(methods); inherit_methods.copy(methods); }();
+    () @trusted { local_methods.copy(methods); inherit_methods.copy(methods); }();
 
     return methods.data;
 }

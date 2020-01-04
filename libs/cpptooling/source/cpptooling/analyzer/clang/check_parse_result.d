@@ -23,7 +23,7 @@ bool hasParseErrors(ref TranslationUnit tu) @safe {
 
     auto dia = tu.diagnostics;
 
-    auto rval = () @trusted{
+    auto rval = () @trusted {
         foreach (diag; dia) {
             auto severity = diag.severity;
 
@@ -54,7 +54,7 @@ void logDiagnostic(ref TranslationUnit tu) @safe {
 
     auto dia = tu.diagnostics;
 
-    () @trusted{
+    () @trusted {
         foreach (diag; dia) {
             auto severity = diag.severity;
 

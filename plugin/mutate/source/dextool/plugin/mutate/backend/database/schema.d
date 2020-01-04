@@ -438,7 +438,7 @@ struct MarkedMutantTbl {
 
     @ColumnName("mut_text")
     string mutText;
-    }
+}
 
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
@@ -508,8 +508,9 @@ void upgrade(ref Miniorm db) nothrow {
 void upgradeV0(ref Miniorm db) {
     enum tbl = makeUpgradeTable;
 
-    db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl, MutationPointTbl, MutationTbl, TestCaseKilledTbl,
-            AllTestCaseTbl, MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl, MarkedMutantTbl));
+    db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl,
+            MutationPointTbl, MutationTbl, TestCaseKilledTbl, AllTestCaseTbl,
+            MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl, MarkedMutantTbl));
 
     makeSrcMetadataView(db);
 

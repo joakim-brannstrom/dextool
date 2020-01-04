@@ -10,8 +10,7 @@ together.
 module llvm_hiwrap.module_;
 
 import llvm : LLVMVerifyModule, LLVMModuleCreateWithName, LLVMModuleRef,
-    LLVMDisposeModule, LLVMBool, LLVMVerifierFailureAction,
-    LLVMGetModuleIdentifier;
+    LLVMDisposeModule, LLVMBool, LLVMVerifierFailureAction, LLVMGetModuleIdentifier;
 
 import llvm_hiwrap.util : toD;
 import llvm_hiwrap.types; // : LxVerifierFailureAction, LxMessage;
@@ -138,7 +137,7 @@ struct Module {
         import std.range.primitives : put;
         import llvm : LLVMPrintModuleToString;
 
-        () @trusted{
+        () @trusted {
             auto msg = LxMessage(LLVMPrintModuleToString(lx));
             put(w, msg.toChar);
         }();
