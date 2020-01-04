@@ -9,8 +9,8 @@ module dextool.clang_extensions;
 
 import clang.c.Index;
 
-extern (C++, dextool_clang_extension) {
-    extern (C++, McCabe) {
+extern (C++,dextool_clang_extension) {
+    extern (C++,McCabe) {
         extern (C++) struct Result {
             /// Only valid values if true.
             bool hasValue;
@@ -396,14 +396,16 @@ IfStmt getIfStmt(const CXCursor cx) @trusted {
 
         put(w, "if (");
         if (init_.isValid) {
-            () @trusted{ init_.tokens.map!(a => a.spelling).joiner(" ").copy(w); }();
+            () @trusted {
+                init_.tokens.map!(a => a.spelling).joiner(" ").copy(w);
+            }();
             put(w, "; ");
         }
-        () @trusted{ cond.tokens.map!(a => a.spelling).joiner(" ").copy(w); }();
+        () @trusted { cond.tokens.map!(a => a.spelling).joiner(" ").copy(w); }();
         put(w, ") ");
 
         foreach (c; [then, else_].filter!(a => a.isValid)) {
-            () @trusted{
+            () @trusted {
                 auto toks = c.tokens;
                 // only one case here and that is a `return foo;`. The trailing
                 // `;` is not part of the token range so an extra has to be

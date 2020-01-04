@@ -51,10 +51,8 @@ const clang::Decl* getCursorParentDecl(CXCursor Cursor);
 
 // Based on MakeCXCursor from CXCursor.h
 // This is a minimalistic version that ONLY work for expressions.
-CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent,
-                          CXTranslationUnit TU,
+CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent, CXTranslationUnit TU,
                           clang::SourceRange RegionOfInterest = clang::SourceRange());
-
 
 /// Returns the underlying node that is not an reference or implicit cast.
 const clang::Expr* getUnderlyingExprNode(const clang::Expr* expr);
@@ -62,8 +60,8 @@ const clang::Expr* getUnderlyingExprNode(const clang::Expr* expr);
 /// Returns a Cursor for the underlying node that is not an reference or implicit cast.
 CXCursor dex_getUnderlyingExprNode(const CXCursor cx_expr);
 
-} // NS: cxcursor
-} // NS: clang
+} // namespace cxcursor
+} // namespace clang
 
 // ### end ugly hack
 
@@ -92,14 +90,14 @@ CXSourceLocation getLocation(CXCursor C);
 
 // See: CXSourceLocation.h
 /// Translate a Clang source location into a CIndex source location.
-CXSourceLocation translateSourceLocation(clang::ASTContext& Context,
-                                         clang::SourceLocation Loc);
+CXSourceLocation translateSourceLocation(clang::ASTContext& Context, clang::SourceLocation Loc);
 
 // See: CXSourceLocation.h
 /// Translate a Clang source location into a CIndex source location.
-CXSourceLocation translateSourceLocation(const clang::SourceManager& SM, const clang::LangOptions& LangOpts,
+CXSourceLocation translateSourceLocation(const clang::SourceManager& SM,
+                                         const clang::LangOptions& LangOpts,
                                          clang::SourceLocation Loc);
 
-} // NS: dextool_clang_extension
+} // namespace dextool_clang_extension
 
 #endif // LIBCLANG_INTEROP_HPP

@@ -362,8 +362,7 @@ private string stmt_append_end(string s, ref const string[string] attrs) pure no
         bool in_pattern = false;
         try {
             in_pattern = s[$ - 1].among(';', ':', ',', '{') != 0;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
         }
 
         if (!in_pattern && s[0] != '#') {

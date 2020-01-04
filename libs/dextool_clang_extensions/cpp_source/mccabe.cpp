@@ -40,10 +40,8 @@ Result calculate(CXCursor cx_decl) {
         return {false, 0};
     }
 
-    const auto CFG = clang::CFG::buildCFG(func_decl,
-                                          func_decl->getBody(),
-                                          ctx,
-                                          clang::CFG::BuildOptions());
+    const auto CFG =
+        clang::CFG::buildCFG(func_decl, func_decl->getBody(), ctx, clang::CFG::BuildOptions());
 
     if (!CFG) {
         return {false, 0};
@@ -63,6 +61,6 @@ Result calculate(CXCursor cx_decl) {
     return {true, complexity};
 }
 
-} // NS: McCabe
+} // namespace McCabe
 
-} // NS: dextool_clang_extension
+} // namespace dextool_clang_extension

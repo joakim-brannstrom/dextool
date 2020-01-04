@@ -15,8 +15,7 @@ import logger = std.experimental.logger;
 
 import dextool.type : FileName;
 
-import dextool.plugin.fuzzer.type : FullyQualifiedNameType, Param, Symbol, Fuzz,
-    SequenceId;
+import dextool.plugin.fuzzer.type : FullyQualifiedNameType, Param, Symbol, Fuzz, SequenceId;
 
 struct RawConfiguration {
     import std.getopt : getopt, GetoptResult;

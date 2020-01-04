@@ -46,4 +46,4 @@ DXCaseStmt dex_getCaseStmt(const CXCursor cx) {
     return rval;
 }
 
-} // NS: dextool_clang_extension
+} // namespace dextool_clang_extension

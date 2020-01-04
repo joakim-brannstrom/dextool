@@ -308,15 +308,21 @@ bool isPathInsideAnyRoot(AbsolutePath[] roots, AbsolutePath f) @safe {
 /// prints a marked mutant that has become lost due to rerun of analyze
 void printLostMarkings(MarkedMutant[] lostMutants) {
     import std.array : empty;
+
     if (lostMutants.empty)
         return;
 
-    import std.stdio: writeln;
+    import std.stdio : writeln;
     import std.conv : to;
 
-    Table!6 tbl = Table!6(["ID", "File", "Line", "Column", "Status", "Rationale"]);
-    foreach(m; lostMutants) {
-        typeof(tbl).Row r = [to!string(m.mutationId), m.path, to!string(m.line), to!string(m.column), statusToString(m.toStatus), m.rationale];
+    Table!6 tbl = Table!6([
+            "ID", "File", "Line", "Column", "Status", "Rationale"
+            ]);
+    foreach (m; lostMutants) {
+        typeof(tbl).Row r = [
+            to!string(m.mutationId), m.path, to!string(m.line),
+            to!string(m.column), statusToString(m.toStatus), m.rationale
+        ];
         tbl.put(r);
     }
     logger.warning("Marked mutants was lost");

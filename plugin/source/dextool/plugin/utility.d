@@ -90,8 +90,10 @@ struct MarkArray(T) {
 
         // naive implementation. Should use swapping instead.
         typeof(arr) new_;
-        new_.put(arr.data.enumerate.filter!(a => !canFind(remove_.data,
-                a.index)).map!(a => a.value));
+        new_.put(arr.data
+                .enumerate
+                .filter!(a => !canFind(remove_.data, a.index))
+                .map!(a => a.value));
         arr.clear;
         remove_.clear;
 

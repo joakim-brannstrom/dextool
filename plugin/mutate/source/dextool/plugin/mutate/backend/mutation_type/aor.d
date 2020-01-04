@@ -81,8 +81,11 @@ shared static this() {
     // dfmt on
 
     with (Mutation.Kind) {
-        aorMutationsAll = [aorMul, aorDiv, aorRem, aorAdd, aorSub, aorLhs, aorRhs];
-        aorAssignMutationsAll = [aorMulAssign, aorDivAssign, aorRemAssign,
-            aorAddAssign, aorSubAssign];
+        aorMutationsAll = [
+            aorMul, aorDiv, aorRem, aorAdd, aorSub, aorLhs, aorRhs
+        ];
+        aorAssignMutationsAll = [
+            aorMulAssign, aorDivAssign, aorRemAssign, aorAddAssign, aorSubAssign
+        ];
     }
 }

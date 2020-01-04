@@ -14,8 +14,7 @@ module cpptooling.data.class_classification;
 import std.typecons : Flag;
 import logger = std.experimental.logger;
 
-import cpptooling.data.representation : CppClass, CppMethod, CppMethodOp,
-    CppCtor, CppDtor;
+import cpptooling.data.representation : CppClass, CppMethod, CppMethodOp, CppCtor, CppDtor;
 import cpptooling.data.type : MemberVirtualType;
 
 /// The state and result of the classification is in.

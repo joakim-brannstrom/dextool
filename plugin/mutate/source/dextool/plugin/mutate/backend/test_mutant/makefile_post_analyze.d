@@ -13,8 +13,7 @@ import std.exception : collectException;
 import std.range : isInputRange, isOutputRange;
 import logger = std.experimental.logger;
 
-import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport,
-    GatherTestCase;
+import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport, GatherTestCase;
 import dextool.plugin.mutate.backend.type : TestCase;
 import dextool.type : AbsolutePath;
 

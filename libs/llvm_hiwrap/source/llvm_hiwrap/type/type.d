@@ -39,8 +39,7 @@ struct Type {
             LLVMTypeKind tmp = LLVMGetTypeKind(rawPtr);
             if (tmp >= LxTypeKind.min && tmp <= LxTypeKind.max)
                 r = cast(LxTypeKind) tmp;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
         }
 
         return r;

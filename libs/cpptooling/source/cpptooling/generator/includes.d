@@ -102,7 +102,9 @@ auto makeHeader(FileName fname, DextoolVersion ver, CustomHeader custom = Custom
     import dsrcgen.cpp : CppModule;
 
     auto base_fname = fname.baseName;
-    immutable string[string] kw = ["$file$" : base_fname, "$dextool_version$" : ver];
+    immutable string[string] kw = [
+        "$file$" : base_fname, "$dextool_version$" : ver
+    ];
 
     auto m = new CppModule;
     if (custom.length > 0) {

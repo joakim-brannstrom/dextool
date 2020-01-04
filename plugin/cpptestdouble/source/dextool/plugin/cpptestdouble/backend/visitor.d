@@ -49,10 +49,8 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
     import cpptooling.analyzer.clang.ast : UnexposedDecl, VarDecl, FunctionDecl,
-        ClassDecl, Namespace, TranslationUnit, generateIndentIncrDecr,
-        StructDecl;
-    import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
-        analyzeVarDecl;
+        ClassDecl, Namespace, TranslationUnit, generateIndentIncrDecr, StructDecl;
+    import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl, analyzeVarDecl;
     import cpptooling.data : CppRoot, CxGlobalVariable, CppNsStack,
         CxReturnType, CppNs, TypeKindVariable;
     import cpptooling.data.symbol : Container;
@@ -144,8 +142,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
 
     void visitRecord(T)(const T v) @trusted {
         import std.typecons : scoped;
-        import cpptooling.analyzer.clang.analyze_helper : ClassVisitor,
-            analyzeRecord;
+        import cpptooling.analyzer.clang.analyze_helper : ClassVisitor, analyzeRecord;
 
         ///TODO add information if it is a public/protected/private class.
         ///TODO add metadata to the class if it is a definition or declaration
@@ -172,7 +169,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
     override void visit(const(Namespace) v) @trusted {
         mixin(mixinNodeLog!());
 
-        () @trusted{ ns_stack ~= CppNs(v.cursor.spelling); }();
+        () @trusted { ns_stack ~= CppNs(v.cursor.spelling); }();
         // pop the stack when done
         scope (exit)
             ns_stack = ns_stack[0 .. $ - 1];
@@ -195,7 +192,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         mixin(mixinNodeLog!());
 
         LocationTag tu_loc;
-        () @trusted{ tu_loc = LocationTag(Location(v.cursor.spelling, 0, 0)); }();
+        () @trusted { tu_loc = LocationTag(Location(v.cursor.spelling, 0, 0)); }();
 
         if (tu_loc.kind != LocationTag.Kind.noloc && ctrl.doFile(tu_loc.file,
                 "root " ~ tu_loc.toString)) {
