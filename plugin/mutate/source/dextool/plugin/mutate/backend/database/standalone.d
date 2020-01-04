@@ -97,6 +97,7 @@ struct Database {
 
     MarkedMutant[] getLostMarkings() @trusted {
         import std.algorithm : filter;
+
         return getMarkedMutants.filter!(a => exists(MutationStatusId(a.mutationStatusId))).array;
     }
 
@@ -429,7 +430,7 @@ struct Database {
         return rval;
     }
     // Returns: the status of the mutant
-    Nullable!Mutation.Status getMutationStatus(const MutationId id) @trusted {
+    Nullable!(Mutation.Status) getMutationStatus(const MutationId id) @trusted {
         auto s = format!"SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)"(
                 mutationStatusTable, mutationTable);
         auto stmt = db.prepare(s);
@@ -580,8 +581,8 @@ struct Database {
     /** Mark a mutant with status and rationale (also adds metadata).
      */
     void markMutant(MutationEntry m, MutationStatusId st_id, Mutation.Status s, string r, string txt) @trusted {
-        db.run(insertOrReplace!MarkedMutant,
-            MarkedMutant(st_id, m.id, m.sloc.line, m.sloc.column, m.file, s, Clock.currTime.toUTC, Rationale(r), txt));
+        db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, m.id,
+                m.sloc.line, m.sloc.column, m.file, s, Clock.currTime.toUTC, Rationale(r), txt));
     }
 
     void removeMarkedMutant(MutationStatusId st_id) @trusted {
