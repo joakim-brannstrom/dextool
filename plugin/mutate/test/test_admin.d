@@ -58,17 +58,20 @@ unittest {
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
     makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
-    auto db = createDatabase(testEnv);
 
     // act
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(MutationId(5000))])
-        .addArg(["--to-status", to!string(Status.killed)])
+        .addArg(["--id",        "5000"])
+        .addArg(["--to-status", "killed"])
         .addArg(["--rationale", `"This mutant should not exist"`])
+        .throwOnExitStatus(false)
         .run;
 
     // assert
+    r.success.shouldBeFalse;
+
+    auto db = createDatabase(testEnv);
     db.getMutation(MutationId(5000)).isNull.shouldBeTrue;
 
     testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.output);
