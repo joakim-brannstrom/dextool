@@ -134,8 +134,7 @@ cmake .. -DD_COMPILER=/foo/bar/dmd/2.088/linux64/bin/dmd
 
 # Usage
 
-See the usage examples in respective plugin directory:
- * [mutate](plugin/mutate/examples)
+See the usage examples in respective plugin directory.
 
 # Credit
 Jacob Carlborg for his excellent DStep. It was used as a huge inspiration for
