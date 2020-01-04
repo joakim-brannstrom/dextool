@@ -31,7 +31,7 @@ struct Function {
         import std.digest.crc;
 
         auto hash = makeDigest!CRC32();
-        () @trusted{
+        () @trusted {
             hash.put(cast(const(ubyte)[]) cast(string) file);
             hash.put(cast(const(ubyte)[]) cast(string) name);
         }();
@@ -90,7 +90,7 @@ class McCabeResult {
      */
     void put(Function func) @safe {
         // unsafe in dmd-2.071.1 but safe in 2.075.0
-        auto insert_nr = () @trusted{ return functions.insert(func); }();
+        auto insert_nr = () @trusted { return functions.insert(func); }();
 
         if (insert_nr == 1) {
             // files that are inserted are thus unique in the analyze.
@@ -105,9 +105,7 @@ class McCabeResult {
     }
 }
 
-struct McCabe {
-    import std.typecons : NullableRef;
-
+class McCabe {
     private McCabeResult result;
 
     this(McCabeResult result) {
@@ -121,7 +119,7 @@ struct McCabe {
             return;
         }
 
-        auto mccabe = () @trusted{
+        auto mccabe = () @trusted {
             import dextool.clang_extensions;
 
             return calculate(c.cx);

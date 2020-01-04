@@ -324,19 +324,11 @@ struct AnalyzeCollection {
 
     this(Flag!"doMcCabeAnalyze" mccabe) {
         doMcCabe = mccabe;
-
         this.mcCabeResult = new McCabeResult;
-        // remove this in newer versions than 2.071.1 where nullableRef is implemented.
-        //import std.typecons : nullableRef;
-        //this.mcCabe = McCabe(nullableRef(&this.mcCabeResult));
-        () @trusted {
-            import std.typecons : NullableRef;
-
-            this.mcCabe = McCabe(NullableRef!McCabeResult(&this.mcCabeResult));
-        }();
+        this.mcCabe = new McCabe(mcCabeResult);
     }
 
-    void register(TUVisitor v) {
+    void register(TUVisitor v) @trusted {
         if (doMcCabe) {
             v.onFunctionDecl ~= &mcCabe.analyze!FunctionDecl;
             v.onCxxMethod ~= &mcCabe.analyze!CxxMethod;
