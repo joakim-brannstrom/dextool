@@ -101,8 +101,12 @@ alias LazyGtestModule = CppModule delegate(const CppNs[] ns, const CppClassName 
             .base;
 
         this.impl_ = impl;
-        this.impl = () => this.makeImpl().base.noIndent;
-        this.implTop = () => this.makeImplTop().base.noIndent;
+        // never escapes the instances. Assuming it is basically "moved".
+        // TODO: change GenerateNamespaceData to a class?
+        () @trusted {
+            this.impl = () => this.makeImpl().base.noIndent;
+            this.implTop = () => this.makeImplTop().base.noIndent;
+        }();
     }
 
     LazyModule hdr;
