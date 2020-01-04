@@ -49,7 +49,7 @@ endif()
 file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR})
 
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
-set(DDMD_DFLAGS "-w -wi -vcolumns")
+set(DDMD_DFLAGS "-w -wi -vcolumns -preview=dip25 -preview=dip1000")
 set(DDMD_LFLAGS "")
 set(DDMD_COV_FLAG "-cov")
 

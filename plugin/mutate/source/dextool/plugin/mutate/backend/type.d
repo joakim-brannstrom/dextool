@@ -223,7 +223,7 @@ struct TestCase {
         return name == s.name && location == s.location;
     }
 
-    size_t toHash() @safe nothrow const scope {
+    size_t toHash() @safe nothrow const {
         return typeid(string).getHash(&name) + typeid(string).getHash(&location);
     }
 

@@ -20,8 +20,7 @@ auto runPlugin(string[] args) @safe {
     import dextool.type;
     import dextool.utility;
     import dextool.xml : makeXmlLog;
-    import dextool.plugin.mutate.frontend : ArgParser, cliToMiniConfig,
-        loadConfig, runMutate;
+    import dextool.plugin.mutate.frontend : ArgParser, cliToMiniConfig, loadConfig, runMutate;
 
     auto argp = ArgParser.make;
     argp.miniConf = cliToMiniConfig(args);
@@ -37,7 +36,7 @@ auto runPlugin(string[] args) @safe {
     loadConfig(argp);
     argp.parse(args);
 
-    logger.trace(argp);
+    () @trusted { logger.trace(argp); }();
 
     if (argp.help || argp.data.exitStatus != ExitStatusType.Ok) {
         argp.printHelp;

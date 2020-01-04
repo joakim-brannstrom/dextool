@@ -194,7 +194,7 @@ struct TranslationUnit {
         return SourceRange(clang_getRange(start, end));
     }
 
-    package SourceLocation[] includeLocationsImpl(Range)(Range cursors) @safe {
+    package SourceLocation[] includeLocationsImpl(Range)(Range cursors) @trusted {
         // `cursors` range should at least contain all global
         // preprocessor cursors, although it can contain more.
 

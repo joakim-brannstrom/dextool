@@ -8,19 +8,16 @@ The plugins in a standard installation of Dextool are:
  - C TestDouble. Analyze C code to generate a test double implementation.
  - C++ TestDouble. Analyze C++ code to generate a test double implementation.
  - Mutate. Mutation testing tool for C/C++.
- - GraphML. Analyze C/C++ code to generate a GraphML representation.
-   Call chains, type usage, classes as _groups_ of methods and members.
  - UML. Analyze C/C++ code to generate PlantUML diagrams.
 
 # Plugin Status
 
  * **Analyze**: production ready.
  * **C TestDouble**: production ready. The API of the generated code and how it behaves is stable.
- * **C++ TestDouble** is production ready. The API of the generated code and how it behaves is stable.
- * **Fuzzer**: alpha.
- * **GraphML**: beta.
- * **UML**: beta.
+ * **C++ TestDouble**: production ready. The API of the generated code and how it behaves is stable.
  * [**Mutate**](plugin/mutate/README.md): production ready.
+ * **Fuzzer**: alpha.
+ * **UML**: beta.
 
 # Getting Started
 
@@ -137,8 +134,7 @@ cmake .. -DD_COMPILER=/foo/bar/dmd/2.088/linux64/bin/dmd
 
 # Usage
 
-See the usage examples in respective plugin directory:
- * [mutate](plugin/mutate/examples)
+See the usage examples in respective plugin directory.
 
 # Credit
 Jacob Carlborg for his excellent DStep. It was used as a huge inspiration for

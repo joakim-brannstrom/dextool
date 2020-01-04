@@ -164,7 +164,7 @@ struct TOMLValue
 	/**
 	 * Throws: TOMLException if type is not TOML_TYPE.OFFSET_DATETIME
 	 */
-	public @property ref SysTime offsetDatetime()
+	public @property ref SysTime offsetDatetime() return
 	{
 		enforce!TOMLException(this.type == TOML_TYPE.OFFSET_DATETIME,
 				"TOMLValue is not an offset datetime");
@@ -174,7 +174,7 @@ struct TOMLValue
 	/**
 	 * Throws: TOMLException if type is not TOML_TYPE.LOCAL_DATETIME
 	 */
-	public @property @trusted ref DateTime localDatetime()
+	public @property @trusted ref DateTime localDatetime() return
 	{
 		enforce!TOMLException(this._type == TOML_TYPE.LOCAL_DATETIME,
 				"TOMLValue is not a local datetime");
@@ -184,7 +184,7 @@ struct TOMLValue
 	/**
 	 * Throws: TOMLException if type is not TOML_TYPE.LOCAL_DATE
 	 */
-	public @property @trusted ref Date localDate()
+	public @property @trusted ref Date localDate() return
 	{
 		enforce!TOMLException(this._type == TOML_TYPE.LOCAL_DATE, "TOMLValue is not a local date");
 		return this.store.localDate;
@@ -193,7 +193,7 @@ struct TOMLValue
 	/**
 	 * Throws: TOMLException if type is not TOML_TYPE.LOCAL_TIME
 	 */
-	public @property @trusted ref TimeOfDay localTime()
+	public @property @trusted ref TimeOfDay localTime() return
 	{
 		enforce!TOMLException(this._type == TOML_TYPE.LOCAL_TIME, "TOMLValue is not a local time");
 		return this.store.localTime;
@@ -202,7 +202,7 @@ struct TOMLValue
 	/**
 	 * Throws: TOMLException if type is not TOML_TYPE.ARRAY
 	 */
-	public @property @trusted ref TOMLValue[] array()
+	public @property @trusted ref TOMLValue[] array() return
 	{
 		enforce!TOMLException(this._type == TOML_TYPE.ARRAY, "TOMLValue is not an array");
 		return this.store.array;
@@ -211,7 +211,7 @@ struct TOMLValue
 	/**
 	 * Throws: TOMLException if type is not TOML_TYPE.TABLE
 	 */
-	public @property @trusted ref TOMLValue[string] table()
+	public @property @trusted ref TOMLValue[string] table() return
 	{
 		enforce!TOMLException(this._type == TOML_TYPE.TABLE, "TOMLValue is not a table");
 		return this.store.table;

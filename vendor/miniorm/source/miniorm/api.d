@@ -33,7 +33,7 @@ struct Miniorm {
     private Database db;
     alias getUnderlyingDb this;
 
-    ref Database getUnderlyingDb() {
+    ref Database getUnderlyingDb() return  {
         return db;
     }
 

@@ -246,7 +246,7 @@ struct TestCaseDeadStat {
         return buf.data;
     }
 
-    void toString(Writer)(ref Writer w) @safe const
+    void toString(Writer)(ref Writer w) @safe const 
             if (isOutputRange!(Writer, char)) {
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -479,7 +479,8 @@ struct MarkedMutantsStat {
     // TODO: extend for html-report
 }
 
-MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe {
+MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kinds,
+        string file = null) @safe {
     MarkedMutantsStat st;
     st.tbl.heading = [
         "File", "Line", "Column", "Mutation", "Status", "Rationale"
@@ -489,7 +490,8 @@ MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kin
 
     foreach (m; db.getMarkedMutants()) {
         typeof(st.tbl).Row r = [
-            m.path, to!string(m.line), to!string(m.column), m.mutText, statusToString(m.toStatus), m.rationale
+            m.path, to!string(m.line), to!string(m.column), m.mutText,
+            statusToString(m.toStatus), m.rationale
         ];
         st.tbl.put(r);
     }
@@ -516,7 +518,7 @@ struct TestCaseOverlapStat {
         return format("%s/%s = %s test cases", overlap, total, ratio);
     }
 
-    void sumToString(Writer)(ref Writer w) @safe const {
+    void sumToString(Writer)(ref Writer w) @trusted const {
         formattedWrite(w, "%s/%s = %s test cases\n", overlap, total, ratio);
     }
 
@@ -534,10 +536,12 @@ struct TestCaseOverlapStat {
             // TODO this is a bit slow. use a DB row iterator instead.
             foreach (name; tcs.value.map!(id => name_tc[id])) {
                 if (first) {
-                    formattedWrite(w, "%s %s\n", name, mutid_mut[tcs.key].length);
+                    () @trusted {
+                        formattedWrite(w, "%s %s\n", name, mutid_mut[tcs.key].length);
+                    }();
                     first = false;
                 } else {
-                    formattedWrite(w, "%s\n", name);
+                    () @trusted { formattedWrite(w, "%s\n", name); }();
                 }
             }
             put(w, "\n");

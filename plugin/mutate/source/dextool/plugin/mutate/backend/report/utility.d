@@ -29,8 +29,6 @@ immutable windowSize = 5;
 
 immutable invalidFile = "Dextool: Invalid UTF-8 content";
 
-@safe:
-
 /// Create a range from `a` that has at most maxlen+3 letters in it.
 string window(T)(T a, size_t maxlen = windowSize) {
     import std.algorithm : filter, among;
@@ -48,7 +46,7 @@ string window(T)(T a, size_t maxlen = windowSize) {
     }
 }
 
-ReportSection[] toSections(const ReportLevel l) {
+ReportSection[] toSections(const ReportLevel l) @safe {
     ReportSection[] secs;
     final switch (l) with (ReportSection) {
     case ReportLevel.summary:
@@ -88,7 +86,7 @@ struct Table(int columnsNr) {
     Row[] rows;
     ulong[columnsNr] columnWidth;
 
-    this(const Row heading) {
+    this(const Row heading) @safe {
         this.heading = heading;
         updateColumns(heading);
     }
@@ -97,12 +95,12 @@ struct Table(int columnsNr) {
         return rows.length == 0;
     }
 
-    void heading(const Row r) {
+    void heading(const Row r) @safe {
         heading_ = r;
         updateColumns(r);
     }
 
-    void put(const Row r) {
+    void put(const Row r) @safe {
         rows ~= r;
         updateColumns(r);
     }
@@ -147,7 +145,7 @@ struct Table(int columnsNr) {
         }
     }
 
-    private void updateColumns(const ref Row r) {
+    private void updateColumns(const ref Row r) @safe {
         import std.algorithm : filter, count, map;
         import std.range : enumerate;
         import std.utf : byCodeUnit;
@@ -163,18 +161,24 @@ struct Table(int columnsNr) {
 
 string statusToString(Mutation.Status status) @trusted {
     import std.conv : to;
+
     return to!string(status);
 }
+
 string statusToString(ulong status) @trusted {
     import std.conv : to;
+
     return statusToString(status.to!(Mutation.Status));
 }
 
 string kindToString(Mutation.Kind kind) @trusted {
     import std.conv : to;
+
     return to!string(kind);
 }
+
 string kindToString(long kind) @trusted {
     import std.conv : to;
+
     return kindToString(kind.to!(Mutation.Kind));
 }
