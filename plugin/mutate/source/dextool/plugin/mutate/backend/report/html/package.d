@@ -454,7 +454,7 @@ struct FileCtx {
             return name == s.name;
         }
 
-        size_t toHash() @safe nothrow const scope {
+        size_t toHash() @safe nothrow const {
             return name.toHash;
         }
     }
@@ -516,11 +516,11 @@ nothrow:
         this(id, offset, original, null, Mutation.init);
     }
 
-    string original() @safe pure nothrow const @nogc scope {
+    string original() @safe pure nothrow const @nogc {
         return txt.original;
     }
 
-    string mutation() @safe pure nothrow const @nogc scope {
+    string mutation() @safe pure nothrow const @nogc {
         return txt.mutation;
     }
 
@@ -576,7 +576,7 @@ struct Spanner {
         this.tokens.insert(tokens);
     }
 
-    void put(const FileMutant fm) {
+    void put(const FileMutant fm) @trusted {
         muts.insert(fm);
     }
 

@@ -122,10 +122,10 @@ void writeCSV(Writer, T...)(scope Writer w, auto ref T args) {
 
         static if (__traits(hasMember, a, "isNull")) {
             if (!a.isNull) {
-                formattedWrite(w, `"%s"`, a);
+                () @trusted { formattedWrite(w, `"%s"`, a); }();
             }
         } else {
-            formattedWrite(w, `"%s"`, a);
+            () @trusted { formattedWrite(w, `"%s"`, a); }();
         }
 
         first = false;

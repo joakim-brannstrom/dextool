@@ -55,9 +55,11 @@ struct Markdown(Writer, TraceWriter) {
         import std.algorithm : copy;
         import std.range : repeat, take;
 
-        repeat('#').take(curr_head + 1).copy(w);
-        put(w, " ");
-        formattedWrite(w, args);
+        () @trusted {
+            repeat('#').take(curr_head + 1).copy(w);
+            put(w, " ");
+            formattedWrite(w, args);
+        }();
 
         // two newlines because some markdown parsers do not correctly identify
         // a heading if it isn't separated
@@ -91,12 +93,12 @@ struct Markdown(Writer, TraceWriter) {
     }
 
     auto write(ARGS...)(auto ref ARGS args) {
-        formattedWrite(w, "%s", args);
+        () @trusted { formattedWrite(w, "%s", args); }();
         return this;
     }
 
     auto writef(ARGS...)(auto ref ARGS args) {
-        formattedWrite(w, args);
+        () @trusted { formattedWrite(w, args); }();
         return this;
     }
 
@@ -129,6 +131,7 @@ struct Markdown(Writer, TraceWriter) {
 @safe final class ReportMarkdown : ReportEvent {
     import std.conv : to;
     import std.format : format, FormatSpec;
+    import std.stdio : write;
     import dextool.plugin.mutate.backend.utility;
 
     static immutable col_w = 10;
@@ -148,10 +151,6 @@ struct Markdown(Writer, TraceWriter) {
 
     long[MakeMutationTextResult] mutationStat;
 
-    alias Writer = function(const(char)[] s) { import std.stdio : write;
-
-    write(s); };
-
     this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
         this.kinds = kinds;
         this.fio = fio;
@@ -165,19 +164,13 @@ struct Markdown(Writer, TraceWriter) {
     }
 
     override void mutationKindEvent(const MutationKind[] kind_) {
-        auto writer = delegate(const(char)[] s) {
-            import std.stdio : write;
-
-            write(s);
-        };
-
         SimpleWriter tracer;
         if (ReportSection.all_mut)
-            tracer = writer;
+            tracer = (const(char[]) s) => write(s);
         else
-            tracer = delegate(const(char)[] s) {};
+            tracer = delegate(const(char)[] s) @safe {};
 
-        markdown = Markdown!(SimpleWriter, SimpleWriter)(writer, tracer);
+        markdown = Markdown!(SimpleWriter, SimpleWriter)((const(char[]) s) => write(s), tracer);
         markdown = markdown.heading("Mutation Type %(%s, %)", kind_);
     }
 
@@ -242,19 +235,13 @@ struct Markdown(Writer, TraceWriter) {
     }
 
     override void locationEndEvent() {
+        import std.format : FormatSpec;
+
         if (!reportIndividualMutants)
             return;
 
-        auto writer = delegate(const(char)[] s) {
-            import std.stdio : write;
-
-            write(s);
-        };
-
-        import std.format : FormatSpec;
-
         auto fmt = FormatSpec!char("%s");
-        mut_tbl.toString(writer, fmt);
+        () @trusted { mut_tbl.toString((const(char[]) s) => write(s), fmt); }();
 
         markdown_loc.popHeading;
     }
@@ -270,7 +257,9 @@ struct Markdown(Writer, TraceWriter) {
             reportMutationSubtypeStats(mutationStat, substat_tbl);
 
             auto fmt = FormatSpec!char("%s");
-            substat_tbl.toString(Writer, fmt);
+            () @trusted {
+                substat_tbl.toString((const(char[]) s) => write(s), fmt);
+            }();
             item.popHeading;
         }
     }
@@ -291,7 +280,7 @@ struct Markdown(Writer, TraceWriter) {
             Table!2 tbl;
             tbl.heading = ["TestCase", "Location"];
             r.toTable(tbl);
-            tbl.toString(Writer, fmt);
+            () @trusted { tbl.toString((const(char[]) s) => write(s), fmt); }();
 
             item.popHeading;
         }
@@ -306,7 +295,7 @@ struct Markdown(Writer, TraceWriter) {
                 auto item = markdown.heading("Redundant Test Cases (killing the same mutants)");
                 stat.sumToString(item);
                 item.writeln(stat);
-                tbl.toString(Writer, fmt);
+                () @trusted { tbl.toString((const(char[]) s) => write(s), fmt); }();
                 item.popHeading;
             }
         }
