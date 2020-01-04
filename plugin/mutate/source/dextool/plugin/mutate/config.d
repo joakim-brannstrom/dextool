@@ -77,6 +77,9 @@ struct ConfigAnalyze {
 
     /// Exclude any files that are in these directory trees from the analysis.
     AbsolutePath[] exclude;
+
+    /// The size of the thread pool which affects how many files are analyzed in parallel.
+    int poolSize;
 }
 
 /// Settings for the compiler

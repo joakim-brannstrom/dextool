@@ -135,6 +135,10 @@ final class FrontendIO : FilesysIO {
         this.vfs = new BlobVfs;
     }
 
+    override FilesysIO dup() {
+        return new FrontendIO(restrict_dir, output_dir, dry_run);
+    }
+
     override File getDevNull() {
         return File("/dev/null", "w");
     }
@@ -205,6 +209,10 @@ final class FrontendValidateLoc : ValidateLoc {
     this(AbsolutePath[] restrict_dir, AbsolutePath output_dir) {
         this.restrict_dir = restrict_dir;
         this.output_dir = output_dir;
+    }
+
+    override ValidateLoc dup() {
+        return new FrontendValidateLoc(restrict_dir, output_dir);
     }
 
     override AbsolutePath getOutputDir() nothrow {

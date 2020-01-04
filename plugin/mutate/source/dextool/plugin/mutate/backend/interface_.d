@@ -33,6 +33,9 @@ interface ValidateLoc {
 
     /// Returns: if a mutant are allowed to be written to this path.
     bool shouldMutate(AbsolutePath p);
+
+    /// Duplicate the instance,
+    ValidateLoc dup();
 }
 
 /** Filesystem I/O from the backend.
@@ -66,6 +69,9 @@ interface FilesysIO {
 
     ///
     Blob makeInput(AbsolutePath p);
+
+    /// Duplicate the instance,
+    FilesysIO dup();
 
 protected:
     void putFile(AbsolutePath fname, const(ubyte)[] data);
