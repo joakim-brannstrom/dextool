@@ -107,6 +107,9 @@ struct ArgParser {
         app.put("# exclude files in these directory tree(s) from analysis");
         app.put("# relative paths are relative to the directory dextool is executed in");
         app.put("# exclude = []");
+        app.put(
+                "# limit the number of threads used when analysing. Default is as many as there are cores available");
+        app.put("# threads = 1");
         app.put(null);
 
         app.put("[database]");
@@ -212,10 +215,11 @@ struct ArgParser {
                    "compile-db", "Retrieve compilation parameters from the file", &compile_dbs,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
+                   "file-exclude", "exclude files in these directory tree from the analysis (default: none)", &exclude_files,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "out", out_help, &workArea.rawRoot,
                    "restrict", restrict_help, &workArea.rawRestrict,
-                   "file-exclude", "exclude files in these directory tree from the analysis (default: none)", &exclude_files,
+                   "threads", "number of threads to use for analysing files (default: CPU cores available)", &analyze.poolSize,
                    );
             // dfmt on
 
@@ -562,6 +566,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["analyze.exclude"] = (ref ArgParser c, ref TOMLValue v) {
         c.analyze.rawExclude = v.array.map!(a => a.str).array;
     };
+    callbacks["analyze.threads"] = (ref ArgParser c, ref TOMLValue v) {
+        c.analyze.poolSize = cast(int) v.integer;
+    };
 
     callbacks["workarea.root"] = (ref ArgParser c, ref TOMLValue v) {
         c.workArea.rawRoot = v.str;
@@ -747,6 +754,19 @@ analyze_cmd = %s
                     ])
                 ]);
     }
+}
+
+@("shall set the thread limitation from the configuration")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[analyze]
+threads = 42
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.analyze.poolSize.shouldEqual(42);
 }
 
 /// Minimal config to setup path to config file.

@@ -590,17 +590,19 @@ struct Database {
         db.run(delete_!MarkedMutant.where(condition));
     }
 
+    /// Returns: All mutants with that are marked orderd by their path
     MarkedMutant[] getMarkedMutants() @trusted {
-        immutable s = format!"SELECT st_id, mut_id, line, column, path, to_status, time, rationale, mut_text
+        immutable sql = format!"SELECT st_id, mut_id, line, column, path, to_status, time, rationale, mut_text
             FROM %s ORDER BY path"(markedMutantTable);
-        auto stmt = db.prepare(s);
+        auto stmt = db.prepare(sql);
 
         auto app = appender!(MarkedMutant[])();
-        foreach (res; stmt.execute)
+        foreach (res; stmt.execute) {
             app.put(MarkedMutant(res.peek!long(0), res.peek!long(1),
                     res.peek!uint(2), res.peek!uint(3), res.peek!string(4),
                     res.peek!ulong(5), res.peek!string(6).fromSqLiteDateTime,
                     Rationale(res.peek!string(7)), res.peek!string(8)));
+        }
         return app.data;
     }
 
@@ -610,8 +612,9 @@ struct Database {
         stmt.bind(":id", cast(long) id);
 
         typeof(return) rval;
-        foreach (res; stmt.execute)
+        foreach (res; stmt.execute) {
             rval = res.peek!long(0).to!(Mutation.Kind);
+        }
         return rval;
     }
 
@@ -846,6 +849,12 @@ struct Database {
         stmt.execute;
     }
 
+    /// Remove all metadata.
+    void clearMetadata() {
+        immutable sql = format!"DELETE FROM %s"(rawSrcMetadataTable);
+        db.run(sql);
+    }
+
     /** Save line metadata to the database which is used to associate line
      * metadata with mutants.
      */
@@ -853,9 +862,9 @@ struct Database {
         import sumtype;
 
         // TODO: convert to microrm
-        enum sql = format("INSERT OR IGNORE INTO %s
+        enum sql = format!"INSERT OR IGNORE INTO %s
             (file_id, line, nomut, tag, comment)
-            VALUES(:fid, :line, :nomut, :tag, :comment)",
+            VALUES(:fid, :line, :nomut, :tag, :comment)"(
                     rawSrcMetadataTable);
 
         auto stmt = db.prepare(sql);

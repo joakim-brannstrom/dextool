@@ -14,6 +14,12 @@ TODO cache the checksums. They are *heavy*.
 module dextool.plugin.mutate.backend.analyze;
 
 import logger = std.experimental.logger;
+import std.algorithm : map, filter;
+import std.array : array, appender;
+import std.concurrency;
+import std.exception : collectException;
+import std.parallelism;
+import std.typecons;
 
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB;
 import dextool.set;
@@ -29,6 +35,9 @@ import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Ch
 import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
 import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
 
+import dextool.compilation_db : SearchResult;
+import dextool.plugin.mutate.backend.database : LineMetadata, MutationPointEntry2;
+
 version (unittest) {
     import unit_threaded.assertions;
 }
@@ -39,25 +48,187 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
         ConfigCompiler conf_compiler, UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @trusted {
     import std.algorithm : filter, map;
 
-    auto analyzer = Analyzer(db, val_loc, fio, conf_compiler);
+    auto pool = () {
+        if (conf_analyze.poolSize == 0)
+            return new TaskPool();
+        return new TaskPool(conf_analyze.poolSize);
+    }();
 
-    foreach (in_file; frange.filter!(a => !a.isNull)
+    // will only be used by one thread at a time.
+    auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup);
+
+    int taskCnt;
+    foreach (f; frange.filter!(a => !a.isNull)
             .map!(a => a.get)
             .filter!(a => !isPathInsideAnyRoot(conf_analyze.exclude, a.absoluteFile))) {
         try {
-            analyzer.process(in_file);
+            pool.put(task!analyzeActor(f, val_loc.dup, fio.dup, conf_compiler, store));
+            taskCnt++;
         } catch (Exception e) {
-            () @trusted { logger.trace(e); logger.warning(e.msg); }();
+            logger.trace(e);
+            logger.warning(e.msg);
         }
     }
-    analyzer.finalize;
+
+    // inform the store actor of how many analyse results it should *try* to
+    // save.
+    send(store, AnalyzeCntMsg(taskCnt));
+    // wait for all files to be analyzed
+    pool.finish(true);
+    // wait for the store actor to finish
+    receiveOnly!StoreDoneMsg;
 
     return ExitStatusType.Ok;
 }
 
-private:
+@safe:
 
-struct Analyzer {
+/// Number of analyze tasks that has been spawned that the `storeActor` should wait for.
+struct AnalyzeCntMsg {
+    int value;
+}
+
+struct StoreDoneMsg {
+}
+
+/// Start an analyze of a file
+void analyzeActor(SearchResult fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
+        ConfigCompiler conf, Tid storeActor) @trusted nothrow {
+    try {
+        auto analyzer = Analyze(vloc, fio, conf.forceSystemIncludes);
+        analyzer.process(fileToAnalyze);
+        send(storeActor, cast(immutable) analyzer.result);
+    } catch (Exception e) {
+    }
+}
+
+/// Store the result of the analyze.
+void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared) @trusted nothrow {
+    import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
+    import cachetools : CacheLRU;
+
+    Database* db = cast(Database*) dbShared;
+    FilesysIO fio = cast(FilesysIO) fioShared;
+
+    // A file is at most saved one time to the database.
+    Set!Path isSaved;
+
+    auto fileIdCache = new CacheLRU!(string, FileId);
+    // `p` must be a path realtive to the root.
+    Nullable!FileId getFileId(Path p) {
+        Nullable!FileId rval = fileIdCache.get(p);
+        if (rval.isNull) {
+            rval = db.getFileId(p);
+            if (!rval.isNull) {
+                fileIdCache.put(p, rval.get);
+            }
+        }
+        return rval;
+    }
+
+    static struct Files {
+        Checksum[Path] value;
+
+        this(ref Database db) {
+            foreach (a; db.getDetailedFiles) {
+                value[a.file] = a.fileChecksum;
+            }
+        }
+    }
+
+    void save(immutable Analyze.Result result) {
+        // only saves mutation points to a file one time.
+        {
+            auto app = appender!(MutationPointEntry2[])();
+            foreach (mp; result.mutationPoints // remove those that has been globally saved
+                .filter!(a => a.file !in isSaved)) {
+                app.put(mp);
+            }
+            foreach (f; result.idFile.byKey.filter!(a => a !in isSaved)) {
+                const info = result.infoId[result.idFile[f]];
+                db.put(fio.toRelativeRoot(f), info.checksum, info.language);
+                isSaved.add(f);
+            }
+            db.put(app.data, fio.getOutputDir);
+        }
+
+        {
+            Set!long printed;
+            auto app = appender!(LineMetadata[])();
+            foreach (md; result.metadata) {
+                // transform the ID from local to global.
+                const fid = getFileId(fio.toRelativeRoot(result.fileId[md.id]));
+                if (fid.isNull && !printed.contains(md.id)) {
+                    printed.add(md.id);
+                    logger.warningf("File with suppressed mutants (// NOMUT) not in the DB: %s. Skipping...",
+                            result.fileId[md.id]).collectException;
+                    continue;
+                }
+                app.put(LineMetadata(fid.get, md.line, md.attr));
+            }
+            db.put(app.data);
+        }
+    }
+
+    // listen for results from workers until the expected number is processed.
+    void recv() {
+        int resultCnt;
+        Nullable!int maxResults;
+        bool running = true;
+
+        while (running) {
+            try {
+                receive((AnalyzeCntMsg a) { maxResults = a.value; }, (immutable Analyze.Result a) {
+                    resultCnt++;
+                    save(a);
+                },);
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+            }
+
+            if (!maxResults.isNull && resultCnt >= maxResults.get) {
+                running = false;
+            }
+        }
+    }
+
+    try {
+        import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
+
+        setMaxMailboxSize(thisTid, 64, OnCrowding.block);
+
+        auto trans = db.transaction;
+
+        auto preFileState = Files(*db);
+
+        // TODO: only remove those files that are modified.
+        db.removeAllFiles;
+        db.clearMetadata;
+
+        recv();
+
+        // TODO: print what files has been updated.
+        resetTimeoutContext(*db);
+        db.removeOrphanedMutants;
+        printLostMarkings(db.getLostMarkings);
+
+        trans.commit;
+
+        printFilesPostState(preFileState, Files(*db));
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+    }
+
+    try {
+        send(ownerTid, StoreDoneMsg.init);
+    } catch (Exception e) {
+        logger.errorf("Fatal error. Unable to send %s to the main thread",
+                StoreDoneMsg.init).collectException;
+    }
+}
+
+/// Analyze a file for mutants.
+struct Analyze {
     import std.regex : Regex, regex, matchFirst;
     import std.typecons : NullableRef, Nullable, Yes;
     import miniorm : Transaction;
@@ -70,43 +241,28 @@ struct Analyzer {
     private {
         static immutable raw_re_nomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`;
 
-        // they are not by necessity the same.
-        // Input could be a file that is excluded via --restrict but pull in a
-        // header-only library that is allowed to be mutated.
-        Set!AbsolutePath analyzed_files;
-        Set!AbsolutePath files_with_mutations;
-
-        Set!Path before_files;
-
-        NullableRef!Database db;
+        Regex!char re_nomut;
 
         ValidateLoc val_loc;
         FilesysIO fio;
-        ConfigCompiler conf;
+        bool forceSystemIncludes;
 
         Cache cache;
 
-        Regex!char re_nomut;
-
-        Transaction trans;
+        Result result;
     }
 
-    this(ref Database db, ValidateLoc val_loc, FilesysIO fio, ConfigCompiler conf) @trusted {
-        this.db = &db;
-        this.before_files = db.getFiles.toSet;
+    this(ValidateLoc val_loc, FilesysIO fio, bool forceSystemIncludes) @trusted {
         this.val_loc = val_loc;
         this.fio = fio;
-        this.conf = conf;
         this.cache = new Cache;
         this.re_nomut = regex(raw_re_nomut);
-
-        trans = db.transaction;
-        db.removeAllFiles;
+        this.forceSystemIncludes = forceSystemIncludes;
+        this.result = new Result;
     }
 
     void process(SearchResult in_file) @safe {
-        // TODO: this should be generic for Dextool.
-        in_file.flags.forceSystemIncludes = conf.forceSystemIncludes;
+        in_file.flags.forceSystemIncludes = forceSystemIncludes;
 
         // find the file and flags to analyze
         Exists!AbsolutePath checked_in_file;
@@ -117,70 +273,40 @@ struct Analyzer {
             return;
         }
 
-        if (analyzed_files.contains(checked_in_file))
-            return;
-
-        analyzed_files.add(checked_in_file);
-
         () @trusted {
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
             auto tstream = new TokenStreamImpl(ctx);
 
-            auto files = analyzeForMutants(in_file, checked_in_file, ctx, tstream);
+            analyzeForMutants(in_file, checked_in_file, ctx, tstream);
             // TODO: filter files so they are only analyzed once for comments
-            foreach (f; files)
+            foreach (f; result.fileId.byValue)
                 analyzeForComments(f, tstream);
         }();
     }
 
-    Path[] analyzeForMutants(SearchResult in_file,
+    void analyzeForMutants(SearchResult in_file,
             Exists!AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
-        import std.algorithm : map;
-        import std.array : array;
-
         auto root = makeRootVisitor(fio, val_loc, tstream, cache);
         analyzeFile(checked_in_file, in_file.flags.completeFlags, root.visitor, ctx);
 
-        foreach (a; root.mutationPointFiles) {
-            auto abs_path = AbsolutePath(a.path.FileName);
-            analyzed_files.add(abs_path);
-            files_with_mutations.add(abs_path);
-
-            auto relp = trustedRelativePath(a.path.FileName, fio.getOutputDir);
-
-            try {
-                auto f_status = isFileChanged(db, relp, a.cs);
-                if (f_status == FileStatus.changed) {
-                    logger.infof("Updating analyze of '%s'", a);
-                }
-
-                db.put(Path(relp), a.cs, a.lang);
-            } catch (Exception e) {
-                logger.warning(e.msg);
-            }
+        result.mutationPoints = root.mutationPoints;
+        foreach (f; root.mutationPointFiles) {
+            const id = result.idFile.length;
+            result.idFile[f.path] = id;
+            result.fileId[id] = f.path;
+            result.infoId[id] = Result.FileInfo(f.cs, f.lang);
         }
-
-        db.put(root.mutationPoints, fio.getOutputDir);
-        return root.mutationPointFiles.map!(a => a.path).array;
     }
 
     /**
      * Tokens are always from the same file.
      */
     void analyzeForComments(Path file, TokenStream tstream) @trusted {
-        import std.algorithm : filter, countUntil, among, startsWith;
-        import std.array : appender;
-        import std.string : stripLeft;
-        import std.utf : byCodeUnit;
+        import std.algorithm : filter;
         import clang.c.Index : CXTokenKind;
         import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
 
-        const fid = db.getFileId(fio.toRelativeRoot(file));
-        if (fid.isNull) {
-            logger.warningf("File with suppressed mutants (// NOMUT) not in the DB: %s. Skipping...",
-                    file);
-            return;
-        }
+        const fid = result.idFile.require(file, result.fileId.length).FileId;
 
         auto mdata = appender!(LineMetadata[])();
         foreach (t; cache.getTokens(AbsolutePath(file), tstream)
@@ -189,23 +315,33 @@ struct Analyzer {
             if (m.whichPattern == 0)
                 continue;
 
-            mdata.put(LineMetadata(fid.get, t.loc.line, LineAttr(NoMut(m["tag"], m["comment"]))));
+            mdata.put(LineMetadata(fid, t.loc.line, LineAttr(NoMut(m["tag"], m["comment"]))));
             logger.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
         }
 
-        db.put(mdata.data);
+        result.metadata ~= mdata.data;
     }
 
-    void finalize() @trusted {
-        import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
+    static class Result {
+        import dextool.plugin.mutate.backend.type : Language;
 
-        resetTimeoutContext(db);
-        db.removeOrphanedMutants;
-        printLostMarkings(db.getLostMarkings);
+        MutationPointEntry2[] mutationPoints;
 
-        trans.commit;
+        static struct FileInfo {
+            Checksum checksum;
+            Language language;
+        }
 
-        printPrunedFiles(before_files, files_with_mutations, fio.getOutputDir);
+        /// The key is the ID from idFile.
+        FileInfo[ulong] infoId;
+
+        /// The IDs is unique for *this* analyze, not globally.
+        long[Path] idFile;
+        Path[long] fileId;
+
+        // The FileID used in the metadata is local to this analysis. It has to
+        // be remapped when added to the database.
+        LineMetadata[] metadata;
     }
 }
 
@@ -215,7 +351,7 @@ unittest {
     import std.regex : regex, matchFirst;
     import unit_threaded.runner.io : writelnUt;
 
-    auto re_nomut = regex(Analyzer.raw_re_nomut);
+    auto re_nomut = regex(Analyze.raw_re_nomut);
     // NOMUT in other type of comments should NOT match.
     matchFirst("/// NOMUT", re_nomut).whichPattern.shouldEqual(0);
     matchFirst("// stuff with NOMUT in it", re_nomut).whichPattern.shouldEqual(0);
@@ -263,34 +399,17 @@ class TokenStreamImpl : TokenStream {
     }
 }
 
-enum FileStatus {
-    noChange,
-    notInDatabase,
-    changed
-}
+/// Print how changes to files has affected dextool.
+void printFilesPostState(T)(T pre, T post) {
+    import std.algorithm : sort;
 
-/// Print the files that has been removed from the database since last analysis.
-void printPrunedFiles(ref Set!Path before_files,
-        ref Set!AbsolutePath analyzed_files, const AbsolutePath root_dir) @safe {
-    import dextool.type : FileName;
-
-    foreach (const f; before_files.toRange) {
-        auto abs_f = AbsolutePath(FileName(f), DirName(cast(string) root_dir));
-        logger.infof(!analyzed_files.contains(abs_f), "Removed from files to mutate: '%s'", abs_f);
+    foreach (a; pre.value.byKeyValue.array.sort!((a, b) => (a.key < b.key))) {
+        if (auto v = a.key in post.value) {
+            logger.infof(a.value != *v, "%s: analyze updated", a.key);
+        } else {
+            logger.infof("%s: removed", a.key);
+        }
     }
-}
-
-FileStatus isFileChanged(ref Database db, Path relp, Checksum f_checksum) @safe {
-    if (!db.isAnalyzed(relp))
-        return FileStatus.notInDatabase;
-
-    auto db_checksum = db.getFileChecksum(relp);
-
-    auto rval = (!db_checksum.isNull && db_checksum != f_checksum) ? FileStatus.changed
-        : FileStatus.noChange;
-    debug logger.trace(rval == FileStatus.changed, "db: ", db_checksum, " file: ", f_checksum);
-
-    return rval;
 }
 
 /// Returns: true if `f` is inside any `roots`.
@@ -305,15 +424,15 @@ bool isPathInsideAnyRoot(AbsolutePath[] roots, AbsolutePath f) @safe {
     return false;
 }
 
-/// prints a marked mutant that has become lost due to rerun of analyze
+/// Prints a marked mutant that has become lost due to rerun of analyze
 void printLostMarkings(MarkedMutant[] lostMutants) {
+    import std.algorithm : sort;
     import std.array : empty;
+    import std.conv : to;
+    import std.stdio : writeln;
 
     if (lostMutants.empty)
         return;
-
-    import std.stdio : writeln;
-    import std.conv : to;
 
     Table!6 tbl = Table!6([
             "ID", "File", "Line", "Column", "Status", "Rationale"

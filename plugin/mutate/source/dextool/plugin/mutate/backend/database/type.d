@@ -24,30 +24,29 @@ alias MarkedMutant = MarkedMutantTbl;
 
 @safe:
 
-/// Primary key in the database
-struct Pkey(Pkeys T) {
-    long payload;
-    alias payload this;
-}
-
-enum Pkeys {
-    mutationId,
-    fileId,
-    testCaseId,
-    mutationStatusId,
-}
-
 /// Primary key in the mutation table
-alias MutationId = Pkey!(Pkeys.mutationId);
+struct MutationId {
+    long value;
+    alias value this;
+}
 
 /// Primary key for mutation status
-alias MutationStatusId = Pkey!(Pkeys.mutationStatusId);
+struct MutationStatusId {
+    long value;
+    alias value this;
+}
 
 /// Primary key in the files table
-alias FileId = Pkey!(Pkeys.fileId);
+struct FileId {
+    long value;
+    alias value this;
+}
 
 /// Primary key in the test_case table
-alias TestCaseId = Pkey!(Pkeys.testCaseId);
+struct TestCaseId {
+    long value;
+    alias value this;
+}
 
 struct MutationEntry {
     MutationId id;
