@@ -173,6 +173,8 @@ struct ArgParser {
                 [EnumMembers!(ConfigMutationTest.OldMutant)].map!(a => a.to!string)));
         app.put("# How many of the oldest mutants to do the above with");
         app.put("# oldest_mutants_nr = 10");
+        app.put("# limit the number of threads used when running tests in parallel. Default is as many as there are cores available");
+        app.put("# parallel_test = 1");
         app.put(null);
 
         app.put("[report]");
@@ -653,6 +655,10 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["mutant_test.oldest_mutants_nr"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.oldMutantsNr = v.integer;
     };
+    callbacks["mutant_test.parallel_test"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.testPoolSize = cast(int) v.integer;
+    };
+
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
         c.report.reportKind = v.str.to!ReportKind;
     };
@@ -756,7 +762,7 @@ analyze_cmd = %s
     }
 }
 
-@("shall set the thread limitation from the configuration")
+@("shall set the thread analyze limitation from the configuration")
 @system unittest {
     import toml : parseTOML;
 
@@ -767,6 +773,19 @@ threads = 42
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.analyze.poolSize.shouldEqual(42);
+}
+
+@("shall set how many tests are executed in parallel from the configuration")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[mutant_test]
+parallel_test = 42
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.mutationTest.testPoolSize.shouldEqual(42);
 }
 
 /// Minimal config to setup path to config file.

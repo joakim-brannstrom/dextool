@@ -43,8 +43,13 @@ struct TestRunner {
     /// Environment to set when executing either binaries or the command.
     string[string] env;
 
-    static auto make() {
-        auto pool = new TaskPool;
+    static auto make(int poolSize) {
+        auto pool = () {
+            if (poolSize == 0) {
+                return new TaskPool;
+            }
+            return new TaskPool(poolSize);
+        }();
         pool.isDaemon = true;
         return TestRunner(pool);
     }
@@ -232,7 +237,7 @@ unittest {
             remove(script);
     }();
 
-    auto runner = TestRunner.make;
+    auto runner = TestRunner.make(0);
     runner.put([script, "foo", "0"].ShellCommand);
     runner.put([script, "foo", "0"].ShellCommand);
     auto res = runner.run(5.dur!"seconds");
@@ -251,7 +256,7 @@ unittest {
             remove(script);
     }();
 
-    auto runner = TestRunner.make;
+    auto runner = TestRunner.make(0);
     runner.put([script, "foo", "0"].ShellCommand);
     runner.put([script, "foo", "1"].ShellCommand);
     auto res = runner.run(5.dur!"seconds");
@@ -270,7 +275,7 @@ unittest {
             remove(script);
     }();
 
-    auto runner = TestRunner.make;
+    auto runner = TestRunner.make(0);
     runner.put([script, "foo", "0"].ShellCommand);
     runner.put([script, "foo", "0", "timeout"].ShellCommand);
     auto res = runner.run(1.dur!"seconds");

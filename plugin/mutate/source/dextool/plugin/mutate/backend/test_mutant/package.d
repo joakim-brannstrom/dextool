@@ -697,7 +697,7 @@ struct TestDriver {
         local.get!NextPullRequestMutant.maxAlive = global.data.conf.maxAlive;
         local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
 
-        this.runner = TestRunner.make;
+        this.runner = TestRunner.make(global.data.conf.testPoolSize);
         // using an unreasonable timeout to make it possible to analyze for
         // test cases and measure the test suite.
         this.runner.timeout = 999.dur!"hours";

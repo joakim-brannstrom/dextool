@@ -147,6 +147,9 @@ struct ConfigMutationTest {
 
     /// Stop after this many alive mutants are found. Only effective if constraint.empty is false.
     Nullable!int maxAlive;
+
+    /// The size of the thread pool which affects how many tests are executed in parallel.
+    int testPoolSize;
 }
 
 /// Settings for the administration mode
