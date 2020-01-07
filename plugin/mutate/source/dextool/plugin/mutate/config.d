@@ -80,6 +80,9 @@ struct ConfigAnalyze {
 
     /// The size of the thread pool which affects how many files are analyzed in parallel.
     int poolSize;
+
+    /// What files to analyze is derived from a diff.
+    bool unifiedDiffFromStdin;
 }
 
 /// Settings for the compiler
