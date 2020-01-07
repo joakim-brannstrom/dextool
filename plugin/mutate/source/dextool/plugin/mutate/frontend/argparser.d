@@ -217,6 +217,7 @@ struct ArgParser {
                    "compile-db", "Retrieve compilation parameters from the file", &compile_dbs,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
+                   "diff-from-stdin", "restrict testing to the mutants in the diff", &analyze.unifiedDiffFromStdin,
                    "file-exclude", "exclude files in these directory tree from the analysis (default: none)", &exclude_files,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "out", out_help, &workArea.rawRoot,

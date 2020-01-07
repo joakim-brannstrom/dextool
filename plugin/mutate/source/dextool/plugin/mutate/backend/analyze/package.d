@@ -21,22 +21,20 @@ import std.exception : collectException;
 import std.parallelism;
 import std.typecons;
 
-import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB;
+import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
+    CompileCommandDB, SearchResult;
+import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
+import dextool.plugin.mutate.backend.analyze.visitor : makeRootVisitor;
+import dextool.plugin.mutate.backend.database : Database, LineMetadata, MutationPointEntry2;
+import dextool.plugin.mutate.backend.database.type : MarkedMutant;
+import dextool.plugin.mutate.backend.diff_parser : Diff;
+import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
+import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
+import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
+import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
 import dextool.set;
 import dextool.type : ExitStatusType, AbsolutePath, Path, DirName;
 import dextool.user_filerange;
-
-import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
-import dextool.plugin.mutate.backend.analyze.visitor : makeRootVisitor;
-import dextool.plugin.mutate.backend.database : Database;
-import dextool.plugin.mutate.backend.database.type : MarkedMutant;
-import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
-import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
-import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
-import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
-
-import dextool.compilation_db : SearchResult;
-import dextool.plugin.mutate.backend.database : LineMetadata, MutationPointEntry2;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -47,6 +45,7 @@ version (unittest) {
 ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
         ConfigCompiler conf_compiler, UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @trusted {
     import std.algorithm : filter, map;
+    import dextool.plugin.mutate.backend.diff_parser : diffFromStdin, Diff;
 
     auto pool = () {
         if (conf_analyze.poolSize == 0)
@@ -54,13 +53,17 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
         return new TaskPool(conf_analyze.poolSize);
     }();
 
+    auto fileFilter = FileFilter(fio.getOutputDir, conf_analyze.unifiedDiffFromStdin,
+            conf_analyze.unifiedDiffFromStdin ? diffFromStdin : Diff.init);
+
     // will only be used by one thread at a time.
     auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup);
 
     int taskCnt;
     foreach (f; frange.filter!(a => !a.isNull)
             .map!(a => a.get)
-            .filter!(a => !isPathInsideAnyRoot(conf_analyze.exclude, a.absoluteFile))) {
+            .filter!(a => !isPathInsideAnyRoot(conf_analyze.exclude, a.absoluteFile))
+            .filter!(a => fileFilter.shouldAnalyze(a.absoluteFile))) {
         try {
             pool.put(task!analyzeActor(f, val_loc.dup, fio.dup, conf_compiler, store));
             taskCnt++;
@@ -82,6 +85,31 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
 }
 
 @safe:
+
+/// Filter function for files. Either all or those in stdin.
+struct FileFilter {
+    Set!string files;
+    bool useFileFilter;
+    AbsolutePath root;
+
+    this(AbsolutePath root, bool fromStdin, Diff diff) {
+        this.root = root;
+        this.useFileFilter = fromStdin;
+        foreach (a; diff.toRange(root)) {
+            files.add(a.key);
+        }
+    }
+
+    bool shouldAnalyze(AbsolutePath p) {
+        import std.path : relativePath;
+
+        if (!useFileFilter) {
+            return true;
+        }
+
+        return relativePath(p, root) in files;
+    }
+}
 
 /// Number of analyze tasks that has been spawned that the `storeActor` should wait for.
 struct AnalyzeCntMsg {
@@ -446,4 +474,42 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
     }
     logger.warning("Marked mutants was lost");
     writeln(tbl);
+}
+
+@("shall only let files in the diff through")
+unittest {
+    import std.string : lineSplitter;
+    import dextool.plugin.mutate.backend.diff_parser;
+
+    immutable lines = `diff --git a/standalone2.d b/standalone2.d
+index 0123..2345 100644
+--- a/standalone.d
++++ b/standalone2.d
+@@ -31,7 +31,6 @@ import std.algorithm : map;
+ import std.array : Appender, appender, array;
+ import std.datetime : SysTime;
++import std.format : format;
+-import std.typecons : Tuple;
+
+ import d2sqlite3 : sqlDatabase = Database;
+
+@@ -46,7 +45,7 @@ import dextool.plugin.mutate.backend.type : Language;
+ struct Database {
+     import std.conv : to;
+     import std.exception : collectException;
+-    import std.typecons : Nullable;
++    import std.typecons : Nullable, Flag, No;
+     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
+
++    sqlDatabase db;`;
+
+    UnifiedDiffParser p;
+    foreach (line; lines.lineSplitter)
+        p.process(line);
+    auto diff = p.result;
+
+    auto files = FileFilter(".".Path.AbsolutePath, true, diff);
+
+    files.shouldAnalyze("standalone.d".Path.AbsolutePath).shouldBeFalse;
+    files.shouldAnalyze("standalone2.d".Path.AbsolutePath).shouldBeTrue;
 }
