@@ -682,10 +682,10 @@ struct DrainRange {
         }
 
         void readData() @safe {
-            if (p.pipe.hasData && p.pipe.hasPendingData) {
-                front_ = DrainElement(DrainElement.Type.stdout, p.pipe.read(4096));
-            } else if (p.stderr.hasData && p.stderr.hasPendingData) {
+            if (p.stderr.hasData && p.stderr.hasPendingData) {
                 front_ = DrainElement(DrainElement.Type.stderr, p.stderr.read(4096));
+            } else if (p.pipe.hasData && p.pipe.hasPendingData) {
+                front_ = DrainElement(DrainElement.Type.stdout, p.pipe.read(4096));
             }
         }
 
@@ -827,7 +827,7 @@ unittest {
     auto p = pipeProcess(["dd", "if=/dev/zero", "bs=10", "count=3"]).raii;
     auto res = p.drainByLineCopy.filter!"!a.empty".array;
 
-    res.length.shouldEqual(3);
+    res.length.shouldEqual(4);
     res.joiner.count.shouldBeGreaterThan(30);
     p.wait.shouldEqual(0);
     p.terminated.shouldBeTrue;
