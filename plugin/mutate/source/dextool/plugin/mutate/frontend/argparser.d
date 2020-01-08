@@ -146,6 +146,12 @@ struct ArgParser {
         app.put(`# 1. ["test1.sh", "test2.sh"]`);
         app.put(`# 2. [["test1.sh", "-x"], "test2.sh"]`);
         app.put(`test_cmd = "test.sh"`);
+        app.put(
+                `# find, recursively, all executables in the directory tree(s) and add them as test_cmds`);
+        app.put(`# use this as a convenience to specifying the binaries manually`);
+        app.put(`# test_cmd_dir = ["./foo/bar"]`);
+        app.put(`# flags to add to all executables found in test_cmd_dir`);
+        app.put(`# test_cmd_dir_flag = ["--gtest_filter", "-*foo"]`);
         app.put("# timeout to use for the test suite (msecs)");
         app.put("# test_cmd_timeout = 1000");
         app.put("# (required) program used to build the application");
@@ -609,6 +615,12 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["mutant_test.test_cmd"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTester = toShellCommands(v,
                 "config: failed to parse mutant_test.test_cmd");
+    };
+    callbacks["mutant_test.test_cmd_dir"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.testCommandDir = v.array.map!(a => Path(a.str)).array;
+    };
+    callbacks["mutant_test.test_cmd_dir_flag"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.testCommandDirFlag = v.array.map!(a => a.str).array;
     };
     callbacks["mutant_test.test_cmd_timeout"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTesterRuntime = v.integer.dur!"msecs";

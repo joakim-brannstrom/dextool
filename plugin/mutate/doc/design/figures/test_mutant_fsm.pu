@@ -12,9 +12,14 @@ SanityCheck -> PreCompileSut
 ParseStdin -> PreCompileSut
 
 PreCompileSut --> Error : failed
-PreCompileSut -> AnalyzeTestCmdForTestCase : hasAnalyzer
-PreCompileSut --> PullRequest : hasConstraint
-PreCompileSut --> CheckMutantsLeft
+PreCompileSut --> FindTestCmds : hasTestCmdDir
+PreCompileSut --> ChooseMode
+
+FindTestCmds -> ChooseMode
+
+ChooseMode -> AnalyzeTestCmdForTestCase : hasAnalyzer
+ChooseMode --> PullRequest : hasConstraint
+ChooseMode --> CheckMutantsLeft
 
 PullRequest -> CheckMutantsLeft
 

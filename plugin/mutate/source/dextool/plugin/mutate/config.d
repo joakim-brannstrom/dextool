@@ -104,6 +104,11 @@ struct ConfigCompiler {
 /// Settings for mutation testing
 struct ConfigMutationTest {
     ShellCommand[] mutationTester;
+    /// Find executables in this directory and add them to mutationTester.
+    Path[] testCommandDir;
+    /// Flags to add to all executables found in `testCommandDir`
+    string[] testCommandDirFlag;
+
     ShellCommand mutationCompile;
     ShellCommand mutationTestCaseAnalyze;
     TestCaseAnalyzeBuiltin[] mutationTestCaseBuiltin;

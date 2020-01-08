@@ -560,6 +560,9 @@ struct TestDriver {
 
         /// Max time to run the mutation testing for.
         SysTime maxRuntime;
+
+        /// Test commands to execute.
+        ShellCommand[] testCmds;
     }
 
     static struct UpdateTimeoutData {
@@ -615,6 +618,12 @@ struct TestDriver {
 
     static struct PreCompileSut {
         bool compilationError;
+    }
+
+    static struct FindTestCmds {
+    }
+
+    static struct ChooseMode {
     }
 
     static struct MeasureTestSuite {
@@ -678,7 +687,8 @@ struct TestDriver {
             CleanupTempDirs, CheckMutantsLeft, PreCompileSut, MeasureTestSuite,
             PreMutationTest, NextMutant, MutationTest, HandleTestResult,
             CheckTimeout, Done, Error, UpdateTimeout, CheckRuntime,
-            SetMaxRuntime, PullRequest, NextPullRequestMutant, ParseStdin);
+            SetMaxRuntime, PullRequest, NextPullRequestMutant, ParseStdin,
+            FindTestCmds, ChooseMode);
 
     Fsm fsm;
 
@@ -696,6 +706,7 @@ struct TestDriver {
         local.get!PullRequest.constraint = global.data.conf.constraint;
         local.get!NextPullRequestMutant.maxAlive = global.data.conf.maxAlive;
         local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
+        this.global.testCmds = global.data.conf.mutationTester;
 
         this.runner = TestRunner.make(global.data.conf.testPoolSize);
         // using an unreasonable timeout to make it possible to analyze for
@@ -733,6 +744,10 @@ struct TestDriver {
         }, (PreCompileSut a) {
             if (a.compilationError)
                 return fsm(Error.init);
+            if (self.global.data.conf.testCommandDir.empty)
+                return fsm(ChooseMode.init);
+            return fsm(FindTestCmds.init);
+        }, (FindTestCmds a) { return fsm(ChooseMode.init); }, (ChooseMode a) {
             if (!self.local.get!PullRequest.constraint.empty)
                 return fsm(PullRequest.init);
             if (!self.global.data.conf.mutationTestCaseAnalyze.empty
@@ -1022,6 +1037,31 @@ nothrow:
         data.compilationError = true;
     }
 
+    void opCall(FindTestCmds data) {
+        auto cmds = appender!(ShellCommand[])();
+        foreach (root; global.data.conf.testCommandDir) {
+            try {
+                cmds.put(findExecutables(root.AbsolutePath)
+                        .map!(a => ShellCommand([a] ~ global.data.conf.testCommandDirFlag)));
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+            }
+        }
+
+        if (!cmds.data.empty) {
+            this.runner.put(cmds.data);
+            this.global.testCmds ~= cmds.data;
+            logger.infof("Found test commands in %s:",
+                    global.data.conf.testCommandDir).collectException;
+            foreach (c; cmds.data) {
+                logger.info(c).collectException;
+            }
+        }
+    }
+
+    void opCall(ChooseMode data) {
+    }
+
     void opCall(PullRequest data) {
         import std.array : appender;
         import dextool.plugin.mutate.backend.database : MutationStatusId;
@@ -1074,7 +1114,7 @@ nothrow:
         }
 
         logger.info("Measuring the runtime of the test command: ",
-                global.data.conf.mutationTester).collectException;
+                global.testCmds).collectException;
         const tester = measureTestCommand(runner);
         if (tester.ok) {
             // The sampling of the test suite become too unreliable when the timeout is <1s.

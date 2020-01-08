@@ -11,6 +11,7 @@ import std.file : copy, exists;
 import std.stdio : File;
 
 import dextool_test.utility;
+import dextool_test.fixtures;
 
 @(testId ~ "shall read the config sections without errors")
 unittest {
@@ -83,4 +84,47 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
             "trace: Compiler flags: -xc++ -isystem /foo/bar"
             ]).shouldBeIn(r.output);
+}
+
+// shall extend test commands with those in the specified directory when testing
+class ExtendTestCommandsFromTestCmdDir : SimpleFixture {
+    override void test() {
+        import std.path : buildPath;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        immutable dextoolConf = buildPath(testEnv.outdir.toString, ".dextool_mutate.toml");
+        copy(buildPath(testData.toString, "config", "test_cmd_dir.toml"), dextoolConf);
+        File(dextoolConf, "a").writefln(`test_cmd_dir = %s
+test_cmd_dir_flag = ["--foo"]`, [
+                testEnv.outdir.toString
+                ]);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programFile).addPostArg([
+                "-c", dextoolConf
+                ]).run;
+
+        // dfmt off
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["-c", dextoolConf])
+            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--test-cmd", "/bin/true"])
+            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--test-timeout", "10000"])
+            .run;
+        // dfmt on
+
+        testConsecutiveSparseOrder!Re([
+                `.*Found test commands in`, `.*/test.sh --foo`,
+                ]).shouldBeIn(r.output);
+        testConsecutiveSparseOrder!Re([
+                `.*Found test commands in`, `.*/compile.sh --foo`,
+                ]).shouldBeIn(r.output);
+    }
 }

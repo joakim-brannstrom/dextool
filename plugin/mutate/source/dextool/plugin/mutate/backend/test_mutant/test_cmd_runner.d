@@ -157,6 +157,29 @@ struct TestResult {
     DrainElement[] output;
 }
 
+/// Finds all executables in a directory tree.
+string[] findExecutables(AbsolutePath root) @trusted {
+    import core.sys.posix.sys.stat;
+    import std.file : getAttributes;
+    import std.file : dirEntries, SpanMode;
+
+    static bool isExecutable(string p) nothrow {
+        try {
+            return (getAttributes(p) & S_IXUSR) != 0;
+        } catch (Exception e) {
+        }
+        return false;
+    }
+
+    auto app = appender!(string[])();
+    foreach (f; dirEntries(root, SpanMode.breadth).filter!(a => a.isFile)
+            .filter!(a => isExecutable(a.name))) {
+        app.put([f.name]);
+    }
+
+    return app.data;
+}
+
 RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env) nothrow {
     import std.algorithm : copy;
     static import std.process;
