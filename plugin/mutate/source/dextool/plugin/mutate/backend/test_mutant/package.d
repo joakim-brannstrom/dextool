@@ -175,7 +175,6 @@ struct MeasureTestDurationResult {
 MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothrow {
     import std.algorithm : min;
     import std.datetime.stopwatch : StopWatch, AutoStart;
-    import std.stdio : writeln;
     import process;
 
     if (runner.empty) {
@@ -194,10 +193,13 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothro
         return Rval(res, sw.peek);
     }
 
-    static void print(DrainElement[] data) {
+    static void print(DrainElement[] data) @trusted {
+        import std.stdio : stdout, write;
+
         foreach (l; data) {
             write(l.byUTF8);
         }
+        stdout.flush;
     }
 
     auto runtime = Duration.max;
