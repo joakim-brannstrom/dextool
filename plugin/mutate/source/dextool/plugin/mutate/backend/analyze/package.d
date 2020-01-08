@@ -86,8 +86,16 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
 
 @safe:
 
-/// Filter function for files. Either all or those in stdin.
+/** Filter function for files. Either all or those in stdin.
+ *
+ * The matching ignores the file extension in order to lessen the problem of a
+ * file that this approach skip headers because they do not exist in
+ * `compile_commands.json`. It means that e.g. "foo.hpp" would match `true` if
+ * `foo.cpp` is in `compile_commands.json`.
+ */
 struct FileFilter {
+    import std.path : stripExtension;
+
     Set!string files;
     bool useFileFilter;
     AbsolutePath root;
@@ -96,7 +104,7 @@ struct FileFilter {
         this.root = root;
         this.useFileFilter = fromStdin;
         foreach (a; diff.toRange(root)) {
-            files.add(a.key);
+            files.add(a.key.stripExtension);
         }
     }
 
@@ -107,7 +115,7 @@ struct FileFilter {
             return true;
         }
 
-        return relativePath(p, root) in files;
+        return relativePath(p, root).stripExtension in files;
     }
 }
 
