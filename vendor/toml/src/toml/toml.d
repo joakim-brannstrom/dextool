@@ -461,7 +461,7 @@ struct TOMLValue
 		}
 	}
 
-	public inout void append(ref Appender!string appender)
+	public void append(ref Appender!string appender)
 	{
 		final switch (this._type) with (TOML_TYPE)
 		{
@@ -522,7 +522,7 @@ struct TOMLValue
 		}
 	}
 
-	public inout string toString()
+	public string toString()
 	{
 		Appender!string appender;
 		this.append(appender);
