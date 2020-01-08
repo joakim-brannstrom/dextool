@@ -196,7 +196,7 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothro
 
     static void print(DrainElement[] data) {
         foreach (l; data) {
-            writeln(l.byUTF8);
+            write(l.byUTF8);
         }
     }
 
