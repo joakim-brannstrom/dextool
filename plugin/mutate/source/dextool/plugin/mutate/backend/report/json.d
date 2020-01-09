@@ -124,7 +124,7 @@ final class ReportJson : FileReport, FilesReporter {
         import dextool.plugin.mutate.backend.report.analyzers : reportStatistics, reportDiff;
         import dextool.plugin.mutate.backend.report.analyzers : DiffReport, reportDiff;
 
-        if (sections.contains(ReportSection.summary)) {
+        if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
             JSONValue s = ["alive" : stat.alive];
             s.object["aliveNoMut"] = stat.aliveNoMut;
@@ -142,7 +142,7 @@ final class ReportJson : FileReport, FilesReporter {
             report["stat"] = s;
         }
 
-        if (!diff.empty) {
+        if (ReportSection.diff in sections) {
             auto r = reportDiff(db, kinds, diff, fio.getOutputDir);
             JSONValue s = ["score" : r.score];
             report["diff"] = s;

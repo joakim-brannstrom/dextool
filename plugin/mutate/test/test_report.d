@@ -427,6 +427,7 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
             .addArg(["--logdir", testEnv.outdir.toString])
             .addArg(["--mutant", "rorp"])
             .addArg("--diff-from-stdin")
+            .addArg(["--section", "diff"])
             .setStdin(readText(programFile ~ ".diff"))
             .run;
 
@@ -435,6 +436,7 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
             .addArg(["--logdir", testEnv.outdir.toString])
             .addArg(["--mutant", "rorp"])
             .addArg("--diff-from-stdin")
+            .addArg(["--section", "diff"])
             .setStdin(readText(programFile ~ ".diff"))
             .run;
 
