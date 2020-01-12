@@ -246,6 +246,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         // TODO: print what files has been updated.
         resetTimeoutContext(*db);
         db.removeOrphanedMutants;
+        db.updateMetadata;
         printLostMarkings(db.getLostMarkings);
 
         trans.commit;

@@ -1406,4 +1406,55 @@ struct Database {
         stmt.bind(":st", cast(ubyte) Mutation.Status.unknown);
         stmt.execute;
     }
+
+    /** Update the content of metadata tables with what has been added to the
+     * raw table data.
+     */
+    void updateMetadata() @trusted {
+        db.run(format!"DELETE FROM %s"(srcMetadataTable));
+        db.run(format!"DELETE FROM %s"(nomutTable));
+        db.run(format!"DELETE FROM %s"(nomutDataTable));
+
+        immutable nomut_tbl = "INSERT INTO %s
+            SELECT
+                t0.id mp_id,
+                t1.line line,
+                count(*) status
+                FROM %s t0, %s t1
+                WHERE
+                t0.file_id = t1.file_id AND
+                (t1.line BETWEEN t0.line AND t0.line_end)
+                GROUP BY
+                t0.id";
+        db.run(format!nomut_tbl(nomutTable, mutationPointTable, rawSrcMetadataTable));
+
+        immutable src_metadata_sql = "INSERT INTO %s
+            SELECT DISTINCT
+            t0.id AS mut_id,
+            t1.id AS st_id,
+            t2.id AS mp_id,
+            t3.id AS file_id,
+            (SELECT count(*) FROM %s WHERE nomut.mp_id = t2.id) as nomut
+            FROM %s t0, %s t1, %s t2, %s t3
+            WHERE
+            t0.mp_id = t2.id AND
+            t0.st_id = t1.id AND
+            t2.file_id = t3.id";
+        db.run(format!src_metadata_sql(srcMetadataTable, nomutTable,
+                mutationTable, mutationStatusTable, mutationPointTable, filesTable));
+
+        immutable nomut_data_tbl = "INSERT INTO %s
+            SELECT
+                t0.id as mut_id,
+                t0.mp_id as mp_id,
+                t1.line as line,
+                t1.tag as tag,
+                t1.comment as comment
+                FROM %s t0, %s t1, %s t2
+                WHERE
+                t0.mp_id = t2.mp_id AND
+                t1.line = t2.line";
+        db.run(format!nomut_data_tbl(nomutDataTable, mutationTable,
+                rawSrcMetadataTable, nomutTable));
+    }
 }
