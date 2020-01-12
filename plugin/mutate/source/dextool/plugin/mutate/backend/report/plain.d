@@ -12,6 +12,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.report.plain;
 
 import logger = std.experimental.logger;
+import std.array : empty;
 import std.exception : collectException;
 import std.typecons : Yes, No;
 
@@ -67,7 +68,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
     override void locationStartEvent(ref Database db) @safe {
     }
 
-    override void locationEvent(const ref IterateMutantRow r) @trusted {
+    override void locationEvent(ref Database db, const ref IterateMutantRow r) @trusted {
         void report() {
             MakeMutationTextResult mut_txt;
             AbsolutePath abs_path;
@@ -102,8 +103,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
             }
         }
 
-        void updateTestCaseStat() {
-            if (r.mutation.status != Mutation.Status.killed || r.testCases.length == 0)
+        void updateTestCaseStat(TestCase[] testCases) {
+            if (r.mutation.status != Mutation.Status.killed || testCases.empty)
                 return;
 
             try {
@@ -115,8 +116,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
             }
         }
 
-        void updateTestCaseMap() {
-            if (r.mutation.status != Mutation.Status.killed || r.testCases.length == 0)
+        void updateTestCaseMap(TestCase[] testCases) {
+            if (r.mutation.status != Mutation.Status.killed || testCases.empty)
                 return;
 
             try {
@@ -125,7 +126,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
                 mutationReprMap[r.id] = MutationRepr(r.sloc, r.file, mut_txt);
 
-                foreach (const a; r.testCases) {
+                foreach (const a; testCases) {
                     testCaseMutationKilled[a][r.id] = true;
                 }
             } catch (Exception e) {
@@ -138,10 +139,10 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
                 testCaseSuggestions.put(r.id);
         }
 
-        void reportTestCase() {
-            if (r.mutation.status != Mutation.Status.killed || r.testCases.length == 0)
+        void reportTestCase(TestCase[] testCases) {
+            if (r.mutation.status != Mutation.Status.killed || testCases.empty)
                 return;
-            logger.infof("%s killed by [%(%s, %)]", r.id, r.testCases);
+            logger.infof("%s killed by [%(%s, %)]", r.id, testCases);
         }
 
         try {
@@ -157,17 +158,25 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
             if (ReportSection.mut_stat in sections)
                 updateMutationStat;
 
+            auto testCases = () {
+                if (ReportSection.tc_killed in sections
+                        || ReportSection.tc_stat in sections || ReportSection.tc_map in sections) {
+                    return db.getTestCases(r.id);
+                }
+                return null;
+            }();
+
             if (ReportSection.tc_killed in sections)
-                reportTestCase;
+                reportTestCase(testCases);
 
             if (ReportSection.tc_stat in sections)
-                updateTestCaseStat();
+                updateTestCaseStat(testCases);
 
             if (ReportSection.tc_map in sections)
-                updateTestCaseMap;
+                updateTestCaseMap(testCases);
 
             if (ReportSection.tc_suggestion in sections)
-                updateTestCaseSuggestion;
+                updateTestCaseSuggestion();
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }

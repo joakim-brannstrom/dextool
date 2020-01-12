@@ -181,7 +181,7 @@ struct Markdown(Writer, TraceWriter) {
         }
     }
 
-    override void locationEvent(const ref IterateMutantRow r) @trusted {
+    override void locationEvent(ref Database db, const ref IterateMutantRow r) @trusted {
         void report() {
             MakeMutationTextResult mut_txt;
             try {

@@ -55,7 +55,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportLevel;
     override void locationStartEvent(ref Database db) {
     }
 
-    override void locationEvent(const ref IterateMutantRow r) @trusted {
+    override void locationEvent(ref Database db, const ref IterateMutantRow r) @trusted {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
         void report() {

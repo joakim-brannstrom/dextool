@@ -164,8 +164,6 @@ struct Database {
                 d.slocEnd = SourceLoc(r.peek!uint(8), r.peek!uint(9));
                 d.lang = r.peek!long(13).to!Language;
 
-                d.testCases = db.getTestCases(d.id);
-
                 if (r.peek!long(14) != 0)
                     d.attrs = MutantMetaData(d.id, MutantAttr(NoMut.init));
                 dg(d);
@@ -253,7 +251,6 @@ struct IterateMutantRow {
     Checksum fileChecksum;
     SourceLoc sloc;
     SourceLoc slocEnd;
-    TestCase[] testCases;
     Language lang;
     MutantMetaData attrs;
 }
