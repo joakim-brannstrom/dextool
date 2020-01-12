@@ -44,7 +44,7 @@ void main(string[] args) {
     auto dat = Pandoc(metadata, latex_template, biblio);
 
     string[] chapters = [
-        "use_cases.md", "purpose.md", "security.md", "architecture.md",
+        "overview.md", "use_cases.md", "security.md", "architecture.md",
         "mutations.md", "analyzer/analyzer.md", "test_mutant/basis.md",
         "test_mutant/pull_request.md", "test_mutant/tracker.md",
         "usability/sanity_check.md", "usability/report.md", "future_work.md",
