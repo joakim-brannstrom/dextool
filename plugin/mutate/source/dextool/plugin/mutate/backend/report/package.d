@@ -30,7 +30,7 @@ import dextool.plugin.mutate.backend.report.utility : window, windowSize;
 import dextool.plugin.mutate.config : ConfigReport;
 
 ExitStatusType runReport(ref Database db, const MutationKind[] kind,
-        const ConfigReport conf, FilesysIO fio) @safe nothrow {
+        const ConfigReport conf, FilesysIO fio) @trusted nothrow {
     Diff diff;
     try {
         if (conf.unifiedDiff)
@@ -40,7 +40,7 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
     }
 
     try {
-        auto genrep = ReportGenerator.make(kind, conf, fio);
+        auto genrep = ReportGenerator.make(db, kind, conf, fio);
         runAllMutantReporter(db, kind, genrep);
 
         auto fp = makeFilesReporter(db, conf, kind, fio, diff);
@@ -133,10 +133,12 @@ struct ReportGenerator {
     import dextool.plugin.mutate.backend.report.markdown;
     import dextool.plugin.mutate.backend.report.plain;
 
+    Database db;
     ReportEvent[] listeners;
     FilesReporter fileReporter;
 
-    static auto make(const MutationKind[] kind, const ConfigReport conf, FilesysIO fio) {
+    static auto make(ref Database db, const MutationKind[] kind,
+            const ConfigReport conf, FilesysIO fio) @system {
         import dextool.plugin.mutate.backend.utility;
 
         auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
@@ -163,7 +165,7 @@ struct ReportGenerator {
             break;
         }
 
-        return ReportGenerator(listeners);
+        return ReportGenerator(db, listeners);
     }
 
     void mutationKindEvent(const MutationKind[] kind_) {
@@ -176,7 +178,7 @@ struct ReportGenerator {
 
     // trusted: trusting that d2sqlite3 and sqlite3 is memory safe.
     void locationEvent(const ref IterateMutantRow r) @trusted {
-        listeners.each!(a => a.locationEvent(r));
+        listeners.each!(a => a.locationEvent(db, r));
     }
 
     void locationEndEvent() {

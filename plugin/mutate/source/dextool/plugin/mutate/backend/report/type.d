@@ -31,7 +31,7 @@ alias SimpleWriter = void delegate(const(char)[]) @safe;
     /// The printer is informed of what kind of mutants there are.
     void mutationKindEvent(const MutationKind[]);
     void locationStartEvent(ref Database db);
-    void locationEvent(const ref IterateMutantRow);
+    void locationEvent(ref Database db, const ref IterateMutantRow);
     void locationEndEvent();
     void locationStatEvent();
     void statEvent(ref Database db);

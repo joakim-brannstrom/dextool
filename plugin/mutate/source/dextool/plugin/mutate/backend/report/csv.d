@@ -58,7 +58,7 @@ final class ReportCSV : ReportEvent {
     override void locationStartEvent(ref Database db) {
     }
 
-    override void locationEvent(const ref IterateMutantRow r) @trusted {
+    override void locationEvent(ref Database db, const ref IterateMutantRow r) @trusted {
         import std.conv : to;
 
         void report() {
