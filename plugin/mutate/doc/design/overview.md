@@ -92,3 +92,47 @@ The PoC will focus on realizing the following features:
  - small scale architecture for continues and incremental mutation testing of an application.
  - ease of use.
  - the only language supported are C and c++.
+
+# Architecture
+
+TODO: add and write about the overall architecture regarding
+analyze/test/report.
+
+## Analyze
+
+TODO
+
+## Test
+
+The test modules purpose is to go through all mutants with the status `unknown`
+and classify them.
+
+The top state machine for this is:
+
+![The test drivers FSM](figures/test_mutant_fsm)
+
+## Report
+
+TODO
+
+## Database Schema
+
+The table `schema_version` should always be checked before any data is read.
+Dextool will automatically update a database to the latest schema version
+before reading from the database. In most cases this should be "ok" but some
+updates of the schema are destructive which mean that data may be lost.
+
+![Database schema](figures/database_schema)
+
+### Mutation Schemata
+
+A schemata consist of an unique ID and a number of fragments. A fragment is a
+modification to a file (add/remove/replace). The order that the fragments are
+applied is important and part of the fragment specification.
+
+The analyze phase populates the database with schematas.
+
+The test phase start by going through the `schemata_worklist` table to test all
+the schematas that is in it. A schemata is removed from the worklist when it
+has been tested.  This goes on until all schematas has been tested and their
+results stored in the database.

@@ -11,17 +11,11 @@ partof: REQ-test_mutant
 ## Design Decision
 
 The implementation testing mutants should separate the drivers in three parts:
+
  * process mutants. Two sub-drivers are needed
      * static timeout
      * mutation timeout reduction algorithm
  * test a mutant
-
-## Driver
-
-This is the state machine used in the test driver when the plugin is testing
-mutants in the database.
-
-![The test drivers FSM](figures/test_mutant_fsm.eps)
 
 # SPC-test_mutant_timeout
 partof: SPC-test_mutant
@@ -67,6 +61,7 @@ Pseudo-code:
 
 It is important to understand the assumptions the algorithm try to handle. The
 assumptions have not been verified.
+
  * a timeout is a sign that the test suite has gone into an infinite loop
  * a timeout is counted as the mutation being killed because it is an
    observable effect. Semantic difference
@@ -95,6 +90,7 @@ timeout mutants which mean that they basically end up in a loop behavior that
 takes a long time to break.
 
 It can go like this:
+
 1. A is testing the mutants.
 2. B is testing the mutants.
 3. A finish mutation testing but some are marked as timeout.
@@ -121,6 +117,7 @@ lead to a scaling problem.
 
 The design is based on a shared context that is stored in the database. The
 shared context consist of:
+
  * a `worklist` which contains the timeout mutants that are being processed.
  * an `iter` which is how many times the FSM have passed through the `running`
    state.
@@ -143,6 +140,7 @@ plugin do an analyse.
 ![FSM for timeout mutants](figures/timeout_mutant_001.eps){#fig-timeout-mutant-fsm height=60%}
 
 Description of the events used in figure \ref{fig-timeout-mutant-fsm}:
+
  * evAllStatus. All mutants has a status other thatn `unknown`.
  * evChange. The mutants that are left in the worklist has changed compared to
    the counter in the context. $worklist_{count} != count(worklist)$
