@@ -160,57 +160,12 @@ struct RawSrcMetadata {
     string comment;
 }
 
-// Associate metadata from lines with the mutation status.
-void makeSrcMetadataView(ref Miniorm db) {
-    // check if a NOMUT is on or between the start and end of a mutant.
-    immutable src_metadata_tbl = "CREATE VIEW %s
-    AS
-    SELECT DISTINCT
-    t0.id AS mut_id,
-    t1.id AS st_id,
-    t2.id AS mp_id,
-    t3.id AS file_id,
-    (SELECT count(*) FROM %s WHERE nomut.mp_id = t2.id) as nomut
-    FROM %s t0, %s t1, %s t2, %s t3
-    WHERE
-    t0.mp_id = t2.id AND
-    t0.st_id = t1.id AND
-    t2.file_id = t3.id";
-    db.run(format(src_metadata_tbl, srcMetadataTable, nomutTable,
-            mutationTable, mutationStatusTable, mutationPointTable, filesTable));
-
-    immutable nomut_tbl = "CREATE VIEW %s
-    AS
-    SELECT
-    t0.id mp_id,
-    t1.line line,
-    count(*) status
-    FROM %s t0, %s t1
-    WHERE
-    t0.file_id = t1.file_id AND
-    (t1.line BETWEEN t0.line AND t0.line_end)
-    GROUP BY
-    t0.id";
-    db.run(format(nomut_tbl, nomutTable, mutationPointTable, rawSrcMetadataTable));
-
-    immutable nomut_data_tbl = "CREATE VIEW %s
-    AS
-    SELECT
-    t0.id as mut_id,
-    t0.mp_id as mp_id,
-    t1.line as line,
-    t1.tag as tag,
-    t1.comment as comment
-    FROM %s t0, %s t1, %s t2
-    WHERE
-    t0.mp_id = t2.mp_id AND
-    t1.line = t2.line";
-    db.run(format(nomut_data_tbl, nomutDataTable, mutationTable, rawSrcMetadataTable, nomutTable));
-}
-
-// Reconstruct the view in Miniorm.
 @TableName(srcMetadataTable)
-struct SrcMetadataTbl {
+@TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+struct SrcMetadataTable {
     @ColumnName("mut_id")
     long mutationId;
 
@@ -229,6 +184,7 @@ struct SrcMetadataTbl {
 
 // Reconstruct the nomut table in Miniorm.
 @TableName(nomutTable)
+@TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
 struct NomutTbl {
     @ColumnName("mp_id")
     long mutationPointId;
@@ -240,6 +196,8 @@ struct NomutTbl {
 }
 
 @TableName(nomutDataTable)
+@TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
 struct NomutDataTbl {
     @ColumnName("mut_id")
     long mutationId;
@@ -248,7 +206,11 @@ struct NomutDataTbl {
     long mutationPointId;
 
     long line;
+
+    @ColumnParam("")
     string tag;
+
+    @ColumnParam("")
     string comment;
 }
 
@@ -510,9 +472,8 @@ void upgradeV0(ref Miniorm db) {
 
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl,
             MutationPointTbl, MutationTbl, TestCaseKilledTbl, AllTestCaseTbl,
-            MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl, MarkedMutantTbl));
-
-    makeSrcMetadataView(db);
+            MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl,
+            MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl, NomutDataTbl));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -826,6 +787,56 @@ void upgradeV11(ref Miniorm db) {
     replaceTbl(db, new_tbl, rawSrcMetadataTable);
 
     db.run(format("DROP VIEW %s", srcMetadataTable)).collectException;
+
+    // Associate metadata from lines with the mutation status.
+    void makeSrcMetadataView(ref Miniorm db) {
+        // check if a NOMUT is on or between the start and end of a mutant.
+        immutable src_metadata_tbl = "CREATE VIEW %s
+        AS
+        SELECT DISTINCT
+        t0.id AS mut_id,
+        t1.id AS st_id,
+        t2.id AS mp_id,
+        t3.id AS file_id,
+        (SELECT count(*) FROM %s WHERE nomut.mp_id = t2.id) as nomut
+        FROM %s t0, %s t1, %s t2, %s t3
+        WHERE
+        t0.mp_id = t2.id AND
+        t0.st_id = t1.id AND
+        t2.file_id = t3.id";
+        db.run(format(src_metadata_tbl, srcMetadataTable, nomutTable,
+                mutationTable, mutationStatusTable, mutationPointTable, filesTable));
+
+        immutable nomut_tbl = "CREATE VIEW %s
+        AS
+        SELECT
+        t0.id mp_id,
+        t1.line line,
+        count(*) status
+        FROM %s t0, %s t1
+        WHERE
+        t0.file_id = t1.file_id AND
+        (t1.line BETWEEN t0.line AND t0.line_end)
+        GROUP BY
+        t0.id";
+        db.run(format(nomut_tbl, nomutTable, mutationPointTable, rawSrcMetadataTable));
+
+        immutable nomut_data_tbl = "CREATE VIEW %s
+        AS
+        SELECT
+        t0.id as mut_id,
+        t0.mp_id as mp_id,
+        t1.line as line,
+        t1.tag as tag,
+        t1.comment as comment
+        FROM %s t0, %s t1, %s t2
+        WHERE
+        t0.mp_id = t2.mp_id AND
+        t1.line = t2.line";
+        db.run(format(nomut_data_tbl, nomutDataTable, mutationTable,
+                rawSrcMetadataTable, nomutTable));
+    }
+
     makeSrcMetadataView(db);
 
     updateSchemaVersion(db, 12);
@@ -841,6 +852,14 @@ void upgradeV12(ref Miniorm db) {
 void upgradeV13(ref Miniorm db) {
     db.run(buildSchema!(MarkedMutantTbl));
     updateSchemaVersion(db, 14);
+}
+
+/// 2020-01-12
+void upgradeV14(ref Miniorm db) {
+    db.run(format!"DROP VIEW %s"(srcMetadataTable));
+    db.run(buildSchema!(SrcMetadataTable, NomutTbl, NomutDataTbl));
+    logger.info("Re-execute analyze to update the NOMUT data");
+    updateSchemaVersion(db, 15);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
