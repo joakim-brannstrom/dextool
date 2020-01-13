@@ -220,7 +220,7 @@ class FileReadChannel : ReadChannel {
         if (ready <= 0) {
             return false;
         }
-        return (fds[0].revents | POLLIN) != 0;
+        return (fds[0].revents & POLLIN) != 0;
     }
 
     override const(ubyte)[] read(const size_t size) return scope @trusted {
