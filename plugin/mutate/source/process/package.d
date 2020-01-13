@@ -124,6 +124,9 @@ class PipeProcess : Process {
 
         pipe_.destroy;
         stderr_.destroy;
+        this.kill;
+        this.wait;
+        process.destroy;
     }
 
     override void kill() nothrow @trusted {
@@ -239,6 +242,7 @@ class Sandbox : Process {
     }
 
     override void destroy() @safe {
+        // this also reaps the children thus cleaning up zombies
         this.kill;
         p.destroy;
     }
