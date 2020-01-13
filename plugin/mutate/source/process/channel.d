@@ -9,6 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module process.channel;
 
+import logger = std.experimental.logger;
 import std.stdio : stdin, stdout, File;
 
 class ChannelException : Exception {
@@ -217,16 +218,27 @@ class FileReadChannel : ReadChannel {
         fds[0].events = POLLIN;
         auto ready = () @trusted { return poll(&fds[0], 1, 0); }();
 
-        if (ready <= 0) {
+        // timeout triggered
+        if (ready == 0) {
             return false;
         }
-        return (fds[0].revents & POLLIN) != 0;
+
+        if (ready < 0) {
+            eof = true;
+            return false;
+        }
+
+        if (fds[0].revents & (POLLNVAL | POLLERR)) {
+            eof = true;
+        }
+
+        return (fds[0].revents & (POLLIN | POLLPRI | POLLHUP)) != 0;
     }
 
     override const(ubyte)[] read(const size_t size) return scope @trusted {
         static import core.sys.posix.unistd;
 
-        if (size == 0 || !hasPendingData) {
+        if (eof || size == 0 || !hasPendingData) {
             return null;
         }
 

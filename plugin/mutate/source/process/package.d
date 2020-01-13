@@ -722,14 +722,14 @@ struct DrainRange {
         case State.lastStdout:
             st = State.lastStderr;
             readData();
-            if (p.pipe.hasData && p.pipe.hasPendingData) {
+            if (p.pipe.hasData) {
                 st = State.lastStdout;
             }
             break;
         case State.lastStderr:
             st = State.lastElement;
             readData();
-            if (p.stderr.hasData && p.stderr.hasPendingData) {
+            if (p.stderr.hasData) {
                 st = State.lastStderr;
             }
             break;
