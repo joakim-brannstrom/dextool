@@ -61,8 +61,8 @@ struct Database {
     /// If the file has already been analyzed.
     bool isAnalyzed(const Path p) @trusted {
         auto stmt = db.prepare("SELECT count(*) FROM files WHERE path=:path LIMIT 1");
-        stmt.bind(":path", cast(string) p);
-        auto res = stmt.execute;
+        stmt.get.bind(":path", cast(string) p);
+        auto res = stmt.get.execute;
         return res.oneValue!long != 0;
     }
 
@@ -70,18 +70,18 @@ struct Database {
     bool isAnalyzed(const Path p, const Checksum cs) @trusted {
         auto stmt = db.prepare(
                 "SELECT count(*) FROM files WHERE path=:path AND checksum0=:cs0 AND checksum1=:cs1 LIMIT 1");
-        stmt.bind(":path", cast(string) p);
-        stmt.bind(":cs0", cast(long) cs.c0);
-        stmt.bind(":cs1", cast(long) cs.c1);
-        auto res = stmt.execute;
+        stmt.get.bind(":path", cast(string) p);
+        stmt.get.bind(":cs0", cast(long) cs.c0);
+        stmt.get.bind(":cs1", cast(long) cs.c1);
+        auto res = stmt.get.execute;
         return res.oneValue!long != 0;
     }
 
     bool exists(MutationStatusId status_id) {
         immutable s = format!"SELECT COUNT(*) FROM %s WHERE id=:id LIMIT 1"(mutationStatusTable);
         auto stmt = db.prepare(s);
-        stmt.bind(":id", cast(long) status_id);
-        auto res = stmt.execute;
+        stmt.get.bind(":id", cast(long) status_id);
+        auto res = stmt.get.execute;
         return res.oneValue!long == 0;
     }
 
@@ -90,8 +90,8 @@ struct Database {
             (SELECT st_id FROM %s WHERE id=:id)"(
                 markedMutantTable, mutationTable);
         auto stmt = db.prepare(s);
-        stmt.bind(":id", cast(long) id);
-        auto res = stmt.execute;
+        stmt.get.bind(":id", cast(long) id);
+        auto res = stmt.get.execute;
         return res.oneValue!long != 0;
     }
 
@@ -104,7 +104,7 @@ struct Database {
 
         auto stmt = db.prepare(sql);
         auto app = appender!(MarkedMutant[])();
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             foreach (m; db.run(select!MarkedMutantTbl.where("checksum0 = ", res.peek!long(0)))) {
                 app.put(.make(m));
             }
@@ -116,8 +116,8 @@ struct Database {
     Nullable!FileId getFileId(const Path p) @trusted {
         enum sql = format("SELECT id FROM %s WHERE path=:path", filesTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":path", cast(string) p);
-        auto res = stmt.execute;
+        stmt.get.bind(":path", cast(string) p);
+        auto res = stmt.get.execute;
 
         typeof(return) rval;
         if (!res.empty)
@@ -132,10 +132,10 @@ struct Database {
             WHERE t0.id = :id AND t0.mp_id = t1.id",
                     mutationTable, mutationPointTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":id", cast(long) id);
+        stmt.get.bind(":id", cast(long) id);
 
         typeof(return) rval;
-        foreach (r; stmt.execute)
+        foreach (r; stmt.get.execute)
             rval = FileId(r.peek!long(0));
         return rval;
     }
@@ -144,10 +144,10 @@ struct Database {
     Nullable!Path getFile(const FileId id) @trusted {
         enum sql = format("SELECT path FROM %s WHERE id = :id", filesTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":id", cast(long) id);
+        stmt.get.bind(":id", cast(long) id);
 
         typeof(return) rval;
-        foreach (r; stmt.execute)
+        foreach (r; stmt.get.execute)
             rval = Path(r.peek!string(0));
         return rval;
     }
@@ -155,14 +155,14 @@ struct Database {
     /// Remove the file with all mutations that are coupled to it.
     void removeFile(const Path p) @trusted {
         auto stmt = db.prepare(format!"DELETE FROM %s WHERE path=:path"(filesTable));
-        stmt.bind(":path", cast(string) p);
-        stmt.execute;
+        stmt.get.bind(":path", cast(string) p);
+        stmt.get.execute;
     }
 
     /// Returns: All files in the database as relative paths.
     Path[] getFiles() @trusted {
         auto stmt = db.prepare(format!"SELECT path from %s"(filesTable));
-        auto res = stmt.execute;
+        auto res = stmt.get.execute;
 
         auto app = appender!(Path[]);
         foreach (ref r; res) {
@@ -206,11 +206,11 @@ struct Database {
             }
         }();
 
-        stmt.bind(":st", st.to!long);
-        stmt.bind(":id", id.to!long);
-        stmt.bind(":time", d.total!"msecs");
-        stmt.bind(":update_ts", Clock.currTime.toUTC.toSqliteDateTime);
-        stmt.execute;
+        stmt.get.bind(":st", st.to!long);
+        stmt.get.bind(":id", id.to!long);
+        stmt.get.bind(":time", d.total!"msecs");
+        stmt.get.bind(":update_ts", Clock.currTime.toUTC.toSqliteDateTime);
+        stmt.get.execute;
 
         updateMutationTestCases(id, tcs);
     }
@@ -234,17 +234,17 @@ struct Database {
             }
         }();
 
-        stmt.bind(":id", id.to!long);
-        stmt.execute;
+        stmt.get.bind(":id", id.to!long);
+        stmt.get.execute;
     }
 
     /// Update the time used to test the mutant.
     void updateMutation(const MutationStatusId id, const Duration testTime) @trusted {
         enum sql = format!"UPDATE %s SET time=:time WHERE id = :id"(mutationStatusTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":id", id.to!long);
-        stmt.bind(":time", testTime.total!"msecs");
-        stmt.execute;
+        stmt.get.bind(":id", id.to!long);
+        stmt.get.bind(":time", testTime.total!"msecs");
+        stmt.get.execute;
     }
 
     /** Update the status of a mutant.
@@ -262,15 +262,15 @@ struct Database {
                 const ts = Clock.currTime.toUTC.toSqliteDateTime;
                 auto s = db.prepare(format!"UPDATE %s SET status=:st,update_ts=:update_ts WHERE id=:id"(
                         mutationStatusTable));
-                s.bind(":update_ts", ts);
+                s.get.bind(":update_ts", ts);
                 return s;
             } else
                 return db.prepare(format!"UPDATE %s SET status=:st WHERE id=:id"(
                         mutationStatusTable));
         }();
-        stmt.bind(":st", st.to!long);
-        stmt.bind(":id", id.to!long);
-        stmt.execute;
+        stmt.get.bind(":st", st.to!long);
+        stmt.get.bind(":id", id.to!long);
+        stmt.get.execute;
     }
 
     /// Returns: all mutation status IDs.
@@ -278,7 +278,8 @@ struct Database {
         enum sql = format!"SELECT id FROM %s"(mutationStatusTable);
 
         auto app = appender!(MutationStatusId[])();
-        foreach (r; db.prepare(sql).execute)
+        auto stmt = db.prepare(sql);
+        foreach (r; stmt.get.execute)
             app.put(MutationStatusId(r.peek!long(0)));
         return app.data;
     }
@@ -286,10 +287,10 @@ struct Database {
     Nullable!(Mutation.Status) getMutationStatus(const MutationStatusId id) @trusted {
         enum sql = format!"SELECT status FROM %s WHERE id=:id"(mutationStatusTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":id", cast(long) id);
+        stmt.get.bind(":id", cast(long) id);
 
         typeof(return) rval;
-        foreach (a; stmt.execute) {
+        foreach (a; stmt.get.execute) {
             rval = cast(Mutation.Status) a.peek!long(0);
         }
         return rval;
@@ -321,8 +322,8 @@ struct Database {
                     filesTable, mutationStatusTable);
 
         auto stmt = db.prepare(get_mut_sql);
-        stmt.bind(":id", cast(long) id);
-        auto res = stmt.execute;
+        stmt.get.bind(":id", cast(long) id);
+        auto res = stmt.get.execute;
 
         if (res.empty)
             return rval;
@@ -363,10 +364,10 @@ struct Database {
         t.mut_id"(nomutDataTable, mutationTable,
                 mutationStatusTable, kinds.map!(a => cast(long) a));
         auto stmt = db.prepare(sql);
-        stmt.bind(":status", cast(long) status);
+        stmt.get.bind(":status", cast(long) status);
 
         auto app = appender!(MutantMetaData[])();
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             app.put(MutantMetaData(MutationId(res.peek!long(0)),
                     MutantAttr(NoMut(res.peek!string(1), res.peek!string(2)))));
         }
@@ -384,8 +385,8 @@ struct Database {
             ", mutationTable, mutationPointTable, filesTable);
 
         auto stmt = db.prepare(get_path_sql);
-        stmt.bind(":id", cast(long) id);
-        auto res = stmt.execute;
+        stmt.get.bind(":id", cast(long) id);
+        auto res = stmt.get.execute;
 
         typeof(return) rval;
         if (!res.empty)
@@ -407,7 +408,7 @@ struct Database {
         auto stmt = db.prepare(get_mutid_sql);
 
         auto app = appender!(MutantInfo[])();
-        foreach (res; stmt.execute)
+        foreach (res; stmt.get.execute)
             app.put(MutantInfo(MutationId(res.peek!long(0)), res.peek!long(1)
                     .to!(Mutation.Status), res.peek!long(2).to!(Mutation.Kind),
                     SourceLoc(res.peek!uint(3), res.peek!uint(4))));
@@ -428,7 +429,7 @@ struct Database {
         auto stmt = db.prepare(get_mutid_sql);
 
         auto app = appender!(MutationId[])();
-        foreach (res; stmt.execute)
+        foreach (res; stmt.get.execute)
             app.put(MutationId(res.peek!long(0)));
         return app.data;
     }
@@ -436,10 +437,10 @@ struct Database {
     Nullable!MutationId getMutationId(const MutationStatusId id) @trusted {
         immutable sql = format!"SELECT id FROM %s WHERE st_id=:st_id LIMIT=1"(mutationTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":st_id", cast(long) id);
+        stmt.get.bind(":st_id", cast(long) id);
 
         typeof(return) rval;
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             rval = res.peek!long(0).MutationId;
         }
         return rval;
@@ -448,10 +449,10 @@ struct Database {
     Nullable!MutationStatusId getMutationStatusId(const MutationId id) @trusted {
         immutable sql = format!"SELECT st_id FROM %s WHERE id=:id"(mutationTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":id", cast(long) id);
+        stmt.get.bind(":id", cast(long) id);
 
         typeof(return) rval;
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             rval = MutationStatusId(res.peek!long(0));
         }
         return rval;
@@ -461,11 +462,11 @@ struct Database {
         immutable sql = format!"SELECT st_id FROM %s WHERE checksum0=:cs0 AND checksum1=:cs1"(
                 mutationStatusTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":cs0", cast(long) cs.c0);
-        stmt.bind(":cs1", cast(long) cs.c1);
+        stmt.get.bind(":cs0", cast(long) cs.c0);
+        stmt.get.bind(":cs1", cast(long) cs.c1);
 
         typeof(return) rval;
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             rval = MutationStatusId(res.peek!long(0));
         }
         return rval;
@@ -476,9 +477,9 @@ struct Database {
         auto s = format!"SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)"(
                 mutationStatusTable, mutationTable);
         auto stmt = db.prepare(s);
-        stmt.bind(":mut_id", cast(long) id);
+        stmt.get.bind(":mut_id", cast(long) id);
         typeof(return) rval;
-        foreach (res; stmt.execute)
+        foreach (res; stmt.get.execute)
             rval = res.peek!long(0).to!(Mutation.Status);
         return rval;
     }
@@ -497,11 +498,11 @@ struct Database {
                 mutationStatusTable, mutationTable, mutationPointTable,
                 kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
-        stmt.bind(":fid", cast(long) fid);
-        stmt.bind(":line", sloc.line);
+        stmt.get.bind(":fid", cast(long) fid);
+        stmt.get.bind(":line", sloc.line);
 
         auto app = appender!(typeof(return))();
-        foreach (res; stmt.execute)
+        foreach (res; stmt.get.execute)
             app.put(MutationStatusId(res.peek!long(0)));
         return app.data;
     }
@@ -513,11 +514,11 @@ struct Database {
             file_id = :fid AND
             line = :line", rawSrcMetadataTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":fid", cast(long) fid);
-        stmt.bind(":line", sloc.line);
+        stmt.get.bind(":fid", cast(long) fid);
+        stmt.get.bind(":line", sloc.line);
 
         auto rval = typeof(return)(fid, sloc.line);
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             if (res.peek!long(0) != 0)
                 rval.set(NoMut(res.peek!string(1), res.peek!string(2)));
         }
@@ -535,10 +536,10 @@ struct Database {
                     ORDER BY t0.update_ts ASC LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
-        stmt.bind(":limit", nr);
+        stmt.get.bind(":limit", nr);
 
         auto app = appender!(MutationStatusTime[])();
-        foreach (res; stmt.execute)
+        foreach (res; stmt.get.execute)
             app.put(MutationStatusTime(MutationStatusId(res.peek!long(0)),
                     res.peek!string(1).fromSqLiteDateTime));
         return app.data;
@@ -562,11 +563,11 @@ struct Database {
             LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a), srcMetadataTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":status", cast(long) status);
-        stmt.bind(":limit", nr);
+        stmt.get.bind(":status", cast(long) status);
+        stmt.get.bind(":limit", nr);
 
         auto app = appender!(MutationStatus[])();
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             auto added = () {
                 auto raw = res.peek!string(4);
                 if (raw.length == 0)
@@ -594,9 +595,9 @@ struct Database {
         auto s = format!"SELECT line, column FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE id=:mut_id)"(
                 mutationPointTable, mutationTable);
         auto stmt = db.prepare(s);
-        stmt.bind(":mut_id", cast(long) id);
+        stmt.get.bind(":mut_id", cast(long) id);
         typeof(return) rval;
-        foreach (res; stmt.execute)
+        foreach (res; stmt.get.execute)
             rval = SourceLoc(res.peek!uint(0), res.peek!uint(1));
         return rval;
     }
@@ -607,7 +608,7 @@ struct Database {
         const s = format!"DELETE FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE kind IN (%(%s,%)))"(
                 mutationPointTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
-        stmt.execute;
+        stmt.get.execute;
     }
 
     /** Reset all mutations of kinds with the status `st` to unknown.
@@ -617,7 +618,7 @@ struct Database {
                 mutationStatusTable, to_st.to!long, st.to!long,
                 mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(s);
-        stmt.execute;
+        stmt.get.execute;
     }
 
     /** Mark a mutant with status and rationale (also adds metadata).
@@ -654,10 +655,10 @@ struct Database {
     Mutation.Kind getKind(MutationId id) @trusted {
         immutable s = format!"SELECT kind FROM %s WHERE id=:id"(mutationTable);
         auto stmt = db.prepare(s);
-        stmt.bind(":id", cast(long) id);
+        stmt.get.bind(":id", cast(long) id);
 
         typeof(return) rval;
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             rval = res.peek!long(0).to!(Mutation.Kind);
         }
         return rval;
@@ -737,8 +738,8 @@ struct Database {
         typeof(return) rval;
         auto stmt = db.prepare(query);
         if (file.length != 0)
-            stmt.bind(":path", file);
-        auto res = stmt.execute;
+            stmt.get.bind(":path", file);
+        auto res = stmt.get.execute;
         if (!res.empty)
             rval = MutationReportEntry(res.front.peek!long(0),
                     res.front.peek!long(1).dur!"msecs");
@@ -793,8 +794,8 @@ struct Database {
         typeof(return) rval;
         auto stmt = db.prepare(query);
         if (file.length != 0)
-            stmt.bind(":path", file);
-        auto res = stmt.execute;
+            stmt.get.bind(":path", file);
+        auto res = stmt.get.execute;
         if (!res.empty)
             rval = MetadataNoMutEntry(res.front.peek!long(0));
         return rval;
@@ -819,11 +820,11 @@ struct Database {
                 allTestCaseTable, killedTestCaseTable, kinds.map!(a => cast(int) a));
 
         auto stmt = db.prepare(query);
-        stmt.bind(":st", cast(long) Mutation.Status.killed);
-        stmt.bind(":name", tc.name);
+        stmt.get.bind(":st", cast(long) Mutation.Status.killed);
+        stmt.get.bind(":name", tc.name);
 
         auto app = appender!(MutationStatusId[])();
-        foreach (res; stmt.execute)
+        foreach (res; stmt.get.execute)
             app.put(MutationStatusId(res.peek!long(0)));
 
         return app.data;
@@ -874,10 +875,10 @@ struct Database {
                 allTestCaseTable, killedTestCaseTable, status, kinds.map!(a => cast(int) a));
 
         auto stmt = db.prepare(query);
-        stmt.bind(":name", tc.name);
+        stmt.get.bind(":name", tc.name);
 
         auto app = appender!(MutationStatusId[])();
-        foreach (res; stmt.execute)
+        foreach (res; stmt.get.execute)
             app.put(MutationStatusId(res.peek!long(0)));
 
         return app.data;
@@ -887,10 +888,10 @@ struct Database {
         immutable sql = format!"SELECT checksum0, checksum1 FROM %s WHERE id=:id"(
                 mutationStatusTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":id", cast(long) id);
+        stmt.get.bind(":id", cast(long) id);
 
         typeof(return) rval;
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             rval = Checksum(res.peek!long(0), res.peek!long(1));
             break;
         }
@@ -902,11 +903,11 @@ struct Database {
             VALUES (:path, :checksum0, :checksum1, :lang)"(
                 filesTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":path", cast(string) p);
-        stmt.bind(":checksum0", cast(long) cs.c0);
-        stmt.bind(":checksum1", cast(long) cs.c1);
-        stmt.bind(":lang", cast(long) lang);
-        stmt.execute;
+        stmt.get.bind(":path", cast(string) p);
+        stmt.get.bind(":checksum0", cast(long) cs.c0);
+        stmt.get.bind(":checksum1", cast(long) cs.c1);
+        stmt.get.bind(":lang", cast(long) lang);
+        stmt.get.execute;
     }
 
     /// Remove all metadata.
@@ -930,9 +931,10 @@ struct Database {
         auto stmt = db.prepare(sql);
         foreach (meta; mdata) {
             auto nomut = meta.attr.match!((NoMetadata a) => NoMut.init, (NoMut a) => a);
-            stmt.bindAll(cast(long) meta.id, meta.line, meta.isNoMut, nomut.tag, nomut.comment);
-            stmt.execute;
-            stmt.reset;
+            stmt.get.bindAll(cast(long) meta.id, meta.line, meta.isNoMut,
+                    nomut.tag, nomut.comment);
+            stmt.get.execute;
+            stmt.get.reset;
         }
     }
 
@@ -948,15 +950,15 @@ struct Database {
 
         foreach (mp; mps) {
             auto rel_file = relativePath(mp.file, rel_dir).Path;
-            mp_stmt.bind(":begin", mp.offset.begin);
-            mp_stmt.bind(":end", mp.offset.end);
-            mp_stmt.bind(":line", mp.sloc.line);
-            mp_stmt.bind(":column", mp.sloc.column);
-            mp_stmt.bind(":line_end", mp.slocEnd.line);
-            mp_stmt.bind(":column_end", mp.slocEnd.column);
-            mp_stmt.bind(":path", cast(string) rel_file);
-            mp_stmt.execute;
-            mp_stmt.reset;
+            mp_stmt.get.bind(":begin", mp.offset.begin);
+            mp_stmt.get.bind(":end", mp.offset.end);
+            mp_stmt.get.bind(":line", mp.sloc.line);
+            mp_stmt.get.bind(":column", mp.sloc.column);
+            mp_stmt.get.bind(":line_end", mp.slocEnd.line);
+            mp_stmt.get.bind(":column_end", mp.slocEnd.column);
+            mp_stmt.get.bind(":path", cast(string) rel_file);
+            mp_stmt.get.execute;
+            mp_stmt.get.reset;
         }
 
         enum insert_cmut_sql = format("INSERT OR IGNORE INTO %s
@@ -965,14 +967,14 @@ struct Database {
                     mutationStatusTable);
         auto cmut_stmt = db.prepare(insert_cmut_sql);
         const ts = Clock.currTime.toUTC.toSqliteDateTime;
-        cmut_stmt.bind(":st", Mutation.Status.unknown);
-        cmut_stmt.bind(":update_ts", ts);
-        cmut_stmt.bind(":added_ts", ts);
+        cmut_stmt.get.bind(":st", Mutation.Status.unknown);
+        cmut_stmt.get.bind(":update_ts", ts);
+        cmut_stmt.get.bind(":added_ts", ts);
         foreach (cm; mps.map!(a => a.cms).joiner) {
-            cmut_stmt.bind(":c0", cast(long) cm.id.c0);
-            cmut_stmt.bind(":c1", cast(long) cm.id.c1);
-            cmut_stmt.execute;
-            cmut_stmt.reset;
+            cmut_stmt.get.bind(":c0", cast(long) cm.id.c0);
+            cmut_stmt.get.bind(":c1", cast(long) cm.id.c1);
+            cmut_stmt.get.execute;
+            cmut_stmt.get.reset;
         }
 
         enum insert_m_sql = format("INSERT OR IGNORE INTO %s
@@ -990,14 +992,14 @@ struct Database {
         foreach (mp; mps) {
             foreach (m; mp.cms) {
                 auto rel_file = relativePath(mp.file, rel_dir).Path;
-                insert_m.bind(":path", cast(string) rel_file);
-                insert_m.bind(":off_begin", mp.offset.begin);
-                insert_m.bind(":off_end", mp.offset.end);
-                insert_m.bind(":c0", cast(long) m.id.c0);
-                insert_m.bind(":c1", cast(long) m.id.c1);
-                insert_m.bind(":kind", m.mut.kind);
-                insert_m.execute;
-                insert_m.reset;
+                insert_m.get.bind(":path", cast(string) rel_file);
+                insert_m.get.bind(":off_begin", mp.offset.begin);
+                insert_m.get.bind(":off_end", mp.offset.end);
+                insert_m.get.bind(":c0", cast(long) m.id.c0);
+                insert_m.get.bind(":c1", cast(long) m.id.c1);
+                insert_m.get.bind(":kind", m.mut.kind);
+                insert_m.get.execute;
+                insert_m.get.reset;
             }
         }
     }
@@ -1042,8 +1044,8 @@ struct Database {
         immutable st_id = () {
             enum st_id_for_mutation_q = format("SELECT st_id FROM %s WHERE id=:id", mutationTable);
             auto stmt = db.prepare(st_id_for_mutation_q);
-            stmt.bind(":id", cast(long) id);
-            return stmt.execute.oneValue!long;
+            stmt.get.bind(":id", cast(long) id);
+            return stmt.get.execute.oneValue!long;
         }();
         updateMutationTestCases(MutationStatusId(st_id), tcs);
     }
@@ -1061,8 +1063,8 @@ struct Database {
         try {
             enum remove_old_sql = format("DELETE FROM %s WHERE st_id=:id", killedTestCaseTable);
             auto stmt = db.prepare(remove_old_sql);
-            stmt.bind(":id", cast(long) st_id);
-            stmt.execute;
+            stmt.get.bind(":id", cast(long) st_id);
+            stmt.get.execute;
         } catch (Exception e) {
         }
 
@@ -1077,16 +1079,16 @@ struct Database {
         auto stmt_insert = db.prepare(add_new_sql);
         foreach (const tc; tcs) {
             try {
-                stmt_insert_tc.reset;
-                stmt_insert_tc.bind(":name1", tc.name);
-                stmt_insert_tc.bind(":name2", tc.name);
-                stmt_insert_tc.execute;
+                stmt_insert_tc.get.reset;
+                stmt_insert_tc.get.bind(":name1", tc.name);
+                stmt_insert_tc.get.bind(":name2", tc.name);
+                stmt_insert_tc.get.execute;
 
-                stmt_insert.reset;
-                stmt_insert.bind(":st_id", cast(long) st_id);
-                stmt_insert.bind(":loc", tc.location);
-                stmt_insert.bind(":tc", tc.name);
-                stmt_insert.execute;
+                stmt_insert.get.reset;
+                stmt_insert.get.bind(":st_id", cast(long) st_id);
+                stmt_insert.get.bind(":loc", tc.location);
+                stmt_insert.get.bind(":tc", tc.name);
+                stmt_insert.get.execute;
             } catch (Exception e) {
                 logger.warning(e.msg);
             }
@@ -1114,7 +1116,8 @@ struct Database {
             t0.name NOT IN (SELECT name FROM %s) AND
             t0.id = t1.tc_id"(allTestCaseTable,
                 killedTestCaseTable, tmp_name);
-        foreach (res; db.prepare(mut_st_id).execute)
+        auto stmt = db.prepare(mut_st_id);
+        foreach (res; stmt.get.execute)
             mut_status_ids.put(res.peek!long(0).MutationStatusId);
 
         immutable remove_old_sql = format!"DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)"(
@@ -1147,9 +1150,9 @@ struct Database {
         immutable add_tc_sql = format!"INSERT INTO %s (name) VALUES(:name)"(tmp_tbl);
         auto insert_s = db.prepare(add_tc_sql);
         foreach (tc; tcs) {
-            insert_s.bind(":name", tc.name);
-            insert_s.execute;
-            insert_s.reset;
+            insert_s.get.bind(":name", tc.name);
+            insert_s.get.execute;
+            insert_s.get.reset;
         }
 
         // https://stackoverflow.com/questions/2686254/how-to-select-all-records-from-one-table-that-do-not-exist-in-another-table
@@ -1192,7 +1195,7 @@ struct Database {
 
         auto rval = appender!(TestCase[])();
         auto stmt = db.prepare(sql);
-        foreach (a; stmt.execute)
+        foreach (a; stmt.get.execute)
             rval.put(TestCase(a.peek!string(0)));
 
         return rval.data;
@@ -1213,7 +1216,7 @@ struct Database {
 
         auto rval = appender!(TestCaseId[])();
         auto stmt = db.prepare(sql);
-        foreach (a; stmt.execute)
+        foreach (a; stmt.get.execute)
             rval.put(TestCaseId(a.peek!long(0)));
 
         return rval.data;
@@ -1223,8 +1226,8 @@ struct Database {
     string getTestCaseName(const TestCaseId id) @trusted {
         enum sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":id", cast(long) id);
-        auto res = stmt.execute;
+        stmt.get.bind(":id", cast(long) id);
+        auto res = stmt.get.execute;
         return res.oneValue!string;
     }
 
@@ -1241,10 +1244,10 @@ struct Database {
                 killedTestCaseTable, mutationStatusTable, mutationTable,
                 kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
-        stmt.bind(":name", tc.name);
+        stmt.get.bind(":name", tc.name);
 
         typeof(return) rval;
-        foreach (a; stmt.execute)
+        foreach (a; stmt.get.execute)
             rval = TestCaseInfo(a.peek!long(0).dur!"msecs", a.peek!long(1));
         return rval;
     }
@@ -1262,10 +1265,10 @@ struct Database {
             t3.kind IN (%(%s,%))", allTestCaseTable, killedTestCaseTable,
                 mutationStatusTable, mutationTable, filesTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
-        stmt.bind(":file_id", cast(long) file);
+        stmt.get.bind(":file_id", cast(long) file);
 
         MutationId[][string] data;
-        foreach (row; stmt.execute) {
+        foreach (row; stmt.get.execute) {
             const name = row.peek!string(0);
             if (auto v = name in data) {
                 *v ~= MutationId(row.peek!long(1));
@@ -1283,10 +1286,10 @@ struct Database {
     Nullable!TestCase getTestCase(const TestCaseId id) @trusted {
         enum sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":id", cast(long) id);
+        stmt.get.bind(":id", cast(long) id);
 
         typeof(return) rval;
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             rval = TestCase(res.peek!string(0));
         }
         return rval;
@@ -1296,10 +1299,10 @@ struct Database {
     Nullable!TestCaseId getTestCaseId(const TestCase tc) @trusted {
         enum sql = format!"SELECT id FROM %s WHERE name = :name"(allTestCaseTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":name", tc.name);
+        stmt.get.bind(":name", tc.name);
 
         typeof(return) rval;
-        foreach (res; stmt.execute) {
+        foreach (res; stmt.get.execute) {
             rval = TestCaseId(res.peek!long(0));
         }
         return rval;
@@ -1320,8 +1323,8 @@ struct Database {
 
         auto rval = appender!(MutationId[])();
         auto stmt = db.prepare(sql);
-        stmt.bind(":tid", cast(long) id);
-        foreach (a; stmt.execute)
+        stmt.get.bind(":tid", cast(long) id);
+        foreach (a; stmt.get.execute)
             rval.put(MutationId(a.peek!long(0)));
 
         return rval.data;
@@ -1339,8 +1342,8 @@ struct Database {
             t2.tc_id = t1.id"(allTestCaseTable,
                     killedTestCaseTable, mutationTable);
         auto stmt = db.prepare(get_test_cases_sql);
-        stmt.bind(":id", cast(long) id);
-        foreach (a; stmt.execute)
+        stmt.get.bind(":id", cast(long) id);
+        foreach (a; stmt.get.execute)
             rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
 
         return rval.data;
@@ -1364,8 +1367,8 @@ struct Database {
         long mp_id;
         {
             auto stmt = db.prepare(format!"SELECT mp_id FROM %s WHERE id=:id"(mutationTable));
-            stmt.bind(":id", cast(long) id);
-            auto res = stmt.execute;
+            stmt.get.bind(":id", cast(long) id);
+            auto res = stmt.get.execute;
             if (res.empty)
                 return null;
             mp_id = res.oneValue!long;
@@ -1375,8 +1378,8 @@ struct Database {
         long[] mut_st_ids;
         {
             auto stmt = db.prepare(format!"SELECT st_id FROM %s WHERE mp_id=:id"(mutationTable));
-            stmt.bind(":id", mp_id);
-            auto res = stmt.execute;
+            stmt.get.bind(":id", mp_id);
+            auto res = stmt.get.execute;
             if (res.empty)
                 return null;
             mut_st_ids = res.map!(a => a.peek!long(0)).array;
@@ -1386,7 +1389,7 @@ struct Database {
         immutable get_test_cases_sql = format!"SELECT t2.name,t1.location FROM %s t1,%s t2 WHERE t1.tc_id == t2.id AND t0.st_id IN (%(%s,%))"(
                 killedTestCaseTable, allTestCaseTable, mut_st_ids);
         auto stmt = db.prepare(get_test_cases_sql);
-        foreach (a; stmt.execute) {
+        foreach (a; stmt.get.execute) {
             rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
         }
 
@@ -1400,15 +1403,15 @@ struct Database {
         auto stmt = db.prepare(sql);
 
         auto del_stmt = db.prepare(format!"DELETE FROM %s WHERE id=:id"(allTestCaseTable));
-        foreach (row; stmt.execute) {
+        foreach (row; stmt.get.execute) {
             string tc = row.peek!string(1);
             if (tc.matchFirst(rex).empty)
                 continue;
 
             long id = row.peek!long(0);
-            del_stmt.reset;
-            del_stmt.bind(":id", id);
-            del_stmt.execute;
+            del_stmt.get.bind(":id", id);
+            del_stmt.get.execute;
+            del_stmt.get.reset;
         }
     }
 
@@ -1427,8 +1430,8 @@ struct Database {
     void putMutantInTimeoutWorklist(const MutationStatusId id) @trusted {
         const sql = format!"INSERT OR IGNORE INTO %s (id) VALUES (:id)"(mutantTimeoutWorklistTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":id", cast(long) id);
-        stmt.execute;
+        stmt.get.bind(":id", cast(long) id);
+        stmt.get.execute;
     }
 
     /** Remove all mutants that are in the worklist that do NOT have the
@@ -1440,8 +1443,8 @@ struct Database {
             id IN (SELECT id FROM %2$s WHERE status != :status)"(
                 mutantTimeoutWorklistTable, mutationStatusTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":status", cast(ubyte) Mutation.Status.timeout);
-        stmt.execute;
+        stmt.get.bind(":status", cast(ubyte) Mutation.Status.timeout);
+        stmt.get.execute;
     }
 
     /// Remove all mutants from the worklist.
@@ -1454,7 +1457,7 @@ struct Database {
     long countMutantTimeoutWorklist() @trusted {
         immutable sql = format!"SELECT count(*) FROM %1$s"(mutantTimeoutWorklistTable);
         auto stmt = db.prepare(sql);
-        auto res = stmt.execute();
+        auto res = stmt.get.execute();
         return res.oneValue!long;
     }
 
@@ -1463,8 +1466,8 @@ struct Database {
         immutable sql = format!"UPDATE %1$s SET status=:st WHERE id IN (SELECT id FROM %2$s)"(
                 mutationStatusTable, mutantTimeoutWorklistTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":st", cast(ubyte) Mutation.Status.unknown);
-        stmt.execute;
+        stmt.get.bind(":st", cast(ubyte) Mutation.Status.unknown);
+        stmt.get.execute;
     }
 
     /** Update the content of metadata tables with what has been added to the

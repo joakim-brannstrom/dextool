@@ -47,6 +47,7 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
         if (fp !is null)
             runFilesReporter(db, fp, kind);
     } catch (Exception e) {
+        debug logger.trace(e).collectException;
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }

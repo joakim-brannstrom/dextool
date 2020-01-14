@@ -56,6 +56,15 @@ struct Miniorm {
         return Transaction(db);
     }
 
+    RefCntStatement prepare(string sql) {
+        if (auto v = sql in cachedStmt) {
+            return RefCntStatement(*v);
+        }
+        auto r = db.prepare(sql);
+        cachedStmt[sql] = r;
+        return RefCntStatement(cachedStmt[sql]);
+    }
+
     /// Toggle logging.
     void log(bool v) nothrow {
         this.log_ = v;
@@ -184,9 +193,9 @@ struct Miniorm {
                 if (!replace && v.isPrimaryKey)
                     continue;
                 if (v.columnType == "DATETIME")
-                    s ~= "stmt.bind(n+1, v." ~ v.identifier ~ ".toUTC.toSqliteDateTime);";
+                    s ~= "stmt.get.bind(n+1, v." ~ v.identifier ~ ".toUTC.toSqliteDateTime);";
                 else
-                    s ~= "stmt.bind(n+1, v." ~ v.identifier ~ ");";
+                    s ~= "stmt.get.bind(n+1, v." ~ v.identifier ~ ");";
                 s ~= "++n;";
             }
             return s;
@@ -203,16 +212,7 @@ struct Miniorm {
 
         const sql = q.toSql.toString;
 
-        auto stmt = () {
-            if (auto v = sql in cachedStmt) {
-                (*v).reset;
-                return *v;
-            } else {
-                auto r = db.prepare(sql);
-                cachedStmt[sql] = r;
-                return r;
-            }
-        }();
+        auto stmt = prepare(sql);
 
         static if (all == AggregateInsert.yes) {
             int n;
@@ -225,8 +225,8 @@ struct Miniorm {
             }
             if (isLog)
                 logger.trace(sql, " -> ", rng);
-            stmt.execute();
-            stmt.reset();
+            stmt.get.execute();
+            stmt.get.reset();
         } else {
             foreach (v; rng) {
                 int n;
@@ -237,8 +237,8 @@ struct Miniorm {
                 }
                 if (isLog)
                     logger.trace(sql, " -> ", v);
-                stmt.execute();
-                stmt.reset();
+                stmt.get.execute();
+                stmt.get.reset();
             }
         }
     }
@@ -517,7 +517,6 @@ struct Transaction {
     enum State {
         none,
         rollback,
-        commit,
         done,
     }
 
@@ -543,6 +542,49 @@ struct Transaction {
 
     void commit() {
         db.commit;
-        st = State.commit;
+        st = State.done;
+    }
+
+    void rollback() {
+        scope (exit)
+            st = State.done;
+        if (st == State.rollback) {
+            db.rollback;
+        }
+    }
+}
+
+struct RefCntStatement {
+    import std.exception : collectException;
+    import std.typecons : RefCounted, RefCountedAutoInitialize, refCounted;
+
+    static struct Payload {
+        Statement* stmt;
+
+        this(Statement* stmt) {
+            this.stmt = stmt;
+        }
+
+        ~this() nothrow {
+            if (stmt is null)
+                return;
+
+            try {
+                (*stmt).clearBindings;
+                (*stmt).reset;
+            } catch (Exception e) {
+            }
+            stmt = null;
+        }
+    }
+
+    RefCounted!(Payload, RefCountedAutoInitialize.no) rc;
+
+    this(ref Statement stmt) @trusted {
+        rc = Payload(&stmt);
+    }
+
+    ref Statement get() {
+        return *rc.refCountedPayload.stmt;
     }
 }
