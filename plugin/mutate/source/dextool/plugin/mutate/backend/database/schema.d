@@ -857,6 +857,9 @@ void upgradeV13(ref Miniorm db) {
 /// 2020-01-12
 void upgradeV14(ref Miniorm db) {
     db.run(format!"DROP VIEW %s"(srcMetadataTable));
+    db.run(format!"DROP VIEW %s"(nomutTable));
+    db.run(format!"DROP VIEW %s"(nomutDataTable));
+
     db.run(buildSchema!(SrcMetadataTable, NomutTbl, NomutDataTbl));
     logger.info("Re-execute analyze to update the NOMUT data");
     updateSchemaVersion(db, 15);
