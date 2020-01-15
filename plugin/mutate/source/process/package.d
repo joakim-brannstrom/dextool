@@ -667,10 +667,13 @@ struct DrainRange {
         Process p;
         DrainElement front_;
         State st;
+        ubyte[] buf;
+        ubyte[] bufRead;
     }
 
-    this(Process p) @safe pure nothrow @nogc {
+    this(Process p) @safe pure nothrow {
         this.p = p;
+        this.buf = new ubyte[4096];
     }
 
     DrainElement front() @safe pure nothrow const @nogc {
@@ -687,14 +690,16 @@ struct DrainRange {
 
         void readData() @safe {
             if (p.stderr.hasData && p.stderr.hasPendingData) {
-                front_ = DrainElement(DrainElement.Type.stderr, p.stderr.read(4096));
+                front_ = DrainElement(DrainElement.Type.stderr);
+                bufRead = p.stderr.read(buf);
             } else if (p.pipe.hasData && p.pipe.hasPendingData) {
-                front_ = DrainElement(DrainElement.Type.stdout, p.pipe.read(4096));
+                front_ = DrainElement(DrainElement.Type.stdout);
+                bufRead = p.pipe.read(buf);
             }
         }
 
         void waitUntilData() @safe {
-            while (front_.data.empty && isAnyPipeOpen) {
+            while (bufRead.empty && isAnyPipeOpen) {
                 import core.thread : Thread;
                 import core.time : dur;
 
@@ -703,9 +708,11 @@ struct DrainRange {
                     () @trusted { Thread.sleep(20.dur!"msecs"); }();
                 }
             }
+            front_.data = bufRead.dup;
         }
 
         front_ = DrainElement.init;
+        bufRead = null;
 
         final switch (st) {
         case State.start:
@@ -747,7 +754,7 @@ struct DrainRange {
 }
 
 /// Drain a process pipe until empty.
-DrainRange drain(Process p) @safe pure nothrow @nogc {
+DrainRange drain(Process p) @safe pure nothrow {
     return DrainRange(p);
 }
 
@@ -760,7 +767,7 @@ struct DrainByLineCopyRange {
         const(char)[] line;
     }
 
-    this(Process p) @safe pure nothrow @nogc {
+    this(Process p) @safe pure nothrow {
         process = p;
         range = p.drain;
     }
