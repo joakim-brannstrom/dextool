@@ -295,15 +295,25 @@ struct UnifiedDiffParser {
         }
 
         void multiLineHunkAct() {
-            data.startPos = hunk_start_multiline["line"].to!uint;
-            data.maxCount = hunk_start_multiline["count"].to!uint;
-            data.count = 0;
+            try {
+                data.startPos = hunk_start_multiline["line"].to!uint;
+                data.maxCount = hunk_start_multiline["count"].to!uint;
+                data.count = 0;
+            } catch (Exception e) {
+                logger.info(e.msg);
+                logger.info("Unable to parse diff line: ", line);
+            }
         }
 
         void lineHunkAct() {
-            data.startPos = hunk_start_multiline["line"].to!uint;
-            data.maxCount = 1;
-            data.count = 0;
+            try {
+                data.startPos = hunk_start_multiline["line"].to!uint;
+                data.maxCount = 1;
+                data.count = 0;
+            } catch (Exception e) {
+                logger.info(e.msg);
+                logger.info("Unable to parse diff line: ", line);
+            }
         }
 
         void plusLineAct() {
