@@ -47,14 +47,22 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
     import std.algorithm : filter, map;
     import dextool.plugin.mutate.backend.diff_parser : diffFromStdin, Diff;
 
+    auto fileFilter = () {
+        try {
+            return FileFilter(fio.getOutputDir, conf_analyze.unifiedDiffFromStdin,
+                    conf_analyze.unifiedDiffFromStdin ? diffFromStdin : Diff.init);
+        } catch (Exception e) {
+            logger.warning("Unable to parse diff");
+            logger.info(e.msg);
+        }
+        return FileFilter.init;
+    }();
+
     auto pool = () {
         if (conf_analyze.poolSize == 0)
             return new TaskPool();
         return new TaskPool(conf_analyze.poolSize);
     }();
-
-    auto fileFilter = FileFilter(fio.getOutputDir, conf_analyze.unifiedDiffFromStdin,
-            conf_analyze.unifiedDiffFromStdin ? diffFromStdin : Diff.init);
 
     // will only be used by one thread at a time.
     auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup);
