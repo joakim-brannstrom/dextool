@@ -118,7 +118,7 @@ auto runTester(ShellCommand compile_p, ref TestRunner runner) nothrow {
     }
 
     try {
-        auto p = pipeProcess(compile_p.value).sandbox.drainToNull.raii;
+        auto p = pipeProcess(compile_p.value).sandbox.drainToNull.scopeKill;
         if (p.wait != 0) {
             return Rval(Mutation.Status.killedByCompiler);
         }
@@ -1021,7 +1021,8 @@ nothrow:
         logger.info("Checking the build command").collectException;
         try {
             auto output = appender!(DrainElement[])();
-            auto p = pipeProcess(global.data.conf.mutationCompile.value).sandbox.drain(output).raii;
+            auto p = pipeProcess(global.data.conf.mutationCompile.value).sandbox.drain(output)
+                .scopeKill;
             if (p.wait == 0) {
                 logger.info("Ok".color(Color.green));
                 return;
@@ -1344,8 +1345,9 @@ bool externalProgram(ShellCommand cmd, DrainElement[] output,
     try {
         cleanup.add(tmpdir.Path.AbsolutePath);
         cmd = writeOutput(cmd);
-        auto p = pipeProcess(cmd.value).sandbox.raii;
-        foreach (l; p.drainByLineCopy
+        auto p = pipeProcess(cmd.value).sandbox.scopeKill;
+        foreach (l; p.process
+                .drainByLineCopy
                 .map!(a => a.strip)
                 .filter!(a => !a.empty)) {
             if (l.startsWith(passed))
@@ -1424,7 +1426,6 @@ bool builtin(DrainElement[] output,
         } catch (Exception e) {
             logger.warning("A error encountered when trying to analyze the output from the test suite. Dumping the rest of the buffer")
                 .collectException;
-
             logger.warning(e.msg).collectException;
             buf = null;
         }
