@@ -7,7 +7,7 @@ to detect artificially injected faults.
 ## Features
 
 * 💉 Supports conventional mutation operators: [AOR, ROR, DCC, DCR, LCR, COR, SDL](https://github.com/joakim-brannstrom/dextool/blob/master/plugin/mutate/doc/design/mutations.md).
-* 📈 Provides multiple report formats (Markdown, Compiler warnings, JSON, HTML).
+* 📈 Provides multiple [report](#report) formats (Markdown, Compiler warnings, JSON, HTML).
 * 💪 Detects "useless" test cases that do not kill any mutants.
 * 💪 Detects "redundant" test cases that kill the same mutants.
 * 💪 Detects "redundant" test cases that do not uniquely kill any mutants.
@@ -253,7 +253,7 @@ locked. That is as it should be. As noted earlier in this guide it scales OK to
 five instances. This is the source of the scaling problem. The more instances
 the more lock contention for the database.
 
-## Results
+## Report <a name="report"></a>
 To see the result of the mutation testing and thus specifically those that
 survived it is recommended to user the preconfigured `--level alive` parameter.
 It prints a summary and the mutants that survived.
