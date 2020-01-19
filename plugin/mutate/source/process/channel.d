@@ -64,7 +64,7 @@ interface ReadChannel {
     ubyte[] read(ref ubyte[] buf) @safe;
 
     /// Destroy the channel.
-    void destroy() @safe;
+    void dispose() @safe;
 }
 
 interface WriteChannel {
@@ -78,7 +78,7 @@ interface WriteChannel {
     void flush() @safe;
 
     /// Destroy the channel.
-    void destroy() @safe;
+    void dispose() @safe;
 
     /// Close the write channel.
     void closeWrite() @safe;
@@ -86,7 +86,7 @@ interface WriteChannel {
 
 interface Channel : ReadChannel, WriteChannel {
     /// Destroy the channel.
-    void destroy() @safe;
+    void dispose() @safe;
 }
 
 /** Holds stdin/stdout/stderr channels open.
@@ -106,10 +106,13 @@ class Stdio : Channel {
         outputError = new FileWriteChannel(stderr);
     }
 
-    override void destroy() @safe {
-        input.destroy;
-        output.destroy;
-        outputError.destroy;
+    override void dispose() @safe {
+        input.dispose;
+        input = null;
+        output.dispose;
+        output = null;
+        outputError.dispose;
+        outputError = null;
     }
 
     override bool hasData() @safe {
@@ -158,9 +161,11 @@ class Pipe : Channel {
         this.output = new FileWriteChannel(output);
     }
 
-    override void destroy() @trusted {
-        input.destroy;
-        output.destroy;
+    override void dispose() @trusted {
+        input.dispose;
+        input = null;
+        output.dispose;
+        output = null;
     }
 
     override bool hasData() @safe {
@@ -206,8 +211,9 @@ class FileReadChannel : ReadChannel {
         this.in_ = in_;
     }
 
-    override void destroy() @safe {
+    override void dispose() @safe {
         in_.detach;
+        .destroy(in_);
     }
 
     override bool hasData() @safe {
@@ -272,8 +278,9 @@ class FileWriteChannel : WriteChannel {
         out_ = out__;
     }
 
-    override void destroy() @safe {
+    override void dispose() @safe {
         out_.detach;
+        .destroy(out_);
     }
 
     /** Write data to the output channel.

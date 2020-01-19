@@ -189,6 +189,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                 app.put(mp);
             }
             foreach (f; result.idFile.byKey.filter!(a => a !in isSaved)) {
+                logger.info("Saving ", f);
                 const info = result.infoId[result.idFile[f]];
                 db.put(fio.toRelativeRoot(f), info.checksum, info.language);
                 isSaved.add(f);
@@ -246,17 +247,24 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         auto preFileState = Files(*db);
 
         // TODO: only remove those files that are modified.
+        logger.info("Preparing for updating the mutants");
         db.removeAllFiles;
+        logger.info("Removing metadata");
         db.clearMetadata;
 
+        logger.info("Updating files");
         recv();
 
         // TODO: print what files has been updated.
+        logger.info("Resetting timeout context");
         resetTimeoutContext(*db);
+        logger.info("Removing orphant mutants");
         db.removeOrphanedMutants;
+        logger.info("Updating metadata");
         db.updateMetadata;
         printLostMarkings(db.getLostMarkings);
 
+        logger.info("Committing changes");
         trans.commit;
 
         printFilesPostState(preFileState, Files(*db));

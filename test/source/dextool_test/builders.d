@@ -195,13 +195,13 @@ struct BuildDextoolRun {
 
         auto sw = StopWatch(AutoStart.yes);
         try {
-            auto p = pipeProcess(cmd).sandbox.raii;
+            auto p = pipeProcess(cmd).sandbox.scopeKill;
             if (!stdin_data.empty) {
                 p.pipe.write(cast(const(ubyte)[]) stdin_data);
                 p.pipe.closeWrite;
             }
 
-            foreach (e; p.drainByLineCopy) {
+            foreach (e; p.process.drainByLineCopy) {
                 log.writeln(e);
                 log.flush;
                 output.put(e);
@@ -359,13 +359,13 @@ struct BuildCommandRun {
 
         auto sw = StopWatch(AutoStart.yes);
         try {
-            auto p = pipeProcess(cmd).sandbox.raii;
+            auto p = pipeProcess(cmd).sandbox.scopeKill;
             if (!stdin_data.empty) {
                 p.pipe.write(cast(const(ubyte)[]) stdin_data);
                 p.pipe.closeWrite;
             }
 
-            foreach (e; p.drainByLineCopy) {
+            foreach (e; p.process.drainByLineCopy) {
                 log.writeln(e);
                 log.flush;
                 output.put(e);

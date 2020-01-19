@@ -180,16 +180,16 @@ string[] findExecutables(AbsolutePath root) @trusted {
     return app.data;
 }
 
-RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env) nothrow {
+RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env) @trusted nothrow {
     import std.algorithm : copy;
     static import std.process;
 
     RunResult rval;
 
     try {
-        auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).raii;
+        auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).scopeKill;
         auto output = appender!(DrainElement[])();
-        p.drain.copy(output);
+        p.process.drain.copy(output);
 
         if (p.timeoutTriggered) {
             rval.status = RunResult.Status.timeout;

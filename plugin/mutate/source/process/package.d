@@ -26,47 +26,64 @@ version (unittest) {
     import std.file : remove;
 }
 
-/// RAII handling of a process instance.
-auto raii(T)(T p) if (is(T : Process)) {
-    return Raii!T(p);
+/// Automatically terminate the process when it goes out of scope.
+auto scopeKill(T)(T p) {
+    return ScopeKill!T(p);
 }
 
-struct Raii(T) {
+struct ScopeKill(T) {
     T process;
     alias process this;
 
     ~this() {
-        process.destroy();
+        process.dispose();
     }
 }
 
-///
-interface Process {
+struct Process(T) {
+    T process;
+
     /// Access to stdin and stdout.
-    Channel pipe() nothrow @safe;
+    Channel pipe() nothrow @safe {
+        return process.pipe;
+    }
 
     /// Access stderr.
-    ReadChannel stderr() nothrow @safe;
+    ReadChannel stderr() nothrow @safe {
+        return process.stderr;
+    }
 
     /// Kill and cleanup the process.
-    void destroy() @safe;
+    void dispose() @safe {
+        process.dispose;
+    }
 
     /// Kill the process.
-    void kill() nothrow @safe;
+    void kill() nothrow @safe {
+        process.kill;
+    }
 
     /// Blocking wait for the process to terminated.
     /// Returns: the exit status.
-    int wait() @safe;
+    int wait() @safe {
+        return process.wait;
+    }
 
     /// Non-blocking wait for the process termination.
     /// Returns: `true` if the process has terminated.
-    bool tryWait() @safe;
+    bool tryWait() @safe {
+        return process.tryWait;
+    }
 
     /// Returns: The raw OS handle for the process ID.
-    RawPid osHandle() nothrow @safe;
+    RawPid osHandle() nothrow @safe {
+        return process.osHandle;
+    }
 
     /// Returns: The exit status of the process.
-    int status() @safe;
+    int status() @safe {
+        return process.status;
+    }
 
     /// Returns: If the process has terminated.
     bool terminated() nothrow @safe;
@@ -74,7 +91,7 @@ interface Process {
 
 /** Async process that do not block on read from stdin/stderr.
  */
-class PipeProcess : Process {
+struct PipeProcess {
     import std.algorithm : among;
 
     private {
@@ -97,39 +114,43 @@ class PipeProcess : Process {
         this.stderr_ = new FileReadChannel(this.process.stderr);
     }
 
-    override RawPid osHandle() nothrow @safe {
+    RawPid osHandle() nothrow @safe {
         return process.pid.osHandle.RawPid;
     }
 
-    override Channel pipe() nothrow @safe {
+    Channel pipe() nothrow @safe {
         return pipe_;
     }
 
-    override ReadChannel stderr() nothrow @safe {
+    ReadChannel stderr() nothrow @safe {
         return stderr_;
     }
 
-    override void destroy() @safe {
+    void dispose() @safe {
         final switch (st) {
         case State.running:
             this.kill;
             this.wait;
+            .destroy(process);
             break;
         case State.terminated:
             this.wait;
+            .destroy(process);
             break;
         case State.exitCode:
             break;
         }
 
-        pipe_.destroy;
-        stderr_.destroy;
-        this.kill;
-        this.wait;
-        process.destroy;
+        pipe_.dispose;
+        pipe_ = null;
+
+        stderr_.dispose;
+        stderr_ = null;
+
+        st = State.exitCode;
     }
 
-    override void kill() nothrow @trusted {
+    void kill() nothrow @trusted {
         import core.sys.posix.signal : SIGKILL;
 
         final switch (st) {
@@ -149,7 +170,7 @@ class PipeProcess : Process {
         st = State.terminated;
     }
 
-    override int wait() @safe {
+    int wait() @safe {
         final switch (st) {
         case State.running:
             status_ = std.process.wait(process.pid);
@@ -166,7 +187,7 @@ class PipeProcess : Process {
         return status_;
     }
 
-    override bool tryWait() @safe {
+    bool tryWait() @safe {
         final switch (st) {
         case State.running:
             auto s = std.process.tryWait(process.pid);
@@ -186,7 +207,7 @@ class PipeProcess : Process {
         return st.among(State.terminated, State.exitCode) != 0;
     }
 
-    override int status() @safe {
+    int status() @safe {
         if (st != State.exitCode) {
             throw new Exception(
                     "Process has not terminated and wait/tryWait been called to collect the exit status");
@@ -194,60 +215,59 @@ class PipeProcess : Process {
         return status_;
     }
 
-    override bool terminated() @safe {
+    bool terminated() @safe {
         return st.among(State.terminated, State.exitCode) != 0;
     }
 }
 
-Process pipeProcess(scope const(char[])[] args,
+PipeProcess pipeProcess(scope const(char[])[] args,
         std.process.Redirect redirect = std.process.Redirect.all,
         const string[string] env = null, std.process.Config config = std.process.Config.none,
         scope const(char)[] workDir = null) @safe {
-    return new PipeProcess(std.process.pipeProcess(args, redirect, env, config, workDir));
+    return PipeProcess(std.process.pipeProcess(args, redirect, env, config, workDir));
 }
 
-Process pipeShell(scope const(char)[] command,
+PipeProcess pipeShell(scope const(char)[] command,
         std.process.Redirect redirect = std.process.Redirect.all,
         const string[string] env = null, std.process.Config config = std.process.Config.none,
         scope const(char)[] workDir = null, string shellPath = std.process.nativeShell) @safe {
-    return new PipeProcess(std.process.pipeShell(command, redirect, env,
-            config, workDir, shellPath));
+    return PipeProcess(std.process.pipeShell(command, redirect, env, config, workDir, shellPath));
 }
 
 /** Moves the process to a separate process group and on exit kill it and all
  * its children.
  */
-class Sandbox : Process {
+struct Sandbox(ProcessT) {
     private {
-        Process p;
+        ProcessT p;
     }
 
-    this(Process p) @safe nothrow {
+    this(ProcessT p) @safe {
         import core.sys.posix.unistd : setpgid;
 
         this.p = p;
         setpgid(p.osHandle, 0);
     }
 
-    override RawPid osHandle() nothrow @safe {
+    RawPid osHandle() nothrow @safe {
         return p.osHandle;
     }
 
-    override Channel pipe() nothrow @safe {
+    Channel pipe() nothrow @safe {
         return p.pipe;
     }
 
-    override ReadChannel stderr() nothrow @safe {
+    ReadChannel stderr() nothrow @safe {
         return p.stderr;
     }
 
-    override void destroy() @safe {
+    void dispose() @safe {
         // this also reaps the children thus cleaning up zombies
         this.kill;
-        p.destroy;
+        p.dispose;
     }
 
-    override void kill() nothrow @safe {
+    void kill() nothrow @safe {
         static import core.sys.posix.signal;
         import core.sys.posix.sys.wait : waitpid, WNOHANG;
 
@@ -287,25 +307,25 @@ class Sandbox : Process {
         }
     }
 
-    override int wait() @safe {
+    int wait() @safe {
         return p.wait;
     }
 
-    override bool tryWait() @safe {
+    bool tryWait() @safe {
         return p.tryWait;
     }
 
-    override int status() @safe {
+    int status() @safe {
         return p.status;
     }
 
-    override bool terminated() @safe {
+    bool terminated() @safe {
         return p.terminated;
     }
 }
 
-Sandbox sandbox(Process p) @safe {
-    return new Sandbox(p);
+auto sandbox(T)(T p) @safe {
+    return Sandbox!T(p);
 }
 
 @("shall terminate a group of processes")
@@ -321,7 +341,7 @@ sleep 10m
     scope (exit)
         remove(scriptName);
 
-    auto p = pipeProcess([scriptName]).sandbox.raii;
+    auto p = pipeProcess([scriptName]).sandbox.scopeKill;
     for (int i = 0; getDeepChildren(p.osHandle).count < 3; ++i) {
         Thread.sleep(50.dur!"msecs");
     }
@@ -336,13 +356,13 @@ sleep 10m
     postChildren.shouldEqual(0);
 }
 
-/** Terminate the process after the timeout. The timeout is checked in the
- * wait/tryWait methods.
+/** dispose the process after the timeout.
  */
-class Timeout : Process {
+struct Timeout(ProcessT) {
     import std.algorithm : among;
     import std.datetime : Clock, Duration;
-    import std.concurrency;
+    import core.thread;
+    import std.typecons : RefCounted, refCounted;
 
     private {
         enum Msg {
@@ -358,28 +378,78 @@ class Timeout : Process {
             killedByTimeout,
         }
 
-        Process p;
-        shared KillProcess kp;
-        Tid background;
-        Reply backgroundReply;
+        static struct Payload {
+            ProcessT p;
+            Background background;
+            Reply backgroundReply;
+        }
+
+        RefCounted!Payload rc;
     }
 
-    this(Process p, Duration timeout) @trusted {
-        this.p = p;
-        this.kp = cast(shared) new KillProcess(p);
-        background = spawn(&checkProcess, p.osHandle, timeout, kp);
+    this(ProcessT p, Duration timeout) @trusted {
+        import std.algorithm : move;
+
+        rc = refCounted(Payload(move(p)));
+        rc.background = new Background(&rc.p, timeout);
+        rc.background.isDaemon = true;
+        rc.background.start;
     }
 
-    private static class KillProcess {
+    private static class Background : Thread {
+        import core.sync.condition : Condition;
         import core.sync.mutex : Mutex;
 
-        private {
-            Process p;
-            Mutex mtx;
-        }
-        this(Process p) {
+        Duration timeout;
+        ProcessT* p;
+        Mutex mtx;
+        Msg[] msg;
+        Reply reply_;
+
+        this(ProcessT* p, Duration timeout) {
             this.p = p;
+            this.timeout = timeout;
             this.mtx = new Mutex();
+
+            super(&run);
+        }
+
+        void run() {
+            checkProcess(p.osHandle, this.timeout, this);
+        }
+
+        void put(Msg msg) @trusted {
+            this.mtx.lock_nothrow();
+            scope (exit)
+                this.mtx.unlock_nothrow();
+            this.msg ~= msg;
+        }
+
+        Msg popMsg() @trusted nothrow {
+            this.mtx.lock_nothrow();
+            scope (exit)
+                this.mtx.unlock_nothrow();
+            if (msg.empty)
+                return Msg.none;
+            auto rval = msg[$ - 1];
+            msg = msg[0 .. $ - 1];
+            return rval;
+        }
+
+        void setReply(Reply reply_) @trusted {
+            {
+                this.mtx.lock_nothrow();
+                scope (exit)
+                    this.mtx.unlock_nothrow();
+                this.reply_ = reply_;
+            }
+        }
+
+        Reply reply() @trusted nothrow {
+            this.mtx.lock_nothrow();
+            scope (exit)
+                this.mtx.unlock_nothrow();
+            return reply_;
         }
 
         void kill() @trusted nothrow {
@@ -390,9 +460,9 @@ class Timeout : Process {
         }
     }
 
-    private static void checkProcess(RawPid p, Duration timeout, shared KillProcess kp) {
+    private static void checkProcess(RawPid p, Duration timeout, Background bg) {
         import core.sys.posix.signal : SIGKILL;
-        import std.algorithm : max;
+        import std.algorithm : max, min;
         import std.variant : Variant;
         static import core.sys.posix.signal;
 
@@ -400,100 +470,108 @@ class Timeout : Process {
         // the purpose is to poll the process often "enough" that if it
         // terminates early `Process` detects it fast enough. 1000 is chosen
         // because it "feels good". the purpose
-        auto sleepInterval = max(20, timeout.total!"msecs" / 1000).dur!"msecs";
+        auto sleepInterval = min(500, max(20, timeout.total!"msecs" / 1000)).dur!"msecs";
 
         bool forceStop;
-        Msg msg;
-        while (!forceStop && Clock.currTime < stopAt) {
-            msg = Msg.none;
-            const hasMsg = receiveTimeout(sleepInterval, (Msg x) { msg = x; }, (Variant x) {
-            },);
+        bool running = true;
+        while (running && Clock.currTime < stopAt) {
+            const msg = bg.popMsg;
 
             final switch (msg) {
             case Msg.none:
+                Thread.sleep(sleepInterval);
                 break;
             case Msg.stop:
                 forceStop = true;
+                running = false;
                 break;
             case Msg.status:
-                send(ownerTid, Reply.running);
+                bg.setReply(Reply.running);
                 break;
             }
 
-            if (!hasMsg && (core.sys.posix.signal.kill(p, 0) == -1)) {
-                break;
+            if (core.sys.posix.signal.kill(p, 0) == -1) {
+                running = false;
             }
         }
 
         if (!forceStop && Clock.currTime >= stopAt) {
-            (cast() kp).kill;
-            send(ownerTid, Reply.killedByTimeout);
+            bg.kill;
+            bg.setReply(Reply.killedByTimeout);
         } else {
-            send(ownerTid, Reply.normalDeath);
+            bg.setReply(Reply.normalDeath);
         }
     }
 
-    override RawPid osHandle() nothrow @safe {
-        return p.osHandle;
+    RawPid osHandle() nothrow @trusted {
+        return rc.p.osHandle;
     }
 
-    override Channel pipe() nothrow @safe {
-        return p.pipe;
+    Channel pipe() nothrow @trusted {
+        return rc.p.pipe;
     }
 
-    override ReadChannel stderr() nothrow @safe {
-        return p.stderr;
+    ReadChannel stderr() nothrow @trusted {
+        return rc.p.stderr;
     }
 
-    override void destroy() @trusted {
-        if (backgroundReply.among(Reply.none, Reply.running)) {
-            send(background, Msg.stop);
-            backgroundReply = receiveOnly!Reply;
+    void dispose() @trusted {
+        if (rc.backgroundReply.among(Reply.none, Reply.running)) {
+            rc.background.put(Msg.stop);
+            rc.background.join;
+            rc.backgroundReply = rc.background.reply;
         }
-        p.destroy;
+        rc.p.dispose;
     }
 
-    override void kill() nothrow @trusted {
-        (cast() kp).kill;
+    void kill() nothrow @trusted {
+        rc.background.kill;
     }
 
-    override int wait() @trusted {
+    int wait() @trusted {
         while (!this.tryWait) {
             Thread.sleep(20.dur!"msecs");
         }
-        return p.wait;
+        return rc.p.wait;
     }
 
-    override bool tryWait() @safe {
-        return p.tryWait;
+    bool tryWait() @trusted {
+        return rc.p.tryWait;
     }
 
-    override int status() @safe {
-        return p.status;
+    int status() @trusted {
+        return rc.p.status;
     }
 
-    override bool terminated() @safe {
-        return p.terminated;
+    bool terminated() @trusted {
+        return rc.p.terminated;
     }
 
     bool timeoutTriggered() @trusted {
-        if (backgroundReply.among(Reply.none, Reply.running)) {
-            send(background, Msg.status);
-            backgroundReply = receiveOnly!Reply;
+        if (rc.backgroundReply.among(Reply.none, Reply.running)) {
+            rc.background.put(Msg.status);
+            rc.backgroundReply = rc.background.reply;
         }
-        return backgroundReply == Reply.killedByTimeout;
+        return rc.backgroundReply == Reply.killedByTimeout;
     }
 }
 
-Timeout timeout(Process p, Duration timeout) @safe {
-    return new Timeout(p, timeout);
+auto timeout(T)(T p, Duration timeout_) @trusted {
+    return Timeout!T(p, timeout_);
+}
+
+/// Returns when the process has pending data.
+void waitForPendingData(ProcessT)(Process p) {
+    while (!p.pipe.hasPendingData || !p.stderr.hasPendingData) {
+        Thread.sleep(20.dur!"msecs");
+    }
 }
 
 @("shall kill the process after the timeout")
 unittest {
     import std.datetime.stopwatch : StopWatch, AutoStart;
 
-    auto p = pipeProcess(["sleep", "1m"]).timeout(100.dur!"msecs").raii;
+    auto p = pipeProcess(["sleep", "1m"]).timeout(100.dur!"msecs").scopeKill;
     auto sw = StopWatch(AutoStart.yes);
     p.wait;
     sw.stop;
@@ -504,73 +582,6 @@ unittest {
     p.terminated.shouldBeTrue;
     p.status.shouldEqual(-9);
     p.timeoutTriggered.shouldBeTrue;
-}
-
-/** Measure the runtime of a process.
- */
-class MeasureTime : Process {
-    import std.datetime.stopwatch : StopWatch;
-
-    private {
-        Process p;
-        StopWatch sw;
-    }
-
-    this(Process p) @safe nothrow @nogc {
-        this.p = p;
-        sw.start;
-    }
-
-    override RawPid osHandle() nothrow @safe {
-        return p.osHandle;
-    }
-
-    override Channel pipe() nothrow @safe {
-        return p.pipe;
-    }
-
-    override ReadChannel stderr() nothrow @safe {
-        return p.stderr;
-    }
-
-    override void destroy() @safe {
-        p.destroy;
-    }
-
-    override void kill() nothrow @safe {
-        p.kill;
-    }
-
-    override int wait() @safe {
-        if (!terminated) {
-            p.wait;
-            sw.stop;
-        }
-        return p.status;
-    }
-
-    override bool tryWait() @safe {
-        if (!terminated && p.tryWait) {
-            sw.stop;
-        }
-        return p.terminated;
-    }
-
-    override int status() @safe {
-        return p.status;
-    }
-
-    override bool terminated() @safe {
-        return p.terminated;
-    }
-
-    Duration time() @safe nothrow const @nogc {
-        return sw.peek;
-    }
-}
-
-MeasureTime measureTime(Process p) @safe nothrow {
-    return new MeasureTime(p);
 }
 
 struct RawPid {
@@ -621,13 +632,6 @@ RawPid[] getDeepChildren(const int parentPid) {
     return res.data;
 }
 
-/// Returns when the process has pending data.
-void waitForPendingData(Process p) {
-    while (!p.pipe.hasPendingData || p.stderr.hasPendingData) {
-        Thread.sleep(20.dur!"msecs");
-    }
-}
-
 struct DrainElement {
     enum Type {
         stdout,
@@ -653,7 +657,7 @@ struct DrainElement {
  *
  * There may be `DrainElement` that are empty.
  */
-struct DrainRange {
+struct DrainRange(ProcessT) {
     enum State {
         start,
         draining,
@@ -664,14 +668,14 @@ struct DrainRange {
     }
 
     private {
-        Process p;
+        ProcessT p;
         DrainElement front_;
         State st;
         ubyte[] buf;
         ubyte[] bufRead;
     }
 
-    this(Process p) @safe pure nothrow {
+    this(ProcessT p) {
         this.p = p;
         this.buf = new ubyte[4096];
     }
@@ -754,20 +758,20 @@ struct DrainRange {
 }
 
 /// Drain a process pipe until empty.
-DrainRange drain(Process p) @safe pure nothrow {
-    return DrainRange(p);
+auto drain(T)(T p) {
+    return DrainRange!T(p);
 }
 
 /// Read the data from a ReadChannel by line.
-struct DrainByLineCopyRange {
+struct DrainByLineCopyRange(ProcessT) {
     private {
-        Process process;
-        DrainRange range;
+        ProcessT process;
+        DrainRange!ProcessT range;
         const(ubyte)[] buf;
         const(char)[] line;
     }
 
-    this(Process p) @safe pure nothrow {
+    this(ProcessT p) @safe {
         process = p;
         range = p.drain;
     }
@@ -835,8 +839,8 @@ unittest {
     import std.algorithm : filter, count, joiner, map;
     import std.array : array;
 
-    auto p = pipeProcess(["dd", "if=/dev/zero", "bs=10", "count=3"]).raii;
-    auto res = p.drainByLineCopy.filter!"!a.empty".array;
+    auto p = pipeProcess(["dd", "if=/dev/zero", "bs=10", "count=3"]).scopeKill;
+    auto res = p.process.drainByLineCopy.filter!"!a.empty".array;
 
     res.length.shouldEqual(4);
     res.joiner.count.shouldBeGreaterThan(30);
@@ -844,19 +848,19 @@ unittest {
     p.terminated.shouldBeTrue;
 }
 
-auto drainByLineCopy(Process p) @safe {
-    return DrainByLineCopyRange(p);
+auto drainByLineCopy(T)(T p) @safe {
+    return DrainByLineCopyRange!T(p);
 }
 
 /// Drain the process output until it is done executing.
-Process drainToNull(Process p) @safe {
+auto drainToNull(T)(T p) @safe {
     foreach (l; p.drain) {
     }
     return p;
 }
 
 /// Drain the output from the process into an output range.
-Process drain(T)(Process p, ref T range) {
+auto drain(ProcessT, T)(ProcessT p, ref T range) {
     foreach (l; p.drain) {
         range.put(l);
     }
@@ -865,8 +869,8 @@ Process drain(T)(Process p, ref T range) {
 
 @("shall drain the output of a process while it is running with a separation of stdout and stderr")
 unittest {
-    auto p = pipeProcess(["dd", "if=/dev/urandom", "bs=10", "count=3"]).raii;
-    auto res = p.drain.array;
+    auto p = pipeProcess(["dd", "if=/dev/urandom", "bs=10", "count=3"]).scopeKill;
+    auto res = p.process.drain.array;
 
     // this is just a sanity check. It has to be kind a high because there is
     // some wiggleroom allowed
@@ -890,12 +894,12 @@ sleep 10m
     scope (exit)
         remove(script);
 
-    auto p = pipeProcess([script]).sandbox.timeout(1.dur!"seconds").raii;
+    auto p = pipeProcess([script]).sandbox.timeout(1.dur!"seconds").scopeKill;
     for (int i = 0; getDeepChildren(p.osHandle).count < 1; ++i) {
         Thread.sleep(50.dur!"msecs");
     }
     const preChildren = getDeepChildren(p.osHandle).count;
-    const res = p.drain.array;
+    const res = p.process.drain.array;
     const postChildren = getDeepChildren(p.osHandle).count;
 
     p.wait.shouldEqual(-9);
