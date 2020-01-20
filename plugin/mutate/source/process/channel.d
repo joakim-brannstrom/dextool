@@ -12,26 +12,6 @@ module process.channel;
 import logger = std.experimental.logger;
 import std.stdio : stdin, stdout, File;
 
-class ChannelException : Exception {
-    ChannelStatus status;
-
-    this(ChannelStatus s) @safe pure nothrow @nogc {
-        super(null);
-        status = s;
-    }
-
-    string toString(ChannelStatus s) @safe pure nothrow const @nogc {
-        final switch (s) with (ChannelStatus) {
-        case ok:
-            return "ok";
-        }
-    }
-}
-
-enum ChannelStatus {
-    ok,
-}
-
 interface ReadChannel {
     alias OutRange = void delegate(const(ubyte)[] data);
 
