@@ -40,55 +40,6 @@ struct ScopeKill(T) {
     }
 }
 
-struct Process(T) {
-    T process;
-
-    /// Access to stdin and stdout.
-    Channel pipe() nothrow @safe {
-        return process.pipe;
-    }
-
-    /// Access stderr.
-    ReadChannel stderr() nothrow @safe {
-        return process.stderr;
-    }
-
-    /// Kill and cleanup the process.
-    void dispose() @safe {
-        process.dispose;
-    }
-
-    /// Kill the process.
-    void kill() nothrow @safe {
-        process.kill;
-    }
-
-    /// Blocking wait for the process to terminated.
-    /// Returns: the exit status.
-    int wait() @safe {
-        return process.wait;
-    }
-
-    /// Non-blocking wait for the process termination.
-    /// Returns: `true` if the process has terminated.
-    bool tryWait() @safe {
-        return process.tryWait;
-    }
-
-    /// Returns: The raw OS handle for the process ID.
-    RawPid osHandle() nothrow @safe {
-        return process.osHandle;
-    }
-
-    /// Returns: The exit status of the process.
-    int status() @safe {
-        return process.status;
-    }
-
-    /// Returns: If the process has terminated.
-    bool terminated() nothrow @safe;
-}
-
 /** Async process that do not block on read from stdin/stderr.
  */
 struct PipeProcess {
@@ -103,29 +54,33 @@ struct PipeProcess {
 
         std.process.ProcessPipes process;
         Pipe pipe_;
-        ReadChannel stderr_;
+        FileReadChannel stderr_;
         int status_;
         State st;
     }
 
     this(std.process.ProcessPipes process) @safe {
         this.process = process;
-        this.pipe_ = new Pipe(this.process.stdout, this.process.stdin);
-        this.stderr_ = new FileReadChannel(this.process.stderr);
+        this.pipe_ = Pipe(this.process.stdout, this.process.stdin);
+        this.stderr_ = FileReadChannel(this.process.stderr);
     }
 
+    /// Returns: The raw OS handle for the process ID.
     RawPid osHandle() nothrow @safe {
         return process.pid.osHandle.RawPid;
     }
 
-    Channel pipe() nothrow @safe {
+    /// Access to stdin and stdout.
+    ref Pipe pipe() return scope nothrow @safe {
         return pipe_;
     }
 
-    ReadChannel stderr() nothrow @safe {
+    /// Access stderr.
+    ref FileReadChannel stderr() return scope nothrow @safe {
         return stderr_;
     }
 
+    /// Kill and cleanup the process.
     void dispose() @safe {
         final switch (st) {
         case State.running:
@@ -141,15 +96,10 @@ struct PipeProcess {
             break;
         }
 
-        pipe_.dispose;
-        pipe_ = null;
-
-        stderr_.dispose;
-        stderr_ = null;
-
         st = State.exitCode;
     }
 
+    /// Kill the process.
     void kill() nothrow @trusted {
         import core.sys.posix.signal : SIGKILL;
 
@@ -170,6 +120,8 @@ struct PipeProcess {
         st = State.terminated;
     }
 
+    /// Blocking wait for the process to terminated.
+    /// Returns: the exit status.
     int wait() @safe {
         final switch (st) {
         case State.running:
@@ -187,6 +139,8 @@ struct PipeProcess {
         return status_;
     }
 
+    /// Non-blocking wait for the process termination.
+    /// Returns: `true` if the process has terminated.
     bool tryWait() @safe {
         final switch (st) {
         case State.running:
@@ -207,6 +161,7 @@ struct PipeProcess {
         return st.among(State.terminated, State.exitCode) != 0;
     }
 
+    /// Returns: The exit status of the process.
     int status() @safe {
         if (st != State.exitCode) {
             throw new Exception(
@@ -215,6 +170,7 @@ struct PipeProcess {
         return status_;
     }
 
+    /// Returns: If the process has terminated.
     bool terminated() @safe {
         return st.among(State.terminated, State.exitCode) != 0;
     }
@@ -253,11 +209,11 @@ struct Sandbox(ProcessT) {
         return p.osHandle;
     }
 
-    Channel pipe() nothrow @safe {
+    ref Pipe pipe() nothrow @safe {
         return p.pipe;
     }
 
-    ReadChannel stderr() nothrow @safe {
+    ref FileReadChannel stderr() nothrow @safe {
         return p.stderr;
     }
 
@@ -507,11 +463,11 @@ struct Timeout(ProcessT) {
         return rc.p.osHandle;
     }
 
-    Channel pipe() nothrow @trusted {
+    ref Pipe pipe() nothrow @trusted {
         return rc.p.pipe;
     }
 
-    ReadChannel stderr() nothrow @trusted {
+    ref FileReadChannel stderr() nothrow @trusted {
         return rc.p.stderr;
     }
 
