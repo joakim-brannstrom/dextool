@@ -155,7 +155,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
     FilesysIO fio = cast(FilesysIO) fioShared;
 
     // A file is at most saved one time to the database.
-    Set!Path isSaved;
+    Set!Path savedFiles;
 
     auto fileIdCache = new CacheLRU!(string, FileId);
     // `p` must be a path realtive to the root.
@@ -185,14 +185,15 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         {
             auto app = appender!(MutationPointEntry2[])();
             foreach (mp; result.mutationPoints // remove those that has been globally saved
-                .filter!(a => a.file !in isSaved)) {
+                .filter!(a => a.file !in savedFiles)) {
                 app.put(mp);
             }
-            foreach (f; result.idFile.byKey.filter!(a => a !in isSaved)) {
+            foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
                 logger.info("Saving ", f);
+                db.removeFile(fio.toRelativeRoot(f));
                 const info = result.infoId[result.idFile[f]];
                 db.put(fio.toRelativeRoot(f), info.checksum, info.language);
-                isSaved.add(f);
+                savedFiles.add(f);
             }
             db.put(app.data, fio.getOutputDir);
         }
@@ -205,7 +206,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                 const fid = getFileId(fio.toRelativeRoot(result.fileId[md.id]));
                 if (fid.isNull && !printed.contains(md.id)) {
                     printed.add(md.id);
-                    logger.warningf("File with suppressed mutants (// NOMUT) not in the DB: %s. Skipping...",
+                    logger.warningf("File with suppressed mutants (// NOMUT) not in the database: %s. Skipping...",
                             result.fileId[md.id]).collectException;
                     continue;
                 }
@@ -247,8 +248,6 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         auto preFileState = Files(*db);
 
         // TODO: only remove those files that are modified.
-        logger.info("Preparing for updating the mutants");
-        db.removeAllFiles;
         logger.info("Removing metadata");
         db.clearMetadata;
 
