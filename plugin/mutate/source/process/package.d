@@ -54,15 +54,15 @@ struct PipeProcess {
 
         std.process.ProcessPipes process;
         Pipe pipe_;
-        ReadChannel stderr_;
+        FileReadChannel stderr_;
         int status_;
         State st;
     }
 
     this(std.process.ProcessPipes process) @safe {
         this.process = process;
-        this.pipe_ = new Pipe(this.process.stdout, this.process.stdin);
-        this.stderr_ = new FileReadChannel(this.process.stderr);
+        this.pipe_ = Pipe(this.process.stdout, this.process.stdin);
+        this.stderr_ = FileReadChannel(this.process.stderr);
     }
 
     /// Returns: The raw OS handle for the process ID.
@@ -71,12 +71,12 @@ struct PipeProcess {
     }
 
     /// Access to stdin and stdout.
-    Channel pipe() nothrow @safe {
+    ref Pipe pipe() return scope nothrow @safe {
         return pipe_;
     }
 
     /// Access stderr.
-    ReadChannel stderr() nothrow @safe {
+    ref FileReadChannel stderr() return scope nothrow @safe {
         return stderr_;
     }
 
@@ -95,12 +95,6 @@ struct PipeProcess {
         case State.exitCode:
             break;
         }
-
-        pipe_.dispose;
-        pipe_ = null;
-
-        stderr_.dispose;
-        stderr_ = null;
 
         st = State.exitCode;
     }
@@ -215,11 +209,11 @@ struct Sandbox(ProcessT) {
         return p.osHandle;
     }
 
-    Channel pipe() nothrow @safe {
+    ref Pipe pipe() nothrow @safe {
         return p.pipe;
     }
 
-    ReadChannel stderr() nothrow @safe {
+    ref FileReadChannel stderr() nothrow @safe {
         return p.stderr;
     }
 
@@ -469,11 +463,11 @@ struct Timeout(ProcessT) {
         return rc.p.osHandle;
     }
 
-    Channel pipe() nothrow @trusted {
+    ref Pipe pipe() nothrow @trusted {
         return rc.p.pipe;
     }
 
-    ReadChannel stderr() nothrow @trusted {
+    ref FileReadChannel stderr() nothrow @trusted {
         return rc.p.stderr;
     }
 
