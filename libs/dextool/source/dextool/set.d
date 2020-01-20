@@ -12,8 +12,6 @@ module dextool.set;
 import std.algorithm : filter;
 import std.range : ElementType, isOutputRange;
 
-@safe:
-
 struct Set(T) {
     alias Type = void[0][T];
     Type data;

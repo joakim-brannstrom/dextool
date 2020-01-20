@@ -65,7 +65,7 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
     }();
 
     // will only be used by one thread at a time.
-    auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup);
+    auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup, conf_analyze.prune);
 
     int taskCnt;
     foreach (f; frange.filter!(a => !a.isNull)
@@ -147,7 +147,7 @@ void analyzeActor(SearchResult fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
 }
 
 /// Store the result of the analyze.
-void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared) @trusted nothrow {
+void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared, const bool prune) @trusted nothrow {
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
     import cachetools : CacheLRU;
 
@@ -218,6 +218,8 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
     // listen for results from workers until the expected number is processed.
     void recv() {
+        logger.info("Updating files");
+
         int resultCnt;
         Nullable!int maxResults;
         bool running = true;
@@ -238,6 +240,18 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         }
     }
 
+    void pruneFiles() {
+        import std.path : buildPath;
+
+        logger.info("Pruning the database of dropped files");
+        auto files = db.getFiles.map!(a => buildPath(fio.getOutputDir, a).Path).toSet;
+
+        foreach (f; files.setDifference(savedFiles).toRange) {
+            logger.info("Removing ", f);
+            db.removeFile(fio.toRelativeRoot(f));
+        }
+    }
+
     try {
         import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
 
@@ -245,28 +259,29 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
         auto trans = db.transaction;
 
-        auto preFileState = Files(*db);
-
         // TODO: only remove those files that are modified.
         logger.info("Removing metadata");
         db.clearMetadata;
 
-        logger.info("Updating files");
         recv();
 
         // TODO: print what files has been updated.
         logger.info("Resetting timeout context");
         resetTimeoutContext(*db);
-        logger.info("Removing orphant mutants");
-        db.removeOrphanedMutants;
+
         logger.info("Updating metadata");
         db.updateMetadata;
+
+        if (prune) {
+            pruneFiles();
+        }
+
+        logger.info("Removing orphant mutants");
+        db.removeOrphanedMutants;
         printLostMarkings(db.getLostMarkings);
 
         logger.info("Committing changes");
         trans.commit;
-
-        printFilesPostState(preFileState, Files(*db));
     } catch (Exception e) {
         logger.error(e.msg).collectException;
     }
@@ -448,19 +463,6 @@ class TokenStreamImpl : TokenStream {
 
         // Filter a stream of tokens for those that should affect the checksum.
         return tokenize(ctx, p).filter!(a => a.kind != CXTokenKind.comment).array;
-    }
-}
-
-/// Print how changes to files has affected dextool.
-void printFilesPostState(T)(T pre, T post) {
-    import std.algorithm : sort;
-
-    foreach (a; pre.value.byKeyValue.array.sort!((a, b) => (a.key < b.key))) {
-        if (auto v = a.key in post.value) {
-            logger.infof(a.value != *v, "%s: analyze updated", a.key);
-        } else {
-            logger.infof("%s: removed", a.key);
-        }
     }
 }
 

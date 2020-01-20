@@ -83,6 +83,9 @@ struct ConfigAnalyze {
 
     /// What files to analyze is derived from a diff.
     bool unifiedDiffFromStdin;
+
+    /// Remove files from the database that aren't found when analyzing.
+    bool prune;
 }
 
 /// Settings for the compiler

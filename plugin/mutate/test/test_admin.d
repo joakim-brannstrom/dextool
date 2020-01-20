@@ -173,6 +173,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+
     makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
 
     // act
@@ -182,7 +183,8 @@ unittest {
         .addArg(["--to-status", to!string(Status.killedByCompiler)])
         .addArg(["--rationale", `"Lost"`])
         .run;
-    auto r = makeDextoolAnalyze(testEnv).addInputArg(testData ~ "abs.cpp").run;
+    auto r = makeDextoolAnalyze(testEnv).addInputArg(testData ~ "abs.cpp")
+        .addArg(["--prune"]).run;
 
     // assert
     testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)
