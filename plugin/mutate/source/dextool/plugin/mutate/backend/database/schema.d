@@ -142,16 +142,16 @@ package:
 @TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
 @TableConstraint("unique_line_in_file UNIQUE (file_id, line)")
 struct RawSrcMetadata {
-    ulong id;
+    long id;
 
     @ColumnName("file_id")
-    ulong fileId;
+    long fileId;
 
     @ColumnParam("")
     uint line;
 
     @ColumnParam("")
-    ulong nomut;
+    long nomut;
 
     @ColumnParam("")
     string tag;
@@ -217,7 +217,7 @@ struct NomutDataTbl {
 @TableName(schemaVersionTable)
 struct VersionTbl {
     @ColumnName("version")
-    ulong version_;
+    long version_;
 }
 
 /// checksum is 128bit. Using a integer to better represent and search for them
@@ -225,13 +225,13 @@ struct VersionTbl {
 @TableName(filesTable)
 @TableConstraint("unique_ UNIQUE (path)")
 struct FilesTbl {
-    ulong id;
+    long id;
 
     @ColumnParam("")
     string path;
 
-    ulong checksum0;
-    ulong checksum1;
+    long checksum0;
+    long checksum1;
     Language lang;
 }
 
@@ -240,8 +240,8 @@ struct FilesTbl {
 @TableConstraint("file_offset UNIQUE (file_id, offset_begin, offset_end)")
 @TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
 struct MutationPointTbl {
-    ulong id;
-    ulong file_id;
+    long id;
+    long file_id;
     uint offset_begin;
     uint offset_end;
 
@@ -263,14 +263,14 @@ struct MutationPointTbl {
 @TableForeignKey("st_id", KeyRef("mutation_status(id)"))
 @TableConstraint("unique_ UNIQUE (mp_id, kind)")
 struct MutationTbl {
-    ulong id;
+    long id;
 
-    ulong mp_id;
+    long mp_id;
 
     @ColumnParam("")
-    ulong st_id;
+    long st_id;
 
-    ulong kind;
+    long kind;
 }
 
 /**
@@ -282,12 +282,12 @@ struct MutationTbl {
 @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 @TableForeignKey("tc_id", KeyRef("all_test_case(id)"), KeyParam("ON DELETE CASCADE"))
 struct TestCaseKilledTbl {
-    ulong id;
+    long id;
 
     @ColumnName("st_id")
-    ulong mutationStatusId;
+    long mutationStatusId;
     @ColumnName("tc_id")
-    ulong testCaseId;
+    long testCaseId;
 
     // location is a filesystem location or other suitable helper for a user to
     // locate the test.
@@ -303,7 +303,7 @@ struct TestCaseKilledTbl {
  */
 @TableName(allTestCaseTable)
 struct AllTestCaseTbl {
-    ulong id;
+    long id;
 
     @ColumnParam("")
     string name;
@@ -325,14 +325,14 @@ struct AllTestCaseTbl {
 @TableName(mutationStatusTable)
 @TableConstraint("checksum UNIQUE (checksum0, checksum1)")
 struct MutationStatusTbl {
-    ulong id;
-    ulong status;
+    long id;
+    long status;
 
     @ColumnParam("")
-    ulong time;
+    long time;
 
     @ColumnName("test_cnt")
-    ulong testCnt;
+    long testCnt;
 
     @ColumnParam("")
     @ColumnName("update_ts")
@@ -342,14 +342,14 @@ struct MutationStatusTbl {
     @ColumnName("added_ts")
     SysTime added;
 
-    ulong checksum0;
-    ulong checksum1;
+    long checksum0;
+    long checksum1;
 }
 
 @TableName(mutantTimeoutWorklistTable)
 @TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 struct MutantTimeoutWorklistTbl {
-    ulong id;
+    long id;
 }
 
 /** The defaults for the schema is the state that the state machine start in.
@@ -404,7 +404,7 @@ struct MarkedMutantTbl {
     string path;
 
     /// The status it should always be changed to.
-    ulong toStatus;
+    long toStatus;
 
     /// Time when the mutant where marked.
     SysTime time;

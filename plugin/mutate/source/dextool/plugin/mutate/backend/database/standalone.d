@@ -71,8 +71,8 @@ struct Database {
         auto stmt = db.prepare(
                 "SELECT count(*) FROM files WHERE path=:path AND checksum0=:cs0 AND checksum1=:cs1 LIMIT 1");
         stmt.bind(":path", cast(string) p);
-        stmt.bind(":cs0", cs.c0);
-        stmt.bind(":cs1", cs.c1);
+        stmt.bind(":cs0", cast(long) cs.c0);
+        stmt.bind(":cs1", cast(long) cs.c1);
         auto res = stmt.execute;
         return res.oneValue!long != 0;
     }
@@ -105,7 +105,7 @@ struct Database {
         auto stmt = db.prepare(sql);
         auto app = appender!(MarkedMutant[])();
         foreach (res; stmt.execute) {
-            foreach (m; db.run(select!MarkedMutantTbl.where("checksum0 = ", res.peek!ulong(0)))) {
+            foreach (m; db.run(select!MarkedMutantTbl.where("checksum0 = ", res.peek!long(0)))) {
                 app.put(.make(m));
             }
         }
@@ -630,7 +630,7 @@ struct Database {
     }
 
     void removeMarkedMutant(const Checksum cs) @trusted {
-        db.run(delete_!MarkedMutantTbl.where("checksum0 = ", cs.c0.to!string));
+        db.run(delete_!MarkedMutantTbl.where("checksum0 = ", cast(long) cs.c0));
     }
 
     void removeMarkedMutant(const MutationStatusId id) @trusted {
@@ -1061,7 +1061,7 @@ struct Database {
         try {
             enum remove_old_sql = format("DELETE FROM %s WHERE st_id=:id", killedTestCaseTable);
             auto stmt = db.prepare(remove_old_sql);
-            stmt.bind(":id", cast(ulong) st_id);
+            stmt.bind(":id", cast(long) st_id);
             stmt.execute;
         } catch (Exception e) {
         }
@@ -1083,7 +1083,7 @@ struct Database {
                 stmt_insert_tc.execute;
 
                 stmt_insert.reset;
-                stmt_insert.bind(":st_id", cast(ulong) st_id);
+                stmt_insert.bind(":st_id", cast(long) st_id);
                 stmt_insert.bind(":loc", tc.location);
                 stmt_insert.bind(":tc", tc.name);
                 stmt_insert.execute;
@@ -1427,7 +1427,7 @@ struct Database {
     void putMutantInTimeoutWorklist(const MutationStatusId id) @trusted {
         const sql = format!"INSERT OR IGNORE INTO %s (id) VALUES (:id)"(mutantTimeoutWorklistTable);
         auto stmt = db.prepare(sql);
-        stmt.bind(":id", cast(ulong) id);
+        stmt.bind(":id", cast(long) id);
         stmt.execute;
     }
 
