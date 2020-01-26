@@ -227,6 +227,7 @@ struct ArgParser {
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &analyze.unifiedDiffFromStdin,
+                   "fast-db-store", "improve the write speed of the analyze result (may corrupt the database)", &analyze.fastDbStore,
                    "file-exclude", "exclude files in these directory tree from the analysis (default: none)", &exclude_files,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "no-prune", "do not prune the database of files that aren't found during the analyze", &noPrune,

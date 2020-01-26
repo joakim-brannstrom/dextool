@@ -86,6 +86,9 @@ struct ConfigAnalyze {
 
     /// Remove files from the database that aren't found when analyzing.
     bool prune;
+
+    /// Turn off the sqlite synchronization safety
+    bool fastDbStore;
 }
 
 /// Settings for the compiler

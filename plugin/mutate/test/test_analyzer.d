@@ -46,3 +46,12 @@ unittest {
     db.getFileId(file1).isNull.shouldBeFalse;
     db.getFileId(file2).isNull.shouldBeTrue;
 }
+
+@(testId ~ "shall analyze the provided file and use fast database storage")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "all_kinds_of_abs_mutation_points.cpp")
+        .addArg(["--fast-db-store"])
+        .run;
+}

@@ -65,7 +65,8 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
     }();
 
     // will only be used by one thread at a time.
-    auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup, conf_analyze.prune);
+    auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup,
+            conf_analyze.prune, conf_analyze.fastDbStore);
 
     int taskCnt;
     foreach (f; frange.filter!(a => !a.isNull)
@@ -142,12 +143,20 @@ void analyzeActor(SearchResult fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
         auto analyzer = Analyze(vloc, fio, conf.forceSystemIncludes);
         analyzer.process(fileToAnalyze);
         send(storeActor, cast(immutable) analyzer.result);
+        return;
+    } catch (Exception e) {
+    }
+
+    // send a dummy result
+    try {
+        send(storeActor, cast(immutable) new Analyze.Result);
     } catch (Exception e) {
     }
 }
 
 /// Store the result of the analyze.
-void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared, const bool prune) @trusted nothrow {
+void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared,
+        const bool prune, const bool fastDbStore) @trusted nothrow {
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
     import cachetools : CacheLRU;
 
@@ -253,10 +262,29 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         }
     }
 
+    void fastDbOn() {
+        if (!fastDbStore)
+            return;
+        logger.info(
+                "Turning OFF sqlite3 synchronization protection to improve the write performance");
+        logger.warning("Do NOT interrupt dextool in any way because it may corrupt the database");
+        db.run("PRAGMA synchronous = OFF");
+        db.run("PRAGMA journal_mode = MEMORY");
+    }
+
+    void fastDbOff() {
+        if (!fastDbStore)
+            return;
+        db.run("PRAGMA synchronous = ON");
+        db.run("PRAGMA journal_mode = DELETE");
+    }
+
     try {
         import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
 
         setMaxMailboxSize(thisTid, 64, OnCrowding.block);
+
+        fastDbOn();
 
         auto trans = db.transaction;
 
@@ -286,6 +314,8 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
         logger.info("Committing changes");
         trans.commit;
+
+        fastDbOff();
     } catch (Exception e) {
         logger.error(e.msg).collectException;
     }
