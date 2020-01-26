@@ -183,8 +183,7 @@ unittest {
         .addArg(["--to-status", to!string(Status.killedByCompiler)])
         .addArg(["--rationale", `"Lost"`])
         .run;
-    auto r = makeDextoolAnalyze(testEnv).addInputArg(testData ~ "abs.cpp")
-        .addArg(["--prune"]).run;
+    auto r = makeDextoolAnalyze(testEnv).addInputArg(testData ~ "abs.cpp").run;
 
     // assert
     testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)

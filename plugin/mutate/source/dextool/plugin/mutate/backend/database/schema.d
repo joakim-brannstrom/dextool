@@ -376,29 +376,41 @@ struct MutantTimeoutCtxTbl {
 
 import dextool.plugin.mutate.backend.database.type : Rationale;
 
+/** The lower 64bit of the checksum should be good enough as the primary key.
+ * By doing it this way it is easier to update a marked mutant without
+ * "peeking" in the database ("insert or update").
+ *
+ * Both `st_id` and `mut_id` are values that sqlite can reuse between analyzes
+ * if they have been previously removed thus the only assured connection
+ * between a marked mutant and future code changes is the checksum.
+ */
 @TableName(markedMutantTable)
-@TablePrimaryKey("st_id")
+@TablePrimaryKey("checksum0")
 struct MarkedMutantTbl {
+    /// Checksum of the mutant status the marking is related to.
+    long checksum0;
+    long checksum1;
+
+    /// updated each analyze.
     @ColumnName("st_id")
     long mutationStatusId;
 
+    /// updated each analyze.
     @ColumnName("mut_id")
     long mutationId;
 
     uint line;
-
     uint column;
-
     string path;
 
-    @ColumnName("to_status")
+    /// The status it should always be changed to.
     ulong toStatus;
 
+    /// Time when the mutant where marked.
     SysTime time;
 
     string rationale;
 
-    @ColumnName("mut_text")
     string mutText;
 }
 
@@ -850,6 +862,32 @@ void upgradeV12(ref Miniorm db) {
 
 /// 2019-11-12
 void upgradeV13(ref Miniorm db) {
+    @TableName(markedMutantTable)
+    @TablePrimaryKey("st_id")
+    struct MarkedMutantTbl {
+        @ColumnName("st_id")
+        long mutationStatusId;
+
+        @ColumnName("mut_id")
+        long mutationId;
+
+        uint line;
+
+        uint column;
+
+        string path;
+
+        @ColumnName("to_status")
+        ulong toStatus;
+
+        SysTime time;
+
+        string rationale;
+
+        @ColumnName("mut_text")
+        string mutText;
+    }
+
     db.run(buildSchema!(MarkedMutantTbl));
     updateSchemaVersion(db, 14);
 }
@@ -863,6 +901,14 @@ void upgradeV14(ref Miniorm db) {
     db.run(buildSchema!(SrcMetadataTable, NomutTbl, NomutDataTbl));
     logger.info("Re-execute analyze to update the NOMUT data");
     updateSchemaVersion(db, 15);
+}
+
+/// 2020-01-21
+void upgradeV15(ref Miniorm db) {
+    // fix bug in the marked mutant table
+    db.run(format!"DROP TABLE %s"(markedMutantTable));
+    db.run(buildSchema!MarkedMutantTbl);
+    logger.info("Dropping all marked mutants because of database changes");
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

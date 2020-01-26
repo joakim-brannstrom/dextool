@@ -148,17 +148,11 @@ ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, cons
 }
 
 ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] kinds,
-        Mutation.Status status, string rationale, FilesysIO fio) @trusted nothrow {
+        const Mutation.Status status, string rationale, FilesysIO fio) @trusted nothrow {
+    import dextool.plugin.mutate.backend.database : Rationale;
+
     try {
-        import std.conv : to;
-
         auto trans = db.transaction;
-
-        const st_id = db.getMutationStatusId(id);
-        if (st_id.isNull) {
-            logger.errorf("Failure when marking mutant: %s", id);
-            return ExitStatusType.Errors;
-        }
 
         auto mut = db.getMutation(id);
         if (mut.isNull) {
@@ -166,20 +160,31 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
             return ExitStatusType.Errors;
         }
 
+        // because getMutation worked we know the ID is valid thus no need to
+        // check the return values when it or derived values are used.
+
+        const st_id = db.getMutationStatusId(id).get;
+        const checksum = db.getChecksum(st_id).get;
+
         // assume that mutant has kind
-        auto txt = makeMutationText(fio.makeInput(AbsolutePath(mut.get.file,
+        const txt = makeMutationText(fio.makeInput(AbsolutePath(mut.get.file,
                 DirName(fio.getOutputDir))), Offset(mut.get.sloc.line,
                 mut.get.sloc.column), db.getKind(id), mut.get.lang).mutation;
-        db.markMutant(mut.get, st_id.get, status, rationale, to!string(txt));
-        db.updateMutationStatus(st_id.get, status);
-        logger.infof(`Mutant %s marked with status %s and rationale '%s'.`, id, status, rationale);
+
+        db.markMutant(id, mut.get.file, mut.get.sloc, st_id, checksum, status,
+                Rationale(rationale), txt.idup);
+
+        db.updateMutationStatus(st_id, status);
+
+        logger.infof(`Mutant %s marked with status %s and rationale %s`, id, status, rationale);
 
         trans.commit;
+        return ExitStatusType.Ok;
     } catch (Exception e) {
+        logger.trace(e).collectException;
         logger.error(e.msg).collectException;
-        return ExitStatusType.Errors;
     }
-    return ExitStatusType.Ok;
+    return ExitStatusType.Errors;
 }
 
 ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothrow {
@@ -190,20 +195,21 @@ ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothr
         const st_id = db.getMutationStatusId(id);
         if (st_id.isNull) {
             logger.errorf("Failure when removing marked mutant: %s", id);
+            return ExitStatusType.Errors;
+        }
+
+        if (db.isMarked(id)) {
+            db.removeMarkedMutant(st_id.get);
+            db.updateMutationStatus(st_id.get, Mutation.Status.unknown);
+            logger.infof("Removed marking for mutant %s.", id);
         } else {
-            if (db.isMarked(id)) {
-                db.removeMarkedMutant(st_id.get);
-                db.updateMutationStatus(st_id.get, Mutation.Status.unknown);
-                logger.infof("Removed marking for mutant %s.", id);
-            } else {
-                logger.errorf("Failure when removing marked mutant (mutant %s is not marked)", id);
-            }
+            logger.errorf("Failure when removing marked mutant (mutant %s is not marked)", id);
         }
 
         trans.commit;
+        return ExitStatusType.Ok;
     } catch (Exception e) {
         logger.error(e.msg).collectException;
-        return ExitStatusType.Errors;
     }
-    return ExitStatusType.Ok;
+    return ExitStatusType.Errors;
 }

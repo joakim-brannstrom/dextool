@@ -231,6 +231,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                     save(a);
                 },);
             } catch (Exception e) {
+                logger.trace(e).collectException;
                 logger.warning(e.msg).collectException;
             }
 
@@ -278,6 +279,9 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
         logger.info("Removing orphant mutants");
         db.removeOrphanedMutants;
+
+        logger.info("Updating manually marked mutants");
+        updateMarkedMutants(*db);
         printLostMarkings(db.getLostMarkings);
 
         logger.info("Committing changes");
@@ -478,6 +482,36 @@ bool isPathInsideAnyRoot(AbsolutePath[] roots, AbsolutePath f) @safe {
     return false;
 }
 
+/** Update the connection between the marked mutants and their mutation status
+ * id and mutation id.
+ */
+void updateMarkedMutants(ref Database db) {
+    import dextool.plugin.mutate.backend.database.type : MutationStatusId;
+
+    void update(MarkedMutant m) {
+        const stId = db.getMutationStatusId(m.statusChecksum);
+        if (stId.isNull)
+            return;
+        const mutId = db.getMutationId(stId.get);
+        if (mutId.isNull)
+            return;
+        db.removeMarkedMutant(m.statusChecksum);
+        db.markMutant(mutId.get, m.path, m.sloc, stId.get, m.statusChecksum,
+                m.toStatus, m.rationale, m.mutText);
+        db.updateMutationStatus(stId.get, m.toStatus);
+    }
+
+    // find those marked mutants that have a checksum that is different from
+    // the mutation status the marked mutant is related to. If possible change
+    // the relation to the correct mutation status id.
+    foreach (m; db.getMarkedMutants
+            .map!(a => tuple(a, db.getChecksum(a.statusId)))
+            .filter!(a => !a[1].isNull)
+            .filter!(a => a[0].statusChecksum != a[1].get)) {
+        update(m[0]);
+    }
+}
+
 /// Prints a marked mutant that has become lost due to rerun of analyze
 void printLostMarkings(MarkedMutant[] lostMutants) {
     import std.algorithm : sort;
@@ -493,8 +527,8 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
             ]);
     foreach (m; lostMutants) {
         typeof(tbl).Row r = [
-            to!string(m.mutationId), m.path, to!string(m.line),
-            to!string(m.column), statusToString(m.toStatus), m.rationale
+            m.mutationId.to!string, m.path, m.sloc.line.to!string,
+            m.sloc.column.to!string, m.toStatus.to!string, m.rationale
         ];
         tbl.put(r);
     }

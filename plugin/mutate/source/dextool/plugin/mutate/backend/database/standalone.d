@@ -37,7 +37,7 @@ import dextool.type : AbsolutePath, Path, ExitStatusType;
 
 import dextool.plugin.mutate.backend.database.schema;
 import dextool.plugin.mutate.backend.database.type;
-import dextool.plugin.mutate.backend.type : Language;
+import dextool.plugin.mutate.backend.type : Language, Checksum;
 
 /** Database wrapper with minimal dependencies.
  */
@@ -95,10 +95,22 @@ struct Database {
         return res.oneValue!long != 0;
     }
 
+    /// All marked mutants whom have a mutation status checksum that has been removed from the database.
     MarkedMutant[] getLostMarkings() @trusted {
-        import std.algorithm : filter;
+        immutable sql = format!"SELECT checksum0 FROM %s
+            WHERE
+            checksum0 NOT IN (SELECT checksum0 FROM %s)"(
+                markedMutantTable, mutationStatusTable);
 
-        return getMarkedMutants.filter!(a => exists(MutationStatusId(a.mutationStatusId))).array;
+        auto stmt = db.prepare(sql);
+        auto app = appender!(MarkedMutant[])();
+        foreach (res; stmt.execute) {
+            foreach (m; db.run(select!MarkedMutantTbl.where("checksum0 = ", res.peek!ulong(0)))) {
+                app.put(.make(m));
+            }
+        }
+
+        return app.data;
     }
 
     Nullable!FileId getFileId(const Path p) @trusted {
@@ -263,7 +275,7 @@ struct Database {
 
     /// Returns: all mutation status IDs.
     MutationStatusId[] getAllMutationStatus() @trusted {
-        enum sql = format("SELECT id FROM %s", mutationStatusTable);
+        enum sql = format!"SELECT id FROM %s"(mutationStatusTable);
 
         auto app = appender!(MutationStatusId[])();
         foreach (r; db.prepare(sql).execute)
@@ -408,10 +420,10 @@ struct Database {
         if (id.length == 0)
             return null;
 
-        const get_mutid_sql = format("SELECT id FROM %s t0
+        const get_mutid_sql = format!"SELECT id FROM %s t0
             WHERE
             t0.st_id IN (%(%s,%)) AND
-            t0.kind IN (%(%s,%))", mutationTable,
+            t0.kind IN (%(%s,%))"(mutationTable,
                 id.map!(a => cast(long) a), kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(get_mutid_sql);
 
@@ -421,14 +433,44 @@ struct Database {
         return app.data;
     }
 
-    Nullable!MutationStatusId getMutationStatusId(const MutationId id) @trusted {
-        auto stmt = db.prepare(format("SELECT st_id FROM %s WHERE id=:id", mutationTable));
-        stmt.bind(":id", cast(long) id);
+    Nullable!MutationId getMutationId(const MutationStatusId id) @trusted {
+        immutable sql = format!"SELECT id FROM %s WHERE st_id=:st_id LIMIT=1"(mutationTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":st_id", cast(long) id);
+
         typeof(return) rval;
-        foreach (res; stmt.execute)
-            rval = MutationStatusId(res.peek!long(0));
+        foreach (res; stmt.execute) {
+            rval = res.peek!long(0).MutationId;
+        }
         return rval;
     }
+
+    Nullable!MutationStatusId getMutationStatusId(const MutationId id) @trusted {
+        immutable sql = format!"SELECT st_id FROM %s WHERE id=:id"(mutationTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":id", cast(long) id);
+
+        typeof(return) rval;
+        foreach (res; stmt.execute) {
+            rval = MutationStatusId(res.peek!long(0));
+        }
+        return rval;
+    }
+
+    Nullable!MutationStatusId getMutationStatusId(const Checksum cs) @trusted {
+        immutable sql = format!"SELECT st_id FROM %s WHERE checksum0=:cs0 AND checksum1=:cs1"(
+                mutationStatusTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":cs0", cast(long) cs.c0);
+        stmt.bind(":cs1", cast(long) cs.c1);
+
+        typeof(return) rval;
+        foreach (res; stmt.execute) {
+            rval = MutationStatusId(res.peek!long(0));
+        }
+        return rval;
+    }
+
     // Returns: the status of the mutant
     Nullable!(Mutation.Status) getMutationStatus(const MutationId id) @trusted {
         auto s = format!"SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)"(
@@ -580,29 +622,32 @@ struct Database {
 
     /** Mark a mutant with status and rationale (also adds metadata).
      */
-    void markMutant(MutationEntry m, MutationStatusId st_id, Mutation.Status s, string r, string txt) @trusted {
-        db.run(insertOrReplace!MarkedMutant, MarkedMutant(st_id, m.id,
-                m.sloc.line, m.sloc.column, m.file, s, Clock.currTime.toUTC, Rationale(r), txt));
+    void markMutant(const MutationId id, const Path file, const SourceLoc sloc,
+            const MutationStatusId st_id, const Checksum cs,
+            const Mutation.Status s, const Rationale r, string mutationTxt) @trusted {
+        db.run(insertOrReplace!MarkedMutantTbl, MarkedMutantTbl(cs.c0, cs.c1,
+                st_id, id, sloc.line, sloc.column, file, s, Clock.currTime.toUTC, r, mutationTxt));
     }
 
-    void removeMarkedMutant(MutationStatusId st_id) @trusted {
-        immutable condition = format!"st_id=%s"(st_id);
-        db.run(delete_!MarkedMutant.where(condition));
+    void removeMarkedMutant(const Checksum cs) @trusted {
+        db.run(delete_!MarkedMutantTbl.where("checksum0 = ", cs.c0.to!string));
+    }
+
+    void removeMarkedMutant(const MutationStatusId id) @trusted {
+        db.run(delete_!MarkedMutantTbl.where("st_id = ", id.to!string));
     }
 
     /// Returns: All mutants with that are marked orderd by their path
     MarkedMutant[] getMarkedMutants() @trusted {
-        immutable sql = format!"SELECT st_id, mut_id, line, column, path, to_status, time, rationale, mut_text
-            FROM %s ORDER BY path"(markedMutantTable);
-        auto stmt = db.prepare(sql);
+        import miniorm : OrderingTermSort;
 
         auto app = appender!(MarkedMutant[])();
-        foreach (res; stmt.execute) {
-            app.put(MarkedMutant(res.peek!long(0), res.peek!long(1),
-                    res.peek!uint(2), res.peek!uint(3), res.peek!string(4),
-                    res.peek!ulong(5), res.peek!string(6).fromSqLiteDateTime,
-                    Rationale(res.peek!string(7)), res.peek!string(8)));
+        foreach (m; db.run(select!MarkedMutantTbl.orderBy(OrderingTermSort.ASC, [
+                    "path"
+                ]))) {
+            app.put(.make(m));
         }
+
         return app.data;
     }
 
@@ -838,9 +883,24 @@ struct Database {
         return app.data;
     }
 
+    Nullable!Checksum getChecksum(MutationStatusId id) @trusted {
+        immutable sql = format!"SELECT checksum0, checksum1 FROM %s WHERE id=:id"(
+                mutationStatusTable);
+        auto stmt = db.prepare(sql);
+        stmt.bind(":id", cast(long) id);
+
+        typeof(return) rval;
+        foreach (res; stmt.execute) {
+            rval = Checksum(res.peek!long(0), res.peek!long(1));
+            break;
+        }
+        return rval;
+    }
+
     void put(const Path p, Checksum cs, const Language lang) @trusted {
-        enum sql = format("INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang) VALUES (:path, :checksum0, :checksum1, :lang)",
-                    filesTable);
+        immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang)
+            VALUES (:path, :checksum0, :checksum1, :lang)"(
+                filesTable);
         auto stmt = db.prepare(sql);
         stmt.bind(":path", cast(string) p);
         stmt.bind(":checksum0", cast(long) cs.c0);
@@ -1457,4 +1517,15 @@ struct Database {
         db.run(format!nomut_data_tbl(nomutDataTable, mutationTable,
                 rawSrcMetadataTable, nomutTable));
     }
+}
+
+private:
+
+MarkedMutant make(MarkedMutantTbl m) {
+    import dextool.plugin.mutate.backend.type;
+
+    return MarkedMutant(m.mutationStatusId.MutationStatusId, Checksum(m.checksum0,
+            m.checksum1), m.mutationId.MutationId, SourceLoc(m.line, m.column),
+            m.path.Path, m.toStatus.to!(Mutation.Status), m.time,
+            m.rationale.Rationale, m.mutText);
 }

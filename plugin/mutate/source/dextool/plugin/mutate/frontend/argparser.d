@@ -218,6 +218,7 @@ struct ArgParser {
         void analyzerG(string[] args) {
             string[] compile_dbs;
             string[] exclude_files;
+            bool noPrune;
 
             data.toolMode = ToolMode.analyzer;
             // dfmt off
@@ -228,13 +229,14 @@ struct ArgParser {
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &analyze.unifiedDiffFromStdin,
                    "file-exclude", "exclude files in these directory tree from the analysis (default: none)", &exclude_files,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
+                   "no-prune", "do not prune the database of files that aren't found during the analyze", &noPrune,
                    "out", out_help, &workArea.rawRoot,
-                   "prune", "prune the database of files that aren't found during the analyze", &analyze.prune,
                    "restrict", restrict_help, &workArea.rawRestrict,
                    "threads", "number of threads to use for analysing files (default: CPU cores available)", &analyze.poolSize,
                    );
             // dfmt on
 
+            analyze.prune = !noPrune;
             updateCompileDb(compileDb, compile_dbs);
             if (!exclude_files.empty)
                 analyze.rawExclude = exclude_files;
@@ -807,13 +809,13 @@ parallel_test = 42
     ap.mutationTest.testPoolSize.shouldEqual(42);
 }
 
-@("shall activate prune of old files when analyze")
+@("shall deactivate prune of old files when analyze")
 @system unittest {
     import toml : parseTOML;
 
     immutable txt = `
 [analyze]
-prune = true
+prune = false
 `;
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);

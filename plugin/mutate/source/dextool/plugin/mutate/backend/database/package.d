@@ -55,7 +55,7 @@ struct Database {
 
         typeof(return) rval;
         if (!res.empty) {
-            rval = checksum(res.front.peek!long(0), res.front.peek!long(1));
+            rval = checksum(res.front.peek!ulong(0), res.front.peek!ulong(1));
         }
 
         return rval;
@@ -159,7 +159,7 @@ struct Database {
                 auto offset = Offset(r.peek!uint(4), r.peek!uint(5));
                 d.mutationPoint = MutationPoint(offset, null);
                 d.file = r.peek!string(10);
-                d.fileChecksum = checksum(r.peek!long(11), r.peek!long(12));
+                d.fileChecksum = checksum(r.peek!ulong(11), r.peek!ulong(12));
                 d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
                 d.slocEnd = SourceLoc(r.peek!uint(8), r.peek!uint(9));
                 d.lang = r.peek!long(13).to!Language;

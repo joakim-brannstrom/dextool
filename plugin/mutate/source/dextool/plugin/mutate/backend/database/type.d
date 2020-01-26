@@ -17,10 +17,10 @@ import sumtype;
 import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.type;
 
-public import dextool.plugin.mutate.backend.database.schema : MutantTimeoutCtxTbl, MarkedMutantTbl;
+import dextool.plugin.mutate.backend.database.schema : MarkedMutantTbl;
+public import dextool.plugin.mutate.backend.database.schema : MutantTimeoutCtxTbl;
 
 alias MutantTimeoutCtx = MutantTimeoutCtxTbl;
-alias MarkedMutant = MarkedMutantTbl;
 
 @safe:
 
@@ -244,4 +244,25 @@ struct MutantMetaData {
 struct Rationale {
     string payload;
     alias payload this;
+}
+
+struct MarkedMutant {
+    MutationStatusId statusId;
+    /// Checksum of the marked mutant.
+    Checksum statusChecksum;
+
+    MutationId mutationId;
+
+    SourceLoc sloc;
+    Path path;
+
+    /// The status it should always be changed to.
+    Mutation.Status toStatus;
+
+    /// Time when the mutant where marked.
+    SysTime time;
+
+    Rationale rationale;
+
+    string mutText;
 }
