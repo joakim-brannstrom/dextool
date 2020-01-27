@@ -50,8 +50,8 @@ struct Database {
         import dextool.plugin.mutate.backend.utility : checksum;
 
         auto stmt = db.prepare("SELECT checksum0,checksum1 FROM files WHERE path=:path");
-        stmt.bind(":path", cast(string) p);
-        auto res = stmt.execute;
+        stmt.get.bind(":path", cast(string) p);
+        auto res = stmt.get.execute;
 
         typeof(return) rval;
         if (!res.empty) {
@@ -99,7 +99,7 @@ struct Database {
                                t0.kind IN (%(%s,%)) %s LIMIT 1", mutationTable, mutationPointTable,
                 filesTable, mutationStatusTable, kinds.map!(a => cast(int) a), order);
         auto stmt = db.prepare(sql);
-        auto res = stmt.execute;
+        auto res = stmt.get.execute;
         if (res.empty) {
             rval.st = NextMutationEntry.Status.done;
             return rval;
@@ -150,8 +150,8 @@ struct Database {
                 filesTable, mutationStatusTable, srcMetadataTable, kinds.map!(a => cast(int) a));
 
         try {
-            auto res = db.prepare(all_mutants).execute;
-            foreach (ref r; res) {
+            auto stmt = db.prepare(all_mutants);
+            foreach (ref r; stmt.get.execute) {
                 IterateMutantRow d;
                 d.id = MutationId(r.peek!long(0));
                 d.mutation = Mutation(r.peek!int(2).to!(Mutation.Kind),
@@ -180,7 +180,8 @@ struct Database {
         enum files_q = format("SELECT t0.path, t0.checksum0, t0.checksum1, t0.lang, t0.id FROM %s t0",
                     filesTable);
         auto app = appender!(FileRow[])();
-        foreach (ref r; db.prepare(files_q).execute) {
+        auto stmt = db.prepare(files_q);
+        foreach (ref r; stmt.get.execute) {
             auto fr = FileRow(r.peek!string(0).Path, checksum(r.peek!long(1),
                     r.peek!long(2)), r.peek!Language(3), r.peek!long(4).FileId);
             app.put(fr);
@@ -226,8 +227,8 @@ struct Database {
                 filesTable, mutationStatusTable, kinds.map!(a => cast(int) a));
 
         auto stmt = db.prepare(all_fmut);
-        stmt.bind(":path", cast(string) file);
-        foreach (ref r; stmt.execute) {
+        stmt.get.bind(":path", cast(string) file);
+        foreach (ref r; stmt.get.execute) {
             FileMutantRow fr;
             fr.id = MutationId(r.peek!long(0));
             fr.mutation = Mutation(r.peek!int(1).to!(Mutation.Kind),
