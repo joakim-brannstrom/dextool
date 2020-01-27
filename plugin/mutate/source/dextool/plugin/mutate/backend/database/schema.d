@@ -908,6 +908,7 @@ void upgradeV15(ref Miniorm db) {
     // fix bug in the marked mutant table
     db.run(format!"DROP TABLE %s"(markedMutantTable));
     db.run(buildSchema!MarkedMutantTbl);
+    updateSchemaVersion(db, 16);
     logger.info("Dropping all marked mutants because of database changes");
 }
 
