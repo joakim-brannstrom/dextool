@@ -110,6 +110,8 @@ struct ArgParser {
         app.put(
                 "# limit the number of threads used when analysing. Default is as many as there are cores available");
         app.put("# threads = 1");
+        app.put("# prune (remove) files from the database that aren't found during the analyze");
+        app.put(`# prune = true`);
         app.put(null);
 
         app.put("[database]");
@@ -216,6 +218,7 @@ struct ArgParser {
         void analyzerG(string[] args) {
             string[] compile_dbs;
             string[] exclude_files;
+            bool noPrune;
 
             data.toolMode = ToolMode.analyzer;
             // dfmt off
@@ -224,14 +227,17 @@ struct ArgParser {
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &analyze.unifiedDiffFromStdin,
+                   "fast-db-store", "improve the write speed of the analyze result (may corrupt the database)", &analyze.fastDbStore,
                    "file-exclude", "exclude files in these directory tree from the analysis (default: none)", &exclude_files,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
+                   "no-prune", "do not prune the database of files that aren't found during the analyze", &noPrune,
                    "out", out_help, &workArea.rawRoot,
                    "restrict", restrict_help, &workArea.rawRestrict,
                    "threads", "number of threads to use for analysing files (default: CPU cores available)", &analyze.poolSize,
                    );
             // dfmt on
 
+            analyze.prune = !noPrune;
             updateCompileDb(compileDb, compile_dbs);
             if (!exclude_files.empty)
                 analyze.rawExclude = exclude_files;
@@ -578,6 +584,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["analyze.threads"] = (ref ArgParser c, ref TOMLValue v) {
         c.analyze.poolSize = cast(int) v.integer;
     };
+    callbacks["analyze.prune"] = (ref ArgParser c, ref TOMLValue v) {
+        c.analyze.prune = v == true;
+    };
 
     callbacks["workarea.root"] = (ref ArgParser c, ref TOMLValue v) {
         c.workArea.rawRoot = v.str;
@@ -799,6 +808,19 @@ parallel_test = 42
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.mutationTest.testPoolSize.shouldEqual(42);
+}
+
+@("shall deactivate prune of old files when analyze")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[analyze]
+prune = false
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.analyze.prune.shouldBeFalse;
 }
 
 /// Minimal config to setup path to config file.

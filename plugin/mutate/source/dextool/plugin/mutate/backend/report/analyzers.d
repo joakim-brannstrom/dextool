@@ -476,7 +476,6 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
 
 struct MarkedMutantsStat {
     Table!6 tbl;
-    // TODO: extend for html-report
 }
 
 MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kinds,
@@ -486,12 +485,10 @@ MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kin
         "File", "Line", "Column", "Mutation", "Status", "Rationale"
     ];
 
-    import std.conv : to;
-
     foreach (m; db.getMarkedMutants()) {
         typeof(st.tbl).Row r = [
-            m.path, to!string(m.line), to!string(m.column), m.mutText,
-            statusToString(m.toStatus), m.rationale
+            m.path, m.sloc.line.to!string, m.sloc.column.to!string,
+            m.mutText, statusToString(m.toStatus), m.rationale
         ];
         st.tbl.put(r);
     }

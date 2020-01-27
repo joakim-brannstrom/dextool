@@ -173,6 +173,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+
     makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
 
     // act

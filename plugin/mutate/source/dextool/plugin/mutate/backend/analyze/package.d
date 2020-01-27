@@ -65,7 +65,8 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
     }();
 
     // will only be used by one thread at a time.
-    auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup);
+    auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup,
+            conf_analyze.prune, conf_analyze.fastDbStore);
 
     int taskCnt;
     foreach (f; frange.filter!(a => !a.isNull)
@@ -142,12 +143,20 @@ void analyzeActor(SearchResult fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
         auto analyzer = Analyze(vloc, fio, conf.forceSystemIncludes);
         analyzer.process(fileToAnalyze);
         send(storeActor, cast(immutable) analyzer.result);
+        return;
+    } catch (Exception e) {
+    }
+
+    // send a dummy result
+    try {
+        send(storeActor, cast(immutable) new Analyze.Result);
     } catch (Exception e) {
     }
 }
 
 /// Store the result of the analyze.
-void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared) @trusted nothrow {
+void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared,
+        const bool prune, const bool fastDbStore) @trusted nothrow {
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
     import cachetools : CacheLRU;
 
@@ -155,7 +164,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
     FilesysIO fio = cast(FilesysIO) fioShared;
 
     // A file is at most saved one time to the database.
-    Set!Path isSaved;
+    Set!Path savedFiles;
 
     auto fileIdCache = new CacheLRU!(string, FileId);
     // `p` must be a path realtive to the root.
@@ -185,14 +194,15 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         {
             auto app = appender!(MutationPointEntry2[])();
             foreach (mp; result.mutationPoints // remove those that has been globally saved
-                .filter!(a => a.file !in isSaved)) {
+                .filter!(a => a.file !in savedFiles)) {
                 app.put(mp);
             }
-            foreach (f; result.idFile.byKey.filter!(a => a !in isSaved)) {
+            foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
                 logger.info("Saving ", f);
+                db.removeFile(fio.toRelativeRoot(f));
                 const info = result.infoId[result.idFile[f]];
                 db.put(fio.toRelativeRoot(f), info.checksum, info.language);
-                isSaved.add(f);
+                savedFiles.add(f);
             }
             db.put(app.data, fio.getOutputDir);
         }
@@ -205,7 +215,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                 const fid = getFileId(fio.toRelativeRoot(result.fileId[md.id]));
                 if (fid.isNull && !printed.contains(md.id)) {
                     printed.add(md.id);
-                    logger.warningf("File with suppressed mutants (// NOMUT) not in the DB: %s. Skipping...",
+                    logger.warningf("File with suppressed mutants (// NOMUT) not in the database: %s. Skipping...",
                             result.fileId[md.id]).collectException;
                     continue;
                 }
@@ -217,6 +227,8 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
     // listen for results from workers until the expected number is processed.
     void recv() {
+        logger.info("Updating files");
+
         int resultCnt;
         Nullable!int maxResults;
         bool running = true;
@@ -228,6 +240,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                     save(a);
                 },);
             } catch (Exception e) {
+                logger.trace(e).collectException;
                 logger.warning(e.msg).collectException;
             }
 
@@ -237,37 +250,72 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         }
     }
 
+    void pruneFiles() {
+        import std.path : buildPath;
+
+        logger.info("Pruning the database of dropped files");
+        auto files = db.getFiles.map!(a => buildPath(fio.getOutputDir, a).Path).toSet;
+
+        foreach (f; files.setDifference(savedFiles).toRange) {
+            logger.info("Removing ", f);
+            db.removeFile(fio.toRelativeRoot(f));
+        }
+    }
+
+    void fastDbOn() {
+        if (!fastDbStore)
+            return;
+        logger.info(
+                "Turning OFF sqlite3 synchronization protection to improve the write performance");
+        logger.warning("Do NOT interrupt dextool in any way because it may corrupt the database");
+        db.run("PRAGMA synchronous = OFF");
+        db.run("PRAGMA journal_mode = MEMORY");
+    }
+
+    void fastDbOff() {
+        if (!fastDbStore)
+            return;
+        db.run("PRAGMA synchronous = ON");
+        db.run("PRAGMA journal_mode = DELETE");
+    }
+
     try {
         import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
 
         setMaxMailboxSize(thisTid, 64, OnCrowding.block);
 
+        fastDbOn();
+
         auto trans = db.transaction;
 
-        auto preFileState = Files(*db);
-
         // TODO: only remove those files that are modified.
-        logger.info("Preparing for updating the mutants");
-        db.removeAllFiles;
         logger.info("Removing metadata");
         db.clearMetadata;
 
-        logger.info("Updating files");
         recv();
 
         // TODO: print what files has been updated.
         logger.info("Resetting timeout context");
         resetTimeoutContext(*db);
-        logger.info("Removing orphant mutants");
-        db.removeOrphanedMutants;
+
         logger.info("Updating metadata");
         db.updateMetadata;
+
+        if (prune) {
+            pruneFiles();
+        }
+
+        logger.info("Removing orphant mutants");
+        db.removeOrphanedMutants;
+
+        logger.info("Updating manually marked mutants");
+        updateMarkedMutants(*db);
         printLostMarkings(db.getLostMarkings);
 
         logger.info("Committing changes");
         trans.commit;
 
-        printFilesPostState(preFileState, Files(*db));
+        fastDbOff();
     } catch (Exception e) {
         logger.error(e.msg).collectException;
     }
@@ -452,19 +500,6 @@ class TokenStreamImpl : TokenStream {
     }
 }
 
-/// Print how changes to files has affected dextool.
-void printFilesPostState(T)(T pre, T post) {
-    import std.algorithm : sort;
-
-    foreach (a; pre.value.byKeyValue.array.sort!((a, b) => (a.key < b.key))) {
-        if (auto v = a.key in post.value) {
-            logger.infof(a.value != *v, "%s: analyze updated", a.key);
-        } else {
-            logger.infof("%s: removed", a.key);
-        }
-    }
-}
-
 /// Returns: true if `f` is inside any `roots`.
 bool isPathInsideAnyRoot(AbsolutePath[] roots, AbsolutePath f) @safe {
     import dextool.utility : isPathInsideRoot;
@@ -475,6 +510,36 @@ bool isPathInsideAnyRoot(AbsolutePath[] roots, AbsolutePath f) @safe {
     }
 
     return false;
+}
+
+/** Update the connection between the marked mutants and their mutation status
+ * id and mutation id.
+ */
+void updateMarkedMutants(ref Database db) {
+    import dextool.plugin.mutate.backend.database.type : MutationStatusId;
+
+    void update(MarkedMutant m) {
+        const stId = db.getMutationStatusId(m.statusChecksum);
+        if (stId.isNull)
+            return;
+        const mutId = db.getMutationId(stId.get);
+        if (mutId.isNull)
+            return;
+        db.removeMarkedMutant(m.statusChecksum);
+        db.markMutant(mutId.get, m.path, m.sloc, stId.get, m.statusChecksum,
+                m.toStatus, m.rationale, m.mutText);
+        db.updateMutationStatus(stId.get, m.toStatus);
+    }
+
+    // find those marked mutants that have a checksum that is different from
+    // the mutation status the marked mutant is related to. If possible change
+    // the relation to the correct mutation status id.
+    foreach (m; db.getMarkedMutants
+            .map!(a => tuple(a, db.getChecksum(a.statusId)))
+            .filter!(a => !a[1].isNull)
+            .filter!(a => a[0].statusChecksum != a[1].get)) {
+        update(m[0]);
+    }
 }
 
 /// Prints a marked mutant that has become lost due to rerun of analyze
@@ -492,8 +557,8 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
             ]);
     foreach (m; lostMutants) {
         typeof(tbl).Row r = [
-            to!string(m.mutationId), m.path, to!string(m.line),
-            to!string(m.column), statusToString(m.toStatus), m.rationale
+            m.mutationId.to!string, m.path, m.sloc.line.to!string,
+            m.sloc.column.to!string, m.toStatus.to!string, m.rationale
         ];
         tbl.put(r);
     }

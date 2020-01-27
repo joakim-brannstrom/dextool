@@ -20,7 +20,8 @@ auto makeDextoolAnalyze(const ref TestEnv env) {
     return dextool_test.makeDextool(env)
         .setWorkdir(workDir)
         .args(["mutate", "analyze"])
-        .addPostArg(["--db", (env.outdir ~ defaultDb).toString]);
+        .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
+        .addPostArg(["--fast-db-store"]);
     // dfmt on
 }
 
@@ -77,5 +78,6 @@ void makeExecutable(string fname) {
 
 auto createDatabase(const ref TestEnv env) {
     import dextool.plugin.mutate.backend.database.standalone;
+
     return Database.make((env.outdir ~ defaultDb).toString);
 }

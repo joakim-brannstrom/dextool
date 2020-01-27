@@ -142,16 +142,16 @@ package:
 @TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
 @TableConstraint("unique_line_in_file UNIQUE (file_id, line)")
 struct RawSrcMetadata {
-    ulong id;
+    long id;
 
     @ColumnName("file_id")
-    ulong fileId;
+    long fileId;
 
     @ColumnParam("")
     uint line;
 
     @ColumnParam("")
-    ulong nomut;
+    long nomut;
 
     @ColumnParam("")
     string tag;
@@ -217,7 +217,7 @@ struct NomutDataTbl {
 @TableName(schemaVersionTable)
 struct VersionTbl {
     @ColumnName("version")
-    ulong version_;
+    long version_;
 }
 
 /// checksum is 128bit. Using a integer to better represent and search for them
@@ -225,13 +225,13 @@ struct VersionTbl {
 @TableName(filesTable)
 @TableConstraint("unique_ UNIQUE (path)")
 struct FilesTbl {
-    ulong id;
+    long id;
 
     @ColumnParam("")
     string path;
 
-    ulong checksum0;
-    ulong checksum1;
+    long checksum0;
+    long checksum1;
     Language lang;
 }
 
@@ -240,8 +240,8 @@ struct FilesTbl {
 @TableConstraint("file_offset UNIQUE (file_id, offset_begin, offset_end)")
 @TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
 struct MutationPointTbl {
-    ulong id;
-    ulong file_id;
+    long id;
+    long file_id;
     uint offset_begin;
     uint offset_end;
 
@@ -263,14 +263,14 @@ struct MutationPointTbl {
 @TableForeignKey("st_id", KeyRef("mutation_status(id)"))
 @TableConstraint("unique_ UNIQUE (mp_id, kind)")
 struct MutationTbl {
-    ulong id;
+    long id;
 
-    ulong mp_id;
+    long mp_id;
 
     @ColumnParam("")
-    ulong st_id;
+    long st_id;
 
-    ulong kind;
+    long kind;
 }
 
 /**
@@ -282,12 +282,12 @@ struct MutationTbl {
 @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 @TableForeignKey("tc_id", KeyRef("all_test_case(id)"), KeyParam("ON DELETE CASCADE"))
 struct TestCaseKilledTbl {
-    ulong id;
+    long id;
 
     @ColumnName("st_id")
-    ulong mutationStatusId;
+    long mutationStatusId;
     @ColumnName("tc_id")
-    ulong testCaseId;
+    long testCaseId;
 
     // location is a filesystem location or other suitable helper for a user to
     // locate the test.
@@ -303,7 +303,7 @@ struct TestCaseKilledTbl {
  */
 @TableName(allTestCaseTable)
 struct AllTestCaseTbl {
-    ulong id;
+    long id;
 
     @ColumnParam("")
     string name;
@@ -325,14 +325,14 @@ struct AllTestCaseTbl {
 @TableName(mutationStatusTable)
 @TableConstraint("checksum UNIQUE (checksum0, checksum1)")
 struct MutationStatusTbl {
-    ulong id;
-    ulong status;
+    long id;
+    long status;
 
     @ColumnParam("")
-    ulong time;
+    long time;
 
     @ColumnName("test_cnt")
-    ulong testCnt;
+    long testCnt;
 
     @ColumnParam("")
     @ColumnName("update_ts")
@@ -342,14 +342,14 @@ struct MutationStatusTbl {
     @ColumnName("added_ts")
     SysTime added;
 
-    ulong checksum0;
-    ulong checksum1;
+    long checksum0;
+    long checksum1;
 }
 
 @TableName(mutantTimeoutWorklistTable)
 @TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 struct MutantTimeoutWorklistTbl {
-    ulong id;
+    long id;
 }
 
 /** The defaults for the schema is the state that the state machine start in.
@@ -376,29 +376,41 @@ struct MutantTimeoutCtxTbl {
 
 import dextool.plugin.mutate.backend.database.type : Rationale;
 
+/** The lower 64bit of the checksum should be good enough as the primary key.
+ * By doing it this way it is easier to update a marked mutant without
+ * "peeking" in the database ("insert or update").
+ *
+ * Both `st_id` and `mut_id` are values that sqlite can reuse between analyzes
+ * if they have been previously removed thus the only assured connection
+ * between a marked mutant and future code changes is the checksum.
+ */
 @TableName(markedMutantTable)
-@TablePrimaryKey("st_id")
+@TablePrimaryKey("checksum0")
 struct MarkedMutantTbl {
+    /// Checksum of the mutant status the marking is related to.
+    long checksum0;
+    long checksum1;
+
+    /// updated each analyze.
     @ColumnName("st_id")
     long mutationStatusId;
 
+    /// updated each analyze.
     @ColumnName("mut_id")
     long mutationId;
 
     uint line;
-
     uint column;
-
     string path;
 
-    @ColumnName("to_status")
-    ulong toStatus;
+    /// The status it should always be changed to.
+    long toStatus;
 
+    /// Time when the mutant where marked.
     SysTime time;
 
     string rationale;
 
-    @ColumnName("mut_text")
     string mutText;
 }
 
@@ -850,6 +862,32 @@ void upgradeV12(ref Miniorm db) {
 
 /// 2019-11-12
 void upgradeV13(ref Miniorm db) {
+    @TableName(markedMutantTable)
+    @TablePrimaryKey("st_id")
+    struct MarkedMutantTbl {
+        @ColumnName("st_id")
+        long mutationStatusId;
+
+        @ColumnName("mut_id")
+        long mutationId;
+
+        uint line;
+
+        uint column;
+
+        string path;
+
+        @ColumnName("to_status")
+        ulong toStatus;
+
+        SysTime time;
+
+        string rationale;
+
+        @ColumnName("mut_text")
+        string mutText;
+    }
+
     db.run(buildSchema!(MarkedMutantTbl));
     updateSchemaVersion(db, 14);
 }
@@ -863,6 +901,14 @@ void upgradeV14(ref Miniorm db) {
     db.run(buildSchema!(SrcMetadataTable, NomutTbl, NomutDataTbl));
     logger.info("Re-execute analyze to update the NOMUT data");
     updateSchemaVersion(db, 15);
+}
+
+/// 2020-01-21
+void upgradeV15(ref Miniorm db) {
+    // fix bug in the marked mutant table
+    db.run(format!"DROP TABLE %s"(markedMutantTable));
+    db.run(buildSchema!MarkedMutantTbl);
+    logger.info("Dropping all marked mutants because of database changes");
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
