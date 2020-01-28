@@ -164,6 +164,9 @@ struct ConfigMutationTest {
 
     /// The size of the thread pool which affects how many tests are executed in parallel.
     int testPoolSize;
+
+    /// Seed used when randomly choosing mutants to test in a pull request.
+    long pullRequestSeed = 42;
 }
 
 /// Settings for the administration mode

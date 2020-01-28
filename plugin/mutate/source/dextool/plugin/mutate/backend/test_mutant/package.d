@@ -411,7 +411,6 @@ nothrow:
     }
 
     void opCall(ref MutateCode data) {
-        import std.random : uniform;
         import dextool.plugin.mutate.backend.generate_mutant : generateMutant,
             GenerateMutantResult, GenerateMutantStatus;
 
@@ -584,6 +583,7 @@ struct TestDriver {
         import dextool.plugin.mutate.type : TestConstraint;
 
         TestConstraint constraint;
+        long seed;
     }
 
     static struct SanityCheck {
@@ -706,6 +706,7 @@ struct TestDriver {
         this.global.timeoutFsm = TimeoutFsm(data.mutKind);
         this.global.hardcodedTimeout = !global.data.conf.mutationTesterRuntime.isNull;
         local.get!PullRequest.constraint = global.data.conf.constraint;
+        local.get!PullRequest.seed = global.data.conf.pullRequestSeed;
         local.get!NextPullRequestMutant.maxAlive = global.data.conf.maxAlive;
         local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
         this.global.testCmds = global.data.conf.mutationTester;
@@ -1067,6 +1068,7 @@ nothrow:
 
     void opCall(PullRequest data) {
         import std.array : appender;
+        import std.random : randomCover, Mt19937_64;
         import dextool.plugin.mutate.backend.database : MutationStatusId;
         import dextool.plugin.mutate.backend.type : SourceLoc;
         import dextool.set;
@@ -1099,8 +1101,12 @@ nothrow:
         logger.infof(!mut_ids.empty, "Found %s mutants in the diff",
                 mut_ids.length).collectException;
 
-        local.get!NextPullRequestMutant.mutants = mut_ids.toArray;
-        logger.trace(local.get!NextPullRequestMutant.mutants.sort).collectException;
+        const seed = local.get!PullRequest.seed;
+        logger.infof("Using random seed %s when choosing the mutants to test",
+                seed).collectException;
+        auto rng = Mt19937_64(seed);
+        local.get!NextPullRequestMutant.mutants = mut_ids.toArray.sort.randomCover(rng).array;
+        logger.trace("Test sequence ", local.get!NextPullRequestMutant.mutants).collectException;
 
         if (mut_ids.empty) {
             logger.warning("None of the locations specified with -L exists").collectException;

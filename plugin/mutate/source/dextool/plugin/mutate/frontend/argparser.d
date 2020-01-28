@@ -105,7 +105,7 @@ struct ArgParser {
 
         app.put("[analyze]");
         app.put("# exclude files in these directory tree(s) from analysis");
-        app.put("# relative paths are relative to the directory dextool is executed in");
+        app.put("# relative paths are relative to workarea.root");
         app.put("# exclude = []");
         app.put(
                 "# limit the number of threads used when analysing. Default is as many as there are cores available");
@@ -257,6 +257,8 @@ struct ArgParser {
         }
 
         void testMutantsG(string[] args) {
+            import std.datetime : Clock;
+
             string[] mutationTester;
             string mutationCompile;
             string mutationTestCaseAnalyze;
@@ -264,6 +266,10 @@ struct ArgParser {
             string maxRuntime;
             string[] testConstraint;
             int maxAlive = -1;
+
+            // set the seed here so if the user specify the CLI the rolling
+            // seed is overridden.
+            mutationTest.pullRequestSeed += Clock.currTime.isoWeek + Clock.currTime.year;
 
             data.toolMode = ToolMode.test_mutants;
             // dfmt off
@@ -279,6 +285,7 @@ struct ArgParser {
                    "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &workArea.rawRoot,
+                   "pull-request-seed", "seed used when randomly choosing mutants to test in a pull request", &mutationTest.pullRequestSeed,
                    "restrict", restrict_help, &workArea.rawRestrict,
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
