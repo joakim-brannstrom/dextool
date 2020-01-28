@@ -46,21 +46,6 @@ struct Database {
         return Database(SDatabase.make(db), mut_order);
     }
 
-    Nullable!Checksum getFileChecksum(const Path p) @trusted {
-        import dextool.plugin.mutate.backend.utility : checksum;
-
-        auto stmt = db.prepare("SELECT checksum0,checksum1 FROM files WHERE path=:path");
-        stmt.get.bind(":path", cast(string) p);
-        auto res = stmt.get.execute;
-
-        typeof(return) rval;
-        if (!res.empty) {
-            rval = checksum(res.front.peek!long(0), res.front.peek!long(1));
-        }
-
-        return rval;
-    }
-
     /** Get the next mutation point + 1 mutant for it that has status unknown.
      *
      * TODO to run many instances in parallel the mutation should be locked.

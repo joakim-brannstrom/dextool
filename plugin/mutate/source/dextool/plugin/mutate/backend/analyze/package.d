@@ -21,6 +21,8 @@ import std.exception : collectException;
 import std.parallelism;
 import std.typecons;
 
+import colorlog;
+
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
     CompileCommandDB, SearchResult;
 import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
@@ -159,6 +161,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         const bool prune, const bool fastDbStore) @trusted nothrow {
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
     import cachetools : CacheLRU;
+    import dextool.cachetools : nullableCache;
 
     Database* db = cast(Database*) dbShared;
     FilesysIO fio = cast(FilesysIO) fioShared;
@@ -166,18 +169,12 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
     // A file is at most saved one time to the database.
     Set!Path savedFiles;
 
-    auto fileIdCache = new CacheLRU!(string, FileId);
-    // `p` must be a path realtive to the root.
-    Nullable!FileId getFileId(Path p) {
-        Nullable!FileId rval = fileIdCache.get(p);
-        if (rval.isNull) {
-            rval = db.getFileId(p);
-            if (!rval.isNull) {
-                fileIdCache.put(p, rval.get);
-            }
-        }
-        return rval;
-    }
+    auto getFileId = nullableCache!(string, FileId, (string p) => db.getFileId(p.Path))(256, 30);
+    auto getFileDbChecksum = nullableCache!(string, Checksum,
+            (string p) => db.getFileChecksum(p.Path))(256, 30);
+    auto getFileFsChecksum = nullableCache!(string, Checksum, (string p) {
+        return checksum(fio.makeInput(AbsolutePath(Path(p))).content[]);
+    })(256, 30);
 
     static struct Files {
         Checksum[Path] value;
@@ -190,6 +187,15 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
     }
 
     void save(immutable Analyze.Result result) {
+        // mark files that have an unchanged checksum as "already saved"
+        foreach (f; result.idFile
+                .byKey
+                .filter!(a => a !in savedFiles)
+                .filter!(a => getFileDbChecksum(fio.toRelativeRoot(a)) == getFileFsChecksum(a))) {
+            logger.info("Unchanged ".color(Color.yellow), f);
+            savedFiles.add(f);
+        }
+
         // only saves mutation points to a file one time.
         {
             auto app = appender!(MutationPointEntry2[])();
@@ -198,7 +204,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                 app.put(mp);
             }
             foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
-                logger.info("Saving ", f);
+                logger.info("Saving ".color(Color.green), f);
                 db.removeFile(fio.toRelativeRoot(f));
                 const info = result.infoId[result.idFile[f]];
                 db.put(fio.toRelativeRoot(f), info.checksum, info.language);
@@ -257,7 +263,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         auto files = db.getFiles.map!(a => buildPath(fio.getOutputDir, a).Path).toSet;
 
         foreach (f; files.setDifference(savedFiles).toRange) {
-            logger.info("Removing ", f);
+            logger.info("Removing ".color(Color.red), f);
             db.removeFile(fio.toRelativeRoot(f));
         }
     }
@@ -314,6 +320,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
         logger.info("Committing changes");
         trans.commit;
+        logger.info("Ok".color(Color.green));
 
         fastDbOff();
     } catch (Exception e) {

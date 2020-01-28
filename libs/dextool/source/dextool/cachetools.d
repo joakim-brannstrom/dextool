@@ -62,3 +62,45 @@ static if (__VERSION__ < 2082L) {
         return aa[key];
     }
 }
+
+struct NullableCache(K, V, alias getValue) {
+    import std.typecons : Nullable;
+    import cachetools : CacheLRU;
+
+    CacheLRU!(K, V) cache;
+
+    this(CacheLRU!(K, V) cache, int size = 0, int ttl = 0) {
+        this.cache = cache;
+        if (size != 0)
+            cache.size = size;
+        if (ttl != 0)
+            cache.ttl = ttl;
+    }
+
+    static if (__VERSION__ > 2089L) {
+        ~this() {
+            .destroy(cache);
+        }
+    }
+
+    auto get(K k) {
+        Nullable!V rval = cache.get(k);
+        if (rval.isNull) {
+            rval = getValue(k);
+            if (!rval.isNull) {
+                cache.put(k, rval.get);
+            }
+        }
+        return rval;
+    }
+
+    auto opCall(K k) {
+        return get(k);
+    }
+}
+
+auto nullableCache(K, V, alias getValue)(int size = 0, int ttl = 0) {
+    import cachetools : CacheLRU;
+
+    return NullableCache!(K, V, getValue)(new CacheLRU!(K, V));
+}
