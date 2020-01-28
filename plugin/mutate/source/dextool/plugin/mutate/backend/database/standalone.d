@@ -898,6 +898,20 @@ struct Database {
         return rval;
     }
 
+    Nullable!Checksum getFileChecksum(const Path p) @trusted {
+        immutable sql = format!"SELECT checksum0,checksum1 FROM %s WHERE path=:path"(filesTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":path", cast(string) p);
+        auto res = stmt.get.execute;
+
+        typeof(return) rval;
+        if (!res.empty) {
+            rval = Checksum(res.front.peek!long(0), res.front.peek!long(1));
+        }
+
+        return rval;
+    }
+
     void put(const Path p, Checksum cs, const Language lang) @trusted {
         immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang)
             VALUES (:path, :checksum0, :checksum1, :lang)"(
