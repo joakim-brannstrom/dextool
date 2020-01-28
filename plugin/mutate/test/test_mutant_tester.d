@@ -956,3 +956,38 @@ class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
         return (testData ~ "dcc_dc_switch1.cpp").toString;
     }
 }
+
+class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
+    override void test() {
+        import std.path : relativePath;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--test-cmd", "/bin/true"])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["--max-alive", "10"])
+            .addPostArg(["--pull-request-seed", "42"])
+            .addPostArg(["-L", program_cpp.relativePath(workDir.toString) ~ ":8-18"])
+            .run;
+
+        testConsecutiveSparseOrder!Re([
+                `.*Using random seed 42`,
+                `.*Test sequence \[13, 12, 18, 9, 1, 16, 10, 17, 8, 14, 15, 4, 5, 7, 11, 6, 2, 3\]`,
+                ]).shouldBeIn(r.output);
+        // dfmt on
+    }
+
+    override string programFile() {
+        return (testData ~ "dcc_dc_switch1.cpp").toString;
+    }
+}
