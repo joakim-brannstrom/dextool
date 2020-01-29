@@ -1,0 +1,83 @@
+{
+  "name": "cachetools",
+  "authors": [
+    "Igor Khasilev"
+  ],
+  "dependencies": {
+        "automem": "*"
+  },
+  "configurations":[
+    {
+      "name": "unittest",
+      "targetType": "executable",
+      "versions": ["TestingCacheTools"],
+      "preBuildCommands": [
+        "dub run --compiler=$$DC unit-threaded -c gen_ut_main -- -f bin/ut.d"
+      ],
+      "dependencies": {
+        "unit-threaded": "~>0"
+      },
+      "excludedSourceFiles": [
+        "src/main.d"
+      ],
+      "mainSourceFile": "bin/ut.d"
+    },
+    {
+      "name": "library",
+      "targetType": "library"
+    },
+    {
+      "name": "application",
+      "targetType": "executable"
+    }
+  ],
+  "buildTypes": {
+    "debug": {
+      "buildOptions": [
+        "debugMode",
+        "debugInfo"
+      ],
+      "dflags-dmd": [
+        "-g", "-gf"
+      ],
+      "dflags-ldc": [
+        "-d-debug=cachetools"
+      ],
+      "debugVersions": [
+        "cachetools"
+      ]
+    },
+    "unittest": {
+      "buildOptions": [
+        "unittests", "debugMode", "debugInfo"
+      ],
+      "dflags-dmd": [
+        "-g", "-gf"
+      ],
+      "dflags-ldc": [
+        "-d-debug=cachetools"
+      ],
+      "debugVersions": [
+        "cachetools"
+      ]
+    },
+    "profile": {
+      "buildOptions": [
+        "profile", "optimize", "inline", "debugInfo"
+      ],
+      "dflags-dmd": [
+        "-g", "-gf", "-release"
+      ],
+      "dflags-ldc": [
+        "-d-debug=cachetools"
+      ],
+      "debugVersions": [
+        "cachetools"
+      ]
+    }
+  },
+  "sourcePaths": ["source"],
+  "importPaths": ["source"],
+  "description": "Collection of cache strategies",
+  "license": "MIT"
+}

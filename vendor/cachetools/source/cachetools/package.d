@@ -7,5 +7,3 @@ public import cachetools.hash;
 
 private import cachetools.internal;
 
-@safe unittest {
-}

@@ -25,14 +25,16 @@ set(flags "-I${CMAKE_SOURCE_DIR}/libs/cpptooling/source
 -I${CMAKE_SOURCE_DIR}/vendor/cachetools/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
 -I${CMAKE_SOURCE_DIR}/vendor/miniorm/source
--I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
+-I${CMAKE_SOURCE_DIR}/vendor/automem/source
+-I${CMAKE_SOURCE_DIR}/vendor/blob_model/source"
+)
 
 build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_colorlog;dextool_toml;dextool_arsd;dextool_cachetools"
+    "dextool_automem;dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_colorlog;dextool_toml;dextool_arsd;dextool_cachetools"
 )
 
 collect_binary_in_root(${EXE_NAME})
@@ -44,7 +46,7 @@ list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main
 list(APPEND SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
-compile_d_unittest(mutate "${SRC_FILES}" "${flags}" "" "dextool_colorlog;dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools")
+compile_d_unittest(mutate "${SRC_FILES}" "${flags}" "" "dextool_automem;dextool_colorlog;dextool_blob_model;dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools")
 
 setup_integration_testing_env()
 

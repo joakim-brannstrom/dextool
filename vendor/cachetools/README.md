@@ -11,6 +11,15 @@ Limitations:
 * Cache implementations are not inherited from inerface or base class.
 This is because inheritance and attribute inference don't work together.
 
+### 2Q cache ###
+
+2Q cache is variant of multi-level LRU cache. Original paper http://www.vldb.org/conf/1994/P439.PDF
+It is adaptive, scan-resistant and can give more hits than plain LRU.
+
+This cache consists from three parts (In, Out and Main) where 'In' receive all new elements, 'Out' receives all
+overflows from 'In', and 'Main' is LRU cache which hold all long-lived data.)
+
+
 ### LRU cache ###
 
 LRU cache keep limited number of items in memory. When adding new item to already full cache we have to evict some items.
@@ -19,15 +28,15 @@ Eviction candidates are selected first from expired items (using per-cache confi
 ## Code examples ##
 
 ```d
-    auto lru = new CacheLRU!(int, string);
-    lru.size = 2048; // keep 2048 elements in cache
-    lru.ttl = 60;    // set 60 seconds TTL for items in cache
+    auto cache = new CacheLRU!(int, string); // can be Cache2Q!(int, string)
+    cache.size = 2048;      // keep 2048 elements in cache
+    cache.ttl = 60.seconds; // set 60 seconds TTL for items in cache
     
-    lru.put(1, "one");
-    auto v = lru.get(1);
-    assert(v == "one"); // 1 is in cache
-    v = lru.get(2);
-    assert(v.isNull);   // no such item in cache
+    cache.put(1, "one");
+    auto v = cache.get(1);
+    assert(v == "one");  // 1 is in cache
+    v = cache.get(2);
+    assert(v.isNull);    // no such item in cache
 
 ```
 
