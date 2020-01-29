@@ -1,14 +1,21 @@
 module cachetools.containers.hashmap;
 
+version(TestingCacheTools) {
+    import ut;
+}
+
 import std.traits;
 import std.format;
 import std.typecons;
-
+import std.algorithm : map, copy;
 import core.memory;
 import core.bitop;
 
+import automem: RefCounted, refCounted;
+
 private import std.experimental.allocator;
 private import std.experimental.allocator.mallocator : Mallocator;
+private import std.experimental.allocator.gc_allocator;
 
 private import cachetools.internal;
 private import cachetools.hash;
@@ -19,24 +26,30 @@ class KeyNotFound : Exception {
         super(msg);
     }
 }
-///
-/// Return true if it is worth to store values inline in hash table
-/// V footprint should be small enough
-///
-package bool SmallValueFootprint(V)() {
-    import std.traits;
 
-    static if (isNumeric!V || isSomeString!V || isSomeChar!V || isPointer!V) {
-        return true;
-    } else static if (is(V == struct) && V.sizeof <= (void*).sizeof) {
-        return true;
-    } else static if (is(V == class) && __traits(classInstanceSize, V) <= (void*).sizeof) {
-        return true;
-    } else
-        return false;
+class KeyRemoved : Exception {
+    this(string msg = "key not found") @safe {
+        super(msg);
+    }
 }
 
-private bool keyEquals(K)(const K a, const K b) {
+static if (hash_t.sizeof == 8) {
+    enum EMPTY_HASH = 0x00_00_00_00_00_00_00_00;
+    enum DELETED_HASH = 0x10_00_00_00_00_00_00_00;
+    enum ALLOCATED_HASH = 0x20_00_00_00_00_00_00_00;
+    enum TYPE_MASK = 0xF0_00_00_00_00_00_00_00;
+    enum HASH_MASK = 0x0F_FF_FF_FF_FF_FF_FF_FF;
+}
+else static if (hash_t.sizeof == 4) {
+    enum EMPTY_HASH = 0x00_00_00_00;
+    enum DELETED_HASH = 0x10_00_00_00;
+    enum ALLOCATED_HASH = 0x20_00_00_00;
+    enum TYPE_MASK = 0xF0_00_00_00;
+    enum HASH_MASK = 0x0F_FF_FF_FF;
+}
+
+
+private bool keyEquals(K)(K a, K b) {
     static if (is(K == class)) {
         if (a is b) {
             return true;
@@ -45,11 +58,13 @@ private bool keyEquals(K)(const K a, const K b) {
             return false;
         }
         return a.opEquals(b);
-    } else {
+    }
+    else {
         return a == b;
     }
 }
 
+@("L" ~ to!string(__LINE__) ~ ".keyEquals")
 @safe nothrow unittest {
     class C {
         int c;
@@ -69,115 +84,137 @@ private bool keyEquals(K)(const K a, const K b) {
     assert(!keyEquals(a, b));
     assert(keyEquals(a, c));
     assert(keyEquals(a, d));
+    assert(!keyEquals(null, a));
     assert(keyEquals(1, 1));
 }
+///
+struct HashMap(K, V, Allocator = Mallocator, bool GCRangesAllowed = true) {
 
-struct HashMap(K, V, Allocator = Mallocator) {
-
-    enum initial_buckets_num = 32;
-    enum grow_factor = 2;
-    enum inlineValues = true; //SmallValueFootprint!V()|| is(V==class);
+    private enum initial_buckets_num = 32;
 
     alias StoredKeyType = StoredType!K;
     alias StoredValueType = StoredType!V;
 
-    private {
+    package {
         alias allocator = Allocator.instance;
-        static if (hash_t.sizeof == 8) {
-            enum EMPTY_HASH = 0x00_00_00_00_00_00_00_00;
-            enum DELETED_HASH = 0x10_00_00_00_00_00_00_00;
-            enum ALLOCATED_HASH = 0x20_00_00_00_00_00_00_00;
-            enum TYPE_MASK = 0xF0_00_00_00_00_00_00_00;
-            enum HASH_MASK = 0x0F_FF_FF_FF_FF_FF_FF_FF;
-        } else static if (hash_t.sizeof == 4) {
-            enum EMPTY_HASH = 0x00_00_00_00;
-            enum DELETED_HASH = 0x10_00_00_00;
-            enum ALLOCATED_HASH = 0x20_00_00_00;
-            enum TYPE_MASK = 0xF0_00_00_00;
-            enum HASH_MASK = 0x0F_FF_FF_FF;
-        }
-
+        //
+        // Bucket is place where we store key, value and hash.
+        // High bits of hash are used to distinguish between allocated, removed and
+        // empty buckets.
+        // Buckets form contigous array. We keep this array refcounted, so that
+        // we can store reference to it from byPair, byKey, ... even if hashtable itself cleared or
+        // destroyed.
+        //
         struct _Bucket {
             hash_t hash;
             StoredKeyType key;
-            static if (inlineValues) {
-                StoredValueType value;
-            } else {
-                V* value_ptr;
-            }
+            StoredValueType value;
             string toString() const {
                 import std.format;
 
-                static if (inlineValues) {
-                    return "%s, hash: %0x,key: %s, value: %s".format([EMPTY_HASH : "free", DELETED_HASH : "deleted",
-                ALLOCATED_HASH : "allocated"][cast(long)(hash & TYPE_MASK)], hash, key, value);
-                } else {
-                    return "%s, hash: %0x, key: %s, value: %s".format([EMPTY_HASH : "free", DELETED_HASH : "deleted",
-                ALLOCATED_HASH : "allocated"][cast(long)(hash & TYPE_MASK)],
-                            hash, key, value_ptr !is null ? format("%s", *value_ptr) : "-");
-                }
+                return "%s, hash: %0x,key: %s, value: %s".format([
+                        EMPTY_HASH: "free",
+                        DELETED_HASH: "deleted",
+                        ALLOCATED_HASH: "allocated"
+                ][cast(long)(hash & TYPE_MASK)], hash, key, value);
             }
         }
 
-        _Bucket[] _buckets;
-        int _buckets_num;
-        int _mask;
-        int _allocated;
-        int _deleted;
-        int _empty;
+        private struct _BucketStorage {
+
+            _Bucket[] bs;
+
+            this(this) {
+                auto newbs = makeArray!(_Bucket)(allocator, bs.length);
+                () @trusted {
+                    static if (UseGCRanges!(Allocator, K, V, GCRangesAllowed)) {
+                        GC.addRange(newbs.ptr, bs.length * _Bucket.sizeof);
+                    }
+                }();
+                copy(bs, newbs);
+                bs = newbs;
+            }
+
+            this(size_t n) {
+                bs = makeArray!(_Bucket)(allocator, n);
+                () @trusted {
+                    static if (UseGCRanges!(Allocator, K, V, GCRangesAllowed)) {
+                        GC.addRange(bs.ptr, n * _Bucket.sizeof);
+                    }
+                }();
+            }
+
+            ~this() {
+                if (!bs.length)
+                    return;
+                () @trusted {
+                    static if (UseGCRanges!(Allocator, K, V, GCRangesAllowed)) {
+                        GC.removeRange(bs.ptr);
+                    }
+                }();
+                dispose(allocator, bs.ptr);
+            }
+        }
+
+        private alias BucketStorage = RefCounted!(_BucketStorage, Allocator);
+
+        BucketStorage   _buckets;
+        int             _buckets_num;
+        int             _mask;
+        int             _allocated;
+        int             _deleted;
+        int             _empty;
+
+        int             _grow_factor = 4;
+
     }
 
-    ~this() @safe {
-        if (_buckets_num > 0) {
-            static if (!inlineValues) {
-                for (int i = 0; i < _buckets_num; i++) {
-                    auto t = _buckets[i].hash;
-                    if (t <= DELETED_HASH) {
-                        continue;
-                    }
-                    (() @trusted { dispose(allocator, _buckets[i].value_ptr); })();
-                }
-            }
-            (() @trusted {
-                GC.removeRange(_buckets.ptr);
-                dispose(allocator, _buckets);
-            })();
+    ~this() {
+        clear();
+    }
+
+    this(this) {
+        auto obuckets = _buckets;
+        _buckets = BucketStorage(_buckets_num);
+        copy(obuckets.bs, _buckets.bs);
+    }
+
+    void opAssign(ref typeof(this) rhs) {
+        auto kv = rhs.byPair; // this will keep current copy of _buckets[]
+        //
+        // keep old _buckets_num(to avoid resizes) and _mask;
+        //
+        if (rhs is this) {
+            return;
         }
+        _empty = rhs._empty;
+        _buckets_num = rhs._buckets_num;
+        _allocated = rhs._allocated;
+        _deleted = rhs._deleted;
+        _mask = rhs._mask;
+        _grow_factor = rhs.grow_factor;
+        _buckets = BucketStorage(_buckets_num);
+        copy(rhs._buckets.bs, _buckets.bs);
+    }
+
+    string toString() {
+        import std.algorithm, std.array;
+
+        auto pairs = byPair;
+        return "[%s]".format(pairs.map!(p => "%s:%s".format(p.key, p.value)).array.join(", "));
     }
 
     invariant {
         assert(_allocated >= 0 && _deleted >= 0 && _empty >= 0);
         assert(_allocated + _deleted + _empty == _buckets_num);
     }
-    ///
-    /// Find any unallocated bucket starting from start_index (inclusive)
-    /// Returns index on success or hash_t.max on fail
-    ///
-    //private hash_t findEmptyIndex(const hash_t start_index) pure const @safe @nogc
-    //in
-    //{
-    //    assert(start_index < _buckets_num);
-    //}
-    //do {
-    //    hash_t index = start_index;
+
+    // Find allocated bucket for given key and computed hash starting from start_index
+    // Returns: index if bucket found or hash_t.max otherwise
     //
-    //    do {
-    //        () @nogc {debug(cachetools) tracef("test index %d for non-ALLOCATED", index);}();
-    //        if ( _buckets[index].hash < ALLOCATED_HASH )
-    //        {
-    //            return index;
-    //        }
-    //        index = (index + 1) & _mask;
-    //    } while(index != start_index);
-    //    return hash_t.max;
-    //}
-    ///
-    /// Find allocated bucket for given key and computed hash starting from start_index
-    /// Returns: index if bucket found or hash_t.max otherwise
-    ///
-    /// Inherits @nogc and from K opEquals()
-    ///
-    private hash_t findEntryIndex(const hash_t start_index, const hash_t hash, in K key) pure const @safe
+    // Inherits @nogc from K opEquals()
+    //
+    private hash_t findEntryIndex(K)(const hash_t start_index, const hash_t hash, ref K key)
     in {
         assert(hash < DELETED_HASH); // we look for real hash
         assert(start_index < _buckets_num); // start position inside array
@@ -186,18 +223,18 @@ struct HashMap(K, V, Allocator = Mallocator) {
         hash_t index = start_index;
 
         do {
-            immutable h = _buckets[index].hash;
+            immutable h = _buckets.bs[index].hash;
 
-            debug (cachetools)
-                safe_tracef("test entry index %d (%s) for key %s", index, _buckets[index], key);
+            // debug (cachetools)
+            //     safe_tracef("test entry index %d (%s) for key %s", index, _buckets.bs[index], key);
 
             if (h == EMPTY_HASH) {
                 break;
             }
 
             if (h >= ALLOCATED_HASH && (h & HASH_MASK) == hash
-                    && keyEquals(_buckets[index].key, key)) {
-                //() @nogc @trusted {debug(cachetools) tracef("test entry index %d for key %s - success", index, key);}();
+                    && keyEquals(_buckets.bs[index].key, key)) {
+                debug (cachetools) safe_tracef("test entry index %d for key %s - success", index, key);
                 return index;
             }
             index = (index + 1) & _mask;
@@ -206,14 +243,43 @@ struct HashMap(K, V, Allocator = Mallocator) {
         return hash_t.max;
     }
 
-    ///
-    /// Find place where we can insert(DELETED or EMPTY bucket) or update existent (ALLOCATED)
-    /// bucket for key k and precomputed hash starting from start_index
-    ///
-    ///
-    /// Inherits @nogc from K opEquals()
-    ///
-    private hash_t findUpdateIndex(const hash_t start_index, const hash_t computed_hash, in K key) pure const @safe
+    private hash_t findEntryIndex(K)(const hash_t start_index, const hash_t hash, ref K key) const
+    in {
+        assert(hash < DELETED_HASH); // we look for real hash
+        assert(start_index < _buckets_num); // start position inside array
+    }
+    do {
+        hash_t index = start_index;
+
+        do {
+            immutable h = _buckets.bs[index].hash;
+
+            // debug (cachetools)
+            //     safe_tracef("test entry index %d (%s) for key %s", index, _buckets.bs[index], key);
+
+            if (h == EMPTY_HASH) {
+                break;
+            }
+
+            if (h >= ALLOCATED_HASH && (h & HASH_MASK) == hash
+                    && keyEquals(_buckets.bs[index].key, key)) {
+                debug(cachetools) safe_tracef("test entry index %d for key %s - success", index, key);
+                return index;
+            }
+            index = (index + 1) & _mask;
+        }
+        while (index != start_index);
+        return hash_t.max;
+    }
+
+    //
+    // Find place where we can insert(DELETED or EMPTY bucket) or update existent (ALLOCATED)
+    // bucket for key k and precomputed hash starting from start_index
+    //
+    //
+    // Inherits @nogc from K opEquals()
+    //
+    private hash_t findUpdateIndex(K)(const hash_t start_index, const hash_t computed_hash, ref K key)
     in {
         assert(computed_hash < DELETED_HASH);
         assert(start_index < _buckets_num);
@@ -222,23 +288,23 @@ struct HashMap(K, V, Allocator = Mallocator) {
         hash_t index = start_index;
 
         do {
-            immutable h = _buckets[index].hash;
+            immutable h = _buckets.bs[index].hash;
 
-            debug (cachetools)
-                safe_tracef("test update index %d (%s) for key %s", index, _buckets[index], key);
+            // debug (cachetools)
+            //     safe_tracef("test update index %d (%s) for key %s", index, _buckets.bs[index], key);
 
             if (h <= DELETED_HASH) // empty or deleted
             {
-                debug (cachetools)
-                    safe_tracef("test update index %d (%s) for key %s - success",
-                            index, _buckets[index], key);
+                // debug (cachetools)
+                //     safe_tracef("test update index %d (%s) for key %s - success",
+                //             index, _buckets.bs[index], key);
                 return index;
             }
             assert((h & TYPE_MASK) == ALLOCATED_HASH);
-            if ((h & HASH_MASK) == computed_hash && keyEquals(_buckets[index].key, key)) {
-                debug (cachetools)
-                    safe_tracef("test update index %d (%s) for key %s - success",
-                            index, _buckets[index], key);
+            if ((h & HASH_MASK) == computed_hash && keyEquals(_buckets.bs[index].key, key)) {
+                // debug (cachetools)
+                //     safe_tracef("test update index %d (%s) for key %s - success",
+                //             index, _buckets.bs[index], key);
                 return index;
             }
             index = (index + 1) & _mask;
@@ -246,23 +312,23 @@ struct HashMap(K, V, Allocator = Mallocator) {
         while (index != start_index);
         return hash_t.max;
     }
-    ///
-    /// Find unallocated entry in the buckets slice
-    /// We use this function during resize() only.
-    ///
+    //
+    // Find unallocated entry in the buckets slice
+    // We use this function during resize() only.
+    //
     private long findEmptyIndexExtended(const hash_t start_index,
-            in ref _Bucket[] buckets, int new_mask) pure const @safe @nogc
+            ref BucketStorage buckets, int new_mask) pure const @safe @nogc
     in {
-        assert(start_index < buckets.length);
+        assert(start_index < buckets.bs.length);
     }
     do {
         hash_t index = start_index;
 
         do {
-            immutable t = buckets[index].hash;
+            immutable t = buckets.bs[index].hash;
 
             debug (cachetools)
-                safe_tracef("test empty index %d (%s)", index, buckets[index]);
+                safe_tracef("test empty index %d (%s)", index, buckets.bs[index]);
 
             if (t <= DELETED_HASH) // empty or deleted
             {
@@ -279,6 +345,7 @@ struct HashMap(K, V, Allocator = Mallocator) {
         //
         // _deleted > _buckets_num / 8
         //
+        //return false;
         return _deleted << 3 > _buckets_num;
     }
 
@@ -290,14 +357,15 @@ struct HashMap(K, V, Allocator = Mallocator) {
         return _allocated + (_allocated << 2) > _buckets_num << 2;
     }
 
-    private void doResize(int dest) @safe {
+    public auto capacity() pure const @safe @nogc {
+        // capacity = 0.8*buckets_num - _allocated;
+        return (( _buckets_num << 2 ) / 5) - _allocated;
+    }
+
+    private void doResize(int dest) {
         immutable _new_buckets_num = dest;
         immutable _new_mask = dest - 1;
-        _Bucket[] _new_buckets = makeArray!(_Bucket)(allocator, _new_buckets_num);
-
-        () @trusted {
-            GC.addRange(_new_buckets.ptr, _new_buckets_num * _Bucket.sizeof);
-        }();
+        BucketStorage _new_buckets = BucketStorage(_new_buckets_num);
 
         // iterate over entries
 
@@ -305,7 +373,7 @@ struct HashMap(K, V, Allocator = Mallocator) {
             safe_tracef("start resizing: old loadfactor: %s", (1.0 * _allocated) / _buckets_num);
 
         for (int i = 0; i < _buckets_num; i++) {
-            immutable hash_t h = _buckets[i].hash;
+            immutable hash_t h = _buckets.bs[i].hash;
             if (h < ALLOCATED_HASH) { // empty or deleted
                 continue;
             }
@@ -317,382 +385,575 @@ struct HashMap(K, V, Allocator = Mallocator) {
                 safe_tracef("old hash: %0x, old pos: %d, new_pos: %d", h, i, new_position);
 
             assert(new_position >= 0);
-            assert(_new_buckets[cast(hash_t) new_position].hash == EMPTY_HASH);
+            assert(_new_buckets.bs[cast(hash_t) new_position].hash == EMPTY_HASH);
 
-            _new_buckets[cast(hash_t) new_position] = _buckets[i];
+            _new_buckets.bs[cast(hash_t)new_position] = _buckets.bs[i];
         }
-        (() @trusted {
-            GC.removeRange(_buckets.ptr);
-            dispose(allocator, _buckets);
-        })();
         _buckets = _new_buckets;
         _buckets_num = _new_buckets_num;
-        assert(_popcnt(_buckets_num) == 1, "Buckets number must be power of 2");
         _mask = _buckets_num - 1;
         _deleted = 0;
         _empty = _buckets_num - _allocated;
 
+        assert(popcnt(_buckets_num) == 1, "Buckets number must be power of 2");
         debug (cachetools)
             safe_tracef("resizing done: new loadfactor: %s", (1.0 * _allocated) / _buckets_num);
     }
 
-    ///
-    /// Lookup methods
-    ///
-    V* opBinaryRight(string op)(in K k) @safe if (op == "in") {
-
-        if (_buckets_num == 0)
-            return null;
-
+    //
+    // Lookup methods
+    //
+    private hash_t getLookupIndex(K)(ref K k) {
+        if (_buckets_num == 0) {
+            return hash_t.max;
+        }
         immutable computed_hash = hash_function(k) & HASH_MASK;
         immutable start_index = computed_hash & _mask;
         immutable lookup_index = findEntryIndex(start_index, computed_hash, k);
+        return lookup_index;
+    }
+
+    private hash_t getLookupIndex(K)(ref K k) const {
+        if (_buckets_num == 0) {
+            return hash_t.max;
+        }
+        immutable computed_hash = hash_function(k) & HASH_MASK;
+        immutable start_index = computed_hash & _mask;
+        immutable lookup_index = findEntryIndex(start_index, computed_hash, k);
+        return lookup_index;
+    }
+    /// key in table
+    /// Returns: pointer to stored value (if key in table) or null 
+    ///
+    auto opBinaryRight(string op, K)(K k) if (op == "in") {
+
+        immutable lookup_index = getLookupIndex(k);
+
         if (lookup_index == hash_t.max) {
             return null;
         }
-        static if (inlineValues) {
-            static if (is(V == StoredValueType)) {
-                return &_buckets[lookup_index].value;
-            } else {
-                V* r = () @trusted {
-                    return cast(V*)&_buckets[lookup_index].value;
-                }();
-                return r;
-            }
-        } else {
-            return _buckets[lookup_index].value_ptr;
+        static if (is(V == StoredValueType)) {
+            return &_buckets.bs[lookup_index].value;
+        }
+        else {
+            V* r = cast(V*)&_buckets[lookup_index].value;
+            return r;
         }
     }
 
-    ref V getOrAdd(T)(K k, T defaultValue) @safe {
-        V* v = k in this;
-        if (v) {
-            return *v;
+    auto opBinaryRight(string op, K)(K k) const if (op == "in") {
+
+        immutable lookup_index = getLookupIndex(k);
+
+        if (lookup_index == hash_t.max) {
+            return null;
         }
-        static if (isAssignable!(V, T)) {
-            return *put(k, defaultValue);
-        } else static if (isCallable!T && isAssignable!(V, ReturnType!T)) {
-            return *put(k, defaultValue());
-        } else {
+        static if (is(V == StoredValueType)) {
+            return &_buckets.bs[lookup_index].value;
+        }
+        else {
+            V* r = cast(V*)&_buckets[lookup_index].value;
+            return r;
+        }
+    }
+
+    ///
+    /// fetch is safe(do not return pointer) and nogc (do not throw exception)
+    /// variant of "in" but in exchange of the cost of returning value instead of pointer
+    /// we return ok = true and value if key in map, ok = false otherwise
+    ///
+    auto fetch(K)(K k) {
+        immutable lookup_index = getLookupIndex(k);
+        if (lookup_index == hash_t.max) {
+            return tuple!("ok", "value")(false, V.init);
+        }
+        return tuple!("ok", "value")(true, _buckets.bs[lookup_index].value);
+    }
+    ///
+    /// get value from hash or add if key is not in table. defaultValue can be callable.
+    /// Returns: ref to value (maybe added)
+    ///
+    V getOrAdd(K, T)(K k, T defaultValue) {
+        immutable lookup_index = getLookupIndex(k);
+
+        if (lookup_index != hash_t.max) {
+            return _buckets.bs[lookup_index].value;
+        }
+
+        static if (is(T == V) || isAssignable!(V, T)) {
+            put(k, defaultValue);
+            return defaultValue;
+        }
+        else static if (isCallable!T && isAssignable!(V, ReturnType!T)) {
+            auto vv = defaultValue();
+            put(k, vv);
+            return vv;
+        }
+        else {
             static assert(0, "what?");
         }
     }
 
+    ///
     alias require = getOrAdd;
 
-    /// Attention: this can't return ref as default value can be rvalue
-    V get(T)(K k, T defaultValue) @safe {
-        V* v = k in this;
-        if (v) {
-            return *v;
+    ///
+    /// Add key/value to hash if key is not in table. value can be lazy/callable.
+    /// Returns: true if key were added.
+    ///
+    bool addIfMissed(T)(K k, T value) {
+        immutable lookup_index = getLookupIndex(k);
+
+        if (lookup_index != hash_t.max) {
+            return false;
         }
-        static if (isAssignable!(V, T)) {
+
+        static if (is(T == V) || isAssignable!(V, T)) {
+            put(k, value);
+            return true;
+        }
+        else static if (isCallable!T && isAssignable!(V, ReturnType!T)) {
+            put(k, value());
+            return true;
+        }
+        else {
+            static assert(0, "Can't assign value");
+        }
+    }
+
+    /// get current grow factor.
+    auto grow_factor() const @safe {
+        return _grow_factor;
+    }
+
+    /// set grow factor (can be between 2, 4 or 8).
+    void grow_factor(int gf) @safe {
+        if (gf < 2) {
+            _grow_factor = 2;
+            return;
+        }
+        if (gf > 8) {
+            _grow_factor = 8;
+            return;
+        }
+        // enforce new grow_factor is power of 2
+        if (popcnt(gf) > 1) {
+            immutable p = bsr(gf);
+            gf = 1 << (p + 1);
+        }
+        _grow_factor = gf;
+    }
+    ///
+    /// get with default value
+    /// it infers @safe, @nogc from user data: do not return ptr and do not thow
+    /// 
+    /// Returns: value from hash, or defaultValue if key not found (see also getOrAdd).
+    /// defaultValue can be callable.
+    ///
+    V get(T)(K k, T defaultValue) const {
+        immutable lookup_index = getLookupIndex(k);
+
+        if (lookup_index != hash_t.max) {
+                return _buckets.bs[lookup_index].value;
+        }
+
+        static if (is(V == T) || isAssignable!(V, T)) {
             return defaultValue;
-        } else static if (isCallable!T && isAssignable!(V, ReturnType!T)) {
+        }
+        else static if (isCallable!T && isAssignable!(V, ReturnType!T)) {
             return defaultValue();
-        } else {
+        }
+        else {
+            static assert(0, "You must call 'get' with default value of HashMap 'value' type, or with callable, returning HashMap 'value'");
+        }
+    }
+
+    V get(T)(K k, T defaultValue) {
+        immutable lookup_index = getLookupIndex(k);
+
+        if (lookup_index != hash_t.max) {
+            return _buckets.bs[lookup_index].value;
+        }
+
+        static if (is(V == T) || isAssignable!(V, T)) {
+            return defaultValue;
+        }
+        else static if (isCallable!T && isAssignable!(V, ReturnType!T)) {
+            return defaultValue();
+        }
+        else {
             static assert(0, "You must call 'get' with default value of HashMap 'value' type, or with callable, returning HashMap 'value'");
         }
     }
 
     ///
+    /// map[key]
     /// Attention: you can't use this method in @nogc code.
     /// Usual aa[key] method.
     /// Throws exception if key not found
+    /// Returns: value for given key
     ///
-    ref V opIndex(in K k) @safe {
-        V* v = k in this;
-        if (v !is null) {
-            return *v;
+    auto opIndex(K)(K k) inout {
+        immutable lookup_index = getLookupIndex(k);
+
+        if (lookup_index == hash_t.max) {
+            throw new KeyNotFound();
         }
-        throw new KeyNotFound();
+
+        static if (is(V == StoredValueType)) {
+            return _buckets.bs[lookup_index].value;
+        }
+        else {
+            return cast(V) _buckets.bs[lookup_index].value;
+        }
     }
 
     ///
-    /// Modifiers
+    /// map[k] = v;
     ///
-    void opIndexAssign(V v, K k) @safe {
+    void opIndexAssign(K)(V v, K k)
+    do {
         put(k, v);
     }
     ///
     /// put pair (k,v) into hash.
-    /// it must be @safe, it inherits @nogc properties from K and V
-    /// It can resize hashtable it is overloaded or has too much deleted entries
     ///
-    V* put(K k, V v) @safe
-    out {
-        assert(__result !is null);
-    }
+    /// it must be @safe, it inherits @nogc properties from K and V
+    /// It can resize table if table is overloaded or has too much deleted entries.
+    /// Returns: pointer to placed value (pointer is valid until next resize).
+    ///
+    auto put(K)(K k, V v)
     do {
         if (!_buckets_num) {
             _buckets_num = _empty = initial_buckets_num;
-            assert(_popcnt(_buckets_num) == 1, "Buckets number must be power of 2");
+            assert(popcnt(_buckets_num) == 1, "Buckets number must be power of 2");
             _mask = _buckets_num - 1;
-            _buckets = makeArray!(_Bucket)(allocator, _buckets_num);
-            () @trusted {
-                GC.addRange(_buckets.ptr, _buckets_num * _Bucket.sizeof);
-            }();
+            _buckets = BucketStorage(_buckets_num);
         }
 
         debug (cachetools)
-            safe_tracef("put k: %s, v: %s", k, v);
+            safe_tracef("put k: %s", k);
 
         if (tooHighLoad) {
-            doResize(grow_factor * _buckets_num);
+            doResize(_grow_factor * _buckets_num);
         }
 
-        V* r; //result
         immutable computed_hash = hash_function(k) & HASH_MASK;
         immutable start_index = computed_hash & _mask;
         immutable placement_index = findUpdateIndex(start_index, computed_hash, k);
-        assert(placement_index >= 0);
-        _Bucket* bucket = &_buckets[placement_index];
+
+        _Bucket* bucket = &_buckets.bs[placement_index];
         immutable h = bucket.hash;
 
         debug (cachetools)
             safe_tracef("start_index: %d, placement_index: %d", start_index, placement_index);
 
+        //
+        // Each switch case contains same part of code, so that
+        // any exception in key or value assignment will not
+        // leave table in inconsistent state.
+        //
         if (h < ALLOCATED_HASH) {
+            final switch (h) {
+            case EMPTY_HASH:
+                bucket.value = v;
+                bucket.key = k;
+                _empty--;
+                break;
+            case DELETED_HASH:
+                bucket.value = v;
+                bucket.key = k;
+                _deleted--;
+                break;
+            }
+            bucket.hash = computed_hash | ALLOCATED_HASH;
             _allocated++;
-            _empty--;
-        }
-        static if (inlineValues) {
-            debug (cachetools)
-                safe_tracef("place inline buckets[%d] '%s'='%s'", placement_index, k, v);
-            bucket.value = v;
-            static if (is(V == StoredValueType)) {
-                r = &bucket.value;
-            } else {
-                () @trusted { r = cast(V*)&bucket.value; }();
-            }
+            return Nullable!(typeof(bucket.value))();
         } else {
-            debug (cachetools)
-                safe_tracef("place with allocation buckets[%d] '%s'='%s'", placement_index, k, v);
-            if ((bucket.hash & TYPE_MASK) == ALLOCATED_HASH) {
-                // we just replace what we already allocated
-                r = (bucket.value_ptr);
-                *r = v;
-            } else {
-                r = bucket.value_ptr = make!(V)(allocator);
-                *r = v;
-            }
+            auto o = nullable(bucket.value);
+            bucket.value = v;
+            return o;
         }
-        bucket.hash = computed_hash | ALLOCATED_HASH;
-        bucket.key = k;
-        return r;
     }
 
-    bool remove(K k) @safe {
+    ///
+    /// remomve key from hash.
+    /// Returns: true if actually removed, false otherwise.
+    ///
+    bool remove(K k) {
 
         if (tooMuchDeleted) {
             // do not shrink, just compact table
             doResize(_buckets_num);
         }
 
+        if (_buckets_num == 0) {
+            return false;
+        }
+
         debug (cachetools)
             safe_tracef("remove k: %s", k);
 
-        immutable computed_hash = hash_function(k) & HASH_MASK;
-        immutable start_index = computed_hash & _mask;
-        immutable lookup_index = findEntryIndex(start_index, computed_hash, k);
+        immutable lookup_index = getLookupIndex(k);
         if (lookup_index == hash_t.max) {
             // nothing to remove
             return false;
         }
 
-        assert((_buckets[lookup_index].hash & TYPE_MASK) == ALLOCATED_HASH,
+        assert((_buckets.bs[lookup_index].hash & TYPE_MASK) == ALLOCATED_HASH,
                 "tried to remove non allocated bucket");
-
-        static if (inlineValues) {
-            // what we have to do with removed values XXX?
-        } else {
-            // what we have to do with removed values XXX?
-            // free space
-            (() @trusted { dispose(allocator, _buckets[lookup_index].value_ptr); })();
-            _buckets[lookup_index].value_ptr = null;
-        }
 
         _allocated--;
         immutable next_index = (lookup_index + 1) & _mask;
         // if next bucket is EMPTY, then we can convert all DELETED buckets down staring from current to EMPTY buckets
-        if (_buckets[next_index].hash == EMPTY_HASH) {
+        if (_buckets.bs[next_index].hash == EMPTY_HASH) {
             _empty++;
-            _buckets[lookup_index].hash = EMPTY_HASH;
+            _buckets.bs[lookup_index].hash = EMPTY_HASH;
             auto free_index = (lookup_index - 1) & _mask;
             while (free_index != lookup_index) {
-                if (_buckets[free_index].hash != DELETED_HASH) {
+                if (_buckets.bs[free_index].hash != DELETED_HASH) {
                     break;
                 }
-                _buckets[free_index].hash = EMPTY_HASH;
+                _buckets.bs[free_index].hash = EMPTY_HASH;
                 _deleted--;
                 _empty++;
                 free_index = (free_index - 1) & _mask;
             }
             assert(free_index != lookup_index, "table full of deleted buckets?");
-        } else {
-            _buckets[lookup_index].hash = DELETED_HASH;
+        }
+        else {
+            _buckets.bs[lookup_index].hash = DELETED_HASH;
             _deleted++;
         }
         return true;
     }
-
-    void clear() @safe {
-        static if (!inlineValues) {
-            // dispose every element
-            foreach (k; byKey) {
-                remove(k);
-            }
-        }
-        (() @trusted {
-            GC.removeRange(_buckets.ptr);
-            dispose(allocator, _buckets);
-        })();
-        _buckets = makeArray!(_Bucket)(allocator, _buckets_num);
-        _allocated = _deleted = 0;
-        _empty = _buckets_num;
+    /// throw away all keys
+    void clear() {
+        _buckets = BucketStorage.init;
+        _allocated = _deleted = _empty = _buckets_num = 0;
     }
-
+    /// get numter of keys in table
     auto length() const pure nothrow @nogc @safe {
         return _allocated;
     }
 
+    /// get current buckets number
     auto size() const pure nothrow @nogc @safe {
         return _buckets_num;
     }
 
-    auto byKey() pure @safe @nogc {
-        struct _kvRange {
-            int _pos;
-            ulong _buckets_num;
-            _Bucket[] _buckets;
-            this(_Bucket[] _b) {
-                _buckets = _b;
-                _buckets_num = _b.length;
+    private struct _kvRange {
+        int             _pos;
+        ulong           _buckets_num;
+        BucketStorage   _buckets;
+        this(this) {
+            if (_buckets_num) {
+                auto _new_buckets = BucketStorage(_buckets_num);
+                copy(_buckets.bs, _new_buckets.bs);
+                _buckets = _new_buckets;
                 _pos = 0;
-                while (_pos < _buckets_num && _buckets[_pos].hash < ALLOCATED_HASH) {
-                    _pos++;
-                }
-            }
-
-            bool empty() const pure nothrow @safe @nogc {
-                return _pos == _buckets_num;
-            }
-
-            K front() {
-                return _buckets[_pos].key;
-            }
-
-            void popFront() pure nothrow @safe @nogc {
-                _pos++;
-                while (_pos < _buckets_num && _buckets[_pos].hash < ALLOCATED_HASH) {
+                while (_pos < _buckets_num && _buckets.bs[_pos].hash < ALLOCATED_HASH) {
                     _pos++;
                 }
             }
         }
 
-        return _kvRange(_buckets);
+        ~this() {
+            _buckets = BucketStorage.init;
+        }
+
+        this(BucketStorage _b) {
+            if ( _b !is null ) {
+                _buckets_num = _b.bs.length;
+                _buckets = BucketStorage(_buckets_num);
+                copy(_b.bs, _buckets.bs);
+                _pos = 0;
+                while (_pos < _buckets_num && _buckets.bs[_pos].hash < ALLOCATED_HASH) {
+                    _pos++;
+                }
+            }
+        }
+
+        bool empty() const pure nothrow @safe @nogc {
+            return _pos == _buckets_num;
+        }
+
+        auto front() {
+            return Tuple!(K, "key", V, "value")(_buckets.bs[_pos].key, _buckets.bs[_pos].value);
+        }
+
+        void popFront() pure nothrow @safe @nogc {
+            _pos++;
+            while (_pos < _buckets_num && _buckets.bs[_pos].hash < ALLOCATED_HASH) {
+                _pos++;
+            }
+        }
     }
 
-    auto byValue() pure @safe {
-        struct _kvRange {
-            int _pos;
-            ulong _buckets_num;
-            _Bucket[] _buckets;
-            this(_Bucket[] _b) {
-                _buckets = _b;
-                _buckets_num = _b.length;
-                _pos = 0;
-                while (_pos < _buckets_num && _buckets[_pos].hash < ALLOCATED_HASH) {
-                    _pos++;
-                }
-            }
-
-            bool empty() const pure nothrow @safe @nogc {
-                return _pos == _buckets_num;
-            }
-
-            V front() {
-                static if (inlineValues) {
-                    return _buckets[_pos].value;
-                } else {
-                    return *(_buckets[_pos].value_ptr);
-                }
-            }
-
-            void popFront() pure nothrow @safe @nogc {
-                _pos++;
-                while (_pos < _buckets_num && _buckets[_pos].hash < ALLOCATED_HASH) {
-                    _pos++;
-                }
-            }
-        }
-
-        return _kvRange(_buckets);
+    /// iterator by keys
+    auto byKey() {
+        return _kvRange(_buckets).map!"a.key";
     }
 
-    auto byPair() pure @safe {
-        import std.typecons;
+    /// iterator by values
+    auto byValue() {
+        return _kvRange(_buckets).map!"a.value";
+    }
 
-        struct _kvRange {
-            int _pos;
-            ulong _buckets_num;
-            _Bucket[] _buckets;
-            this(_Bucket[] _b) {
-                _buckets = _b;
-                _buckets_num = _b.length;
-                _pos = 0;
-                while (_pos < _buckets_num && _buckets[_pos].hash < ALLOCATED_HASH) {
-                    _pos++;
-                }
-            }
-
-            bool empty() const pure nothrow @safe @nogc {
-                return _pos == _buckets_num;
-            }
-
-            auto front() @safe {
-                static if (inlineValues) {
-                    return Tuple!(K, "key", V, "value")(_buckets[_pos].key, _buckets[_pos].value);
-                } else {
-                    return Tuple!(K, "key", V, "value")(_buckets[_pos].key,
-                            *(_buckets[_pos].value_ptr));
-                }
-            }
-
-            void popFront() pure nothrow @safe @nogc {
-                _pos++;
-                while (_pos < _buckets_num && _buckets[_pos].hash < ALLOCATED_HASH) {
-                    _pos++;
-                }
-            }
-        }
-
+    /// iterator by key/value pairs
+    auto byPair() {
         return _kvRange(_buckets);
     }
 }
 
-/// Tests
+/// Example
+@("L" ~ to!string(__LINE__) ~ ".word dictionary")
+@safe unittest {
+    import std.range;
+    import std.algorithm;
+    import std.experimental.logger;
+    HashMap!(string, int) counter;
+    string[] words = [
+        "hello", "this", "simple", "example", "should", "succeed", "or", "it",
+        "should", "fail"
+    ];
+    // count words, simplest and fastest way
+    foreach (word; words) {
+        counter[word] = counter.getOrAdd(word, 0) + 1;
+    }
+    assert(counter.capacity ==  32*4/5 - counter.length);
+    assert(!counter.fetch("world").ok);
+    assert(counter["hello"] == 1);
+    assert(counter["should"] == 2);
+    assert(counter.length == words.length - 1);
+    // clear counter
+    counter.clear;
+    assert(counter.length == 0);
+    // more verbose way to count
+    foreach (word; words) {
+        auto w = word in counter;
+        if (w) {
+            (*w)++;
+        }
+        else {
+            counter[word] = 1;
+        }
+    }
+    assert(!counter.fetch("world").ok);
+    assert(counter["hello"] == 1);
+    assert(counter["should"] == 2);
+    assert(counter.length == words.length - 1);
+    // iterators
+    assert(counter.byKey.count == counter.byValue.count);
+    assert(words.all!(w => w in counter)); // all words are in table
+    assert(counter.byValue.sum == words.length); // sum of counters must equals to number of words
+}
+// Tests
+@("L" ~ to!string(__LINE__) ~ ".remove")
+@safe unittest {
+    // test of nogc getOrAdd
+    import std.experimental.logger;
 
-/// test immutable struct and class as Key type
+    globalLogLevel = LogLevel.info;
+    import std.meta;
+
+    static foreach (T; AliasSeq!(HashMap!(int, int))) {
+        () @nogc nothrow{
+            T hashMap;
+            debug (cachetools)
+                safe_tracef("Testing %s", typeid(T));
+            foreach (i; 0 .. 10) {
+                hashMap.put(i, i);
+            }
+            foreach (i; 0 .. 10) {
+                hashMap.put(i, i);
+            }
+            foreach (i; 0 .. 10) {
+                auto v = hashMap.fetch(i);
+                assert(v.ok && v.value == i);
+            }
+            assert(hashMap.length == 10);
+            hashMap.remove(0);
+            assert(hashMap.length == 9);
+            assert(!hashMap.fetch(0).ok);
+            hashMap.remove(1);
+            assert(hashMap.length == 8);
+            assert(!hashMap.fetch(1).ok);
+            assert(hashMap.fetch(8).ok);
+            hashMap.remove(8);
+            assert(hashMap.length == 7);
+            assert(!hashMap.fetch(8).ok);
+            foreach (i; 0 .. 10) {
+                hashMap.put(i, i);
+            }
+            assert(hashMap.length == 10);
+            hashMap.remove(8);
+            hashMap.remove(1);
+            assert(hashMap.length == 8);
+            assert(!hashMap.fetch(1).ok);
+            assert(!hashMap.fetch(8).ok);
+            assert(hashMap.remove(1) == false);
+            foreach (i; 0 .. 10) {
+                hashMap.remove(i);
+            }
+            assert(hashMap.length == 0);
+        }();
+    }
+    //auto v = hashMap.getOrAdd(-1, -1);
+    //assert(-1 in hashMap && v == -1);
+    globalLogLevel = LogLevel.info;
+}
+
+// test get()
+@("L" ~ to!string(__LINE__) ~ ".get")
+@safe @nogc nothrow unittest {
+    import std.meta;
+
+    static foreach (T; AliasSeq!(HashMap!(int, int))) {
+        {
+            T hashMap;
+            int i = hashMap.get(1, 55);
+            assert(i == 55);
+            i = hashMap.get(1, () => 66);
+            assert(i == 66);
+            hashMap[1] = 1;
+            i = hashMap.get(1, () => 66);
+            assert(i == 1);
+        }
+    }
+}
+
+
+// test immutable struct and class as Key type
+@("L" ~ to!string(__LINE__) ~ ".immutable struct and class as Key type")
 @safe unittest {
     import std.experimental.logger;
 
     globalLogLevel = LogLevel.info;
-    () @nogc nothrow{
-        struct S {
-            int s;
-        }
+    info("Testing hash tables");
+    import std.meta;
 
-        HashMap!(immutable S, int) hs1;
-        immutable ss = S(1);
-        hs1[ss] = 1;
-        assert(ss in hs1 && *(ss in hs1) == 1);
-        HashMap!(int, immutable S) hs2;
-        hs2[1] = ss;
-        assert(1 in hs2 && *(1 in hs2) == ss);
-        assert(!(2 in hs2));
-    }();
+    struct S {
+        int s;
+    }
 
+    static foreach (T; AliasSeq!(HashMap!(immutable S, int))) {
+        () @nogc nothrow{
+            T hs1;
+            immutable ss = S(1);
+            hs1[ss] = 1;
+            assert(ss in hs1 && *(ss in hs1) == 1);
+        }();
+    }
+    static foreach (T; AliasSeq!(HashMap!(int, immutable S))) {
+        () @nogc nothrow{
+            T hs2;
+            immutable ss = S(1);
+            hs2[1] = ss;
+            // assert(1 in hs2 && *(1 in hs2) == ss);
+            // assert(!(2 in hs2));
+        }();
+    }
     // class
     class C {
         int v;
@@ -709,15 +970,25 @@ struct HashMap(K, V, Allocator = Mallocator) {
         }
     }
 
-    HashMap!(immutable C, int) hc1;
-    immutable cc = new immutable C(1);
-    hc1[cc] = 1;
-    assert(hc1[cc] == 1);
-    HashMap!(int, immutable C) hc2;
-    hc2[1] = cc;
-    assert(hc2[1] is cc);
+    static foreach (T; AliasSeq!(HashMap!(immutable C, int))) {
+        {
+            T hc1;
+            immutable cc = new immutable C(1);
+            hc1[cc] = 1;
+            assert(hc1[cc] == 1);
+        }
+    }
+    static foreach (T; AliasSeq!(HashMap!(int, immutable C))) {
+        {
+            immutable cc = new immutable C(1);
+            T hc2;
+            hc2[1] = cc;
+            assert(hc2[1] is cc);
+        }
+    }
 }
 
+@("L" ~ to!string(__LINE__) ~ ".class as key")
 @safe unittest {
     // test class as key
     import std.experimental.logger;
@@ -753,6 +1024,7 @@ struct HashMap(K, V, Allocator = Mallocator) {
     dict.put(y, "y");
 }
 
+@("L" ~ to!string(__LINE__) ~ ".remove/put to same hash position")
 @safe unittest {
     import std.experimental.logger;
 
@@ -792,7 +1064,7 @@ struct HashMap(K, V, Allocator = Mallocator) {
         assert(2 in int2ls, "2 not in hash");
     }();
 }
-
+@("L" ~ to!string(__LINE__) ~ ".structs as value")
 @safe unittest {
     import std.experimental.logger;
 
@@ -840,6 +1112,7 @@ struct HashMap(K, V, Allocator = Mallocator) {
     globalLogLevel = LogLevel.info;
 }
 
+@("L" ~ to!string(__LINE__) ~ ".@safe @nogc nothrow for map")
 @safe unittest {
     import std.experimental.logger;
     import std.experimental.allocator.gc_allocator;
@@ -857,10 +1130,12 @@ struct HashMap(K, V, Allocator = Mallocator) {
 
         HashMap!(int, LargeStruct) int2LagreStruct;
         int2LagreStruct.put(1, LargeStruct(1, 2));
+        int2LagreStruct.get(1, LargeStruct(0, 0));
     }();
     globalLogLevel = LogLevel.info;
 }
 
+@("L" ~ to!string(__LINE__) ~ ".tuple as key")
 @safe unittest  /* not nothrow as opIndex may throw */ {
     import std.typecons;
 
@@ -876,7 +1151,8 @@ struct HashMap(K, V, Allocator = Mallocator) {
     h[k0] = v0;
     assert(h[k0] == v0);
 }
-
+import std.conv;
+@("L" ~ to!string(__LINE__) ~ ".@safe @nogc nothrow with class as key")
 @safe nothrow unittest {
     class c {
         int a;
@@ -909,8 +1185,9 @@ struct HashMap(K, V, Allocator = Mallocator) {
     }();
 }
 
-/// Test if we can work with non-@nogc opEquals for class-key.
-/// opEquals anyway must be non-@system.
+// Test if we can work with non-@nogc opEquals for class-key.
+// opEquals anyway must be non-@system.
+@("L" ~ to!string(__LINE__) ~ ".non-@nogc class as key")
 @safe nothrow unittest {
     class c {
         int a;
@@ -938,15 +1215,18 @@ struct HashMap(K, V, Allocator = Mallocator) {
     int* v = k0 in h;
     assert(v);
     assert(*v == 1);
-
+    K k1 = new c(1);
+    V v1 = 1;
+    h.put(k0, v0);
+    assert(!keyEquals(k0, k1));
 }
-///
-/// test byKey, byValue, byPair
-///
+//
+// test byKey, byValue, byPair
+//
+@("L" ~ to!string(__LINE__) ~ ".byKey, byValue, byPair")
 @safe nothrow unittest {
     import std.algorithm;
     import std.array;
-    import std.stdio;
 
     HashMap!(int, string) m;
     m[1] = "one";
@@ -954,20 +1234,45 @@ struct HashMap(K, V, Allocator = Mallocator) {
     m[10] = "ten";
     assert(equal(m.byKey.array.sort, [1, 2, 10]));
     assert(equal(m.byValue.array.sort, ["one", "ten", "two"]));
-    assert(equal(m.byPair.map!"tuple(a.key, a.value)".array.sort, [tuple(1,
-            "one"), tuple(2, "two"), tuple(10, "ten")]));
+    assert(equal(m.byPair.map!"tuple(a.key, a.value)".array.sort, [
+                tuple(1, "one"), tuple(2, "two"), tuple(10, "ten")
+            ]));
     m.remove(1);
     m.remove(10);
-    assert(equal(m.byPair.map!"tuple(a.key, a.value)".array.sort, [tuple(2, "two")]));
+    assert(equal(m.byPair.map!"tuple(a.key, a.value)".array.sort, [
+                tuple(2, "two")
+            ]));
     m.remove(2);
     assert(m.byPair.map!"tuple(a.key, a.value)".array.sort.length() == 0);
     m.remove(2);
     assert(m.byPair.map!"tuple(a.key, a.value)".array.sort.length() == 0);
 }
-/// 
-/// compare equivalence to AA
-///
+// test byKey, byValue, byPair compiles with GCRangesAllowed=false
+@("L" ~ to!string(__LINE__) ~ ".byKey, byValue, byPair compiles with GCRangesAllowed=false")
+@nogc unittest {
+    import std.experimental.allocator.mallocator : Mallocator;
+
+    HashMap!(int, int, Mallocator, false) map;
+    map[1] = 2;
+
+    auto keys = map.byKey();
+    assert(keys.empty == false);
+    assert(keys.front == 1);
+
+    auto values = map.byValue();
+    assert(values.empty == false);
+    assert(values.front == 2);
+
+    auto pairs = map.byPair();
+    assert(pairs.empty == false);
+    assert(pairs.front.key == 1);
+    assert(pairs.front.value == 2);
+}
+// 
+// compare equivalence to AA
+//
 /* not @safe because of AA */
+@("L" ~ to!string(__LINE__) ~ ".equivalence to AA")
 unittest {
     import std.random;
     import std.array;
@@ -992,10 +1297,16 @@ unittest {
     assert(equal(AA.keys().sort(), hashMap.byKey().array.sort()));
     assert(equal(AA.values().sort(), hashMap.byValue().array.sort()));
     assert(AA.length == hashMap.length);
+    AA.remove(1);
+    hashMap.remove(1);
+    assert(equal(AA.keys().sort(), hashMap.byKey().array.sort()));
+    assert(equal(AA.values().sort(), hashMap.byValue().array.sort()));
+    assert(AA.length == hashMap.length);
 }
-///
-/// check remove
-///
+//
+// check remove
+//
+@("L" ~ to!string(__LINE__) ~ ".remove all items")
 @safe unittest {
     // test removal while iterating
     import std.random;
@@ -1021,11 +1332,14 @@ unittest {
     }
     assert(hashMap.length == 0);
 }
-///
-/// test clear
-///
+//
+// test clear
+//
+@("L" ~ to!string(__LINE__) ~ ".clear()")
 @safe @nogc nothrow unittest {
     // test clear
+    import std.algorithm;
+    import std.array;
 
     HashMap!(int, int) hashMap;
 
@@ -1037,9 +1351,11 @@ unittest {
     hashMap[1] = 1;
     assert(1 in hashMap && hashMap.length == 1);
 }
-///
-/// test getOrAdd with value
-///
+
+//
+// test getOrAdd with value
+//
+@("L" ~ to!string(__LINE__) ~ ".@safe @nogc nothrow getOrAdd()")
 @safe @nogc nothrow unittest {
     // test of nogc getOrAdd
 
@@ -1052,9 +1368,10 @@ unittest {
     assert(-1 in hashMap && v == -1);
 }
 
-///
-/// test getOrAdd with callable
-///
+//
+// test getOrAdd with callable
+//
+@("L" ~ to!string(__LINE__) ~ ".@safe @nogc nothrow getOrAdd with lazy default value")
 @safe @nogc nothrow unittest {
     // test of nogc getOrAdd with lazy default value
 
@@ -1070,25 +1387,31 @@ unittest {
     assert(hashMap.get(-3, () => 0) == 0); // ditto
 }
 
-///
-/// test getOrAdd with complex  data
-///
+//
+// test getOrAdd with complex data
+//
+@("L" ~ to!string(__LINE__) ~ ".Some real class as value")
 @safe unittest {
-    import std.socket;
+    import std.socket, std.meta;
 
-    HashMap!(string, Socket) socketPool;
-    Socket s0 = socketPool.getOrAdd("http://example.com",
-            () => new Socket(AddressFamily.INET, SocketType.STREAM));
-    assert(s0 !is null);
-    assert(s0.addressFamily == AddressFamily.INET);
-    Socket s1 = socketPool.getOrAdd("http://example.com",
-            () => new Socket(AddressFamily.INET, SocketType.STREAM));
-    assert(s1 !is null);
-    assert(s1 is s0);
+    static foreach (T; AliasSeq!(HashMap!(string, Socket))) {
+        {
+            T socketPool;
+            Socket s0 = socketPool.getOrAdd("http://example.com",
+                    () => new Socket(AddressFamily.INET, SocketType.STREAM));
+            assert(s0 !is null);
+            assert(s0.addressFamily == AddressFamily.INET);
+            Socket s1 = socketPool.getOrAdd("http://example.com",
+                    () => new Socket(AddressFamily.INET, SocketType.STREAM));
+            assert(s1 !is null);
+            assert(s1 is s0);
+        }
+    }
 }
-///
-/// test with real class (socket)
-///
+//
+// test with real class (socket)
+//
+@("L" ~ to!string(__LINE__) ~ ".Some real class as key")
 @safe unittest {
     import std.socket;
 
@@ -1101,16 +1424,29 @@ unittest {
         override hash_t toHash() const @safe {
             return hash_function(s.handle);
         }
+
+        this() {
+            s = new Socket(AddressFamily.INET, SocketType.STREAM);
+        }
     }
 
     HashMap!(Connection, string) socketPool;
+    auto c1 = new Connection();
+    auto c2 = new Connection();
+    socketPool[c1] = "conn1";
+    socketPool[c2] = "conn2";
+    assert(socketPool[c1] == "conn1");
+    assert(socketPool[c2] == "conn2");
 }
-
+@("L" ~ to!string(__LINE__) ~ ".@safe get() with lazy default")
 @safe unittest {
     // test of non-@nogc getOrAdd with lazy default value
     import std.conv;
     import std.exception;
+    import std.experimental.logger;
+    import std.meta;
 
+    globalLogLevel = LogLevel.info;
     class C {
         string v;
         this(int _v) @safe {
@@ -1118,27 +1454,32 @@ unittest {
         }
     }
 
-    HashMap!(int, C) hashMap;
+    static foreach (T; AliasSeq!(HashMap!(int, C))) {
+        {
+            T hashMap;
 
-    foreach (i; 0 .. 100) {
-        hashMap[i] = new C(i);
+            foreach (i; 0 .. 100) {
+                hashMap[i] = new C(i);
+            }
+            C v = hashMap.getOrAdd(-1, () => new C(-1));
+            assert(-1 in hashMap && v.v == "-1");
+            assert(hashMap[-1].v == "-1");
+            //hashMap[-1].v ~= "1";
+            //assert(hashMap[-1].v == "-11");
+            assertThrown!KeyNotFound(hashMap[-2]);
+            // check lazyness
+            bool called;
+            v = hashMap.getOrAdd(-1, delegate C() { called = true; return new C(0); });
+            assert(!called);
+            v = hashMap.getOrAdd(-2, delegate C() { called = true; return new C(0); });
+            assert(called);
+        }
     }
-    C v = hashMap.getOrAdd(-1, () => new C(-1));
-    assert(-1 in hashMap && v.v == "-1");
-    assert(hashMap[-1].v == "-1");
-    hashMap[-1].v ~= "1";
-    assert(hashMap[-1].v == "-11");
-    assertThrown!KeyNotFound(hashMap[-2]);
-    // check lazyness
-    bool called;
-    v = hashMap.getOrAdd(-1, delegate C() { called = true; return new C(0); });
-    assert(!called);
-    v = hashMap.getOrAdd(-2, delegate C() { called = true; return new C(0); });
-    assert(called);
 }
-///
-/// test if we can handle some exotic value type
-///
+//
+// test if we can handle some exotic value type
+//
+@("L" ~ to!string(__LINE__) ~ ".@safe @nogc nothrow get() with lazy default")
 @safe @nogc nothrow unittest {
     // test of nogc getOrAdd with lazy default value
     // corner case when V is callable
@@ -1165,6 +1506,7 @@ unittest {
 }
 
 // test get()
+@("L" ~ to!string(__LINE__) ~ ".@safe @nogc nothrow get() with value as default")
 @safe @nogc nothrow unittest {
     HashMap!(int, int) hashMap;
     int i = hashMap.get(1, 55);
@@ -1174,4 +1516,558 @@ unittest {
     hashMap[1] = 1;
     i = hashMap.get(1, () => 66);
     assert(i == 1);
+}
+// test grow_factor()
+@("L" ~ to!string(__LINE__) ~ ".test grow_factor")
+unittest {
+    import std.experimental.logger;
+
+    globalLogLevel = LogLevel.info;
+    HashMap!(int, int) hashMap;
+    hashMap.grow_factor(3);
+    assert(hashMap.grow_factor() == 4);
+    hashMap.grow_factor(0);
+    assert(hashMap.grow_factor() == 2);
+    hashMap.grow_factor(16);
+    assert(hashMap.grow_factor() == 8);
+    assert(hashMap.size == 0);
+    assert(hashMap.length == 0);
+}
+
+// test unsafe types
+@("L" ~ to!string(__LINE__) ~ ".unsafe types")
+unittest {
+    import std.variant;
+    import std.stdio;
+    import std.algorithm;
+
+    alias UnsafeType = Algebraic!(int, string);
+
+    HashMap!(UnsafeType, string) unsafeKeyMap;
+    UnsafeType k = "one";
+    unsafeKeyMap[k] = "value one";
+    assert(k in unsafeKeyMap);
+    assert(unsafeKeyMap[k] == "value one");
+    k = 1;
+    assert(k !in unsafeKeyMap);
+    unsafeKeyMap[UnsafeType(2)] = "value two";
+    assert(unsafeKeyMap.getOrAdd(k, "value one 2") == "value one 2");
+    assert(unsafeKeyMap.get(k, "value one 3") == "value one 2");
+    assert(equal(unsafeKeyMap.byKey, unsafeKeyMap.byPair.map!"a.key"));
+    assert(equal(unsafeKeyMap.byValue, unsafeKeyMap.byPair.map!"a.value"));
+    unsafeKeyMap.clear;
+
+    HashMap!(int, UnsafeType) unsafeValueMap;
+    auto uv1 = UnsafeType("one");
+    auto uv2 = UnsafeType(2);
+    auto uv3 = UnsafeType("three");
+    unsafeValueMap[1] = uv1;
+    unsafeValueMap[2] = uv2;
+    assert(1 in unsafeValueMap && unsafeValueMap[1] == "one");
+    assert(2 in unsafeValueMap && unsafeValueMap[2] == 2);
+    assert(unsafeValueMap.getOrAdd(3, uv3) == "three");
+    assert(unsafeValueMap.get(3, UnsafeType("3")) == "three");
+    assert(equal(unsafeValueMap.byKey, unsafeValueMap.byPair.map!"a.key"));
+    assert(equal(unsafeValueMap.byValue, unsafeValueMap.byPair.map!"a.value"));
+    unsafeValueMap.clear;
+
+}
+
+// issue #4
+@("L" ~ to!string(__LINE__) ~ ".issue #4")
+unittest {
+    HashMap!(string, string) foo;
+    foo.remove("a");
+}
+
+//
+// to use HashMap in @safe @nogc code using class as key, class has to implement
+// @safe @nogc opEquals, hoHash, this()
+//
+@("L" ~ to!string(__LINE__) ~ ".@safe @nogc with class as key")
+unittest {
+    import std.experimental.allocator.mallocator;
+
+    class C {
+        int s;
+        bool opEquals(const C other) inout @safe @nogc {
+            return s == other.s;
+        }
+
+        override hash_t toHash() @safe @nogc {
+            return hash_function(s);
+        }
+
+        this(int i) @safe @nogc {
+            s = i;
+        }
+    }
+
+    auto allocator = Mallocator.instance;
+
+    int i;
+    auto c0 = make!C(allocator, ++i);
+    auto c1 = make!C(allocator, ++i);
+    auto c2 = make!C(allocator, ++i);
+
+    () @safe @nogc {
+        HashMap!(C, string) map;
+        map[c0] = "c0";
+        map[c1] = "c1";
+        assert(c0 in map && c1 in map);
+        assert(map.get(c0, "") == "c0");
+        assert(map.get(c1, "") == "c1");
+        assert(map.getOrAdd(c2, "c2 added") == "c2 added");
+        assert(map.length == 3);
+        map.clear;
+    }();
+
+    dispose(allocator, c0);
+    dispose(allocator, c1);
+    dispose(allocator, c2);
+}
+// ditto, with @nogc only
+@("L" ~ to!string(__LINE__) ~ ".@nogc with class as key")
+unittest {
+    import std.experimental.allocator.mallocator;
+
+    static int i;
+    class C {
+        int s;
+        bool opEquals(const C other) inout @nogc {
+            return s == other.s;
+        }
+
+        override hash_t toHash() @nogc {
+            return hash_function(s);
+        }
+
+        this() @nogc {
+            s = ++i;
+        }
+    }
+
+    auto allocator = Mallocator.instance;
+    auto c0 = () @trusted { return make!C(allocator); }();
+    auto c1 = () @trusted { return make!C(allocator); }();
+    auto c2 = () @trusted { return make!C(allocator); }();
+    () @nogc {
+        HashMap!(C, string) map;
+        map[c0] = "c0";
+        map[c1] = "c1";
+        assert(c0 in map && c1 in map);
+        assert(map.get(c0, "") == "c0");
+        assert(map.get(c1, "") == "c1");
+        assert(map.getOrAdd(c2, "c2 added") == "c2 added");
+        assert(map.length == 3);
+    }();
+    () @trusted {
+        dispose(allocator, cast(C) c0);
+        dispose(allocator, cast(C) c1);
+        dispose(allocator, cast(C) c2);
+    }();
+}
+// ditto, with @safe only
+@("L" ~ to!string(__LINE__) ~ ".@safe with class as key")
+@safe unittest {
+    import std.experimental.allocator.mallocator;
+
+    static int i;
+    class C {
+        int s;
+        bool opEquals(const C other) inout @safe {
+            return s == other.s;
+        }
+
+        override hash_t toHash() const @safe {
+            return hash_function(s);
+        }
+
+        this() @safe {
+            s = ++i;
+        }
+    }
+
+    HashMap!(C, string) map;
+    auto allocator = Mallocator.instance;
+    auto c0 = () @trusted { return make!C(allocator); }();
+    auto c1 = () @trusted { return make!C(allocator); }();
+    auto c2 = () @trusted { return make!C(allocator); }();
+    map[c0] = "c0";
+    map[c1] = "c1";
+    assert(c0 in map && c1 in map);
+    assert(map.get(c0, "") == "c0");
+    assert(map.get(c1, "") == "c1");
+    assert(map.getOrAdd(c2, "c2 added") == "c2 added");
+    assert(map.length == 3);
+    () @trusted {
+        dispose(allocator, cast(C) c0);
+        dispose(allocator, cast(C) c1);
+        dispose(allocator, cast(C) c2);
+    }();
+}
+//
+// Nothing special required when using class as value
+//
+@("L" ~ to!string(__LINE__) ~ ".@safe @nogc with class as value")
+@safe unittest {
+    import std.experimental.allocator.mallocator;
+
+    class C {
+        int s;
+        this(int i) @safe @nogc immutable {
+            s = i;
+        }
+
+        bool opEquals(C other) @safe const {
+            return s == other.s;
+        }
+    }
+
+    int i;
+    alias T = immutable C;
+    auto allocator = Mallocator.instance;
+
+    T c0 = () @trusted { return make!T(allocator, ++i); }();
+    T c1 = () @trusted { return make!T(allocator, ++i); }();
+    T c2 = () @trusted { return make!T(allocator, ++i); }();
+    () @safe @nogc {
+        HashMap!(string, T) map;
+        map["c0"] = c0;
+        map["c1"] = c1;
+        assert(map.get("c0", c2) is c0);
+        assert(map.get("c1", c2) is c1);
+        assert(map.getOrAdd("c2", c2) is c2);
+        map["c2"] = c2;
+        assert(map.length == 3);
+    }();
+    () @trusted {
+        dispose(allocator, cast(C) c0);
+        dispose(allocator, cast(C) c1);
+        dispose(allocator, cast(C) c2);
+    }();
+}
+//
+// You can use immutable class instances as key when opEquals and toHash are const.
+//
+@("L" ~ to!string(__LINE__) ~ ".immutable key")
+@safe unittest {
+    import std.experimental.allocator.mallocator;
+
+    class C {
+        int s;
+        bool opEquals(const C other) const @safe @nogc {
+            return s == other.s;
+        }
+
+        override hash_t toHash() const @safe @nogc {
+            return hash_function(s);
+        }
+
+        this(int i) @safe @nogc {
+            s = i;
+        }
+    }
+
+    int i;
+    alias T = immutable C;
+    auto allocator = Mallocator.instance;
+
+    auto c0 = () @trusted { return make!T(allocator, ++i); }();
+    auto c1 = () @trusted { return make!T(allocator, ++i); }();
+    auto c2 = () @trusted { return make!T(allocator, ++i); }();
+    () @nogc {
+        HashMap!(T, string) map;
+        map[c0] = "c0";
+        map[c1] = "c1";
+        assert(c0 in map && c1 in map);
+        assert(map.get(c0, "") == "c0");
+        assert(map.get(c1, "") == "c1");
+        assert(map.getOrAdd(c2, "c2 added") == "c2 added");
+        assert(map.length == 3);
+    }();
+    () @trusted {
+        dispose(allocator, cast(C) c0);
+        dispose(allocator, cast(C) c1);
+        dispose(allocator, cast(C) c2);
+    }();
+}
+
+//
+// test copy constructor
+//
+@("L" ~ to!string(__LINE__) ~ ".@safe @nogc copy cnstructor")
+@safe @nogc unittest {
+    import std.experimental.logger;
+    import std.stdio;
+
+    HashMap!(int, int) hashMap0, hashMap1;
+
+    foreach (i; 0 .. 100) {
+        hashMap0[i] = i;
+    }
+
+    hashMap1 = hashMap0;
+    hashMap0.clear();
+    assert(hashMap0.length == 0);
+    hashMap0[1] = 1;
+    assert(1 in hashMap0 && hashMap0.length == 1);
+    foreach (i; 0 .. 100) {
+        assert(i in hashMap1);
+    }
+}
+//
+// test addIfMissed
+//
+@("L" ~ to!string(__LINE__) ~ ".@safe @nogc addIfMissed()")
+@safe @nogc unittest {
+    HashMap!(int, int) map;
+
+    foreach (i; 0 .. 100) {
+        map[i] = i;
+    }
+    assert(map.addIfMissed(101, 101));
+    assert(!map.addIfMissed(101, 102));
+}
+
+@("L" ~ to!string(__LINE__) ~ ".using const keys")
+@safe unittest {
+    class CM {
+    }
+
+    class C {
+        hash_t c;
+        override hash_t toHash() const @safe {
+            return c;
+        }
+
+        bool opEquals(const C other) const @safe {
+            return c == other.c;
+        }
+
+        this(hash_t i) {
+            c = i;
+        }
+    }
+    // try const keys
+    HashMap!(C, int) map;
+    int* f(const C c) {
+        auto v = map[c];
+        // can't do this with classes because put require key assignment which can't convert const object to mutable
+        //map.put(c, 2);
+        return c in map;
+    }
+
+    C c = new C(1);
+    map[c] = 1;
+    f(c);
+    /// try const map
+    const HashMap!(C, bool) cmap;
+    auto a = c in cmap;
+    try {
+        auto b = cmap[c];
+    }
+    catch (Exception e) {
+    }
+
+    struct S {
+        int[] a;
+        void opAssign(const S rhs) {
+        }
+    }
+
+    HashMap!(S, int) smap;
+    int* fs(const S s) {
+        // can be done with struct if there is no references or if you have defined opAssign from const
+        smap.put(s, 2);
+        return s in smap;
+    }
+
+    S s = S();
+    fs(s);
+    ///
+}
+
+
+@("L" ~ to!string(__LINE__) ~ ".safety with various dangerous ops")
+@safe unittest {
+    import std.stdio;
+    import std.array;
+    import std.algorithm;
+    import std.range;
+    import std.conv;
+
+    class C {
+        int c;
+        this(int i) {
+            c = i;
+        }
+
+        override hash_t toHash() const @safe @nogc {
+            return hash_function(c);
+        }
+
+        bool opEquals(const C other) const @safe {
+            return c == other.c;
+        }
+    }
+
+    HashMap!(int, C) h;
+    foreach (i; 0 .. 500) {
+        h[i] = new C(i);
+    }
+    auto pairs = h.byPair();
+    auto keys = h.byKey();
+    auto values = h.byValue();
+    h.clear();
+    foreach (i; 0 .. 50000) {
+        h[i] = new C(i);
+    }
+    auto after_clear_pairs = pairs.array.sort!"a.key < b.key";
+    assert(equal(after_clear_pairs.map!"a.key", iota(500)));
+    assert(equal(after_clear_pairs.map!"a.value.c", iota(500)));
+
+    auto after_clear_keys = keys.array.sort!"a < b";
+    assert(equal(after_clear_keys, iota(500)));
+
+    auto after_clear_values = values.array
+        .sort!"a.c < b.c"
+        .map!"a.c";
+    assert(equal(after_clear_values, iota(500)));
+
+    HashMap!(C, int) hc;
+    auto nc = new C(1);
+    hc[nc] = 1;
+    auto p = hc.fetch(nc);
+    assert(p.ok && p.value == 1);
+    p = hc.fetch(new C(2));
+    assert(!p.ok);
+}
+
+@("L" ~ to!string(__LINE__) ~ ".hashMap assignments")
+@safe
+unittest {
+    class C {
+        int c;
+        this(int i) {
+            c = i;
+        }
+
+        override hash_t toHash() const @safe @nogc {
+            return hash_function(c);
+        }
+
+        bool opEquals(const C other) inout @safe {
+            return c == other.c;
+        }
+    }
+    HashMap!(C, int) m1;
+    m1[new C(1)] = 1;
+    m1 = m1;
+    assert(m1[new C(1)] == 1);
+}
+
+@("L" ~ to!string(__LINE__) ~ ".reallocate works as for slices")
+@safe
+unittest {
+    HashMap!(int, string) amap, bmap;
+    int i;
+    do {
+        amap[i++] = "a";
+    } while(amap.capacity>0);
+    assert(amap.capacity == 0);
+    // at this point amap capacity is 0 and any insertion will resize/reallocate
+    bmap = amap;    // amap and bmap share underlying storage
+    assert(amap[0] == bmap[0]);
+    amap[i] = "a";          // after this assignment amap will reallocate
+    amap[0] = "b";          // this write goes to new store
+    assert(amap[0] == "b"); // amap use new storage
+    assert(bmap[0] == "a"); // bmap still use old storage
+
+    // the same story with dynamic arrays
+    int[4] sarray = [1,2,3,4];
+    int[] aslice = sarray[], bslice;
+    assert(aslice.capacity == 0);
+    // at this point aslice capacity is 0 and any appending will reallocate
+    bslice = aslice;                // aslice and bslice will share storage until aslice reallocate
+    assert(aslice[0] == bslice[0]);
+    assert(aslice[0] is bslice[0]);
+    aslice ~= 1;                    // this append reallocate
+    aslice[0] = 2;                  // this write goes to new storage
+    assert(bslice[0] == 1);         // bslice still use old storage
+    assert(aslice[0] == 2);         // aslice use new storage
+}
+
+@("L" ~ to!string(__LINE__) ~ ".table consistency after exception")
+@safe
+unittest {
+    import std.exception;
+    import std.stdio;
+    import std.format;
+    import std.array;
+
+    struct FaultyHash {
+        int c;
+        this(int i) {
+            c = i;
+        }
+
+        hash_t toHash() inout @safe {
+            if ( c > 0 )
+                throw new Exception("hash");
+            return hash_function(c);
+        }
+
+        bool opEquals(FaultyHash other) inout @safe {
+            return c == other.c;
+        }
+    }
+
+    HashMap!(FaultyHash, int) map;
+    auto c1 = FaultyHash(1);
+    assertThrown!Exception(map.put(c1, 1));
+    assertThrown!Exception(map[c1] = 1);
+    assert(map.length == 0);
+    auto c0 = FaultyHash(0);
+    map[c0] = 1;
+    assert(map.length == 1);
+
+    static int counter;
+    static bool throw_enabled = true;
+
+    struct FaultyCopyCtor {
+        int c;
+
+        this(int i) {
+            c = i;
+        }
+
+        this(this) @safe {
+            counter++;
+            if (counter > 1 && throw_enabled ) throw new Exception("copy");
+        }
+        hash_t toHash() inout @safe {
+            return 0;
+        }
+
+        bool opEquals(FaultyCopyCtor other) @safe {
+            return true;
+        }
+        auto toString() inout {
+            return "[%d]".format(c);
+        }
+    }
+    FaultyCopyCtor fcc1 = FaultyCopyCtor(1);
+    HashMap!(int, FaultyCopyCtor) map2;
+    assertThrown!Exception(map2.put(1, fcc1));
+    assert(map2.length == 0);
+    throw_enabled = false;
+    map2.put(1, fcc1);
+    assert(map2.byValue.array.length == 1);
+    assert(map2.length == 1);
+    counter = 0;
+    throw_enabled = true;
+    map2.clear;
+    assertThrown!Exception(map2[1] = fcc1);
+    assert(map2.length == 0);
 }

@@ -9,6 +9,8 @@ A convenient function extending cachetools with a common recurring function.
 */
 module dextool.cachetools;
 
+import std.datetime : Duration;
+
 import dextool.from;
 
 /***********************************
@@ -69,11 +71,11 @@ struct NullableCache(K, V, alias getValue) {
 
     CacheLRU!(K, V) cache;
 
-    this(CacheLRU!(K, V) cache, int size = 0, int ttl = 0) {
+    this(CacheLRU!(K, V) cache, int size = 0, Duration ttl = Duration.zero) {
         this.cache = cache;
         if (size != 0)
             cache.size = size;
-        if (ttl != 0)
+        if (ttl != Duration.zero)
             cache.ttl = ttl;
     }
 
@@ -99,7 +101,7 @@ struct NullableCache(K, V, alias getValue) {
     }
 }
 
-auto nullableCache(K, V, alias getValue)(int size = 0, int ttl = 0) {
+auto nullableCache(K, V, alias getValue)(int size = 0, Duration ttl = Duration.zero) {
     import cachetools : CacheLRU;
 
     return NullableCache!(K, V, getValue)(new CacheLRU!(K, V));

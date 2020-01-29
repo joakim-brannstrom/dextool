@@ -11,6 +11,7 @@ module dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
 
 import logger = std.experimental.logger;
 import std.format : format;
+import std.datetime : dur, Clock;
 
 import arsd.dom : Document, Element, require, Table, RawSource;
 
@@ -27,8 +28,6 @@ import dextool.plugin.mutate.type : MutationKind;
 
 auto makeTestCaseSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
-    import std.datetime : Clock;
-
     auto doc = tmplBasicPage;
 
     auto s = doc.root.childElements("head")[0].addChild("script");
@@ -56,20 +55,15 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
     import std.array : array;
     import std.conv : to;
     import std.path : buildPath;
-    import cachetools : CacheLRU;
     import dextool.cachetools;
     import dextool.plugin.mutate.backend.database : spinSql, MutationId;
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
     import dextool.type : Path;
 
-    auto link_cache = new CacheLRU!(MutationId, string);
-    link_cache.ttl = 30; // magic number
-    Path getPath(MutationId id) {
-        return dextool.cachetools.cacheToolsRequire(link_cache, id, {
-            auto path = spinSql!(() => db.getPath(id)).get;
-            return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
-        }()).Path;
-    }
+    auto getPath = nullableCache!(MutationId, string, (MutationId id) {
+        auto path = spinSql!(() => db.getPath(id)).get;
+        return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
+    })(0, 30.dur!"seconds");
 
     //const distances = result.distances.length;
     const test_cases = result.similarities.byKey.array.sort!((a, b) => a < b).array;
@@ -109,13 +103,13 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
             auto difference = r.addChild("td");
             foreach (const mut; d.difference) {
                 auto link = difference.addChild("a", mut.to!string);
-                link.href = getPath(mut);
+                link.href = getPath(mut).get;
                 difference.appendText(" ");
             }
             auto similarity = r.addChild("td");
             foreach (const mut; d.intersection) {
                 auto link = similarity.addChild("a", mut.to!string);
-                link.href = getPath(mut);
+                link.href = getPath(mut).get;
                 similarity.appendText(" ");
             }
         }
