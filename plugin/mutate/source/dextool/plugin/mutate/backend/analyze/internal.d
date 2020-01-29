@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.analyze.internal;
 
 import logger = std.experimental.logger;
+import std.datetime : dur;
 
 import dextool.plugin.mutate.backend.utility : Checksum, checksum, tokenize;
 import dextool.type : Path, AbsolutePath;
@@ -53,11 +54,11 @@ class Cache {
         // guessing that 30s and keeping the last 64 is "good enough".
         // TODO: gather metrics or make it configurable.
         this.fileToken_.size = 64;
-        this.fileToken_.ttl = 30;
+        this.fileToken_.ttl = 30.dur!"seconds";
 
         this.fileFilteredToken_ = new typeof(fileFilteredToken_);
         this.fileFilteredToken_.size = 64;
-        this.fileFilteredToken_.ttl = 30;
+        this.fileFilteredToken_.ttl = 30.dur!"seconds";
     }
 
     /// Activate logging of cache events.

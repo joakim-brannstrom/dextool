@@ -17,6 +17,7 @@ import logger = std.experimental.logger;
 import std.algorithm : map, filter;
 import std.array : array, appender;
 import std.concurrency;
+import std.datetime : dur;
 import std.exception : collectException;
 import std.parallelism;
 import std.typecons;
@@ -169,12 +170,13 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
     // A file is at most saved one time to the database.
     Set!Path savedFiles;
 
-    auto getFileId = nullableCache!(string, FileId, (string p) => db.getFileId(p.Path))(256, 30);
+    auto getFileId = nullableCache!(string, FileId, (string p) => db.getFileId(p.Path))(256,
+            30.dur!"seconds");
     auto getFileDbChecksum = nullableCache!(string, Checksum,
-            (string p) => db.getFileChecksum(p.Path))(256, 30);
+            (string p) => db.getFileChecksum(p.Path))(256, 30.dur!"seconds");
     auto getFileFsChecksum = nullableCache!(string, Checksum, (string p) {
         return checksum(fio.makeInput(AbsolutePath(Path(p))).content[]);
-    })(256, 30);
+    })(256, 30.dur!"seconds");
 
     static struct Files {
         Checksum[Path] value;

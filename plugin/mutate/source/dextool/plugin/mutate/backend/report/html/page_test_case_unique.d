@@ -11,6 +11,7 @@ module dextool.plugin.mutate.backend.report.html.page_test_case_unique;
 
 import logger = std.experimental.logger;
 import std.format : format;
+import std.datetime : Clock, dur;
 
 import arsd.dom : Element, RawSource;
 
@@ -26,8 +27,6 @@ import dextool.plugin.mutate.type : MutationKind;
 
 auto makeTestCaseUnique(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
-    import std.datetime : Clock;
-
     auto doc = tmplBasicPage;
 
     auto s = doc.root.childElements("head")[0].addChild("script");
@@ -49,20 +48,15 @@ void toHtml(ref Database db, TestCaseUniqueness result, Element root) {
     import std.array : array;
     import std.conv : to;
     import std.path : buildPath;
-    import cachetools : CacheLRU;
     import dextool.cachetools;
     import dextool.plugin.mutate.backend.database : spinSql, MutationId;
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
     import dextool.type : Path;
 
-    auto link_cache = new CacheLRU!(MutationId, string);
-    link_cache.ttl = 30; // magic number
-    Path getPath(MutationId id) {
-        return dextool.cachetools.cacheToolsRequire(link_cache, id, {
-            auto path = spinSql!(() => db.getPath(id)).get;
-            return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
-        }()).Path;
-    }
+    auto getPath = nullableCache!(MutationId, string, (MutationId id) {
+        auto path = spinSql!(() => db.getPath(id)).get;
+        return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
+    })(0, 30.dur!"seconds");
 
     with (root.addChild("button", "expand all")) {
         setAttribute("type", "button");
@@ -89,7 +83,7 @@ void toHtml(ref Database db, TestCaseUniqueness result, Element root) {
         auto mut_ids = r.addChild("td");
         foreach (const m; result.uniqueKills[k].sort) {
             auto link = mut_ids.addChild("a", m.to!string);
-            link.href = getPath(m);
+            link.href = getPath(m).get;
             mut_ids.appendText(" ");
         }
     }
