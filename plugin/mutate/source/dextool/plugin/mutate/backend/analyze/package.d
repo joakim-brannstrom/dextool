@@ -311,10 +311,9 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
         if (prune) {
             pruneFiles();
+            logger.info("Removing orphant mutants");
+            db.removeOrphanedMutants;
         }
-
-        logger.info("Removing orphant mutants");
-        db.removeOrphanedMutants;
 
         logger.info("Updating manually marked mutants");
         updateMarkedMutants(*db);
