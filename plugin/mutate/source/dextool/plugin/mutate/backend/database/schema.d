@@ -52,11 +52,10 @@ interchangeably.
 module dextool.plugin.mutate.backend.database.schema;
 
 import logger = std.experimental.logger;
-import std.array : array;
+import std.array : array, empty;
 import std.datetime : SysTime;
 import std.exception : collectException;
 import std.format : format;
-import std.range : takeOne;
 
 import dextool.plugin.mutate.backend.type : Language;
 
@@ -425,7 +424,7 @@ void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
 
 long getSchemaVersion(ref Miniorm db) nothrow {
     try {
-        auto v = db.run(select!VersionTbl).takeOne;
+        auto v = db.run(select!VersionTbl);
         return v.empty ? 0 : v.front.version_;
     } catch (Exception e) {
     }
