@@ -49,7 +49,10 @@ NextPullRequestMutant --> Done : allTested
 NextSchemata --> PreSchemata : hasSchema
 NextSchemata --> NextMutant
 PreSchemata --> SchemataTest
-SchemataTest --> HandleTestResult
+SchemataTest --> SchemataTest
+SchemataTest --> SchemataTestResult : done
+SchemataTestResult --> SchemataRestore
+SchemataRestore --> CheckRuntime
 
 NextMutant --> CheckTimeout : allTested
 NextMutant --> PreMutationTest

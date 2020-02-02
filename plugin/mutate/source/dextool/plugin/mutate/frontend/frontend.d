@@ -154,6 +154,10 @@ final class FrontendIO : FilesysIO {
         return relativePath(p, output_dir).Path;
     }
 
+    override AbsolutePath toAbsoluteRoot(Path p) {
+        return AbsolutePath(p, output_dir);
+    }
+
     override AbsolutePath getOutputDir() @safe pure nothrow @nogc {
         return output_dir;
     }

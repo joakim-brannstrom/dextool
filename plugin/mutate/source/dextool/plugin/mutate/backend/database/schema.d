@@ -77,6 +77,10 @@ immutable nomutTable = "nomut";
 immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable schemaVersionTable = "schema_version";
 immutable srcMetadataTable = "src_metadata";
+immutable schemataMutantTable = "schemata_mutant";
+immutable schemataWorkListTable = "schemata_worklist";
+immutable schemataTable = "schemata";
+immutable schemataFragmentTable = "schemata_fragment";
 
 private immutable testCaseTableV1 = "test_case";
 
@@ -373,8 +377,6 @@ struct MutantTimeoutCtxTbl {
     State state;
 }
 
-import dextool.plugin.mutate.backend.database.type : Rationale;
-
 /** The lower 64bit of the checksum should be good enough as the primary key.
  * By doing it this way it is easier to update a marked mutant without
  * "peeking" in the database ("insert or update").
@@ -411,6 +413,51 @@ struct MarkedMutantTbl {
     string rationale;
 
     string mutText;
+}
+
+@TableName(schemataMutantTable)
+@TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("schem_id", KeyRef("schemata_fragment(id)"), KeyParam("ON DELETE CASCADE"))
+struct SchemataMutantTable {
+    @ColumnName("st_id")
+    long statusId;
+    @ColumnName("schem_id")
+    long schemaId;
+}
+
+@TableName(schemataTable)
+struct SchemataTable {
+    long id;
+}
+
+@TableName(schemataWorkListTable)
+@TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
+struct SchemataWorkListTable {
+    long id;
+}
+
+@TableName(schemataFragmentTable)
+@TableForeignKey("schem_id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+struct SchemataFragmentTable {
+    long id;
+
+    @ColumnName("schem_id")
+    long schemataId;
+
+    @ColumnName("file_id")
+    long fileId;
+
+    @ColumnName("order_")
+    long order;
+
+    @ColumnParam("")
+    const(ubyte)[] text;
+
+    @ColumnName("offset_begin")
+    uint offsetBegin;
+    @ColumnName("offset_end")
+    uint offsetEnd;
 }
 
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
@@ -486,7 +533,9 @@ void upgradeV0(ref Miniorm db) {
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl,
             MutationPointTbl, MutationTbl, TestCaseKilledTbl, AllTestCaseTbl,
             MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl,
-            MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl, NomutDataTbl));
+            MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl,
+            NomutDataTbl, SchemataTable, SchemataFragmentTable,
+            SchemataWorkListTable, SchemataMutantTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -888,6 +937,10 @@ void upgradeV15(ref Miniorm db) {
     db.run(format!"DROP TABLE %s"(markedMutantTable));
     db.run(buildSchema!MarkedMutantTbl);
     logger.info("Dropping all marked mutants because of database changes");
+}
+
+void upgradeV16(ref Miniorm db) {
+    db.run(buildSchema!(SchemataFragmentTable, SchemataWorkListTable, SchemataMutantTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

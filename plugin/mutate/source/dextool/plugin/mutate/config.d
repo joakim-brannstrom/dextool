@@ -116,7 +116,7 @@ struct ConfigMutationTest {
     string[] testCommandDirFlag;
 
     ShellCommand mutationCompile;
-    ShellCommand mutationTestCaseAnalyze;
+    ShellCommand[] mutationTestCaseAnalyze;
     TestCaseAnalyzeBuiltin[] mutationTestCaseBuiltin;
     Nullable!Duration mutationTesterRuntime;
     MutationOrder mutationOrder;
@@ -167,6 +167,9 @@ struct ConfigMutationTest {
 
     /// Seed used when randomly choosing mutants to test in a pull request.
     long pullRequestSeed = 42;
+
+    /// If the schematas should additionall be written to a separate file for offline inspection.
+    bool logSchemata;
 }
 
 /// Settings for the administration mode

@@ -48,6 +48,18 @@ struct TestCaseId {
     alias value this;
 }
 
+/// Primary key for mutation schematas.
+struct SchemataId {
+    long value;
+    alias value this;
+}
+
+/// Primary key for a schemata fragment.
+struct SchemataFragmentId {
+    long value;
+    alias value this;
+}
+
 struct MutationEntry {
     MutationId id;
     Path file;
@@ -265,4 +277,18 @@ struct MarkedMutant {
     Rationale rationale;
 
     string mutText;
+}
+
+/// A fragment of a schemata which is one application.
+struct SchemataFragment {
+    Path file;
+    Offset offset;
+    const(ubyte)[] text;
+}
+
+struct Schemata {
+    SchemataId id;
+
+    /// Sorted in the order they should be applied.
+    SchemataFragment[] fragments;
 }

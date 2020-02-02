@@ -126,7 +126,9 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
- * implement prioritization of what binaries to execute for a mutant. Prioritize the order to execute binaries in by those that have killed mutants in a file that has been mutaed.
+ * automatically mark a schemata as "done" if there are no mutants related to it with the status "unknown".
+ * build a dependency for a file that is mutated such that it is only re-analyzed if that file or any of its dependencies has changed. Use the includeVisitor to find the dependencies.
+ * implement prioritization of what binaries to execute for a mutant. Prioritize the order to execute binaries in by those that have killed mutants in a file that has been mutated. Maybe call it "test_cmd_auto_prio"?
  * show how the score is trending over time.
  * save changes to the mutation score in the database each time it has "finished" a run. It means that the user do not need external tooling to "plot" and visualize how the mutation score change over time.
  * add a database query that returns test cases sorted by the number of mutants they killed.

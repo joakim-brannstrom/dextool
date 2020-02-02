@@ -74,11 +74,11 @@ struct TestRunner {
         commands ~= sh;
     }
 
-    TestResult run() {
-        return this.run(timeout_);
+    TestResult run(string[string] localEnv = null) {
+        return this.run(timeout_, localEnv);
     }
 
-    TestResult run(Duration timeout) {
+    TestResult run(Duration timeout, string[string] localEnv = null) {
         import core.thread : Thread;
         import core.time : dur;
         import std.range : enumerate;
@@ -111,7 +111,12 @@ struct TestRunner {
             }
         }
 
-        TestTask*[] tasks = startTests(timeout);
+        auto env_ = env;
+        foreach (kv; localEnv.byKeyValue) {
+            env_[kv.key] = kv.value;
+        }
+
+        TestTask*[] tasks = startTests(timeout, env_);
         TestResult rval;
         auto output = appender!(DrainElement[])();
         while (!tasks.empty) {
@@ -126,7 +131,7 @@ struct TestRunner {
         return rval;
     }
 
-    private auto startTests(Duration timeout) @trusted {
+    private auto startTests(Duration timeout, string[string] env) @trusted {
         auto tasks = appender!(TestTask*[])();
 
         foreach (c; commands) {
