@@ -31,7 +31,7 @@ import std.path : relativePath;
 import std.regex : Regex, matchFirst;
 import std.typecons : Nullable, Flag, No;
 
-import miniorm : toSqliteDateTime, fromSqLiteDateTime;
+import miniorm : toSqliteDateTime, fromSqLiteDateTime, Bind;
 
 import dextool.type : AbsolutePath, Path, ExitStatusType;
 
@@ -105,7 +105,8 @@ struct Database {
         auto stmt = db.prepare(sql);
         auto app = appender!(MarkedMutant[])();
         foreach (res; stmt.get.execute) {
-            foreach (m; db.run(select!MarkedMutantTbl.where("checksum0 = ", res.peek!long(0)))) {
+            foreach (m; db.run(select!MarkedMutantTbl.where("checksum0 = :cs0",
+                    Bind("cs0")), res.peek!long(0))) {
                 app.put(.make(m));
             }
         }
@@ -344,7 +345,8 @@ struct Database {
 
     MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
         auto rval = MutantMetaData(id);
-        foreach (res; db.run(select!NomutDataTbl.where("mut_id =", cast(long) id))) {
+        foreach (res; db.run(select!NomutDataTbl.where("mut_id = :mutid",
+                Bind("mutid")), cast(long) id)) {
             rval.set(NoMut(res.tag, res.comment));
         }
         return rval;
@@ -631,11 +633,11 @@ struct Database {
     }
 
     void removeMarkedMutant(const Checksum cs) @trusted {
-        db.run(delete_!MarkedMutantTbl.where("checksum0 = ", cast(long) cs.c0));
+        db.run(delete_!MarkedMutantTbl.where("checksum0 = :cs0", Bind("cs0")), cast(long) cs.c0);
     }
 
     void removeMarkedMutant(const MutationStatusId id) @trusted {
-        db.run(delete_!MarkedMutantTbl.where("st_id = ", id.to!string));
+        db.run(delete_!MarkedMutantTbl.where("st_id = :st_id", Bind("st_id")), cast(long) id);
     }
 
     /// Returns: All mutants with that are marked orderd by their path

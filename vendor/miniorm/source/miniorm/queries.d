@@ -1,7 +1,9 @@
 module miniorm.queries;
 
 import std.algorithm : joiner, map;
+import std.conv : to;
 import std.exception : enforce;
+import std.format : format;
 import std.string : join;
 
 import d2sqlite3;
@@ -91,9 +93,9 @@ unittest {
         ulong ts;
     }
 
-    select!Foo.where("foo = bar").or("batman IS NULL").and("batman = hero")
-        .toSql.toString.shouldEqual(
-                "SELECT * FROM Foo WHERE foo = bar OR batman IS NULL AND batman = hero;");
+    select!Foo.where("foo = :bar", Bind("bar")).or("batman IS NULL")
+        .and("batman = :hero", Bind("hero")).toSql.toString.shouldEqual(
+                "SELECT * FROM Foo WHERE foo = :bar OR batman IS NULL AND batman = :hero;");
 }
 
 @("shall be possible to have a member of enum type")
@@ -329,39 +331,29 @@ mixin template WhereMixin(T, QueryT, AstT) {
     import std.datetime : SysTime;
     import std.traits : isNumeric, isSomeString;
 
-    /// Automatically quotes `rhs`.
-    auto where(string lhs, string rhs) {
-        import std.format : format;
+    Bind[] binds;
 
-        return this.where(format("%s '%s'", lhs, rhs));
+    /// Add a WHERE clause with a bound value.
+    auto where(string lhs, Bind[] b = null) {
+        binds ~= b;
+        return this.where(lhs);
     }
 
-    /// Converts `rhs` to a datetime that sqlite understand.
-    auto where(string lhs, SysTime rhs) {
-        import std.format : format;
-        import miniorm.api : toSqliteDateTime;
-
-        return this.where(format("%s datetime('%s')", lhs, rhs.toUTC.toSqliteDateTime));
-    }
-
-    auto where(T)(string lhs, T rhs) if (isNumeric!T || isSomeString!T) {
-        import std.format : format;
-
-        return this.where(format("%s %s", lhs, rhs));
+    auto where(string lhs, Bind b) {
+        return this.where(lhs, [b]);
     }
 
     /// Add a WHERE condition.
-    auto where(string condition) @trusted pure {
+    private auto where(string condition) @trusted pure {
         import miniorm.query_ast;
 
         static struct WhereOptional {
             QueryT value;
             alias value this;
 
-            private auto where(string condition, WhereOp op) @trusted pure {
-                import sumtype;
-
+            private auto where(string condition, WhereOp op, Bind[] b) @trusted pure {
                 QueryT rval = value;
+                rval.binds ~= b;
 
                 Where w = value.query.where.tryMatch!((Where v) => v);
                 WhereExpr we = w.tryMatch!((WhereExpr v) => v);
@@ -370,19 +362,60 @@ mixin template WhereMixin(T, QueryT, AstT) {
                 return WhereOptional(rval);
             }
 
-            WhereOptional and(string condition) @safe pure {
-                return where(condition, WhereOp.AND);
+            WhereOptional and(string lhs, Bind[] b = null) @safe pure {
+                return where(lhs, WhereOp.AND, b);
             }
 
-            WhereOptional or(string condition) @safe pure {
-                return where(condition, WhereOp.OR);
+            WhereOptional and(string lhs, Bind b) @safe pure {
+                return where(lhs, WhereOp.AND, [b]);
+            }
+
+            WhereOptional or(string lhs, Bind[] b = null) @safe pure {
+                return where(lhs, WhereOp.OR, b);
+            }
+
+            WhereOptional or(string lhs, Bind b) @safe pure {
+                return where(lhs, WhereOp.OR, [b]);
             }
         }
 
-        AstT rval = query;
-        rval.where = WhereExpr(Expr(condition)).Where;
+        AstT ast = query;
+        ast.where = WhereExpr(Expr(condition)).Where;
 
-        return WhereOptional(typeof(this)(rval));
+        auto rval = QueryT(ast);
+        rval.binds = binds;
+
+        return WhereOptional(rval);
+    }
+}
+
+struct Bind {
+    import std.range : isOutputRange, put;
+
+    alias Key = SumType!(string, int);
+
+    Key key;
+
+    this(string k) {
+        key = Key(k);
+    }
+
+    this(int k) {
+        key = Key(k);
+    }
+
+    string toString() @safe pure const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        key.match!((string k) { put(w, ":"); put(w, k); }, (int k) {
+            put(w, k.to!string);
+        });
     }
 }
 
@@ -398,10 +431,6 @@ unittest {
 }
 
 auto count(T)() {
-    //return Count!T(Select!T(tableName!T).count);
-    //import miniorm.query_ast;
-    //
-    //miniorm.query_ast.Select query;
     return Count!T(tableName!T);
 }
 

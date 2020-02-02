@@ -97,14 +97,15 @@ struct Miniorm {
         db.close();
     }
 
-    size_t run(T)(Count!T v) {
+    size_t run(T, Args...)(Count!T v, auto ref Args args) {
         const sql = v.toSql.toString;
         if (isLog)
             logger.trace(sql);
-        return db.executeCheck(sql).front.front.as!size_t;
+        auto stmt = prepare(sql);
+        return executeCheck(stmt, sql, v.binds, args).front.front.as!size_t;
     }
 
-    auto run(T)(Select!T v) {
+    auto run(T, Args...)(Select!T v, auto ref Args args) {
         import std.algorithm : map;
         import std.format : format;
         import std.range : inputRangeObject;
@@ -113,16 +114,19 @@ struct Miniorm {
         if (isLog)
             logger.trace(sql);
 
-        auto result = db.executeCheck(sql);
+        auto stmt = prepare(sql);
+        auto result = executeCheck(stmt, sql, v.binds, args);
 
         static T qconv(typeof(result.front) e) {
+            import std.algorithm : min;
+            import std.conv : to;
+            import std.traits : isStaticArray, OriginalType;
+            import miniorm.api : fromSqLiteDateTime;
             import miniorm.schema : fieldToCol;
 
             T ret;
             static string rr() {
                 string[] res;
-                res ~= "import std.traits : isStaticArray, OriginalType;";
-                res ~= "import miniorm.api : fromSqLiteDateTime;";
                 foreach (i, a; fieldToCol!("", T)()) {
                     res ~= `{`;
                     if (a.columnType == "DATETIME") {
@@ -133,7 +137,6 @@ struct Miniorm {
                         res ~= q{static if (isStaticArray!ET)};
                         res ~= `
                             {
-                                import std.algorithm : min;
                                 auto ubval = e[%2$d].as!(ubyte[]);
                                 auto etval = cast(typeof(ET.init[]))ubval;
                                 auto ln = min(ret.%1$s.length, etval.length);
@@ -141,7 +144,8 @@ struct Miniorm {
                             }
                             `.format(a.identifier, i);
                         res ~= q{else static if (is(ET == enum))};
-                        res ~= format(q{ret.%1$s = cast(ET) e.peek!ET(%2$d);}, a.identifier, i);
+                        res ~= format(q{ret.%1$s = cast(ET) e.peek!ET(%2$d).to!ET;},
+                                a.identifier, i);
                         res ~= q{else};
                         res ~= format(q{ret.%1$s = e.peek!ET(%2$d);}, a.identifier, i);
                     }
@@ -154,28 +158,26 @@ struct Miniorm {
             return ret;
         }
 
-        return result.map!qconv;
+        return ResultRange2!(typeof(result))(stmt, result).map!qconv;
     }
 
-    void run(T)(Delete!T v) {
+    void run(T, Args...)(Delete!T v, auto ref Args args) {
         const sql = v.toSql.toString;
         if (isLog)
             logger.trace(sql);
-        db.run(sql);
+        auto stmt = prepare(sql);
+        executeCheck(stmt, sql, v.binds, args);
     }
 
-    void run(AggregateInsert all = AggregateInsert.no, T0, T1)(Insert!T0 v, T1[] arr...)
-            if (!isInputRange!T1) {
-        procInsert!all(v, arr);
+    void run(T0, T1)(Insert!T0 v, T1[] arr...) if (!isInputRange!T1) {
+        procInsert(v, arr);
     }
 
-    void run(AggregateInsert all = AggregateInsert.no, T, R)(Insert!T v, R rng)
-            if (isInputRange!R) {
-        procInsert!all(v, rng);
+    void run(T, R)(Insert!T v, R rng) if (isInputRange!R) {
+        procInsert(v, rng);
     }
 
-    private void procInsert(AggregateInsert all = AggregateInsert.no, T, R)(Insert!T q, R rng)
-            if ((all && hasLength!R) || !all) {
+    private void procInsert(T, R)(Insert!T q, R rng) {
         import std.algorithm : among;
 
         // generate code for binding values in a struct to a prepared
@@ -205,41 +207,23 @@ struct Miniorm {
 
         const replace = q.query.opt == InsertOpt.InsertOrReplace;
 
-        static if (all == AggregateInsert.yes)
-            q = q.values(rng.length);
-        else
-            q = q.values(1);
+        q = q.values(1);
 
         const sql = q.toSql.toString;
 
         auto stmt = prepare(sql);
 
-        static if (all == AggregateInsert.yes) {
+        foreach (v; rng) {
             int n;
-            foreach (v; rng) {
-                if (replace) {
-                    mixin(genBinding!T(true));
-                } else {
-                    mixin(genBinding!T(false));
-                }
+            if (replace) {
+                mixin(genBinding!T(true));
+            } else {
+                mixin(genBinding!T(false));
             }
             if (isLog)
-                logger.trace(sql, " -> ", rng);
+                logger.trace(sql, " -> ", v);
             stmt.get.execute();
             stmt.get.reset();
-        } else {
-            foreach (v; rng) {
-                int n;
-                if (replace) {
-                    mixin(genBinding!T(true));
-                } else {
-                    mixin(genBinding!T(false));
-                }
-                if (isLog)
-                    logger.trace(sql, " -> ", v);
-                stmt.get.execute();
-                stmt.get.reset();
-            }
         }
     }
 }
@@ -283,11 +267,10 @@ unittest {
         string text;
     }
 
-    import std.experimental.allocator;
-    import std.experimental.allocator.mallocator;
-    import std.experimental.allocator.building_blocks.scoped_allocator;
-
     // TODO: fix this
+    //import std.experimental.allocator;
+    //import std.experimental.allocator.mallocator;
+    //import std.experimental.allocator.building_blocks.scoped_allocator;
     //Microrm* db;
     //ScopedAllocator!Mallocator scalloc;
     //db = scalloc.make!Microrm(":memory:");
@@ -349,8 +332,7 @@ unittest {
     db.run(buildSchema!One);
 
     db.run(count!One).shouldEqual(0);
-    db.run!(AggregateInsert.yes)(insert!One.insert, iota(0, 10)
-            .map!(i => One(i * 100, "hello" ~ text(i))));
+    db.run(insert!One.insert, iota(0, 10).map!(i => One(i * 100, "hello" ~ text(i))));
     db.run(count!One).shouldEqual(10);
 
     auto ones = db.run(select!One).array;
@@ -364,8 +346,7 @@ unittest {
     import std.datetime;
     import std.conv : to;
 
-    db.run!(AggregateInsert.yes)(insertOrReplace!One, iota(0, 499)
-            .map!(i => One((i + 1) * 100, "hello" ~ text(i))));
+    db.run(insertOrReplace!One, iota(0, 499).map!(i => One((i + 1) * 100, "hello" ~ text(i))));
     ones = db.run(select!One).array;
     assert(ones.length == 499);
     assert(ones.all!(a => a.id >= 100));
@@ -419,9 +400,12 @@ unittest {
     db.run(insertOrReplace!Settings, Settings(12, Limits(Limit(0, 12), Limit(-12, 12))));
 
     assert(db.run(count!Settings) == 3);
-    assert(db.run(count!Settings.where(`"limits.volt.max" = 2`)) == 1);
-    assert(db.run(count!Settings.where(`"limits.volt.max" > 10`)) == 2);
-    db.run(delete_!Settings.where(`"limits.volt.max" < 10`));
+    assert(db.run(count!Settings.where(`"limits.volt.max" = :nr`, Bind("nr")), 2) == 1);
+    assert(db.run(count!Settings.where(`"limits.volt.max" > :nr`, Bind("nr")), 10) == 2);
+    db.run(count!Settings.where(`"limits.volt.max" > :nr`, Bind("nr"))
+            .and(`"limits.volt.max" < :topnr`, Bind("topnr")), 1, 12).shouldEqual(2);
+
+    db.run(delete_!Settings.where(`"limits.volt.max" < :nr`, Bind("nr")), 10);
     assert(db.run(count!Settings) == 2);
 }
 
@@ -586,5 +570,24 @@ struct RefCntStatement {
 
     ref Statement get() {
         return *rc.refCountedPayload.stmt;
+    }
+}
+
+struct ResultRange2(T) {
+    RefCntStatement stmt;
+    T result;
+
+    auto front() {
+        assert(!empty, "Can't get front of an empty range");
+        return result.front;
+    }
+
+    void popFront() {
+        assert(!empty, "Can't pop front of an empty range");
+        result.popFront;
+    }
+
+    bool empty() {
+        return result.empty;
     }
 }
