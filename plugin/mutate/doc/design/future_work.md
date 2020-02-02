@@ -126,25 +126,19 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
- * generate a html report of the test cases that uniquely kill a mutant. By unique it means that it is the only test case that kill the mutant. This is to help a user to discern if a test case can be removed or not because it is "fully redundant".
+ * implement prioritization of what binaries to execute for a mutant. Prioritize the order to execute binaries in by those that have killed mutants in a file that has been mutaed.
  * show how the score is trending over time.
  * save changes to the mutation score in the database each time it has "finished" a run. It means that the user do not need external tooling to "plot" and visualize how the mutation score change over time.
  * add a database query that returns test cases sorted by the number of mutants they killed.
    change package.d to using it instead of sort_tcs_on_kills.
- * impl execution of mutants on only changed lines.
- * implement a command line switch that take a file/files and ranges in those file as places to where to mutate.
  * rank mutants by how much they changed the source code. more tokens then higher risk? Add to high interest mutants.
    an alternative would be how much they change the dataflow based on the LLVM IR.
- * speedup retesting of timeout mutants by only resetting those that are "newly" found.
-   This must handle the case where the instance is restarted.
  * inactivate unused parts of UOI.
  * update aor to mutate "a + " to "a", "b" besides the normal.
  * allow the limits for the colors in the html report for files to be configurable.
     * The user may have either looser or stricter requirements than those that are hard coded atm.
- * add exclude to config file.
  * save stdout/stderr log when testing mutants. this makes it easier to understand why "test" and "build" scripts fail.
  * make it possible for the user to define "mutation operator sets" from the 40+ primitives. There is no reason why they are hardcoded.
- * implement a test case analyser that can find test cases that encompases others. Supersets.
  * implement merge of databases. It is to make it possible for a team to work "distributed".
    For example make a copy of the database, make changes to the SUT and rerun the mutation testning.
    The take the result and "merge it back" into the teams shared database.

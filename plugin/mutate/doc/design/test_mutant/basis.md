@@ -1,14 +1,12 @@
-# REQ-test_mutant
-partof: REQ-purpose
-###
+# Test Mutant {id="req-test_mutant"}
 
 The user wants to process the mutants by applying the test suite on one mutant at a time and record the status for future processing.
 
-# SPC-test_mutant
-partof: REQ-test_mutant
-###
+## SPC-test_mutant {id="design-test_mutant"}
 
-## Design Decision
+[partof](#req-test_mutant)
+
+### Design Decision
 
 The implementation testing mutants should separate the drivers in three parts:
 
@@ -17,9 +15,9 @@ The implementation testing mutants should separate the drivers in three parts:
      * mutation timeout reduction algorithm
  * test a mutant
 
-# SPC-test_mutant_timeout
-partof: SPC-test_mutant
-###
+## Timeout Mutant {id="design-test_mutant_timeout"}
+
+[partof](#req-test_mutant)
 
 The plugin shall terminate a test suite when it reached the *timeout*.
 
@@ -150,9 +148,7 @@ The status of a mutant is update as described in figure \ref{fig-timeout-mutant-
 
 ![Setting the status of a mutant](figures/timeout_mutant.eps){#fig-timeout-mutant-act height=40%}
 
-# REQ-unstable_test_suite
-partof: REQ-test_mutant
-###
+## Unstable Test Suite {id="req-unstable_test_suite"}
 
 The users test suite is unreliable. Because of different reasons it can
 sometimes fail when testing a mutant. When the test suite fails the plugin
@@ -187,9 +183,9 @@ Impl a strategy for handling scenario 1) if needed. For now the control over
 the exit status is always in the users hand (!= 0 means killed) together with
 the "retest:" mean that the user probably have enough tools at hand.
 
-# SPC-retest_mutant_on_unstable_test_case
-partof: REQ-unstable_test_suite
-###
+## Re-Test Mutant On Unstable Test Case {id="design-retest_mutant_on_unstable_test_case"}
+
+[partof](#req-unstable_test_suite)
 
 The plugin shall record *unknown* as the status of the mutant being tested when
 the *external test case analyser* writes "retest:" to stdout.
@@ -197,7 +193,7 @@ the *external test case analyser* writes "retest:" to stdout.
 **Note**: This mean that it ignores the exist status from the test suite if it
 finds a "retest:".
 
-## Rationale
+### Rationale
 
 This makes it possible for a user to inform dextool that the mutant should be
 retested because the test suite started to become unstable when executing the
@@ -207,9 +203,9 @@ The user is free to use this or to ignore the instability because if the user
 chooses to **not** write "retest:" to stdout the exist status will be used to
 write the status of the mutant.
 
-# REQ-configurable_max_mutant_test_time
-partof: REQ-test_mutant
-###
+## Configurable Max Mutant Test Time {id="req-configurable_max_mutant_test_time"}
+
+[partof](#req-test_mutant)
 
 The user wants to configure the maximum time used for mutation testing. If the
 limit is reached the plugin should exit cleanly. This is to make it possible

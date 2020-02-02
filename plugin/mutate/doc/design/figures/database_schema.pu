@@ -70,10 +70,8 @@ class schemata {
 class schemata_fragment {
     id  INTEGER PRIMARY KEY,
 ---
-- op: operation to perform on the file
-  0:add 1:remove 2:replace
-- order: order, 0+
-- text: used for ADD and REPLACE
+- order: order to apply fragments, 0+
+- text:
 - offset_begin:
 - offset_end:
 }
@@ -86,8 +84,7 @@ schemata_mutant "schem_id" --> "id" schemata
 schemata_mutant "st_id" --> "id" mutation_status
 
 class schemata_worklist {
-    id  INTEGER PRIMARY KEY,
 }
-schemata_worklist "schem_id" --> "id" schemata
+schemata_worklist "id" --> "id" schemata
 
 @enduml
