@@ -459,6 +459,8 @@ void upgrade(ref Miniorm db) nothrow {
                 scope (failure)
                     db.rollback;
                 (*f)(db);
+                if (version_ != 0)
+                    updateSchemaVersion(db, version_ + 1);
             } catch (Exception e) {
                 logger.trace(e).collectException;
                 logger.error(e.msg).collectException;
@@ -505,7 +507,6 @@ void upgradeV1(ref Miniorm db) {
     }
 
     db.run(buildSchema!TestCaseKilledTblV1);
-    updateSchemaVersion(db, 2);
 }
 
 /// 2018-04-22
@@ -528,8 +529,6 @@ void upgradeV2(ref Miniorm db) {
     db.run(format("INSERT INTO %s (id,path,checksum0,checksum1) SELECT * FROM %s",
             new_tbl, filesTable));
     db.replaceTbl(new_tbl, filesTable);
-
-    updateSchemaVersion(db, 3);
 }
 
 /// 2018-09-01
@@ -557,8 +556,6 @@ void upgradeV3(ref Miniorm db) {
     db.run(format("DROP TABLE %s", testCaseTableV1));
 
     db.run(buildSchema!AllTestCaseTbl);
-
-    updateSchemaVersion(db, 4);
 }
 
 /// 2018-09-24
@@ -608,8 +605,6 @@ void upgradeV4(ref Miniorm db) {
     //        new_tbl, killedTestCaseTable, allTestCaseTable));
 
     db.replaceTbl(new_tbl, killedTestCaseTable);
-
-    updateSchemaVersion(db, 5);
 }
 
 /** 2018-09-30
@@ -662,8 +657,6 @@ void upgradeV5(ref Miniorm db) {
     db.run(format("INSERT OR IGNORE INTO %s (id,path,checksum0,checksum1,lang) SELECT * FROM %s",
             new_files_tbl, filesTable));
     db.replaceTbl(new_files_tbl, filesTable);
-
-    updateSchemaVersion(db, 6);
 }
 
 /// 2018-10-11
@@ -692,8 +685,6 @@ void upgradeV6(ref Miniorm db) {
     db.run(format("INSERT INTO %s (id,status,checksum0,checksum1) SELECT id,status,checksum0,checksum1 FROM %s",
             new_muts_tbl, mutationStatusTable));
     db.replaceTbl(new_muts_tbl, mutationStatusTable);
-
-    updateSchemaVersion(db, 7);
 }
 
 /// 2018-10-15
@@ -710,8 +701,6 @@ void upgradeV7(ref Miniorm db) {
             killedTestCaseTable, mutationTable));
 
     db.replaceTbl(new_tbl, killedTestCaseTable);
-
-    updateSchemaVersion(db, 8);
 }
 
 /// 2018-10-20
@@ -724,7 +713,6 @@ void upgradeV8(ref Miniorm db) {
             new_tbl, mutationPointTable));
 
     db.replaceTbl(new_tbl, mutationPointTable);
-    updateSchemaVersion(db, 9);
 }
 
 /// 2018-11-10
@@ -737,7 +725,6 @@ void upgradeV9(ref Miniorm db) {
             new_tbl, mutationStatusTable));
 
     replaceTbl(db, new_tbl, mutationStatusTable);
-    updateSchemaVersion(db, 10);
 }
 
 /// 2018-11-25
@@ -785,8 +772,6 @@ void upgradeV10(ref Miniorm db) {
     }
 
     makeSrcMetadataView(db);
-
-    updateSchemaVersion(db, 11);
 }
 
 /// 2019-04-06
@@ -849,14 +834,11 @@ void upgradeV11(ref Miniorm db) {
     }
 
     makeSrcMetadataView(db);
-
-    updateSchemaVersion(db, 12);
 }
 
 /// 2019-08-28
 void upgradeV12(ref Miniorm db) {
     db.run(buildSchema!(MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl));
-    updateSchemaVersion(db, 13);
 }
 
 /// 2019-11-12
@@ -888,7 +870,6 @@ void upgradeV13(ref Miniorm db) {
     }
 
     db.run(buildSchema!(MarkedMutantTbl));
-    updateSchemaVersion(db, 14);
 }
 
 /// 2020-01-12
@@ -899,7 +880,6 @@ void upgradeV14(ref Miniorm db) {
 
     db.run(buildSchema!(SrcMetadataTable, NomutTbl, NomutDataTbl));
     logger.info("Re-execute analyze to update the NOMUT data");
-    updateSchemaVersion(db, 15);
 }
 
 /// 2020-01-21
@@ -907,7 +887,6 @@ void upgradeV15(ref Miniorm db) {
     // fix bug in the marked mutant table
     db.run(format!"DROP TABLE %s"(markedMutantTable));
     db.run(buildSchema!MarkedMutantTbl);
-    updateSchemaVersion(db, 16);
     logger.info("Dropping all marked mutants because of database changes");
 }
 
