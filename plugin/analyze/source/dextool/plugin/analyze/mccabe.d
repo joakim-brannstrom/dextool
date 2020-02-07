@@ -11,7 +11,7 @@ module dextool.plugin.analyze.mccabe;
 
 import logger = std.experimental.logger;
 
-import dextool.type : ExitStatusType, FileName, AbsolutePath;
+import dextool.type : ExitStatusType, Path, AbsolutePath;
 
 @safe:
 
@@ -129,7 +129,7 @@ class McCabe {
             return;
 
         auto loc = c.location;
-        auto file_under_analyze = AbsolutePath(FileName(loc.file.toString));
+        auto file_under_analyze = AbsolutePath(Path(loc.file.toString));
 
         import cpptooling.data.type : CFunctionName;
 

@@ -114,7 +114,6 @@ version (unittest) {
     import std.algorithm : each, sort;
     import std.array : array;
     import std.file : getcwd;
-    import dextool.type : FileName;
     import unit_threaded : shouldEqual, shouldBeIn;
 }
 

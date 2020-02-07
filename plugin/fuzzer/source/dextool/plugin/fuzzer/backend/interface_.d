@@ -11,7 +11,9 @@ module dextool.plugin.fuzzer.backend.interface_;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
-import dextool.type : FileName, DextoolVersion, CustomHeader, WriteStrategy;
+import cpptooling.type : CustomHeader;
+import dextool.io : WriteStrategy;
+import dextool.type : DextoolVersion, Path;
 
 /** Control various aspects of the analyze and generation like what nodes to
  * process.
@@ -30,20 +32,20 @@ import dextool.type : FileName, DextoolVersion, CustomHeader, WriteStrategy;
  */
 @safe interface Transform {
     /// Returns: the transformed name to a filename suitable for a header.
-    FileName createHeaderFile(string name);
+    Path createHeaderFile(string name);
 
     /// Returns: the transformed name to a filename suitable for an implementation.
-    FileName createImplFile(string name);
+    Path createImplFile(string name);
 
     /// Returns: path where to write the raw initial corpora for fuzzing
     /// based on the number of total parameters.
-    FileName createFuzzyDataFile(string name);
+    Path createFuzzyDataFile(string name);
 
     /// Returns: path for xml config to be written to.
-    FileName createXmlConfigFile(string name);
+    Path createXmlConfigFile(string name);
 
     /// Returns: A unique filename.
-    FileName createFuzzCase(string name, ulong id);
+    Path createFuzzCase(string name, ulong id);
 }
 
 /// Static parameters that are not changed while the backend is working.
@@ -67,14 +69,14 @@ import dextool.type : FileName, DextoolVersion, CustomHeader, WriteStrategy;
      *   fname = file the content is intended to be written to.
      *   hdr_data = data to write to the file.
      */
-    void putFile(FileName fname, CppHModule data);
+    void putFile(Path fname, CppHModule data);
 
     /// ditto.
-    void putFile(FileName fname, CppModule data, WriteStrategy strategy = WriteStrategy.overwrite);
+    void putFile(Path fname, CppModule data, WriteStrategy strategy = WriteStrategy.overwrite);
 
     /// Raw data to be written.
-    void putFile(FileName fname, const(ubyte)[] data);
+    void putFile(Path fname, const(ubyte)[] data);
 
     /// Raw data to be written.
-    void putFile(FileName fname, string data, WriteStrategy strategy = WriteStrategy.overwrite);
+    void putFile(Path fname, string data, WriteStrategy strategy = WriteStrategy.overwrite);
 }

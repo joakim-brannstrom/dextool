@@ -23,7 +23,6 @@ import cpptooling.data;
 import cpptooling.data.symbol : Container;
 
 import cpptooling.analyzer.clang.ast : Visitor, ClangAST;
-import cpptooling.utility.virtualfilesystem : FileName;
 
 import cpptooling.generator.gtest;
 import cpptooling.generator.gmock;

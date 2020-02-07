@@ -33,7 +33,7 @@ import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
 import dextool.set;
-import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName, Path;
+import dextool.type : AbsolutePath, ExitStatusType, Path;
 
 @safe:
 
@@ -415,8 +415,7 @@ nothrow:
             GenerateMutantResult, GenerateMutantStatus;
 
         try {
-            global.mut_file = AbsolutePath(FileName(global.mutp.file),
-                    DirName(global.fio.getOutputDir));
+            global.mut_file = AbsolutePath(global.mutp.file, global.fio.getOutputDir);
             global.original = global.fio.makeInput(global.mut_file);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
@@ -839,8 +838,7 @@ nothrow:
             });
 
             try {
-                auto abs_f = AbsolutePath(FileName(file),
-                        DirName(cast(string) global.data.filesysIO.getOutputDir));
+                auto abs_f = AbsolutePath(file, global.data.filesysIO.getOutputDir);
                 auto f_checksum = checksum(global.data.filesysIO.makeInput(abs_f).content[]);
                 if (db_checksum != f_checksum) {
                     failed.put(abs_f);
@@ -1461,7 +1459,7 @@ string createTmpDir() @safe nothrow {
         try {
             auto tmp = format!"dextool_tmp_id_%s"(uniform!ulong);
             mkdir(tmp);
-            test_tmp_output = AbsolutePath(FileName(tmp));
+            test_tmp_output = AbsolutePath(Path(tmp));
             break;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;

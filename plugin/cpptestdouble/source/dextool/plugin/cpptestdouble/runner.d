@@ -13,6 +13,7 @@ auto runPlugin(string[] args) {
     import std.array : appender;
     import std.stdio : writeln;
     import logger = std.experimental.logger;
+    import cpptooling.type : MainFileName;
     import dextool.compilation_db;
     import dextool.type;
     import dextool.utility;
@@ -38,7 +39,7 @@ auto runPlugin(string[] args) {
         return ExitStatusType.Errors;
     }
 
-    auto transform = new FrontendTransform(MainFileName(pargs.mainFileName), DirName(pargs.out_));
+    auto transform = new FrontendTransform(MainFileName(pargs.mainFileName), Path(pargs.out_));
 
     auto variant = CppTestDoubleVariant.makeVariant(pargs);
     {
@@ -63,5 +64,5 @@ auto runPlugin(string[] args) {
         }
     }
 
-    return genCpp(variant, transform, pargs.cflags, compile_db, InFiles(pargs.inFiles));
+    return genCpp(variant, transform, pargs.cflags, compile_db, pargs.inFiles);
 }

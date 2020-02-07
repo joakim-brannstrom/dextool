@@ -15,7 +15,7 @@ import std.typecons : Nullable;
 
 import logger = std.experimental.logger;
 
-import dextool.type : FileName;
+import dextool.type : Path;
 
 /// Generate the xml prelude.
 void makePrelude(AppT)(ref AppT app) {
@@ -25,7 +25,7 @@ void makePrelude(AppT)(ref AppT app) {
 }
 
 /// Parse an xml file.
-Nullable!T readRawConfig(T, alias parseFunc)(FileName fname) @trusted nothrow {
+Nullable!T readRawConfig(T, alias parseFunc)(Path fname) @trusted nothrow {
     static import std.file;
     import std.utf : validate;
     import std.xml;

@@ -24,7 +24,7 @@ import logger = std.experimental.logger;
 public import dextool.clang_extensions : ValueKind;
 
 import cpptooling.analyzer.clang.ast : Visitor;
-import dextool.type : AbsolutePath, Path, FileName, DirName;
+import dextool.type : AbsolutePath, Path;
 
 // these imports are used in visitors. They are here to avoid cluttering the
 // individual visitors with a wall of text of imports.
@@ -1086,7 +1086,7 @@ class AnalyzeResult {
 
         auto mpe = MutationPointEntry2(file_name, a.mp.offset, a.sloc, a.slocEnd);
 
-        auto p = AbsolutePath(a.file, DirName(fio.getOutputDir));
+        auto p = AbsolutePath(a.file, fio.getOutputDir);
         // the file should already be in the store of files to save to the DB.
         assert(file_index.contains(p));
         auto fin = fio.makeInput(p);
@@ -1105,7 +1105,7 @@ class AnalyzeResult {
         if (file_index.contains(a))
             return;
 
-        auto p = AbsolutePath(a, DirName(fio.getOutputDir));
+        auto p = AbsolutePath(a, fio.getOutputDir);
         auto fin = fio.makeInput(p);
         auto cs = cache.getFileChecksum(p, fin.content);
 

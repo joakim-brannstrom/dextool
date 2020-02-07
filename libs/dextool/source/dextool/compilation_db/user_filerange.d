@@ -16,7 +16,7 @@ import logger = std.experimental.logger;
 
 import dextool.compilation_db : CompileCommandFilter, CompileCommandDB,
     parseFlag, SearchResult, DbCompiler = Compiler;
-import dextool.type : FileName, AbsolutePath;
+import dextool.type : Path, AbsolutePath;
 
 @safe:
 
@@ -61,9 +61,9 @@ struct UserFileRange {
         final switch (kind) {
         case RangeOver.inFiles:
             if (db.length > 0) {
-                curr = db.findFlags(FileName(inFiles[0]), cflags, ccFilter, userCompiler);
+                curr = db.findFlags(Path(inFiles[0]), cflags, ccFilter, userCompiler);
             } else {
-                curr = SearchResult(cflags.dup, AbsolutePath(FileName(inFiles[0])));
+                curr = SearchResult(cflags.dup, AbsolutePath(Path(inFiles[0])));
             }
             break;
         case RangeOver.database:
@@ -113,7 +113,7 @@ private:
 import std.typecons : Nullable;
 
 /// Find flags for fname by searching in the compilation DB.
-Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname, const string[] flags,
+Nullable!SearchResult findFlags(ref CompileCommandDB compdb, Path fname, const string[] flags,
         ref const CompileCommandFilter flag_filter, DbCompiler userCompiler = DbCompiler.init) {
     import dextool.compilation_db : appendOrError;
 

@@ -18,25 +18,25 @@ import clang.Cursor : Cursor;
 import clang.c.Index;
 
 import cpptooling.analyzer.clang.cursor_visitor;
-import dextool.type : FileName;
+import dextool.type : Path;
 
 /** Extract the filenames from all `#include` preprocessor macros that are
  * found in the AST.
  *
- * Note that this is the filename inside the "", not the actuall path on the
+ * Note that this is the filename inside the "", not the actual path on the
  * filesystem.
  *
  * Params:
  *  root = clang AST
  *  depth = how deep into the AST to analyze.
  */
-FileName[] extractIncludes(Cursor root, int depth = 2) {
+Path[] extractIncludes(Cursor root, int depth = 2) {
     import std.array : appender;
 
-    auto r = appender!(FileName[])();
+    auto r = appender!(Path[])();
 
     foreach (c; root.visitBreathFirst.filter!(a => a.kind == CXCursorKind.inclusionDirective)) {
-        r.put(FileName(c.spelling));
+        r.put(Path(c.spelling));
     }
 
     return r.data;
@@ -49,12 +49,12 @@ FileName[] extractIncludes(Cursor root, int depth = 2) {
  *  depth = how deep into the AST to analyze.
  * Returns: the path to the header file that matched the predicate
  */
-Nullable!FileName hasInclude(alias matcher)(Cursor root, int depth = 2) @trusted {
-    Nullable!FileName r;
+Nullable!Path hasInclude(alias matcher)(Cursor root, int depth = 2) @trusted {
+    Nullable!Path r;
 
     foreach (c; root.visitBreathFirst.filter!(a => a.kind == CXCursorKind.inclusionDirective)) {
         if (matcher(c.spelling)) {
-            r = FileName(c.include.file.name);
+            r = Path(c.include.file.name);
             break;
         }
     }

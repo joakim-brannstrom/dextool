@@ -8,7 +8,13 @@ module dextool.io;
 import std.stdio : File;
 import logger = std.experimental.logger;
 
-import dextool.type : ExitStatusType, WriteStrategy;
+import dextool.type : ExitStatusType;
+
+/// Used when writing data to files on the filesystem.
+enum WriteStrategy {
+    overwrite,
+    skip
+}
 
 ///TODO don't catch Exception, catch the specific.
 auto tryOpenFile(string filename, string mode) @trusted {

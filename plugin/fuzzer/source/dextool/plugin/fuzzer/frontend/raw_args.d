@@ -13,7 +13,7 @@ import std.typecons : Nullable;
 
 import logger = std.experimental.logger;
 
-import dextool.type : FileName;
+import dextool.type : Path;
 
 import dextool.plugin.fuzzer.type : FullyQualifiedNameType, Param, Symbol, Fuzz, SequenceId;
 
@@ -25,7 +25,7 @@ struct RawConfiguration {
     string[] fileExclude;
     string[] fileRestrict;
     string[] testDoubleInclude;
-    string[] inFiles;
+    Path[] inFiles;
     string[] cflags;
     string[] compileDb;
     string header;
@@ -43,6 +43,8 @@ struct RawConfiguration {
     void parse(string[] args) {
         static import std.getopt;
 
+        string[] input;
+
         try {
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
@@ -53,7 +55,7 @@ struct RawConfiguration {
                    "header", "Prepend generated files with the string", &header,
                    "header-file", "Prepend generated files with the header read from the file", &headerFile,
                    "help-regex", "Extended help for regex's used as parameters", &helpRegex,
-                   "in", "Input file to parse (at least one)", &inFiles,
+                   "in", "Input file to parse (at least one)", &input,
                    "main-fname", "Used as part of filename for generated files [default: intercept]", &mainFileName,
                    "out", "directory for generated files [default: ./]", &out_,
                    "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
@@ -77,7 +79,7 @@ struct RawConfiguration {
         }
 
         if (config.length != 0) {
-            xmlConfig = readRawConfig(FileName(config));
+            xmlConfig = readRawConfig(Path(config));
             if (xmlConfig.isNull) {
                 help = true;
             } else {
@@ -85,9 +87,11 @@ struct RawConfiguration {
             }
         }
 
-        import std.algorithm : find;
+        import std.algorithm : find, map;
         import std.array : array;
         import std.range : drop;
+
+        inFiles = input.map!(a => Path(a)).array;
 
         // at this point args contain "what is left". What is interesting then is those after "--".
         cflags = args.find("--").drop(1).array();
@@ -146,7 +150,7 @@ Information about --file-restrict.
  * It is not inteded to be used as is but rather further processed.
  */
 struct XmlConfig {
-    import dextool.type : DextoolVersion, RawCliArguments, FilterClangFlag;
+    import dextool.type : DextoolVersion, FilterClangFlag;
 
     DextoolVersion version_;
     int skipCompilerArgs;
@@ -170,7 +174,7 @@ auto parseRawConfig(T)(T xml) @trusted {
     import std.conv : to, ConvException;
     import std.xml;
     import dextool.utility : DextoolVersion;
-    import dextool.type : RawCliArguments, FilterClangFlag;
+    import dextool.type : FilterClangFlag;
 
     DextoolVersion version_;
     int skip_flags = 1;
@@ -224,7 +228,7 @@ auto parseRawConfig(T)(T xml) @trusted {
                     fuzz.use = FullyQualifiedNameType(*v);
                 }
                 if (auto v = "include" in e.tag.attr) {
-                    fuzz.include = FileName(*v);
+                    fuzz.include = Path(*v);
                 }
 
                 sym.fuzz = fuzz;
@@ -255,7 +259,7 @@ auto parseRawConfig(T)(T xml) @trusted {
                         fuzz.use = FullyQualifiedNameType(*v);
                     }
                     if (auto v = "include" in e.tag.attr) {
-                        fuzz.include = FileName(*v);
+                        fuzz.include = Path(*v);
                     }
                     if (auto v = "param" in e.tag.attr) {
                         fuzz.param = *v;
@@ -287,3 +291,9 @@ auto parseRawConfig(T)(T xml) @trusted {
 static import dextool.xml;
 
 alias readRawConfig = dextool.xml.readRawConfig!(XmlConfig, parseRawConfig);
+
+/// The raw arguments from the command line.
+struct RawCliArguments {
+    string[] payload;
+    alias payload this;
+}

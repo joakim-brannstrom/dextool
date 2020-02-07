@@ -27,7 +27,6 @@ import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol : Container;
 import cpptooling.data : TypeKindVariable, VariadicType, Location, USRType, toStringDecl;
-import cpptooling.utility.virtualfilesystem : FileName;
 
 /* These lines are useful when debugging.
 import unit_threaded;

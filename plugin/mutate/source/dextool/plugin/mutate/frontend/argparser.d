@@ -24,7 +24,7 @@ import toml : TOMLDocument;
 public import dextool.plugin.mutate.backend : Mutation;
 public import dextool.plugin.mutate.type;
 import dextool.plugin.mutate.config;
-import dextool.type : AbsolutePath, Path, ExitStatusType, DirName;
+import dextool.type : AbsolutePath, Path, ExitStatusType;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -37,7 +37,6 @@ struct ArgParser {
     import std.typecons : Nullable;
     import std.conv : ConvException;
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
-    import dextool.type : FileName;
 
     /// Minimal data needed to bootstrap the configuration.
     MiniConfig miniConf;
@@ -416,7 +415,7 @@ struct ArgParser {
         import std.range : drop;
 
         if (db.length != 0)
-            data.db = AbsolutePath(FileName(db));
+            data.db = AbsolutePath(Path(db));
         else if (data.db.length == 0)
             data.db = "dextool_mutate.sqlite3".Path.AbsolutePath;
 
@@ -428,11 +427,11 @@ struct ArgParser {
         if (workArea.rawRestrict.empty) {
             workArea.rawRestrict = [workArea.rawRoot];
         }
-        workArea.restrictDir = workArea.rawRestrict.map!(a => AbsolutePath(FileName(a),
-                DirName(workArea.outputDirectory))).array;
+        workArea.restrictDir = workArea.rawRestrict.map!(a => AbsolutePath(Path(a),
+                workArea.outputDirectory)).array;
 
-        analyze.exclude = analyze.rawExclude.map!(a => AbsolutePath(FileName(a),
-                DirName(workArea.outputDirectory))).array;
+        analyze.exclude = analyze.rawExclude.map!(a => AbsolutePath(Path(a),
+                workArea.outputDirectory)).array;
 
         compiler.extraFlags = compiler.extraFlags ~ args.find("--").drop(1).array();
     }

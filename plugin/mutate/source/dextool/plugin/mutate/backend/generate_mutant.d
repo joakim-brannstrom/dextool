@@ -18,7 +18,7 @@ import std.path : buildPath;
 import std.typecons : Nullable;
 import std.utf : validate;
 
-import dextool.type : AbsolutePath, ExitStatusType, FileName, DirName;
+import dextool.type : AbsolutePath, ExitStatusType, Path;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry, MutationId, spinSql;
 import dextool.plugin.mutate.backend.type : Language;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput, ValidateLoc;
@@ -49,7 +49,7 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
 
     AbsolutePath mut_file;
     try {
-        mut_file = AbsolutePath(FileName(mutp.get.file), DirName(fio.getOutputDir));
+        mut_file = AbsolutePath(Path(mutp.get.file), Path(fio.getOutputDir));
     } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
@@ -82,12 +82,11 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
 
 private AbsolutePath makeOutputFilename(ValidateLoc val_loc, FilesysIO fio, AbsolutePath file) @safe {
     import std.path;
-    import dextool.type : FileName;
 
     if (val_loc.shouldMutate(file))
         return file;
 
-    return AbsolutePath(FileName(buildPath(fio.getOutputDir, file.baseName)));
+    return AbsolutePath(Path(buildPath(fio.getOutputDir, file.baseName)));
 }
 
 struct GenerateMutantResult {

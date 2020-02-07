@@ -11,7 +11,7 @@ module cpptooling.utility.virtualfilesystem;
 
 import clang.c.Index : CXUnsavedFile;
 
-public import dextool.type : FileName;
+public import dextool.type : Path;
 public import blob_model : BlobVfs;
 
 /** Convert to an array that can be passed on to clang to use as in-memory source code.

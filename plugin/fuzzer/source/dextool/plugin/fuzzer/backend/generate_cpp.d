@@ -52,12 +52,12 @@ void generateMain(ref ImplData impl, CppModule m) {
 
 private FuzzCase makeFuzzCase(IncludeT)(ulong index, IncludeT[] target_includes) {
     import std.conv : to;
-    import dextool.type : FileName;
+    import dextool.type : Path;
 
     auto r = FuzzCase(new CppModule);
     r.testCaseId = index;
 
-    r.filename = FileName("dextool_fuzz_case");
+    r.filename = Path("dextool_fuzz_case");
     r.includes = r.cpp.base;
     r.includes.suppressIndent(1);
 

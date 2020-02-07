@@ -19,7 +19,6 @@ import blob_model;
 import cpptooling.analyzer.clang.ast;
 import cpptooling.analyzer.clang.context : ClangContext;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
-import cpptooling.utility.virtualfilesystem : FileName;
 
 version (unittest) {
     import unit_threaded : shouldEqual, shouldBeFalse, shouldBeTrue;

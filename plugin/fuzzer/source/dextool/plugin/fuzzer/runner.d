@@ -41,6 +41,5 @@ auto runPlugin(string[] args) {
         compile_db = pargs.compileDb.fromArgCompileDb;
     }
 
-    return genFuzzer(frontend, pargs.cflags, compile_db,
-            InFiles(pargs.inFiles), regex(pargs.stripInclude));
+    return genFuzzer(frontend, pargs.cflags, compile_db, pargs.inFiles, regex(pargs.stripInclude));
 }

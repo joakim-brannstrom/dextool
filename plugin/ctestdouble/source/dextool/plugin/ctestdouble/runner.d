@@ -61,5 +61,5 @@ auto runPlugin(string[] args) {
         }
     }
 
-    return genCstub(variant, pargs.cflags, compile_db, InFiles(pargs.inFiles));
+    return genCstub(variant, pargs.cflags, compile_db, pargs.inFiles);
 }

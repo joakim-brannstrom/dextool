@@ -24,7 +24,7 @@ import dextool.plugin.mutate.backend.report.utility : toSections;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc, Token;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
-import dextool.type : AbsolutePath, Path, DirName;
+import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.js;
@@ -112,7 +112,7 @@ struct FileIndex {
 
         const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
-        auto raw = fio.makeInput(AbsolutePath(fr.file, DirName(fio.getOutputDir)));
+        auto raw = fio.makeInput(AbsolutePath(fr.file, fio.getOutputDir));
 
         auto tc_info = db.getAllTestCaseInfo2(fr.id, kinds);
 

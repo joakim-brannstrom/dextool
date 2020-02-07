@@ -20,16 +20,16 @@ import std.typecons : Nullable;
 
 import logger = std.experimental.logger;
 
+import cpptooling.type : CustomHeader, MainFileName, MainName, MainNs;
+
 import dextool.compilation_db : CompileCommandDB;
-import dextool.type : AbsolutePath, CustomHeader, DextoolVersion, ExitStatusType,
-    FileName, InFiles, MainFileName, MainName, MainNs, WriteStrategy;
+import dextool.type : AbsolutePath, DextoolVersion, ExitStatusType, Path;
+import dextool.io : WriteStrategy;
 
 import dextool.plugin.cpptestdouble.backend : Controller, Parameters, Products, Transform;
 import dextool.plugin.cpptestdouble.frontend.raw_args : Config_YesNo, RawConfiguration, XmlConfig;
 
 struct FileData {
-    import dextool.type : WriteStrategy;
-
     AbsolutePath filename;
     string data;
     WriteStrategy strategy;
@@ -45,7 +45,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     import std.regex : regex, Regex;
     import std.typecons : Flag;
     import dextool.compilation_db : CompileCommandFilter;
-    import dextool.type : StubPrefix, FileName, MainInterface, DirName;
+    import cpptooling.type : StubPrefix, MainInterface;
     import dextool.utility;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
     import dsrcgen.cpp;
@@ -281,11 +281,11 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
 
     // -- Parameters --
 
-    FileName[] getIncludes() {
+    Path[] getIncludes() {
         import std.algorithm : map;
         import std.array : array;
 
-        return td_includes.includes.map!(a => FileName(a)).array();
+        return td_includes.includes.map!(a => Path(a)).array();
     }
 
     MainName getMainName() {
@@ -328,14 +328,14 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         file_data ~= FileData(fname, impl_data.render());
     }
 
-    void putLocation(FileName fname, LocationType type) {
+    void putLocation(Path fname, LocationType type) {
         td_includes.put(fname, type);
     }
 }
 
 class FrontendTransform : Transform {
     import std.path : buildPath;
-    import dextool.type : AbsolutePath, DirName, FileName, StubPrefix;
+    import cpptooling.type : StubPrefix;
 
     static const hdrExt = ".hpp";
     static const implExt = ".cpp";
@@ -343,30 +343,30 @@ class FrontendTransform : Transform {
 
     StubPrefix prefix;
 
-    DirName output_dir;
+    Path output_dir;
     MainFileName main_fname;
 
-    this(MainFileName main_fname, DirName output_dir) {
+    this(MainFileName main_fname, Path output_dir) {
         this.main_fname = main_fname;
         this.output_dir = output_dir;
     }
 
     AbsolutePath createHeaderFile(string name) {
-        return AbsolutePath(FileName(buildPath(output_dir, main_fname ~ name ~ hdrExt)));
+        return AbsolutePath(Path(buildPath(output_dir, main_fname ~ name ~ hdrExt)));
     }
 
     AbsolutePath createImplFile(string name) {
-        return AbsolutePath(FileName(buildPath(output_dir, main_fname ~ name ~ implExt)));
+        return AbsolutePath(Path(buildPath(output_dir, main_fname ~ name ~ implExt)));
     }
 
     AbsolutePath createXmlFile(string name) {
-        return AbsolutePath(FileName(buildPath(output_dir, main_fname ~ name ~ xmlExt)));
+        return AbsolutePath(Path(buildPath(output_dir, main_fname ~ name ~ xmlExt)));
     }
 }
 
 /// TODO refactor, doing too many things.
 ExitStatusType genCpp(CppTestDoubleVariant variant, FrontendTransform transform,
-        string[] in_cflags, CompileCommandDB compile_db, InFiles in_files) {
+        string[] in_cflags, CompileCommandDB compile_db, Path[] in_files) {
     import std.typecons : Yes;
 
     import dextool.clang : findFlags;
@@ -385,7 +385,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, FrontendTransform transform,
         ParseData pdata;
 
         if (compile_db.length > 0) {
-            auto tmp = compile_db.findFlags(FileName(in_file), user_cflags,
+            auto tmp = compile_db.findFlags(Path(in_file), user_cflags,
                     variant.getCompileCommandFilter);
             if (tmp.isNull) {
                 return ExitStatusType.Errors;
@@ -393,7 +393,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, FrontendTransform transform,
             pdata = tmp.get;
         } else {
             pdata.flags.prependCflags(user_cflags.dup);
-            pdata.absoluteFile = AbsolutePath(FileName(in_file));
+            pdata.absoluteFile = AbsolutePath(Path(in_file));
         }
 
         if (generator.analyzeFile(pdata.absoluteFile, pdata.cflags) == ExitStatusType.Errors) {

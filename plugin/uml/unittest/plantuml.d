@@ -36,16 +36,16 @@ writelnUt(be.uml_component.toString);
 
 ///
 @safe class DummyController : BHController {
-    import dextool.type : FileName;
+    import dextool.type : Path;
 
     override bool doFile(in string filename, in string info) {
         return true;
     }
 
-    override FileName doComponentNameStrip(FileName fname) {
+    override Path doComponentNameStrip(Path fname) {
         import std.path : dirName, baseName;
 
-        return FileName((cast(string) fname).dirName.baseName);
+        return Path((cast(string) fname).dirName.baseName);
     }
 }
 

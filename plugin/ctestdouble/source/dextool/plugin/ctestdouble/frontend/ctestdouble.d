@@ -13,6 +13,7 @@ import std.typecons : Nullable;
 
 import logger = std.experimental.logger;
 
+import cpptooling.type;
 import dextool.compilation_db;
 import dextool.type;
 
@@ -35,7 +36,7 @@ struct RawConfiguration {
     string[] fileExclude;
     string[] fileRestrict;
     string[] testDoubleInclude;
-    string[] inFiles;
+    Path[] inFiles;
     string[] cflags;
     string[] compileDb;
     string header;
@@ -61,30 +62,31 @@ struct RawConfiguration {
         import std.getopt;
 
         originalFlags = args.dup;
+        string[] input;
 
         try {
             bool no_zero_globals;
             // dfmt off
             getopt(args, std.getopt.config.keepEndOfOptions, "h|help", &help,
-                   "short-plugin-help", &shortPluginHelp,
-                   "main", &mainName,
-                   "main-fname", &mainFileName,
-                   "out", &out_,
                    "compile-db", &compileDb,
-                   "no-zeroglobals", &no_zero_globals,
-                   "prefix", &prefix,
-                   "strip-incl", &stripInclude,
-                   "header", &header,
-                   "header-file", &headerFile,
-                   "gmock", &gmock,
-                   "gen-pre-incl", &generatePreInclude,
-                   "gen-post-incl", &genPostInclude,
-                   "loc-as-comment", &locationAsComment,
-                   "td-include", &testDoubleInclude,
+                   "config", &config,
                    "file-exclude", &fileExclude,
                    "file-restrict", &fileRestrict,
-                   "in", &inFiles,
-                   "config", &config);
+                   "gen-post-incl", &genPostInclude,
+                   "gen-pre-incl", &generatePreInclude,
+                   "gmock", &gmock,
+                   "header", &header,
+                   "header-file", &headerFile,
+                   "in", &input,
+                   "loc-as-comment", &locationAsComment,
+                   "main", &mainName,
+                   "main-fname", &mainFileName,
+                   "no-zeroglobals", &no_zero_globals,
+                   "out", &out_,
+                   "prefix", &prefix,
+                   "short-plugin-help", &shortPluginHelp,
+                   "strip-incl", &stripInclude,
+                   "td-include", &testDoubleInclude);
             // dfmt on
             generateZeroGlobals = !no_zero_globals;
         } catch (std.getopt.GetOptException ex) {
@@ -99,15 +101,17 @@ struct RawConfiguration {
         }
 
         if (config.length != 0) {
-            xmlConfig = readRawConfig(FileName(config));
+            xmlConfig = readRawConfig(Path(config));
             if (xmlConfig.isNull) {
                 invalidXmlConfig = true;
             }
         }
 
-        import std.algorithm : find;
+        import std.algorithm : find, map;
         import std.array : array;
         import std.range : drop;
+
+        inFiles = input.map!(a => Path(a)).array;
 
         // at this point args contain "what is left". What is interesting then is those after "--".
         cflags = args.find("--").drop(1).array();
@@ -223,9 +227,10 @@ Generate a C test double excluding data from specified files.
 // dfmt on
 
 struct FileData {
-    import dextool.type : FileName, WriteStrategy;
+    import dextool.io : WriteStrategy;
+    import dextool.type : Path;
 
-    FileName filename;
+    Path filename;
     string data;
     WriteStrategy strategy;
 }
@@ -238,7 +243,6 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     import std.regex : regex, Regex;
     import std.typecons : Flag;
     import dextool.compilation_db : CompileCommandFilter;
-    import dextool.type : StubPrefix, FileName, DirName;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
     import dsrcgen.cpp : CppModule, CppHModule;
 
@@ -249,15 +253,15 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
         StubPrefix prefix;
 
-        DirName output_dir;
-        FileName main_file_hdr;
-        FileName main_file_impl;
-        FileName main_file_globals;
-        FileName gmock_file;
-        FileName pre_incl_file;
-        FileName post_incl_file;
-        FileName config_file;
-        FileName log_file;
+        Path output_dir;
+        Path main_file_hdr;
+        Path main_file_impl;
+        Path main_file_globals;
+        Path gmock_file;
+        Path pre_incl_file;
+        Path post_incl_file;
+        Path config_file;
+        Path log_file;
         CustomHeader custom_hdr;
 
         MainName main_name;
@@ -286,7 +290,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     static auto makeVariant(ref RawConfiguration args) {
         // dfmt off
         auto variant = new CTestDoubleVariant(
-                MainFileName(args.mainFileName), DirName(args.out_),
+                MainFileName(args.mainFileName), Path(args.out_),
                 regex(args.stripInclude))
             .argPrefix(args.prefix)
             .argMainName(args.mainName)
@@ -314,7 +318,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
      *
      * TODO document the parameters.
      */
-    this(MainFileName main_fname, DirName output_dir, Regex!char strip_incl) {
+    this(MainFileName main_fname, Path output_dir, Regex!char strip_incl) {
         this.output_dir = output_dir;
         this.td_includes = TestDoubleIncludes(strip_incl);
 
@@ -322,18 +326,17 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
         string base_filename = cast(string) main_fname;
 
-        this.main_file_hdr = FileName(buildPath(cast(string) output_dir, base_filename ~ hdrExt));
-        this.main_file_impl = FileName(buildPath(cast(string) output_dir, base_filename ~ implExt));
-        this.main_file_globals = FileName(buildPath(cast(string) output_dir,
+        this.main_file_hdr = Path(buildPath(cast(string) output_dir, base_filename ~ hdrExt));
+        this.main_file_impl = Path(buildPath(cast(string) output_dir, base_filename ~ implExt));
+        this.main_file_globals = Path(buildPath(cast(string) output_dir,
                 base_filename ~ "_global" ~ implExt));
-        this.gmock_file = FileName(buildPath(cast(string) output_dir,
-                base_filename ~ "_gmock" ~ hdrExt));
-        this.pre_incl_file = FileName(buildPath(cast(string) output_dir,
+        this.gmock_file = Path(buildPath(cast(string) output_dir, base_filename ~ "_gmock" ~ hdrExt));
+        this.pre_incl_file = Path(buildPath(cast(string) output_dir,
                 base_filename ~ "_pre_includes" ~ hdrExt));
-        this.post_incl_file = FileName(buildPath(cast(string) output_dir,
+        this.post_incl_file = Path(buildPath(cast(string) output_dir,
                 base_filename ~ "_post_includes" ~ hdrExt));
-        this.config_file = FileName(buildPath(output_dir, base_filename ~ "_config" ~ xmlExt));
-        this.log_file = FileName(buildPath(output_dir, base_filename ~ "_log" ~ xmlExt));
+        this.config_file = Path(buildPath(output_dir, base_filename ~ "_config" ~ xmlExt));
+        this.log_file = Path(buildPath(output_dir, base_filename ~ "_log" ~ xmlExt));
     }
 
     auto argFileExclude(string[] a) {
@@ -441,14 +444,14 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     /// Destination of the configuration file containing how the test double was generated.
-    FileName getXmlConfigFile() {
+    Path getXmlConfigFile() {
         return config_file;
     }
 
     /** Destination of the xml log for how dextool was ran when generatinng the
      * test double.
      */
-    FileName getXmlLog() {
+    Path getXmlLog() {
         return log_file;
     }
 
@@ -469,7 +472,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return file_data;
     }
 
-    void putFile(FileName fname, string data) {
+    void putFile(Path fname, string data) {
         file_data ~= FileData(fname, data);
     }
 
@@ -549,14 +552,14 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     // -- Parameters --
 
-    FileName[] getIncludes() {
+    Path[] getIncludes() {
         import std.algorithm : map;
         import std.array : array;
 
-        return td_includes.includes.map!(a => FileName(a)).array();
+        return td_includes.includes.map!(a => Path(a)).array();
     }
 
-    DirName getOutputDirectory() {
+    Path getOutputDirectory() {
         return output_dir;
     }
 
@@ -601,22 +604,22 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 
     // -- Products --
 
-    void putFile(FileName fname, CppHModule hdr_data) {
+    void putFile(Path fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
     }
 
-    void putFile(FileName fname, CppModule impl_data) {
+    void putFile(Path fname, CppModule impl_data) {
         file_data ~= FileData(fname, impl_data.render());
     }
 
-    void putLocation(FileName fname, LocationType type) {
+    void putLocation(Path fname, LocationType type) {
         td_includes.put(fname, type);
     }
 }
 
 /// TODO refactor, doing too many things.
 ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
-        CompileCommandDB compile_db, InFiles in_files) {
+        CompileCommandDB compile_db, Path[] in_files) {
     import std.typecons : Yes;
 
     import dextool.clang : findFlags;
@@ -638,7 +641,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
 
         // TODO duplicate code in c, c++ and plantuml. Fix it.
         if (compile_db.length > 0) {
-            auto tmp = compile_db.findFlags(FileName(in_file), user_cflags,
+            auto tmp = compile_db.findFlags(Path(in_file), user_cflags,
                     variant.getCompileCommandFilter);
             if (tmp.isNull) {
                 return ExitStatusType.Errors;
@@ -646,7 +649,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
             pdata = tmp.get;
         } else {
             pdata.flags.prependCflags(user_cflags.dup);
-            pdata.absoluteFile = AbsolutePath(FileName(in_file));
+            pdata.absoluteFile = AbsolutePath(Path(in_file));
         }
 
         if (analyzeFile(pdata.absoluteFile, pdata.cflags, visitor, ctx) == ExitStatusType.Errors) {

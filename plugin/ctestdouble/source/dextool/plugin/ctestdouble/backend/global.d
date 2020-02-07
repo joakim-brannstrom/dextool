@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.ctestdouble.backend.global;
 
-import dextool.type : StubPrefix;
+import cpptooling.type : StubPrefix;
 import cpptooling.data : CppClass, CppClassName, CppInherit, CppVariable,
     CxGlobalVariable, TypeKindAttr, USRType, TypeKind;
 import cpptooling.data.symbol : Container;

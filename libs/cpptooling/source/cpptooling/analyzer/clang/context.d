@@ -71,7 +71,6 @@ struct ClangContext {
         this.vfs = new BlobVfs;
 
         if (useInternalHeaders) {
-            import cpptooling.utility.virtualfilesystem : FileName;
             import clang.Compiler : Compiler;
 
             Compiler compiler;

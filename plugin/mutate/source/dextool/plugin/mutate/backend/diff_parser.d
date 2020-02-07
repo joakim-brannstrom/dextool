@@ -42,7 +42,7 @@ import logger = std.experimental.logger;
 import std.range : ElementType;
 import std.traits : isSomeString;
 
-import dextool.type : AbsolutePath, Path, DirName;
+import dextool.type : AbsolutePath, Path;
 
 version (unittest) {
     import unit_threaded : shouldEqual, shouldBeTrue, should;
@@ -127,8 +127,7 @@ struct DiffRange {
     KeyValue front() @safe {
         assert(!empty, "Can't get front of an empty range");
         debug logger.trace(keys[0]);
-        return KeyValue(keys[0], diff[keys[0]], AbsolutePath(keys[0],
-                DirName(cast(string) workdir)));
+        return KeyValue(keys[0], diff[keys[0]], AbsolutePath(keys[0], workdir));
     }
 
     void popFront() @safe pure nothrow {

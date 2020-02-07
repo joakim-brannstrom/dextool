@@ -13,7 +13,7 @@ public import cpptooling.data.symbol.types : FullyQualifiedNameType;
 import cpptooling.data : CppRoot;
 
 import dextool.plugin.fuzzer.backend.unique_sequence : Sequence;
-import dextool.type : FileName;
+import dextool.type : Path;
 
 import dsrcgen.cpp : CppModule;
 
@@ -142,7 +142,7 @@ struct FuzzCase {
     CppModule includes;
     /// The inside of the generated FUZZ_TEST(...) {... }
     CppModule body_;
-    FileName filename;
+    Path filename;
     ulong testCaseId;
 }
 

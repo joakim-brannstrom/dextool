@@ -19,7 +19,8 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, noIndent;
 
-import dextool.type : DextoolVersion, CustomHeader, FileName;
+import dextool.type : DextoolVersion, Path;
+import cpptooling.type : CustomHeader;
 import cpptooling.data.representation : CppCtor, CppDtor, CppClass,
     CppNamespace, CppMethodOp, CppMethod, joinParams, joinParamNames;
 import cpptooling.data : toStringDecl;
@@ -215,7 +216,7 @@ body {
     hdr.sep(2);
 }
 
-auto generateGmockHdr(FileName if_file, FileName incl_guard, DextoolVersion ver,
+auto generateGmockHdr(Path if_file, Path incl_guard, DextoolVersion ver,
         CustomHeader custom_hdr, CppModule gmock) {
     import std.path : baseName;
     import dsrcgen.cpp : CppHModule;

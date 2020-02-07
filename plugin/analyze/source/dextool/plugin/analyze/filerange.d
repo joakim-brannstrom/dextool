@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.analyze.filerange;
 
 import dextool.compilation_db : CompileCommandFilter, CompileCommandDB, parseFlag;
-import dextool.type : FileName, AbsolutePath;
+import dextool.type : Path, AbsolutePath;
 
 @safe:
 
@@ -52,9 +52,9 @@ struct AnalyzeFileRange {
         final switch (kind) {
         case RangeOver.inFiles:
             if (db.length > 0) {
-                curr = db.findFlags(FileName(inFiles[0]), cflags, ccFilter);
+                curr = db.findFlags(Path(inFiles[0]), cflags, ccFilter);
             } else {
-                curr = SearchResult(cflags.dup, AbsolutePath(FileName(inFiles[0])));
+                curr = SearchResult(cflags.dup, AbsolutePath(Path(inFiles[0])));
             }
             break;
         case RangeOver.database:

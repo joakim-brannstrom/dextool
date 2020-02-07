@@ -185,7 +185,7 @@ struct Markdown(Writer, TraceWriter) {
         void report() {
             MakeMutationTextResult mut_txt;
             try {
-                auto abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
+                auto abs_path = AbsolutePath(r.file.Path, fio.getOutputDir);
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
 

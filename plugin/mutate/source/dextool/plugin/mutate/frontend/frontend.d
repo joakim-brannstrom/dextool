@@ -14,7 +14,7 @@ import std.array : empty;
 import std.exception : collectException;
 
 import dextool.compilation_db;
-import dextool.type : Path, AbsolutePath, FileName, ExitStatusType;
+import dextool.type : Path, AbsolutePath, ExitStatusType;
 
 import dextool.plugin.mutate.frontend.argparser;
 import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
@@ -119,7 +119,6 @@ final class FrontendIO : FilesysIO {
     import std.exception : collectException;
     import std.stdio : File;
     import blob_model;
-    import dextool.type : AbsolutePath, Path;
     import dextool.plugin.mutate.backend : SafeOutput, Blob;
 
     BlobVfs vfs;

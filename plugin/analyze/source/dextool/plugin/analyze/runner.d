@@ -11,7 +11,7 @@ module dextool.plugin.runner;
 
 import logger = std.experimental.logger;
 
-import dextool.type : ExitStatusType, FileName, AbsolutePath;
+import dextool.type : ExitStatusType, Path, AbsolutePath;
 
 ExitStatusType runPlugin(string[] args) @safe {
     import std.stdio : writeln, writefln;
@@ -55,7 +55,7 @@ ExitStatusType runPlugin(string[] args) @safe {
     // dfmt on
 
     doAnalyze(analyze_builder, analyze_results, pargs.cflags, pargs.files,
-            compile_db, AbsolutePath(FileName(pargs.restrictDir)), pargs.workerThreads);
+            compile_db, AbsolutePath(Path(pargs.restrictDir)), pargs.workerThreads);
 
     analyze_results.dumpResult;
 
