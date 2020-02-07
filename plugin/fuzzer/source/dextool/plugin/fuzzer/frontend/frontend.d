@@ -14,7 +14,10 @@ import std.typecons : Nullable;
 
 import logger = std.experimental.logger;
 
+import cpptooling.type;
+
 import dextool.compilation_db;
+import dextool.io : WriteStrategy;
 import dextool.type;
 
 import dextool.plugin.types;
@@ -25,14 +28,12 @@ import dextool.plugin.fuzzer.frontend.raw_args : RawConfiguration, XmlConfig, Sy
 import dextool.plugin.fuzzer.backend.interface_ : Controller, Parameter, Product, Transform;
 
 private struct FileData {
-    import dextool.type : FileName, WriteStrategy;
-
     invariant {
         // cant have data in both.
         assert(str_data.length == 0 || raw_data.length == 0);
     }
 
-    FileName filename;
+    Path filename;
     string str_data;
     const(void)[] raw_data;
     WriteStrategy strategy;
@@ -50,7 +51,7 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
     import std.regex : regex, Regex;
     import std.typecons : Flag;
     import dextool.compilation_db : CompileCommandFilter;
-    import dextool.type : FileName;
+    import dextool.type : Path;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
     import dsrcgen.cpp : CppModule, CppHModule;
 
@@ -63,7 +64,7 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
         CustomHeader custom_hdr;
 
         /// Output directory to generate data in such as code.
-        DirName output_dir;
+        Path output_dir;
 
         /// Used to match symbols by their location.
         Regex!char[] exclude;
@@ -78,7 +79,7 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
 
     static auto make(ref RawConfiguration args) {
         // dfmt off
-        auto r = new FuzzerFrontend(DirName(args.out_))
+        auto r = new FuzzerFrontend(Path(args.out_))
             .argFileExclude(args.fileExclude)
             .argFileRestrict(args.fileRestrict)
             .argXmlConfig(args.xmlConfig);
@@ -86,7 +87,7 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
         return r;
     }
 
-    this(DirName output_dir) {
+    this(Path output_dir) {
         this.output_dir = output_dir;
     }
 
@@ -176,51 +177,50 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
 
     // -- Products --
 
-    void putFile(FileName fname, CppHModule hdr_data) {
+    void putFile(Path fname, CppHModule hdr_data) {
         file_data ~= FileData(fname, hdr_data.render());
     }
 
-    void putFile(FileName fname, CppModule impl_data,
-            WriteStrategy strategy = WriteStrategy.overwrite) {
+    void putFile(Path fname, CppModule impl_data, WriteStrategy strategy = WriteStrategy.overwrite) {
         file_data ~= FileData(fname, impl_data.render(), null, strategy);
     }
 
-    void putFile(FileName fname, const(ubyte)[] raw_data) {
+    void putFile(Path fname, const(ubyte)[] raw_data) {
         file_data ~= FileData(fname, null, raw_data);
     }
 
-    void putFile(FileName fname, string raw_data, WriteStrategy strategy = WriteStrategy.overwrite) {
+    void putFile(Path fname, string raw_data, WriteStrategy strategy = WriteStrategy.overwrite) {
         file_data ~= FileData(fname, null, raw_data, strategy);
     }
 
     // -- Transform --
-    FileName createHeaderFile(string name) {
+    Path createHeaderFile(string name) {
         import std.path : buildPath;
 
-        return FileName(buildPath(output_dir, name ~ hdrExt));
+        return Path(buildPath(output_dir, name ~ hdrExt));
     }
 
-    FileName createImplFile(string name) {
+    Path createImplFile(string name) {
         import std.path : buildPath;
 
-        return FileName(buildPath(output_dir, name ~ implExt));
+        return Path(buildPath(output_dir, name ~ implExt));
     }
 
-    FileName createFuzzCase(string name, ulong id) {
+    Path createFuzzCase(string name, ulong id) {
         import std.conv : to;
         import std.path : buildPath;
 
-        return FileName(buildPath(output_dir, name ~ id.to!string ~ implExt));
+        return Path(buildPath(output_dir, name ~ id.to!string ~ implExt));
     }
 
-    FileName createFuzzyDataFile(string name) {
+    Path createFuzzyDataFile(string name) {
         import std.path : buildPath;
 
-        return FileName(buildPath(output_dir, "test_case", name ~ rawExt));
+        return Path(buildPath(output_dir, "test_case", name ~ rawExt));
     }
 
     // try the darnest to not overwrite an existing config.
-    FileName createXmlConfigFile(string name) {
+    Path createXmlConfigFile(string name) {
         import std.conv : to;
         import std.path : buildPath;
         import std.file : exists;
@@ -231,12 +231,12 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
             p = buildPath(output_dir, name ~ i.to!string() ~ xmlExt);
         }
 
-        return FileName(p);
+        return Path(p);
     }
 }
 
 auto genFuzzer(FuzzerFrontend frontend, in string[] in_cflags,
-        CompileCommandDB compile_db, InFiles in_files, Regex!char strip_incl) {
+        CompileCommandDB compile_db, Path[] in_files, Regex!char strip_incl) {
     import dextool.io : writeFileData;
     import dextool.plugin.fuzzer.backend.backend : Backend;
     import dextool.utility : prependDefaultFlags, PreferLang;
@@ -260,7 +260,7 @@ auto genFuzzer(FuzzerFrontend frontend, in string[] in_cflags,
             analyze_file = db_search_result.get.absoluteFile;
         } else {
             use_cflags = user_cflags.dup;
-            analyze_file = AbsolutePath(FileName(in_file));
+            analyze_file = AbsolutePath(Path(in_file));
         }
 
         if (backend.analyzeFile(analyze_file, use_cflags) == ExitStatusType.Errors) {

@@ -62,7 +62,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportLevel;
             AbsolutePath abs_path;
             MakeMutationTextResult mut_txt;
             try {
-                abs_path = AbsolutePath(FileName(r.file), DirName(fio.getOutputDir));
+                abs_path = AbsolutePath(r.file.Path, fio.getOutputDir);
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
             } catch (Exception e) {

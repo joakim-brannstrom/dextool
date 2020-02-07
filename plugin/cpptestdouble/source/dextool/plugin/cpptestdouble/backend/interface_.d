@@ -12,9 +12,10 @@ module dextool.plugin.cpptestdouble.backend.interface_;
 import dsrcgen.cpp : CppModule, CppHModule;
 
 import cpptooling.testdouble.header_filter : LocationType;
+import cpptooling.type : MainName, StubPrefix, CustomHeader, MainNs, MainInterface;
 
-import dextool.type : AbsolutePath, FileName, DirName, MainName, StubPrefix,
-    DextoolVersion, CustomHeader, MainNs, MainInterface, WriteStrategy;
+import dextool.type : AbsolutePath, DextoolVersion, Path;
+import dextool.io : WriteStrategy;
 
 /** Control various aspectes of the analyze and generation like what nodes to
  * process.
@@ -29,7 +30,7 @@ import dextool.type : AbsolutePath, FileName, DirName, MainName, StubPrefix,
      * Part of the controller because they are dynamic, may change depending on
      * for example calls to doFile.
      */
-    FileName[] getIncludes();
+    Path[] getIncludes();
 
     // TODO Move the doXXX to Parameters
 
@@ -61,7 +62,7 @@ import dextool.type : AbsolutePath, FileName, DirName, MainName, StubPrefix,
  */
 @safe pure interface Parameters {
     /// Source files used to generate the stub.
-    FileName[] getIncludes();
+    Path[] getIncludes();
 
     /// Name affecting interface, namespace and output file.
     MainName getMainName();
@@ -115,7 +116,7 @@ import dextool.type : AbsolutePath, FileName, DirName, MainName, StubPrefix,
      * Just the files that was input?
      * Deduplicated list of files where the symbols was found?
      */
-    void putLocation(FileName loc, LocationType type);
+    void putLocation(Path loc, LocationType type);
 }
 
 /** Transformations that are governed by user input or other factors the

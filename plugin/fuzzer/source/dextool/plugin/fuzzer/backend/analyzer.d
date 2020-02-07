@@ -15,7 +15,7 @@ import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.data : CppRoot, CppClass, CppMethod, CppCtor, CppDtor,
     CFunction, CppNamespace, USRType, Language, LocationTag, Location;
 
-import dextool.type : FileName;
+import dextool.type : Path;
 
 import dextool.plugin.fuzzer.backend.interface_;
 
@@ -32,7 +32,7 @@ struct AnalyzeData {
     /// Either all functions have the same or it is a mix which result in unknown.
     Language languageOfTranslationUnit;
 
-    FileName fileOfTranslationUnit;
+    Path fileOfTranslationUnit;
 }
 
 private enum LanguageAnalyzeState {
@@ -139,7 +139,7 @@ final class TUVisitor : Visitor {
     override void visit(const(TranslationUnit) v) {
         mixin(mixinNodeLog!());
 
-        root.fileOfTranslationUnit = FileName(v.cursor.spelling);
+        root.fileOfTranslationUnit = Path(v.cursor.spelling);
 
         v.accept(this);
     }

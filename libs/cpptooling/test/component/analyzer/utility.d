@@ -29,7 +29,6 @@ import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol : Container;
 import cpptooling.data : TypeKindVariable, VariadicType, Location, USRType, toStringDecl;
-import cpptooling.utility.virtualfilesystem : FileName;
 
 final class TestVisitor : Visitor {
     import cpptooling.analyzer.clang.ast;

@@ -16,7 +16,7 @@ import dsrcgen.cpp : CppModule, noIndent;
 
 import cpptooling.data.type : CppClassName, CppNs;
 
-import dextool.type : AbsolutePath, FileName;
+import dextool.type : AbsolutePath;
 
 @safe:
 

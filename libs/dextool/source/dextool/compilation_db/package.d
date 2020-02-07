@@ -73,32 +73,7 @@ version (unittest) {
  * the compilation database file is read from.
  */
 @safe struct CompileCommand {
-    import dextool.type : DirName;
-
-    static import dextool.type;
-
-    /// The raw filename from the tuples "file" value.
-    alias FileName = dextool.type.FileName;
-
-    /// The combination of the tuples "file" and "directory" value.
-    static struct AbsoluteFileName {
-        dextool.type.AbsoluteFileName payload;
-        alias payload this;
-
-        this(AbsoluteDirectory work_dir, string raw_path) {
-            payload = AbsolutePath(FileName(raw_path), DirName(work_dir));
-        }
-    }
-
-    /// The tuples "directory" value converted to the absolute path.
-    static struct AbsoluteDirectory {
-        dextool.type.AbsoluteDirectory payload;
-        alias payload this;
-
-        this(AbsoluteCompileDbDirectory db_path, string raw_path) {
-            payload = AbsolutePath(FileName(raw_path), DirName(db_path));
-        }
-    }
+    import dextool.type : Path, AbsolutePath;
 
     /// The raw command from the tuples "command" or "arguments value.
     static struct Command {
@@ -109,61 +84,39 @@ version (unittest) {
         }
     }
 
-    /// The path to the output from running the command
-    static struct Output {
-        string payload;
-        alias payload this;
-        bool hasValue() @safe pure nothrow const @nogc {
-            return payload.length != 0;
-        }
-    }
-
     /// File that where compiled.
-    FileName file;
+    Path file;
     /// ditto.
-    AbsoluteFileName absoluteFile;
+    AbsolutePath absoluteFile;
     /// Working directory of the command that compiled the input.
-    AbsoluteDirectory directory;
+    AbsolutePath directory;
     /// The executing command when compiling.
     Command command;
     /// The resulting object file.
-    Output output;
+    Path output;
     /// ditto.
-    AbsoluteFileName absoluteOutput;
+    AbsolutePath absoluteOutput;
 }
 
 /// The path to the compilation database.
 struct CompileDbFile {
-    string payload;
+    Path payload;
     alias payload this;
+
+    this(string p) @safe pure nothrow @nogc {
+        payload = Path(p);
+    }
 }
 
 /// The absolute path to the directory the compilation database reside at.
 struct AbsoluteCompileDbDirectory {
-    string payload;
+    AbsolutePath payload;
     alias payload this;
 
-    invariant {
-        import std.path : isAbsolute;
+    this(Path path) {
+        import std.path : dirName;
 
-        assert(payload.isAbsolute);
-    }
-
-    this(string file_path) {
-        import std.path : buildNormalizedPath, dirName, absolutePath;
-
-        payload = buildNormalizedPath(file_path).absolutePath.dirName;
-    }
-
-    this(CompileDbFile db) {
-        this(cast(string) db);
-    }
-
-    unittest {
-        import std.path;
-
-        auto dir = AbsoluteCompileDbDirectory(".");
-        assert(dir.isAbsolute);
+        payload = AbsolutePath(path.dirName.Path);
     }
 }
 
@@ -282,16 +235,16 @@ Nullable!CompileCommand toCompileCommand(string directory, string file,
     Nullable!CompileCommand rval;
 
     try {
-        auto abs_workdir = CompileCommand.AbsoluteDirectory(db_dir, directory);
-        auto abs_file = CompileCommand.AbsoluteFileName(abs_workdir, file);
-        auto abs_output = CompileCommand.AbsoluteFileName(abs_workdir, output);
+        auto abs_workdir = AbsolutePath(directory.Path, db_dir);
+        auto abs_file = AbsolutePath(file.Path, abs_workdir);
+        auto abs_output = AbsolutePath(output.Path, abs_workdir);
         // dfmt off
         rval = CompileCommand(
-            CompileCommand.FileName(file),
+            Path(file),
             abs_file,
             abs_workdir,
             CompileCommand.Command(command),
-            CompileCommand.Output(output),
+            Path(output),
             abs_output);
         // dfmt on
     } catch (Exception ex) {
@@ -305,10 +258,10 @@ Nullable!CompileCommand toCompileCommand(string directory, string file,
  *
  * Params:
  *  raw_input = the content of the CompilationDatabase.
- *  in_file = path to the compilation database file.
+ *  db = path to the compilation database file.
  *  out_range = range to write the output to.
  */
-private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out_range) nothrow {
+private void parseCommands(T)(string raw_input, CompileDbFile db, ref T out_range) nothrow {
     import std.json : parseJSON, JSONException;
 
     static void put(T)(JSONValue v, AbsoluteCompileDbDirectory dbdir, ref T out_range) nothrow {
@@ -335,7 +288,7 @@ private void parseCommands(T)(string raw_input, CompileDbFile in_file, ref T out
         // trusted: is@safe in DMD-2.077.0
         // remove the trusted attribute when the minimal requirement is upgraded.
         auto json = () @trusted { return parseJSON(raw_input); }();
-        auto as_dir = AbsoluteCompileDbDirectory(in_file);
+        auto as_dir = AbsoluteCompileDbDirectory(db.AbsolutePath);
 
         // trusted: this function is private so the only user of it is this module.
         // the only problem would be in the out_range. It is assumed that the
@@ -493,12 +446,12 @@ string toString(CompileCommand[] db) @safe pure {
     foreach (a; db) {
         formattedWrite(app, "%s\n  %s\n  %s\n", a.directory, a.file, a.absoluteFile);
 
-        if (a.output.hasValue) {
+        if (!a.output.empty) {
             formattedWrite(app, "  %s\n", a.output);
             formattedWrite(app, "  %s\n", a.absoluteOutput);
         }
 
-        if (a.command.hasValue)
+        if (!a.command.empty)
             formattedWrite(app, "  %-(%s %)\n", a.command);
     }
 
@@ -724,8 +677,8 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
         return !flag.empty && isQuotationMark(flag[$ - 1]);
     }
 
-    static ParseFlags filterPair(string[] r,
-            CompileCommand.AbsoluteDirectory workdir, const FilterClangFlag[] flag_filter) @safe {
+    static ParseFlags filterPair(string[] r, AbsolutePath workdir,
+            const FilterClangFlag[] flag_filter) @safe {
         enum State {
             /// keep the next flag IF none of the other transitions happens
             keep,
@@ -912,7 +865,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
             "g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun", "-c",
             "a_filename.c"
-            ], AbsoluteCompileDbDirectory("/home"), null);
+            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
     auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
@@ -922,7 +875,7 @@ unittest {
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
             "g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun"
-            ], AbsoluteCompileDbDirectory("/home"), null);
+            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
@@ -934,7 +887,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
             "g++", "-mfoo", "-m", "bar", "-MD", "-lfoo.a", "-l", "bar.a", "-I",
             "bar", "-Igun", "-c", "a_filename.c"
-            ], AbsoluteCompileDbDirectory("/home"), null);
+            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
@@ -946,7 +899,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
             "g++", "-fmany-fooo", "-I", "bar", "-fno-fooo", "-Igun", "-flolol",
             "-c", "a_filename.c"
-            ], AbsoluteCompileDbDirectory("/home"), null);
+            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
@@ -957,7 +910,7 @@ unittest {
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
             "g++", "-std=c++11", "-c", "a_filename.c"
-            ], AbsoluteCompileDbDirectory("/home"), null);
+            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-std=c++11"]);
@@ -967,7 +920,7 @@ unittest {
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
             "g++", "-std=c++11", "-mfloat-gprs=double", "-c", "a_filename.c"
-            ], AbsoluteCompileDbDirectory("/home"), null);
+            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
     auto my_filter = CompileCommandFilter(defaultCompilerFlagFilter, 0);
     my_filter.filter ~= FilterClangFlag("-mfloat-gprs=double", FilterClangFlag.Kind.exclude);
     auto s = cmd.get.parseFlag(my_filter, Compiler.init);
@@ -977,7 +930,7 @@ unittest {
 @("Shall keep all compiler flags as they are")
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-Da", "-D",
-            "b"], AbsoluteCompileDbDirectory("/home"), null);
+            "b"], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     s.cflags.shouldEqual(["-Da", "-D", "b"]);
@@ -1059,7 +1012,6 @@ version (unittest) {
 
 version (unittest) {
     import std.array : appender;
-    import unit_threaded : writelnUt;
 }
 
 @("Should be a compile command DB")
@@ -1069,12 +1021,12 @@ unittest {
     auto cmds = app.data;
 
     assert(cmds.length == 1);
-    cmds[0].directory.shouldEqual(dummy_dir ~ "/dir1/dir2");
+    (cast(string) cmds[0].directory).shouldEqual(dummy_dir ~ "/dir1/dir2");
     cmds[0].command.shouldEqual([
             "g++", "-Idir1", "-c", "-o", "binary", "file1.cpp"
             ]);
-    cmds[0].file.shouldEqual("file1.cpp");
-    cmds[0].absoluteFile.shouldEqual(dummy_dir ~ "/dir1/dir2/file1.cpp");
+    (cast(string) cmds[0].file).shouldEqual("file1.cpp");
+    (cast(string) cmds[0].absoluteFile).shouldEqual(dummy_dir ~ "/dir1/dir2/file1.cpp");
 }
 
 @("Should be a DB with two entries")
@@ -1083,8 +1035,8 @@ unittest {
     raw_dummy2.parseCommands(CompileDbFile(dummy_path), app);
     auto cmds = app.data;
 
-    cmds[0].file.shouldEqual("file1.cpp");
-    cmds[1].file.shouldEqual("file2.cpp");
+    (cast(string) cmds[0].file).shouldEqual("file1.cpp");
+    (cast(string) cmds[1].file).shouldEqual("file2.cpp");
 }
 
 @("Should find filename")
@@ -1095,7 +1047,7 @@ unittest {
 
     auto found = cmds.find(dummy_dir ~ "/dir/file2.cpp");
     assert(found.length == 1);
-    found[0].file.shouldEqual("file2.cpp");
+    (cast(string) found[0].file).shouldEqual("file2.cpp");
 }
 
 @("Should find no match by using an absolute path that doesn't exist in DB")
@@ -1110,8 +1062,6 @@ unittest {
 
 @("Should find one match by using the absolute filename to disambiguous")
 unittest {
-    import unit_threaded : writelnUt;
-
     auto app = appender!(CompileCommand[])();
     raw_dummy3.parseCommands(CompileDbFile(dummy_path), app);
     auto cmds = CompileCommandDB(app.data);
@@ -1154,9 +1104,9 @@ unittest {
     auto cmds = app.data;
 
     assert(cmds.length == 1);
-    cmds[0].directory.shouldEqual(dummy_dir);
-    cmds[0].file.shouldEqual("file1.cpp");
-    cmds[0].absoluteFile.shouldEqual(dummy_dir ~ "/file1.cpp");
+    (cast(string) cmds[0].directory).shouldEqual(dummy_dir);
+    (cast(string) cmds[0].file).shouldEqual("file1.cpp");
+    (cast(string) cmds[0].absoluteFile).shouldEqual(dummy_dir ~ "/file1.cpp");
 }
 
 @("Should be a DB read from a relative path with the contained paths adjusted appropriately")
@@ -1227,7 +1177,7 @@ unittest {
     auto found = cmds.find(buildPath(abs_path, "dir2", "file3.o"));
     assert(found.length == 1);
 
-    found[0].absoluteFile.shouldEqual(buildPath(abs_path, "dir2", "file3.cpp"));
+    (cast(string) found[0].absoluteFile).shouldEqual(buildPath(abs_path, "dir2", "file3.cpp"));
 }
 
 @("shall parse the compilation database when *arguments* is a json list")
@@ -1242,7 +1192,7 @@ unittest {
     auto found = cmds.find(buildPath(abs_path, "dir2", "file3.o"));
     assert(found.length == 1);
 
-    found[0].absoluteFile.shouldEqual(buildPath(abs_path, "dir2", "file3.cpp"));
+    (cast(string) found[0].absoluteFile).shouldEqual(buildPath(abs_path, "dir2", "file3.cpp"));
 }
 
 @("shall parse the compilation database and find a match via the glob pattern")
@@ -1263,7 +1213,7 @@ unittest {
 unittest {
     auto cmd = toCompileCommand("/home", "file.cpp", [
             "-I", `"dir with spaces"`, "-I", `\"dir with spaces\"`
-            ], AbsoluteCompileDbDirectory("/home"), null);
+            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
     auto pargs = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     pargs.cflags.shouldEqual([
             "-I", "/home/dir with spaces", "-I", "/home/dir with spaces"
@@ -1278,7 +1228,7 @@ unittest {
     auto cmd = toCompileCommand("/project", "file.cpp", [
             "-I", `"separate dir/with space"`, "-I", `\"separate dir/with space\"`,
             `-I"combined dir/with space"`, `-I\"combined dir/with space\"`,
-            ], AbsoluteCompileDbDirectory("/project"), null);
+            ], AbsoluteCompileDbDirectory("/project".Path.AbsolutePath), null);
     auto pargs = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     pargs.cflags.shouldEqual([
             "-I", "/project/separate dir/with space", "-I",
@@ -1300,7 +1250,7 @@ unittest {
                 `-I\"one space/lots of     space\"`, `-I`,
                 `"one space/lots of     space"`, `-I`,
                 `\"one space/lots of     space\"`,
-            ], AbsoluteCompileDbDirectory("/project"), null);
+            ], AbsoluteCompileDbDirectory("/project".Path.AbsolutePath), null);
     auto pargs = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
     pargs.cflags.shouldEqual([
             "-I", "/project/one space/lots of     space", "-I",

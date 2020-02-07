@@ -31,6 +31,7 @@ import logger = std.experimental.logger;
 import dsrcgen.plantuml;
 
 import dextool.type;
+import cpptooling.type : FilePrefix;
 import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.data : TypeKind, TypeAttr, resolveCanonicalType, USRType,
     TypeKindAttr, CxParam, CxReturnType, TypeKindVariable;
@@ -64,7 +65,7 @@ version (unittest) {
     Flag!"genStyleInclFile" genStyleInclFile();
 
     /// Strip the filename according to user regex.
-    FileName doComponentNameStrip(FileName fname);
+    Path doComponentNameStrip(Path fname);
 }
 
 /// Parameters used during generation.
@@ -73,14 +74,14 @@ version (unittest) {
     import std.typecons : Flag;
 
     static struct Files {
-        FileName classes;
-        FileName components;
-        FileName styleIncl;
-        FileName styleOutput;
+        Path classes;
+        Path components;
+        Path styleIncl;
+        Path styleOutput;
     }
 
     /// Output directory to store files in.
-    DirName getOutputDirectory();
+    Path getOutputDirectory();
 
     /// Files to write generated diagram data to.
     Files getFiles();
@@ -123,10 +124,10 @@ version (unittest) {
      *   fname = file the content is intended to be written to.
      *   data = data to write to the file.
      */
-    void putFile(FileName fname, PlantumlRootModule data);
+    void putFile(Path fname, PlantumlRootModule data);
 
     /// ditto.
-    void putFile(FileName fname, PlantumlModule data);
+    void putFile(Path fname, PlantumlModule data);
 }
 
 /** The supported "kind"s of relations between entities. Related to the UML
@@ -926,7 +927,7 @@ private:
         }
 
         static PlantumlModule makeStyleInclude(Flag!"doStyleIncl" do_style_incl,
-                FileName style_file, StyleType style_type) {
+                Path style_file, StyleType style_type) {
             import std.conv : to;
 
             auto m = new PlantumlModule;
@@ -939,7 +940,7 @@ private:
             return m;
         }
 
-        static void makeUml(Products prods, FileName fname, PlantumlModule style,
+        static void makeUml(Products prods, Path fname, PlantumlModule style,
                 PlantumlModule content) {
             import std.algorithm : filter;
 
@@ -954,14 +955,14 @@ private:
             prods.putFile(fname, proot);
         }
 
-        static void makeDot(Products prods, FileName fname, PlantumlModule style,
+        static void makeDot(Products prods, Path fname, PlantumlModule style,
                 PlantumlModule content) {
             import std.algorithm : filter;
             import std.path : stripExtension, baseName;
 
             immutable ext_dot = ".dot";
 
-            auto fname_dot = FileName(fname.stripExtension ~ ext_dot);
+            auto fname_dot = Path(fname.stripExtension ~ ext_dot);
             auto dot = new PlantumlModule;
             auto digraph = dot.digraph("g");
             digraph.suppressThisIndent(1);
@@ -976,7 +977,7 @@ private:
             prods.putFile(fname, proot);
         }
 
-        static FileName makeDotFileName(FileName f, DotLayout layout) {
+        static Path makeDotFileName(Path f, DotLayout layout) {
             import std.path : extension, stripExtension;
 
             auto ext = extension(cast(string) f);
@@ -993,7 +994,7 @@ private:
                 break;
             }
 
-            return FileName((cast(string) f).stripExtension ~ suffix ~ ext);
+            return Path((cast(string) f).stripExtension ~ suffix ~ ext);
         }
 
         if (ctrl.genStyleInclFile) {
@@ -1927,7 +1928,7 @@ KeyValue makeComponentKey(in string location_file, Controller ctrl) @trusted {
     alias SafeBase64 = Base64Impl!('-', '_', Base64.NoPadding);
 
     string file_path = buildNormalizedPath(location_file.absolutePath);
-    string strip_path = cast(string) ctrl.doComponentNameStrip(FileName(file_path));
+    string strip_path = cast(string) ctrl.doComponentNameStrip(Path(file_path));
     string rel_path = relativePath(strip_path);
     string display_name = strip_path.baseName;
 

@@ -83,7 +83,7 @@ final class ReportJson : FileReport, FilesReporter {
 
             try {
                 MakeMutationTextResult mut_txt;
-                auto abs_path = AbsolutePath(FileName(current_file.file), DirName(fio.getOutputDir));
+                auto abs_path = AbsolutePath(current_file.file.Path, fio.getOutputDir);
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
                 m.object["value"] = mut_txt.mutation;

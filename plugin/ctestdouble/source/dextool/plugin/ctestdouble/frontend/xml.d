@@ -113,7 +113,7 @@ auto parseRawConfig(T)(T xml) @trusted {
  * It is not inteded to be used as is but rather further processed.
  */
 struct XmlConfig {
-    import dextool.type : DextoolVersion, RawCliArguments, FilterClangFlag;
+    import dextool.type : DextoolVersion, FilterClangFlag;
 
     DextoolVersion version_;
     int skipCompilerArgs;
@@ -154,4 +154,10 @@ unittest {
             FilterClangFlag("foo"), FilterClangFlag("-foo"),
             FilterClangFlag("--foo"), FilterClangFlag("-G 0")
             ]);
+}
+
+/// The raw arguments from the command line.
+struct RawCliArguments {
+    string[] payload;
+    alias payload this;
 }

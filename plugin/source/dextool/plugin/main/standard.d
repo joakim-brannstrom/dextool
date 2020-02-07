@@ -20,7 +20,7 @@ module dextool.plugin.main.standard;
 
 import colorlog : VerboseMode, confLogger;
 
-import dextool.type : FileName, ExitStatusType;
+import dextool.type : ExitStatusType;
 
 /** Parse the raw command line.
  */

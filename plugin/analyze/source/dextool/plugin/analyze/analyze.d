@@ -40,7 +40,7 @@ import std.typecons : Flag;
 import logger = std.experimental.logger;
 
 import dextool.compilation_db : SearchResult, CompileCommandDB;
-import dextool.type : ExitStatusType, FileName, AbsolutePath;
+import dextool.type : ExitStatusType, Path, AbsolutePath;
 
 import dextool.plugin.analyze.visitor : TUVisitor;
 import dextool.plugin.analyze.mccabe;
@@ -382,7 +382,7 @@ struct AnalyzeResults {
         }
 
         auto outputDirectory(string path) {
-            this.outdir = AbsolutePath(FileName(path));
+            this.outdir = AbsolutePath(Path(path));
             return this;
         }
 
@@ -410,7 +410,7 @@ struct AnalyzeResults {
 
         if (dumpMcCabe) {
             if (json_)
-                dextool.plugin.analyze.mccabe.resultToJson(FileName(base ~ "mccabe.json")
+                dextool.plugin.analyze.mccabe.resultToJson(Path(base ~ "mccabe.json")
                         .AbsolutePath, mcCabe, mccabeThreshold);
             if (stdout_)
                 dextool.plugin.analyze.mccabe.resultToStdout(mcCabe, mccabeThreshold);

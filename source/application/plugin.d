@@ -15,7 +15,7 @@ almost never relevant besides when making changes to this module.
 */
 module application.plugin;
 
-import dextool.type : FileName;
+import dextool.type : Path;
 
 import logger = std.experimental.logger;
 
@@ -29,7 +29,7 @@ enum Kind {
 
 /// Validated plugin with kind separating primary and secondar plugins.
 struct Validated {
-    FileName path;
+    Path path;
     Kind kind;
 }
 
@@ -80,16 +80,16 @@ Validated[] scanForExecutables() {
             && ((attrs & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0);
     }
 
-    static FileName[] safeDirEntries(string path) nothrow {
+    static Path[] safeDirEntries(string path) nothrow {
         import std.array : appender;
 
-        auto res = appender!(FileName[])();
+        auto res = appender!(Path[])();
         string err_msg;
         try {
             // dfmt off
             foreach (e; dirEntries(path, SpanMode.shallow)
                      .filter!(a => isExecutable(a.attributes))
-                     .map!(a => FileName(a.name.absolutePath))) {
+                     .map!(a => Path(a.name.absolutePath))) {
                 res.put(e);
             }
             // dfmt on
@@ -178,7 +178,7 @@ auto filterValidPlugins(Validated[] fnames, string base_name) @safe {
 struct Plugin {
     string name;
     string help;
-    FileName path;
+    Path path;
     Kind kind;
 }
 
@@ -289,10 +289,10 @@ string toShortHelp(Plugin[] plugins) @safe {
     import std.array;
 
     auto fnames = ["/ignore", "/usr/bin/dextool", "/usr/bin/dextool-ctest"].map!(
-            a => Validated(FileName(a), Kind.primary)).array();
+            a => Validated(Path(a), Kind.primary)).array();
 
     filterValidPlugins(fnames, "dextool-").shouldEqual(
-            [Validated(FileName("/usr/bin/dextool-ctest"), Kind.primary)]);
+            [Validated(Path("/usr/bin/dextool-ctest"), Kind.primary)]);
 }
 
 @("Shall get the short text for the plugins")
@@ -300,13 +300,13 @@ string toShortHelp(Plugin[] plugins) @safe {
     import std.algorithm;
     import std.array;
 
-    auto fakeExec(FileName plugin) {
+    auto fakeExec(Path plugin) {
         if (plugin == "dextool-ctest") {
             return ExecuteResult("ctest\nc test text", true,
-                    Validated(FileName("/a/dextool-ctest"), Kind.primary));
+                    Validated(Path("/a/dextool-ctest"), Kind.primary));
         } else if (plugin == "dextool-cpp") {
             return ExecuteResult("cpp\ncpp test text", true,
-                    Validated(FileName("/b/dextool-cpp"), Kind.primary));
+                    Validated(Path("/b/dextool-cpp"), Kind.primary));
         } else if (plugin == "dextool-too_many_lines") {
             return ExecuteResult("too_many_lines\n\nfoo", true);
         } else if (plugin == "dextool-fail_run") {
@@ -319,20 +319,20 @@ string toShortHelp(Plugin[] plugins) @safe {
     auto fake_plugins = [
         "dextool-ctest", "dextool-cpp", "dextool-too_many_lines",
         "dextool-fail_run"
-    ].map!(a => FileName(a)).array();
+    ].map!(a => Path(a)).array();
 
     toPlugins!fakeExec(fake_plugins).shouldEqual([
-            Plugin("ctest", "c test text", FileName("/a/dextool-ctest")),
-            Plugin("cpp", "cpp test text", FileName("/b/dextool-cpp")),
-            Plugin("too_many_lines", "", FileName(""))
+            Plugin("ctest", "c test text", Path("/a/dextool-ctest")),
+            Plugin("cpp", "cpp test text", Path("/b/dextool-cpp")),
+            Plugin("too_many_lines", "", Path(""))
             ]);
 }
 
 @("A short help text with two plugins")
 @safe unittest {
     auto plugins = [
-        Plugin("ctest", "c help text", FileName("dummy"), Kind.primary),
-        Plugin("cpp", "c++ help text", FileName("dummy"), Kind.secondary)
+        Plugin("ctest", "c help text", Path("dummy"), Kind.primary),
+        Plugin("cpp", "c++ help text", Path("dummy"), Kind.secondary)
     ];
     plugins.toShortHelp.shouldEqual("  ctest c help text\n  cpp   c++ help text");
 }

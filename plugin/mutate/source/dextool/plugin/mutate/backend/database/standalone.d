@@ -299,7 +299,6 @@ struct Database {
 
     Nullable!MutationEntry getMutation(const MutationId id) @trusted {
         import dextool.plugin.mutate.backend.type;
-        import dextool.type : FileName;
 
         typeof(return) rval;
 
@@ -334,7 +333,7 @@ struct Database {
         auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
         mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
         auto pkey = MutationId(v.peek!long(0));
-        auto file = Path(FileName(v.peek!string(7)));
+        auto file = Path(v.peek!string(7));
         auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
         auto lang = v.peek!long(8).to!Language;
 

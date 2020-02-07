@@ -148,15 +148,15 @@ struct FileProcess {
     }
 
     static auto make() {
-        return FileProcess(Directive.All, FileName(null));
+        return FileProcess(Directive.All, Path(null));
     }
 
-    static auto make(FileName input_file) {
+    static auto make(Path input_file) {
         return FileProcess(Directive.Single, input_file);
     }
 
     Directive directive;
-    FileName inputFile;
+    Path inputFile;
 }
 
 /** Frontend for PlantUML generator.
@@ -167,15 +167,16 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     import std.string : toLower;
     import std.regex : regex, Regex;
     import std.typecons : Flag, Yes, No;
-    import dextool.type : FileName, DirName, FilePrefix;
+    import cpptooling.type : FilePrefix;
+    import dextool.type : Path;
     import dextool.utility;
 
     import dsrcgen.plantuml;
 
     static struct FileData {
-        import dextool.type : WriteStrategy;
+        import dextool.io : WriteStrategy;
 
-        FileName filename;
+        Path filename;
         string data;
         WriteStrategy strategy;
     }
@@ -184,12 +185,12 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     static const inclExt = ".iuml";
 
     // TODO ugly hack to remove immutable. Fix it appropriately
-    FileNames input_files;
-    immutable DirName output_dir;
-    immutable FileName file_classes;
-    immutable FileName file_components;
-    immutable FileName file_style;
-    immutable FileName file_style_output;
+    Path[] input_files;
+    immutable Path output_dir;
+    immutable Path file_classes;
+    immutable Path file_components;
+    immutable Path file_style;
+    immutable Path file_style_output;
 
     immutable FilePrefix file_prefix;
 
@@ -230,9 +231,8 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         auto do_comp_by_file = cast(Flag!"doComponentByFile") parsed.componentByFile;
 
         auto variant = new PlantUMLFrontend(FilePrefix(parsed.filePrefix),
-                DirName(parsed.out_), gen_style_incl, gen_dot,
-                gen_class_method, gen_class_param_dep, gen_class_inherit_dep,
-                gen_class_member_dep, do_comp_by_file);
+                Path(parsed.out_), gen_style_incl, gen_dot, gen_class_method,
+                gen_class_param_dep, gen_class_inherit_dep, gen_class_member_dep, do_comp_by_file);
 
         variant.exclude = exclude;
         variant.restrict = restrict;
@@ -241,7 +241,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return variant;
     }
 
-    this(FilePrefix file_prefix, DirName output_dir, Flag!"doStyleIncl" style_incl,
+    this(FilePrefix file_prefix, Path output_dir, Flag!"doStyleIncl" style_incl,
             Flag!"doGenDot" gen_dot, Flag!"genClassMethod" class_method,
             Flag!"genClassParamDependency" class_param_dep, Flag!"genClassInheritDependency" class_inherit_dep,
             Flag!"genClassMemberDependency" class_member_dep,
@@ -258,13 +258,13 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
         import std.path : baseName, buildPath, relativePath, stripExtension;
 
-        this.file_classes = FileName(buildPath(cast(string) output_dir,
+        this.file_classes = Path(buildPath(cast(string) output_dir,
                 cast(string) file_prefix ~ "classes" ~ fileExt));
-        this.file_components = FileName(buildPath(cast(string) output_dir,
+        this.file_components = Path(buildPath(cast(string) output_dir,
                 cast(string) file_prefix ~ "components" ~ fileExt));
-        this.file_style_output = FileName(buildPath(cast(string) output_dir,
+        this.file_style_output = Path(buildPath(cast(string) output_dir,
                 cast(string) file_prefix ~ "style" ~ inclExt));
-        this.file_style = FileName(relativePath(cast(string) file_prefix ~ "style" ~ inclExt,
+        this.file_style = Path(relativePath(cast(string) file_prefix ~ "style" ~ inclExt,
                 cast(string) output_dir));
     }
 
@@ -299,20 +299,20 @@ class PlantUMLFrontend : Controller, Parameters, Products {
         return cast(Flag!"genStyleInclFile")(do_style_incl && !exists(cast(string) file_style));
     }
 
-    FileName doComponentNameStrip(FileName fname) {
+    Path doComponentNameStrip(Path fname) {
         import std.path : dirName;
         import cpptooling.testdouble.header_filter : stripFile;
 
         if (do_comp_by_file) {
-            return FileName(stripFile(cast(string) fname, comp_strip));
+            return Path(stripFile(cast(string) fname, comp_strip));
         } else {
-            return FileName(stripFile((cast(string) fname).dirName, comp_strip));
+            return Path(stripFile((cast(string) fname).dirName, comp_strip));
         }
     }
 
     // -- Parameters --
 
-    DirName getOutputDirectory() const {
+    Path getOutputDirectory() const {
         return output_dir;
     }
 
@@ -350,11 +350,11 @@ class PlantUMLFrontend : Controller, Parameters, Products {
 
     // -- Products --
 
-    void putFile(FileName fname, PlantumlRootModule root) {
+    void putFile(Path fname, PlantumlRootModule root) {
         fileData ~= FileData(fname, root.render());
     }
 
-    void putFile(FileName fname, PlantumlModule pm) {
+    void putFile(Path fname, PlantumlModule pm) {
         fileData ~= FileData(fname, pm.render());
     }
 }
@@ -404,7 +404,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     final switch (file_process.directive) {
     case FileProcess.Directive.All:
         const auto cflags = prependDefaultFlags(in_cflags, PreferLang.none);
-        CompileCommand.AbsoluteFileName[] unable_to_parse;
+        AbsolutePath[] unable_to_parse;
 
         const auto total_files = compile_db.length;
 
@@ -452,7 +452,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             abs_in_file = db_search_result.get.absoluteFile;
         } else {
             use_cflags = user_cflags.dup;
-            abs_in_file = AbsolutePath(FileName(input_file));
+            abs_in_file = AbsolutePath(Path(input_file));
         }
 
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {

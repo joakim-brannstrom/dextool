@@ -54,7 +54,7 @@ unittest {
         .addInputArg(testData ~ getValue!(string[])[0])
         .run;
 
-    r.output.sliceContains("error: Unable to find any compiler flags for").shouldBeFalse;
+    r.output.sliceContains("No match found in the compile command database").shouldBeTrue;
     // the file returned shall be the full path for the one searching for
     r.output.sliceContains("because it has an '#include' for '" ~ (testData ~ "compile_db/dir1/single_file.h").toString).shouldBeTrue;
 }

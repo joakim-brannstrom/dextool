@@ -26,14 +26,14 @@ enum Config_YesNo {
 struct RawConfiguration {
     import std.conv : ConvException;
     import std.getopt : GetoptResult, getopt, defaultGetoptPrinter;
-    import dextool.type : FileName;
+    import dextool.type : Path;
 
     Nullable!XmlConfig xmlConfig;
 
     string[] fileExclude;
     string[] fileRestrict;
     string[] testDoubleInclude;
-    string[] inFiles;
+    Path[] inFiles;
     string[] cflags;
     string[] compileDb;
     string header;
@@ -63,6 +63,7 @@ struct RawConfiguration {
         static import std.getopt;
 
         originalFlags = args.dup;
+        string[] input;
 
         try {
             // dfmt off
@@ -70,16 +71,16 @@ struct RawConfiguration {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "config", "Use configuration file", &config,
-                   "free-func", "Generate test doubles of free functions", &doFreeFuncs,
                    "file-exclude", "Exclude files from generation matching the regex", &fileExclude,
                    "file-restrict", "Restrict the scope of the test double to those files matching the regex.", &fileRestrict,
+                   "free-func", "Generate test doubles of free functions", &doFreeFuncs,
+                   "gen-post-incl", "Generate a post include header file if it doesn't exist and use it", &genPostInclude,
+                   "gen-pre-incl", "Generate a pre include header file if it doesn't exist and use it", &generatePreInclude,
                    "gmock", "Generate a gmock implementation of test double interface", &gmock,
                    "gtest-pp", "Generate pretty printer of POD's public members for gtest " ~ format("[%(%s|%)]", [EnumMembers!Config_YesNo]), &gtestPODPrettyPrint,
-                   "gen-pre-incl", "Generate a pre include header file if it doesn't exist and use it", &generatePreInclude,
-                   "gen-post-incl", "Generate a post include header file if it doesn't exist and use it", &genPostInclude,
                    "header", "Prepends generated files with the string", &header,
                    "header-file", "Prepend generated files with the header read from the file", &headerFile,
-                   "in", "Input file to parse (at least one)", &inFiles,
+                   "in", "Input file to parse (at least one)", &input,
                    "main", "Used as part of interface, namespace etc [default: TestDouble]", &mainName,
                    "main-fname", "Used as part of filename for generated files [default: test_double]", &mainFileName,
                    "out", "directory for generated files [default: ./]", &out_,
@@ -109,15 +110,17 @@ struct RawConfiguration {
         }
 
         if (config.length != 0) {
-            xmlConfig = readRawConfig(FileName(config));
+            xmlConfig = readRawConfig(Path(config));
             if (xmlConfig.isNull) {
                 help = true;
             }
         }
 
-        import std.algorithm : find;
+        import std.algorithm : find, map;
         import std.array : array;
         import std.range : drop;
+
+        inFiles = input.map!(a => Path(a)).array;
 
         // at this point args contain "what is left". What is interesting then is those after "--".
         cflags = args.find("--").drop(1).array();
@@ -166,7 +169,7 @@ Information about --in.
  * It is not inteded to be used as is but rather further processed.
  */
 struct XmlConfig {
-    import dextool.type : DextoolVersion, RawCliArguments, FilterClangFlag;
+    import dextool.type : DextoolVersion, FilterClangFlag;
 
     DextoolVersion version_;
     int skipCompilerArgs;
@@ -178,7 +181,7 @@ auto parseRawConfig(T)(T xml) @trusted {
     import std.conv : to, ConvException;
     import std.xml;
     import dextool.utility : DextoolVersion;
-    import dextool.type : RawCliArguments, FilterClangFlag;
+    import dextool.type : FilterClangFlag;
 
     DextoolVersion version_;
     int skip_flags = 1;
@@ -210,3 +213,9 @@ auto parseRawConfig(T)(T xml) @trusted {
 }
 
 alias readRawConfig = dextool.xml.readRawConfig!(XmlConfig, parseRawConfig);
+
+/// The raw arguments from the command line.
+struct RawCliArguments {
+    string[] payload;
+    alias payload this;
+}

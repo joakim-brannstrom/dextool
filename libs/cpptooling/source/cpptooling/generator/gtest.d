@@ -16,16 +16,17 @@ import std.range : isInputRange;
 
 import dsrcgen.cpp : CppModule, E;
 
-import dextool.type : FileName, DextoolVersion, CustomHeader;
+import dextool.type : Path, DextoolVersion;
 
 import cpptooling.data : CppClass, FullyQualifiedNameType, TypeKindVariable;
 import cpptooling.data.symbol : Container;
+import cpptooling.type : CustomHeader;
 
 // argument names used in the generated code
 private immutable argValue = "x0";
 private immutable argStream = "os";
 
-auto generateGtestHdr(FileName if_file, FileName incl_guard, DextoolVersion ver,
+auto generateGtestHdr(Path if_file, Path incl_guard, DextoolVersion ver,
         CustomHeader custom_hdr, CppModule gtest) {
     import std.path : baseName;
     import dsrcgen.cpp : CppHModule;

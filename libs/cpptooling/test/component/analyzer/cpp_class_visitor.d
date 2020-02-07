@@ -29,7 +29,6 @@ import cpptooling.data.symbol : Container;
 import cpptooling.data.representation;
 import cpptooling.data : TypeKindVariable, VariadicType, Location, CppNsStack,
     USRType, toStringDecl;
-import cpptooling.utility.virtualfilesystem : FileName;
 
 /* These lines are useful when debugging.
 import unit_threaded;

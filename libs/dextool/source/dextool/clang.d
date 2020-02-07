@@ -16,7 +16,7 @@ import logger = std.experimental.logger;
 
 import dextool.compilation_db : SearchResult, CompileCommandDB,
     CompileCommandFilter, CompileCommand, parseFlag, DbCompiler = Compiler;
-import dextool.type : FileName, AbsolutePath;
+import dextool.type : Path, AbsolutePath;
 
 @safe:
 
@@ -38,7 +38,7 @@ private struct IncludeResult {
  *
  * Returns: The first CompileCommand object which _probably_ has the flags needed to parse fname.
  */
-Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compdb, FileName fname,
+Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compdb, Path fname,
         ref const CompileCommandFilter flag_filter, const string[] extra_flags,
         const DbCompiler user_compiler = DbCompiler.init) @trusted {
     import std.algorithm : filter;
@@ -76,8 +76,7 @@ Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compd
             r.get.original = entry;
             r.get.derived = entry;
             r.get.derived.file = found.get;
-            r.get.derived.absoluteFile = CompileCommand.AbsoluteFileName(entry.directory,
-                    found.get);
+            r.get.derived.absoluteFile = AbsolutePath(found.get, entry.directory);
             return r;
         }
     }
@@ -86,7 +85,7 @@ Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compd
 }
 
 /// Find flags for fname by searching in the compilation DB.
-Nullable!SearchResult findFlags(ref CompileCommandDB compdb, FileName fname, const string[] flags,
+Nullable!SearchResult findFlags(ref CompileCommandDB compdb, Path fname, const string[] flags,
         ref const CompileCommandFilter flag_filter, const DbCompiler user_compiler = DbCompiler
         .init) {
     import std.file : exists;

@@ -24,9 +24,11 @@ import logger = std.experimental.logger;
 import dsrcgen.cpp : CppModule, CppHModule;
 
 import cpptooling.data : CppNs, CppClassName;
+import cpptooling.type : CustomHeader, MainInterface, MainNs;
 
-import dextool.type : AbsolutePath, CustomHeader, DextoolVersion, FileName,
-    MainInterface, MainNs, WriteStrategy;
+import dextool.io : WriteStrategy;
+
+import dextool.type : AbsolutePath, DextoolVersion;
 import cpptooling.data : CppNsStack;
 import cpptooling.testdouble.header_filter : LocationType;
 
@@ -155,7 +157,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     import std.array : array;
     import std.algorithm : each, filter, map, filter;
     import std.range : tee;
-    import dextool.type : FileName;
+    import dextool.type : Path;
     import cpptooling.data : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
 
@@ -178,7 +180,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
             // ask controller if the file should be mocked, and thus the node
             .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)
             // pass on location as a product to be used to calculate #include
-            .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+            .tee!(a => prod.putLocation(Path(a.location.file), LocationType.Leaf))
             .each!(a => filtered.put(a.value));
         // dfmt on
     }
@@ -202,7 +204,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
         }
 
         filtered.put(a.value);
-        prod.putLocation(FileName(a.location.file), LocationType.Leaf);
+        prod.putLocation(Path(a.location.file), LocationType.Leaf);
     }
 
     return filtered;
@@ -344,8 +346,8 @@ void postProcess(Controller ctrl, Parameters params, Products prods,
     // allow reuse.
     static auto outputHdr(CppModule hdr, AbsolutePath fname, DextoolVersion ver,
             CustomHeader custom_hdr) {
-        auto o = CppHModule(convToIncludeGuard(cast(FileName) fname));
-        o.header.append(makeHeader(cast(FileName) fname, ver, custom_hdr));
+        auto o = CppHModule(convToIncludeGuard(fname));
+        o.header.append(makeHeader(fname, ver, custom_hdr));
         o.content.append(hdr);
 
         return o;
@@ -357,7 +359,7 @@ void postProcess(Controller ctrl, Parameters params, Products prods,
 
         auto o = new CppModule;
         o.suppressIndent(1);
-        o.append(makeHeader(cast(FileName) dest, ver, custom_hdr));
+        o.append(makeHeader(dest, ver, custom_hdr));
         o.include(incl_fname.baseName);
         o.sep(2);
         o.append(code);
@@ -396,8 +398,8 @@ void postProcess(Controller ctrl, Parameters params, Products prods,
 
         mock_incls.include(fname.baseName);
 
-        prods.putFile(fname, generateGmockHdr(cast(FileName) test_double_hdr,
-                cast(FileName) fname, params.getToolVersion, params.getCustomHeader, mock));
+        prods.putFile(fname, generateGmockHdr(test_double_hdr, fname,
+                params.getToolVersion, params.getCustomHeader, mock));
     }
 
     //TODO code duplication, merge with the above
@@ -407,8 +409,8 @@ void postProcess(Controller ctrl, Parameters params, Products prods,
         auto fname = transf.createHeaderFile(makeGtestFileName(transf, gtest.nesting, gtest.name));
         mock_incls.include(fname.baseName);
 
-        prods.putFile(fname, generateGtestHdr(cast(FileName) test_double_hdr,
-                cast(FileName) fname, params.getToolVersion, params.getCustomHeader, gtest));
+        prods.putFile(fname, generateGtestHdr(test_double_hdr, fname,
+                params.getToolVersion, params.getCustomHeader, gtest));
     }
 
     auto gtest_impl = new CppModule;

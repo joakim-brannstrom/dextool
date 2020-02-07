@@ -6,7 +6,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module cpptooling.generator.includes;
 
 import dsrcgen.cpp : CppModule;
-import dextool.type : DextoolVersion, FileName, CustomHeader;
+import dextool.type : DextoolVersion, Path;
+import cpptooling.type : CustomHeader;
 
 @safe:
 
@@ -94,7 +95,7 @@ auto generatePostInclude(FileT)(FileT fname) {
  *  ver = version of dextool
  *  custom = header appended last, intened for user customisation
  */
-auto makeHeader(FileName fname, DextoolVersion ver, CustomHeader custom = CustomHeader("")) {
+auto makeHeader(Path fname, DextoolVersion ver, CustomHeader custom = CustomHeader("")) {
     import std.algorithm : splitter, map, joiner, copy;
     import std.array : appender;
     import std.ascii : newline;
@@ -144,7 +145,7 @@ version (unittest) {
     unittest {
         import unit_threaded : shouldEqual, getValue;
 
-        auto filename = FileName("a.h");
+        auto filename = Path("a.h");
         auto custom_header = CustomHeader("// " ~ getValue!(string[])[0]);
         auto version_ = DextoolVersion("1.0");
 

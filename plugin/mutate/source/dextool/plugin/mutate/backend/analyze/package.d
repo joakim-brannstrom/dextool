@@ -36,7 +36,7 @@ import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
 import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
 import dextool.set;
-import dextool.type : ExitStatusType, AbsolutePath, Path, DirName;
+import dextool.type : ExitStatusType, AbsolutePath, Path;
 import dextool.user_filerange;
 
 version (unittest) {
@@ -344,7 +344,7 @@ struct Analyze {
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.utility.virtualfilesystem;
     import dextool.compilation_db : SearchResult;
-    import dextool.type : FileName, Exists, makeExists;
+    import dextool.type : Exists, makeExists;
     import dextool.utility : analyzeFile;
 
     private {

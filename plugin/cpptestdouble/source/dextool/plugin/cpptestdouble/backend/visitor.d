@@ -11,6 +11,8 @@ module dextool.plugin.cpptestdouble.backend.visitor;
 
 import logger = std.experimental.logger;
 
+import dextool.type : Path;
+
 import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.data : CppRoot, CppClass, CppMethod, CppCtor, CppDtor,
     CFunction, CppNamespace, LocationTag, Location;
@@ -187,7 +189,6 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         import std.algorithm : filter;
         import cpptooling.analyzer.clang.type : makeLocation;
         import cpptooling.testdouble.header_filter : LocationType;
-        import dextool.type : FileName;
 
         mixin(mixinNodeLog!());
 
@@ -196,7 +197,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
 
         if (tu_loc.kind != LocationTag.Kind.noloc && ctrl.doFile(tu_loc.file,
                 "root " ~ tu_loc.toString)) {
-            prod.putLocation(FileName(tu_loc.file), LocationType.Root);
+            prod.putLocation(Path(tu_loc.file), LocationType.Root);
         }
 
         v.accept(this);

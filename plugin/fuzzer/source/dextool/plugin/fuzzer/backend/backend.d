@@ -19,7 +19,7 @@ import dextool.plugin.fuzzer.backend.type;
 
 import dextool.compilation_db : CompileCommandFilter;
 import dextool.hash : makeHash;
-import dextool.type : FileName, AbsolutePath;
+import dextool.type : Path, AbsolutePath;
 import cpptooling.data.type : LocationTag, Location;
 
 struct Backend {
@@ -47,7 +47,7 @@ struct Backend {
         gen_code_includes.finalize();
     }
 
-    void putLocation(FileName fname, LocationType type, Language lang) @safe {
+    void putLocation(Path fname, LocationType type, Language lang) @safe {
         gen_code_includes.put(fname, type, lang);
     }
 
@@ -67,7 +67,7 @@ struct Backend {
 
         // dfmt off
         auto filtered = rawFilter(visitor.root, ctrl, products,
-                (FileName a, LocationType k, Language l) @safe => this.putLocation(a, k, l),
+                (Path a, LocationType k, Language l) @safe => this.putLocation(a, k, l),
                 (USRType usr) @safe => container.find!LocationTag(usr));
         // dfmt on
 
@@ -136,7 +136,7 @@ AnalyzeData rawFilter(PutLocT, LookupT)(AnalyzeData input, Controller ctrl,
         Product prod, PutLocT putLoc, LookupT lookup) {
     import std.algorithm : each, filter;
     import std.range : tee;
-    import dextool.type : FileName;
+    import dextool.type : Path;
     import cpptooling.data : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
     import cpptooling.testdouble.header_filter : LocationType;
@@ -156,7 +156,7 @@ AnalyzeData rawFilter(PutLocT, LookupT)(AnalyzeData input, Controller ctrl,
         // ask controller if to generate wrapper for the function based on file location
         .filterAnyLocation!(a => ctrl.doSymbolAtLocation(a.location.file, a.value.name))(lookup)
         // pass on location as a product to be used to calculate #include
-        .tee!(a => putLoc(FileName(a.location.file), LocationType.Leaf, a.value.language.get))
+        .tee!(a => putLoc(Path(a.location.file), LocationType.Leaf, a.value.language.get))
         .each!(a => filtered.put(a.value));
     // dfmt on
 
@@ -277,10 +277,11 @@ void postProcess(Controller ctrl, Transform transf, Parameter params,
         Product prods, ref GeneratedData gen) {
     import std.array : appender;
     import cpptooling.generator.includes : convToIncludeGuard, makeHeader;
-    import dextool.type : FileName, DextoolVersion, CustomHeader, WriteStrategy;
+    import cpptooling.type : CustomHeader;
+    import dextool.io : WriteStrategy;
+    import dextool.type : Path, DextoolVersion;
 
-    static auto outputHdr(CppModule hdr, FileName fname, DextoolVersion ver,
-            CustomHeader custom_hdr) {
+    static auto outputHdr(CppModule hdr, Path fname, DextoolVersion ver, CustomHeader custom_hdr) {
         auto o = CppHModule(convToIncludeGuard(fname));
         o.header.append(makeHeader(fname, ver, custom_hdr));
         o.content.append(hdr);
@@ -288,7 +289,7 @@ void postProcess(Controller ctrl, Transform transf, Parameter params,
         return o;
     }
 
-    static auto output(CppModule code, FileName incl_fname, FileName dest,
+    static auto output(CppModule code, Path incl_fname, Path dest,
             DextoolVersion ver, CustomHeader custom_hdr) {
         import std.path : baseName;
 
@@ -304,8 +305,7 @@ void postProcess(Controller ctrl, Transform transf, Parameter params,
         return o;
     }
 
-    static auto outputCase(CppModule code, FileName dest, DextoolVersion ver,
-            CustomHeader custom_hdr) {
+    static auto outputCase(CppModule code, Path dest, DextoolVersion ver, CustomHeader custom_hdr) {
         import std.path : baseName;
 
         auto o = new CppModule;
@@ -316,8 +316,7 @@ void postProcess(Controller ctrl, Transform transf, Parameter params,
         return o;
     }
 
-    static auto outputMain(CppModule code, FileName dest, DextoolVersion ver,
-            CustomHeader custom_hdr) {
+    static auto outputMain(CppModule code, Path dest, DextoolVersion ver, CustomHeader custom_hdr) {
         import std.path : baseName;
 
         auto o = new CppModule;

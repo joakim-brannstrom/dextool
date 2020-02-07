@@ -13,11 +13,11 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 
-import dextool.type : FileName, DirName, MainName, StubPrefix, DextoolVersion,
-    CustomHeader, MainNs, MainInterface;
+import dextool.type : Path, DextoolVersion;
 import cpptooling.data.symbol;
 import cpptooling.analyzer.clang.ast : Visitor;
 import cpptooling.testdouble.header_filter : LocationType;
+import cpptooling.type : MainName, StubPrefix, CustomHeader, MainNs, MainInterface;
 
 /// Control various aspects of the analyze and generation like what nodes to
 /// process.
@@ -34,7 +34,7 @@ import cpptooling.testdouble.header_filter : LocationType;
      * Part of the controller because they are dynamic, may change depending on
      * for example calls to doFile.
      */
-    FileName[] getIncludes();
+    Path[] getIncludes();
 
     /// Controls generation of google mock.
     bool doGoogleMock();
@@ -59,19 +59,19 @@ import cpptooling.testdouble.header_filter : LocationType;
 /// Important aspect that they do NOT change, therefore it is pure.
 @safe pure interface Parameters {
     static struct Files {
-        FileName hdr;
-        FileName impl;
-        FileName globals;
-        FileName gmock;
-        FileName pre_incl;
-        FileName post_incl;
+        Path hdr;
+        Path impl;
+        Path globals;
+        Path gmock;
+        Path pre_incl;
+        Path post_incl;
     }
 
     /// Source files used to generate the test double.
-    FileName[] getIncludes();
+    Path[] getIncludes();
 
     /// Output directory to store files in.
-    DirName getOutputDirectory();
+    Path getOutputDirectory();
 
     /// Files to write generated test double data to.
     Files getFiles();
@@ -124,10 +124,10 @@ import cpptooling.testdouble.header_filter : LocationType;
      *   fname = file the content is intended to be written to.
      *   hdr_data = data to write to the file.
      */
-    void putFile(FileName fname, CppHModule hdr_data);
+    void putFile(Path fname, CppHModule hdr_data);
 
     /// ditto.
-    void putFile(FileName fname, CppModule impl_data);
+    void putFile(Path fname, CppModule impl_data);
 
     /** During the translation phase the location of symbols that aren't
      * filtered out are pushed to the variant.
@@ -136,7 +136,7 @@ import cpptooling.testdouble.header_filter : LocationType;
      * Just the files that was input?
      * Deduplicated list of files where the symbols was found?
      */
-    void putLocation(FileName loc, LocationType type);
+    void putLocation(Path loc, LocationType type);
 }
 
 /** Generator of test doubles for C code.
@@ -210,7 +210,7 @@ private:
          * Params:
          *  fname = intended output filename, used for ifndef guard.
          */
-        static auto outputHdr(CppModule hdr, FileName fname, DextoolVersion ver,
+        static auto outputHdr(CppModule hdr, Path fname, DextoolVersion ver,
                 CustomHeader custom_hdr) {
             auto o = CppHModule(convToIncludeGuard(fname));
             o.header.append(makeHeader(fname, ver, custom_hdr));
@@ -219,7 +219,7 @@ private:
             return o;
         }
 
-        static auto output(CppModule code, FileName incl_fname, FileName dest,
+        static auto output(CppModule code, Path incl_fname, Path dest,
                 DextoolVersion ver, CustomHeader custom_hdr) {
             import std.path : baseName;
 
@@ -330,7 +330,7 @@ final class CVisitor : Visitor {
 
         if (tu_loc.kind != LocationTag.Kind.noloc && ctrl.doFile(tu_loc.file,
                 "root " ~ tu_loc.toString)) {
-            prod.putLocation(FileName(tu_loc.file), LocationType.Root);
+            prod.putLocation(Path(tu_loc.file), LocationType.Root);
         }
 
         v.accept(this);
@@ -458,7 +458,7 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
         // ask controller if to generate a test double for the function
         .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name))(lookup)
         // pass on location as a product to be used to calculate #include
-        .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+        .tee!(a => prod.putLocation(Path(a.location.file), LocationType.Leaf))
         .each!(a => filtered.put(a.value));
 
     input.globalRange()
@@ -468,7 +468,7 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
         // ask controller if to generate a test double for the function
         .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name))(lookup)
         // pass on location as a product to be used to calculate #include
-        .tee!(a => prod.putLocation(FileName(a.location.file), LocationType.Leaf))
+        .tee!(a => prod.putLocation(Path(a.location.file), LocationType.Leaf))
         .each!(a => filtered.put(a.value));
     // dfmt on
 }

@@ -10,7 +10,7 @@ import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
 
-import dextool.type : MainNs, MainInterface;
+import cpptooling.type : MainNs, MainInterface;
 
 // TODO this is a mega include. Reduce it.
 import cpptooling.data;

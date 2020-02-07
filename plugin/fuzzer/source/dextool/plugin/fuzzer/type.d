@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.fuzzer.type;
 
 public import cpptooling.data.symbol.types : FullyQualifiedNameType;
-public import dextool.type : FileName;
+public import dextool.type : Path;
 
 struct SequenceId {
     bool isValid;
@@ -48,7 +48,7 @@ struct Fuzz {
     FullyQualifiedNameType use;
 
     /// File the function exist in.
-    FileName include;
+    Path include;
 
     /// Parameters used when calling the custom fuzzer
     string param;

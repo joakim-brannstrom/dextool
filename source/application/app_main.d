@@ -8,7 +8,7 @@ module application.app_main;
 import logger = std.experimental.logger;
 
 import colorlog : VerboseMode;
-import dextool.type : FileName, ExitStatusType;
+import dextool.type : ExitStatusType;
 
 import application.cli_help;
 

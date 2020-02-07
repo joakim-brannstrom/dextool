@@ -14,71 +14,8 @@ enum ExitStatusType {
     Errors
 }
 
-/** Prefix used for prepending generated code with a unique string to avoid
- * name collisions.
- * See specific functions for how it is used.
- */
-struct StubPrefix {
-    string payload;
-    alias payload this;
-}
-
-/// Prefix used for prepending generated files.
-struct FilePrefix {
-    string payload;
-    alias payload this;
-}
-
-struct MainFileName {
-    string payload;
-    alias payload this;
-}
-
-struct MainName {
-    string payload;
-    alias payload this;
-}
-
-struct MainNs {
-    string payload;
-    alias payload this;
-}
-
-struct MainInterface {
-    string payload;
-    alias payload this;
-}
-
 struct DextoolVersion {
     string payload;
-    alias payload this;
-}
-
-struct CustomHeader {
-    string payload;
-    alias payload this;
-}
-
-/// The raw arguments from the command line.
-struct RawCliArguments {
-    string[] payload;
-    alias payload this;
-}
-
-/// Used when writing data to files on the filesystem.
-enum WriteStrategy {
-    overwrite,
-    skip
-}
-
-//TODO remove FileNames
-struct FileNames {
-    string[] payload;
-    alias payload this;
-}
-
-struct InFiles {
-    string[] payload;
     alias payload this;
 }
 
@@ -88,38 +25,24 @@ struct InFiles {
 struct Path {
     string payload;
     alias payload this;
-}
 
-/// ditto
-struct DirName {
-    Path payload;
-    alias payload this;
-
-    pure nothrow @nogc this(string p) {
-        payload = Path(p);
-    }
-}
-
-/// ditto
-struct FileName {
-pure @nogc nothrow:
-
-    Path payload;
-    alias payload this;
-
-    this(Path p) {
-        payload = p;
+    bool empty() @safe pure nothrow const @nogc {
+        return payload.length == 0;
     }
 
-    pure nothrow @nogc this(string p) {
-        payload = Path(p);
+    bool opEquals(const string s) @safe pure nothrow const @nogc {
+        return payload == s;
+    }
+
+    bool opEquals(const AbsolutePath s) @safe pure nothrow const @nogc {
+        return payload == s.payload;
     }
 }
 
 /** The path is guaranteed to be the absolute path.
  *
  * The user of the type has to make an explicit judgment when using the
- * assignment operator. Either a `FileName` and then pay the cost of the path
+ * assignment operator. Either a `Path` and then pay the cost of the path
  * expansion or an absolute which is already assured to be _ok_.
  * This divides the domain in two, one unchecked and one checked.
  */
@@ -133,7 +56,7 @@ struct AbsolutePath {
     invariant {
         import std.path : isAbsolute;
 
-        assert(payload.length == 0 || payload.isAbsolute);
+        assert(payload.empty || payload.isAbsolute);
     }
 
     this(Path p) {
@@ -143,51 +66,37 @@ struct AbsolutePath {
     }
 
     /// Build the normalised path from workdir.
-    this(Path p, DirName workdir) {
+    this(Path p, Path workdir) {
         // the second buildNormalizedPath is needed to correctly resolve "."
         // otherwise it is resolved to /foo/bar/.
         payload = buildNormalizedPath(expand(workdir), expand(p))
             .asAbsolutePath.asNormalizedPath.toUTF8.Path;
     }
 
-    void opAssign(FileName p) {
-        payload = typeof(this)(p).payload;
-    }
-
     pure nothrow @nogc void opAssign(AbsolutePath p) {
         payload = p.payload;
-    }
-
-    pure nothrow const @nogc FileName opCast(T : FileName)() {
-        return FileName(payload);
     }
 
     pure nothrow const @nogc string opCast(T : string)() {
         return payload;
     }
 
+    bool opEquals(const string s) @safe pure nothrow const @nogc {
+        return payload == s;
+    }
+
+    bool opEquals(const Path s) @safe pure nothrow const @nogc {
+        return payload == s.payload;
+    }
+
+    bool opEquals(const AbsolutePath s) @safe pure nothrow const @nogc {
+        return payload == s.payload;
+    }
+
     private static Path expand(Path p) @trusted {
         import std.path : expandTilde;
 
         return p.expandTilde.Path;
-    }
-}
-
-struct AbsoluteFileName {
-    AbsolutePath payload;
-    alias payload this;
-
-    pure nothrow @nogc this(AbsolutePath p) {
-        payload = p;
-    }
-}
-
-struct AbsoluteDirectory {
-    AbsolutePath payload;
-    alias payload this;
-
-    pure nothrow @nogc this(AbsolutePath p) {
-        payload = p;
     }
 }
 
@@ -228,8 +137,8 @@ unittest {
     import std.path;
     import unit_threaded;
 
-    AbsolutePath(FileName("~/foo")).canFind('~').shouldEqual(false);
-    AbsolutePath(FileName("foo")).isAbsolute.shouldEqual(true);
+    AbsolutePath(Path("~/foo")).canFind('~').shouldEqual(false);
+    AbsolutePath(Path("foo")).isAbsolute.shouldEqual(true);
 }
 
 @("shall expand . without any trailing /.")
@@ -237,8 +146,8 @@ unittest {
     import std.algorithm : canFind;
     import unit_threaded;
 
-    AbsolutePath(FileName(".")).canFind('.').shouldBeFalse;
-    AbsolutePath(FileName("."), DirName(".")).canFind('.').shouldBeFalse;
+    AbsolutePath(Path(".")).canFind('.').shouldBeFalse;
+    AbsolutePath(Path("."), Path(".")).canFind('.').shouldBeFalse;
 }
 
 @("shall be an instantiation of Exists")
@@ -246,7 +155,7 @@ nothrow unittest {
     // the file is not expected to exist.
 
     try {
-        auto p = makeExists(AbsolutePath(FileName("foo")));
+        auto p = makeExists(AbsolutePath(Path("foo")));
     } catch (Exception e) {
     }
 }

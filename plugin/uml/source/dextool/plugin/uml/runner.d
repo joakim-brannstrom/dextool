@@ -44,7 +44,7 @@ auto runPlugin(string[] args) {
         file_process = FileProcess.make;
     } else {
         //TODO part of the multi file handling
-        file_process = FileProcess.make(FileName(pargs.inFiles[0]));
+        file_process = FileProcess.make(Path(pargs.inFiles[0]));
     }
 
     auto skipFileError = cast(Flag!"skipFileError") pargs.skipFileError;
