@@ -321,7 +321,7 @@ class BlobVfs {
         if (blob is null || edits.length == 0)
             return false;
 
-        change(*blob, edits);
+        .change(*blob, edits);
         return true;
     }
 }
@@ -353,6 +353,8 @@ Blob change(Blob blob, const(Edit)[] edits) @safe pure nothrow {
 }
 
 /** Merge edits by concatenation when the intervals overlap.
+ *
+ * This will never remove content from the original, only add to it.
  *
  * TODO: this my be a bit inefficient because it starts by clearing the content
  * and then adding it all back. Maybe there are a more efficient way?
@@ -411,6 +413,7 @@ unittest {
         e ~= new Edit(Interval(2, 5), "def");
         e ~= new Edit(Interval(8, 9), "ghi");
         e ~= new Edit(Interval(2, 5), "abc");
+        // prepend
         e ~= new Edit(Interval(0, 0), "start");
         auto m = merge(vfs.get(uri), e);
         vfs.change(m);
