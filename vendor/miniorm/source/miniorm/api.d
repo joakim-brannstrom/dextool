@@ -87,8 +87,9 @@ struct Miniorm {
     }
 
     void run(string sql, bool delegate(ResultRange) dg = null) {
-        if (isLog)
+        if (isLog) {
             logger.trace(sql);
+        }
         db.run(sql, dg);
     }
 
@@ -99,8 +100,9 @@ struct Miniorm {
 
     size_t run(T, Args...)(Count!T v, auto ref Args args) {
         const sql = v.toSql.toString;
-        if (isLog)
+        if (isLog) {
             logger.trace(sql);
+        }
         auto stmt = prepare(sql);
         return executeCheck(stmt, sql, v.binds, args).front.front.as!size_t;
     }
@@ -111,8 +113,9 @@ struct Miniorm {
         import std.range : inputRangeObject;
 
         const sql = v.toSql.toString;
-        if (isLog)
+        if (isLog) {
             logger.trace(sql);
+        }
 
         auto stmt = prepare(sql);
         auto result = executeCheck(stmt, sql, v.binds, args);
@@ -163,8 +166,9 @@ struct Miniorm {
 
     void run(T, Args...)(Delete!T v, auto ref Args args) {
         const sql = v.toSql.toString;
-        if (isLog)
+        if (isLog) {
             logger.trace(sql);
+        }
         auto stmt = prepare(sql);
         executeCheck(stmt, sql, v.binds, args);
     }
@@ -220,8 +224,9 @@ struct Miniorm {
             } else {
                 mixin(genBinding!T(false));
             }
-            if (isLog)
+            if (isLog) {
                 logger.trace(sql, " -> ", v);
+            }
             stmt.get.execute();
             stmt.get.reset();
         }
@@ -459,20 +464,22 @@ class SpinSqlTimeout : Exception {
  *
  * Note: If there are any errors in the query it will go into an infinite loop.
  */
-auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout,
-        Duration minTime = 50.dur!"msecs", Duration maxTime = 150.dur!"msecs") {
+auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout, Duration minTime = 50.dur!"msecs",
+        Duration maxTime = 150.dur!"msecs", const string file = __FILE__, const size_t line = __LINE__) {
     import core.thread : Thread;
     import std.datetime.stopwatch : StopWatch, AutoStart;
     import std.exception : collectException;
+    import std.format : format;
     import std.random : uniform;
 
     const sw = StopWatch(AutoStart.yes);
+    const location = format!" [%s:%s]"(file, line);
 
     while (sw.peek < timeout) {
         try {
             return query();
         } catch (Exception e) {
-            logFn(e.msg).collectException;
+            logFn(e.msg, location).collectException;
             // even though the database have a builtin sleep it still result in too much spam.
             () @trusted {
                 Thread.sleep(uniform(minTime.total!"msecs", maxTime.total!"msecs").dur!"msecs");
@@ -483,10 +490,12 @@ auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout,
     throw new SpinSqlTimeout(null);
 }
 
-auto spinSql(alias query, alias logFn = logger.warning)() nothrow {
+auto spinSql(alias query, alias logFn = logger.warning)(const string file = __FILE__,
+        const size_t line = __LINE__) nothrow {
     while (true) {
         try {
-            return spinSql!(query, logFn)(Duration.max);
+            return spinSql!(query, logFn)(Duration.max, 50.dur!"msecs",
+                    150.dur!"msecs", file, line);
         } catch (Exception e) {
         }
     }
