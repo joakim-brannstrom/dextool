@@ -71,14 +71,6 @@ struct Interval {
         return 0;
     }
 
-    int opCmp(const int rhs) @safe pure nothrow const @nogc {
-        if (start < rhs)
-            return -1;
-        if (start > rhs)
-            return 1;
-        return 0;
-    }
-
     import std.range : isOutputRange;
 
     string toString() @safe pure const {
@@ -364,6 +356,9 @@ BlobEdit merge(const Blob blob, Edit[] edits_) @safe pure nothrow {
     import std.algorithm : sort, min, filter;
     import std.array : array, appender;
 
+    import logger = std.experimental.logger;
+    import std.exception;
+
     auto r = new BlobEdit(new BlobIdentifier(blob.uri));
     const end = blob.content.length;
 
@@ -383,9 +378,9 @@ BlobEdit merge(const Blob blob, Edit[] edits_) @safe pure nothrow {
         if (e.interval.start > cur && cur < end) {
             auto ni = Interval(cur, min(e.interval.start, end));
             app.put(blob.content[ni.start .. ni.end]);
-            cur = min(e.interval.end, end);
         }
         app.put(e.content);
+        cur = min(e.interval.end, end);
     }
 
     if (cur < end) {
@@ -415,11 +410,13 @@ unittest {
         e ~= new Edit(Interval(2, 5), "abc");
         // prepend
         e ~= new Edit(Interval(0, 0), "start");
+        // delete the end
+        e ~= new Edit(Interval(9, 10), "");
         auto m = merge(vfs.get(uri), e);
         vfs.change(m);
     }
 
-    (cast(string) vfs.get(uri).content).should == "start01abcdef567ghi9";
+    (cast(string) vfs.get(uri).content).should == "start01abcdef567ghi";
 }
 
 private:
