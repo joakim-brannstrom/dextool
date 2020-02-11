@@ -57,6 +57,12 @@ struct Miniorm {
     }
 
     RefCntStatement prepare(string sql) {
+        // TODO: workaround to ensure it doesn't grow uncontrollably. Implement
+        // some kind of improved logic in the future which has e.g. a TTL.
+        if (cachedStmt.length > 128) {
+            cachedStmt.clear;
+        }
+
         if (auto v = sql in cachedStmt) {
             return RefCntStatement(*v);
         }
@@ -76,8 +82,9 @@ struct Miniorm {
     }
 
     private void cleanupCache() {
-        foreach (ref s; cachedStmt.byValue)
+        foreach (ref s; cachedStmt.byValue) {
             s.finalize;
+        }
         cachedStmt = null;
     }
 
