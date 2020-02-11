@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.mutation_type.uoi;
 
 import dextool.plugin.mutate.backend.type;
+import dextool.plugin.mutate.backend.analyze.ast;
 
 Mutation.Kind[] uoiLvalueMutations() @safe pure nothrow {
     return uoiLvalueMutationsRaw.dup;
@@ -19,6 +20,19 @@ Mutation.Kind[] uoiRvalueMutations() @safe pure nothrow {
     return uoiRvalueMutationsRaw.dup;
 }
 
+Mutation.Kind[] uoiMutations(Kind operator) @safe pure nothrow {
+    Mutation.Kind[] rval;
+
+    switch (operator) with (Mutation.Kind) {
+    case Kind.OpNegate:
+        rval = [uoiDel];
+        break;
+    default:
+    }
+
+    return rval;
+}
+
 immutable Mutation.Kind[] uoiLvalueMutationsRaw;
 immutable Mutation.Kind[] uoiRvalueMutationsRaw;
 
@@ -26,7 +40,7 @@ shared static this() {
     with (Mutation.Kind) {
         // inactivating unary that seem to be nonsense
         uoiLvalueMutationsRaw = [
-            uoiPostInc, uoiPostDec, uoiPreInc, uoiPreDec,
+            uoiDel, uoiPostInc, uoiPostDec, uoiPreInc, uoiPreDec,
             uoiNegation /*, uoiPositive, uoiNegative, uoiAddress,
             uoiIndirection, uoiComplement, uoiSizeof_,*/
         ];

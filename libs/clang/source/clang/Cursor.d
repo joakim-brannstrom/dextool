@@ -450,6 +450,7 @@ import clang.Visitor;
         return clang_equalCursors(cast(CXCursor) cursor.cx, cast(CXCursor) cx) != 0;
     }
 
+    /// Compute a hash value for the given cursor.
     size_t toHash() const nothrow @trusted {
         //TODO i'm not sure this is a good solution... investigate.
         try {

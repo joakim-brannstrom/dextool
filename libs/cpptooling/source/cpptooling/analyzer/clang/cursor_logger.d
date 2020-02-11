@@ -16,7 +16,8 @@ import clang.Cursor : Cursor;
 import clang.Visitor : Visitor;
 
 /// Log information of a cursor.
-void logNode(ref const(Cursor) c, in int indent = 0, string func = __FUNCTION__, uint line = __LINE__) @trusted {
+void logNode(ref const Cursor c, const int indent = 0, const string func = __FUNCTION__,
+        const uint line = __LINE__) @trusted {
     import std.array : array;
     import std.range : repeat;
     import logger = std.experimental.logger;

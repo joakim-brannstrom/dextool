@@ -70,7 +70,7 @@ class ShallDeleteFuncCalls : SdlFixture {
         auto r = precondition(testEnv);
         testAnyOrder!SubStr([
                 "'gun()' to ''", "'wun(5)' to ''", "'calc(6)' to ''",
-                "'wun(calc(6))' to ''", "'calc(7)' to ''", "'calc(8)' to ''",
+                "'wun(calc(6))' to ''",
                 ]).shouldBeIn(r.output);
         //TODO: maybe these should be deletable too? But it would require forward
         //looking.
@@ -88,7 +88,7 @@ class ShallDeleteThrowStmt : SdlFixture {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv);
 
-        testAnyOrder!SubStr([`from 'throw Foo()' to ''`]).shouldBeIn(r.output);
+        testAnyOrder!SubStr([`from 'throw Bun()' to ''`]).shouldBeIn(r.output);
 
         // this would result in "throw ;" which is totally junk. This is the
         // old behavior before the introduced fix of being throw aware.

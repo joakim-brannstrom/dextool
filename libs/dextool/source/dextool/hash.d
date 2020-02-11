@@ -118,9 +118,9 @@ struct Murmur3 {
         import std.range.primitives : put;
 
         if (fmt.spec == 'x')
-            formattedWrite(w, "%x%x", c0, c1);
+            formattedWrite(w, "%x_%x", c0, c1);
         else
-            formattedWrite(w, "%s%s", c0, c1);
+            formattedWrite(w, "%s_%s", c0, c1);
     }
 }
 

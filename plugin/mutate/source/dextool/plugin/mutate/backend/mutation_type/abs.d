@@ -11,14 +11,22 @@ module dextool.plugin.mutate.backend.mutation_type.abs;
 
 import dextool.plugin.mutate.backend.type;
 
+import dextool.plugin.mutate.backend.analyze.ast;
+
 Mutation.Kind[] absMutations() @safe pure nothrow {
     return absMutationsRaw.dup;
+}
+
+Mutation.Kind[] absMutations(Kind kind) @safe pure nothrow {
+    if (isExpression(kind))
+        return absMutationsRaw.dup;
+    return null;
 }
 
 immutable Mutation.Kind[] absMutationsRaw;
 
 shared static this() {
     with (Mutation.Kind) {
-        absMutationsRaw = [absPos, absNeg, absZero,];
+        absMutationsRaw = [absPos, absNeg, absZero];
     }
 }

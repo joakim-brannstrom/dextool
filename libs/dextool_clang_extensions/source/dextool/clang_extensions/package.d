@@ -228,8 +228,9 @@ extern (C++,dextool_clang_extension) {
 Operator getExprOperator(const CXCursor expr) @trusted {
     import std.algorithm : among;
 
-    // This check is technically not needed because the C++ source code try to do a dynamic cast.
-    // But by having a check here it is easier to review that THIS function is correctly implemented.
+    // This check is technically not needed because the C++ source code try to
+    // do a dynamic cast.  But by having a check here it is easier to review
+    // that THIS function is correctly implemented.
     // This function is safe for all possible inputs.
     // Note: CXXOperatorCallExpr is denoted callExpr in the C API.
     if (clang_getCursorKind(expr).among(CXCursorKind.binaryOperator,

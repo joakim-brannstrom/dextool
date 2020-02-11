@@ -167,9 +167,8 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
         const checksum = db.getChecksum(st_id).get;
 
         // assume that mutant has kind
-        const txt = makeMutationText(fio.makeInput(AbsolutePath(mut.get.file,
-                fio.getOutputDir)), Offset(mut.get.sloc.line,
-                mut.get.sloc.column), db.getKind(id), mut.get.lang).mutation;
+        const txt = makeMutationText(fio.makeInput(fio.toAbsoluteRoot(mut.get.file)),
+                mut.get.mp.offset, db.getKind(id), mut.get.lang).mutation;
 
         db.markMutant(id, mut.get.file, mut.get.sloc, st_id, checksum, status,
                 Rationale(rationale), txt.idup);

@@ -133,29 +133,26 @@ This schema is only applicable when type of the expressions on both sides of an 
 | `x != y`            | `true`   |          |          |
 
 
-Specific additional schema for equal:
-TODO this need further investigation.
-It seems like the generated mutant can be simplified to true/false but for now I am not doing that because I may be wrong.
+Additional schema for equal and not equal when the range of lhs and rhs is
+known:
 
-| Original Expression | Mutant 1 | Condition                    | Always |
-| ------------------- | -------- | ---------------------------- | ------ |
-| `x == y`            | `x <= y` | if x is the min enum literal | `true` |
-| `x == y`            | `x >= y` | if x is the max enum literal | `true` |
-| `x == y`            | `x >= y` | if y is the min enum literal | `true` |
-| `x == y`            | `x <= y` | if y is the max enum literal | `true` |
+| Original Expression | Mutant 1 | Mutant 2 | Mutant 3 | Condition                    |
+| ------------------- | -------- | -------- | -------- | ---------------------------- |
+| `x == y`            | `x <= y` | `x >= y` | `false`  |                              |
+| `x != y`            | `x < y`  | `x > y`  | `true`   |                              |
+| `x == y`            |          | `true`   | `false`  | if x is the min enum literal |
+| `x == y`            |          | `true`   | `false`  | if x is the max enum literal |
+| `x == y`            |          | `true`   | `false`  | if y is the min enum literal |
+| `x == y`            |          | `true`   | `false`  | if y is the max enum literal |
+| `x != y`            |          | `false`  | `true`   | if x is the min enum literal |
+| `x != y`            |          | `false`  | `true`   | if x is the max enum literal |
+| `x != y`            |          | `false`  | `true`   | if y is the min enum literal |
+| `x != y`            |          | `false`  | `true`   | if y is the max enum literal |
 
-TODO further investigate this.
-
-Specific additional schema for not equal:
-
-| Original Expression | Mutant 1 | Condition                    | Always |
-| ------------------- | -------- | ---------------------------- | ------ |
-| `x != y`            | `x < y`  | if x is the min enum literal | `true` |
-| `x != y`            | `x > y`  | if x is the max enum literal | `true` |
-| `x != y`            | `x > y`  | if y is the min enum literal | `true` |
-| `x != y`            | `x < y`  | if y is the max enum literal | `true` |
-
-If the `x != y` is true then a change to a relational operator is equivalent to always `true`.
+Lets explain why the third line is true. Because `x` is on the boundary of `y`
+it means that the only valid mutants are `>=` and `false` if we consider the
+RORG schema. `>=` would in this case always be `true`. Thus it follows that the
+mutants for the third line should be `true` and `false`.
 
 ## Why?
 

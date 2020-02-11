@@ -69,13 +69,13 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "# Mutation Type",
         "## Mutants",
-        "| From | To   | File Line:Column                                                           | ID | Status |",
-        "|------|------|----------------------------------------------------------------------------|----|--------|",
-        "| `>`  | `>=` | build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp 6:11 | 1  | alive  |",
+        "| From | To         | File Line:Column                                                          | ID | Status |",
+        "|------|------------|---------------------------------------------------------------------------|----|--------|",
+        "| `x`  | `fail_...` | build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp 6:9 | 1  | alive  |",
         "## Alive Mutation Statistics",
-        "| Percentage | Count | From | To   |",
-        "|------------|-------|------|------|",
-        "| 100        | 2     | `>`  | `>=` |",
+        "| Percentage | Count | From | To         |",
+        "|------------|-------|------|------------|",
+        "| 100        | 1     | `x`  | `fail_...` |",
         "## Summary",
         "Time spent:",
         "Score:",
@@ -87,7 +87,7 @@ unittest {
     ]).shouldBeIn(r.output);
 }
 
-@(testId ~ "shall report the ROR mutations in the database as gcc compiler warnings/notes with fixits to stderr")
+@(testId ~ "shall report mutants in the database as gcc compiler warnings/notes with fixits to stderr")
 unittest {
     auto input_src = testData ~ "report_one_ror_mutation_point.cpp";
     mixin(EnvSetup(globalTestdir));
@@ -101,41 +101,15 @@ unittest {
         .run;
 
     testConsecutiveSparseOrder!SubStr([
-                      ":6:11: warning: ror: replace '>' with '>='",
-                      ":6:11: note: status:unknown id:",
-                      `fix-it:"` ~ input_src.toString ~ `":{6:11-6:12}:">="`,
-                      ":6:11: warning: ror: replace '>' with '!='",
-                      ":6:11: note: status:unknown id:",
-                      `fix-it:"` ~ input_src.toString ~ `":{6:11-6:12}:"!="`,
-                      ":6:9: warning: rorp: replace 'x > 3' with 'false'",
-                      ":6:9: note: status:unknown id:",
-                      `fix-it:"` ~ input_src.toString ~ `":{6:9-6:14}:"false"`,
-    ]).shouldBeIn(r.output);
-}
-
-@(testId ~ "shall report tool integration notes with the full text for dccTrue and dccBomb")
-unittest {
-    auto input_src = testData ~ "report_tool_integration.cpp";
-    mixin(EnvSetup(globalTestdir));
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(input_src)
-        .run;
-    auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addArg(["--mutant", "dcc"])
-        .addArg(["--style", "compiler"])
-        .addArg(["--level", "all"])
-        .run;
-
-    testConsecutiveSparseOrder!SubStr([
-                      ":7:9: warning: dcr: replace 'var1_...' with 'true'",
-                      ":7:9: note: status:unknown id:",
-                      ":7:9: note: replace 'var1_long_text > 5'",
-                      `fix-it:"` ~ input_src.toString ~ `":{7:9-7:27}:"true"`,
-                      ":11:5: warning: dcc: replace 'retur...' with '*((ch...'",
-                      ":11:5: note: status:unknown id:",
-                      ":11:5: note: replace 'return true;'",
-                      ":11:5: note: with '*((char*)0)='x';break;'",
-                      `fix-it:"` ~ input_src.toString ~ `":{11:5-12:20}:"*((char*)0)='x';break;"`,
+        ":6:9: warning: rorp: replace 'x > 3' with 'false'",
+        ":6:9: note: status:unknown id:",
+        `fix-it:"` ~ input_src.toString ~ `":{6:9-6:14}:"false"`,
+        ":6:11: warning: ror: replace '>' with '!='",
+        ":6:11: note: status:unknown id:",
+        `fix-it:"` ~ input_src.toString ~ `":{6:11-6:12}:"!="`,
+        ":6:11: warning: ror: replace '>' with '>='",
+        ":6:11: note: status:unknown id:",
+        `fix-it:"` ~ input_src.toString ~ `":{6:11-6:12}:">="`,
     ]).shouldBeIn(r.output);
 }
 
@@ -168,7 +142,7 @@ unittest {
     j["timeout"].integer.shouldEqual(0);
     j["total"].integer.shouldEqual(0);
     j["totalTime"].integer.shouldEqual(0);
-    j["untested"].integer.shouldEqual(3);
+    j["untested"].integer.shouldEqual(7);
 }
 
 @(testId ~ "shall report mutants in csv format")
@@ -181,16 +155,15 @@ unittest {
         .addInputArg(input_src)
         .run;
     auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addArg(["--mutant", "dcr"])
         .addArg(["--style", "csv"])
         .addArg(["--level", "all"])
         .run;
 
     testConsecutiveSparseOrder!SubStr([
         `"ID","Kind","Description","Location","Comment"`,
-        `"8","dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"9","dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"27","dcr","'case 2:`,
+        `"dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
+        `"dcr","'case 2:`,
         `        return true;' to ''","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:11:5",""`,
     ]).shouldBeIn(r.output);
 }
@@ -231,9 +204,9 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase |",
         "|------------|-------|----------|",
-        "| 80         | 4     | tc_2     |",
-        "| 40         | 2     | tc_3     |",
+        "| 60         | 3     | tc_2     |",
         "| 40         | 2     | tc_1     |",
+        "| 20         | 1     | tc_3     |",
     ]).shouldBeIn(r.output);
 }
 
@@ -302,8 +275,8 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase |",
         "|------------|-------|----------|",
-        "| 40         | 2     | tc_1     |",
-        "| 40         | 2     | tc_3     |",
+        "| 25         | 1     | tc_1     |",
+        "| 25         | 1     | tc_3     |",
     ]).shouldBeIn(r.output);
 }
 
@@ -318,7 +291,7 @@ unittest {
     // act
     makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(MutationId(3))])
+        .addArg(["--id",        to!string(3)])
         .addArg(["--to-status", to!string(Mutation.Status.killedByCompiler)])
         .addArg(["--rationale", `"Marked mutant to be reported"`])
         .run;
@@ -329,9 +302,9 @@ unittest {
 
     // assert
     testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)
-        "| File ", "        | Line | Column | Mutation | Status           | Rationale                      |",
-        "|------", "--------|------|--------|----------|------------------|--------------------------------|",
-        "|", `fibonacci.cpp | 8    | 10     | !=       | killedByCompiler | "Marked mutant to be reported" |`,
+        "| File ", "        | Line | Column | Mutation        | Status           | Rationale                      |",
+        "|------", "--------|------|--------|-----------------|------------------|--------------------------------|",
+        "|", `fibonacci.cpp | 8    | 8      | -abs_dextool(x) | killedByCompiler | "Marked mutant to be reported" |`,
     ]).shouldBeIn(r.output);
 }
 
@@ -425,7 +398,6 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
         auto r = makeDextoolReport(testEnv, testData.dirName)
             .addArg(["--style", "html"])
             .addArg(["--logdir", testEnv.outdir.toString])
-            .addArg(["--mutant", "rorp"])
             .addArg("--diff-from-stdin")
             .addArg(["--section", "diff"])
             .setStdin(readText(programFile ~ ".diff"))
@@ -434,7 +406,6 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
         makeDextoolReport(testEnv, testData.dirName)
             .addArg(["--style", "json"])
             .addArg(["--logdir", testEnv.outdir.toString])
-            .addArg(["--mutant", "rorp"])
             .addArg("--diff-from-stdin")
             .addArg(["--section", "diff"])
             .setStdin(readText(programFile ~ ".diff"))
@@ -444,14 +415,14 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
         testConsecutiveSparseOrder!SubStr(["warning:"]).shouldNotBeIn(r.output);
 
         testConsecutiveSparseOrder!SubStr([
-            "Diff View rorp",
-            "Mutation Score <b>0.66",
+            "Diff View",
+            "Mutation Score <b>0.9",
             "Analyzed Diff",
             "build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp",
         ]).shouldBeIn(File((testEnv.outdir ~ "html/diff_view.html").toString).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["diff"];
-        (cast(int) (100 * j["score"].floating)).shouldEqual(66);
+        (cast(int) (10 * j["score"].floating)).shouldEqual(9);
     }
 }
 
@@ -522,25 +493,25 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            "Score:       0.688",
+            "Score:       0.5",
             "Total:       26",
-            "Untested:    19",
+            "Untested:    34",
             "Alive:       15",
             "Killed:      11",
             "Timeout:     0",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 10 (0.385",
+            "Suppressed (nomut): 4 (0.15",
         ]).shouldBeIn(plain.output);
 
         testConsecutiveSparseOrder!SubStr([
-            "Score:       0.688",
+            "Score:       0.5",
             "Total:       26",
-            "Untested:    19",
+            "Untested:    34",
             "Alive:       15",
             "Killed:      11",
             "Timeout:     0",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 10 (0.385",
+            "Suppressed (nomut): 4 (0.15",
         ]).shouldBeIn(markdown.output);
     }
 }
@@ -565,11 +536,11 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            "Mutation Score <b>0.688</b>",
+            "Mutation Score <b>0.5</b>",
             "Total",
             "26",
             "Untested",
-            "19",
+            "34",
             "Alive",
             "15",
             "Killed",
@@ -579,9 +550,9 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "Killed by compiler",
             "0",
             "NoMut",
-            "10",
+            "4",
             "NoMut/total",
-            "0.385",
+            "0.15",
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "stats.html")).byLineCopy.array);
     }
 }
@@ -604,16 +575,19 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
 
-    testConsecutiveSparseOrder!SubStr([
-        "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''","'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",             "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",
-        "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'", "'meta' : 'nomut'",
-        "'meta' : 'nomut'",
-        "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",
-        "'meta' : 'nomut'",
-        "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''", "'meta' : ''",
-        "'meta' : 'nomut'",
-        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
-    }
+        // this is a bit inprecies but there should be a couple, unknown the
+        // number, of mutants without any metadata. Then there should be some
+        // with nomut.
+        // dfmt off
+        testConsecutiveSparseOrder!SubStr([
+            "'meta' : ''",
+            "'meta' : ''",
+            "'meta' : ''",
+            "'meta' : 'nomut'",
+            "'meta' : 'nomut'",
+            ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
+        // dfmt on
+}
 }
 
 class ShallReportHtmlNoMutSummary : LinesWithNoMut {
@@ -628,27 +602,28 @@ class ShallReportHtmlNoMutSummary : LinesWithNoMut {
         foreach (i; 15 .. 30)
             db.updateMutation(MutationId(i), Mutation.Status.alive, 5.dur!"msecs", null);
 
-        makeDextoolReport(testEnv, testData.dirName)
-            .addArg(["--section", "summary"])
-            .addArg(["--style", "html"])
-            .addArg(["--logdir", testEnv.outdir.toString])
-            .run;
+        makeDextoolReport(testEnv, testData.dirName).addArg([
+                "--section", "summary"
+                ]).addArg(["--style", "html"]).addArg([
+                "--logdir", testEnv.outdir.toString
+                ]).run;
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            `<h2>group1</h2>`,
-            `<a href="files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html`,
-            `<br`,
-            `with comment`
-        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "nomut.html")).byLineCopy.array);
+                `<h2>group1</h2>`,
+                `<a href="files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html`,
+                `<br`, `with comment`
+                ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
+                "nomut.html")).byLineCopy.array);
 
         // mutants should only be reported one time.
         testConsecutiveSparseOrder!SubStr([
-            `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#28`,
-            `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#28`,
-            `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#29`,
-            `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#29`,
-        ]).shouldNotBeIn(File(buildPath(testEnv.outdir.toString, "html", "nomut.html")).byLineCopy.array);
+                `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#28`,
+                `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#28`,
+                `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#29`,
+                `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#29`,
+                ]).shouldNotBeIn(File(buildPath(testEnv.outdir.toString,
+                "html", "nomut.html")).byLineCopy.array);
     }
 }
 
@@ -668,37 +643,38 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
         // tc3: [1,12]
-        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2,tc3]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [tc1]);
-        db.updateMutation(MutationId(8), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2]);
-        db.updateMutation(MutationId(12), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2,tc3]);
-        db.updateMutation(MutationId(15), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2]);
+        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2, tc3
+                ]);
+        db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1
+                ]);
+        db.updateMutation(MutationId(8), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2
+                ]);
+        db.updateMutation(MutationId(12), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2, tc3
+                ]);
+        db.updateMutation(MutationId(15), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2
+                ]);
 
         // Act
-        makeDextoolReport(testEnv, testData.dirName)
-            .addArg(["--style", "html"])
-            .addArg(["--section", "tc_similarity"])
-            .addArg(["--logdir", testEnv.outdir.toString])
-            .run;
+        makeDextoolReport(testEnv, testData.dirName).addArg(["--style", "html"])
+            .addArg(["--section", "tc_similarity"]).addArg([
+                    "--logdir", testEnv.outdir.toString
+                    ]).run;
 
         // Assert
         testConsecutiveSparseOrder!SubStr([
-            `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
-            `<td>tc_2</td>`,
-            `<td>0.667</td>`,
-            `<td>tc_3</td>`,
-            `<td>0.333</td>`,
-            `<h2 class="tbl_header"><i class="right"></i> tc_2</h2>`,
-            `<td>tc_1</td>`,
-            `<td>1.00</td>`,
-            `<td>tc_3</td>`,
-            `<td>0.500</td>`,
-            `<h2 class="tbl_header"><i class="right"></i> tc_3</h2>`,
-            `<td>tc_1</td>`,
-            `<td>1.00</td>`,
-            `<td>tc_2</td>`,
-            `<td>1.00</td>`,
-        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "test_case_similarity.html")).byLineCopy.array);
+                `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
+                `<td>tc_2`, `<td>0.8`, `<td>tc_3`, `<td>0.2`,
+                `<h2 class="tbl_header"><i class="right"></i> tc_2</h2>`,
+                `<td>tc_1`, `<td>1.00`, `<td>tc_3`, `<td>0.2`,
+                `<h2 class="tbl_header"><i class="right"></i> tc_3</h2>`,
+                `<td>tc_1`, `<td>1.00`, `<td>tc_2`, `<td>1.00`,
+                ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
+                "test_case_similarity.html")).byLineCopy.array);
     }
 }
 
@@ -718,25 +694,33 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
         // tc3: [1,12]
-        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2,tc3]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [tc1]);
-        db.updateMutation(MutationId(8), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2]);
-        db.updateMutation(MutationId(12), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2,tc3]);
-        db.updateMutation(MutationId(15), Mutation.Status.killed, 5.dur!"msecs", [tc1,tc2]);
+        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2, tc3
+                ]);
+        db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1
+                ]);
+        db.updateMutation(MutationId(8), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2
+                ]);
+        db.updateMutation(MutationId(12), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2, tc3
+                ]);
+        db.updateMutation(MutationId(15), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2
+                ]);
 
         // Act
-        makeDextoolReport(testEnv, testData.dirName)
-            .addArg(["--style", "html"])
-            .addArg(["--section", "tc_unique"])
-            .addArg(["--logdir", testEnv.outdir.toString])
-            .run;
+        makeDextoolReport(testEnv, testData.dirName).addArg(["--style", "html"])
+            .addArg(["--section", "tc_unique"]).addArg([
+                    "--logdir", testEnv.outdir.toString
+                    ]).run;
 
         // Assert
         testConsecutiveSparseOrder!SubStr([
-            `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
-            `<table class="overlap_tbl">`,
-            `<td>tc_2</td>`,
-            `<td>tc_3</td>`,
-        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "test_case_unique.html")).byLineCopy.array);
+                `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
+                `<table class="overlap_tbl">`, `<td>tc_2</td>`, `<td>tc_3</td>`,
+                ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
+                "test_case_unique.html")).byLineCopy.array);
     }
 }

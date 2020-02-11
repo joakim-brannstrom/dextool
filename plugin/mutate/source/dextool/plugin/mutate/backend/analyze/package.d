@@ -14,12 +14,13 @@ TODO cache the checksums. They are *heavy*.
 module dextool.plugin.mutate.backend.analyze;
 
 import logger = std.experimental.logger;
-import std.algorithm : map, filter;
+import std.algorithm : map, filter, joiner, cache;
 import std.array : array, appender;
 import std.concurrency;
 import std.datetime : dur;
 import std.exception : collectException;
 import std.parallelism;
+import std.range : tee;
 import std.typecons;
 
 import colorlog;
@@ -27,7 +28,6 @@ import colorlog;
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
     CompileCommandDB, SearchResult;
 import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
-import dextool.plugin.mutate.backend.analyze.visitor : makeRootVisitor;
 import dextool.plugin.mutate.backend.database : Database, LineMetadata, MutationPointEntry2;
 import dextool.plugin.mutate.backend.database.type : MarkedMutant;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
@@ -47,7 +47,6 @@ version (unittest) {
  */
 ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
         ConfigCompiler conf_compiler, UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @trusted {
-    import std.algorithm : filter, map;
     import dextool.plugin.mutate.backend.diff_parser : diffFromStdin, Diff;
 
     auto fileFilter = () {
@@ -55,8 +54,8 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
             return FileFilter(fio.getOutputDir, conf_analyze.unifiedDiffFromStdin,
                     conf_analyze.unifiedDiffFromStdin ? diffFromStdin : Diff.init);
         } catch (Exception e) {
-            logger.warning("Unable to parse diff");
             logger.info(e.msg);
+            logger.warning("Unable to parse diff");
         }
         return FileFilter.init;
     }();
@@ -72,8 +71,16 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
             conf_analyze.prune, conf_analyze.fastDbStore);
 
     int taskCnt;
+    Set!AbsolutePath alreadyAnalyzed;
+    // dfmt off
     foreach (f; frange.filter!(a => !a.isNull)
             .map!(a => a.get)
+            // The tool only supports analyzing a file one time.
+            // This optimize it in some cases where the same file occurs
+            // multiple times in the compile commands database.
+            .filter!(a => a.absoluteFile !in alreadyAnalyzed)
+            .tee!(a => alreadyAnalyzed.add(a.absoluteFile))
+            .cache
             .filter!(a => !isPathInsideAnyRoot(conf_analyze.exclude, a.absoluteFile))
             .filter!(a => fileFilter.shouldAnalyze(a.absoluteFile))) {
         try {
@@ -84,6 +91,7 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
             logger.warning(e.msg);
         }
     }
+    // dfmt on
 
     // inform the store actor of how many analyse results it should *try* to
     // save.
@@ -382,35 +390,61 @@ struct Analyze {
             return;
         }
 
-        () @trusted {
-            auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-            auto tstream = new TokenStreamImpl(ctx);
+        try {
+            () @trusted {
+                auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+                auto tstream = new TokenStreamImpl(ctx);
 
-            analyzeForMutants(in_file, checked_in_file, ctx, tstream);
-            // TODO: filter files so they are only analyzed once for comments
-            foreach (f; result.fileId.byValue)
-                analyzeForComments(f, tstream);
-        }();
+                analyzeForMutants(in_file, checked_in_file, ctx, tstream);
+                // TODO: filter files so they are only analyzed once for comments
+                foreach (f; result.fileId.byValue)
+                    analyzeForComments(f, tstream);
+            }();
+        } catch (Exception e) {
+            () @trusted { logger.trace(e); }();
+            logger.info(e.msg);
+            logger.error("failed analyze of ", in_file).collectException;
+        }
     }
 
     void analyzeForMutants(SearchResult in_file,
             Exists!AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
-        auto root = makeRootVisitor(fio, val_loc, tstream, cache);
-        analyzeFile(checked_in_file, in_file.flags.completeFlags, root.visitor, ctx);
+        import dextool.plugin.mutate.backend.analyze.schemata;
+        import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
 
-        result.mutationPoints = root.mutationPoints;
-        foreach (f; root.mutationPointFiles) {
+        logger.infof("Analyzing %s", checked_in_file);
+        auto tu = ctx.makeTranslationUnit(checked_in_file, in_file.flags.completeFlags);
+        if (tu.hasParseErrors) {
+            logDiagnostic(tu);
+            logger.error("Compile error...");
+            return;
+        }
+
+        auto ast = toMutateAst(tu.cursor);
+        debug logger.trace(ast);
+        auto mutants = toMutants(ast, fio, val_loc);
+        .destroy(ast);
+
+        debug logger.trace(mutants);
+        auto codeMutants = toCodeMutants(mutants, fio, tstream);
+        debug logger.trace(codeMutants);
+        mutants = null;
+
+        result.mutationPoints = codeMutants.points.byKeyValue.map!(
+                a => a.value.map!(b => MutationPointEntry2(fio.toRelativeRoot(a.key),
+                b.offset, b.sloc.begin, b.sloc.end, b.mutants))).joiner.array;
+        foreach (f; codeMutants.points.byKey) {
             const id = result.idFile.length;
-            result.idFile[f.path] = id;
-            result.fileId[id] = f.path;
-            result.infoId[id] = Result.FileInfo(f.cs, f.lang);
+            result.idFile[f] = id;
+            result.fileId[id] = f;
+            result.infoId[id] = Result.FileInfo(codeMutants.csFiles[f], codeMutants.lang);
         }
     }
 
     /**
      * Tokens are always from the same file.
      */
-    void analyzeForComments(Path file, TokenStream tstream) @trusted {
+    void analyzeForComments(AbsolutePath file, TokenStream tstream) @trusted {
         import std.algorithm : filter;
         import clang.c.Index : CXTokenKind;
         import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
@@ -445,8 +479,8 @@ struct Analyze {
         FileInfo[ulong] infoId;
 
         /// The IDs is unique for *this* analyze, not globally.
-        long[Path] idFile;
-        Path[long] fileId;
+        long[AbsolutePath] idFile;
+        AbsolutePath[long] fileId;
 
         // The FileID used in the metadata is local to this analysis. It has to
         // be remapped when added to the database.

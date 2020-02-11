@@ -84,3 +84,73 @@ private @safe nothrow struct AST_BreathFirstResult {
 auto visitBreathFirst(Cursor c) @trusted {
     return AST_BreathFirstResult(c);
 }
+
+private @safe nothrow struct AST_DepthFirstResult {
+    static import std.array;
+    import std.array : appender;
+    import std.container : Array;
+    import dextool.set : Set;
+
+    //private Array!(Cursor) stack;
+    // keeps the first node for each level of nodes that is traversed.
+    //private Set!Cursor depth_;
+    private Cursor[][] stack;
+
+    this(Cursor c) @trusted {
+        stack ~= [c];
+    }
+
+    ASTCursor front() @safe nothrow const {
+        assert(!empty, "Can't get front of an empty range");
+        return ASTCursor(stack[$ - 1][0], depth);
+    }
+
+    void popFront() @trusted {
+        assert(!empty, "Can't pop front of an empty range");
+        import clang.Visitor;
+
+        void popEmpty() {
+            while (!std.array.empty(stack) && std.array.empty(stack[$ - 1])) {
+                stack = stack[0 .. $ - 1];
+            }
+        }
+
+        popEmpty;
+
+        auto f = stack[$ - 1][0];
+        stack[$ - 1] = stack[$ - 1][1 .. $];
+
+        auto app = appender!(Cursor[])();
+        foreach (cursor, _; Visitor(f)) {
+            app.put(cursor);
+        }
+        if (!std.array.empty(app.data)) {
+            stack ~= app.data;
+        }
+
+        popEmpty;
+    }
+
+    bool empty() @safe nothrow const {
+        return std.array.empty(stack);
+    }
+
+    size_t depth() @safe pure nothrow const @nogc {
+        return stack.length;
+    }
+}
+
+/** opApply compatible visitor of the clang AST, breath first.
+ *
+ * Example:
+ * ---
+ * foreach (child; c.visitBreathFirst.until!(a => a.depth == 3)) {
+ *      if (child.kind == CXCursorKind.CXCursor_StructDecl) {
+ *      ...
+ *      }
+ * }
+ * ---
+ */
+auto visitDepthFirst(Cursor c) @trusted {
+    return AST_DepthFirstResult(c);
+}

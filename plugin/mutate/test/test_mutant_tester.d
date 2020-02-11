@@ -731,7 +731,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
         auto r0 = makeDextoolReport(testEnv, testData.dirName).addArg([
                 "--section", "tc_stat"
                 ]).run;
-        testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(
+        testConsecutiveSparseOrder!SubStr(["| 100        | 1     | tc_1     |"]).shouldBeIn(
                 r0.output);
 
         // Act
@@ -741,7 +741,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
         auto r1 = makeDextoolReport(testEnv, testData.dirName).addArg([
                 "--section", "tc_stat"
                 ]).run;
-        testConsecutiveSparseOrder!SubStr(["| 100        | 2     | tc_1     |"]).shouldBeIn(
+        testConsecutiveSparseOrder!SubStr(["| 100        | 1     | tc_1     |"]).shouldBeIn(
                 r1.output);
     }
 }
@@ -982,7 +982,7 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
 
         testConsecutiveSparseOrder!Re([
                 `.*Using random seed 42`,
-                `.*Test sequence \[13, 12, 18, 9, 1, 16, 10, 17, 8, 14, 15, 4, 5, 7, 11, 6, 2, 3\]`,
+                `.*Test sequence \[22, 7, 1, 23, 15, 19, 14, 8, 21, 6, 18, 11, 20, 2, 5, 9, 13, 12, 17, 10, 3, 16, 4\]`,
                 ]).shouldBeIn(r.output);
         // dfmt on
     }

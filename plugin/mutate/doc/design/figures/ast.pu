@@ -1,0 +1,43 @@
+@startuml
+'left to right direction
+'skinparam componentStyle uml2
+'skinparam linetype polyline
+'skinparam linetype ortho
+hide circle
+hide methods
+'hide members
+
+class Node {
+    repr: string
+    offset: start/end
+    sloc: line/column
+    file: fileId
+}
+
+class Block
+
+class Branch
+
+class Predicate
+Predicate -- Branch
+
+class Condition
+Condition -- Predicate
+
+class Type
+
+class Interval
+Interval --> Type
+
+class Unary {
+    node: Node
+}
+
+class Binary {
+    lhs: Node
+    rhs: Node
+}
+
+class Operator
+
+@enduml

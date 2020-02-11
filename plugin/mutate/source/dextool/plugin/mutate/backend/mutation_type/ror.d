@@ -11,14 +11,24 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type.ror;
 
+import std.array : empty;
+
 import dextool.plugin.mutate.backend.type;
-import dextool.clang_extensions : OpKind;
+
+import dextool.plugin.mutate.backend.analyze.ast;
+
+@safe:
+
+/// Information used to intelligently generate ror mutants;
+struct RorInfo {
+    Kind operator;
+    Type lhs;
+    Symbol lhsSym;
+    Type rhs;
+    Symbol rhsSym;
+}
 
 /** Produce the mutations that can be applied on an operator.
- *
- * Params:
- *  op = the c/c++ operator in the AST
- *  tyi = type info about the expressions on the sides of the operator
  *
  * The resulting schema is intended to be:
  * normal + pointer - float - enum - bool
@@ -29,133 +39,140 @@ import dextool.clang_extensions : OpKind;
  *
  * See SPC-mutation_ror for the subsumed table.
  */
-auto rorMutations(const OpKind op, const OpTypeInfo tyi) @safe pure nothrow {
+auto rorMutations(RorInfo info) {
     import std.typecons : Tuple;
     import std.algorithm : among;
 
     alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "expr");
-
     Rval rval;
 
-    with (Mutation.Kind) {
-        if (op.among(OpKind.LT, OpKind.OO_Less)) {
-            rval = Rval([rorLE, rorpLE, rorNE, rorpNE], [rorFalse]);
-        } else if (op.among(OpKind.GT, OpKind.OO_Greater)) {
-            rval = Rval([rorGE, rorpGE, rorNE, rorpNE], [rorFalse]);
-        } else if (op.among(OpKind.LE, OpKind.OO_LessEqual)) {
-            rval = Rval([rorLT, rorpLT, rorEQ, rorpEQ], [rorTrue]);
-        } else if (op.among(OpKind.GE, OpKind.OO_GreaterEqual)) {
-            rval = Rval([rorGT, rorpGT, rorEQ, rorpEQ], [rorTrue]);
-        } else if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
-            rval = Rval([rorLE, rorpLE, rorGE, rorpGE], [rorFalse]);
-        } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {
-            rval = Rval([rorLT, rorpLT, rorGT, rorpGT], [rorTrue]);
-        }
+    // initialize rval with the basic ROR schema
+    switch (info.operator) with (Mutation.Kind) {
+    case Kind.OpLess:
+        rval = Rval([rorLE, rorpLE, rorNE, rorpNE], [rorFalse]);
+        break;
+    case Kind.OpGreater:
+        rval = Rval([rorGE, rorpGE, rorNE, rorpNE], [rorFalse]);
+        break;
+    case Kind.OpLessEq:
+        rval = Rval([rorLT, rorpLT, rorEQ, rorpEQ], [rorTrue]);
+        break;
+    case Kind.OpGreaterEq:
+        rval = Rval([rorGT, rorpGT, rorEQ, rorpEQ], [rorTrue]);
+        break;
+    case Kind.OpEqual:
+        rval = Rval([rorLE, rorpLE, rorGE, rorpGE], [rorFalse]);
+        break;
+    case Kind.OpNotEqual:
+        rval = Rval([rorLT, rorpLT, rorGT, rorpGT], [rorTrue]);
+        break;
+    default:
+    }
+
+    // in case the operator isn't a ROR operator.
+    if (rval.op.empty && rval.expr.empty)
+        return rval;
+
+    // #SPC-mutation_ror_enum
+    void discreteSchema() {
+        // information about the type and the concrete value of lhs is available
+        if (info.lhs !is null && info.lhsSym !is null)
+            with (Mutation.Kind) {
+                const c = info.lhs.range.compare(info.lhsSym.value);
+
+                if (c == Range.CompareResult.inside) {
+                    // do nothing because lhs is inside thus all ROR mutants are possible
+                } else if (info.operator.among(Kind.OpEqual, Kind.OpNotEqual)
+                        && c.among(Range.CompareResult.onLowerBound,
+                            Range.CompareResult.onUpperBound)) {
+                    rval = Rval(null, [rorTrue, rorFalse]);
+                }
+            }
+
+        if (info.rhs !is null && info.rhsSym !is null)
+            with (Mutation.Kind) {
+                const c = info.rhs.range.compare(info.rhsSym.value);
+
+                if (c == Range.CompareResult.inside) {
+                    // do nothing because lhs is inside thus all ROR mutants are possible
+                } else if (info.operator.among(Kind.OpEqual, Kind.OpNotEqual)
+                        && c.among(Range.CompareResult.onLowerBound,
+                            Range.CompareResult.onUpperBound)) {
+                    rval = Rval(null, [rorTrue, rorFalse]);
+                }
+            }
     }
 
     // #SPC-mutation_ror_float
-    void floatingPointSchema() {
-        with (Mutation.Kind) {
-            if (op.among(OpKind.LT, OpKind.OO_Less)) {
-                rval.op = [rorGT, rorpGT];
-            } else if (op.among(OpKind.GT, OpKind.OO_Greater)) {
-                rval.op = [rorLT, rorpLT];
-            } else if (op.among(OpKind.LE, OpKind.OO_LessEqual)) {
-                rval.op = [rorGT, rorpGT];
-            } else if (op.among(OpKind.GE, OpKind.OO_GreaterEqual)) {
-                rval.op = [rorLT, rorpLT];
-            }
-        }
-    }
-
-    // #SPC-mutation_ror_enum
-    void enumSchema() {
-        with (Mutation.Kind) {
-            if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
-                if (tyi == OpTypeInfo.enumLhsIsMin) {
-                    rval.op = [rorLE, rorpLE];
-                } else if (tyi == OpTypeInfo.enumLhsIsMax) {
-                    rval.op = [rorGE, rorpGE];
-                } else if (tyi == OpTypeInfo.enumRhsIsMin) {
-                    rval.op = [rorGE, rorpGE];
-                } else if (tyi == OpTypeInfo.enumRhsIsMax) {
-                    rval.op = [rorLE, rorpLE];
-                }
-            } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {
-                if (tyi == OpTypeInfo.enumLhsIsMin) {
-                    rval.op = [rorLT, rorpLT];
-                } else if (tyi == OpTypeInfo.enumLhsIsMax) {
-                    rval.op = [rorGT, rorpGT];
-                } else if (tyi == OpTypeInfo.enumRhsIsMin) {
-                    rval.op = [rorGT, rorpGT];
-                } else if (tyi == OpTypeInfo.enumRhsIsMax) {
-                    rval.op = [rorLT, rorpLT];
-                }
-            }
-        }
-    }
-
-    // #SPC-mutation_ror_ptr
-    void pointerSchema() {
-        with (Mutation.Kind) {
-            if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
-                rval.op = [rorLE, rorGE, rorpNE];
-            } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {
-                rval.op = [rorLT, rorGT, rorpEQ];
-            }
+    void continuesSchema() {
+        switch (info.operator) with (Mutation.Kind) {
+        case Kind.OpLess:
+            rval.op = [rorGT, rorpGT];
+            break;
+        case Kind.OpGreater:
+            rval.op = [rorLT, rorpLT];
+            break;
+        case Kind.OpLessEq:
+            rval.op = [rorGT, rorpGT];
+            break;
+        case Kind.OpGreaterEq:
+            rval.op = [rorLT, rorpLT];
+            break;
+        default:
         }
     }
 
     // #SPC-mutation_ror_bool
     void boolSchema() {
-        with (Mutation.Kind) {
-            if (op.among(OpKind.EQ, OpKind.OO_EqualEqual)) {
-                rval.op = [rorNE, rorpNE];
-            } else if (op.among(OpKind.NE, OpKind.OO_ExclaimEqual)) {
-                rval.op = [rorEQ, rorpEQ];
-            }
+        switch (info.operator) with (Mutation.Kind) {
+        case Kind.OpEqual:
+            rval.op = [rorNE, rorpNE];
+            break;
+        case Kind.OpNotEqual:
+            rval.op = [rorEQ, rorpEQ];
+            break;
+        default:
         }
     }
 
-    if (tyi == OpTypeInfo.floatingPoint)
-        floatingPointSchema();
-    else if (tyi.among(OpTypeInfo.enumLhsIsMin, OpTypeInfo.enumLhsIsMax,
-            OpTypeInfo.enumRhsIsMin, OpTypeInfo.enumRhsIsMax))
-        enumSchema();
-    else if (tyi == OpTypeInfo.pointer)
-        pointerSchema();
-    else if (tyi == OpTypeInfo.boolean)
-        boolSchema();
+    // #SPC-mutation_ror_ptr
+    void unorderedSchema() {
+        switch (info.operator) with (Mutation.Kind) {
+        case Kind.OpEqual:
+            rval.op = [rorLE, rorGE, rorpNE];
+            break;
+        case Kind.OpNotEqual:
+            rval.op = [rorLT, rorGT, rorpEQ];
+            break;
+        default:
+        }
+    }
+
+    // Returns: true if either the type for lhs or rhs match `k`.
+    bool isAny(TypeKind k) {
+        if (info.lhs !is null && info.lhs.kind == k)
+            return true;
+        if (info.rhs !is null && info.rhs.kind == k)
+            return true;
+        return false;
+    }
+
+    if (isAny(TypeKind.unordered))
+        unorderedSchema;
+    else if (isAny(TypeKind.boolean))
+        boolSchema;
+    else if (isAny(TypeKind.continues))
+        continuesSchema;
+    else if (isAny(TypeKind.discrete))
+        discreteSchema;
 
     return rval;
 }
-
-immutable bool[OpKind] isRor;
 
 immutable Mutation.Kind[] rorMutationsAll;
 immutable Mutation.Kind[] rorpMutationsAll;
 
 shared static this() {
-    // dfmt off
-    with (OpKind) {
-    isRor =
-        [
-        LT: true, // "<"
-        GT: true, // ">"
-        LE: true, // "<="
-        GE: true, // ">="
-        EQ: true, // "=="
-        NE: true, // "!="
-        OO_Less: true, // "<"
-        OO_Greater: true, // ">"
-        OO_EqualEqual: true, // "=="
-        OO_ExclaimEqual: true, // "!="
-        OO_LessEqual: true, // "<="
-        OO_GreaterEqual: true, // ">="
-        ];
-    }
-    // dfmt on
-
     with (Mutation.Kind) {
         rorMutationsAll = [
             rorLT, rorLE, rorGT, rorGE, rorEQ, rorNE, rorTrue, rorFalse

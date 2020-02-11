@@ -51,23 +51,6 @@ struct ClangAST(VisitorT) {
     Cursor root;
 
     void accept(ref VisitorT visitor) @safe {
-        static if (isArray!VisitorT) {
-            foreach (v; visitor) {
-                v.incr();
-            }
-
-            scope (success) {
-                foreach (v; visitor) {
-                    v.decr();
-                }
-            }
-
-        } else {
-            visitor.incr();
-            scope (success)
-                visitor.decr();
-        }
-
         dispatch(root, visitor);
     }
 }
@@ -79,25 +62,11 @@ struct ClangAST(VisitorT) {
  *   void decr(). Called after ascending a node.
  */
 void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
-    import std.traits : isArray;
     import clang.Visitor : Visitor;
 
-    static if (isArray!VisitorT) {
-        foreach (v; visitor) {
-            v.incr();
-        }
-
-        scope (success) {
-            foreach (v; visitor) {
-                v.decr();
-            }
-        }
-
-    } else {
-        visitor.incr();
-        scope (success)
-            visitor.decr();
-    }
+    visitor.incr();
+    scope (exit)
+        visitor.decr();
 
     () @trusted {
         foreach (child, _; Visitor(cursor)) {
@@ -114,8 +83,23 @@ void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
  * Note that the mixins shall be ordered alphabetically.
  */
 void dispatch(VisitorT)(ref const(Cursor) cursor, VisitorT visitor) @safe {
+    import clang.Visitor : Visitor;
     import cpptooling.analyzer.clang.ast.nodes;
     import std.conv : to;
+
+    // expecting ignoreCursors to be dextool.set.Set.
+    static if (__traits(hasMember, VisitorT, "ignoreCursors")) {
+        const h = cursor.toHash;
+        if (h in visitor.ignoreCursors) {
+            visitor.ignoreCursors.remove(h);
+            () @trusted {
+                foreach (child, _; Visitor(cursor)) {
+                    dispatch(child, visitor);
+                }
+            }();
+            return;
+        }
+    }
 
     switch (cursor.kind) {
         mixin(wrapCursor!(visitor, cursor)(AttributeSeq));
@@ -138,21 +122,13 @@ private:
 string wrapCursor(alias visitor, alias cursor)(immutable(string)[] cases) {
     import std.format : format;
 
-    static if (is(typeof(visitor) : T[], T)) {
-        // is an array
-        enum visit = "foreach (v; " ~ visitor.stringof ~ ") { v.visit(wrapped); }";
-    } else {
-        enum visit = visitor.stringof ~ ".visit(wrapped);";
-    }
-
     //TODO allocate in an allocator, not GC with "new"
     string result;
 
     foreach (case_; cases) {
-        result ~= format("case CXCursorKind.%s: auto wrapped = new %s(%s); %s break;\n",
-                case_, makeNodeClassName(case_), cursor.stringof, visit);
+        result ~= format("case CXCursorKind.%s: auto wrapped = new %s(%s); %s.visit(wrapped); break;\n",
+                case_, makeNodeClassName(case_), cursor.stringof, visitor.stringof);
     }
-
     return result;
 }
 
