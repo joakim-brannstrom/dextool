@@ -61,6 +61,9 @@ interface FilesysIO {
     /// Convert a path to be relative to the root of the filesystem.
     Path toRelativeRoot(Path p);
 
+    /// Convert a path to an absolute path relative to the root.
+    AbsolutePath toAbsoluteRoot(Path p);
+
     /// File output is restricted to this directory
     AbsolutePath getOutputDir() nothrow;
 

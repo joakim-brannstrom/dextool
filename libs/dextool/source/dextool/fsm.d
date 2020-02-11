@@ -70,7 +70,7 @@ template next(handlers...) {
         static import sumtype;
 
         auto nextSt = sumtype.match!handlers(self.state);
-        logger.tracef("state: %s -> %s", self.state.toString, nextSt.toString);
+        debug logger.tracef("state: %s -> %s", self.state.toString, nextSt.toString);
         self.state = nextSt;
     }
 }
@@ -80,7 +80,7 @@ template act(handlers...) {
     void act(Self)(auto ref Self self) if (is(Self : Fsm!StateT, StateT...)) {
         static import sumtype;
 
-        logger.trace("act: ", self.state.toString);
+        debug logger.trace("act: ", self.state.toString);
         sumtype.match!handlers(self.state);
     }
 }

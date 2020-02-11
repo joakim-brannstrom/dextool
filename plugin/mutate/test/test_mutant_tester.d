@@ -501,7 +501,7 @@ exit 1
 // TODO: this test is missing a void test() thus it is doing nothing
 class TestCaseDetection : SimpleFixture {
     override string scriptTest() {
-        return "#!/bin/bash
+        return `#!/bin/bash
 cat <<EOF
 Running main() from gtest_main.cc
 [==========] Running 4 tests from 1 test case.
@@ -522,7 +522,7 @@ Running main() from gtest_main.cc
 [  PASSED  ] 4 tests.
 EOF
 exit 1
-";
+`;
     }
 }
 

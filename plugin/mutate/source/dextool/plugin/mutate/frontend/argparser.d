@@ -260,7 +260,7 @@ struct ArgParser {
 
             string[] mutationTester;
             string mutationCompile;
-            string mutationTestCaseAnalyze;
+            string[] mutationTestCaseAnalyze;
             long mutationTesterRuntime;
             string maxRuntime;
             string[] testConstraint;
@@ -279,6 +279,7 @@ struct ArgParser {
                    "db", db_help, &db,
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &mutationTest.unifiedDiffFromStdin,
                    "dry-run", "do not write data to the filesystem", &mutationTest.dryRun,
+                   "log-schemata", "write the mutation schematas to a separate file", &mutationTest.logSchemata,
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
                    "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
@@ -301,8 +302,8 @@ struct ArgParser {
             if (mutationCompile.length != 0)
                 mutationTest.mutationCompile = ShellCommand.fromString(mutationCompile);
             if (mutationTestCaseAnalyze.length != 0)
-                mutationTest.mutationTestCaseAnalyze = ShellCommand.fromString(
-                        mutationTestCaseAnalyze);
+                mutationTest.mutationTestCaseAnalyze = mutationTestCaseAnalyze.map!(
+                        a => ShellCommand.fromString(a)).array;
             if (mutationTesterRuntime != 0)
                 mutationTest.mutationTesterRuntime = mutationTesterRuntime.dur!"msecs";
             if (!maxRuntime.empty)
@@ -645,7 +646,7 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
                 "config: failed to parse mutant_test.build_cmd");
     };
     callbacks["mutant_test.analyze_cmd"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationTestCaseAnalyze = toShellCommand(v,
+        c.mutationTest.mutationTestCaseAnalyze = toShellCommands(v,
                 "config: failed to parse mutant_test.analyze_cmd");
     };
     callbacks["mutant_test.analyze_using_builtin"] = (ref ArgParser c, ref TOMLValue v) {
@@ -758,14 +759,14 @@ analyze_cmd = %s
         auto ap = loadConfig(ArgParser.init, doc);
         ap.mutationTest.mutationTester.shouldEqual([ShellCommand(["test.sh"])]);
         ap.mutationTest.mutationCompile.shouldEqual(ShellCommand(["build.sh"]));
-        ap.mutationTest.mutationTestCaseAnalyze.shouldEqual(ShellCommand([
-                    "analyze.sh"
-                ]));
+        ap.mutationTest.mutationTestCaseAnalyze.shouldEqual([
+                ShellCommand(["analyze.sh"])
+                ]);
     }
 
     {
         auto doc = parseTOML(format!txt(`[["test1.sh"], ["test2.sh"]]`,
-                `["build.sh", "-y"]`, `["analyze.sh", "-z"]`));
+                `["build.sh", "-y"]`, `[["analyze.sh", "-z"]]`));
         auto ap = loadConfig(ArgParser.init, doc);
         ap.mutationTest.mutationTester.shouldEqual([
                 ShellCommand(["test1.sh"]), ShellCommand(["test2.sh"])
@@ -773,9 +774,9 @@ analyze_cmd = %s
         ap.mutationTest.mutationCompile.shouldEqual(ShellCommand([
                     "build.sh", "-y"
                 ]));
-        ap.mutationTest.mutationTestCaseAnalyze.shouldEqual(ShellCommand([
-                    "analyze.sh", "-z"
-                ]));
+        ap.mutationTest.mutationTestCaseAnalyze.shouldEqual([
+                ShellCommand(["analyze.sh", "-z"])
+                ]);
     }
 
     {

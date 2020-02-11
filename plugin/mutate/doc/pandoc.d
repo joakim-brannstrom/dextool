@@ -44,7 +44,7 @@ void main(string[] args) {
     auto dat = Pandoc(metadata, latex_template, biblio);
 
     string[] chapters = [
-        "use_cases.md", "purpose.md", "security.md", "architecture.md",
+        "overview.md", "use_cases.md", "security.md", "architecture.md",
         "mutations.md", "analyzer/analyzer.md", "test_mutant/basis.md",
         "test_mutant/pull_request.md", "test_mutant/tracker.md",
         "usability/sanity_check.md", "usability/report.md", "future_work.md",
@@ -54,7 +54,7 @@ void main(string[] args) {
             [
                 "definitions.md", "abbrevations.md", "appendix.md",
                 "references.md"
-            ].map!(a => buildPath(root, a))).array, output);
+            ].map!(a => buildPath(root, a))).array, output, root);
 }
 
 struct Pandoc {
@@ -63,8 +63,9 @@ struct Pandoc {
     string biblio;
 }
 
-void pandoc(Pandoc dat, string[] files, const string output) {
+void pandoc(Pandoc dat, string[] files, const string output, const string root) {
     const outputTex = output ~ ".tex";
+    const outputPdf = outputTex.setExtension(".pdf");
     const biblio = buildPath(output.dirName, dat.biblio.baseName);
     copy(dat.biblio, biblio);
 
@@ -92,6 +93,8 @@ void pandoc(Pandoc dat, string[] files, const string output) {
     run(["bibtex", outputTex.setExtension("aux")]).collectException;
     run(["pdflatex", outputTex]);
     run(["pdflatex", outputTex]);
+
+    copy(outputPdf, buildPath(root, outputPdf));
 }
 
 void prepareFigures(string src, string dest_dir) {

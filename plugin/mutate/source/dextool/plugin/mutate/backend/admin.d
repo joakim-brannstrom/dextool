@@ -23,7 +23,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
 auto makeAdmin() {
-    return BuildAdmin();
+    return BuildAdmin.init;
 }
 
 private:

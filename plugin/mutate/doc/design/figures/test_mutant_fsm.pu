@@ -29,7 +29,7 @@ UpdateAndResetAliveMutants --> CheckMutantsLeft
 
 UpdateTimeout --> CleanupTempDirs
 
-CleanupTempDirs --> NextMutant
+CleanupTempDirs --> NextSchemata
 CleanupTempDirs --> NextPullRequestMutant : hasConstraint
 
 CheckMutantsLeft --> Done : allTested && !resetOld
@@ -43,14 +43,20 @@ SetMaxRuntime --> UpdateTimeout
 CheckRuntime --> UpdateTimeout
 CheckRuntime --> Done : runtime>max
 
-NextMutant --> CheckTimeout : allTested
-NextMutant --> PreMutationTest
-
 NextPullRequestMutant --> PreMutationTest
 NextPullRequestMutant --> Done : allTested
 
-PreMutationTest --> MutationTest
+NextSchemata --> PreSchemata : hasSchema
+NextSchemata --> NextMutant
+PreSchemata --> SchemataTest
+SchemataTest --> SchemataTest
+SchemataTest --> SchemataTestResult : done
+SchemataTestResult --> SchemataRestore
+SchemataRestore --> CheckRuntime
 
+NextMutant --> CheckTimeout : allTested
+NextMutant --> PreMutationTest
+PreMutationTest --> MutationTest
 MutationTest --> HandleTestResult : next
 MutationTest --> Error : error
 MutationTest --> MutationTest

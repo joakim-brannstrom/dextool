@@ -62,4 +62,29 @@ class files {
 - checksum: 128bit of the file
 - lang: type of language the file is
 }
+
+class schemata {
+    id  INTEGER PRIMARY KEY
+}
+
+class schemata_fragment {
+    id  INTEGER PRIMARY KEY,
+---
+- order: order to apply fragments, 0+
+- text:
+- offset_begin:
+- offset_end:
+}
+schemata_fragment "schem_id" --> "id" schemata
+schemata_fragment "file_id" --> "id" files
+
+class schemata_mutant {
+}
+schemata_mutant "schem_id" --> "id" schemata
+schemata_mutant "st_id" --> "id" mutation_status
+
+class schemata_worklist {
+}
+schemata_worklist "id" --> "id" schemata
+
 @enduml

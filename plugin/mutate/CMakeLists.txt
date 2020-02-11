@@ -15,9 +15,9 @@ set(flags "-I${CMAKE_SOURCE_DIR}/libs/cpptooling/source
 -I${CMAKE_SOURCE_DIR}/plugin/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool_clang_extensions/source
 -I${CMAKE_SOURCE_DIR}/vendor/d2sqlite3/source
--J${CMAKE_SOURCE_DIR}/libs/clang/resources
 -version=SqliteEnableColumnMetadata
 -version=SqliteEnableUnlockNotify
+-J${CMAKE_SOURCE_DIR}/libs/clang/resources
 -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source
 -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -I${CMAKE_SOURCE_DIR}/vendor/toml/src

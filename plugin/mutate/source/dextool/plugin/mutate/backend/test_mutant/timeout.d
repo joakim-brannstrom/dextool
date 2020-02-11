@@ -24,7 +24,6 @@ module dextool.plugin.mutate.backend.test_mutant.timeout;
 
 import logger = std.experimental.logger;
 import std.exception : collectException;
-import std.typecons : Flag, NullableRef, nullableRef;
 
 import miniorm : spinSql;
 
@@ -132,7 +131,7 @@ struct TimeoutFsm {
     static struct Global {
         MutantTimeoutCtx ctx;
         Mutation.Kind[] kinds;
-        NullableRef!Database db;
+        Database* db;
     }
 
     static struct Output {
@@ -155,11 +154,11 @@ struct TimeoutFsm {
     }
 
     void execute(ref Database db) @trusted {
-        execute_(this, db);
+        execute_(this, &db);
     }
 
-    static void execute_(ref TimeoutFsm self, ref Database db) @trusted {
-        self.global.db = nullableRef(&db);
+    static void execute_(ref TimeoutFsm self, Database* db) @trusted {
+        self.global.db = db;
 
         auto t = db.transaction;
         self.global.ctx = db.getMutantTimeoutCtx;
@@ -187,7 +186,7 @@ struct TimeoutFsm {
 
         while (!self.fsm.isState!Stop) {
             try {
-                step(self, db);
+                step(self, *db);
             } catch (Exception e) {
                 logger.warning(e.msg).collectException;
             }

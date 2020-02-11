@@ -216,6 +216,39 @@ struct Database {
         updateMutationTestCases(id, tcs);
     }
 
+    /** Update the status of a mutant.
+     *
+     * Params:
+     *  id = ID of the mutant
+     *  st = status to broadcast
+     *  d = time spent on veryfing the mutant
+     *  tcs = test cases that killed the mutant
+     *  counter = how to act with the counter
+     */
+    void updateMutation(const MutationStatusId id, const Mutation.Status st,
+            const Duration d, CntAction counter = CntAction.incr) @trusted {
+        enum sql = "UPDATE %s SET
+            status=:st,time=:time,update_ts=:update_ts,%s
+            WHERE
+            id = :id";
+
+        auto stmt = () {
+            final switch (counter) {
+            case CntAction.incr:
+                return db.prepare(format!sql(mutationStatusTable,
+                        "test_cnt=test_cnt+1"));
+            case CntAction.reset:
+                return db.prepare(format!sql(mutationStatusTable, "test_cnt=0"));
+            }
+        }();
+
+        stmt.get.bind(":id", cast(long) id);
+        stmt.get.bind(":st", cast(long) st);
+        stmt.get.bind(":time", d.total!"msecs");
+        stmt.get.bind(":update_ts", Clock.currTime.toUTC.toSqliteDateTime);
+        stmt.get.execute;
+    }
+
     /** Update the counter of how many times the mutants has been alive.
      *
      * Params:
@@ -314,9 +347,9 @@ struct Database {
             t2.lang
             FROM %s t0,%s t1,%s t2,%s t3
             WHERE
-            t0.id == :id AND
-            t0.mp_id == t1.id AND
-            t1.file_id == t2.id AND
+            t0.id = :id AND
+            t0.mp_id = t1.id AND
+            t1.file_id = t2.id AND
             t3.id = t0.st_id
             ", mutationTable, mutationPointTable,
                     filesTable, mutationStatusTable);
@@ -436,13 +469,14 @@ struct Database {
     }
 
     Nullable!MutationId getMutationId(const MutationStatusId id) @trusted {
-        immutable sql = format!"SELECT id FROM %s WHERE st_id=:st_id LIMIT=1"(mutationTable);
+        immutable sql = format!"SELECT id FROM %s WHERE st_id=:st_id"(mutationTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":st_id", cast(long) id);
 
         typeof(return) rval;
         foreach (res; stmt.get.execute) {
             rval = res.peek!long(0).MutationId;
+            break;
         }
         return rval;
     }
@@ -1534,6 +1568,91 @@ struct Database {
                 t1.line = t2.line";
         db.run(format!nomut_data_tbl(nomutDataTable, mutationTable,
                 rawSrcMetadataTable, nomutTable));
+    }
+
+    /// Returns: a random schemata from the schemata worklist.
+    Nullable!Schemata nextSchemata() @trusted {
+        immutable sql = format!"SELECT
+            t1.path, t0.text, t0.offset_begin, t0.offset_end
+            FROM %1$s t0, %2$s t1
+            WHERE
+            t0.schem_id = :id AND
+            t0.file_id = t1.id
+            ORDER BY t0.order_ ASC
+            "(schemataFragmentTable, filesTable);
+
+        Schemata schemata(long id) {
+            auto stmt = db.prepare(sql);
+            stmt.get.bind(":id", id);
+
+            auto app = appender!(SchemataFragment[])();
+            foreach (a; stmt.get.execute) {
+                app.put(SchemataFragment(a.peek!string(0).Path,
+                        Offset(a.peek!uint(2), a.peek!uint(3)), a.peek!(ubyte[])(1)));
+            }
+
+            return Schemata(SchemataId(id), app.data);
+        }
+
+        typeof(return) rval;
+        auto stmt = db.prepare(
+                format!"SELECT id FROM %s ORDER BY RANDOM() LIMIT 1"(schemataWorkListTable));
+        foreach (a; stmt.get.execute) {
+            rval = schemata(a.peek!long(0));
+        }
+
+        return rval;
+    }
+
+    MutationStatusId[] getSchemataMutants(SchemataId id) @trusted {
+        immutable sql = format!"SELECT st_id FROM %s WHERE schem_id = :id"(schemataMutantTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", cast(long) id);
+
+        auto app = appender!(MutationStatusId[])();
+        foreach (a; stmt.get.execute) {
+            app.put(a.peek!long(0).MutationStatusId);
+        }
+
+        return app.data;
+    }
+
+    /// Mark a schemata as finished.
+    void finishSchemata(SchemataId id) @trusted {
+        db.run(delete_!SchemataWorkListTable.where("id = :id", Bind("id")), cast(long) id);
+    }
+
+    /// Create a schemata from a bundle of fragments.
+    SchemataId putSchemata(SchemataFragment[] fragments, MutationStatusId[] mutants) @trusted {
+        import std.range : enumerate;
+
+        const schemId = () {
+            immutable sql = format!"INSERT INTO %1$s VALUES(NULL)"(schemataTable);
+            auto stmt = db.prepare(sql);
+            stmt.get.execute;
+            return db.lastInsertRowid.SchemataId;
+        }();
+
+        foreach (f; fragments.enumerate) {
+            const fileId = getFileId(f.value.file);
+            if (fileId.isNull) {
+                logger.warning("Unable to add schemata fragment for file %s because it doesn't exist",
+                        f.value.file);
+                continue;
+            }
+
+            db.run(insert!SchemataFragmentTable, SchemataFragmentTable(0,
+                    cast(long) schemId, cast(long) fileId.get, f.index,
+                    f.value.text, f.value.offset.begin, f.value.offset.end));
+        }
+
+        // relate mutants to this schemata.
+        db.run(insertOrReplace!SchemataMutantTable,
+                mutants.map!(a => SchemataMutantTable(cast(long) a, cast(long) schemId)));
+
+        db.run(insertOrReplace!SchemataWorkListTable, SchemataWorkListTable(schemId));
+
+        return schemId;
     }
 }
 
