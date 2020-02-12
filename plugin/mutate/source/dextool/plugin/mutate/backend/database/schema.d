@@ -939,8 +939,14 @@ void upgradeV15(ref Miniorm db) {
     logger.info("Dropping all marked mutants because of database changes");
 }
 
+/// 2020-02-12
 void upgradeV16(ref Miniorm db) {
     db.run(buildSchema!(SchemataFragmentTable, SchemataWorkListTable, SchemataMutantTable));
+}
+
+/// 2020-02-12
+void upgradeV17(ref Miniorm db) {
+    db.run(buildSchema!(SchemataTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
