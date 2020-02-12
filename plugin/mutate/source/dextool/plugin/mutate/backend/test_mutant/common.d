@@ -14,7 +14,7 @@ module dextool.plugin.mutate.backend.test_mutant.common;
 import logger = std.experimental.logger;
 import std.algorithm : map, filter;
 import std.array : empty, array;
-import std.datetime : Duration;
+import std.datetime : Duration, dur;
 import std.exception : collectException;
 import std.path : buildPath;
 import std.typecons : Flag, No;
@@ -187,6 +187,7 @@ void builtin(DrainElement[] output,
  */
 bool externalProgram(ShellCommand cmd, DrainElement[] output,
         TestCaseReport report, AutoCleanup cleanup) @safe nothrow {
+    import std.datetime : dur;
     import std.algorithm : copy;
     import std.ascii : newline;
     import std.string : strip, startsWith;
@@ -228,9 +229,7 @@ bool externalProgram(ShellCommand cmd, DrainElement[] output,
         cleanup.add(tmpdir.Path.AbsolutePath);
         cmd = writeOutput(cmd);
         auto p = pipeProcess(cmd.value).sandbox.scopeKill;
-        foreach (l; p.process
-                .drainByLineCopy
-                .map!(a => a.strip)
+        foreach (l; p.process.drainByLineCopy(1.dur!"hours").map!(a => a.strip)
                 .filter!(a => !a.empty)) {
             if (l.startsWith(passed))
                 report.reportFound(TestCase(l[passed.length .. $].strip.idup));
@@ -315,7 +314,7 @@ CompileResult compile(ShellCommand cmd) nothrow {
     import process;
 
     try {
-        auto p = pipeProcess(cmd.value).sandbox.drainToNull.scopeKill;
+        auto p = pipeProcess(cmd.value).sandbox.drainToNull(999.dur!"hours").scopeKill;
         if (p.wait != 0) {
             return CompileResult(Mutation.Status.killedByCompiler);
         }

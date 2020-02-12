@@ -714,8 +714,8 @@ nothrow:
         logger.info("Checking the build command").collectException;
         try {
             auto output = appender!(DrainElement[])();
-            auto p = pipeProcess(global.data.conf.mutationCompile.value).sandbox.drain(output)
-                .scopeKill;
+            auto p = pipeProcess(global.data.conf.mutationCompile.value).sandbox.drain(output,
+                    999.dur!"hours").scopeKill;
             if (p.wait == 0) {
                 logger.info("Ok".color(Color.green));
                 return;
