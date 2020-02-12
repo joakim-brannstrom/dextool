@@ -13,7 +13,7 @@ import core.time : dur;
 import logger = std.experimental.logger;
 import std.algorithm : map, joiner;
 import std.array : array, Appender, appender, empty;
-import std.datetime.stopwatch : StopWatch, AutoStart, Duration;
+import std.datetime.stopwatch : StopWatch, AutoStart, Duration, dur;
 import std.path : buildPath;
 import std.range : isInputRange;
 import std.stdio : File;
@@ -201,7 +201,7 @@ struct BuildDextoolRun {
                 p.pipe.closeWrite;
             }
 
-            foreach (e; p.process.drainByLineCopy) {
+            foreach (e; p.process.drainByLineCopy(1.dur!"hours")) {
                 log.writeln(e);
                 log.flush;
                 output.put(e);
@@ -365,7 +365,7 @@ struct BuildCommandRun {
                 p.pipe.closeWrite;
             }
 
-            foreach (e; p.process.drainByLineCopy) {
+            foreach (e; p.process.drainByLineCopy(1.dur!"hours")) {
                 log.writeln(e);
                 log.flush;
                 output.put(e);

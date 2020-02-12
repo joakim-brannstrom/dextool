@@ -194,7 +194,7 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env) @trus
     try {
         auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).scopeKill;
         auto output = appender!(DrainElement[])();
-        p.process.drain.copy(output);
+        p.process.drain(timeout).copy(output);
 
         if (p.timeoutTriggered) {
             rval.status = RunResult.Status.timeout;

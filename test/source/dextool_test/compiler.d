@@ -11,6 +11,7 @@ module dextool_test.compiler;
 
 import std.algorithm : filter, canFind, map, joiner;
 import std.array : array;
+import std.datetime : dur;
 import std.file : exists;
 import std.path : baseName;
 import std.process : escapeShellFileName, execute;
@@ -91,7 +92,7 @@ string[] compilerFlags() {
     auto default_flags = ["-std=c++98"];
 
     auto p = pipeProcess(["g++", "-dumpversion"]).scopeKill;
-    auto output = p.process.drainByLineCopy.array;
+    auto output = p.process.drainByLineCopy(1.dur!"hours").array;
     if (p.wait != 0) {
         throw new Exception("Failed inspecting the compiler version with g++ -dumpversion");
     }

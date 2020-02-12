@@ -624,6 +624,7 @@ struct DrainRange(ProcessT) {
     }
 
     private {
+        Duration timeout;
         ProcessT p;
         DrainElement front_;
         State st;
@@ -631,9 +632,10 @@ struct DrainRange(ProcessT) {
         ubyte[] bufRead;
     }
 
-    this(ProcessT p) {
+    this(ProcessT p, Duration timeout) {
         this.p = p;
         this.buf = new ubyte[4096];
+        this.timeout = timeout;
     }
 
     DrainElement front() @safe pure nothrow const @nogc {
@@ -659,16 +661,27 @@ struct DrainRange(ProcessT) {
         }
 
         void waitUntilData() @safe {
-            while (bufRead.empty && isAnyPipeOpen) {
+            // may livelock if the process never terminates and never writes to
+            // the terminal. waitTime ensure that it sooner or later is
+            // interrupted. It lets e.g the timeout handling to kill the
+            // process.
+            const s = 20.dur!"msecs";
+            Duration waitTime;
+            while (waitTime < timeout) {
                 import core.thread : Thread;
                 import core.time : dur;
 
                 readData();
                 if (front_.data.empty) {
-                    () @trusted { Thread.sleep(20.dur!"msecs"); }();
+                    () @trusted { Thread.sleep(s); }();
+                    waitTime += s;
+                }
+
+                if (!(bufRead.empty && isAnyPipeOpen)) {
+                    front_.data = bufRead.dup;
+                    break;
                 }
             }
-            front_.data = bufRead.dup;
         }
 
         front_ = DrainElement.init;
@@ -714,8 +727,8 @@ struct DrainRange(ProcessT) {
 }
 
 /// Drain a process pipe until empty.
-auto drain(T)(T p) {
-    return DrainRange!T(p);
+auto drain(T)(T p, Duration timeout) {
+    return DrainRange!T(p, timeout);
 }
 
 /// Read the data from a ReadChannel by line.
@@ -727,9 +740,9 @@ struct DrainByLineCopyRange(ProcessT) {
         const(char)[] line;
     }
 
-    this(ProcessT p) @safe {
+    this(ProcessT p, Duration timeout) @safe {
         process = p;
-        range = p.drain;
+        range = p.drain(timeout);
     }
 
     string front() @trusted pure nothrow const @nogc {
@@ -796,7 +809,7 @@ unittest {
     import std.array : array;
 
     auto p = pipeProcess(["dd", "if=/dev/zero", "bs=10", "count=3"]).scopeKill;
-    auto res = p.process.drainByLineCopy.filter!"!a.empty".array;
+    auto res = p.process.drainByLineCopy(1.dur!"minutes").filter!"!a.empty".array;
 
     res.length.shouldEqual(4);
     res.joiner.count.shouldBeGreaterThan(30);
@@ -804,20 +817,20 @@ unittest {
     p.terminated.shouldBeTrue;
 }
 
-auto drainByLineCopy(T)(T p) @safe {
-    return DrainByLineCopyRange!T(p);
+auto drainByLineCopy(T)(T p, Duration timeout) @safe {
+    return DrainByLineCopyRange!T(p, timeout);
 }
 
 /// Drain the process output until it is done executing.
-auto drainToNull(T)(T p) @safe {
-    foreach (l; p.drain) {
+auto drainToNull(T)(T p, Duration timeout) @safe {
+    foreach (l; p.drain(timeout)) {
     }
     return p;
 }
 
 /// Drain the output from the process into an output range.
-auto drain(ProcessT, T)(ProcessT p, ref T range) {
-    foreach (l; p.drain) {
+auto drain(ProcessT, T)(ProcessT p, ref T range, Duration timeout) {
+    foreach (l; p.drain(timeout)) {
         range.put(l);
     }
     return p;
@@ -826,7 +839,7 @@ auto drain(ProcessT, T)(ProcessT p, ref T range) {
 @("shall drain the output of a process while it is running with a separation of stdout and stderr")
 unittest {
     auto p = pipeProcess(["dd", "if=/dev/urandom", "bs=10", "count=3"]).scopeKill;
-    auto res = p.process.drain.array;
+    auto res = p.process.drain(1.dur!"minutes").array;
 
     // this is just a sanity check. It has to be kind a high because there is
     // some wiggleroom allowed
@@ -855,7 +868,7 @@ sleep 10m
         Thread.sleep(50.dur!"msecs");
     }
     const preChildren = getDeepChildren(p.osHandle).count;
-    const res = p.process.drain.array;
+    const res = p.process.drain(1.dur!"minutes").array;
     const postChildren = getDeepChildren(p.osHandle).count;
 
     p.wait.shouldEqual(-9);
