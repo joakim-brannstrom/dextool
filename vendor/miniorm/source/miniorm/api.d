@@ -25,7 +25,7 @@ version (unittest) {
 
 ///
 struct Miniorm {
-    private Statement[string] cachedStmt;
+    private LentCntStatement[string] cachedStmt;
     private size_t cacheSize = 128;
     /// True means that all queries are logged.
     private bool log_;
@@ -62,19 +62,17 @@ struct Miniorm {
     }
 
     RefCntStatement prepare(string sql) {
-        // TODO: workaround to ensure it doesn't grow uncontrollably. Implement
-        // some kind of improved logic in the future which has e.g. a TTL.
         if (cachedStmt.length > cacheSize) {
             auto keys = appender!(string[])();
             foreach (p; cachedStmt.byKeyValue) {
-                // the cache holds one reference, `.byKeyValue` the other one
-                if (p.value.p.refCountedStore.refCount <= 2) {
+                // the statement is currently not lent to any user.
+                if (p.value.count == 0) {
                     keys.put(p.key);
                 }
             }
 
             foreach (k; keys.data) {
-                cachedStmt[k].finalize;
+                cachedStmt[k].stmt.finalize;
                 cachedStmt.remove(k);
             }
         }
@@ -83,7 +81,7 @@ struct Miniorm {
             return RefCntStatement(*v);
         }
         auto r = db.prepare(sql);
-        cachedStmt[sql] = r;
+        cachedStmt[sql] = LentCntStatement(r);
         return RefCntStatement(cachedStmt[sql]);
     }
 
@@ -99,7 +97,7 @@ struct Miniorm {
 
     private void cleanupCache() {
         foreach (ref s; cachedStmt.byValue) {
-            s.finalize;
+            s.stmt.finalize;
         }
         cachedStmt = null;
     }
@@ -570,15 +568,18 @@ struct Transaction {
     }
 }
 
+/// A prepared statement is lent to the user. The refcnt takes care of
+/// resetting the statement when the user is done with it.
 struct RefCntStatement {
     import std.exception : collectException;
     import std.typecons : RefCounted, RefCountedAutoInitialize, refCounted;
 
     static struct Payload {
-        Statement* stmt;
+        LentCntStatement* stmt;
 
-        this(Statement* stmt) {
+        this(LentCntStatement* stmt) {
             this.stmt = stmt;
+            stmt.count++;
         }
 
         ~this() nothrow {
@@ -586,22 +587,23 @@ struct RefCntStatement {
                 return;
 
             try {
-                (*stmt).clearBindings;
-                (*stmt).reset;
+                (*stmt).stmt.clearBindings;
+                (*stmt).stmt.reset;
             } catch (Exception e) {
             }
+            stmt.count--;
             stmt = null;
         }
     }
 
     RefCounted!(Payload, RefCountedAutoInitialize.no) rc;
 
-    this(ref Statement stmt) @trusted {
+    this(ref LentCntStatement stmt) @trusted {
         rc = Payload(&stmt);
     }
 
     ref Statement get() {
-        return *rc.refCountedPayload.stmt;
+        return rc.refCountedPayload.stmt.stmt;
     }
 }
 
@@ -621,5 +623,50 @@ struct ResultRange2(T) {
 
     bool empty() {
         return result.empty;
+    }
+}
+
+/// It is lent to a user and thus can't be finalized if the counter > 0.
+private struct LentCntStatement {
+    Statement stmt;
+    long count;
+}
+
+@("shall remove all statements that are not lent to a user when the cache is full")
+unittest {
+    struct Settings {
+        ulong id;
+    }
+
+    auto db = Miniorm(":memory:");
+    db.run(buildSchema!Settings);
+    db.prepareCacheSize = 1;
+
+    { // reuse statement
+        auto s0 = db.prepare("select * from Settings");
+        auto s1 = db.prepare("select * from Settings");
+
+        db.cachedStmt.length.shouldEqual(1);
+        db.cachedStmt["select * from Settings"].count.shouldEqual(2);
+    }
+    db.cachedStmt.length.shouldEqual(1);
+    db.cachedStmt["select * from Settings"].count.shouldEqual(0);
+
+    { // a lent statement is not removed when the cache is full
+        auto s0 = db.prepare("select * from Settings");
+        auto s1 = db.prepare("select id from Settings");
+
+        db.cachedStmt.length.shouldEqual(2);
+        ("select * from Settings" in db.cachedStmt).shouldBeTrue;
+        ("select id from Settings" in db.cachedStmt).shouldBeTrue;
+    }
+    db.cachedStmt.length.shouldEqual(2);
+
+    { // statements not lent to a user is removed when the cache is full
+        auto s0 = db.prepare("select * from Settings");
+
+        db.cachedStmt.length.shouldEqual(1);
+        ("select * from Settings" in db.cachedStmt).shouldBeTrue;
+        ("select id from Settings" in db.cachedStmt).shouldBeFalse;
     }
 }

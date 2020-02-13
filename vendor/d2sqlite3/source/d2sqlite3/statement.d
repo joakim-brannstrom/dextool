@@ -41,7 +41,7 @@ struct Statement {
         isSomeString, isStaticArray, isDynamicArray, isIterable;
     import std.typecons : RefCounted, RefCountedAutoInitialize;
 
-//private:
+private:
 
     /// Returns $(D true) if the value can be directly bound to the statement
     enum bool isBindable(T) = is(T == typeof(null)) || is(T == void*) || isIntegral!T
