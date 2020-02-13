@@ -451,8 +451,11 @@ struct Timeout(ProcessT) {
             }
         }
 
+        // may be children alive thus must ensure that the whole process tree
+        // is killed if this is a sandbox with a timeout.
+        bg.kill;
+
         if (!forceStop && Clock.currTime >= stopAt) {
-            bg.kill;
             bg.setReply(Reply.killedByTimeout);
         } else {
             bg.setReply(Reply.normalDeath);
