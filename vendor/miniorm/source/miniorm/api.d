@@ -26,6 +26,7 @@ version (unittest) {
 ///
 struct Miniorm {
     private Statement[string] cachedStmt;
+    private size_t cacheSize = 128;
     /// True means that all queries are logged.
     private bool log_;
 
@@ -56,11 +57,26 @@ struct Miniorm {
         return Transaction(db);
     }
 
+    void prepareCacheSize(size_t s) {
+        cacheSize = s;
+    }
+
     RefCntStatement prepare(string sql) {
         // TODO: workaround to ensure it doesn't grow uncontrollably. Implement
         // some kind of improved logic in the future which has e.g. a TTL.
-        if (cachedStmt.length > 128) {
-            cachedStmt.clear;
+        if (cachedStmt.length > cacheSize) {
+            auto keys = appender!(string[])();
+            foreach (p; cachedStmt.byKeyValue) {
+                // the cache holds one reference, `.byKeyValue` the other one
+                if (p.value.p.refCountedStore.refCount <= 2) {
+                    keys.put(p.key);
+                }
+            }
+
+            foreach (k; keys.data) {
+                cachedStmt[k].finalize;
+                cachedStmt.remove(k);
+            }
         }
 
         if (auto v = sql in cachedStmt) {
