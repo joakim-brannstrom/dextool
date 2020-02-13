@@ -25,16 +25,16 @@ Params:
     sink = an output that accepts values of type TestCase via `put`.
   */
 struct GtestParser {
-    import std.regex : ctRegex, matchFirst, matchAll;
+    import std.regex : regex, matchFirst, matchAll;
 
     private {
         // example: [==========] Running
-        enum re_delim = ctRegex!(`.*?\[=*\]`);
+        enum re_delim = regex(`.*?\[=*\]`);
         // example: [ RUN      ] PassingTest.PassingTest1
         // example: +ull)m[ RUN      ] ADeathTest.ShouldRunFirst
-        enum re_run_block = ctRegex!(`.*?\[\s*RUN\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
+        enum re_run_block = regex(`.*?\[\s*RUN\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
         // example: [  FAILED  ] NonfatalFailureTest.EscapesStringOperands
-        enum re_failed_block = ctRegex!(`.*?\[\s*FAILED\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
+        enum re_failed_block = regex(`.*?\[\s*FAILED\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
 
         StateData data;
     }

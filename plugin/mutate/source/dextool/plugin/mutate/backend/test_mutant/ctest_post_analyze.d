@@ -26,13 +26,13 @@ import dextool.type : AbsolutePath;
  *  report = where the results are put.
  */
 struct CtestParser {
-    import std.regex : ctRegex, matchFirst;
+    import std.regex : regex, matchFirst;
 
     private {
         // example: Start 35: gtest_repeat_test
-        enum re_start_tc = ctRegex!(`^\s*Start\s*\d*:\s*(?P<tc>.*)`);
+        enum re_start_tc = regex(`^\s*Start\s*\d*:\s*(?P<tc>.*)`);
         // example:  2/3  Test  #2: gmock-cardinalities_test ................***Failed    0.00 sec
-        enum re_fail_tc = ctRegex!(`.*?Test.*:\s*(?P<tc>.*?)\s*\.*\*\*\*.*`);
+        enum re_fail_tc = regex(`.*?Test.*:\s*(?P<tc>.*?)\s*\.*\*\*\*.*`);
 
         StateData data;
     }
