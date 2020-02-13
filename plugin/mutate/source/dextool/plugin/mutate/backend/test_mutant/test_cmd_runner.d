@@ -15,7 +15,7 @@ module dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 import logger = std.experimental.logger;
 import std.algorithm : filter;
 import std.array : appender, Appender, empty;
-import std.datetime : Duration;
+import std.datetime : Duration, dur;
 import std.exception : collectException;
 import std.parallelism : TaskPool, Task, task;
 
@@ -194,7 +194,7 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env) @trus
     try {
         auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).scopeKill;
         auto output = appender!(DrainElement[])();
-        p.process.drain(timeout).copy(output);
+        p.process.drain(200.dur!"msecs").copy(output);
 
         if (p.timeoutTriggered) {
             rval.status = RunResult.Status.timeout;
