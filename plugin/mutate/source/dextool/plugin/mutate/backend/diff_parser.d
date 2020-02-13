@@ -144,22 +144,22 @@ struct DiffRange {
  * in the targets.
  */
 struct UnifiedDiffParser {
-    import std.regex : ctRegex, matchFirst, matchAll;
+    import std.regex : regex, matchFirst, matchAll;
     import std.typecons : Tuple;
 
     Diff result;
 
     private {
         // diff --git a/usability/report.md b/usability/report.md
-        enum re_git_diff_hdr = ctRegex!(`^diff --git.*`);
+        enum re_git_diff_hdr = regex(`^diff --git.*`);
         // --- a/standalone.d
-        enum re_hdr_original = ctRegex!(`^--- (?P<hdr>.*)`);
+        enum re_hdr_original = regex(`^--- (?P<hdr>.*)`);
         // +++ a/standalone.d
-        enum re_hdr_new = ctRegex!(`^\+\+\+ (?P<hdr>.*)`);
+        enum re_hdr_new = regex(`^\+\+\+ (?P<hdr>.*)`);
         // @@ -31,7 +31,6 @@ import std.algorithm : map;
-        enum re_hunk_start_multiline = ctRegex!(`^@@ -\d*,\d* \+(?P<line>\d*),(?P<count>\d*) @@.*`);
+        enum re_hunk_start_multiline = regex(`^@@ -\d*,\d* \+(?P<line>\d*),(?P<count>\d*) @@.*`);
         // @@ -31 +31 @@ import std.algorithm : map;
-        enum re_hunk_start_line = ctRegex!(`^@@ -\d* \+(?P<line>\d*) @@.*`);
+        enum re_hunk_start_line = regex(`^@@ -\d* \+(?P<line>\d*) @@.*`);
 
         alias FsmState = Tuple!(bool, State, Action[]);
 

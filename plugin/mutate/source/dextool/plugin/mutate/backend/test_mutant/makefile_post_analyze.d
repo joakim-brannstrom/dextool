@@ -32,7 +32,7 @@ import dextool.type : AbsolutePath;
  *  report = where the results are put.
   */
 struct MakefileParser {
-    import std.regex : regex, ctRegex, matchFirst;
+    import std.regex : regex, matchFirst;
 
     private {
         bool isDone;
@@ -41,7 +41,7 @@ struct MakefileParser {
         //make: *** [exit1] Error 1
         //make: *** [exit2] Error 2
         //make: *** [segfault] Segmentation fault (core dumped)
-        enum re_exit_with_error_code = ctRegex!(`.*make:\s*\*\*\*\s*\[(?P<tc>.*)\].*`);
+        enum re_exit_with_error_code = regex(`.*make:\s*\*\*\*\s*\[(?P<tc>.*)\].*`);
     }
 
     void process(T)(T line, TestCaseReport report) {
