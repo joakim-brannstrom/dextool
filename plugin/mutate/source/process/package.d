@@ -647,7 +647,7 @@ struct DrainRange(ProcessT) {
         assert(!empty, "Can't pop front of an empty range");
 
         bool isAnyPipeOpen() {
-            return p.pipe.hasData || p.stderr.hasData;
+            return (p.pipe.hasData || p.stderr.hasData) && !p.terminated;
         }
 
         void readData() @safe {
@@ -700,17 +700,25 @@ struct DrainRange(ProcessT) {
             }
             break;
         case State.lastStdout:
-            st = State.lastStderr;
-            readData();
-            if (p.pipe.hasData) {
-                st = State.lastStdout;
+            if (p.pipe.hasData && p.pipe.hasPendingData) {
+                front_ = DrainElement(DrainElement.Type.stdout);
+                bufRead = p.pipe.read(buf);
+            }
+
+            front_.data = bufRead.dup;
+            if (!p.pipe.hasData || p.terminated) {
+                st = State.lastStderr;
             }
             break;
         case State.lastStderr:
-            st = State.lastElement;
-            readData();
-            if (p.stderr.hasData) {
-                st = State.lastStderr;
+            if (p.stderr.hasData && p.stderr.hasPendingData) {
+                front_ = DrainElement(DrainElement.Type.stderr);
+                bufRead = p.stderr.read(buf);
+            }
+
+            front_.data = bufRead.dup;
+            if (!p.stderr.hasData || p.terminated) {
+                st = State.lastElement;
             }
             break;
         case State.lastElement:
@@ -864,9 +872,10 @@ sleep 10m
         remove(script);
 
     auto p = pipeProcess([script]).sandbox.timeout(1.dur!"seconds").scopeKill;
-    for (int i = 0; getDeepChildren(p.osHandle).count < 1; ++i) {
+    do {
         Thread.sleep(50.dur!"msecs");
     }
+    while (getDeepChildren(p.osHandle).count < 1);
     const preChildren = getDeepChildren(p.osHandle).count;
     const res = p.process.drain(1.dur!"minutes").array;
     const postChildren = getDeepChildren(p.osHandle).count;
