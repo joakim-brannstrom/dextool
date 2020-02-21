@@ -33,6 +33,10 @@ import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
 import dextool.set;
 import dextool.type : AbsolutePath, Path;
 
+version (unittest) {
+    import unit_threaded.assertions;
+}
+
 @safe:
 
 /** Analyze stdout/stderr output from a test suite for test cases that failed
@@ -144,35 +148,112 @@ void builtin(DrainElement[] output,
         }
     }
 
-    const(char)[] buf;
-    void parseLine() {
-        import std.algorithm : countUntil;
-
+    foreach (l; LineRange(output)) {
         try {
-            const idx = buf.countUntil('\n');
-            if (idx != -1) {
-                analyzeLine(buf[0 .. idx]);
-                if (idx < buf.length) {
-                    buf = buf[idx + 1 .. $];
-                } else {
-                    buf = null;
-                }
-            }
+            analyzeLine(l);
         } catch (Exception e) {
-            logger.warning("A error encountered when trying to analyze the output from the test suite. Dumping the rest of the buffer")
+            logger.warning("A error encountered when trying to analyze the output from the test suite. Ignoring the offending line.")
                 .collectException;
             logger.warning(e.msg).collectException;
+        }
+    }
+}
+
+struct LineRange {
+    DrainElement[] elems;
+    const(char)[] buf;
+    const(char)[] line;
+
+    const(char)[] front() @safe pure nothrow {
+        assert(!empty, "Can't get front of an empty range");
+        return line;
+    }
+
+    void popFront() @safe nothrow {
+        assert(!empty, "Can't pop front of an empty range");
+        import std.algorithm : countUntil;
+
+        static auto nextLine(ref const(char)[] buf) @safe nothrow {
+            const(char)[] line;
+
+            try {
+                const idx = buf.countUntil('\n');
+                if (idx != -1) {
+                    line = buf[0 .. idx];
+                    if (idx < buf.length) {
+                        buf = buf[idx + 1 .. $];
+                    } else {
+                        buf = null;
+                    }
+                }
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+                logger.warning("Unable to parse the buffered data for a newline. Ignoring the rest.")
+                    .collectException;
+                buf = null;
+            }
+
+            return line;
+        }
+
+        line = null;
+        while (!elems.empty && line.empty) {
+            try {
+                auto tmp = elems[0].byUTF8.array;
+                buf ~= tmp;
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+                logger.warning(
+                        "A error encountered when trying to parse the output as UTF-8. Ignoring the offending data.")
+                    .collectException;
+            }
+            elems = elems[1 .. $];
+            line = nextLine(buf);
+        }
+
+        const s = buf.length;
+        // there are data in the buffer that may contain lines
+        if (elems.empty && !buf.empty && line.empty) {
+            line = nextLine(buf);
+        }
+
+        // the last data in the buffer. This is a special case if an
+        // application write data but do not end the last block of data with a
+        // newline.
+        // `s == buf.length` handles the case wherein there is an empty line.
+        if (elems.empty && !buf.empty && line.empty && (s == buf.length)) {
+            line = buf;
             buf = null;
         }
     }
 
-    foreach (d; output.map!(a => a.byUTF8.array)) {
-        buf ~= d;
-        parseLine;
+    bool empty() @safe pure nothrow const @nogc {
+        return elems.empty && buf.empty && line.empty;
     }
-    while (!buf.empty) {
-        parseLine;
-    }
+}
+
+@("shall end the parsing of DrainElements even if the last is missing a newline")
+unittest {
+    import std.algorithm : copy;
+    import std.array : appender;
+
+    auto app = appender!(DrainElement[])();
+    ["foo", "bar\n", "smurf"].map!(a => DrainElement(DrainElement.Type.stdout,
+            cast(const(ubyte)[]) a)).copy(app);
+
+    auto r = LineRange(app.data);
+
+    r.empty.shouldBeFalse;
+    r.popFront;
+    r.front.shouldEqual("foobar");
+
+    r.empty.shouldBeFalse;
+    r.popFront;
+    r.front.shouldEqual("smurf");
+
+    r.empty.shouldBeFalse;
+    r.popFront;
+    r.empty.shouldBeTrue;
 }
 
 /** Run an external program that analyze the output from the test suite for

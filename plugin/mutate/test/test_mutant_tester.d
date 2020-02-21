@@ -735,7 +735,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
                 r0.output);
 
         // Act
-        makeDextoolAnalyze(testEnv).addInputArg(testData ~ "report_one_ror_mutation_point.cpp").run;
+        makeDextoolAnalyze(testEnv).addInputArg(programFile).run;
 
         // Assert that the test cases are still their
         auto r1 = makeDextoolReport(testEnv, testData.dirName).addArg([

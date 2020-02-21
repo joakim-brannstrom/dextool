@@ -13,6 +13,7 @@ int main(string[] args) {
                           "dextool.plugin.mutate.backend.analyze",
                           "dextool.plugin.mutate.backend.diff_parser",
                           "dextool.plugin.mutate.backend.report.html",
+                          "dextool.plugin.mutate.backend.test_mutant.common",
                           "dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze",
                           "dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze",
                           "dextool.plugin.mutate.backend.test_mutant.makefile_post_analyze",
