@@ -110,6 +110,7 @@ test_cmd_dir_flag = ["--foo"]`, [
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg(["--dry-run"])
             .addPostArg(["-c", dextoolConf])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
