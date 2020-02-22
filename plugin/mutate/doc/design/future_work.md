@@ -126,6 +126,7 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * because mutation testing is a specialization of fuzzy testing it should be possible to integrate similare techniques as is used in AFL such as the coverage instrumentation. The least we can do with this is getting the path coverage of a SUT. Could it also be used to "guide" us in what mutants to prioritize?
  * automatically mark a schemata as "done" if there are no mutants related to it with the status "unknown".
  * build a dependency for a file that is mutated such that it is only re-analyzed if that file or any of its dependencies has changed. Use the includeVisitor to find the dependencies.
  * implement prioritization of what binaries to execute for a mutant. Prioritize the order to execute binaries in by those that have killed mutants in a file that has been mutated. Maybe call it "test_cmd_auto_prio"?
