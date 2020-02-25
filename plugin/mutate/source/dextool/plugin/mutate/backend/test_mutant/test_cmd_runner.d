@@ -141,6 +141,7 @@ struct TestRunner {
             auto t = findDone(tasks);
             if (t !is null) {
                 processDone(t, rval, output);
+                .destroy(t);
             }
             () @trusted { Thread.sleep(50.dur!"msecs"); }();
         }
