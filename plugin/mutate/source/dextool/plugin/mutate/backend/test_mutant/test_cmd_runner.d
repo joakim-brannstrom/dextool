@@ -44,14 +44,11 @@ struct TestRunner {
     string[string] env;
 
     static auto make(int poolSize) {
-        auto pool = () {
-            if (poolSize == 0) {
-                return new TaskPool;
-            }
-            return new TaskPool(poolSize);
-        }();
-        pool.isDaemon = true;
-        return TestRunner(pool);
+        return TestRunner(poolSize);
+    }
+
+    this(int poolSize_) {
+        this.poolSize(poolSize_);
     }
 
     ~this() {
@@ -60,6 +57,18 @@ struct TestRunner {
 
     bool empty() @safe pure nothrow const @nogc {
         return commands.length == 0;
+    }
+
+    void poolSize(const int s) @safe {
+        if (pool !is null) {
+            pool.stop;
+        }
+        if (s == 0) {
+            pool = new TaskPool;
+        } else {
+            pool = new TaskPool(s);
+        }
+        pool.isDaemon = true;
     }
 
     void timeout(Duration timeout) pure nothrow @nogc {
@@ -84,10 +93,19 @@ struct TestRunner {
         import std.range : enumerate;
 
         static TestTask* findDone(ref TestTask*[] tasks) {
+            bool found;
+            size_t idx;
             foreach (t; tasks.enumerate.filter!(a => a.value.done)) {
-                tasks[t.index] = tasks[$ - 1];
+                idx = t.index;
+                found = true;
+                break;
+            }
+
+            if (found) {
+                auto t = tasks[idx];
+                tasks[idx] = tasks[$ - 1];
                 tasks = tasks[0 .. $ - 1];
-                return t.value;
+                return t;
             }
             return null;
         }
@@ -123,6 +141,7 @@ struct TestRunner {
             auto t = findDone(tasks);
             if (t !is null) {
                 processDone(t, rval, output);
+                .destroy(t);
             }
             () @trusted { Thread.sleep(50.dur!"msecs"); }();
         }
