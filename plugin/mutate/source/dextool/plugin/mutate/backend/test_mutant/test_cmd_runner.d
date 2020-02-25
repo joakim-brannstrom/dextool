@@ -93,10 +93,19 @@ struct TestRunner {
         import std.range : enumerate;
 
         static TestTask* findDone(ref TestTask*[] tasks) {
+            bool found;
+            size_t idx;
             foreach (t; tasks.enumerate.filter!(a => a.value.done)) {
-                tasks[t.index] = tasks[$ - 1];
+                idx = t.index;
+                found = true;
+                break;
+            }
+
+            if (found) {
+                auto t = tasks[idx];
+                tasks[idx] = tasks[$ - 1];
                 tasks = tasks[0 .. $ - 1];
-                return t.value;
+                return t;
             }
             return null;
         }
