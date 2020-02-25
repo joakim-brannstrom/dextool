@@ -44,14 +44,11 @@ struct TestRunner {
     string[string] env;
 
     static auto make(int poolSize) {
-        auto pool = () {
-            if (poolSize == 0) {
-                return new TaskPool;
-            }
-            return new TaskPool(poolSize);
-        }();
-        pool.isDaemon = true;
-        return TestRunner(pool);
+        return TestRunner(poolSize);
+    }
+
+    this(int poolSize_) {
+        this.poolSize(poolSize_);
     }
 
     ~this() {
@@ -60,6 +57,18 @@ struct TestRunner {
 
     bool empty() @safe pure nothrow const @nogc {
         return commands.length == 0;
+    }
+
+    void poolSize(const int s) @safe {
+        if (pool !is null) {
+            pool.stop;
+        }
+        if (s == 0) {
+            pool = new TaskPool;
+        } else {
+            pool = new TaskPool(s);
+        }
+        pool.isDaemon = true;
     }
 
     void timeout(Duration timeout) pure nothrow @nogc {
