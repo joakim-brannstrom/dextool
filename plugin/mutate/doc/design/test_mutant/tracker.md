@@ -1,54 +1,79 @@
-# SPC-track_test_case
-partof: SPC-test_mutant
-###
+# Test Case Tracker {id="design-track_test_case"}
+[partof](basis.md#design-test_mutant)
 
-The plugin shall activate the *test case tracker* functionality when the *CLI* is *test case analyzer command*.
+The plugin shall activate the *test case tracker* functionality when the *CLI*
+is *test case analyzer command*.
 
 Requirements for the *user supplied test case tracker*:
- * The plugin shall associate the output from executing the *user supplied test case tracker* to the killed mutant when a mutant is killed.
- * The plugin shall as arguments to *user supplied test case tracker* use *stdout.log* and *stderr.log* when executing the *user supplied test case tracker*.
+ * The plugin shall associate the output from executing the *user supplied test
+   case tracker* to the killed mutant when a mutant is killed.
+ * The plugin shall as arguments to *user supplied test case tracker* use
+   *stdout.log* and *stderr.log* when executing the *user supplied test case
+   tracker*.
 
-**Note**: *stdout.log* and *stderr.log* are in the current implementation files but it could be changed in the future.
+**Note**: *stdout.log* and *stderr.log* are in the current implementation files
+but it could be changed in the future.
 
-The plugin shall cleanup the temporary directory containing *stdout.log* and *stderr.log* when a mutant test is finalized.
+The plugin shall cleanup the temporary directory containing *stdout.log* and
+*stderr.log* when a mutant test is finalized.
 
 ## Draft Requirements and design
 
-The user should be able to activate multiple test case trackers to be used at the same time. Both builtin and external.
+The user should be able to activate multiple test case trackers to be used at
+the same time. Both builtin and external.
 
-This is because there may be a test suite that uses google test, CTest and python unittest framework.
-To find the test cases it needs to go through multiple parsers in this case to ensure it is found.
+This is because there may be a test suite that uses google test, CTest and
+python unittest framework.  To find the test cases it needs to go through
+multiple parsers in this case to ensure it is found.
 
-Another common scenario is a *gtest* + *segfault*. When a mutation result in a segmentation fault there may be nothing besides a segmentation fault message printed.
-If only a gtest tracker is used then there wont be any association between the test binary that segfaulted and the mutation.
-This is solved by allowing multiple test case trackers.
+Another common scenario is a *gtest* + *segfault*. When a mutation result in a
+segmentation fault there may be nothing besides a segmentation fault message
+printed.  If only a gtest tracker is used then there wont be any association
+between the test binary that segfaulted and the mutation.  This is solved by
+allowing multiple test case trackers.
 
 ## Design
 
-The intention is to find test cases that *should* have killed mutants that survived and present those to the user. This makes it easier for the user to update a test suite to kill the mutant.
+The intention is to find test cases that *should* have killed mutants that
+survived and present those to the user. This makes it easier for the user to
+update a test suite to kill the mutant.
 
-Let the plugin track what test cases kill what mutant. There will probably be multiple test cases for each mutant. This creates a mapping between test cases and mutants.
+Let the plugin track what test cases kill what mutant. There will probably be
+multiple test cases for each mutant. This creates a mapping between test cases
+and mutants.
 
-This information about what test cases killed what mutant can then be used as suggestions to the user for what test cases that can be updated to kill alive mutants.
+This information about what test cases killed what mutant can then be used as
+suggestions to the user for what test cases that can be updated to kill alive
+mutants.
 
-A simple way of doing this is to just report all test cases associate with a mutation point.
+A simple way of doing this is to just report all test cases associate with a
+mutation point.
 
 ## Musings
 
 This is a *variant*, another approach, to using coverage.
 
-This approach do not require that the target code can be compiled and executed with coverage.
-This is *probably* information that the user would like either way.
+This approach do not require that the target code can be compiled and executed
+with coverage.  This is *probably* information that the user would like either
+way.
 
-A negative thing is that this would require the user to finish testing most of the mutants to get this information.
+A negative thing is that this would require the user to finish testing most of
+the mutants to get this information.
 
 # SPC-track_gtest
 partof: SPC-track_test_case
 ###
 
-The plugin shall parse the output from the test suite when a mutant is killed and the *test case tracker* is gtest.
+The plugin shall parse the output from the test suite when a mutant is killed
+and the *test case tracker* is gtest.
 
 The plugin shall find the test cases that failed.
+
+The plugin shall merge value and type parameterized tests as one test.
+
+**Rationale**: It clutters the test case analyze if they are kept separate
+which makes e.g. the Test case Uniqueness report useless for parameterized
+tests.
 
 # TST-track_gtest
 partof: SPC-track_gtest
@@ -126,6 +151,7 @@ The plugin shall reset alive mutants to unknown when new test cases are detected
 
 ## Why?
 
-This automates the process from the users perspective. Before this functionality where added a user had to manually reset the mutants.
+This automates the process from the users perspective. Before this
+functionality where added a user had to manually reset the mutants.
 
 It thus makes it easier to integrate in a continuous integration workflow.

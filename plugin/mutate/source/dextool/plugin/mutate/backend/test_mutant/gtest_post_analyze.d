@@ -29,17 +29,27 @@ struct GtestParser {
 
     private {
         // example: [==========] Running
-        enum re_delim = regex(`.*?\[=*\]`);
+        const re_delim = regex(`.*?\[=*\]`);
         // example: [ RUN      ] PassingTest.PassingTest1
         // example: +ull)m[ RUN      ] ADeathTest.ShouldRunFirst
-        enum re_run_block = regex(`.*?\[\s*RUN\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
+        const re_run_block = regex(`.*?\[\s*RUN\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
         // example: [  FAILED  ] NonfatalFailureTest.EscapesStringOperands
-        enum re_failed_block = regex(`.*?\[\s*FAILED\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
+        const re_failed_block = regex(`.*?\[\s*FAILED\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
+        // example: Unsigned/TypedTestP/0.Success
+        const re_name_from_test = regex(`(?P<tc>[a-zA-Z0-9_.]*)`);
 
         StateData data;
     }
 
     void process(T)(T line, TestCaseReport report) {
+        string testCaseName(string testCase) {
+            auto m = matchFirst(testCase, re_name_from_test);
+            if (m.empty) {
+                return testCase;
+            }
+            return m["tc"].idup;
+        }
+
         auto run_block_match = matchAll(line, re_run_block);
         auto failed_block_match = matchAll(line, re_failed_block);
         auto delim_match = matchFirst(line, re_delim);
@@ -66,7 +76,7 @@ struct GtestParser {
             data.delim = DelimState.start;
 
             foreach (m; run_block_match) {
-                report.reportFound(TestCase(m["tc"].idup));
+                report.reportFound(TestCase(testCaseName(m["tc"].idup)));
             }
         }
 
@@ -74,7 +84,7 @@ struct GtestParser {
             foreach (m; failed_block_match) {
                 if (m["tc"].length == 0)
                     continue;
-                report.reportFailed(TestCase(m["tc"].idup, data.fail_msg_file));
+                report.reportFailed(TestCase(testCaseName(m["tc"].idup), data.fail_msg_file));
                 // the best we can do for now is for the first failed test case.
                 // May improve in the future.
                 data.fail_msg_file = null;
@@ -138,8 +148,7 @@ unittest {
 
     shouldEqual(app.foundAsArray.sort, [
             TestCase("Comp.A", ""), TestCase("Comp.B", ""), TestCase("Comp.C",
-                ""), TestCase("Comp.D", ""), TestCase("Comp.E/a", ""),
-            TestCase("Comp.E/b", ""),
+                ""), TestCase("Comp.D", ""), TestCase("Comp.E", ""),
             ]);
 }
 
@@ -207,8 +216,8 @@ TestCase(`NonFatalFailureInFixtureConstructorTest.FailureInConstructor`),
 TestCase(`NonFatalFailureInSetUpTest.FailureInSetUp`),
 TestCase(`NonfatalFailureTest.DiffForLongStrings`),
 TestCase(`NonfatalFailureTest.EscapesStringOperands`),
-TestCase(`PrintingFailingParams/FailingParamTest.Fails/0`),
-TestCase(`PrintingStrings/ParamTest.Failure/a`),
+TestCase(`PrintingFailingParams`),
+TestCase(`PrintingStrings`),
 TestCase(`SCOPED_TRACETest.CanBeNested`),
 TestCase(`SCOPED_TRACETest.CanBeRepeated`),
 TestCase(`SCOPED_TRACETest.ObeysScopes`),
@@ -216,9 +225,8 @@ TestCase(`SCOPED_TRACETest.WorksConcurrently`),
 TestCase(`SCOPED_TRACETest.WorksInLoop`),
 TestCase(`SCOPED_TRACETest.WorksInSubroutine`),
 TestCase(`ScopedFakeTestPartResultReporterTest.InterceptOnlyCurrentThread`),
-TestCase(`TypedTest/0.Failure`),
-TestCase(`Unsigned/TypedTestP/0.Failure`),
-TestCase(`Unsigned/TypedTestP/1.Failure`),
+TestCase(`TypedTest`),
+TestCase(`Unsigned`),
             ];
     // dfmt on
 
