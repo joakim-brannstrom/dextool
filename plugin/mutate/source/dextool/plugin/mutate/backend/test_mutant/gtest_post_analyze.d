@@ -35,19 +35,23 @@ struct GtestParser {
         const re_run_block = regex(`.*?\[\s*RUN\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
         // example: [  FAILED  ] NonfatalFailureTest.EscapesStringOperands
         const re_failed_block = regex(`.*?\[\s*FAILED\s*\]\s*(?P<tc>[a-zA-Z0-9_./]*)`);
-        // example: Unsigned/TypedTestP/0.Success
-        const re_name_from_test = regex(`(?P<tc>[a-zA-Z0-9_.]*)`);
 
         StateData data;
     }
 
     void process(T)(T line, TestCaseReport report) {
         string testCaseName(string testCase) {
-            auto m = matchFirst(testCase, re_name_from_test);
-            if (m.empty) {
+            import std.string : lastIndexOf;
+
+            // pessimistic merge of test case names such that parameterized are
+            // grouped by their last separation.
+
+            const idx = lastIndexOf(testCase, '/');
+
+            if (idx == -1) {
                 return testCase;
             }
-            return m["tc"].idup;
+            return testCase[0 .. idx];
         }
 
         auto run_block_match = matchAll(line, re_run_block);
@@ -216,8 +220,8 @@ TestCase(`NonFatalFailureInFixtureConstructorTest.FailureInConstructor`),
 TestCase(`NonFatalFailureInSetUpTest.FailureInSetUp`),
 TestCase(`NonfatalFailureTest.DiffForLongStrings`),
 TestCase(`NonfatalFailureTest.EscapesStringOperands`),
-TestCase(`PrintingFailingParams`),
-TestCase(`PrintingStrings`),
+TestCase(`PrintingFailingParams/FailingParamTest.Fails`),
+TestCase(`PrintingStrings/ParamTest.Failure`),
 TestCase(`SCOPED_TRACETest.CanBeNested`),
 TestCase(`SCOPED_TRACETest.CanBeRepeated`),
 TestCase(`SCOPED_TRACETest.ObeysScopes`),
@@ -226,7 +230,7 @@ TestCase(`SCOPED_TRACETest.WorksInLoop`),
 TestCase(`SCOPED_TRACETest.WorksInSubroutine`),
 TestCase(`ScopedFakeTestPartResultReporterTest.InterceptOnlyCurrentThread`),
 TestCase(`TypedTest`),
-TestCase(`Unsigned`),
+TestCase(`Unsigned/TypedTestP`),
             ];
     // dfmt on
 
