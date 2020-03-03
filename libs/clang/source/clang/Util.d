@@ -61,14 +61,13 @@ mixin template CX(string name = "") {
     static if (name.length == 0) {
         mixin("private alias CType = " ~ cxName!(typeof(this)) ~ ";");
     } else {
-        mixin("private alias  CType = CX" ~ name ~ ";");
+        mixin("private alias CType = CX" ~ name ~ ";");
     }
 
     CType cx;
     alias cx this;
 
-    /**
-     * Trusted: on the assumption that dispose as implemented by the LLVM
+    /** Trusted: on the assumption that dispose as implemented by the LLVM
      * community is good _enough_. Any bugs should by now have been found.
      */
     void dispose() @trusted {

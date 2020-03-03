@@ -4,9 +4,9 @@ set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Compiler.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Cursor.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Diagnostic.d
+    ${CMAKE_CURRENT_LIST_DIR}/source/clang/Eval.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/File.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Index.d
-    ${CMAKE_CURRENT_LIST_DIR}/source/clang/info.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/SourceLocation.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/SourceRange.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Token.d
@@ -14,6 +14,7 @@ set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Type.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Util.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Visitor.d
+    ${CMAKE_CURRENT_LIST_DIR}/source/clang/info.d
 )
 
 set(flags

@@ -17,12 +17,13 @@ module clang.Cursor;
 
 import clang.c.Index;
 
+import clang.Eval;
 import clang.File;
 import clang.SourceLocation;
 import clang.SourceRange;
-import clang.Type;
-import clang.TranslationUnit;
 import clang.Token;
+import clang.TranslationUnit;
+import clang.Type;
 import clang.Util;
 import clang.Visitor;
 
@@ -313,6 +314,14 @@ import clang.Visitor;
     @property SourceRange extent() const @trusted {
         auto r = clang_getCursorExtent(cx);
         return SourceRange(r);
+    }
+
+    /** If cursor is a statement declaration tries to evaluate the statement
+     * and if its variable, tries to evaluate its initializer, into its
+     * corresponding type.
+     */
+    Eval eval() const @trusted {
+        return Eval(clang_Cursor_Evaluate(cx));
     }
 
     /** Retrieve the canonical cursor corresponding to the given cursor.
@@ -850,7 +859,7 @@ struct EnumCursor {
     }
 
     /// Return: if the type of the enum is signed.
-    @property bool isSigned() @trusted {
+    @property bool isSigned() const @trusted {
         Type t;
 
         if (isUnderlyingTypeEnum) {
@@ -859,20 +868,7 @@ struct EnumCursor {
             t = Type(cursor, clang_getCursorType(cx));
         }
 
-        switch (t.kind) with (CXTypeKind) {
-        case charU:
-        case uChar:
-        case char16:
-        case char32:
-        case uShort:
-        case uInt:
-        case uLong:
-        case uLongLong:
-        case uInt128:
-            return false;
-        default:
-            return true;
-        }
+        return t.isSigned;
     }
 }
 

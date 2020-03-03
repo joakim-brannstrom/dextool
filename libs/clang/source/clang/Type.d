@@ -180,7 +180,7 @@ struct Type {
         return clang_isRestrictQualifiedType(cx) == 1;
     }
 
-    /// Return: if the CXType is a POD (plain old data)
+    /// Return: if CXType is a POD (plain old data)
     @property bool isPOD() {
         return clang_isPODType(cx) == 1;
     }
@@ -194,6 +194,14 @@ struct Type {
         }
     }
 
+    /// Return: if CXType is a signed type.
+    bool isSigned() const @trusted {
+        import std.algorithm : among;
+
+        return kind.among(CXTypeKind.charU, CXTypeKind.char16, CXTypeKind.char32,
+                CXTypeKind.charS, CXTypeKind.sChar, CXTypeKind.wChar, CXTypeKind.short_,
+                CXTypeKind.int_, CXTypeKind.long_, CXTypeKind.longLong, CXTypeKind.int128) != 0;
+    }
 }
 
 struct FuncType {
