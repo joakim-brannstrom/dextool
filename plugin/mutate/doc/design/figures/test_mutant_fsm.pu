@@ -17,7 +17,7 @@ PreCompileSut --> ChooseMode
 
 FindTestCmds -> ChooseMode
 
-ChooseMode -> AnalyzeTestCmdForTestCase : hasAnalyzer
+ChooseMode --> AnalyzeTestCmdForTestCase : hasAnalyzer
 ChooseMode --> PullRequest : hasConstraint
 ChooseMode --> CheckMutantsLeft
 
