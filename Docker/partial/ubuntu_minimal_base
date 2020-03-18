@@ -1,16 +1,6 @@
-FROM ubuntu:xenial
+FROM ubuntu:bionic
 MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
 
-RUN apt-get update && \
-    apt-get -y --no-install-recommends install wget
-
-RUN wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
-
-# RUN echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-3.9 main" >> /etc/apt/sources.list.d/llvm.list
-
-# Dependencies:
-# ca-certificates - "Problem with the SSL CA cert" when cloning dextool otherwise.
-# sqlite3 - generates SQLite reports.
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \
         ca-certificates \
@@ -22,6 +12,7 @@ RUN apt-get update && \
 RUN apt-get -y --no-install-recommends install \
         gcc g++ \
         curl \
-        xz-utils
+        xz-utils \
+        gnupg2
 
 WORKDIR /opt
