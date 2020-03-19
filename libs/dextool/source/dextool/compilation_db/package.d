@@ -103,7 +103,7 @@ struct CompileDbFile {
     Path payload;
     alias payload this;
 
-    this(string p) @safe pure nothrow @nogc {
+    this(string p) @safe nothrow {
         payload = Path(p);
     }
 }
@@ -321,7 +321,7 @@ void fromFiles(T)(CompileDbFile[] fnames, ref T app) {
 
 /** Return default path if argument is null.
  */
-CompileDbFile[] orDefaultDb(string[] cli_path) @safe pure nothrow {
+CompileDbFile[] orDefaultDb(string[] cli_path) @safe nothrow {
     import std.array : array;
     import std.algorithm : map;
 

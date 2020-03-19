@@ -428,7 +428,7 @@ struct Analyze {
         debug logger.trace(mutants);
         auto codeMutants = toCodeMutants(mutants, fio, tstream);
         debug logger.trace(codeMutants);
-        mutants = null;
+        () @trusted { .destroy(mutants); }();
 
         result.mutationPoints = codeMutants.points.byKeyValue.map!(
                 a => a.value.map!(b => MutationPointEntry2(fio.toRelativeRoot(a.key),
@@ -439,6 +439,8 @@ struct Analyze {
             result.fileId[id] = f;
             result.infoId[id] = Result.FileInfo(codeMutants.csFiles[f], codeMutants.lang);
         }
+
+        () @trusted { .destroy(codeMutants); }();
     }
 
     /**
