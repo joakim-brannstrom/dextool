@@ -214,6 +214,9 @@ struct TimeoutFsm {
         }, (Purge a) {
             final switch (a.ev) with (Purge.Event) {
             case changed:
+                if (self.global.ctx.iter == MaxTimeoutIterations) {
+                    return fsm(ClearWorkList.init);
+                }
                 return fsm(ResetWorkList.init);
             case same:
                 return fsm(ClearWorkList.init);
@@ -269,3 +272,11 @@ struct TimeoutFsm {
     void opCall(Stop) {
     }
 }
+
+private:
+
+// If the mutants has been tested 3 times it should be good enough. Sometimes
+// there are so many timeout that it would feel like the tool just end up in an
+// infinite loop. Maybe this should be moved so it is user configurable in the
+// future.
+immutable MaxTimeoutIterations = 3;
