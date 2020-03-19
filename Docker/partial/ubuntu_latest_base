@@ -1,9 +1,6 @@
-FROM ubuntu:disco
+FROM ubuntu:eoan
 MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
 
-# Dependencies:
-# ca-certificates - "Problem with the SSL CA cert" when cloning dextool otherwise.
-# sqlite3 - generates SQLite reports.
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \
         ca-certificates \
