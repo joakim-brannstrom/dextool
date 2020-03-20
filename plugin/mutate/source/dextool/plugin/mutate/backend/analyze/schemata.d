@@ -139,7 +139,7 @@ class MutantsResult {
 
         auto absp = fio.toAbsoluteRoot(raw);
 
-        if (!vloc.shouldMutate(absp) || absp in existingFiles)
+        if (!vloc.shouldAnalyze(absp) || !vloc.shouldMutate(absp) || absp in existingFiles)
             return;
 
         try {
@@ -1695,9 +1695,10 @@ DeriveCursorTypeResult deriveCursorType(const Cursor baseCursor) {
             rval.symbol = new analyze.DiscretSymbol(analyze.Value(analyze.Value.Int(value)));
         }
     } else if (cty.kind.among(discreteCategory)) {
-        const e = c.eval;
-        if (e.isValid)
-            eval(e);
+        // crashes in clang 7.x. Investigate why.
+        //const e = c.eval;
+        //if (e.isValid)
+        //    eval(e);
     }
 
     return rval;
