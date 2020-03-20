@@ -29,8 +29,6 @@ enum MutationKind {
     abs,
     /// Statement deletion
     sdl,
-    /// Conditional operator replacement
-    cor,
     /// Decision/Condition Coverage
     dcc,
     /// Decision/Condition Requirement

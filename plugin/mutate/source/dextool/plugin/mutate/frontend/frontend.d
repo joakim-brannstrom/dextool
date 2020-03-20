@@ -238,7 +238,11 @@ final class FrontendValidateLoc : ValidateLoc {
     }
 
     override bool shouldMutate(AbsolutePath p) {
+        import std.file : isDir;
         import std.string : startsWith;
+
+        if (isDir(p))
+            return false;
 
         bool res = p.startsWith(output_dir);
         logger.tracef(!res, "Path '%s' escaping output directory (--out) '%s'", p, output_dir);

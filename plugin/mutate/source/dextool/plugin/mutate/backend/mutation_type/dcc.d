@@ -9,34 +9,53 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type.dcc;
 
-import dextool.plugin.mutate.backend.mutation_type.lcr;
-import dextool.plugin.mutate.backend.mutation_type.ror;
 import dextool.plugin.mutate.backend.type;
 import dextool.clang_extensions : OpKind;
 
-Mutation.Kind[] dccBranchMutations() @safe pure nothrow {
-    return dccBranchMutationsRaw.dup;
+import dextool.plugin.mutate.backend.analyze.ast;
+
+Mutation.Kind[] dccMutations(Kind operator) @safe pure nothrow {
+    typeof(return) rval;
+
+    // an operator is a predicate, leaf.
+    // the condition is obviously the top node.
+    switch (operator) with (Mutation.Kind) {
+    case Kind.Call:
+        goto case;
+    case Kind.Expr:
+        goto case;
+    case Kind.OpAnd:
+        goto case;
+    case Kind.OpOr:
+        goto case;
+    case Kind.OpLess:
+        goto case;
+    case Kind.OpGreater:
+        goto case;
+    case Kind.OpLessEq:
+        goto case;
+    case Kind.OpGreaterEq:
+        goto case;
+    case Kind.OpEqual:
+        goto case;
+    case Kind.OpNotEqual:
+        goto case;
+    case Kind.Condition:
+        rval = [dccTrue, dccFalse];
+        break;
+    case Kind.Branch:
+        rval = [dccBomb];
+        break;
+    default:
+    }
+
+    return rval;
 }
 
-Mutation.Kind[] dccCaseMutations() @safe pure nothrow {
-    return dccCaseMutationsRaw.dup;
-}
-
-immutable bool[OpKind] isDcc;
 immutable Mutation.Kind[] dccBranchMutationsRaw;
 immutable Mutation.Kind[] dccCaseMutationsRaw;
 
 shared static this() {
-    with (OpKind) {
-        bool[OpKind] is_dcc;
-        foreach (k; isLcr.byKey)
-            is_dcc[k] = true;
-        foreach (k; isRor.byKey)
-            is_dcc[k] = true;
-
-        isDcc = cast(immutable) is_dcc.dup;
-    }
-
     with (Mutation.Kind) {
         dccBranchMutationsRaw = [dccTrue, dccFalse];
         dccCaseMutationsRaw = [dccBomb];

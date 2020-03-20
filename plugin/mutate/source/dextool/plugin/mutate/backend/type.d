@@ -29,21 +29,68 @@ struct MutationPoint {
     Offset offset;
     Mutation[] mutations;
 
-    bool opEquals()(auto ref const S s) const {
+    bool opEquals()(auto ref const S s) @safe pure nothrow const @nogc {
         return offset == s.offset && mutations == s.mutations;
     }
 }
 
-/// Offset range. It is a  closed->open set.
+/// Offset range. It is a closed->open set.
 struct Offset {
     uint begin;
     uint end;
+
+    size_t toHash() @safe pure nothrow const @nogc scope {
+        auto a = begin.hashOf();
+        return end.hashOf(a); // mixing two hash values
+    }
+
+    int opCmp(ref const typeof(this) rhs) @safe pure nothrow const @nogc {
+        // return -1 if "this" is less than rhs, 1 if bigger and zero equal
+        if (begin < rhs.begin)
+            return -1;
+        if (begin > rhs.begin)
+            return 1;
+        if (end < rhs.end)
+            return -1;
+        if (end > rhs.end)
+            return 1;
+        return 0;
+    }
 }
 
 /// Location in the source code.
 struct SourceLoc {
     uint line;
     uint column;
+
+    int opCmp(ref const typeof(this) rhs) @safe pure nothrow const @nogc {
+        // return -1 if "this" is less than rhs, 1 if bigger and zero equal
+        if (line < rhs.line)
+            return -1;
+        if (line > rhs.line)
+            return 1;
+        if (column < rhs.column)
+            return -1;
+        if (column > rhs.column)
+            return 1;
+        return 0;
+    }
+}
+
+struct SourceLocRange {
+    SourceLoc begin;
+    SourceLoc end;
+
+    int opCmp(ref const typeof(this) rhs) const {
+        // return -1 if "this" is less than rhs, 1 if bigger and zero equal
+        auto cb = begin.opCmp(rhs.begin);
+        if (cb != 0)
+            return cb;
+        auto ce = end.opCmp(rhs.end);
+        if (ce != 0)
+            return ce;
+        return 0;
+    }
 }
 
 /// A possible mutation.
@@ -133,6 +180,8 @@ struct Mutation {
         /// Arithmetic operator replacement
         aorLhs,
         aorRhs,
+        // uoi
+        uoiDel,
     }
 
     /// The status of a mutant.
@@ -166,27 +215,6 @@ struct CodeChecksum {
 struct CodeMutant {
     CodeChecksum id;
     Mutation mut;
-}
-
-/// Deducted type information for expressions on the sides of a relational operator
-enum OpTypeInfo {
-    none,
-    /// Both sides are floating points
-    floatingPoint,
-    /// Either side is a pointer
-    pointer,
-    /// Both sides are bools
-    boolean,
-    /// lhs and rhs sides are the same enum decl
-    enumLhsRhsIsSame,
-    /// lhs is the minimal representation in the enum type
-    enumLhsIsMin,
-    /// lhs is the maximum representation in the enum type
-    enumLhsIsMax,
-    /// rhs is the minimum representation in the enum type
-    enumRhsIsMin,
-    /// rhs is the maximum representation in the enum type
-    enumRhsIsMax,
 }
 
 /// A test case from the test suite that is executed on mutants.

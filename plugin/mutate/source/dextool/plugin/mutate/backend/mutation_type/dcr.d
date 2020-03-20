@@ -10,12 +10,47 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.mutation_type.dcr;
 
 import dextool.plugin.mutate.backend.type;
-import dextool.plugin.mutate.type : MutationKind;
+import dextool.plugin.mutate.backend.analyze.ast;
 
 immutable Mutation.Kind[] dcrCaseMutationsRaw;
 
-Mutation.Kind[] dcrCaseMutations() @safe pure nothrow {
-    return dcrCaseMutationsRaw.dup;
+Mutation.Kind[] dcrMutations(Kind operator) @safe pure nothrow {
+    typeof(return) rval;
+
+    // an operator is a predicate, leaf.
+    // the condition is obviously the top node.
+    switch (operator) with (Mutation.Kind) {
+    case Kind.Call:
+        goto case;
+    case Kind.Expr:
+        // replace the functions body with return true/false;
+        goto case;
+    case Kind.OpAnd:
+        goto case;
+    case Kind.OpOr:
+        goto case;
+    case Kind.OpLess:
+        goto case;
+    case Kind.OpGreater:
+        goto case;
+    case Kind.OpLessEq:
+        goto case;
+    case Kind.OpGreaterEq:
+        goto case;
+    case Kind.OpEqual:
+        goto case;
+    case Kind.OpNotEqual:
+        goto case;
+    case Kind.Condition:
+        rval = [dccTrue, dccFalse];
+        break;
+    case Kind.Branch:
+        rval = [dcrCaseDel];
+        break;
+    default:
+    }
+
+    return rval;
 }
 
 shared static this() {

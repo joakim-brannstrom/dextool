@@ -16,70 +16,63 @@ import std.typecons : Tuple;
 import dextool.plugin.mutate.backend.type;
 import dextool.clang_extensions : OpKind;
 
-Mutation.Kind[] aorMutations(OpKind k) @safe pure nothrow {
-    auto v = k in isAor;
-    if (v is null)
-        return null;
+import dextool.plugin.mutate.backend.analyze.ast;
 
-    return aorMutationsAll.dup.filter!(a => !a.among(*v,
-            Mutation.Kind.aorRhs, Mutation.Kind.aorLhs)).array;
+auto aorMutations(Kind operator) @safe pure nothrow {
+    alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "lhs", Mutation.Kind[], "rhs");
+    Rval rval;
+
+    switch (operator) with (Mutation.Kind) {
+    case Kind.OpAdd:
+        rval = Rval([aorMul, aorDiv, aorRem, aorSub],
+                [Mutation.Kind.aorLhs], [Mutation.Kind.aorRhs]);
+        break;
+    case Kind.OpDiv:
+        rval = Rval([aorMul, aorRem, aorAdd, aorSub],
+                [Mutation.Kind.aorLhs], [Mutation.Kind.aorRhs]);
+        break;
+    case Kind.OpMod:
+        rval = Rval([aorMul, aorDiv, aorAdd, aorSub],
+                [Mutation.Kind.aorLhs], [Mutation.Kind.aorRhs]);
+        break;
+    case Kind.OpMul:
+        rval = Rval([aorDiv, aorRem, aorAdd, aorSub],
+                [Mutation.Kind.aorLhs], [Mutation.Kind.aorRhs]);
+        break;
+    case Kind.OpSub:
+        rval = Rval([aorMul, aorDiv, aorRem, aorAdd],
+                [Mutation.Kind.aorLhs], [Mutation.Kind.aorRhs]);
+        break;
+    case Kind.OpAssignAdd:
+        rval = Rval([aorDivAssign, aorRemAssign,
+                aorMulAssign, aorSubAssign], null, null);
+        break;
+    case Kind.OpAssignDiv:
+        rval = Rval([aorAddAssign, aorRemAssign,
+                aorMulAssign, aorSubAssign], null, null);
+        break;
+    case Kind.OpAssignMod:
+        rval = Rval([aorAddAssign, aorDivAssign,
+                aorMulAssign, aorSubAssign], null, null);
+        break;
+    case Kind.OpAssignMul:
+        rval = Rval([aorAddAssign, aorDivAssign,
+                aorRemAssign, aorSubAssign], null, null);
+        break;
+    case Kind.OpAssignSub:
+        rval = Rval([aorAddAssign, aorDivAssign,
+                aorRemAssign, aorMulAssign], null, null);
+        break;
+    default:
+    }
+
+    return rval;
 }
-
-Mutation.Kind[] aorAssignMutations(OpKind k) @safe pure nothrow {
-    auto v = k in isAorAssign;
-    if (v is null)
-        return null;
-
-    return aorAssignMutationsAll.dup.filter!(a => !a.among(*v,
-            Mutation.Kind.aorRhs, Mutation.Kind.aorLhs)).array;
-}
-
-auto aorLhsMutations(OpKind k) @safe pure nothrow {
-    return k in isAor ? [Mutation.Kind.aorLhs] : null;
-}
-
-auto aorRhsMutations(OpKind k) @safe pure nothrow {
-    return k in isAor ? [Mutation.Kind.aorRhs] : null;
-}
-
-immutable Mutation.Kind[OpKind] isAor;
-immutable Mutation.Kind[OpKind] isAorAssign;
 
 immutable Mutation.Kind[] aorMutationsAll;
 immutable Mutation.Kind[] aorAssignMutationsAll;
+
 shared static this() {
-    // dfmt off
-    with (OpKind) {
-    isAor = cast(immutable)
-        [
-        Mul: Mutation.Kind.aorMul, // "*"
-        Div: Mutation.Kind.aorDiv, // "/"
-        Rem: Mutation.Kind.aorRem, // "%"
-        Add: Mutation.Kind.aorAdd, // "+"
-        Sub: Mutation.Kind.aorSub, // "-"
-        OO_Plus: Mutation.Kind.aorAdd, // "+"
-        OO_Minus: Mutation.Kind.aorSub, // "-"
-        OO_Star: Mutation.Kind.aorMul, // "*"
-        OO_Slash: Mutation.Kind.aorDiv, // "/"
-        OO_Percent: Mutation.Kind.aorRem, // "%"
-        ];
-
-    isAorAssign = cast(immutable)
-        [
-        MulAssign: Mutation.Kind.aorMulAssign, // "*="
-        DivAssign: Mutation.Kind.aorDivAssign, // "/="
-        RemAssign: Mutation.Kind.aorRemAssign, // "%="
-        AddAssign: Mutation.Kind.aorAddAssign, // "+="
-        SubAssign: Mutation.Kind.aorSubAssign, // "-="
-        OO_PlusEqual: Mutation.Kind.aorAddAssign, // "+="
-        OO_MinusEqual: Mutation.Kind.aorSubAssign, // "-="
-        OO_StarEqual: Mutation.Kind.aorMulAssign, // "*="
-        OO_SlashEqual: Mutation.Kind.aorDivAssign, // "/="
-        OO_PercentEqual: Mutation.Kind.aorRemAssign, // "%="
-        ];
-    }
-    // dfmt on
-
     with (Mutation.Kind) {
         aorMutationsAll = [
             aorMul, aorDiv, aorRem, aorAdd, aorSub, aorLhs, aorRhs

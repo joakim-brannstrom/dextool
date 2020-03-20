@@ -32,7 +32,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
-    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
+    makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
     // act
     auto r = makeDextoolAdmin(testEnv)
@@ -57,7 +57,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
-    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
+    makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
     // act
     auto r = makeDextoolAdmin(testEnv)
@@ -86,7 +86,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
-    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
+    makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
     // act
     auto firstRes = makeDextoolAdmin(testEnv)
@@ -117,7 +117,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
-    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
+    makeDextoolAnalyze(testEnv).addInputArg(dst).run;
     auto db = createDatabase(testEnv);
 
     // act
@@ -149,7 +149,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
-    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
+    makeDextoolAnalyze(testEnv).addInputArg(dst).run;
     auto db = createDatabase(testEnv);
 
     // act
@@ -174,12 +174,12 @@ unittest {
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
 
-    makeDextoolAnalyze(testEnv).setWorkdir(workDir).addInputArg(dst).run;
+    makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
     // act
     makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(MutationId(3))])
+        .addArg(["--id",        3.to!string])
         .addArg(["--to-status", to!string(Status.killedByCompiler)])
         .addArg(["--rationale", `"Lost"`])
         .run;
@@ -189,6 +189,6 @@ unittest {
     testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)
         "| ID |", " File ", "    | Line | Column | Status           | Rationale |",
         "|----|", "--------------|------|--------|------------------|-----------|",
-        "| 3  |", `fibonacci.cpp | 8    | 10     | killedByCompiler | "Lost"    |`,
+        "| 3  |", `fibonacci.cpp | 8    | 8      | killedByCompiler | "Lost"    |`,
     ]).shouldBeIn(r.output);
 }

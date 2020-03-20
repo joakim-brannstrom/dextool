@@ -11,6 +11,9 @@ import dextool_test.utility;
 
 // dfmt off
 
+// COR mutants are not supported anymore because they where found to produce
+// unproductive effective mutants. Hard to understand.
+@(ShouldFail)
 @("shall produce all COR mutations for primitive types")
 @Values("lcr_primitive.cpp", "lcr_overload.cpp", "lcr_in_ifstmt.cpp")
 unittest {

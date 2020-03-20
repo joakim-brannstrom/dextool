@@ -18,6 +18,7 @@ to detect artificially injected faults.
 * 🐇 Can reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
 * 🐇 Can automatically [rerun the mutations that previously survived](#re-test-alive) when new tests are added to the test suite.
 * 🐇 Does automatic handling of infinite loops (timeout).
+* 🐇 Detects that a file has been renamed and move the mutation testing result from the new filename.
 * 🔨 Works with all C++ versions.
 * 🔨 Works with C++ templates.
 * 🔨 Integrates without modifications to the projects build system.

@@ -26,6 +26,16 @@ struct Path {
     string payload;
     alias payload this;
 
+    this(string s) @safe nothrow {
+        const h = s.hashOf;
+        if (auto v = h in pathCache) {
+            payload = *v;
+        } else {
+            pathCache[h] = s;
+            payload = s;
+        }
+    }
+
     bool empty() @safe pure nothrow const @nogc {
         return payload.length == 0;
     }
@@ -37,6 +47,25 @@ struct Path {
     bool opEquals(const AbsolutePath s) @safe pure nothrow const @nogc {
         return payload == s.payload;
     }
+
+    size_t toHash() @safe pure nothrow const @nogc scope {
+        return payload.hashOf;
+    }
+
+    private static string fromCache(size_t h) {
+        if (pathCache.length > 1024) {
+            pathCache = null;
+        }
+        if (auto v = h in pathCache) {
+            return *v;
+        }
+        return null;
+    }
+}
+
+private {
+    // Reduce memory usage by reusing paths.
+    private string[size_t] pathCache;
 }
 
 /** The path is guaranteed to be the absolute path.

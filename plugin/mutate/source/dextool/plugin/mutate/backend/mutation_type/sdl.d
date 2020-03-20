@@ -10,10 +10,44 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.mutation_type.sdl;
 
 import dextool.plugin.mutate.backend.type;
-import dextool.clang_extensions : OpKind;
+
+import dextool.plugin.mutate.backend.analyze.ast;
 
 Mutation.Kind[] stmtDelMutations() @safe pure nothrow {
     return stmtDelMutationsRaw.dup;
+}
+
+Mutation.Kind[] stmtDelMutations(Kind operator) @safe pure nothrow {
+    Mutation.Kind[] rval;
+
+    switch (operator) with (Mutation.Kind) {
+    case Kind.Return:
+        goto case;
+    case Kind.Block:
+        goto case;
+    case Kind.OpAssign:
+        goto case;
+    case Kind.OpAssignAdd:
+        goto case;
+    case Kind.OpAssignAndBitwise:
+        goto case;
+    case Kind.OpAssignDiv:
+        goto case;
+    case Kind.OpAssignMod:
+        goto case;
+    case Kind.OpAssignMul:
+        goto case;
+    case Kind.OpAssignOrBitwise:
+        goto case;
+    case Kind.OpAssignSub:
+        goto case;
+    case Kind.Call:
+        rval = [stmtDel];
+        break;
+    default:
+    }
+
+    return rval;
 }
 
 immutable Mutation.Kind[] stmtDelMutationsRaw;

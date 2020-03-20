@@ -2,9 +2,15 @@
 /// @date 2018
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
-class Foo {};
+class Fun {};
+class Bun {};
 
 int fun() {
-    throw Foo();
+    throw Fun();
     return 0;
+}
+
+void bun() {
+    throw Bun();
+    return;
 }

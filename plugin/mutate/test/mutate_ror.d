@@ -116,7 +116,7 @@ unittest {
         .addArg(["--mutant", "ror"])
         .run;
 
-    testConsecutiveSparseOrder!SubStr([
+    testAnyOrder!SubStr([
         "from '<' to '<='",
         "from '<' to '!='",
         "from 'a < MyE::C' to 'false'",
@@ -165,7 +165,7 @@ unittest {
         .addArg(["--mutant", "ror"])
         .run;
 
-    testConsecutiveSparseOrder!SubStr([
+    testAnyOrder!SubStr([
         "from '==' to '<='",
         "from '==' to '>='",
         "from 'a == b' to 'false'",
@@ -189,15 +189,13 @@ unittest {
 
         "from '==' to '<='",
         "from 'a == MyE::C' to 'false'",
-    ]).shouldBeIn(r.output);
 
-    testConsecutiveSparseOrder!SubStr([
         "from 'a == MyE::C' to 'false'",
         // test that g4 do NOT generate a <= because the left side is already min
         "from '==' to '<='",
         "from '==' to '>='",
         "from 'a == MyE::A' to 'false'",
-    ]).shouldNotBeIn(r.output);
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce all ROR mutations according to the enum schema for not-equal when both types are enum type and one is an enum const declaration")
@@ -212,7 +210,7 @@ unittest {
         .addArg(["--mutant", "ror"])
         .run;
 
-    testConsecutiveSparseOrder!SubStr([
+    testAnyOrder!SubStr([
         "from '!=' to '<'",
         "from '!=' to '>'",
         "from 'a != b' to 'true'",
@@ -248,7 +246,7 @@ unittest {
         .addArg(["--mutant", "rorp"])
         .run;
 
-    testConsecutiveSparseOrder!SubStr([
+    testAnyOrder!SubStr([
         "from '==' to '!='",
         "from 'a0 == a1' to 'false'",
 
@@ -283,7 +281,7 @@ unittest {
         .addArg(["--mutant", "rorp"])
         .run;
 
-    testConsecutiveSparseOrder!SubStr([
+    testAnyOrder!SubStr([
         "from '!=' to '=='",
         "from 'clone_ != &Foo::initRef' to 'true'",
 
@@ -313,7 +311,7 @@ unittest {
         .addArg(["--mutant", "ror"])
         .run;
 
-    testConsecutiveSparseOrder!SubStr([
+    testAnyOrder!SubStr([
         "from '==' to '!='",
         "from 'a0 == a1' to 'false'",
 
@@ -334,7 +332,7 @@ unittest {
         .addArg(["--mutant", "ror"])
         .run;
 
-    testConsecutiveSparseOrder!SubStr([
+    testAnyOrder!SubStr([
         "from '==' to '!='",
         "from 'a0() == a1()' to 'false'",
 

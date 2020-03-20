@@ -172,9 +172,6 @@ private:
 
         return result;
     }
-
-private:
-
 }
 
 struct DeclarationVisitor {

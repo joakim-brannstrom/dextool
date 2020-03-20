@@ -9,66 +9,42 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type.lcrb;
 
+import std.typecons : Tuple;
+
 import dextool.plugin.mutate.backend.type;
-import dextool.clang_extensions : OpKind;
 
-auto lcrbMutations(OpKind k) @safe pure nothrow {
-    auto v = k in isLcrb;
-    if (v is null)
-        return null;
+import dextool.plugin.mutate.backend.analyze.ast;
 
-    if (*v == Mutation.Kind.lcrbAnd)
-        return [Mutation.Kind.lcrbOr];
-    else if (*v == Mutation.Kind.lcrbOr)
-        return [Mutation.Kind.lcrbAnd];
-    return null;
+auto lcrbMutations(Kind operator) @safe pure nothrow {
+    alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "lhs", Mutation.Kind[], "rhs");
+    Rval rval;
+
+    // TODO should the same lhs and rhs from lcr bli implemented for lcrb
+    // too?
+
+    switch (operator) with (Mutation.Kind) {
+    case Kind.OpAndBitwise:
+        rval = Rval([lcrbOr], [lcrbLhs], [lcrbRhs]);
+        break;
+    case Kind.OpOrBitwise:
+        rval = Rval([lcrbAnd], [lcrbLhs], [lcrbRhs]);
+        break;
+    case Kind.OpAssignAndBitwise:
+        rval = Rval([lcrbOrAssign], null, null);
+        break;
+    case Kind.OpAssignOrBitwise:
+        rval = Rval([lcrbAndAssign], null, null);
+        break;
+    default:
+    }
+
+    return rval;
 }
-
-auto lcrbLhsMutations(OpKind k) @safe pure nothrow {
-    return k in isLcrb ? [Mutation.Kind.lcrbLhs] : null;
-}
-
-auto lcrbRhsMutations(OpKind k) @safe pure nothrow {
-    return k in isLcrb ? [Mutation.Kind.lcrbRhs] : null;
-}
-
-auto lcrbAssignMutations(OpKind k) @safe pure nothrow {
-    auto v = k in isLcrbAssign;
-    if (v is null)
-        return null;
-
-    if (*v == Mutation.Kind.lcrbAndAssign)
-        return [Mutation.Kind.lcrbOrAssign];
-    else if (*v == Mutation.Kind.lcrbOrAssign)
-        return [Mutation.Kind.lcrbAndAssign];
-    return null;
-}
-
-immutable Mutation.Kind[OpKind] isLcrb;
-immutable Mutation.Kind[OpKind] isLcrbAssign;
 
 immutable Mutation.Kind[] lcrbMutationsAll;
 immutable Mutation.Kind[] lcrbAssignMutationsAll;
 
 shared static this() {
-    // dfmt off
-    with (OpKind) {
-    isLcrb = [
-        And : Mutation.Kind.lcrbAnd, // "&"
-        Or : Mutation.Kind.lcrbOr, // "|"
-        OO_Amp : Mutation.Kind.lcrbAnd, // "&"
-        OO_Pipe : Mutation.Kind.lcrbOr, // "|"
-    ];
-
-    isLcrbAssign = [
-        AndAssign : Mutation.Kind.lcrbAndAssign,
-        OrAssign : Mutation.Kind.lcrbOrAssign,
-        OO_AmpEqual : Mutation.Kind.lcrbAndAssign,
-        OO_PipeEqual : Mutation.Kind.lcrbOrAssign,
-    ];
-    }
-    // dfmt on
-
     with (Mutation.Kind) {
         lcrbMutationsAll = [lcrbAnd, lcrbOr, lcrbLhs, lcrbRhs];
         lcrbAssignMutationsAll = [lcrbOrAssign, lcrbAndAssign];

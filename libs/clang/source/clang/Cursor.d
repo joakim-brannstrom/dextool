@@ -17,12 +17,13 @@ module clang.Cursor;
 
 import clang.c.Index;
 
+import clang.Eval;
 import clang.File;
 import clang.SourceLocation;
 import clang.SourceRange;
-import clang.Type;
-import clang.TranslationUnit;
 import clang.Token;
+import clang.TranslationUnit;
+import clang.Type;
 import clang.Util;
 import clang.Visitor;
 
@@ -315,6 +316,14 @@ import clang.Visitor;
         return SourceRange(r);
     }
 
+    /** If cursor is a statement declaration tries to evaluate the statement
+     * and if its variable, tries to evaluate its initializer, into its
+     * corresponding type.
+     */
+    Eval eval() const @trusted {
+        return Eval(clang_Cursor_Evaluate(cx));
+    }
+
     /** Retrieve the canonical cursor corresponding to the given cursor.
      *
      * In the C family of languages, many kinds of entities can be declared
@@ -441,6 +450,7 @@ import clang.Visitor;
         return clang_equalCursors(cast(CXCursor) cursor.cx, cast(CXCursor) cx) != 0;
     }
 
+    /// Compute a hash value for the given cursor.
     size_t toHash() const nothrow @trusted {
         //TODO i'm not sure this is a good solution... investigate.
         try {
@@ -850,7 +860,7 @@ struct EnumCursor {
     }
 
     /// Return: if the type of the enum is signed.
-    @property bool isSigned() @trusted {
+    @property bool isSigned() const @trusted {
         Type t;
 
         if (isUnderlyingTypeEnum) {
@@ -859,20 +869,7 @@ struct EnumCursor {
             t = Type(cursor, clang_getCursorType(cx));
         }
 
-        switch (t.kind) with (CXTypeKind) {
-        case charU:
-        case uChar:
-        case char16:
-        case char32:
-        case uShort:
-        case uInt:
-        case uLong:
-        case uLongLong:
-        case uInt128:
-            return false;
-        default:
-            return true;
-        }
+        return t.isSigned;
     }
 }
 

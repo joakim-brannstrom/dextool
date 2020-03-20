@@ -99,7 +99,7 @@ struct Set(T) {
         return r;
     }
 
-    auto toArray() {
+    auto toArray() inout {
         import std.array : appender;
 
         auto app = appender!(T[])();

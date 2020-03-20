@@ -9,53 +9,34 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type.lcr;
 
+import std.typecons : Tuple;
+
 import dextool.plugin.mutate.backend.type;
-import dextool.clang_extensions : OpKind;
 
-auto lcrMutations(OpKind k) @safe pure nothrow {
-    import std.typecons : Tuple;
+import dextool.plugin.mutate.backend.analyze.ast;
 
-    alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "expr");
+auto lcrMutations(Kind operator) {
+    alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "expr",
+            Mutation.Kind[], "lhs", Mutation.Kind[], "rhs");
+    Rval rval;
 
-    auto v = k in isLcr;
-    if (v is null)
-        return Rval();
-
-    auto rval = Rval(null, [Mutation.Kind.lcrTrue, Mutation.Kind.lcrFalse]);
-
-    if (*v == Mutation.Kind.lcrAnd) {
-        rval.op = [Mutation.Kind.lcrOr];
-    } else if (*v == Mutation.Kind.lcrOr) {
-        rval.op = [Mutation.Kind.lcrAnd];
+    switch (operator) with (Mutation.Kind) {
+    case Kind.OpAnd:
+        rval = Rval([lcrOr], [lcrTrue, lcrFalse], [lcrLhs], [lcrRhs]);
+        break;
+    case Kind.OpOr:
+        rval = Rval([lcrAnd], [lcrTrue, lcrFalse], [lcrLhs], [lcrRhs]);
+        break;
+        // TODO: add assign
+    default:
     }
 
     return rval;
 }
 
-auto lcrLhsMutations(OpKind k) @safe pure nothrow {
-    return k in isLcr ? [Mutation.Kind.lcrLhs] : null;
-}
-
-auto lcrRhsMutations(OpKind k) @safe pure nothrow {
-    return k in isLcr ? [Mutation.Kind.lcrRhs] : null;
-}
-
-immutable Mutation.Kind[OpKind] isLcr;
-
 immutable Mutation.Kind[] lcrMutationsAll;
 
 shared static this() {
-    // dfmt off
-    with (OpKind) {
-    isLcr = cast(immutable)[
-        LAnd : Mutation.Kind.lcrAnd, // "&&"
-        LOr : Mutation.Kind.lcrOr, // "||"
-        OO_AmpAmp : Mutation.Kind.lcrAnd, // "&&"
-        OO_PipePipe : Mutation.Kind.lcrOr, // "||"
-    ];
-    }
-    // dfmt on
-
     with (Mutation.Kind) {
         lcrMutationsAll = [lcrAnd, lcrOr, lcrLhs, lcrRhs, lcrTrue, lcrFalse];
     }
