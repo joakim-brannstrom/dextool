@@ -139,7 +139,7 @@ class MutantsResult {
 
         auto absp = fio.toAbsoluteRoot(raw);
 
-        if (!vloc.shouldAnalyze(absp) || !vloc.shouldMutate(absp) || absp in existingFiles)
+        if (!vloc.shouldMutate(absp) || absp in existingFiles)
             return;
 
         try {
