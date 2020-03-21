@@ -226,6 +226,7 @@ struct ArgParser {
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "no-prune", "do not prune the database of files that aren't found during the analyze", &noPrune,
                    "out", out_help, &workArea.rawRoot,
+                   "profile", "print performance profile for the analyzers that are part of the report", &analyze.profile,
                    "restrict", restrict_help, &workArea.rawRestrict,
                    "threads", "number of threads to use for analysing files (default: CPU cores available)", &analyze.poolSize,
                    );
