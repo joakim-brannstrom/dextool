@@ -1091,7 +1091,7 @@ struct Database {
             return;
 
         immutable st_id = () {
-            enum st_id_for_mutation_q = format("SELECT st_id FROM %s WHERE id=:id", mutationTable);
+            enum st_id_for_mutation_q = format!"SELECT st_id FROM %s WHERE id=:id"(mutationTable);
             auto stmt = db.prepare(st_id_for_mutation_q);
             stmt.get.bind(":id", cast(long) id);
             return stmt.get.execute.oneValue!long;
@@ -1110,20 +1110,18 @@ struct Database {
             return;
 
         try {
-            enum remove_old_sql = format("DELETE FROM %s WHERE st_id=:id", killedTestCaseTable);
+            enum remove_old_sql = format!"DELETE FROM %s WHERE st_id=:id"(killedTestCaseTable);
             auto stmt = db.prepare(remove_old_sql);
             stmt.get.bind(":id", cast(long) st_id);
             stmt.get.execute;
         } catch (Exception e) {
         }
 
-        enum add_if_non_exist_tc_sql = format(
-                    "INSERT INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)",
+        enum add_if_non_exist_tc_sql = format!"INSERT INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)"(
                     allTestCaseTable, allTestCaseTable);
         auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
 
-        enum add_new_sql = format(
-                    "INSERT INTO %s (st_id, tc_id, location) SELECT :st_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc",
+        enum add_new_sql = format!"INSERT INTO %s (st_id, tc_id, location) SELECT :st_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc"(
                     killedTestCaseTable, allTestCaseTable);
         auto stmt_insert = db.prepare(add_new_sql);
         foreach (const tc; tcs) {
