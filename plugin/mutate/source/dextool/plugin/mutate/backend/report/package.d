@@ -19,16 +19,16 @@ import std.exception : collectException;
 import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
-import dextool.plugin.mutate.backend.type : Mutation, Offset;
-
 import dextool.plugin.mutate.backend.diff_parser : Diff, diffFromStdin;
+import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent,
     FileReport, FilesReporter;
-import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize;
+import dextool.plugin.mutate.backend.type : Mutation, Offset;
+import dextool.plugin.mutate.backend.utility : getProfileResult, Profile;
 import dextool.plugin.mutate.config : ConfigReport;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
 
 ExitStatusType runReport(ref Database db, const MutationKind[] kind,
         const ConfigReport conf, FilesysIO fio) @trusted nothrow {
@@ -56,7 +56,6 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
     if (conf.profile)
         try {
             import std.stdio : writeln;
-            import dextool.plugin.mutate.backend.utility : getProfileResult;
 
             writeln(getProfileResult.toString);
         } catch (Exception e) {
@@ -75,14 +74,17 @@ void runAllMutantReporter(ref Database db, const(MutationKind)[] kind, ref Repor
     const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
 
     // TODO remove this parameter. seems to be unnecessary.
-    genrep.mutationKindEvent(kind is null ? [MutationKind.any] : kind);
+    genrep.mutationKindEvent(kind);
 
     genrep.locationStartEvent(db);
-    db.iterateMutants(kinds, &genrep.locationEvent);
+    {
+        auto profile = Profile("iterate mutants for report");
+        db.iterateMutants(kinds, &genrep.locationEvent);
+    }
+
+    auto profile = Profile("post process report");
     genrep.locationEndEvent;
-
     genrep.locationStatEvent;
-
     genrep.statEvent(db);
 }
 
@@ -97,11 +99,13 @@ void runFilesReporter(ref Database db, FilesReporter fps, const(MutationKind)[] 
     fps.mutationKindEvent(kind);
 
     foreach (f; db.getDetailedFiles) {
+        auto profile = Profile("generate report for " ~ f.file);
         auto fp = fps.getFileReportEvent(db, f);
         db.iterateFileMutants(kinds, f.file, &fp.fileMutantEvent);
         fp.endFileEvent(db);
     }
 
+    auto profile = Profile("post process report");
     fps.postProcessEvent(db);
     fps.endEvent(db);
 }
