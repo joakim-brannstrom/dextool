@@ -80,6 +80,8 @@ string toInternal(ubyte[] data) @safe nothrow {
 }
 
 struct Table(int columnsNr) {
+    import std.format : FormatSpec;
+
     alias Row = string[columnsNr];
 
     Row heading_;
@@ -104,8 +106,6 @@ struct Table(int columnsNr) {
         rows ~= r;
         updateColumns(r);
     }
-
-    import std.format : FormatSpec;
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         import std.ascii : newline;

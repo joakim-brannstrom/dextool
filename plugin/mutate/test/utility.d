@@ -53,6 +53,7 @@ auto makeDextoolReport(const ref TestEnv env, Path test_data) {
     return dextool_test.makeDextool(env)
         .setWorkdir(workDir)
         .args(["mutate", "report"])
+        .addPostArg(["--profile"])
         .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
         .addPostArg(["--out", test_data.toString]);
     // dfmt on

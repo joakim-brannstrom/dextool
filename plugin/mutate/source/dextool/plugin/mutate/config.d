@@ -54,6 +54,9 @@ struct ConfigReport {
 
     /// If a unified diff should be used in the report
     bool unifiedDiff;
+
+    /// If profiling data should be printed.
+    bool profile;
 }
 
 /// Configuration data for the compile_commands.json
