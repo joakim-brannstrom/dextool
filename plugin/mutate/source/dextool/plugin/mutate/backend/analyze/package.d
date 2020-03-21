@@ -68,7 +68,7 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
 
     // will only be used by one thread at a time.
     auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup,
-            conf_analyze.prune, conf_analyze.fastDbStore);
+            conf_analyze.prune, conf_analyze.fastDbStore, conf_analyze.poolSize);
 
     int taskCnt;
     Set!AbsolutePath alreadyAnalyzed;
@@ -167,7 +167,7 @@ void analyzeActor(SearchResult fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
 
 /// Store the result of the analyze.
 void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared,
-        const bool prune, const bool fastDbStore) @trusted nothrow {
+        const bool prune, const bool fastDbStore, const long poolSize) @trusted nothrow {
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
     import cachetools : CacheLRU;
     import dextool.cachetools : nullableCache;
@@ -298,7 +298,10 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
     try {
         import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
 
-        setMaxMailboxSize(thisTid, 64, OnCrowding.block);
+        // by making the mailbox size follow the number of workers the overall
+        // behavior will slow down if saving to the database is too slow. This
+        // avoids excessive or even fatal memory usage.
+        setMaxMailboxSize(thisTid, poolSize + 2, OnCrowding.block);
 
         fastDbOn();
 
