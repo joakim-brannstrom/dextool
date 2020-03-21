@@ -51,18 +51,13 @@ struct ArgParser {
     ConfigGenerate generate;
 
     struct Data {
-        string[] inFiles;
-
         AbsolutePath db;
-
-        bool help;
         ExitStatusType exitStatus = ExitStatusType.Ok;
-
-        MutationKind[] mutation;
-
-        ToolMode toolMode;
-
         Mutation.Status to_status;
+        MutationKind[] mutation;
+        ToolMode toolMode;
+        bool help;
+        string[] inFiles;
     }
 
     Data data;
@@ -231,6 +226,7 @@ struct ArgParser {
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "no-prune", "do not prune the database of files that aren't found during the analyze", &noPrune,
                    "out", out_help, &workArea.rawRoot,
+                   "profile", "print performance profile for the analyzers that are part of the report", &analyze.profile,
                    "restrict", restrict_help, &workArea.rawRestrict,
                    "threads", "number of threads to use for analysing files (default: CPU cores available)", &analyze.poolSize,
                    );
@@ -326,6 +322,7 @@ struct ArgParser {
                    "logdir", "Directory to write log files to (default: .)", &logDir,
                    "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                    "out", out_help, &workArea.rawRoot,
+                   "profile", "print performance profile for the analyzers that are part of the report", &report.profile,
                    "restrict", restrict_help, &workArea.rawRestrict,
                    "section", "sections to include in the report " ~ format("[%(%s|%)]", [EnumMembers!ReportSection]), &report.reportSection,
                    "section-tc_stat-num", "number of test cases to report", &report.tcKillSortNum,

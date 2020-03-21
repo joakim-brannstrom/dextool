@@ -34,6 +34,7 @@ import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
+import dextool.plugin.mutate.backend.utility : getProfileResult, Profile;
 import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
 import dextool.set;
 import dextool.type : ExitStatusType, AbsolutePath, Path;
@@ -101,6 +102,15 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
     // wait for the store actor to finish
     receiveOnly!StoreDoneMsg;
 
+    if (conf_analyze.profile)
+        try {
+            import std.stdio : writeln;
+
+            writeln(getProfileResult.toString);
+        } catch (Exception e) {
+            logger.warning("Unable to print the profile data: ", e.msg).collectException;
+        }
+
     return ExitStatusType.Ok;
 }
 
@@ -150,6 +160,8 @@ struct StoreDoneMsg {
 /// Start an analyze of a file
 void analyzeActor(SearchResult fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
         ConfigCompiler conf, Tid storeActor) @trusted nothrow {
+    auto profile = Profile("analyze file " ~ fileToAnalyze.absoluteFile);
+
     try {
         auto analyzer = Analyze(vloc, fio, conf.forceSystemIncludes);
         analyzer.process(fileToAnalyze);
@@ -243,6 +255,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
     // listen for results from workers until the expected number is processed.
     void recv() {
+        auto profile = Profile("updating files");
         logger.info("Updating files");
 
         int resultCnt;
@@ -268,6 +281,8 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
     void pruneFiles() {
         import std.path : buildPath;
+
+        auto profile = Profile("prune files");
 
         logger.info("Pruning the database of dropped files");
         auto files = db.getFiles.map!(a => buildPath(fio.getOutputDir, a).Path).toSet;
@@ -322,6 +337,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
         if (prune) {
             pruneFiles();
+            auto profile = Profile("remove orphant mutants");
             logger.info("Removing orphant mutants");
             db.removeOrphanedMutants;
         }
