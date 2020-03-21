@@ -29,8 +29,8 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize,
     statusToString, kindToString;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, TestGroup;
-import dextool.plugin.mutate.type : ReportKillSortOrder;
-import dextool.plugin.mutate.type : ReportLevel, ReportSection;
+import dextool.plugin.mutate.backend.utility : Profile;
+import dextool.plugin.mutate.type : ReportKillSortOrder, ReportLevel, ReportSection;
 import dextool.type;
 
 public import dextool.plugin.mutate.backend.report.utility : Table;
@@ -1049,38 +1049,3 @@ TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind
 }
 
 private:
-
-/** Measure how long a report takes to generate and print it as trace data.
- *
- * This is an example from clang-tidy for how it could be reported to the user.
- * For now it is *just* reported as it is running.
- *
- * ===-------------------------------------------------------------------------===
- *                           clang-tidy checks profiling
- * ===-------------------------------------------------------------------------===
- *   Total Execution Time: 0.0021 seconds (0.0021 wall clock)
- *
- *    ---User Time---   --System Time--   --User+System--   ---Wall Time---  --- Name ---
- *    0.0000 (  0.1%)   0.0000 (  0.0%)   0.0000 (  0.0%)   0.0000 (  0.1%)  readability-misplaced-array-index
- *    0.0000 (  0.2%)   0.0000 (  0.0%)   0.0000 (  0.1%)   0.0000 (  0.1%)  abseil-duration-division
- *    0.0012 (100.0%)   0.0009 (100.0%)   0.0021 (100.0%)   0.0021 (100.0%)  Total
- */
-struct Profile {
-    import std.datetime.stopwatch : StopWatch;
-
-    ReportSection kind;
-    StopWatch sw;
-
-    this(ReportSection kind) @safe nothrow @nogc {
-        this.kind = kind;
-        sw.start;
-    }
-
-    ~this() @safe nothrow {
-        try {
-            sw.stop;
-            logger.tracef("profiling:%s wall time:%s", kind, sw.peek);
-        } catch (Exception e) {
-        }
-    }
-}

@@ -10,8 +10,12 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.utility;
 
 import core.time : Duration;
-import std.algorithm : filter;
-import std.typecons : Flag, No;
+import logger = std.experimental.logger;
+import std.algorithm : filter, map, splitter, sum, sort;
+import std.array : appender, array;
+import std.conv : to;
+import std.typecons : Flag, No, Tuple;
+import core.sync.mutex : Mutex;
 
 import dextool.type : Path, AbsolutePath;
 import dextool.from;
@@ -20,6 +24,32 @@ public import dextool.plugin.mutate.backend.type;
 public import dextool.plugin.mutate.backend.mutation_type;
 public import dextool.clang_extensions : OpKind;
 public import dextool.plugin.mutate.backend.interface_ : Blob;
+
+/// Execution profile result gathered from analysers.
+private shared ProfileResults gProfile;
+private shared Mutex gProfileMtx;
+
+/// Returns: the profiling results gathered for this module.
+ProfileResults getProfileResult() @trusted {
+    gProfileMtx.lock_nothrow;
+    scope (exit)
+        gProfileMtx.unlock_nothrow();
+    auto g = cast() gProfile;
+    return new ProfileResults(g.results.dup);
+}
+
+void putProfile(string name, Duration time) @trusted {
+    gProfileMtx.lock_nothrow;
+    scope (exit)
+        gProfileMtx.unlock_nothrow();
+    auto g = cast() gProfile;
+    g.put(name, time);
+}
+
+shared static this() {
+    gProfileMtx = new shared Mutex();
+    gProfile = cast(shared) new ProfileResults;
+}
 
 @safe:
 
@@ -77,8 +107,6 @@ void rndSleep(Duration min_, int span) nothrow @trusted {
  */
 auto tokenize(Flag!"splitMultiLineTokens" splitTokens = No.splitMultiLineTokens)(
         ref from.cpptooling.analyzer.clang.context.ClangContext ctx, Path file) @trusted {
-    import std.algorithm : splitter;
-    import std.array : appender;
     import std.range : enumerate;
 
     auto tu = ctx.makeTranslationUnit(file);
@@ -136,5 +164,132 @@ struct TokenRange {
 
     bool empty() @safe pure nothrow const @nogc {
         return tokens.length == 0;
+    }
+}
+
+/** Collect profiling results
+ *
+ */
+class ProfileResults {
+    alias Result = Tuple!(string, "name", Duration, "time", double, "ratio");
+    /// The profiling for the same name is accumulated.
+    Duration[string] results;
+
+    this() {
+    }
+
+    this(typeof(results) results) {
+        this.results = results;
+    }
+
+    void put(string name, Duration time) {
+        if (auto v = name in results) {
+            (*v) += time;
+        } else {
+            results[name] = time;
+        }
+    }
+
+    /// Returns: the total wall time.
+    Duration totalTime() const {
+        return results.byValue.sum(Duration.zero);
+    }
+
+    /// Returns;
+    Result[] toRows() const {
+        auto app = appender!(Result[])();
+        const double total = totalTime.total!"nsecs";
+
+        foreach (a; results.byKeyValue.array.sort!((a, b) => a.value < b.value)) {
+            Result row;
+            row.name = a.key;
+            row.time = a.value;
+            row.ratio = cast(double) a.value.total!"nsecs" / total;
+            app.put(row);
+        }
+
+        return app.data;
+    }
+
+    /**
+     *
+     * This is an example from clang-tidy for how it could be reported to the user.
+     * For now it is *just* reported as it is running.
+     *
+     * ===-------------------------------------------------------------------------===
+     *                           clang-tidy checks profiling
+     * ===-------------------------------------------------------------------------===
+     *   Total Execution Time: 0.0021 seconds (0.0021 wall clock)
+     *
+     *    ---User Time---   --System Time--   --User+System--   ---Wall Time---  --- Name ---
+     *    0.0000 (  0.1%)   0.0000 (  0.0%)   0.0000 (  0.0%)   0.0000 (  0.1%)  readability-misplaced-array-index
+     *    0.0000 (  0.2%)   0.0000 (  0.0%)   0.0000 (  0.1%)   0.0000 (  0.1%)  abseil-duration-division
+     *    0.0012 (100.0%)   0.0009 (100.0%)   0.0021 (100.0%)   0.0021 (100.0%)  Total
+     */
+    override string toString() const {
+        import std.algorithm : maxElement;
+        import std.format : format, formattedWrite;
+        import std.math : log10;
+
+        const sec = 1000000000.0;
+        // 16 is the number of letters after the dot in "0.0000 (100.1%)" + 1 empty whitespace.
+        const wallMaxLen = cast(int) results.byValue.map!(a => a.total!"seconds")
+            .maxElement(1).log10 + 15;
+
+        auto app = appender!string;
+        formattedWrite(app,
+                "===-------------------------------------------------------------------------===\n");
+        formattedWrite(app, "                         dextool profiling\n");
+        formattedWrite(app,
+                "===-------------------------------------------------------------------------===\n");
+        formattedWrite(app, "Total execution time: %.4f seconds\n\n",
+                cast(double) totalTime.total!"nsecs" / sec);
+        formattedWrite(app, "---Wall Time--- ---Name---\n");
+
+        void print(string name, Duration time, double ratio) {
+            auto wt = format!"%.4f (%.1f%%)"(cast(double) time.total!"nsecs" / sec, ratio * 100.0);
+            formattedWrite(app, "%-*s %s\n", wallMaxLen, wt, name);
+        }
+
+        foreach (r; toRows) {
+            print(r.name, r.time, r.ratio);
+        }
+
+        return app.data;
+    }
+}
+
+/** Wall time profile of a task.
+ *
+ * If no results collector is specified the result is stored in the global
+ * collector.
+ */
+struct Profile {
+    import std.datetime.stopwatch : StopWatch;
+
+    string name;
+    StopWatch sw;
+    ProfileResults saveTo;
+
+    this(T)(T name, ProfileResults saveTo = null) @safe nothrow {
+        try {
+            this.name = name.to!string;
+        } catch (Exception e) {
+            this.name = T.stringof;
+        }
+        this.saveTo = saveTo;
+        sw.start;
+    }
+
+    ~this() @safe nothrow {
+        try {
+            sw.stop;
+            if (saveTo is null) {
+                putProfile(name, sw.peek);
+            } else {
+                saveTo.put(name, sw.peek);
+            }
+        } catch (Exception e) {
+        }
     }
 }

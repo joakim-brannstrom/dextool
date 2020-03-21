@@ -12,8 +12,9 @@ summary and details for each mutation.
 */
 module dextool.plugin.mutate.backend.report;
 
-import std.exception : collectException;
 import logger = std.experimental.logger;
+import std.ascii : newline;
+import std.exception : collectException;
 
 import dextool.type;
 
@@ -51,6 +52,16 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }
+
+    if (conf.profile)
+        try {
+            import std.stdio : writeln;
+            import dextool.plugin.mutate.backend.utility : getProfileResult;
+
+            writeln(getProfileResult.toString);
+        } catch (Exception e) {
+            logger.warning("Unable to print the profile data: ", e.msg).collectException;
+        }
 
     return ExitStatusType.Ok;
 }
