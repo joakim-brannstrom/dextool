@@ -92,6 +92,9 @@ struct ConfigAnalyze {
 
     /// Turn off the sqlite synchronization safety
     bool fastDbStore;
+
+    /// If profiling data should be printed.
+    bool profile;
 }
 
 /// Settings for the compiler
