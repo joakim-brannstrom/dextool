@@ -96,6 +96,7 @@ in {
     assert(p.length != 0);
 }
 do {
+    import std.parallelism : totalCPUs;
     import d2sqlite3 : SQLITE_OPEN_CREATE, SQLITE_OPEN_READWRITE;
 
     static void setPragmas(ref SqlDatabase db) {
@@ -103,9 +104,10 @@ do {
         auto pragmas = [
             // required for foreign keys with cascade to work
             "PRAGMA foreign_keys=ON;",
-            // use two worker threads. Should improve performance a bit without having an adverse effect.
-            // this should probably be user configurable.
-            "PRAGMA threads = 2;",
+            // use optimal number of worker threads. Should improve performance
+            // a bit without having an adverse effect.
+            // This should probably be user configurable.
+            format!"PRAGMA threads = %s;"(totalCPUs),
         ];
         // dfmt on
 
