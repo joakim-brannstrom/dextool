@@ -226,6 +226,7 @@ final class FrontendValidateLoc : ValidateLoc {
         return this.shouldAnalyze(cast(string) p);
     }
 
+    /// Returns: if a file should be analyzed for mutants.
     override bool shouldAnalyze(const string p) {
         import std.algorithm : any;
         import std.string : startsWith;
@@ -237,6 +238,7 @@ final class FrontendValidateLoc : ValidateLoc {
         return res;
     }
 
+    /// Returns: if a file should be mutated.
     override bool shouldMutate(AbsolutePath p) {
         import std.file : isDir;
         import std.string : startsWith;
@@ -246,7 +248,11 @@ final class FrontendValidateLoc : ValidateLoc {
 
         bool res = p.startsWith(output_dir);
         logger.tracef(!res, "Path '%s' escaping output directory (--out) '%s'", p, output_dir);
-        return res;
+
+        if (res) {
+            return shouldAnalyze(p);
+        }
+        return false;
     }
 }
 
