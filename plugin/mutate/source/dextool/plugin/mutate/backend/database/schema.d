@@ -96,6 +96,7 @@ in {
     assert(p.length != 0);
 }
 do {
+    import std.parallelism : totalCPUs;
     import d2sqlite3 : SQLITE_OPEN_CREATE, SQLITE_OPEN_READWRITE;
 
     static void setPragmas(ref SqlDatabase db) {
@@ -103,9 +104,10 @@ do {
         auto pragmas = [
             // required for foreign keys with cascade to work
             "PRAGMA foreign_keys=ON;",
-            // use two worker threads. Should improve performance a bit without having an adverse effect.
-            // this should probably be user configurable.
-            "PRAGMA threads = 2;",
+            // use optimal number of worker threads. Should improve performance
+            // a bit without having an adverse effect.
+            // This should probably be user configurable.
+            format!"PRAGMA threads = %s;"(totalCPUs),
         ];
         // dfmt on
 
@@ -481,10 +483,15 @@ long getSchemaVersion(ref Miniorm db) nothrow {
 void upgrade(ref Miniorm db) nothrow {
     import d2sqlite3;
 
+    immutable maxIndex = 1;
+
     alias upgradeFunc = void function(ref Miniorm db);
     enum tbl = makeUpgradeTable;
 
-    while (true) {
+    bool hasUpdated;
+
+    bool running = true;
+    while (running) {
         long version_ = 0;
 
         try {
@@ -493,21 +500,33 @@ void upgrade(ref Miniorm db) nothrow {
             logger.trace(e.msg).collectException;
         }
 
-        if (version_ == tbl.latestSchemaVersion)
-            return;
+        if (version_ >= tbl.latestSchemaVersion) {
+            running = false;
+            continue;
+        }
 
         logger.infof("Upgrading database from %s", version_).collectException;
 
+        if (!hasUpdated)
+            try {
+                // only do this once and always before any changes to the database.
+                foreach (i; 0 .. maxIndex) {
+                    db.run(format!"DROP INDEX IF EXISTS i%s"(i));
+                }
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+                logger.warning("Unable to drop database indexes").collectException;
+            }
+
         if (auto f = version_ in tbl) {
             try {
-                db.begin;
-                scope (success)
-                    db.commit;
-                scope (failure)
-                    db.rollback;
+                auto trans = db.transaction;
+                hasUpdated = true;
+
                 (*f)(db);
                 if (version_ != 0)
                     updateSchemaVersion(db, version_ + 1);
+                trans.commit;
             } catch (Exception e) {
                 logger.trace(e).collectException;
                 logger.error(e.msg).collectException;
@@ -519,9 +538,22 @@ void upgrade(ref Miniorm db) nothrow {
             }
         } else {
             logger.info("Upgrade successful").collectException;
-            return;
+            running = false;
         }
     }
+
+    // add indexes assuming the lastest database schema
+    if (hasUpdated)
+        try {
+            auto trans = db.transaction;
+            int i;
+            db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, mutationTable));
+            assert(i <= maxIndex);
+            trans.commit;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            logger.warning("Unable to create database indexes").collectException;
+        }
 }
 
 /** If the database start it version 0, not initialized, then initialize to the
@@ -947,6 +979,11 @@ void upgradeV16(ref Miniorm db) {
 /// 2020-02-12
 void upgradeV17(ref Miniorm db) {
     db.run(buildSchema!(SchemataTable));
+}
+
+/// 2020-03-21
+void upgradev18(ref Miniorm db) {
+    // this force an old database to add indexes
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
