@@ -39,26 +39,16 @@ class Cache {
     import dextool.cachetools;
 
     private {
-        CacheLRU!(string, Checksum) file_;
-        CacheLRU!(string, Checksum) path_;
         CacheLRU!(string, Token[]) fileToken_;
-        CacheLRU!(string, Token[]) fileFilteredToken_;
         bool enableLog_;
     }
 
     this() {
-        this.file_ = new typeof(file_);
-        this.path_ = new typeof(path_);
-
         this.fileToken_ = new typeof(fileToken_);
         // guessing that 30s and keeping the last 64 is "good enough".
         // TODO: gather metrics or make it configurable.
         this.fileToken_.size = 64;
         this.fileToken_.ttl = 30.dur!"seconds";
-
-        this.fileFilteredToken_ = new typeof(fileFilteredToken_);
-        this.fileFilteredToken_.size = 64;
-        this.fileFilteredToken_.ttl = 30.dur!"seconds";
     }
 
     /// Activate logging of cache events.
@@ -91,41 +81,11 @@ class Cache {
         }
     }
 
-    /** Calculate the checksum for the file content.
-     */
-    Checksum getFileChecksum(AbsolutePath p, const(ubyte)[] data) {
-        typeof(return) rval = file_.cacheToolsRequire(cast(string) p, {
-            return checksum(data);
-        }());
-        debug logEvents;
-        return rval;
-    }
-
-    /** Calculate the checksum of the file path.
-     */
-    Checksum getPathChecksum(Path p) {
-        typeof(return) rval = path_.cacheToolsRequire(p.payload, {
-            return checksum(cast(const(ubyte)[]) p.payload);
-        }());
-        debug logEvents;
-        return rval;
-    }
-
     /** Returns: the files content converted to tokens.
      */
     Token[] getTokens(AbsolutePath p, TokenStream tstream) {
         typeof(return) rval = fileToken_.cacheToolsRequire(cast(string) p, {
             return tstream.getTokens(p);
-        }());
-        debug logEvents;
-        return rval;
-    }
-
-    /** Returns: the files content converted to tokens.
-     */
-    Token[] getFilteredTokens(AbsolutePath p, TokenStream tstream) {
-        typeof(return) rval = fileFilteredToken_.cacheToolsRequire(cast(string) p, {
-            return tstream.getFilteredTokens(p);
         }());
         debug logEvents;
         return rval;

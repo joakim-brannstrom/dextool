@@ -431,7 +431,9 @@ struct Analyze {
 
     void analyzeForMutants(SearchResult in_file,
             Exists!AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
-        import dextool.plugin.mutate.backend.analyze.schemata;
+        import dextool.plugin.mutate.backend.analyze.pass_clang;
+        import dextool.plugin.mutate.backend.analyze.pass_mutant;
+        import dextool.plugin.mutate.backend.analyze.pass_schemata;
         import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
 
         logger.infof("Analyzing %s", checked_in_file);
