@@ -227,9 +227,10 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
             }
             foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
                 logger.info("Saving ".color(Color.green), f);
-                db.removeFile(fio.toRelativeRoot(f));
+                const relp = fio.toRelativeRoot(f);
+                db.removeFile(relp);
                 const info = result.infoId[result.idFile[f]];
-                db.put(fio.toRelativeRoot(f), info.checksum, info.language);
+                db.put(relp, info.checksum, info.language);
                 savedFiles.add(f);
             }
             db.put(app.data, fio.getOutputDir);
@@ -337,8 +338,8 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
         if (prune) {
             pruneFiles();
-            auto profile = Profile("remove orphant mutants");
-            logger.info("Removing orphant mutants");
+            auto profile = Profile("remove orphaned mutants");
+            logger.info("Removing orphaned mutants");
             db.removeOrphanedMutants;
         }
 
@@ -353,6 +354,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         fastDbOff();
     } catch (Exception e) {
         logger.error(e.msg).collectException;
+        logger.error("Failed to save the result of the analyze to the database").collectException;
     }
 
     try {

@@ -1073,11 +1073,37 @@ struct Database {
         db.run(sql);
     }
 
-    /// Remove mutants that have no connection to a mutation point, orphened mutants.
+    /// Remove mutants that have no connection to a mutation point, orphaned mutants.
     void removeOrphanedMutants() @trusted {
-        enum sql = format!"DELETE FROM %s WHERE id NOT IN (SELECT st_id FROM %s)"(
+        import std.datetime.stopwatch : StopWatch, AutoStart;
+
+        const nrToRemove = () {
+            immutable sql = format!"SELECT count(*) FROM %1$s WHERE id NOT IN (SELECT st_id FROM %2$s)"(
                     mutationStatusTable, mutationTable);
-        db.run(sql);
+            auto stmt = db.prepare(sql);
+            return stmt.get.execute.oneValue!long;
+        }();
+
+        immutable batchNr = 1000;
+        immutable sql = format!"DELETE FROM %1$s WHERE id NOT IN (SELECT st_id FROM %2$s) LIMIT %3$s"(
+                mutationStatusTable, mutationTable, batchNr);
+        auto stmt = db.prepare(sql);
+        auto sw = StopWatch(AutoStart.yes);
+        for (auto i = 0; i < nrToRemove; i += batchNr) {
+            stmt.get.execute;
+            stmt.get.reset;
+
+            // continuously print to inform the user of the progress and avoid
+            // e.g. timeout on jenkins.
+            if (i > 0 && i % 1000 == 0) {
+                const avg = cast(long)(cast(double) sw.peek.total!"msecs" / cast(double) batchNr);
+                const t = dur!"msecs"(avg * (nrToRemove - i));
+                logger.infof("%s/%s removed (average %sms) (%s) (%s)", i,
+                        nrToRemove, avg, t, (Clock.currTime + t).toSimpleString);
+            }
+
+            sw.reset;
+        }
     }
 
     /** Add a link between the mutation and what test case killed it.
