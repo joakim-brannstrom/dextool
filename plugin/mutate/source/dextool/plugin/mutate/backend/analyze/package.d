@@ -188,7 +188,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
     FilesysIO fio = cast(FilesysIO) fioShared;
 
     // A file is at most saved one time to the database.
-    Set!Path savedFiles;
+    Set!AbsolutePath savedFiles;
 
     auto getFileId = nullableCache!(string, FileId, (string p) => db.getFileId(p.Path))(256,
             30.dur!"seconds");
@@ -222,8 +222,9 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         {
             auto app = appender!(MutationPointEntry2[])();
             foreach (mp; result.mutationPoints // remove those that has been globally saved
+                .map!(a => tuple!("data", "file")(a, fio.toAbsoluteRoot(a.file)))
                 .filter!(a => a.file !in savedFiles)) {
-                app.put(mp);
+                app.put(mp.data);
             }
             foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
                 logger.info("Saving ".color(Color.green), f);
@@ -286,7 +287,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         auto profile = Profile("prune files");
 
         logger.info("Pruning the database of dropped files");
-        auto files = db.getFiles.map!(a => buildPath(fio.getOutputDir, a).Path).toSet;
+        auto files = db.getFiles.map!(a => fio.toAbsoluteRoot(a)).toSet;
 
         foreach (f; files.setDifference(savedFiles).toRange) {
             logger.info("Removing ".color(Color.red), f);
