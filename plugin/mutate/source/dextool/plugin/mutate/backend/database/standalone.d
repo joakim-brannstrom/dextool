@@ -22,7 +22,7 @@ module dextool.plugin.mutate.backend.database.standalone;
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
 import std.algorithm : copy, map, joiner;
-import std.array : Appender, appender, array;
+import std.array : Appender, appender, array, empty;
 import std.conv : to;
 import std.datetime : SysTime, Clock;
 import std.exception : collectException;
@@ -971,6 +971,9 @@ struct Database {
     void put(const LineMetadata[] mdata) {
         import sumtype;
 
+        if (mdata.empty)
+            return;
+
         // TODO: convert to microrm
         enum sql = format!"INSERT OR IGNORE INTO %s
             (file_id, line, nomut, tag, comment)
@@ -988,7 +991,10 @@ struct Database {
     }
 
     /// Store all found mutants.
-    void put(MutationPointEntry2[] mps, AbsolutePath rel_dir) @trusted {
+    void put(MutationPointEntry2[] mps, AbsolutePath root) @trusted {
+        if (mps.empty)
+            return;
+
         enum insert_mp_sql = format("INSERT OR IGNORE INTO %s
             (file_id, offset_begin, offset_end, line, column, line_end, column_end)
             SELECT id,:begin,:end,:line,:column,:line_end,:column_end
@@ -998,7 +1004,7 @@ struct Database {
         auto mp_stmt = db.prepare(insert_mp_sql);
 
         foreach (mp; mps) {
-            auto rel_file = relativePath(mp.file, rel_dir).Path;
+            auto rel_file = relativePath(mp.file, root).Path;
             mp_stmt.get.bind(":begin", mp.offset.begin);
             mp_stmt.get.bind(":end", mp.offset.end);
             mp_stmt.get.bind(":line", mp.sloc.line);
@@ -1040,7 +1046,7 @@ struct Database {
 
         foreach (mp; mps) {
             foreach (m; mp.cms) {
-                auto rel_file = relativePath(mp.file, rel_dir).Path;
+                auto rel_file = relativePath(mp.file, root).Path;
                 insert_m.get.bind(":path", cast(string) rel_file);
                 insert_m.get.bind(":off_begin", mp.offset.begin);
                 insert_m.get.bind(":off_end", mp.offset.end);
@@ -1073,11 +1079,37 @@ struct Database {
         db.run(sql);
     }
 
-    /// Remove mutants that have no connection to a mutation point, orphened mutants.
+    /// Remove mutants that have no connection to a mutation point, orphaned mutants.
     void removeOrphanedMutants() @trusted {
-        enum sql = format!"DELETE FROM %s WHERE id NOT IN (SELECT st_id FROM %s)"(
+        import std.datetime.stopwatch : StopWatch, AutoStart;
+
+        const nrToRemove = () {
+            immutable sql = format!"SELECT count(*) FROM %1$s WHERE id NOT IN (SELECT st_id FROM %2$s)"(
                     mutationStatusTable, mutationTable);
-        db.run(sql);
+            auto stmt = db.prepare(sql);
+            return stmt.get.execute.oneValue!long;
+        }();
+
+        immutable batchNr = 1000;
+        immutable sql = format!"DELETE FROM %1$s WHERE id NOT IN (SELECT st_id FROM %2$s) LIMIT %3$s"(
+                mutationStatusTable, mutationTable, batchNr);
+        auto stmt = db.prepare(sql);
+        auto sw = StopWatch(AutoStart.yes);
+        for (auto i = 0; i < nrToRemove; i += batchNr) {
+            stmt.get.execute;
+            stmt.get.reset;
+
+            // continuously print to inform the user of the progress and avoid
+            // e.g. timeout on jenkins.
+            if (i > 0 && i % 1000 == 0) {
+                const avg = cast(long)(cast(double) sw.peek.total!"msecs" / cast(double) batchNr);
+                const t = dur!"msecs"(avg * (nrToRemove - i));
+                logger.infof("%s/%s removed (average %sms) (%s) (%s)", i,
+                        nrToRemove, avg, t, (Clock.currTime + t).toSimpleString);
+            }
+
+            sw.reset;
+        }
     }
 
     /** Add a link between the mutation and what test case killed it.

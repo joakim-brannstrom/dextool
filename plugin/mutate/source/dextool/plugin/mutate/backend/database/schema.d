@@ -483,7 +483,7 @@ long getSchemaVersion(ref Miniorm db) nothrow {
 void upgrade(ref Miniorm db) nothrow {
     import d2sqlite3;
 
-    immutable maxIndex = 1;
+    immutable maxIndex = 5;
 
     alias upgradeFunc = void function(ref Miniorm db);
     enum tbl = makeUpgradeTable;
@@ -547,7 +547,13 @@ void upgrade(ref Miniorm db) nothrow {
         try {
             auto trans = db.transaction;
             int i;
+            db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, mutationPointTable));
+            db.run(format!"CREATE INDEX i%s ON %s(path)"(i++, filesTable));
+
+            // improve getTestCaseMutantKills by 10x
+            db.run(format!"CREATE INDEX i%s ON %s(tc_id,st_id)"(i++, killedTestCaseTable));
             db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, mutationTable));
+
             assert(i <= maxIndex);
             trans.commit;
         } catch (Exception e) {

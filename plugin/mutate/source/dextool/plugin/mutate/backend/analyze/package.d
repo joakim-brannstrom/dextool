@@ -188,7 +188,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
     FilesysIO fio = cast(FilesysIO) fioShared;
 
     // A file is at most saved one time to the database.
-    Set!Path savedFiles;
+    Set!AbsolutePath savedFiles;
 
     auto getFileId = nullableCache!(string, FileId, (string p) => db.getFileId(p.Path))(256,
             30.dur!"seconds");
@@ -221,15 +221,17 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         // only saves mutation points to a file one time.
         {
             auto app = appender!(MutationPointEntry2[])();
-            foreach (mp; result.mutationPoints // remove those that has been globally saved
-                .filter!(a => a.file !in savedFiles)) {
-                app.put(mp);
+            foreach (mp; result.mutationPoints
+                    .map!(a => tuple!("data", "file")(a, fio.toAbsoluteRoot(a.file)))
+                    .filter!(a => a.file !in savedFiles)) {
+                app.put(mp.data);
             }
             foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
                 logger.info("Saving ".color(Color.green), f);
-                db.removeFile(fio.toRelativeRoot(f));
+                const relp = fio.toRelativeRoot(f);
+                db.removeFile(relp);
                 const info = result.infoId[result.idFile[f]];
-                db.put(fio.toRelativeRoot(f), info.checksum, info.language);
+                db.put(relp, info.checksum, info.language);
                 savedFiles.add(f);
             }
             db.put(app.data, fio.getOutputDir);
@@ -245,9 +247,9 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                     printed.add(md.id);
                     logger.warningf("File with suppressed mutants (// NOMUT) not in the database: %s. Skipping...",
                             result.fileId[md.id]).collectException;
-                    continue;
+                } else if (!fid.isNull) {
+                    app.put(LineMetadata(fid.get, md.line, md.attr));
                 }
-                app.put(LineMetadata(fid.get, md.line, md.attr));
             }
             db.put(app.data);
         }
@@ -285,7 +287,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         auto profile = Profile("prune files");
 
         logger.info("Pruning the database of dropped files");
-        auto files = db.getFiles.map!(a => buildPath(fio.getOutputDir, a).Path).toSet;
+        auto files = db.getFiles.map!(a => fio.toAbsoluteRoot(a)).toSet;
 
         foreach (f; files.setDifference(savedFiles).toRange) {
             logger.info("Removing ".color(Color.red), f);
@@ -337,8 +339,8 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
         if (prune) {
             pruneFiles();
-            auto profile = Profile("remove orphant mutants");
-            logger.info("Removing orphant mutants");
+            auto profile = Profile("remove orphaned mutants");
+            logger.info("Removing orphaned mutants");
             db.removeOrphanedMutants;
         }
 
@@ -353,6 +355,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         fastDbOff();
     } catch (Exception e) {
         logger.error(e.msg).collectException;
+        logger.error("Failed to save the result of the analyze to the database").collectException;
     }
 
     try {

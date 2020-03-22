@@ -215,7 +215,9 @@ struct FileIndex {
             foreach (m; s.muts.filter!(m => !ids.contains(m.id))) {
                 ids.add(m.id);
 
-                muts.put(MData(m.id, m.txt, m.mut, db.getMutantationMetaData(m.id)));
+                const metadata = db.getMutantationMetaData(m.id);
+
+                muts.put(MData(m.id, m.txt, m.mut, metadata));
                 with (d0.addChild("span", m.mutation)) {
                     addClass("mutant");
                     addClass(s.tok.toName);
@@ -228,13 +230,13 @@ struct FileIndex {
                     mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
                             m.id, m.mut.kind.to!int, toUser(m.mut.kind)
                             .to!int, m.mut.status.to!ubyte, window(m.txt.original),
-                            window(m.txt.mutation), db.getMutantationMetaData(m.id).kindToString);
+                            window(m.txt.mutation), metadata.kindToString);
                 } else {
                     mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
                             m.id, m.mut.kind.to!int, toUser(m.mut.kind)
                             .to!int, m.mut.status.to!ubyte,
                             testCases.map!(a => a.name), window(m.txt.original),
-                            window(m.txt.mutation), db.getMutantationMetaData(m.id).kindToString);
+                            window(m.txt.mutation), metadata.kindToString);
                 }
             }
             lastLoc = s.tok.locEnd;
@@ -248,7 +250,7 @@ struct FileIndex {
             // force a newline in the generated html to improve readability
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const MAX_NUM_TESTCASES = %s;",
-                    db.getDetectedTestCases().length)));
+                    db.getDetectedTestCases.length)));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
                     muts.data.map!(a => a.id))));

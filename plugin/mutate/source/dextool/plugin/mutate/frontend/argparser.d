@@ -412,10 +412,10 @@ struct ArgParser {
         import std.algorithm : find;
         import std.range : drop;
 
-        if (db.length != 0)
-            data.db = AbsolutePath(Path(db));
-        else if (data.db.length == 0)
+        if (db.empty)
             data.db = "dextool_mutate.sqlite3".Path.AbsolutePath;
+        else
+            data.db = AbsolutePath(Path(db));
 
         if (workArea.rawRoot.empty) {
             workArea.rawRoot = ".";
@@ -430,6 +430,10 @@ struct ArgParser {
 
         analyze.exclude = analyze.rawExclude.map!(a => AbsolutePath(Path(a),
                 workArea.outputDirectory)).array;
+
+        if (data.mutation.empty) {
+            data.mutation = [MutationKind.any];
+        }
 
         compiler.extraFlags = compiler.extraFlags ~ args.find("--").drop(1).array();
     }
