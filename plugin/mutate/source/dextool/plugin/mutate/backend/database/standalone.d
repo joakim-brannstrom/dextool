@@ -22,7 +22,7 @@ module dextool.plugin.mutate.backend.database.standalone;
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
 import std.algorithm : copy, map, joiner;
-import std.array : Appender, appender, array;
+import std.array : Appender, appender, array, empty;
 import std.conv : to;
 import std.datetime : SysTime, Clock;
 import std.exception : collectException;
@@ -971,6 +971,9 @@ struct Database {
     void put(const LineMetadata[] mdata) {
         import sumtype;
 
+        if (mdata.empty)
+            return;
+
         // TODO: convert to microrm
         enum sql = format!"INSERT OR IGNORE INTO %s
             (file_id, line, nomut, tag, comment)
@@ -988,7 +991,10 @@ struct Database {
     }
 
     /// Store all found mutants.
-    void put(MutationPointEntry2[] mps, AbsolutePath rel_dir) @trusted {
+    void put(MutationPointEntry2[] mps, AbsolutePath root) @trusted {
+        if (mps.empty)
+            return;
+
         enum insert_mp_sql = format("INSERT OR IGNORE INTO %s
             (file_id, offset_begin, offset_end, line, column, line_end, column_end)
             SELECT id,:begin,:end,:line,:column,:line_end,:column_end
@@ -998,7 +1004,7 @@ struct Database {
         auto mp_stmt = db.prepare(insert_mp_sql);
 
         foreach (mp; mps) {
-            auto rel_file = relativePath(mp.file, rel_dir).Path;
+            auto rel_file = relativePath(mp.file, root).Path;
             mp_stmt.get.bind(":begin", mp.offset.begin);
             mp_stmt.get.bind(":end", mp.offset.end);
             mp_stmt.get.bind(":line", mp.sloc.line);
@@ -1040,7 +1046,7 @@ struct Database {
 
         foreach (mp; mps) {
             foreach (m; mp.cms) {
-                auto rel_file = relativePath(mp.file, rel_dir).Path;
+                auto rel_file = relativePath(mp.file, root).Path;
                 insert_m.get.bind(":path", cast(string) rel_file);
                 insert_m.get.bind(":off_begin", mp.offset.begin);
                 insert_m.get.bind(":off_end", mp.offset.end);

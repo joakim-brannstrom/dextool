@@ -221,9 +221,9 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         // only saves mutation points to a file one time.
         {
             auto app = appender!(MutationPointEntry2[])();
-            foreach (mp; result.mutationPoints // remove those that has been globally saved
-                .map!(a => tuple!("data", "file")(a, fio.toAbsoluteRoot(a.file)))
-                .filter!(a => a.file !in savedFiles)) {
+            foreach (mp; result.mutationPoints
+                    .map!(a => tuple!("data", "file")(a, fio.toAbsoluteRoot(a.file)))
+                    .filter!(a => a.file !in savedFiles)) {
                 app.put(mp.data);
             }
             foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
@@ -247,9 +247,9 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                     printed.add(md.id);
                     logger.warningf("File with suppressed mutants (// NOMUT) not in the database: %s. Skipping...",
                             result.fileId[md.id]).collectException;
-                    continue;
+                } else if (!fid.isNull) {
+                    app.put(LineMetadata(fid.get, md.line, md.attr));
                 }
-                app.put(LineMetadata(fid.get, md.line, md.attr));
             }
             db.put(app.data);
         }
