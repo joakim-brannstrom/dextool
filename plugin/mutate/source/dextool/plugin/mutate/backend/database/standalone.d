@@ -1083,32 +1083,34 @@ struct Database {
     void removeOrphanedMutants() @trusted {
         import std.datetime.stopwatch : StopWatch, AutoStart;
 
-        const nrToRemove = () {
-            immutable sql = format!"SELECT count(*) FROM %1$s WHERE id NOT IN (SELECT st_id FROM %2$s)"(
+        const removeIds = () {
+            immutable sql = format!"SELECT id FROM %1$s WHERE id NOT IN (SELECT st_id FROM %2$s)"(
                     mutationStatusTable, mutationTable);
             auto stmt = db.prepare(sql);
-            return stmt.get.execute.oneValue!long;
+            auto removeIds = appender!(long[])();
+            foreach (res; stmt.get.execute)
+                removeIds.put(res.peek!long(0));
+            return removeIds.data;
         }();
 
         immutable batchNr = 1000;
-        immutable sql = format!"DELETE FROM %1$s WHERE id NOT IN (SELECT st_id FROM %2$s) LIMIT %3$s"(
-                mutationStatusTable, mutationTable, batchNr);
+        immutable sql = format!"DELETE FROM %1$s WHERE id=:id"(mutationStatusTable);
         auto stmt = db.prepare(sql);
         auto sw = StopWatch(AutoStart.yes);
-        for (auto i = 0; i < nrToRemove; i += batchNr) {
+        foreach (const i, const id; removeIds) {
+            stmt.get.bind(":id", id);
             stmt.get.execute;
             stmt.get.reset;
 
             // continuously print to inform the user of the progress and avoid
             // e.g. timeout on jenkins.
-            if (i > 0 && i % 1000 == 0) {
+            if (i > 0 && i % batchNr == 0) {
                 const avg = cast(long)(cast(double) sw.peek.total!"msecs" / cast(double) batchNr);
-                const t = dur!"msecs"(avg * (nrToRemove - i));
+                const t = dur!"msecs"(avg * (removeIds.length - i));
                 logger.infof("%s/%s removed (average %sms) (%s) (%s)", i,
-                        nrToRemove, avg, t, (Clock.currTime + t).toSimpleString);
+                        removeIds.length, avg, t, (Clock.currTime + t).toSimpleString);
+                sw.reset;
             }
-
-            sw.reset;
         }
     }
 
