@@ -207,7 +207,7 @@ struct ArgParser {
 
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
-        string db;
+        string db = data.db;
 
         void analyzerG(string[] args) {
             string[] compile_dbs;
@@ -412,10 +412,10 @@ struct ArgParser {
         import std.algorithm : find;
         import std.range : drop;
 
-        if (db.empty)
-            data.db = "dextool_mutate.sqlite3".Path.AbsolutePath;
-        else
-            data.db = AbsolutePath(Path(db));
+        if (db.empty) {
+            db = "dextool_mutate.sqlite3";
+        }
+        data.db = AbsolutePath(Path(db));
 
         if (workArea.rawRoot.empty) {
             workArea.rawRoot = ".";
