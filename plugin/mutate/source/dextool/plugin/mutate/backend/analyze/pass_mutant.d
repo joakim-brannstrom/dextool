@@ -723,8 +723,8 @@ class SdlBlockVisitor : DepthFirstVisitor {
         const end = l.interval.end - 1;
 
         if (begin < end) {
-            loc = new Location(l.file, Interval(l.interval.begin + 1,
-                    l.interval.end - 1), SourceLocRange(l.sloc.begin, l.sloc.end));
+            loc = new Location(l.file, Interval(begin, end),
+                    SourceLocRange(l.sloc.begin, l.sloc.end));
             canRemove = true;
             accept(n, this);
         }
