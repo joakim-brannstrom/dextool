@@ -365,7 +365,10 @@ class MutantVisitor : DepthFirstVisitor {
         return null;
     }
 
-    void put(Location loc, Mutation.Kind[] kinds) {
+    void put(Location loc, Mutation.Kind[] kinds, const bool blacklist) {
+        if (blacklist)
+            return;
+
         foreach (kind; kinds) {
             result.put(loc.file, MutantsResult.MutationPoint(loc.interval, loc.sloc), kind);
         }
@@ -375,11 +378,11 @@ class MutantVisitor : DepthFirstVisitor {
 
     override void visit(Expr n) {
         auto loc = ast.location(n);
-        put(loc, absMutations(n.kind));
+        put(loc, absMutations(n.kind), n.blacklist);
 
         if (isInsideBoolFunc && isInside(Kind.Return) && !isInside(Kind.Call)) {
-            put(loc, dccMutations(n.kind));
-            put(loc, dcrMutations(n.kind));
+            put(loc, dccMutations(n.kind), n.blacklist);
+            put(loc, dcrMutations(n.kind), n.blacklist);
         }
 
         accept(n, this);
@@ -393,7 +396,7 @@ class MutantVisitor : DepthFirstVisitor {
         auto sdlAnalyze = scoped!SdlBlockVisitor(ast);
         sdlAnalyze.startVisit(n);
         if (sdlAnalyze.canRemove) {
-            put(sdlAnalyze.loc, stmtDelMutations(n.kind));
+            put(sdlAnalyze.loc, stmtDelMutations(n.kind), n.blacklist);
         }
 
         accept(n, this);
@@ -408,12 +411,12 @@ class MutantVisitor : DepthFirstVisitor {
             // a bit restricive to be begin with to only delete void returning
             // functions. Extend it in the future when it can "see" that the
             // return value is discarded.
-            put(loc, stmtDelMutations(n.kind));
+            put(loc, stmtDelMutations(n.kind), n.blacklist);
         }
 
         if (isInsideBoolFunc && isInside(Kind.Return)) {
-            put(loc, dccMutations(n.kind));
-            put(loc, dcrMutations(n.kind));
+            put(loc, dccMutations(n.kind), n.blacklist);
+            put(loc, dcrMutations(n.kind), n.blacklist);
         }
 
         // should call visitOp
@@ -428,49 +431,49 @@ class MutantVisitor : DepthFirstVisitor {
             // c++ throw expressions is modelled as returns with a child node
             // Call. Overall in any language it should be OK to remove a return
             // of something that returns void, the bottom type.
-            put(ast.location(n), stmtDelMutations(n.kind));
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         }
 
         accept(n, this);
     }
 
     override void visit(OpAssign n) {
-        put(ast.location(n), stmtDelMutations(n.kind));
+        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         accept(n, this);
     }
 
     override void visit(OpAssignAdd n) {
-        put(ast.location(n), stmtDelMutations(n.kind));
+        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         accept(n, this);
     }
 
     override void visit(OpAssignAndBitwise n) {
-        put(ast.location(n), stmtDelMutations(n.kind));
+        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         accept(n, this);
     }
 
     override void visit(OpAssignDiv n) {
-        put(ast.location(n), stmtDelMutations(n.kind));
+        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         accept(n, this);
     }
 
     override void visit(OpAssignMod n) {
-        put(ast.location(n), stmtDelMutations(n.kind));
+        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         accept(n, this);
     }
 
     override void visit(OpAssignMul n) {
-        put(ast.location(n), stmtDelMutations(n.kind));
+        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         accept(n, this);
     }
 
     override void visit(OpAssignOrBitwise n) {
-        put(ast.location(n), stmtDelMutations(n.kind));
+        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         accept(n, this);
     }
 
     override void visit(OpAssignSub n) {
-        put(ast.location(n), stmtDelMutations(n.kind));
+        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         accept(n, this);
     }
 
@@ -557,7 +560,7 @@ class MutantVisitor : DepthFirstVisitor {
     override void visit(Condition n) {
         auto kinds = dccMutations(n.kind);
         kinds ~= dcrMutations(n.kind);
-        put(ast.location(n), kinds);
+        put(ast.location(n), kinds, n.blacklist);
         accept(n, this);
     }
 
@@ -568,9 +571,9 @@ class MutantVisitor : DepthFirstVisitor {
             // removing the whole branch because then e.g. a switch-block would
             // jump to the default branch. It becomes "more" predictable what
             // happens compared to "falling through to the next case".
-            put(ast.location(n), dcrMutations(n.kind));
+            put(ast.location(n), dcrMutations(n.kind), n.blacklist);
 
-            put(ast.location(n.inside), dccMutations(n.kind));
+            put(ast.location(n.inside), dccMutations(n.kind), n.inside.blacklist);
         }
         accept(n, this);
     }
@@ -591,8 +594,8 @@ class MutantVisitor : DepthFirstVisitor {
             expr ~= absMutations(n.kind);
         }
 
-        put(loc, expr);
-        put(locOp, op);
+        put(loc, expr, n.blacklist);
+        put(locOp, op, n.operator.blacklist);
     }
 
     private void visitComparisonBinaryOp(T)(T n) {
@@ -636,17 +639,17 @@ class MutantVisitor : DepthFirstVisitor {
             expr ~= dccMutations(n.kind);
         }
 
-        put(loc, expr);
-        put(locOp, op);
+        put(loc, expr, n.blacklist);
+        put(locOp, op, n.operator.blacklist);
         if (n.lhs !is null) {
             auto offset = Interval(locLhs.interval.begin, locOp.interval.end);
             put(new Location(locOp.file, offset,
-                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), lhs);
+                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), lhs, n.lhs.blacklist);
         }
         if (n.rhs !is null) {
             auto offset = Interval(locOp.interval.begin, locRhs.interval.end);
             put(new Location(locOp.file, offset,
-                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), rhs);
+                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), rhs, n.rhs.blacklist);
         }
     }
 
@@ -670,17 +673,17 @@ class MutantVisitor : DepthFirstVisitor {
             rhs ~= m.rhs;
         }
 
-        put(loc, expr);
-        put(locOp, op);
+        put(loc, expr, n.blacklist);
+        put(locOp, op, n.operator.blacklist);
         if (n.lhs !is null) {
             auto offset = Interval(locLhs.interval.begin, locOp.interval.end);
             put(new Location(locOp.file, offset,
-                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), lhs);
+                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), lhs, n.lhs.blacklist);
         }
         if (n.rhs !is null) {
             auto offset = Interval(locOp.interval.begin, locRhs.interval.end);
             put(new Location(locOp.file, offset,
-                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), rhs);
+                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), rhs, n.rhs.blacklist);
         }
     }
 }

@@ -11,7 +11,7 @@ module dextool.plugin.mutate.backend.analyze.pass_clang;
 
 import logger = std.experimental.logger;
 import std.algorithm : among, map, sort, filter;
-import std.array : empty;
+import std.array : empty, array;
 import std.exception : collectException;
 import std.format : formattedWrite;
 import std.meta : AliasSeq;
@@ -359,11 +359,14 @@ final class BaseVisitor : ExtendedVisitor {
     // the depth the visitor is at.
     uint indent;
     // A stack of visited cursors up to the current one.
-    Stack!Cursor cstack;
     Stack!(analyze.Node) nstack;
 
     /// The elements that where removed from the last decrement.
     Vector!(analyze.Node) lastDecr;
+
+    /// List of macro locations which blacklist mutants that would be injected
+    /// in any of them.
+    BlackList blacklist;
 
     analyze.Ast ast;
 
@@ -378,63 +381,57 @@ final class BaseVisitor : ExtendedVisitor {
     override void decr() @trusted {
         --indent;
 
-        cstack.popUntil(indent);
         lastDecr = nstack.popUntil(indent);
     }
 
-    private void pushStack(T)(const T n) @trusted {
-        // uncomment when it start being useful
-        //cstack.put(n.cursor, indent);
-    }
-
-    private void pushStack(analyze.Node n) @trusted {
+    private void pushStack(analyze.Node n, analyze.Location l) @trusted {
+        n.blacklist = blacklist.inside(l);
         nstack.put(n, indent);
     }
 
+    /// Returns: true if it is OK to modify the cursor
     private void pushStack(AstT, ClangT)(AstT n, ClangT v) @trusted {
-        ast.put(n, v.cursor.toLocation);
+        auto loc = v.cursor.toLocation;
+        ast.put(n, loc);
         nstack.back.children ~= n;
-        pushStack(n);
+        pushStack(n, loc);
     }
 
     override void visit(const(TranslationUnit) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
+
+        blacklist = BlackList(v.cursor);
 
         ast.root = new analyze.TranslationUnit;
-        ast.put(ast.root, v.cursor.toLocation);
-        pushStack(ast.root);
+        auto loc = v.cursor.toLocation;
+        ast.put(ast.root, loc);
+        pushStack(ast.root, loc);
 
         v.accept(this);
     }
 
     override void visit(const(Attribute) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         v.accept(this);
     }
 
     override void visit(const(Declaration) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         v.accept(this);
     }
 
     override void visit(const(Directive) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         v.accept(this);
     }
 
     override void visit(const(Reference) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         v.accept(this);
     }
 
     override void visit(const(Statement) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         v.accept(this);
     }
 
@@ -443,7 +440,6 @@ final class BaseVisitor : ExtendedVisitor {
         import dextool.clang_extensions : getUnderlyingExprNode;
 
         mixin(mixinNodeLog!());
-        pushStack(v);
 
         auto ue = Cursor(getUnderlyingExprNode(v.cursor));
         if (ue.isValid && ue != v.cursor) {
@@ -472,7 +468,6 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(EnumDecl) v) @trusted {
         mixin(mixinNodeLog!());
-        pushStack(v);
 
         import std.typecons : scoped;
 
@@ -484,13 +479,11 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(FunctionDecl) v) @trusted {
         mixin(mixinNodeLog!());
-        pushStack(v);
         visitFunc(v);
     }
 
     override void visit(const(CxxMethod) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
 
         // model C++ methods as functions. It should be enough to know that it
         // is a function and the return type when generating mutants.
@@ -499,7 +492,6 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(CallExpr) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
 
         if (!visitOp(v)) {
             pushStack(new analyze.Call, v);
@@ -509,35 +501,28 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(BreakStmt) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         v.accept(this);
     }
 
     override void visit(const BinaryOperator v) @trusted {
         mixin(mixinNodeLog!());
-        pushStack(v);
         visitOp(v);
     }
 
     override void visit(const UnaryOperator v) @trusted {
         mixin(mixinNodeLog!());
-        pushStack(v);
         visitOp(v);
     }
 
     override void visit(const CompoundAssignOperator v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
-
         // TODO: implement all aor assignment such as +=
         pushStack(new analyze.OpAssign, v);
-
         v.accept(this);
     }
 
     override void visit(const CxxThrowExpr v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         // model a C++ exception as a return expression because that is
         // "basically" what happens.
         pushStack(new analyze.Return, v);
@@ -546,40 +531,34 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(ReturnStmt) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         pushStack(new analyze.Return, v);
         v.accept(this);
     }
 
     override void visit(const(CompoundStmt) v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         pushStack(new analyze.Block, v);
         v.accept(this);
     }
 
     override void visit(const CaseStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         visitCaseStmt(v);
     }
 
     override void visit(const DefaultStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         visitCaseStmt(v);
     }
 
     override void visit(const IfStmt v) @trusted {
         mixin(mixinNodeLog!());
-        pushStack(v);
         pushStack(new analyze.Block, v);
         dextool.plugin.mutate.backend.analyze.extensions.accept(v, this);
     }
 
     override void visit(const IfStmtCond v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         pushStack(new analyze.Condition, v);
 
         incr;
@@ -592,14 +571,12 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const IfStmtThen v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         pushStack(new analyze.Branch, v);
         v.accept(this);
     }
 
     override void visit(const IfStmtElse v) {
         mixin(mixinNodeLog!());
-        pushStack(v);
         pushStack(new analyze.Branch, v);
         v.accept(this);
     }
@@ -624,9 +601,10 @@ final class BaseVisitor : ExtendedVisitor {
             return false;
 
         astOp.operator = op.operator;
+        astOp.operator.blacklist = blacklist.inside(op.opLoc);
 
         op.put(nstack.back, ast);
-        pushStack(astOp);
+        pushStack(astOp, op.exprLoc);
         incr;
         scope (exit)
             decr;
@@ -688,9 +666,10 @@ final class BaseVisitor : ExtendedVisitor {
             return false;
 
         astOp.operator = op.operator;
+        astOp.operator.blacklist = blacklist.inside(op.opLoc);
 
         op.put(nstack.back, ast);
-        pushStack(astOp);
+        pushStack(astOp, op.exprLoc);
         incr;
         scope (exit)
             decr;
@@ -747,7 +726,7 @@ final class BaseVisitor : ExtendedVisitor {
         auto n = new analyze.Function;
         ast.put(n, loc);
         nstack.back.children ~= n;
-        pushStack(n);
+        pushStack(n, loc);
 
         auto fRetval = new analyze.Return;
         auto rty = deriveType(v.cursor.func.resultType);
@@ -775,7 +754,7 @@ final class BaseVisitor : ExtendedVisitor {
         auto branch = new analyze.Branch;
         ast.put(branch, res.get.branch);
         nstack.back.children ~= branch;
-        pushStack(branch);
+        pushStack(branch, res.get.branch);
 
         // create an node depth that diverge from the clang AST wherein the
         // inside of a case stmt is modelled as a block.
@@ -786,7 +765,7 @@ final class BaseVisitor : ExtendedVisitor {
         ast.put(inner, res.get.insideBranch);
         branch.children ~= inner;
         branch.inside = inner;
-        pushStack(inner);
+        pushStack(inner, res.get.insideBranch);
         dispatch(res.get.inner, this);
     }
 }
@@ -991,4 +970,69 @@ uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind) @trusted {
     }
 
     return sr.end;
+}
+
+/** Create an index of all macros that then can be queried to see if a Cursor
+ * or Interval overlap a macro.
+ */
+struct BlackList {
+    Interval[][string] macros;
+
+    this(const Cursor root) {
+        Interval[][string] macros;
+
+        foreach (c, parent; root.all) {
+            if (c.kind != CXCursorKind.macroExpansion || c.isMacroBuiltin)
+                continue;
+
+            const file = c.location.path;
+            const e = c.extent;
+            const interval = Interval(e.start.offset, e.end.offset);
+            if (auto v = file in macros) {
+                (*v) ~= interval;
+            } else {
+                macros[file] = [interval];
+            }
+        }
+
+        foreach (k; macros.byKey) {
+            macros[k] = macros[k].sort.array;
+        }
+
+        this.macros = macros;
+    }
+
+    bool inside(const Cursor c) {
+        const file = c.location.path.Path;
+        const e = c.extent;
+        const interval = Interval(e.start.offset, e.end.offset);
+        return inside(file, interval);
+    }
+
+    bool inside(analyze.Location l) {
+        return inside(l.file, l.interval);
+    }
+
+    /**
+     * assuming that an invalid mutant is always inside a macro thus only
+     * checking if the `i` is inside. Removing a "block" of code that happens
+     * to contain a macro is totally "ok". It doesn't create any problem.
+     *
+     * Returns: true if `i` is inside a macro interval.
+     */
+    bool inside(const Path file, const Interval i) {
+        static bool test(Interval i, uint p) {
+            return p >= i.begin && p <= i.end;
+        }
+
+        if (auto intervals = file in macros) {
+            foreach (a; *intervals) {
+                if (test(a, i.begin) || test(a, i.end)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }
