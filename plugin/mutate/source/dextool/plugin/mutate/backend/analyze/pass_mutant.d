@@ -42,7 +42,12 @@ CodeMutantsResult toCodeMutants(MutantsResult mutants, FilesysIO fio, TokenStrea
     foreach (f; mutants.files.map!(a => a.path)) {
         foreach (mp; mutants.getMutationPoints(f).array.sort!((a,
                 b) => a.point.offset < b.point.offset)) {
-            result.put(f, mp.point.offset, mp.point.sloc, mp.kind);
+            if (mp.point.offset.begin > mp.point.offset.end) {
+                logger.warningf("Malformed mutant, dropping. %s %s %s %s",
+                        mp.kind, mp.point.offset, mp.point.sloc, f);
+            } else {
+                result.put(f, mp.point.offset, mp.point.sloc, mp.kind);
+            }
         }
     }
 
@@ -714,10 +719,15 @@ class SdlBlockVisitor : DepthFirstVisitor {
 
         // the source range should also be modified but it isn't crucial for
         // mutation testing. Only the visualisation of the result.
-        loc = new Location(l.file, Interval(l.interval.begin + 1,
-                l.interval.end - 1), SourceLocRange(l.sloc.begin, l.sloc.end));
-        canRemove = true;
-        accept(n, this);
+        const begin = l.interval.begin + 1;
+        const end = l.interval.end - 1;
+
+        if (begin < end) {
+            loc = new Location(l.file, Interval(l.interval.begin + 1,
+                    l.interval.end - 1), SourceLocRange(l.sloc.begin, l.sloc.end));
+            canRemove = true;
+            accept(n, this);
+        }
     }
 
     alias visit = DepthFirstVisitor.visit;

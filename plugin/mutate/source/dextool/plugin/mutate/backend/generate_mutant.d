@@ -96,6 +96,7 @@ struct GenerateMutantResult {
 }
 
 auto generateMutant(ref Database db, MutationEntry mutp, Blob original, ref SafeOutput fout) @safe nothrow {
+    import std.algorithm : min;
     import dextool.plugin.mutate.backend.utility : checksum, Checksum;
 
     if (mutp.mp.mutations.length == 0)
@@ -135,10 +136,22 @@ auto generateMutant(ref Database db, MutationEntry mutp, Blob original, ref Safe
         Edit[] edits;
         edits ~= new Edit(Interval(0, 0), mut.top());
 
-        auto from_ = original.content[mutp.mp.offset.begin .. mutp.mp.offset.end];
+        const end = min(mutp.mp.offset.end, original.content.length);
+        const begin = min(mutp.mp.offset.begin, original.content.length, end);
+
+        if (mutp.mp.offset.begin > original.content.length
+                || mutp.mp.offset.end > original.content.length) {
+            logger.tracef("Unable to correctly generate mutant %s. Offset is %s max length is %s",
+                    mutp.mp.mutations[0].kind, mutp.mp.offset, original.content.length);
+        } else if (mutp.mp.offset.begin > mutp.mp.offset.end) {
+            logger.tracef("Unable to correctly generate mutant %s. Offset begin > end %s",
+                    mutp.mp.mutations[0].kind, mutp.mp.offset);
+        }
+
+        auto from_ = original.content[begin .. end];
         auto to_ = mut.mutate(from_);
 
-        edits ~= new Edit(Interval(mutp.mp.offset.begin, mutp.mp.offset.end), to_);
+        edits ~= new Edit(Interval(begin, end), to_);
 
         // #SPC-file_security-header_as_warning
         edits ~= new Edit(Interval.append, "\n/* DEXTOOL: THIS FILE IS MUTATED */");
