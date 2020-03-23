@@ -719,10 +719,15 @@ class SdlBlockVisitor : DepthFirstVisitor {
 
         // the source range should also be modified but it isn't crucial for
         // mutation testing. Only the visualisation of the result.
-        loc = new Location(l.file, Interval(l.interval.begin + 1,
-                l.interval.end - 1), SourceLocRange(l.sloc.begin, l.sloc.end));
-        canRemove = true;
-        accept(n, this);
+        const begin = l.interval.begin + 1;
+        const end = l.interval.end - 1;
+
+        if (begin < end) {
+            loc = new Location(l.file, Interval(l.interval.begin + 1,
+                    l.interval.end - 1), SourceLocRange(l.sloc.begin, l.sloc.end));
+            canRemove = true;
+            accept(n, this);
+        }
     }
 
     alias visit = DepthFirstVisitor.visit;
