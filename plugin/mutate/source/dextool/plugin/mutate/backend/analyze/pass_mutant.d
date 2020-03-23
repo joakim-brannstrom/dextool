@@ -42,7 +42,12 @@ CodeMutantsResult toCodeMutants(MutantsResult mutants, FilesysIO fio, TokenStrea
     foreach (f; mutants.files.map!(a => a.path)) {
         foreach (mp; mutants.getMutationPoints(f).array.sort!((a,
                 b) => a.point.offset < b.point.offset)) {
-            result.put(f, mp.point.offset, mp.point.sloc, mp.kind);
+            if (mp.point.offset.begin > mp.point.offset.end) {
+                logger.warningf("Malformed mutant, dropping. %s %s %s %s",
+                        mp.kind, mp.point.offset, mp.point.sloc, f);
+            } else {
+                result.put(f, mp.point.offset, mp.point.sloc, mp.kind);
+            }
         }
     }
 
