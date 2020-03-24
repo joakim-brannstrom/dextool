@@ -104,7 +104,6 @@ class MutantsResult {
     }
 
     private void put(Path raw) @trusted {
-        import std.stdio : File;
         import dextool.plugin.mutate.backend.utility : checksum;
 
         auto absp = fio.toAbsoluteRoot(raw);
@@ -113,11 +112,8 @@ class MutantsResult {
             return;
 
         try {
-            auto content = appender!(const(ubyte)[])();
-            foreach (ubyte[] buf; File(absp).byChunk(4096)) {
-                content.put(buf);
-            }
-            auto cs = checksum(content.data);
+            auto fin = fio.makeInput(absp);
+            auto cs = checksum(fin.content);
 
             existingFiles.add(absp);
             files ~= ElementType!(typeof(files))(absp, cs);
