@@ -158,9 +158,14 @@ class AstPrintVisitor : DepthFirstVisitor {
         put(buf, indent);
 
         void printNode() {
-            formattedWrite(buf, "%s %x", n.kind.to!string.color(Color.lightGreen), () @trusted {
+            auto bl = () {
+                if (n.blacklist)
+                    return " blacklist".color(Color.magenta).toString;
+                return "";
+            }();
+            formattedWrite(buf, "%s %x%s", n.kind.to!string.color(Color.lightGreen), () @trusted {
                 return cast(void*) n;
-            }().to!string.color(Color.lightYellow));
+            }().to!string.color(Color.lightYellow), bl);
         }
 
         void printTypeSymbol(Node n) {
@@ -235,6 +240,11 @@ abstract class Node {
     Kind kind() const;
 
     Node[] children;
+
+    /** If the node is blacklisted from being mutated. This is for example when
+     * the node covers a C macro.
+     */
+    bool blacklist;
 }
 
 /**

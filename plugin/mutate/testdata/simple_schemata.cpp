@@ -48,8 +48,8 @@ int test_binary_op(int x) {
     x = x - 3;
     x = x & 4;
     x = x | 5;
-    x = x && 6;
-    x = x || 7;
+    x = x && true;
+    x = x || false;
     return x;
 }
 
@@ -75,3 +75,9 @@ void test_sdl2(int x) {
 }
 
 bool test_bool_return_fn(int x) { return x > 42; }
+
+#define MY_MACRO(x) x > x
+void myMacroFun() {
+    int x;
+    MY_MACRO(x);
+}
