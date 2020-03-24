@@ -985,6 +985,12 @@ struct BlackList {
             if (c.kind != CXCursorKind.macroExpansion || c.isMacroBuiltin)
                 continue;
 
+            auto spelling = c.spelling;
+            // C code almost always implement these as macros. They should not
+            // be blocked from being mutated.
+            if (spelling.among("bool", "TRUE", "FALSE"))
+                continue;
+
             const file = c.location.path;
             const e = c.extent;
             const interval = Interval(e.start.offset, e.end.offset);
