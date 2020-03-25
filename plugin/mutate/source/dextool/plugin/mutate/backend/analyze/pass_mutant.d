@@ -103,10 +103,8 @@ class MutantsResult {
         return points[file].byKeyValue.map!(a => RType(a.value.toArray, a.key)).array;
     }
 
-    private void put(Path raw) @trusted {
+    private void put(AbsolutePath absp) @trusted {
         import dextool.plugin.mutate.backend.utility : checksum;
-
-        auto absp = fio.toAbsoluteRoot(raw);
 
         if (!vloc.shouldMutate(absp) || absp in existingFiles)
             return;
@@ -123,9 +121,7 @@ class MutantsResult {
         }
     }
 
-    private void put(Path raw, MutationPoint mp, Mutation.Kind kind) @safe {
-        auto p = fio.toAbsoluteRoot(raw);
-
+    private void put(AbsolutePath p, MutationPoint mp, Mutation.Kind kind) @safe {
         if (auto a = p in points) {
             if (auto b = mp in *a) {
                 (*b).add(kind);

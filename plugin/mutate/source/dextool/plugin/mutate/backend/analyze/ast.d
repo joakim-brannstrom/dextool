@@ -215,7 +215,7 @@ alias SourceLoc = dextool.plugin.mutate.backend.type.SourceLoc;
 alias SourceLocRange = dextool.plugin.mutate.backend.type.SourceLocRange;
 
 class Location {
-    Path file;
+    AbsolutePath file;
     Interval interval;
     SourceLocRange sloc;
 
