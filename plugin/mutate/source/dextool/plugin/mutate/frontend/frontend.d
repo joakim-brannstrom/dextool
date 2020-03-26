@@ -231,6 +231,9 @@ final class FrontendValidateLoc : ValidateLoc {
         import std.algorithm : any;
         import std.string : startsWith;
 
+        if (restrict_dir.empty)
+            return true;
+
         auto realp = p.Path.AbsolutePath;
 
         bool res = any!(a => realp.startsWith(a))(restrict_dir);
