@@ -177,6 +177,10 @@ struct ArgParser {
         app.put("# oldest_mutants_nr = 10");
         app.put("# limit the number of threads used when running tests in parallel. Default is as many as there are cores available");
         app.put("# parallel_test = 1");
+        app.put("# stop executing tests as soon as a test command fails.");
+        app.put(
+                "# This speed up the test phase but the report of test cases killing mutants is less accurate");
+        app.put("# use_early_stop = true");
         app.put(null);
 
         app.put("[report]");
@@ -688,6 +692,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["mutant_test.parallel_test"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.testPoolSize = cast(int) v.integer;
     };
+    callbacks["mutant_test.use_early_stop"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.useEarlyTestCmdStop = v == true;
+    };
 
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
         c.report.reportKind = v.str.to!ReportKind;
@@ -829,6 +836,19 @@ prune = false
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.analyze.prune.shouldBeFalse;
+}
+
+@("shall activate early stop of test commands")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[mutant_test]
+use_early_stop = true
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.mutationTest.useEarlyTestCmdStop.shouldBeTrue;
 }
 
 /// Minimal config to setup path to config file.

@@ -13,11 +13,12 @@ manually specified or automatically detected.
 module dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 
 import logger = std.experimental.logger;
-import std.algorithm : filter;
-import std.array : appender, Appender, empty;
+import std.algorithm : filter, sort;
+import std.array : appender, Appender, empty, array;
 import std.datetime : Duration, dur;
 import std.exception : collectException;
 import std.parallelism : TaskPool, Task, task;
+import std.typecons : Tuple;
 
 import process;
 
@@ -32,13 +33,18 @@ version (unittest) {
 
 struct TestRunner {
     private {
-        alias TestTask = Task!(spawnRunTest, string[], Duration, string[string]);
+        alias TestTask = Task!(spawnRunTest, string[], Duration, string[string], Signal);
         TaskPool pool;
         Duration timeout_;
-    }
+        bool useEarlyStop_;
 
-    /// Commands that execute the test cases.
-    ShellCommand[] commands;
+        Signal earlyStopSignal;
+
+        /// Commands that execute the test cases.
+        alias TestCmd = Tuple!(ShellCommand, "cmd", long, "kills");
+        TestCmd[] commands;
+        long nrOfRuns;
+    }
 
     /// Environment to set when executing either binaries or the command.
     string[string] env;
@@ -49,10 +55,20 @@ struct TestRunner {
 
     this(int poolSize_) {
         this.poolSize(poolSize_);
+        this.earlyStopSignal = new Signal;
     }
 
     ~this() {
         pool.stop;
+    }
+
+    /** Stop executing tests as soon as one detects a failure.
+     *
+     * This lose some information about the test cases but mean that mutation
+     * testing overall is executing faster.
+     */
+    void useEarlyStop(bool v) @safe pure nothrow @nogc {
+        useEarlyStop_ = v;
     }
 
     bool empty() @safe pure nothrow const @nogc {
@@ -76,11 +92,12 @@ struct TestRunner {
     }
 
     void put(ShellCommand sh) pure nothrow {
-        commands ~= sh;
+        commands ~= TestCmd(sh, 0);
     }
 
     void put(ShellCommand[] sh) pure nothrow {
-        commands ~= sh;
+        foreach (a; sh)
+            commands ~= TestCmd(a, 0);
     }
 
     TestResult run(string[string] localEnv = null) {
@@ -110,13 +127,20 @@ struct TestRunner {
             return null;
         }
 
-        static void processDone(TestTask* t, ref TestResult result,
-                ref Appender!(DrainElement[]) output) {
+        void processDone(TestTask* t, ref TestResult result, ref Appender!(DrainElement[]) output) {
             auto res = t.yieldForce;
             final switch (res.status) {
             case RunResult.Status.normal:
                 if (result.status == TestResult.Status.passed && res.exitStatus != 0) {
                     result.status = TestResult.Status.failed;
+
+                    if (useEarlyStop_) {
+                        debug logger.trace("Early stop triggered by ", res.cmd);
+                        earlyStopSignal.activate;
+                    }
+                }
+                if (res.exitStatus != 0) {
+                    incrCmdKills(res.cmd);
                 }
                 output.put(res.output);
                 break;
@@ -127,6 +151,7 @@ struct TestRunner {
                 result.status = TestResult.Status.error;
                 break;
             }
+
         }
 
         auto env_ = env;
@@ -134,9 +159,18 @@ struct TestRunner {
             env_[kv.key] = kv.value;
         }
 
+        scope (exit)
+            nrOfRuns++;
+        if (nrOfRuns % 10 == 0) {
+            // use those that kill the most first
+            commands = commands.sort!((a, b) => a.kills > b.kills).array;
+            debug logger.trace("Updated test command order: ", commands);
+        }
+
         TestTask*[] tasks = startTests(timeout, env_);
         TestResult rval;
         auto output = appender!(DrainElement[])();
+        earlyStopSignal.reset;
         while (!tasks.empty) {
             auto t = findDone(tasks);
             if (t !is null) {
@@ -154,11 +188,21 @@ struct TestRunner {
         auto tasks = appender!(TestTask*[])();
 
         foreach (c; commands) {
-            auto t = task!spawnRunTest(c.value, timeout, env);
+            auto t = task!spawnRunTest(c.cmd.value, timeout, env, earlyStopSignal);
             tasks.put(t);
             pool.put(t);
         }
         return tasks.data;
+    }
+
+    /// Find the test command and update its kill counter.
+    private void incrCmdKills(string[] cmd) {
+        foreach (ref a; commands) {
+            if (a.cmd.value == cmd) {
+                a.kills++;
+                break;
+            }
+        }
     }
 }
 
@@ -204,16 +248,29 @@ string[] findExecutables(AbsolutePath root) @trusted {
     return app.data;
 }
 
-RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env) @trusted nothrow {
+RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signal earlyStop) @trusted nothrow {
     import std.algorithm : copy;
     static import std.process;
 
     RunResult rval;
+    rval.cmd = cmd;
+
+    if (earlyStop.isActive) {
+        debug logger.info("Early stop detected. Skipping ", cmd).collectException;
+        return rval;
+    }
 
     try {
         auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).scopeKill;
         auto output = appender!(DrainElement[])();
-        p.process.drain(200.dur!"msecs").copy(output);
+        foreach (a; p.process.drain(200.dur!"msecs")) {
+            output.put(a);
+            if (earlyStop.isActive) {
+                debug logger.trace("Early stop detected");
+                p.kill;
+                break;
+            }
+        }
 
         if (p.timeoutTriggered) {
             rval.status = RunResult.Status.timeout;
@@ -240,6 +297,9 @@ struct RunResult {
         /// The test command timed out.
         timeout,
     }
+
+    /// The command that where executed.
+    string[] cmd;
 
     Status status;
     ///
@@ -330,4 +390,24 @@ unittest {
     res.output.filter!(a => !a.empty).count.shouldEqual(1);
     res.output.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
     res.status.shouldEqual(TestResult.Status.timeout);
+}
+
+/// Thread safe signal.
+class Signal {
+    import core.atomic;
+
+    shared int state;
+
+    bool isActive() @safe nothrow @nogc const {
+        auto local = atomicLoad(state);
+        return local != 0;
+    }
+
+    void activate() @safe nothrow @nogc {
+        atomicStore(state, 1);
+    }
+
+    void reset() @safe nothrow @nogc {
+        atomicStore(state, 0);
+    }
 }

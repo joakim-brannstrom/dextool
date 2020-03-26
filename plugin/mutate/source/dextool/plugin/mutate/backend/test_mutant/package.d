@@ -745,8 +745,8 @@ nothrow:
         }
 
         if (!cmds.data.empty) {
-            this.runner.put(cmds.data);
             this.global.testCmds ~= cmds.data;
+            this.runner.put(this.global.testCmds);
             logger.infof("Found test commands in %s:",
                     global.data.conf.testCommandDir).collectException;
             foreach (c; cmds.data) {
@@ -866,6 +866,7 @@ nothrow:
             assert(0, "should not happen");
         }
 
+        runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
         runner.timeout = calculateTimeout(global.timeoutFsm.output.iter, global.testSuiteRuntime);
         global.mut_driver = factory(global.data, global.nextMutant, () @trusted {
             return &runner;
