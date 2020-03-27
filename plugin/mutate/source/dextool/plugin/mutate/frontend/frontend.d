@@ -243,10 +243,10 @@ final class FrontendValidateLoc : ValidateLoc {
 
     /// Returns: if a file should be mutated.
     override bool shouldMutate(AbsolutePath p) {
-        import std.file : isDir;
+        import std.file : isDir, exists;
         import std.string : startsWith;
 
-        if (isDir(p))
+        if (!exists(p) || isDir(p))
             return false;
 
         bool res = p.startsWith(output_dir);
