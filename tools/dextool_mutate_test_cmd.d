@@ -18,10 +18,12 @@ int main(string[] args) {
 
     string[] searchDir;
     string[] extraFlags;
+    bool filterFailing;
     // dfmt off
     auto helpInfo = std.getopt.getopt(args,
         "test-cmd-dir", "directory to search for executables", &searchDir,
         "flag", "flags to append to the commands", &extraFlags,
+        "filter-failing", "execute a test binary and remove it if it fails", &filterFailing,
         );
     // dfmt on
     if (helpInfo.helpWanted) {
@@ -30,14 +32,25 @@ int main(string[] args) {
     }
 
     auto cmds = appender!(string[])();
+    auto failing = appender!(string[])();
     foreach (a; searchDir.map!(a => dirEntries(a, SpanMode.depth))
             .joiner
             .filter!(a => a.isFile && a.name.isExecutable)) {
-        cmds.put(a.name);
+        int exitCode;
+        if (filterFailing) {
+            exitCode = spawnProcess([a.name] ~ extraFlags).wait;
+        }
+        if (exitCode == 0) {
+            cmds.put(a.name);
+        } else {
+            failing.put(a.name);
+        }
     }
 
     const flags = extraFlags.empty ? "" : format(`, %(%s, %)`, extraFlags);
     writefln(`test_cmd = [%-(%s, %)]`, cmds.data.map!(a => format(`["%s"%s]`, a, flags)));
+    if (!failing.data.empty)
+        writeln(`# failing `, failing.data);
 
     return 0;
 }
