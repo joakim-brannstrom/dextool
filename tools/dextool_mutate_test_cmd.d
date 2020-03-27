@@ -16,14 +16,18 @@ import std;
 int main(string[] args) {
     static import std.getopt;
 
-    string[] searchDir;
-    string[] extraFlags;
     bool filterFailing;
+    string confFile;
+    string[] postParam;
+    string[] preParam;
+    string[] searchDir;
     // dfmt off
     auto helpInfo = std.getopt.getopt(args,
-        "test-cmd-dir", "directory to search for executables", &searchDir,
-        "flag", "flags to append to the commands", &extraFlags,
-        "filter-failing", "execute a test binary and remove it if it fails", &filterFailing,
+        "filter-failing", "execute each command and remove those that fail executing", &filterFailing,
+        "post-param", "parameters to append the commands such as flags", &postParam,
+        "pre-param", "parameters to prepend the commands with such as scripts", &preParam,
+        std.getopt.config.required, "test-cmd-dir", "directory to search for executables", &searchDir,
+        std.getopt.config.required, "conf", "configuration file to update", &confFile,
         );
     // dfmt on
     if (helpInfo.helpWanted) {
@@ -31,26 +35,39 @@ int main(string[] args) {
         return 1;
     }
 
-    auto cmds = appender!(string[])();
-    auto failing = appender!(string[])();
+    auto cmds = appender!(string[][])();
+    auto failing = appender!(string[][])();
     foreach (a; searchDir.map!(a => dirEntries(a, SpanMode.depth))
             .joiner
             .filter!(a => a.isFile && a.name.isExecutable)) {
-        int exitCode;
-        if (filterFailing) {
-            exitCode = spawnProcess([a.name] ~ extraFlags).wait;
-        }
-        if (exitCode == 0) {
-            cmds.put(a.name);
+        auto cmd = preParam ~ a.name ~ postParam;
+        if (!filterFailing) {
+            cmds.put(cmd);
+        } else if (spawnProcess(cmd).wait == 0) {
+            cmds.put(cmd);
         } else {
-            failing.put(a.name);
+            failing.put(cmd);
         }
     }
 
-    const flags = extraFlags.empty ? "" : format(`, %(%s, %)`, extraFlags);
-    writefln(`test_cmd = [%-(%s, %)]`, cmds.data.map!(a => format(`["%s"%s]`, a, flags)));
-    if (!failing.data.empty)
-        writeln(`# failing `, failing.data);
+    const tmpFile = confFile ~ ".tmp";
+    auto fout = File(tmpFile, "w");
+
+    foreach (l; File(confFile).byLineCopy) {
+        if (l.startsWith("test_cmd")) {
+            fout.writefln(`test_cmd = [%-(%s, %)]`, cmds.data.map!(a => format(`[%(%s, %)]`, a)));
+            writeln("Updated test_cmd");
+            if (!failing.data.empty) {
+                fout.writefln(`# failing [%-(%s, %)]`,
+                        failing.data.map!(a => format(`[%(%s, %)]`, a)));
+                writeln("Failing ", failing.data);
+            }
+        } else {
+            fout.writeln(l);
+        }
+    }
+
+    rename(tmpFile, confFile);
 
     return 0;
 }
