@@ -13,12 +13,13 @@ manually specified or automatically detected.
 module dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 
 import logger = std.experimental.logger;
-import std.algorithm : filter, sort, map;
+import std.algorithm : filter, map;
 import std.array : appender, Appender, empty, array;
-import std.datetime : Duration, dur;
+import std.datetime : Duration, dur, Clock;
 import std.exception : collectException;
 import std.format : format;
 import std.parallelism : TaskPool, Task, task;
+import std.random : randomCover;
 import std.range : take;
 import std.typecons : Tuple;
 
@@ -137,7 +138,8 @@ struct TestRunner {
                     result.status = TestResult.Status.failed;
 
                     if (useEarlyStop_) {
-                        debug logger.trace("Early stop triggered by ", res.cmd);
+                        debug logger.tracef("Early stop triggered by %s (%s)",
+                                res.cmd, Clock.currTime);
                         earlyStopSignal.activate;
                     }
                 }
@@ -161,16 +163,23 @@ struct TestRunner {
             env_[kv.key] = kv.value;
         }
 
+        const reorderWhen = 10;
+
         scope (exit)
             nrOfRuns++;
-        if (nrOfRuns != 0 && nrOfRuns % 10 == 0) {
+        if (nrOfRuns == 0) {
+            commands = commands.randomCover.array;
+        } else if (nrOfRuns % reorderWhen == 0) {
             // use those that kill the most first
             foreach (ref a; commands) {
                 a.kills = a.kills * 0.9;
             }
+
+            import std.algorithm : sort;
+
             commands = commands.sort!((a, b) => a.kills > b.kills).array;
-            logger.infof("Updated test command order: %(%s, %)",
-                    commands.take(5).map!(a => format("%s:%.2f", a.cmd, a.kills)));
+            logger.infof("Update test command order: %(%s, %)",
+                    commands.take(reorderWhen).map!(a => format("%s:%.2f", a.cmd, a.kills)));
         }
 
         TestTask*[] tasks = startTests(timeout, env_);
@@ -262,7 +271,8 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signa
     rval.cmd = cmd;
 
     if (earlyStop.isActive) {
-        debug logger.trace("Early stop detected. Skipping ", cmd).collectException;
+        debug logger.tracef("Early stop detected. Skipping %s (%s)", cmd,
+                Clock.currTime).collectException;
         return rval;
     }
 
@@ -272,7 +282,7 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signa
         foreach (a; p.process.drain(200.dur!"msecs")) {
             output.put(a);
             if (earlyStop.isActive) {
-                debug logger.trace("Early stop detected");
+                debug logger.tracef("Early stop detected. Stopping %s (%s)", cmd, Clock.currTime);
                 p.kill;
                 break;
             }

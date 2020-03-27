@@ -141,18 +141,18 @@ struct ArgParser {
         app.put(`# the arguments for test_cmd can be an array of multiple test commands`);
         app.put(`# 1. ["test1.sh", "test2.sh"]`);
         app.put(`# 2. [["test1.sh", "-x"], "test2.sh"]`);
-        app.put(`test_cmd = "test.sh"`);
+        app.put(`# test_cmd = "./test.sh"`);
         app.put(
                 `# find, recursively, all executables in the directory tree(s) and add them as test_cmds`);
         app.put(`# use this as a convenience to specifying the binaries manually`);
-        app.put(`# test_cmd_dir = ["./foo/bar"]`);
+        app.put(`test_cmd_dir = ["./build/test"]`);
         app.put(`# flags to add to all executables found in test_cmd_dir`);
         app.put(`# test_cmd_dir_flag = ["--gtest_filter", "-*foo"]`);
         app.put("# timeout to use for the test suite (msecs)");
         app.put("# test_cmd_timeout = 1000");
         app.put("# (required) program used to build the application");
-        app.put(`# the arguments for build_cmd can be an array: ["build.sh", "-x"]`);
-        app.put(`build_cmd = "build.sh"`);
+        app.put(`# the arguments for build_cmd can be an array: ["./build.sh", "-x"]`);
+        app.put(`build_cmd = "./build.sh"`);
         app.put(
                 "# program used to analyze the output from the test suite for test cases that killed the mutant");
         app.put(`# analyze_cmd = "analyze.sh"`);
@@ -180,7 +180,7 @@ struct ArgParser {
         app.put("# stop executing tests as soon as a test command fails.");
         app.put(
                 "# This speed up the test phase but the report of test cases killing mutants is less accurate");
-        app.put("# use_early_stop = true");
+        app.put("use_early_stop = true");
         app.put(null);
 
         app.put("[report]");
