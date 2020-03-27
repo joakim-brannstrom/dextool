@@ -174,6 +174,9 @@ struct ConfigMutationTest {
     /// Seed used when randomly choosing mutants to test in a pull request.
     long pullRequestSeed = 42;
 
+    /// If early stopping of test command execution should be used
+    bool useEarlyTestCmdStop;
+
     /// If the schematas should additionall be written to a separate file for offline inspection.
     bool logSchemata;
 }

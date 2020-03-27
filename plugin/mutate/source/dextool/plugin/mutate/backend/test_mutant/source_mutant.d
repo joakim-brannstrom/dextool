@@ -111,10 +111,10 @@ struct MutationTestDriver {
         /// If the user has configured that the test cases should be analyzed.
         bool hasTestCaseOutputAnalyzer;
         ShellCommand compile_cmd;
+        DrainElement[] output;
     }
 
     static struct TestMutant {
-        DrainElement[] output;
     }
 
     static struct RestoreCode {
@@ -124,10 +124,10 @@ struct MutationTestDriver {
 
     static struct TestCaseAnalyzeData {
         TestCaseAnalyzer* testCaseAnalyzer;
+        DrainElement[] output;
     }
 
     static struct TestCaseAnalyze {
-        DrainElement[] output;
         bool unstableTests;
     }
 
@@ -179,8 +179,11 @@ struct MutationTestDriver {
             return fsm(a);
         }, (TestMutant a) {
             if (self.global.mut_status == Mutation.Status.killed
-                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && !a.output.empty)
-                return fsm(TestCaseAnalyze(a.output));
+                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer
+                && !self.local.get!TestMutant.output.empty) {
+                self.local.get!TestCaseAnalyze.output = self.local.get!TestMutant.output;
+                return fsm(TestCaseAnalyze.init);
+            }
             return fsm(RestoreCode.init);
         }, (TestCaseAnalyze a) {
             if (a.unstableTests)
@@ -300,6 +303,7 @@ nothrow:
 
     void opCall(ref TestMutant data) {
         global.mut_status = Mutation.Status.unknown;
+        local.get!TestMutant.output = null;
 
         bool successCompile;
         compile(local.get!TestMutant.compile_cmd).match!((Mutation.Status a) {
@@ -311,14 +315,16 @@ nothrow:
 
         auto res = runTester(*global.runner);
         global.mut_status = res.status;
-        data.output = res.output;
+        local.get!TestMutant.output = res.output;
     }
 
     void opCall(ref TestCaseAnalyze data) {
         global.test_cases = null;
 
         try {
-            auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(data.output);
+            auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(
+                    local.get!TestCaseAnalyze.output);
+            local.get!TestCaseAnalyze.output = null;
 
             analyze.match!((TestCaseAnalyzer.Success a) {
                 global.test_cases = a.failed;
