@@ -162,11 +162,13 @@ struct TestRunner {
             env_[kv.key] = kv.value;
         }
 
+        const reorderWhen = 10;
+
         scope (exit)
             nrOfRuns++;
         if (nrOfRuns == 0) {
             commands = commands.randomCover.array;
-        } else if (nrOfRuns % 10 == 0) {
+        } else if (nrOfRuns % reorderWhen == 0) {
             // use those that kill the most first
             foreach (ref a; commands) {
                 a.kills = a.kills * 0.9;
@@ -176,7 +178,7 @@ struct TestRunner {
 
             commands = commands.sort!((a, b) => a.kills > b.kills).array;
             logger.infof("Update test command order: %(%s, %)",
-                    commands.take(5).map!(a => format("%s:%.2f", a.cmd, a.kills)));
+                    commands.take(reorderWhen).map!(a => format("%s:%.2f", a.cmd, a.kills)));
         }
 
         TestTask*[] tasks = startTests(timeout, env_);
