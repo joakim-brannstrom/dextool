@@ -13,11 +13,13 @@ manually specified or automatically detected.
 module dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 
 import logger = std.experimental.logger;
-import std.algorithm : filter, sort;
+import std.algorithm : filter, sort, map;
 import std.array : appender, Appender, empty, array;
 import std.datetime : Duration, dur;
 import std.exception : collectException;
+import std.format : format;
 import std.parallelism : TaskPool, Task, task;
+import std.range : take;
 import std.typecons : Tuple;
 
 import process;
@@ -41,7 +43,7 @@ struct TestRunner {
         Signal earlyStopSignal;
 
         /// Commands that execute the test cases.
-        alias TestCmd = Tuple!(ShellCommand, "cmd", long, "kills");
+        alias TestCmd = Tuple!(ShellCommand, "cmd", double, "kills");
         TestCmd[] commands;
         long nrOfRuns;
     }
@@ -161,10 +163,14 @@ struct TestRunner {
 
         scope (exit)
             nrOfRuns++;
-        if (nrOfRuns % 10 == 0) {
+        if (nrOfRuns != 0 && nrOfRuns % 10 == 0) {
             // use those that kill the most first
+            foreach (ref a; commands) {
+                a.kills = a.kills * 0.9;
+            }
             commands = commands.sort!((a, b) => a.kills > b.kills).array;
-            debug logger.trace("Updated test command order: ", commands);
+            logger.infof("Updated test command order: %(%s, %)",
+                    commands.take(5).map!(a => format("%s:%.2f", a.cmd, a.kills)));
         }
 
         TestTask*[] tasks = startTests(timeout, env_);
