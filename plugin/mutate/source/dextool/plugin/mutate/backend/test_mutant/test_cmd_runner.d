@@ -256,7 +256,7 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signa
     rval.cmd = cmd;
 
     if (earlyStop.isActive) {
-        debug logger.info("Early stop detected. Skipping ", cmd).collectException;
+        debug logger.trace("Early stop detected. Skipping ", cmd).collectException;
         return rval;
     }
 
