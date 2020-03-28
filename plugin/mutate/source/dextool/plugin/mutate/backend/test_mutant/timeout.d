@@ -262,6 +262,11 @@ struct TimeoutFsm {
 
     void opCall(Done) {
         global.ctx.state = MutantTimeoutCtx.State.done;
+        // must reset in case the mutation testing reach the end and is
+        // restarted with another mutation operator type than previously
+        global.ctx.iter = 0;
+        global.ctx.worklistCount = 0;
+
         output.done = true;
     }
 
