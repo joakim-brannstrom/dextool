@@ -164,6 +164,7 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothro
                 print(res.result.output);
                 break;
             }
+            logger.infof("%s: Measured runtime %s (fastest %s)", i, res.runtime, runtime);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
             failed = true;
@@ -814,7 +815,7 @@ nothrow:
             return;
         }
 
-        logger.info("Measuring the runtime of the test command: ",
+        logger.infof("Measuring the runtime of the test command(s):\n%(%s\n%)",
                 global.testCmds).collectException;
 
         const tester = () {
