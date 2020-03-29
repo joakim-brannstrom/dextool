@@ -728,21 +728,24 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
         db.updateMutation(MutationId(1), Mutation.Status.killed,
                 5.dur!"msecs", [TestCase("tc_1")]);
         // verify pre-condition that test cases exist in the DB
-        auto r0 = makeDextoolReport(testEnv, testData.dirName).addArg([
-                "--section", "tc_stat"
-                ]).run;
-        testConsecutiveSparseOrder!SubStr(["| 100        | 1     | tc_1     |"]).shouldBeIn(
-                r0.output);
+        auto r0 = makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--section", "tc_stat"])
+            .run;
+        testConsecutiveSparseOrder!SubStr(
+            ["| 100        | 1     | tc_1     |"])
+            .shouldBeIn(r0.output);
 
         // Act
         makeDextoolAnalyze(testEnv).addInputArg(programFile).run;
 
         // Assert that the test cases are still their
-        auto r1 = makeDextoolReport(testEnv, testData.dirName).addArg([
-                "--section", "tc_stat"
-                ]).run;
-        testConsecutiveSparseOrder!SubStr(["| 100        | 1     | tc_1     |"]).shouldBeIn(
-                r1.output);
+        auto r1 = makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--section", "tc_stat"])
+            .run;
+        testConsecutiveSparseOrder!SubStr(["| 100        | 1     | tc_1     |"])
+            .shouldBeIn(r1.output);
     }
 }
 
@@ -972,6 +975,7 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--mutant", "all"])
             .addPostArg(["--build-cmd", compile_script])
             .addPostArg(["--test-cmd", "/bin/true"])
             .addPostArg(["--test-timeout", "10000"])

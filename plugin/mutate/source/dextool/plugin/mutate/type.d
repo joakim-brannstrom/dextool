@@ -13,8 +13,8 @@ import dextool.type : Path, AbsolutePath;
 
 /// The kind of mutation to perform
 enum MutationKind {
-    /// any kind of mutation
-    any,
+    /// all mutation operators are used
+    all,
     /// Relational operator replacement
     ror,
     /// Relational operator replacement for pointers

@@ -31,7 +31,7 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
 
     auto kinds(const MutationKind k) {
         final switch (k) with (MutationKind) {
-        case any:
+        case all:
             return [EnumMembers!(Mutation.Kind)];
         case ror:
             return rorMutationsAll.dup;
@@ -56,7 +56,7 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
         }
     }
 
-    return (k is null ? [MutationKind.any] : k).map!(a => kinds(a)).joiner.array;
+    return (k is null ? [MutationKind.all] : k).map!(a => kinds(a)).joiner.array;
 }
 
 /// Convert the internal mutation kind to those that are presented to the user via the CLI.
