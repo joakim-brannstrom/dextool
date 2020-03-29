@@ -47,7 +47,6 @@ struct MutationTestResult {
         Mutation.Status status;
         Duration testTime;
         TestCase[] testCases;
-        DrainElement[] output;
     }
 
     alias Value = SumType!(NoResult, StatusUpdate);
@@ -111,10 +110,10 @@ struct MutationTestDriver {
         /// If the user has configured that the test cases should be analyzed.
         bool hasTestCaseOutputAnalyzer;
         ShellCommand compile_cmd;
-        DrainElement[] output;
     }
 
     static struct TestMutant {
+        bool hasTestOutput;
     }
 
     static struct RestoreCode {
@@ -179,9 +178,7 @@ struct MutationTestDriver {
             return fsm(a);
         }, (TestMutant a) {
             if (self.global.mut_status == Mutation.Status.killed
-                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer
-                && !self.local.get!TestMutant.output.empty) {
-                self.local.get!TestCaseAnalyze.output = self.local.get!TestMutant.output;
+                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && a.hasTestOutput) {
                 return fsm(TestCaseAnalyze.init);
             }
             return fsm(RestoreCode.init);
@@ -305,7 +302,6 @@ nothrow:
 
     void opCall(ref TestMutant data) {
         global.mut_status = Mutation.Status.unknown;
-        local.get!TestMutant.output = null;
 
         bool successCompile;
         compile(local.get!TestMutant.compile_cmd).match!((Mutation.Status a) {
@@ -317,7 +313,8 @@ nothrow:
 
         auto res = runTester(*global.runner);
         global.mut_status = res.status;
-        local.get!TestMutant.output = res.output;
+        data.hasTestOutput = !res.output.empty;
+        local.get!TestCaseAnalyze.output = res.output;
     }
 
     void opCall(ref TestCaseAnalyze data) {
