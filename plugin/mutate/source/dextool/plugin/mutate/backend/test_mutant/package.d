@@ -488,9 +488,9 @@ struct TestDriver {
             return fsm(UpdateTimeout.init);
         }, (Done a) => fsm(a), (Error a) => fsm(a),);
 
-        debug logger.info("state: ", self.fsm.logNext);
+        debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
-        debug logger.info("end act: ", self.fsm.logAct);
+        debug logger.trace("end act: ", self.fsm.logAct);
     }
 
 nothrow:
