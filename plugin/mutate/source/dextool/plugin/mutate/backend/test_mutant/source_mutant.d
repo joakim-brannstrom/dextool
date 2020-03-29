@@ -199,7 +199,9 @@ struct MutationTestDriver {
                 (FilesysError a) => fsm(a),
                 (NoResultRestoreCode a) => fsm(NoResult.init), (NoResult a) => fsm(a),);
 
+        debug logger.info("state: ", self.fsm.logNext);
         self.fsm.act!(self);
+        debug logger.info("end act: ", self.fsm.logAct);
     }
 
 nothrow:

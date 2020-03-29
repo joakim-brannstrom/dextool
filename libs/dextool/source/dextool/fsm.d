@@ -16,7 +16,7 @@ or the state transitions.
 */
 module dextool.fsm;
 
-import logger = std.experimental.logger;
+import std.format : format;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -36,6 +36,11 @@ struct Fsm(StateTT...) {
 
     /// The states and state specific data.
     StateT state;
+
+    /// Log messages of the last state transition (next).
+    string logNext;
+    /// Log message of the last performed act.
+    string logAct;
 
     /// Helper function to convert the return type to `StateT`.
     static StateT opCall(T)(auto ref T a) {
@@ -70,7 +75,8 @@ template next(handlers...) {
         static import sumtype;
 
         auto nextSt = sumtype.match!handlers(self.state);
-        debug logger.tracef("state: %s -> %s", self.state.toString, nextSt.toString);
+        self.logNext = format!"%s -> %s"(self.state, nextSt);
+
         self.state = nextSt;
     }
 }
@@ -80,7 +86,8 @@ template act(handlers...) {
     void act(Self)(auto ref Self self) if (is(Self : Fsm!StateT, StateT...)) {
         static import sumtype;
 
-        debug logger.trace("act: ", self.state.toString);
+        self.logAct = format!"%s"(self.state);
+
         sumtype.match!handlers(self.state);
     }
 }
