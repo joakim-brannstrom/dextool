@@ -250,7 +250,15 @@ and concluding that if LCR is updated then LCRb should also be updated.
 partof: REQ-mutations
 ###
 
-TODO: add requirement.
+The plugins shall mutate `!` in unary expressions by removing it.
+
+## Note
+
+The operator do not fully implement the academical definition of UOI. After
+practical use it was found that UOI produces a large number of unproductive
+mutants. This lead to the redesign of how it mutates. Instead of mutating
+everything it can it now only generate mutants that is highly likely to be
+productive. Less "false positives".
 
 ## Unary Operator Insertion (UOI)
 Insert a single unary operator in expressions where it is possible.

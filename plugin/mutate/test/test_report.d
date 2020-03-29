@@ -62,6 +62,7 @@ unittest {
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addPostArg(["--mutant", "all"])
         .addArg(["--level", "alive"])
         .addArg(["--style", "markdown"])
         .run;
@@ -197,6 +198,7 @@ unittest {
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addPostArg(["--mutant", "all"])
         .addArg(["--section", "tc_stat"])
         .addArg(["--style", "plain"])
         .run;
@@ -230,6 +232,7 @@ unittest {
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addPostArg(["--mutant", "all"])
         .addArg(["--section", "tc_full_overlap"])
         .addArg(["--style", "plain"])
         .run;
@@ -266,6 +269,7 @@ unittest {
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
+        .addPostArg(["--mutant", "all"])
         .addArg(["--section", "tc_stat"])
         .addArg(["--style", "plain"])
         .addArg(["--section-tc_stat-num", "2"])
@@ -323,11 +327,13 @@ class ShallReportTestCasesThatHasKilledZeroMutants : SimpleAnalyzeFixture {
 
         // Act
         auto r = makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
             .addArg(["--section", "tc_killed_no_mutants"])
             .addArg(["--style", "plain"])
             .run;
 
         makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
             .addArg(["--section", "tc_killed_no_mutants"])
             .addArg(["--style", "html"])
             .addArg(["--logdir", testEnv.outdir.toString])
@@ -396,6 +402,7 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
         db.updateMutation(MutationId(1), Mutation.Status.alive, 5.dur!"msecs", null);
 
         auto r = makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
             .addArg(["--style", "html"])
             .addArg(["--logdir", testEnv.outdir.toString])
             .addArg("--diff-from-stdin")
@@ -404,6 +411,7 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
             .run;
 
         makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
             .addArg(["--style", "json"])
             .addArg(["--logdir", testEnv.outdir.toString])
             .addArg("--diff-from-stdin")
@@ -475,17 +483,20 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
             db.updateMutation(MutationId(i), Mutation.Status.alive, 5.dur!"msecs", null);
 
         auto plain = makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
             .addArg(["--section", "summary"])
             .addArg(["--style", "plain"])
             .run;
 
         auto markdown = makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
             .addArg(["--section", "summary"])
             .addArg(["--style", "markdown"])
             .run;
 
         // TODO how to verify this? arsd.dom?
         makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
             .addArg(["--section", "summary"])
             .addArg(["--style", "html"])
             .addArg(["--logdir", testEnv.outdir.toString])
@@ -529,6 +540,7 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             db.updateMutation(MutationId(i), Mutation.Status.alive, 5.dur!"msecs", null);
 
         makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
             .addArg(["--section", "summary"])
             .addArg(["--style", "html"])
             .addArg(["--logdir", testEnv.outdir.toString])
@@ -570,6 +582,7 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
             db.updateMutation(MutationId(i), Mutation.Status.alive, 5.dur!"msecs", null);
 
         makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
             .addArg(["--section", "summary"])
             .addArg(["--style", "html"])
             .addArg(["--logdir", testEnv.outdir.toString])
@@ -578,7 +591,6 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
         // this is a bit inprecies but there should be a couple, unknown the
         // number, of mutants without any metadata. Then there should be some
         // with nomut.
-        // dfmt off
         testConsecutiveSparseOrder!SubStr([
             "'meta' : ''",
             "'meta' : ''",
@@ -586,7 +598,6 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
             "'meta' : 'nomut'",
             "'meta' : 'nomut'",
             ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
-        // dfmt on
 }
 }
 
@@ -602,11 +613,12 @@ class ShallReportHtmlNoMutSummary : LinesWithNoMut {
         foreach (i; 15 .. 30)
             db.updateMutation(MutationId(i), Mutation.Status.alive, 5.dur!"msecs", null);
 
-        makeDextoolReport(testEnv, testData.dirName).addArg([
-                "--section", "summary"
-                ]).addArg(["--style", "html"]).addArg([
-                "--logdir", testEnv.outdir.toString
-                ]).run;
+        makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--section", "summary"])
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
 
         // assert
         testConsecutiveSparseOrder!SubStr([
@@ -660,10 +672,12 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
                 ]);
 
         // Act
-        makeDextoolReport(testEnv, testData.dirName).addArg(["--style", "html"])
-            .addArg(["--section", "tc_similarity"]).addArg([
-                    "--logdir", testEnv.outdir.toString
-                    ]).run;
+        makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--style", "html"])
+            .addArg(["--section", "tc_similarity"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
 
         // Assert
         testConsecutiveSparseOrder!SubStr([
@@ -711,10 +725,12 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
                 ]);
 
         // Act
-        makeDextoolReport(testEnv, testData.dirName).addArg(["--style", "html"])
-            .addArg(["--section", "tc_unique"]).addArg([
-                    "--logdir", testEnv.outdir.toString
-                    ]).run;
+        makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--style", "html"])
+            .addArg(["--section", "tc_unique"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
 
         // Assert
         testConsecutiveSparseOrder!SubStr([

@@ -436,7 +436,10 @@ struct ArgParser {
                 workArea.outputDirectory)).array;
 
         if (data.mutation.empty) {
-            data.mutation = [MutationKind.any];
+            // by default use the recommended operators
+            with (MutationKind) {
+                data.mutation = [lcr, lcrb, sdl, uoi, dcr];
+            }
         }
 
         compiler.extraFlags = compiler.extraFlags ~ args.find("--").drop(1).array();
