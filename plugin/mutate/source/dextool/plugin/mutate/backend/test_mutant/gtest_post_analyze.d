@@ -11,9 +11,10 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
 
+import logger = std.experimental.logger;
+import std.array : empty;
 import std.exception : collectException;
 import std.range : isInputRange, isOutputRange;
-import logger = std.experimental.logger;
 
 import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport, GatherTestCase;
 import dextool.plugin.mutate.backend.type : TestCase;
@@ -76,8 +77,14 @@ struct GtestParser {
                 break;
             case DelimState.stop:
                 data.delim = DelimState.start;
+                data.last_run = null;
                 break;
             }
+        }
+
+        if (data.hasRunBlock && data.delim == DelimState.stop && !data.last_run.empty) {
+            /// Last test that was executed in a RUN block segfaulted.
+            report.reportFailed(TestCase(testCaseName(data.last_run), data.fail_msg_file));
         }
 
         if (data.hasRunBlock) {
@@ -99,21 +106,7 @@ struct GtestParser {
                 // May improve in the future.
                 data.fail_msg_file = null;
             }
-        }
-    }
-
-    /// Call when the last line has been processed.
-    void finish(TestCaseReport report) @safe nothrow {
-        final switch (data.delim) {
-        case DelimState.unknown:
-            goto case;
-        case DelimState.start:
-            // the test runner most probably crashed. Report the last test as the one that killed it.
-            report.reportFailed(TestCase(testCaseName(data.last_run),
-                    data.fail_msg_file));
-            break;
-        case DelimState.stop:
-            break;
+            data.last_run = null;
         }
     }
 }
@@ -134,7 +127,6 @@ struct StateData {
     DelimState delim;
 
     string fail_msg_file;
-    /// Last test that was executed in a RUN block.
     string last_run;
 
     /// The line contains a [======] block.
@@ -160,7 +152,6 @@ unittest {
 
     GtestParser parser;
     testData1.each!(a => parser.process(a, app));
-    parser.finish(app);
 
     shouldEqual(app.failed.byKey.array, [
             TestCase("MessageTest.DefaultConstructor")
@@ -173,7 +164,6 @@ unittest {
 
     GtestParser parser;
     testData3.each!(a => parser.process(a, app));
-    parser.finish(app);
 
     shouldEqual(app.foundAsArray.sort, [
             TestCase("Comp.A", ""), TestCase("Comp.B", ""), TestCase("Comp.C",
@@ -187,7 +177,6 @@ unittest {
 
     GtestParser parser;
     testData4.each!(a => parser.process(a, app));
-    parser.finish(app);
 
     shouldEqual(app.failedAsArray.sort, [
             TestCase("Foo.A", ""), TestCase("Foo.B", ""), TestCase("Foo.C",
@@ -201,7 +190,6 @@ unittest {
 
     GtestParser parser;
     testData5.each!(a => parser.process(a, app));
-    parser.finish(app);
 
     shouldEqual(app.failedAsArray.sort, [TestCase("FooTest.ShouldFail")]);
 }
@@ -212,7 +200,6 @@ unittest {
 
     GtestParser parser;
     testData2.each!(a => parser.process(a, app));
-    parser.finish(app);
 
     // dfmt off
     auto expected = [
@@ -276,9 +263,8 @@ unittest {
 
     GtestParser parser;
     testData6.each!(a => parser.process(a, app));
-    parser.finish(app);
 
-    auto expected = [TestCase(`MessageTest.DefaultConstructor`)];
+    auto expected = [TestCase(`Test.segfault`), TestCase(`Test.next`)];
 
     foreach (v; expected) {
         v.shouldBeIn(app.failed);
@@ -995,8 +981,14 @@ string[] testData6() {
 "[==========] Running 17 tests from 1 test case.",
 "[----------] Global test environment set-up.",
 "[----------] 17 tests from MessageTest",
-"[ RUN      ] MessageTest.DefaultConstructor",
+"[ RUN      ] Test.segfault",
 "junk",
+"Running main() from gtest_main.cc",
+"[==========] Running 17 tests from 1 test case.",
+"[----------] Global test environment set-up.",
+"[----------] 17 tests from MessageTest",
+"[ RUN      ] Test.next",
+"[  FAILED  ] Test.next (0 ms)",
         ];
         // dfmt on
 }
