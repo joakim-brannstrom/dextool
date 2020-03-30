@@ -39,21 +39,26 @@ struct GtestParser {
         StateData data;
     }
 
-    void process(T)(T line, TestCaseReport report) {
-        string testCaseName(string testCase) {
-            import std.string : lastIndexOf;
+    private string testCaseName(string testCase) @safe pure nothrow const @nogc {
+        import std.string : lastIndexOf;
 
-            // pessimistic merge of test case names such that parameterized are
-            // grouped by their last separation.
+        // pessimistic merge of test case names such that parameterized are
+        // grouped by their last separation.
 
+        try {
             const idx = lastIndexOf(testCase, '/');
 
             if (idx == -1) {
                 return testCase;
             }
             return testCase[0 .. idx];
+        } catch (Exception e) {
         }
 
+        return testCase;
+    }
+
+    void process(T)(T line, TestCaseReport report) {
         auto run_block_match = matchAll(line, re_run_block);
         auto failed_block_match = matchAll(line, re_failed_block);
         auto delim_match = matchFirst(line, re_delim);
@@ -80,7 +85,8 @@ struct GtestParser {
             data.delim = DelimState.start;
 
             foreach (m; run_block_match) {
-                report.reportFound(TestCase(testCaseName(m["tc"].idup)));
+                data.last_run = m["tc"].idup;
+                report.reportFound(TestCase(testCaseName(data.last_run)));
             }
         }
 
@@ -93,6 +99,21 @@ struct GtestParser {
                 // May improve in the future.
                 data.fail_msg_file = null;
             }
+        }
+    }
+
+    /// Call when the last line has been processed.
+    void finish(TestCaseReport report) @safe nothrow {
+        final switch (data.delim) {
+        case DelimState.unknown:
+            goto case;
+        case DelimState.start:
+            // the test runner most probably crashed. Report the last test as the one that killed it.
+            report.reportFailed(TestCase(testCaseName(data.last_run),
+                    data.fail_msg_file));
+            break;
+        case DelimState.stop:
+            break;
         }
     }
 }
@@ -113,6 +134,8 @@ struct StateData {
     DelimState delim;
 
     string fail_msg_file;
+    /// Last test that was executed in a RUN block.
+    string last_run;
 
     /// The line contains a [======] block.
     bool hasDelim;
@@ -137,6 +160,7 @@ unittest {
 
     GtestParser parser;
     testData1.each!(a => parser.process(a, app));
+    parser.finish(app);
 
     shouldEqual(app.failed.byKey.array, [
             TestCase("MessageTest.DefaultConstructor")
@@ -149,6 +173,7 @@ unittest {
 
     GtestParser parser;
     testData3.each!(a => parser.process(a, app));
+    parser.finish(app);
 
     shouldEqual(app.foundAsArray.sort, [
             TestCase("Comp.A", ""), TestCase("Comp.B", ""), TestCase("Comp.C",
@@ -162,6 +187,7 @@ unittest {
 
     GtestParser parser;
     testData4.each!(a => parser.process(a, app));
+    parser.finish(app);
 
     shouldEqual(app.failedAsArray.sort, [
             TestCase("Foo.A", ""), TestCase("Foo.B", ""), TestCase("Foo.C",
@@ -175,6 +201,7 @@ unittest {
 
     GtestParser parser;
     testData5.each!(a => parser.process(a, app));
+    parser.finish(app);
 
     shouldEqual(app.failedAsArray.sort, [TestCase("FooTest.ShouldFail")]);
 }
@@ -185,6 +212,7 @@ unittest {
 
     GtestParser parser;
     testData2.each!(a => parser.process(a, app));
+    parser.finish(app);
 
     // dfmt off
     auto expected = [
@@ -233,6 +261,24 @@ TestCase(`TypedTest`),
 TestCase(`Unsigned/TypedTestP`),
             ];
     // dfmt on
+
+    foreach (v; expected) {
+        v.shouldBeIn(app.failed);
+    }
+
+    shouldEqual(app.failed.length, expected.length);
+}
+
+@("shall report the last test case before the crash")
+unittest {
+
+    auto app = new GatherTestCase;
+
+    GtestParser parser;
+    testData6.each!(a => parser.process(a, app));
+    parser.finish(app);
+
+    auto expected = [TestCase(`MessageTest.DefaultConstructor`)];
 
     foreach (v; expected) {
         v.shouldBeIn(app.failed);
@@ -937,6 +983,20 @@ string[] testData5() {
 "35: [  PASSED  ] 12 tests.",
 "35: [  FAILED  ] 1 test, listed below:",
 "35: [  FAILED  ] FooTest.ShouldFail",
+        ];
+        // dfmt on
+}
+
+// A binary segfaults while it is running a test
+string[] testData6() {
+    // dfmt off
+        return [
+"Running main() from gtest_main.cc",
+"[==========] Running 17 tests from 1 test case.",
+"[----------] Global test environment set-up.",
+"[----------] 17 tests from MessageTest",
+"[ RUN      ] MessageTest.DefaultConstructor",
+"junk",
         ];
         // dfmt on
 }
