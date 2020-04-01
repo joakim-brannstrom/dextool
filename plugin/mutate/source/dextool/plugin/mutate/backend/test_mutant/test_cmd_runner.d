@@ -39,7 +39,6 @@ struct TestRunner {
         alias TestTask = Task!(spawnRunTest, string[], Duration, string[string], Signal);
         TaskPool pool;
         Duration timeout_;
-        bool useEarlyStop_;
 
         Signal earlyStopSignal;
 
@@ -58,7 +57,7 @@ struct TestRunner {
 
     this(int poolSize_) {
         this.poolSize(poolSize_);
-        this.earlyStopSignal = new Signal;
+        this.earlyStopSignal = new Signal(false);
     }
 
     ~this() {
@@ -70,8 +69,8 @@ struct TestRunner {
      * This lose some information about the test cases but mean that mutation
      * testing overall is executing faster.
      */
-    void useEarlyStop(bool v) @safe pure nothrow @nogc {
-        useEarlyStop_ = v;
+    void useEarlyStop(bool v) @safe nothrow {
+        this.earlyStopSignal = new Signal(v);
     }
 
     bool empty() @safe pure nothrow const @nogc {
@@ -136,12 +135,6 @@ struct TestRunner {
             case RunResult.Status.normal:
                 if (result.status == TestResult.Status.passed && res.exitStatus != 0) {
                     result.status = TestResult.Status.failed;
-
-                    if (useEarlyStop_) {
-                        debug logger.tracef("Early stop triggered by %s (%s)",
-                                res.cmd, Clock.currTime);
-                        earlyStopSignal.activate;
-                    }
                 }
                 if (res.exitStatus != 0) {
                     incrCmdKills(res.cmd);
@@ -155,7 +148,6 @@ struct TestRunner {
                 result.status = TestResult.Status.error;
                 break;
             }
-
         }
 
         auto env_ = env;
@@ -182,10 +174,10 @@ struct TestRunner {
                     commands.take(reorderWhen).map!(a => format("%s:%.2f", a.cmd, a.kills)));
         }
 
+        earlyStopSignal.reset;
         TestTask*[] tasks = startTests(timeout, env_);
         TestResult rval;
         auto output = appender!(DrainElement[])();
-        earlyStopSignal.reset;
         while (!tasks.empty) {
             auto t = findDone(tasks);
             if (t !is null) {
@@ -279,7 +271,7 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signa
     try {
         auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).scopeKill;
         auto output = appender!(DrainElement[])();
-        foreach (a; p.process.drain(200.dur!"msecs")) {
+        foreach (a; p.process.drain(50.dur!"msecs")) {
             output.put(a);
             if (earlyStop.isActive) {
                 debug logger.tracef("Early stop detected. Stopping %s (%s)", cmd, Clock.currTime);
@@ -297,6 +289,12 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signa
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
         rval.status = RunResult.Status.error;
+    }
+
+    if (rval.exitStatus != 0) {
+        earlyStop.activate;
+        debug logger.tracef("Early stop triggered by %s (%s)", rval.cmd,
+                Clock.currTime).collectException;
     }
 
     return rval;
@@ -410,11 +408,19 @@ unittest {
 
 /// Thread safe signal.
 class Signal {
-    import core.atomic;
+    import core.atomic : atomicLoad, atomicStore;
 
     shared int state;
+    immutable bool isUsed;
+
+    this(bool isUsed) @safe pure nothrow @nogc {
+        this.isUsed = isUsed;
+    }
 
     bool isActive() @safe nothrow @nogc const {
+        if (!isUsed)
+            return false;
+
         auto local = atomicLoad(state);
         return local != 0;
     }
