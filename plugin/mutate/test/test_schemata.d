@@ -16,7 +16,23 @@ static import dextool.type;
 import dextool_test.utility;
 import dextool_test.fixtures;
 
-class ShallRunADummySchemata : SimpleFixture {
+class SchemataFixutre : SimpleFixture {
+    override string scriptBuild() {
+        return "#!/bin/bash
+set -e
+g++ %s -o %s
+";
+    }
+
+    override string scriptTest() {
+        return format("#!/bin/bash
+set -e
+%s
+", program_bin);
+    }
+}
+
+class ShallRunADummySchemata : SchemataFixutre {
     override string programFile() {
         return (testData ~ "simple_schemata.cpp").toString;
     }
@@ -41,10 +57,15 @@ class ShallRunADummySchemata : SimpleFixture {
             .addPostArg(["--test-timeout", "10000"])
             .addPostArg(["--log-schemata"])
             .run;
-        // dfmt on
 
+        // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
-                `Running schemata`, `failed to compile`,
+                `Found schemata`,
+                `Run schemata`,
+                `from '+' to '-'`,
+                `alive`,
+                `SchemataTestResult`,
                 ]).shouldBeIn(r.output);
+        // dfmt on
     }
 }
