@@ -396,6 +396,7 @@ struct TestDriver {
         this.global.testCmds = global.data.conf.mutationTester;
 
         this.runner = TestRunner.make(global.data.conf.testPoolSize);
+        this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
         // using an unreasonable timeout to make it possible to analyze for
         // test cases and measure the test suite.
         this.runner.timeout = 999.dur!"hours";
