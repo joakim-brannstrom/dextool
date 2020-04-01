@@ -17,8 +17,11 @@ import std.conv : to;
 import std.typecons : Flag, No, Tuple;
 import core.sync.mutex : Mutex;
 
+import dextool.hash : BuildChecksum128, toChecksum128;
 import dextool.type : Path, AbsolutePath;
 import dextool.from;
+
+public import dextool.hash : toBytes;
 
 public import dextool.plugin.mutate.backend.type;
 public import dextool.plugin.mutate.backend.mutation_type;
@@ -28,6 +31,9 @@ public import dextool.plugin.mutate.backend.interface_ : Blob;
 /// Execution profile result gathered from analysers.
 private shared ProfileResults gProfile;
 private shared Mutex gProfileMtx;
+
+alias BuildChecksum = BuildChecksum128;
+alias toChecksum = toChecksum128;
 
 /// Returns: the profiling results gathered for this module.
 ProfileResults getProfileResult() @trusted {

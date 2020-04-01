@@ -87,16 +87,16 @@ struct SchemataTestDriver {
         MutationStatusId id;
         Checksum checksum;
         MutationTestResult result;
-        DrainElement[] output;
+        bool hasTestOutput;
     }
 
     static struct TestCaseAnalyzeData {
         TestCaseAnalyzer* testCaseAnalyzer;
+        DrainElement[] output;
     }
 
     static struct TestCaseAnalyze {
         MutationTestResult result;
-        DrainElement[] output;
         bool unstableTests;
     }
 
@@ -120,6 +120,7 @@ struct SchemataTestDriver {
         this.db = db;
         this.local.get!NextMutant.mutants = mutants;
         this.local.get!TestCaseAnalyze.testCaseAnalyzer = testCaseAnalyzer;
+        this.local.get!TestMutant.hasTestCaseOutputAnalyzer = !testCaseAnalyzer.empty;
     }
 
     static void execute_(ref SchemataTestDriver self) @trusted {
@@ -129,8 +130,10 @@ struct SchemataTestDriver {
                 return fsm(Done.init);
             return fsm(TestMutant(a.id, a.checksum));
         }, (TestMutant a) {
-            if (self.local.get!TestMutant.hasTestCaseOutputAnalyzer)
-                return fsm(TestCaseAnalyze(a.result, a.output));
+            if (a.result.status == Mutation.Status.killed
+                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && a.hasTestOutput) {
+                return fsm(TestCaseAnalyze(a.result));
+            }
             return fsm(StoreResult(a.result));
         }, (TestCaseAnalyze a) {
             if (a.unstableTests)
@@ -138,6 +141,7 @@ struct SchemataTestDriver {
             return fsm(StoreResult(a.result));
         }, (StoreResult a) => fsm(NextMutant.init), (Done a) => fsm(a));
 
+        debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
     }
 
@@ -189,11 +193,12 @@ nothrow:
         auto entry = spinSql!(() { return db.getMutation(id); }).get;
 
         try {
-            auto original = fio.makeInput(fio.toAbsoluteRoot(entry.file));
+            const file = fio.toAbsoluteRoot(entry.file);
+            auto original = fio.makeInput(file);
             auto txt = makeMutationText(original, entry.mp.offset,
                     entry.mp.mutations[0].kind, entry.lang);
             logger.infof("%s from '%s' to '%s' in %s:%s:%s", data.id, txt.original,
-                    txt.mutation, entry.file, entry.sloc.line, entry.sloc.column);
+                    txt.mutation, file, entry.sloc.line, entry.sloc.column);
         } catch (Exception e) {
             logger.info(e.msg).collectException;
         }
@@ -208,7 +213,8 @@ nothrow:
         data.result.testTime = sw.peek;
 
         data.result.status = res.status;
-        data.output = res.output;
+        data.hasTestOutput = !res.output.empty;
+        local.get!TestCaseAnalyze.output = res.output;
 
         logger.infof("%s %s (%s)", data.result.id, data.result.status,
                 data.result.testTime).collectException;
@@ -216,7 +222,9 @@ nothrow:
 
     void opCall(ref TestCaseAnalyze data) {
         try {
-            auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(data.output);
+            auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(
+                    local.get!TestCaseAnalyze.output);
+            local.get!TestCaseAnalyze.output = null;
 
             analyze.match!((TestCaseAnalyzer.Success a) {
                 data.result.testCases = a.failed;

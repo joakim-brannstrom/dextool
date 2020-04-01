@@ -1,3 +1,9 @@
+/// @copyright Boost License 1.0, http://boost.org/LICENSE_1_0.txt
+/// @date 2020
+/// @author Joakim Brännström (joakim.brannstrom@gmx.com)
+
+int main(int argc, char** argv) { return 0; }
+
 int test_composed(int x) { return (x + 3) > 3; }
 
 enum Enum1 { gEnum1, gEnum2 };

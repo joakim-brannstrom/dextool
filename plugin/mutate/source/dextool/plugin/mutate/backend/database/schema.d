@@ -81,6 +81,7 @@ immutable schemataMutantTable = "schemata_mutant";
 immutable schemataWorkListTable = "schemata_worklist";
 immutable schemataTable = "schemata";
 immutable schemataFragmentTable = "schemata_fragment";
+immutable invalidSchemataTable = "invalid_schemata";
 
 private immutable testCaseTableV1 = "test_case";
 
@@ -419,7 +420,7 @@ struct MarkedMutantTbl {
 
 @TableName(schemataMutantTable)
 @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
-@TableForeignKey("schem_id", KeyRef("schemata_fragment(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("schem_id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
 struct SchemataMutantTable {
     @ColumnName("st_id")
     long statusId;
@@ -430,11 +431,23 @@ struct SchemataMutantTable {
 @TableName(schemataTable)
 struct SchemataTable {
     long id;
+
+    // number of fragments the schemata consist of.
+    // used to detect if a fragment has been removed because its related file
+    // was changed.
+    long fragments;
+
+    // runtime generated constant that make it possible to "prune" old
+    // schematas automatically. it assumes that each new version of dextool may
+    // contain updates to the schematas thus the old schemats should be
+    // removed.
+    @ColumnName("version")
+    long version_;
 }
 
-@TableName(schemataWorkListTable)
+@TableName(invalidSchemataTable)
 @TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
-struct SchemataWorkListTable {
+struct InvalidSchemataTable {
     long id;
 }
 
@@ -573,7 +586,7 @@ void upgradeV0(ref Miniorm db) {
             MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl,
             MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl,
             NomutDataTbl, SchemataTable, SchemataFragmentTable,
-            SchemataWorkListTable, SchemataMutantTable));
+            SchemataMutantTable, InvalidSchemataTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -979,17 +992,47 @@ void upgradeV15(ref Miniorm db) {
 
 /// 2020-02-12
 void upgradeV16(ref Miniorm db) {
+    @TableName(schemataWorkListTable)
+    @TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
+    static struct SchemataWorkListTable {
+        long id;
+    }
+
+    @TableName(schemataMutantTable)
+    @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableForeignKey("schem_id", KeyRef("schemata_fragment(id)"), KeyParam("ON DELETE CASCADE"))
+    static struct SchemataMutantTable {
+        @ColumnName("st_id")
+        long statusId;
+        @ColumnName("schem_id")
+        long schemaId;
+    }
+
     db.run(buildSchema!(SchemataFragmentTable, SchemataWorkListTable, SchemataMutantTable));
 }
 
 /// 2020-02-12
 void upgradeV17(ref Miniorm db) {
+    @TableName(schemataTable)
+    static struct SchemataTable {
+        long id;
+    }
+
     db.run(buildSchema!(SchemataTable));
 }
 
 /// 2020-03-21
 void upgradev18(ref Miniorm db) {
     // this force an old database to add indexes
+}
+
+/// 2020-04-01
+void upgradeV19(ref Miniorm db) {
+    db.run(format!"DROP TABLE %s"(schemataWorkListTable));
+    db.run(format!"DROP TABLE %s"(schemataTable));
+    db.run(format!"DROP TABLE %s"(schemataMutantTable));
+
+    db.run(buildSchema!(SchemataTable, SchemataMutantTable, InvalidSchemataTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

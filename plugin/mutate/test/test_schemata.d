@@ -28,21 +28,12 @@ class ShallRunADummySchemata : SimpleFixture {
 
         makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
 
-        SchemataFragment[] f;
-        // test that overlapping works because all letters between 4-10 should
-        // have been removed.
-        f ~= SchemataFragment(dextool.type.Path(program_cpp.relativePath(workDir.toString)),
-                Offset(4, 7), null);
-        f ~= SchemataFragment(dextool.type.Path(program_cpp.relativePath(workDir.toString)),
-                Offset(4, 10), cast(ubyte[]) "|bun|");
-        const schemId = db.putSchemata(f, [MutationStatusId(1)]);
-
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
-            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--mutant", "aor"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compile_script])
             .addPostArg(["--test-cmd", test_script])
@@ -53,8 +44,7 @@ class ShallRunADummySchemata : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!SubStr([
-                format!`Running schemata %s`(schemId),
-                format!`Schemata %s failed to compile`(schemId)
+                `Running schemata`, `failed to compile`,
                 ]).shouldBeIn(r.output);
     }
 }
