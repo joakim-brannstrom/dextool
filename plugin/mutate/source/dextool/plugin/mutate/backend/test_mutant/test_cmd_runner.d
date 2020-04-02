@@ -162,13 +162,15 @@ struct TestRunner {
         if (nrOfRuns == 0) {
             commands = commands.randomCover.array;
         } else if (nrOfRuns % reorderWhen == 0) {
-            // use those that kill the most first
+            // use a forget factor to make the order re-arrange over time
+            // if the "best" test case change.
             foreach (ref a; commands) {
                 a.kills = a.kills * 0.9;
             }
 
             import std.algorithm : sort;
 
+            // use those that kill the most first
             commands = commands.sort!((a, b) => a.kills > b.kills).array;
             logger.infof("Update test command order: %(%s, %)",
                     commands.take(reorderWhen).map!(a => format("%s:%.2f", a.cmd, a.kills)));
@@ -184,7 +186,7 @@ struct TestRunner {
                 processDone(t, rval, output);
                 .destroy(t);
             }
-            () @trusted { Thread.sleep(50.dur!"msecs"); }();
+            () @trusted { Thread.sleep(20.dur!"msecs"); }();
         }
 
         rval.output = output.data;
@@ -271,8 +273,9 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signa
     try {
         auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).scopeKill;
         auto output = appender!(DrainElement[])();
-        foreach (a; p.process.drain(50.dur!"msecs")) {
-            output.put(a);
+        foreach (a; p.process.drain(20.dur!"msecs")) {
+            if (!a.empty)
+                output.put(a);
             if (earlyStop.isActive) {
                 debug logger.tracef("Early stop detected. Stopping %s (%s)", cmd, Clock.currTime);
                 p.kill;

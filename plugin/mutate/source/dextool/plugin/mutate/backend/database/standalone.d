@@ -42,7 +42,7 @@ import dextool.plugin.mutate.backend.type : Language, Checksum;
 /** Database wrapper with minimal dependencies.
  */
 struct Database {
-    import miniorm : Miniorm, select, insert, insertOrReplace, delete_;
+    import miniorm : Miniorm, select, insert, insertOrReplace, delete_, insertOrIgnore;
     import d2sqlite3 : SqlDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
 
@@ -494,7 +494,7 @@ struct Database {
     }
 
     Nullable!MutationStatusId getMutationStatusId(const Checksum cs) @trusted {
-        immutable sql = format!"SELECT st_id FROM %s WHERE checksum0=:cs0 AND checksum1=:cs1"(
+        immutable sql = format!"SELECT id FROM %s WHERE checksum0=:cs0 AND checksum1=:cs1"(
                 mutationStatusTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":cs0", cast(long) cs.c0);
@@ -1602,8 +1602,22 @@ struct Database {
                 rawSrcMetadataTable, nomutTable));
     }
 
-    /// Returns: a random schemata from the schemata worklist.
-    Nullable!Schemata nextSchemata() @trusted {
+    /// Returns: all schematas that excluding those that are known to not be possible to compile.
+    SchemataId[] getSchematas() @trusted {
+        immutable sql = format!"SELECT t0.id
+            FROM %1$s t0
+            WHERE
+            t0.id NOT IN (SELECT id FROM %2$s)"(schemataTable,
+                invalidSchemataTable);
+        auto stmt = db.prepare(sql);
+        auto app = appender!(SchemataId[])();
+        foreach (a; stmt.get.execute) {
+            app.put(SchemataId(a.peek!long(0)));
+        }
+        return app.data;
+    }
+
+    Nullable!Schemata getSchemata(SchemataId id) @trusted {
         immutable sql = format!"SELECT
             t1.path, t0.text, t0.offset_begin, t0.offset_end
             FROM %1$s t0, %2$s t1
@@ -1613,27 +1627,39 @@ struct Database {
             ORDER BY t0.order_ ASC
             "(schemataFragmentTable, filesTable);
 
-        Schemata schemata(long id) {
-            auto stmt = db.prepare(sql);
-            stmt.get.bind(":id", id);
+        typeof(return) rval;
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", cast(long) id);
 
-            auto app = appender!(SchemataFragment[])();
-            foreach (a; stmt.get.execute) {
-                app.put(SchemataFragment(a.peek!string(0).Path,
-                        Offset(a.peek!uint(2), a.peek!uint(3)), a.peek!(ubyte[])(1)));
-            }
-
-            return Schemata(SchemataId(id), app.data);
+        auto app = appender!(SchemataFragment[])();
+        foreach (a; stmt.get.execute) {
+            app.put(SchemataFragment(a.peek!string(0).Path,
+                    Offset(a.peek!uint(2), a.peek!uint(3)), a.peek!(ubyte[])(1)));
         }
 
-        typeof(return) rval;
-        auto stmt = db.prepare(
-                format!"SELECT id FROM %s ORDER BY RANDOM() LIMIT 1"(schemataWorkListTable));
-        foreach (a; stmt.get.execute) {
-            rval = schemata(a.peek!long(0));
+        if (!app.data.empty) {
+            rval = Schemata(SchemataId(id), app.data);
         }
 
         return rval;
+    }
+
+    /// Returns: true if any of the mutants in the schemata have the status unknown and they are of `kind`.
+    bool shouldTestSchemata(SchemataId id, const Mutation.Kind[] kinds) @trusted {
+        const sql = format!"SELECT count(*)
+        FROM %s t1, %s t2, %s t3
+        WHERE
+        t1.schem_id = :id AND
+        t1.st_id = t2.id AND
+        t2.status = :status AND
+        t3.st_id = t1.st_id AND
+        t3.kind IN (%(%s,%))"(schemataMutantTable,
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", cast(long) id);
+        stmt.get.bind(":status", cast(long) Mutation.Status.unknown);
+        return stmt.get.execute.oneValue!long != 0;
     }
 
     MutationStatusId[] getSchemataMutants(SchemataId id) @trusted {
@@ -1649,20 +1675,40 @@ struct Database {
         return app.data;
     }
 
-    /// Mark a schemata as finished.
-    void finishSchemata(SchemataId id) @trusted {
-        db.run(delete_!SchemataWorkListTable.where("id = :id", Bind("id")), cast(long) id);
+    /// Mark a schemata as invalid.
+    void markInvalid(SchemataId id) @trusted {
+        immutable sql = format!"INSERT INTO %1$s VALUES(:id)"(invalidSchemataTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", cast(long) id);
+        stmt.get.execute;
     }
 
     /// Create a schemata from a bundle of fragments.
-    SchemataId putSchemata(SchemataFragment[] fragments, MutationStatusId[] mutants) @trusted {
+    Nullable!SchemataId putSchemata(SchemataChecksum cs,
+            const SchemataFragment[] fragments, MutationStatusId[] mutants) @trusted {
         import std.range : enumerate;
+        import dextool.utility : dextoolBinaryId;
 
-        const schemId = () {
-            immutable sql = format!"INSERT INTO %1$s VALUES(NULL)"(schemataTable);
+        const schemId = cast(long) cs.value.c0;
+
+        const exists = () {
+            immutable sql = format!"SELECT count(*) FROM %1$s WHERE id=:id"(schemataTable);
             auto stmt = db.prepare(sql);
+            stmt.get.bind(":id", schemId);
+            return stmt.get.execute.oneValue!long != 0;
+
+        }();
+
+        if (exists)
+            return typeof(return)();
+
+        () {
+            immutable sql = format!"INSERT INTO %1$s VALUES(:id, :nr, :version)"(schemataTable);
+            auto stmt = db.prepare(sql);
+            stmt.get.bind(":id", cast(long) cs.value.c0);
+            stmt.get.bind(":nr", cast(long) fragments.length);
+            stmt.get.bind(":version", dextoolBinaryId);
             stmt.get.execute;
-            return db.lastInsertRowid.SchemataId;
         }();
 
         foreach (f; fragments.enumerate) {
@@ -1674,17 +1720,46 @@ struct Database {
             }
 
             db.run(insert!SchemataFragmentTable, SchemataFragmentTable(0,
-                    cast(long) schemId, cast(long) fileId.get, f.index,
-                    f.value.text, f.value.offset.begin, f.value.offset.end));
+                    schemId, cast(long) fileId.get, f.index, f.value.text,
+                    f.value.offset.begin, f.value.offset.end));
         }
 
         // relate mutants to this schemata.
         db.run(insertOrReplace!SchemataMutantTable,
-                mutants.map!(a => SchemataMutantTable(cast(long) a, cast(long) schemId)));
+                mutants.map!(a => SchemataMutantTable(cast(long) a, schemId)));
 
-        db.run(insertOrReplace!SchemataWorkListTable, SchemataWorkListTable(schemId));
+        return typeof(return)(schemId.SchemataId);
+    }
 
-        return schemId;
+    void pruneSchematas() @trusted {
+        import dextool.utility : dextoolBinaryId;
+
+        auto remove = () {
+            immutable sql = format!"SELECT t0.id,t0.version,t0.fragments,t1.fragments
+            FROM
+            %1$s t0,
+            (SELECT schem_id id,count(*) fragments FROM %2$s GROUP BY schem_id) t1
+            WHERE
+            t0.id = t1.id
+            "(schemataTable, schemataFragmentTable);
+            auto stmt = db.prepare(sql);
+
+            auto remove = appender!(long[])();
+            foreach (a; stmt.get.execute) {
+                if (a.peek!long(2) != a.peek!long(3) || a.peek!long(1) != dextoolBinaryId) {
+                    remove.put(a.peek!long(0));
+                }
+            }
+            return remove.data;
+        }();
+
+        immutable sql = format!"DELETE FROM %1$s WHERE id=:id"(schemataTable);
+        auto stmt = db.prepare(sql);
+        foreach (a; remove) {
+            stmt.get.bind(":id", a);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
     }
 }
 

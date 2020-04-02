@@ -38,7 +38,9 @@ CheckMutantsLeft --> MeasureTestSuite
 MeasureTestSuite --> Error : unreliable
 MeasureTestSuite --> SetMaxRuntime
 
-SetMaxRuntime --> UpdateTimeout
+SetMaxRuntime --> LoadSchematas
+
+LoadSchematas --> UpdateTimeout
 
 CheckRuntime --> UpdateTimeout
 CheckRuntime --> Done : runtime>max
@@ -48,7 +50,9 @@ NextPullRequestMutant --> Done : allTested
 
 NextSchemata --> PreSchemata : hasSchema
 NextSchemata --> NextMutant
-PreSchemata --> SchemataTest
+PreSchemata --> SanityCheckSchemata
+SanityCheckSchemata --> SchemataRestore : failed
+SanityCheckSchemata --> SchemataTest : ok
 SchemataTest --> SchemataTest
 SchemataTest --> SchemataTestResult : done
 SchemataTestResult --> SchemataRestore

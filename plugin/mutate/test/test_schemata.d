@@ -16,7 +16,23 @@ static import dextool.type;
 import dextool_test.utility;
 import dextool_test.fixtures;
 
-class ShallRunADummySchemata : SimpleFixture {
+class SchemataFixutre : SimpleFixture {
+    override string scriptBuild() {
+        return "#!/bin/bash
+set -e
+g++ %s -o %s
+";
+    }
+
+    override string scriptTest() {
+        return format("#!/bin/bash
+set -e
+%s
+", program_bin);
+    }
+}
+
+class ShallRunADummySchemata : SchemataFixutre {
     override string programFile() {
         return (testData ~ "simple_schemata.cpp").toString;
     }
@@ -28,33 +44,66 @@ class ShallRunADummySchemata : SimpleFixture {
 
         makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
 
-        SchemataFragment[] f;
-        // test that overlapping works because all letters between 4-10 should
-        // have been removed.
-        f ~= SchemataFragment(dextool.type.Path(program_cpp.relativePath(workDir.toString)),
-                Offset(4, 7), null);
-        f ~= SchemataFragment(dextool.type.Path(program_cpp.relativePath(workDir.toString)),
-                Offset(4, 10), cast(ubyte[]) "|bun|");
-        const schemId = db.putSchemata(f, [MutationStatusId(1)]);
+        // dfmt off
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--mutant", "aor"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["--use-schemata"])
+            .addPostArg(["--log-schemata"])
+            .run;
+
+        // verify that a AOR schemata has executed and saved the result
+        testConsecutiveSparseOrder!SubStr([
+                `Found schemata`,
+                `Use schemata`,
+                `from '+' to '-'`,
+                `alive`,
+                `SchemataTestResult`,
+                ]).shouldBeIn(r.output);
+        // dfmt on
+    }
+}
+
+class ShallUseSchemataSanityCheck : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "simple_schemata.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
-            .addPostArg(["--mutant", "dcr"])
+            .addPostArg(["--mutant", "aor"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compile_script])
             .addPostArg(["--test-cmd", test_script])
-            .addPostArg(["--test-case-analyze-cmd", analyze_script])
             .addPostArg(["--test-timeout", "10000"])
-            .addPostArg(["--log-schemata"])
+            .addPostArg(["--use-schemata"])
+            .addPostArg(["--check-schemata"])
             .run;
-        // dfmt on
 
         testConsecutiveSparseOrder!SubStr([
-                format!`Running schemata %s`(schemId),
-                format!`Schemata %s failed to compile`(schemId)
+                `Found schemata`,
+                `Use schemata`,
+                `Compile schemata`,
+                `Ok`,
+                `Sanity check`,
+                `Ok`,
                 ]).shouldBeIn(r.output);
+        // dfmt on
     }
 }

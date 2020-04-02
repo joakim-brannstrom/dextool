@@ -198,7 +198,6 @@ struct MutationTestDriver {
 
         debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
-        debug logger.trace("end act: ", self.fsm.logAct);
     }
 
 nothrow:

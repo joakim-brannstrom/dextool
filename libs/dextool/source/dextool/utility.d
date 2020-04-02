@@ -99,6 +99,23 @@ enum dextoolVersion = DextoolVersion(import("version.txt").strip);
 
 static assert(dextoolVersion.length > 0, "Failed to import version.txt at compile time");
 
+private long dextoolBinaryId_;
+/// A unique identifier for this binary of dextool.
+long dextoolBinaryId() @trusted {
+    import std.file : thisExePath;
+    import std.stdio : File;
+    import dextool.hash : BuildChecksum64, toLong;
+
+    if (dextoolBinaryId_ == 0) {
+        BuildChecksum64 h;
+        foreach (c; File(thisExePath).byChunk(4096)) {
+            h.put(c);
+        }
+        dextoolBinaryId_ = h.finish.toLong;
+    }
+    return dextoolBinaryId_;
+}
+
 /// Returns. true if `path` is inside `root`.
 bool isPathInsideRoot(AbsolutePath root, AbsolutePath path) {
     import std.string : startsWith;

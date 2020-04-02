@@ -17,6 +17,7 @@ import std.array : empty, array, appender;
 import std.datetime : SysTime, Clock;
 import std.exception : collectException;
 import std.path : buildPath;
+import std.random : randomCover;
 import std.typecons : Nullable, Tuple, Yes;
 
 import blob_model : Blob;
@@ -281,7 +282,6 @@ struct TestDriver {
     }
 
     static struct MutationTest {
-        bool next;
         bool mutationError;
         MutationTestResult result;
     }
@@ -290,15 +290,26 @@ struct TestDriver {
         bool timeoutUnchanged;
     }
 
+    static struct NextSchemataData {
+        SchemataId[] schematas;
+    }
+
     static struct NextSchemata {
         bool hasSchema;
+    }
+
+    static struct PreSchemataData {
         Schemata schemata;
     }
 
     static struct PreSchemata {
-        Schemata schemata;
-
         bool error;
+        SchemataId id;
+    }
+
+    static struct SanityCheckSchemata {
+        SchemataId id;
+        bool passed;
     }
 
     static struct SchemataTest {
@@ -367,21 +378,25 @@ struct TestDriver {
     static struct SetMaxRuntime {
     }
 
+    static struct LoadSchematas {
+    }
+
     alias Fsm = dextool.fsm.Fsm!(None, Initialize, SanityCheck,
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             CleanupTempDirs, CheckMutantsLeft, PreCompileSut, MeasureTestSuite,
             PreMutationTest, NextMutant, MutationTest, HandleTestResult,
             CheckTimeout, Done, Error, UpdateTimeout, CheckRuntime,
-            SetMaxRuntime, PullRequest, NextPullRequestMutant, ParseStdin, FindTestCmds, ChooseMode,
-            NextSchemata, PreSchemata, SchemataTest, SchemataTestResult, SchemataRestore);
-    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData,
-            PullRequestData, ResetOldMutantData, SchemataRestoreData);
+            SetMaxRuntime, PullRequest, NextPullRequestMutant, ParseStdin,
+            FindTestCmds, ChooseMode, NextSchemata, PreSchemata,
+            SchemataTest, SchemataTestResult, SchemataRestore, LoadSchematas, SanityCheckSchemata);
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData,
+            ResetOldMutantData, SchemataRestoreData, PreSchemataData, NextSchemataData);
 
     private {
         Fsm fsm;
         Global global;
         TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant,
-                PullRequest, ResetOldMutant, SchemataRestore) local;
+                PullRequest, ResetOldMutant, SchemataRestore, PreSchemata, NextSchemata) local;
         bool isRunning_ = true;
     }
 
@@ -395,6 +410,7 @@ struct TestDriver {
         local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
         this.global.testCmds = global.data.conf.mutationTester;
 
+        this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
         this.runner = TestRunner.make(global.data.conf.testPoolSize);
         this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
         // using an unreasonable timeout to make it possible to analyze for
@@ -451,18 +467,23 @@ struct TestDriver {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
             return fsm(SetMaxRuntime.init);
-        }, (SetMaxRuntime a) => fsm(UpdateTimeout.init), (NextPullRequestMutant a) {
+        }, (SetMaxRuntime a) => fsm(LoadSchematas.init),
+                (LoadSchematas a) => fsm(UpdateTimeout.init), (NextPullRequestMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(Done.init);
             return fsm(PreMutationTest.init);
         }, (NextSchemata a) {
             if (a.hasSchema)
-                return fsm(PreSchemata(a.schemata));
+                return fsm(PreSchemata.init);
             return fsm(NextMutant.init);
         }, (PreSchemata a) {
             if (a.error)
                 return fsm(Error.init);
-            return fsm(SchemataTest(a.schemata.id));
+            return fsm(SanityCheckSchemata(a.id));
+        }, (SanityCheckSchemata a) {
+            if (a.passed)
+                return fsm(SchemataTest(a.id));
+            return fsm(SchemataRestore.init);
         }, (SchemataTest a) { return fsm(SchemataTestResult(a.id, a.result)); },
                 (SchemataTestResult a) => fsm(SchemataRestore.init), (SchemataRestore a) {
             if (a.error)
@@ -474,11 +495,9 @@ struct TestDriver {
             return fsm(PreMutationTest.init);
         }, (PreMutationTest a) => fsm(MutationTest.init),
                 (UpdateTimeout a) => fsm(CleanupTempDirs.init), (MutationTest a) {
-            if (a.next)
-                return fsm(HandleTestResult(a.result));
-            else if (a.mutationError)
+            if (a.mutationError)
                 return fsm(Error.init);
-            return fsm(a);
+            return fsm(HandleTestResult(a.result));
         }, (HandleTestResult a) => fsm(CheckRuntime.init), (CheckRuntime a) {
             if (a.reachedMax)
                 return fsm(Done.init);
@@ -491,7 +510,6 @@ struct TestDriver {
 
         debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
-        debug logger.trace("end act: ", self.fsm.logAct);
     }
 
 nothrow:
@@ -763,8 +781,7 @@ nothrow:
     }
 
     void opCall(PullRequest data) {
-        import std.array : appender;
-        import std.random : randomCover, Mt19937_64;
+        import std.random : Mt19937_64;
         import dextool.plugin.mutate.backend.database : MutationStatusId;
         import dextool.plugin.mutate.backend.type : SourceLoc;
         import dextool.set;
@@ -870,21 +887,20 @@ nothrow:
             assert(0, "should not happen");
         }
 
-        runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
-        runner.timeout = calculateTimeout(global.timeoutFsm.output.iter, global.testSuiteRuntime);
         global.mut_driver = factory(global.data, global.nextMutant, () @trusted {
             return &runner;
         }());
     }
 
     void opCall(ref MutationTest data) {
-        if (global.mut_driver.isRunning) {
+        while (global.mut_driver.isRunning) {
             global.mut_driver.execute();
-        } else if (global.mut_driver.stopBecauseError) {
+        }
+
+        if (global.mut_driver.stopBecauseError) {
             data.mutationError = true;
         } else {
             data.result = global.mut_driver.result;
-            data.next = true;
         }
     }
 
@@ -904,6 +920,8 @@ nothrow:
                     global.timeoutFsm.output.iter).collectException;
             local.get!UpdateTimeout.lastTimeoutIter = global.timeoutFsm.output.iter;
         }
+
+        runner.timeout = calculateTimeout(global.timeoutFsm.output.iter, global.testSuiteRuntime);
     }
 
     void opCall(ref NextPullRequestMutant data) {
@@ -1010,18 +1028,34 @@ nothrow:
     }
 
     void opCall(ref NextSchemata data) {
-        auto schema = spinSql!(() { return global.data.db.nextSchemata; });
+        auto schematas = local.get!NextSchemata.schematas;
 
-        data.hasSchema = !schema.isNull;
-        if (!schema.isNull) {
-            data.schemata = schema.get;
-            logger.info("Running schemata ", data.schemata.id).collectException;
+        while (!schematas.empty) {
+            auto id = schematas[0];
+            schematas = schematas[1 .. $];
+
+            if (spinSql!(() {
+                    return global.data.db.shouldTestSchemata(id, global.data.mutKind);
+                })) {
+                local.get!PreSchemata.schemata = spinSql!(() {
+                    return global.data.db.getSchemata(id);
+                });
+                logger.info("Use schemata ", id).collectException;
+                data.hasSchema = true;
+                break;
+            }
         }
+
+        local.get!NextSchemata.schematas = schematas;
     }
 
     void opCall(ref PreSchemata data) {
         import std.format : format;
         import dextool.plugin.mutate.backend.database.type : SchemataFragment;
+
+        auto schemata = local.get!PreSchemata.schemata;
+        data.id = schemata.id;
+        local.get!PreSchemata = PreSchemataData.init;
 
         Blob makeSchemata(Blob original, SchemataFragment[] fragments) {
             import blob_model;
@@ -1035,14 +1069,16 @@ nothrow:
         }
 
         SchemataFragment[] fragments(Path p) {
-            return data.schemata.fragments.filter!(a => a.file == p).array;
+            return schemata.fragments.filter!(a => a.file == p).array;
         }
 
         SchemataRestoreData.Original[] orgs;
         try {
-            auto files = data.schemata.fragments.map!(a => a.file).toSet;
+            logger.info("Injecting the schemata in:");
+            auto files = schemata.fragments.map!(a => a.file).toSet;
             foreach (f; files.toRange) {
-                const absf = AbsolutePath(f, global.data.filesysIO.getOutputDir);
+                const absf = global.data.filesysIO.toAbsoluteRoot(f);
+                logger.info(absf);
 
                 orgs ~= SchemataRestoreData.Original(absf, global.data.filesysIO.makeInput(absf));
 
@@ -1052,7 +1088,7 @@ nothrow:
 
                 if (global.data.conf.logSchemata) {
                     global.data.filesysIO.makeOutput(AbsolutePath(format!"%s.schema%s"(absf,
-                            data.schemata.id).Path)).write(s);
+                            schemata.id).Path)).write(s);
                 }
             }
         } catch (Exception e) {
@@ -1065,16 +1101,6 @@ nothrow:
     void opCall(ref SchemataTest data) {
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
-        bool successCompile;
-        compile(global.data.conf.mutationCompile).match!((Mutation.Status a) {}, (bool success) {
-            successCompile = success;
-        },);
-
-        if (!successCompile) {
-            logger.infof("Schemata %s failed to compile", data.id).collectException;
-            return;
-        }
-
         auto mutants = spinSql!(() {
             return global.data.db.getSchemataMutants(data.id);
         });
@@ -1085,6 +1111,7 @@ nothrow:
             while (driver.isRunning) {
                 driver.execute;
             }
+            data.result = driver.result;
         } catch (Exception e) {
             logger.info(e.msg).collectException;
             logger.warning("Failed executing schemata ", data.id).collectException;
@@ -1100,8 +1127,6 @@ nothrow:
                 global.data.db.updateMutationTestCases(m.id, m.testCases);
             });
         }
-
-        spinSql!(() { global.data.db.finishSchemata(data.id); });
     }
 
     void opCall(ref SchemataRestore data) {
@@ -1112,6 +1137,69 @@ nothrow:
                 logger.error(e.msg).collectException;
                 data.error = true;
             }
+        }
+    }
+
+    void opCall(LoadSchematas data) {
+        if (!global.data.conf.useSchemata) {
+            return;
+        }
+
+        auto app = appender!(SchemataId[])();
+        foreach (id; spinSql!(() { return global.data.db.getSchematas(); })) {
+            if (spinSql!(() {
+                    return global.data.db.shouldTestSchemata(id, global.data.mutKind);
+                })) {
+                app.put(id);
+            }
+        }
+
+        logger.trace("Found schematas: ", app.data).collectException;
+        // random reorder to reduce the chance that multipe instances of dextool do
+        // use the same schema
+        local.get!NextSchemata.schematas = app.data.randomCover.array;
+    }
+
+    void opCall(ref SanityCheckSchemata data) {
+        import colorlog;
+
+        logger.infof("Compile schemata %s", data.id).collectException;
+
+        bool successCompile;
+        compile(global.data.conf.mutationCompile, global.data.conf.logSchemata).match!(
+                (Mutation.Status a) {}, (bool success) {
+            successCompile = success;
+        },);
+
+        if (!successCompile) {
+            logger.info("Failed".color(Color.red)).collectException;
+            spinSql!(() { global.data.db.markInvalid(data.id); });
+            return;
+        }
+
+        logger.info("Ok".color(Color.green)).collectException;
+
+        if (!global.data.conf.sanityCheckSchemata) {
+            data.passed = true;
+            return;
+        }
+
+        try {
+            logger.info("Sanity check of the generated schemata");
+            auto res = runner.run;
+            data.passed = res.status == TestResult.Status.passed;
+            if (!data.passed) {
+                debug logger.tracef("%(%s%)", res.output.map!(a => a.byUTF8));
+            }
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+
+        if (data.passed) {
+            logger.info("Ok".color(Color.green)).collectException;
+        } else {
+            logger.info("Failed".color(Color.red)).collectException;
+            spinSql!(() { global.data.db.markInvalid(data.id); });
         }
     }
 }

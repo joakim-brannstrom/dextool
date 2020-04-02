@@ -39,8 +39,6 @@ struct Fsm(StateTT...) {
 
     /// Log messages of the last state transition (next).
     string logNext;
-    /// Log message of the last performed act.
-    string logAct;
 
     /// Helper function to convert the return type to `StateT`.
     static StateT opCall(T)(auto ref T a) {
@@ -85,8 +83,6 @@ template next(handlers...) {
 template act(handlers...) {
     void act(Self)(auto ref Self self) if (is(Self : Fsm!StateT, StateT...)) {
         static import sumtype;
-
-        self.logAct = format!"%s"(self.state);
 
         sumtype.match!handlers(self.state);
     }

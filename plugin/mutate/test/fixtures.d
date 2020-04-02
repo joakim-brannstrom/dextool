@@ -68,6 +68,7 @@ g++ -fsyntax-only -c %s -o %s
 
     string scriptTest() {
         return "#!/bin/bash
+echo 1
 exit 1
 ";
     }

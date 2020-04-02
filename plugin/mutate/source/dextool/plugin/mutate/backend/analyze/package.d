@@ -15,12 +15,12 @@ module dextool.plugin.mutate.backend.analyze;
 
 import logger = std.experimental.logger;
 import std.algorithm : map, filter, joiner, cache;
-import std.array : array, appender;
+import std.array : array, appender, empty;
 import std.concurrency;
 import std.datetime : dur;
 import std.exception : collectException;
 import std.parallelism;
-import std.range : tee;
+import std.range : tee, enumerate;
 import std.typecons;
 
 import colorlog;
@@ -33,8 +33,8 @@ import dextool.plugin.mutate.backend.database.type : MarkedMutant;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
-import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath, Checksum;
-import dextool.plugin.mutate.backend.utility : getProfileResult, Profile;
+import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath,
+    Checksum, getProfileResult, Profile;
 import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
 import dextool.set;
 import dextool.type : ExitStatusType, AbsolutePath, Path;
@@ -237,6 +237,23 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
             db.put(app.data, fio.getOutputDir);
         }
 
+        foreach (s; result.schematas.enumerate) {
+            try {
+                auto mutants = result.schemataMutants[s.index].map!(
+                        a => db.getMutationStatusId(a.value))
+                    .filter!(a => !a.isNull)
+                    .map!(a => a.get)
+                    .array;
+                if (!s.value.empty) {
+                    const id = db.putSchemata(result.schemataChecksum[s.index], s.value, mutants);
+                    logger.trace(!id.isNull, "Saving schemata ", id.get.value);
+                }
+            } catch (Exception e) {
+                logger.trace(e.msg);
+                logger.warning("Unable to save schemata ", s.index).collectException;
+            }
+        }
+
         {
             Set!long printed;
             auto app = appender!(LineMetadata[])();
@@ -339,9 +356,16 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 
         if (prune) {
             pruneFiles();
-            auto profile = Profile("remove orphaned mutants");
-            logger.info("Removing orphaned mutants");
-            db.removeOrphanedMutants;
+            {
+                auto profile = Profile("remove orphaned mutants");
+                logger.info("Removing orphaned mutants");
+                db.removeOrphanedMutants;
+            }
+            {
+                auto profile = Profile("prune schematas");
+                logger.info("Prune schematas");
+                db.pruneSchematas;
+            }
         }
 
         logger.info("Updating manually marked mutants");
@@ -440,19 +464,30 @@ struct Analyze {
         auto tu = ctx.makeTranslationUnit(checked_in_file, in_file.flags.completeFlags);
         if (tu.hasParseErrors) {
             logDiagnostic(tu);
-            logger.error("Compile error...");
+            logger.errorf("Compile error in %s. Skipping", checked_in_file);
             return;
         }
 
         auto ast = toMutateAst(tu.cursor);
         debug logger.trace(ast);
         auto mutants = toMutants(ast, fio, val_loc);
-        .destroy(ast);
 
         debug logger.trace(mutants);
         auto codeMutants = toCodeMutants(mutants, fio, tstream);
         debug logger.trace(codeMutants);
         () @trusted { .destroy(mutants); }();
+
+        auto schemas = toSchemata(ast, fio, codeMutants);
+        debug logger.trace(schemas);
+        foreach (f; schemas.getSchematas.filter!(a => !(a.fragments.empty || a.mutants.empty))) {
+            const id = result.schematas.length;
+            result.schematas ~= f.fragments;
+            result.schemataMutants[id] = f.mutants.map!(a => a.id).array;
+            result.schemataChecksum[id] = f.checksum;
+        }
+        () @trusted { .destroy(schemas); }();
+
+        .destroy(ast);
 
         result.mutationPoints = codeMutants.points.byKeyValue.map!(
                 a => a.value.map!(b => MutationPointEntry2(fio.toRelativeRoot(a.key),
@@ -464,11 +499,12 @@ struct Analyze {
             result.infoId[id] = Result.FileInfo(codeMutants.csFiles[f], codeMutants.lang);
         }
 
-        () @trusted { .destroy(codeMutants); }();
+        () @trusted { .destroy(codeMutants); .destroy(schemas); }();
     }
 
-    /**
-     * Tokens are always from the same file.
+    /** Tokens are always from the same file.
+     *
+     * TODO: move this to pass_clang.
      */
     void analyzeForComments(AbsolutePath file, TokenStream tstream) @trusted {
         import std.algorithm : filter;
@@ -492,7 +528,8 @@ struct Analyze {
     }
 
     static class Result {
-        import dextool.plugin.mutate.backend.type : Language;
+        import dextool.plugin.mutate.backend.type : Language, CodeChecksum, SchemataChecksum;
+        import dextool.plugin.mutate.backend.database.type : SchemataFragment;
 
         MutationPointEntry2[] mutationPoints;
 
@@ -511,6 +548,13 @@ struct Analyze {
         // The FileID used in the metadata is local to this analysis. It has to
         // be remapped when added to the database.
         LineMetadata[] metadata;
+
+        /// Mutant schematas that has been generated.
+        SchemataFragment[][] schematas;
+        /// the mutants that are associated with a schemata.
+        CodeChecksum[][long] schemataMutants;
+        /// checksum for the schemata
+        SchemataChecksum[long] schemataChecksum;
     }
 }
 

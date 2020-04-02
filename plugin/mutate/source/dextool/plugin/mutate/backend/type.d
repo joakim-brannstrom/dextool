@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.type;
 
-import dextool.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
+import dextool.hash : Checksum128;
 public import dextool.plugin.mutate.backend.database.type : MutantAttr, MutantMetaData;
 
 @safe:
@@ -42,6 +42,10 @@ struct Offset {
     size_t toHash() @safe pure nothrow const @nogc scope {
         auto a = begin.hashOf();
         return end.hashOf(a); // mixing two hash values
+    }
+
+    bool opEquals()(auto ref const typeof(this) s) const {
+        return s.begin == begin && s.end == end;
     }
 
     int opCmp(ref const typeof(this) rhs) @safe pure nothrow const @nogc {
@@ -200,6 +204,11 @@ struct Mutation {
 
     Kind kind;
     Status status;
+}
+
+/// The unique checksum for a schemata.
+struct SchemataChecksum {
+    Checksum value;
 }
 
 /** The checksum that uniquely identify the mutation done in the source code.

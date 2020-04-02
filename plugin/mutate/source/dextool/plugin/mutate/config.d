@@ -177,6 +177,12 @@ struct ConfigMutationTest {
     /// If early stopping of test command execution should be used
     bool useEarlyTestCmdStop;
 
+    /// If schematas are used for mutation testing.
+    bool useSchemata;
+
+    /// Sanity check a schemata before it is used.
+    bool sanityCheckSchemata;
+
     /// If the schematas should additionall be written to a separate file for offline inspection.
     bool logSchemata;
 }
