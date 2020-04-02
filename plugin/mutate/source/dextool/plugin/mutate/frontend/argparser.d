@@ -184,8 +184,8 @@ struct ArgParser {
         app.put("# reduce the compile+link time when testing mutants");
         app.put("use_schemata = true");
         app.put("# sanity check the schemata before it is used by executing the test cases");
-        app.put("# it is a significant slowdown but nice robustness");
-        app.put("# check_schemata = true");
+        app.put("# it is a slowdown but nice robustness that is usually worth having");
+        app.put("check_schemata = true");
         app.put(null);
 
         app.put("[report]");
