@@ -183,6 +183,9 @@ struct ArgParser {
         app.put("use_early_stop = true");
         app.put("# reduce the compile+link time when testing mutants");
         app.put("use_schemata = true");
+        app.put("# sanity check the schemata before it is used by executing the test cases");
+        app.put("# it is a significant slowdown but nice robustness");
+        app.put("# check_schemata = true");
         app.put(null);
 
         app.put("[report]");
@@ -277,6 +280,7 @@ struct ArgParser {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "L", "restrict testing to the requested files and lines (<file>:<start>-<end>)", &testConstraint,
                    "build-cmd", "program used to build the application", &mutationCompile,
+                   "check-schemata", "sanity check a schemata before it is used", &mutationTest.sanityCheckSchemata,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &mutationTest.unifiedDiffFromStdin,
@@ -705,6 +709,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["mutant_test.use_schemata"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.useSchemata = v == true;
     };
+    callbacks["mutant_test.check_schemata"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.sanityCheckSchemata = v == true;
+    };
 
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
         c.report.reportKind = v.str.to!ReportKind;
@@ -861,17 +868,19 @@ use_early_stop = true
     ap.mutationTest.useEarlyTestCmdStop.shouldBeTrue;
 }
 
-@("shall activate schematas")
+@("shall activate schematas and sanity check of schematas")
 @system unittest {
     import toml : parseTOML;
 
     immutable txt = `
 [mutant_test]
 use_schemata = true
+check_schemata = true
 `;
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.mutationTest.useSchemata.shouldBeTrue;
+    ap.mutationTest.sanityCheckSchemata.shouldBeTrue;
 }
 
 /// Minimal config to setup path to config file.

@@ -53,7 +53,6 @@ class ShallRunADummySchemata : SchemataFixutre {
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compile_script])
             .addPostArg(["--test-cmd", test_script])
-            .addPostArg(["--test-case-analyze-cmd", analyze_script])
             .addPostArg(["--test-timeout", "10000"])
             .addPostArg(["--use-schemata"])
             .addPostArg(["--log-schemata"])
@@ -62,10 +61,48 @@ class ShallRunADummySchemata : SchemataFixutre {
         // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `Found schemata`,
-                `Run schemata`,
+                `Use schemata`,
                 `from '+' to '-'`,
                 `alive`,
                 `SchemataTestResult`,
+                ]).shouldBeIn(r.output);
+        // dfmt on
+    }
+}
+
+class ShallUseSchemataSanityCheck : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "simple_schemata.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--mutant", "aor"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["--use-schemata"])
+            .addPostArg(["--check-schemata"])
+            .run;
+
+        testConsecutiveSparseOrder!SubStr([
+                `Found schemata`,
+                `Use schemata`,
+                `Compile schemata`,
+                `Ok`,
+                `Sanity check`,
+                `Ok`,
                 ]).shouldBeIn(r.output);
         // dfmt on
     }

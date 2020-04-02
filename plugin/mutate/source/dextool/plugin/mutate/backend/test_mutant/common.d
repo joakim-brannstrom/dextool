@@ -391,11 +391,17 @@ class AutoCleanup {
 
 alias CompileResult = SumType!(Mutation.Status, bool);
 
-CompileResult compile(ShellCommand cmd) nothrow {
+CompileResult compile(ShellCommand cmd, bool printToStdout = false) nothrow {
     import process;
+    import std.stdio : write;
 
     try {
-        auto p = pipeProcess(cmd.value).sandbox.drainToNull(200.dur!"msecs").scopeKill;
+        auto p = pipeProcess(cmd.value).sandbox.scopeKill;
+        foreach (a; p.process.drain(200.dur!"msecs")) {
+            if (!a.empty && printToStdout) {
+                write(a.byUTF8);
+            }
+        }
         if (p.wait != 0) {
             return CompileResult(Mutation.Status.killedByCompiler);
         }

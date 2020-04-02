@@ -180,6 +180,9 @@ struct ConfigMutationTest {
     /// If schematas are used for mutation testing.
     bool useSchemata;
 
+    /// Sanity check a schemata before it is used.
+    bool sanityCheckSchemata;
+
     /// If the schematas should additionall be written to a separate file for offline inspection.
     bool logSchemata;
 }

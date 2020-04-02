@@ -307,6 +307,11 @@ struct TestDriver {
         SchemataId id;
     }
 
+    static struct SanityCheckSchemata {
+        SchemataId id;
+        bool passed;
+    }
+
     static struct SchemataTest {
         import dextool.plugin.mutate.backend.test_mutant.schemata : MutationTestResult;
 
@@ -383,7 +388,7 @@ struct TestDriver {
             CheckTimeout, Done, Error, UpdateTimeout, CheckRuntime,
             SetMaxRuntime, PullRequest, NextPullRequestMutant, ParseStdin,
             FindTestCmds, ChooseMode, NextSchemata, PreSchemata,
-            SchemataTest, SchemataTestResult, SchemataRestore, LoadSchematas);
+            SchemataTest, SchemataTestResult, SchemataRestore, LoadSchematas, SanityCheckSchemata);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData,
             ResetOldMutantData, SchemataRestoreData, PreSchemataData, NextSchemataData);
 
@@ -474,7 +479,11 @@ struct TestDriver {
         }, (PreSchemata a) {
             if (a.error)
                 return fsm(Error.init);
-            return fsm(SchemataTest(a.id));
+            return fsm(SanityCheckSchemata(a.id));
+        }, (SanityCheckSchemata a) {
+            if (a.passed)
+                return fsm(SchemataTest(a.id));
+            return fsm(SchemataRestore.init);
         }, (SchemataTest a) { return fsm(SchemataTestResult(a.id, a.result)); },
                 (SchemataTestResult a) => fsm(SchemataRestore.init), (SchemataRestore a) {
             if (a.error)
@@ -1031,7 +1040,7 @@ nothrow:
                 local.get!PreSchemata.schemata = spinSql!(() {
                     return global.data.db.getSchemata(id);
                 });
-                logger.info("Run schemata ", id).collectException;
+                logger.info("Use schemata ", id).collectException;
                 data.hasSchema = true;
                 break;
             }
@@ -1065,10 +1074,11 @@ nothrow:
 
         SchemataRestoreData.Original[] orgs;
         try {
-
+            logger.info("Injecting the schemata in:");
             auto files = schemata.fragments.map!(a => a.file).toSet;
             foreach (f; files.toRange) {
                 const absf = global.data.filesysIO.toAbsoluteRoot(f);
+                logger.info(absf);
 
                 orgs ~= SchemataRestoreData.Original(absf, global.data.filesysIO.makeInput(absf));
 
@@ -1090,17 +1100,6 @@ nothrow:
 
     void opCall(ref SchemataTest data) {
         import dextool.plugin.mutate.backend.test_mutant.schemata;
-
-        bool successCompile;
-        compile(global.data.conf.mutationCompile).match!((Mutation.Status a) {}, (bool success) {
-            successCompile = success;
-        },);
-
-        if (!successCompile) {
-            logger.infof("Schemata %s failed to compile", data.id).collectException;
-            spinSql!(() { global.data.db.markInvalid(data.id); });
-            return;
-        }
 
         auto mutants = spinSql!(() {
             return global.data.db.getSchemataMutants(data.id);
@@ -1156,9 +1155,52 @@ nothrow:
         }
 
         logger.trace("Found schematas: ", app.data).collectException;
-        // random reorder so the chance that multipe instances of dextool do
-        // not test the same schema
+        // random reorder to reduce the chance that multipe instances of dextool do
+        // use the same schema
         local.get!NextSchemata.schematas = app.data.randomCover.array;
+    }
+
+    void opCall(ref SanityCheckSchemata data) {
+        import colorlog;
+
+        logger.infof("Compile schemata %s", data.id).collectException;
+
+        bool successCompile;
+        compile(global.data.conf.mutationCompile, global.data.conf.logSchemata).match!(
+                (Mutation.Status a) {}, (bool success) {
+            successCompile = success;
+        },);
+
+        if (!successCompile) {
+            logger.info("Failed".color(Color.red)).collectException;
+            spinSql!(() { global.data.db.markInvalid(data.id); });
+            return;
+        }
+
+        logger.info("Ok".color(Color.green)).collectException;
+
+        if (!global.data.conf.sanityCheckSchemata) {
+            data.passed = true;
+            return;
+        }
+
+        try {
+            logger.info("Sanity check of the generated schemata");
+            auto res = runner.run;
+            data.passed = res.status == TestResult.Status.passed;
+            if (!data.passed) {
+                debug logger.tracef("%(%s%)", res.output.map!(a => a.byUTF8));
+            }
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+
+        if (data.passed) {
+            logger.info("Ok".color(Color.green)).collectException;
+        } else {
+            logger.info("Failed".color(Color.red)).collectException;
+            spinSql!(() { global.data.db.markInvalid(data.id); });
+        }
     }
 }
 
