@@ -1030,7 +1030,7 @@ nothrow:
     void opCall(ref NextSchemata data) {
         auto schematas = local.get!NextSchemata.schematas;
 
-        while (!schematas.empty) {
+        while (!schematas.empty && !data.hasSchema) {
             auto id = schematas[0];
             schematas = schematas[1 .. $];
 
@@ -1041,9 +1041,8 @@ nothrow:
                 local.get!PreSchemata.schemata = spinSql!(() {
                     return global.data.db.getSchemata(id);
                 });
-                logger.info("Use schemata ", id).collectException;
+                logger.infof("Use schemata %s (%s left)", id, schematas.length).collectException;
                 data.hasSchema = true;
-                break;
             }
         }
 
