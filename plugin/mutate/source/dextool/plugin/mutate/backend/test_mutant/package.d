@@ -281,7 +281,6 @@ struct TestDriver {
     }
 
     static struct MutationTest {
-        bool next;
         bool mutationError;
         MutationTestResult result;
     }
@@ -474,11 +473,9 @@ struct TestDriver {
             return fsm(PreMutationTest.init);
         }, (PreMutationTest a) => fsm(MutationTest.init),
                 (UpdateTimeout a) => fsm(CleanupTempDirs.init), (MutationTest a) {
-            if (a.next)
-                return fsm(HandleTestResult(a.result));
-            else if (a.mutationError)
+            if (a.mutationError)
                 return fsm(Error.init);
-            return fsm(a);
+            return fsm(HandleTestResult(a.result));
         }, (HandleTestResult a) => fsm(CheckRuntime.init), (CheckRuntime a) {
             if (a.reachedMax)
                 return fsm(Done.init);
@@ -878,13 +875,14 @@ nothrow:
     }
 
     void opCall(ref MutationTest data) {
-        if (global.mut_driver.isRunning) {
+        while (global.mut_driver.isRunning) {
             global.mut_driver.execute();
-        } else if (global.mut_driver.stopBecauseError) {
+        }
+
+        if (global.mut_driver.stopBecauseError) {
             data.mutationError = true;
         } else {
             data.result = global.mut_driver.result;
-            data.next = true;
         }
     }
 
