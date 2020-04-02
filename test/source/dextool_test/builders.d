@@ -203,7 +203,6 @@ struct BuildDextoolRun {
 
             foreach (e; p.process.drainByLineCopy(1.dur!"hours")) {
                 log.writeln(e);
-                log.flush;
                 output.put(e);
             }
             exit_status = p.wait;
@@ -367,7 +366,6 @@ struct BuildCommandRun {
 
             foreach (e; p.process.drainByLineCopy(1.dur!"hours")) {
                 log.writeln(e);
-                log.flush;
                 output.put(e);
             }
             exit_status = p.wait;
