@@ -1102,7 +1102,8 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         auto mutants = spinSql!(() {
-            return global.data.db.getSchemataMutants(data.id, Mutation.Status.unknown);
+            return global.data.db.getSchemataMutants(data.id,
+                global.data.mutKind, Mutation.Status.unknown);
         });
 
         try {
