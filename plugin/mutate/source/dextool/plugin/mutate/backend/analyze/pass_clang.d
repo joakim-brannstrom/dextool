@@ -976,7 +976,9 @@ uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind) @trusted {
  * or Interval overlap a macro.
  */
 struct BlackList {
-    Interval[][string] macros;
+    import dextool.plugin.mutate.backend.analyze.utility : Index;
+
+    Index!string macros;
 
     this(const Cursor root) {
         Interval[][string] macros;
@@ -1005,7 +1007,7 @@ struct BlackList {
             macros[k] = macros[k].sort.array;
         }
 
-        this.macros = macros;
+        this.macros = Index!string(macros);
     }
 
     bool inside(const Cursor c) {
@@ -1027,18 +1029,6 @@ struct BlackList {
      * Returns: true if `i` is inside a macro interval.
      */
     bool inside(const Path file, const Interval i) {
-        static bool test(Interval i, uint p) {
-            return p >= i.begin && p <= i.end;
-        }
-
-        if (auto intervals = file in macros) {
-            foreach (a; *intervals) {
-                if (test(a, i.begin) || test(a, i.end)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return macros.inside(file, i);
     }
 }

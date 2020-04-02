@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.analyze.utility;
 
+import dextool.plugin.mutate.backend.analyze.ast : Interval;
+
 struct Stack(T) {
     import std.typecons : Tuple;
     import automem;
@@ -51,5 +53,45 @@ struct Stack(T) {
 
     bool empty() @safe pure nothrow const @nogc {
         return stack.empty;
+    }
+}
+
+/** An index that can be queries to see if an interval overlap any of those
+ * that are in it. Create an index of all intervals that then can be queried to
+ * see if a Cursor or Interval overlap a macro.
+ */
+struct Index(KeyT) {
+    Interval[][KeyT] index;
+
+    this(Interval[][KeyT] index) {
+        this.index = index;
+    }
+
+    void put(KeyT k, Interval i) {
+        if (auto v = k in index) {
+            (*v) ~= i;
+        } else {
+            index[k] = [i];
+        }
+    }
+
+    /** Check if `i` is inside any of the intervals for `key`.
+     *
+     * Returns: true if `i` is inside a macro interval.
+     */
+    bool inside(const KeyT key, const Interval i) {
+        static bool test(Interval i, uint p) {
+            return p >= i.begin && p <= i.end;
+        }
+
+        if (auto intervals = key in index) {
+            foreach (a; *intervals) {
+                if (test(a, i.begin) || test(a, i.end)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

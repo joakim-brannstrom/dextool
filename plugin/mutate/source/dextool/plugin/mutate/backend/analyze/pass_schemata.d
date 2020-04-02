@@ -63,6 +63,7 @@ SchemataResult toSchemata(ref Ast ast, FilesysIO fio, CodeMutantsResult cresult)
 class SchemataResult {
     import dextool.set;
     import dextool.plugin.mutate.backend.database.type : SchemataFragment;
+    import dextool.plugin.mutate.backend.analyze.utility : Index;
 
     static struct Fragment {
         Offset offset;
@@ -77,6 +78,10 @@ class SchemataResult {
     private {
         Schemata[MutantGroup][AbsolutePath] schematas;
         FilesysIO fio;
+
+        // overlapping mutants is not supported "yet" thus make sure no
+        // fragment overlap with another fragment.
+        Index!MutantGroup[AbsolutePath] indexes;
     }
 
     this(FilesysIO fio) {
@@ -89,6 +94,17 @@ class SchemataResult {
 
     /// Assuming that all fragments for a file should be merged to one huge.
     private void putFragment(AbsolutePath file, MutantGroup g, Fragment sf, CodeMutant[] m) {
+        if (auto v = file in indexes) {
+            if ((*v).inside(g, sf.offset)) {
+                return;
+            }
+            (*v).put(g, sf.offset);
+        } else {
+            auto index = Index!MutantGroup.init;
+            index.put(g, sf.offset);
+            indexes[file] = index;
+        }
+
         if (auto v = file in schematas) {
             (*v)[g].fragments ~= sf;
             (*v)[g].mutants.add(m);
