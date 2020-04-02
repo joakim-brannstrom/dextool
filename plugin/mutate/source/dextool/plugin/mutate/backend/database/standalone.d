@@ -1645,7 +1645,8 @@ struct Database {
     }
 
     /// Returns: true if any of the mutants in the schemata have the status unknown and they are of `kind`.
-    bool shouldTestSchemata(SchemataId id, const Mutation.Kind[] kinds) @trusted {
+    bool hasSchemataMutantsWithStatus(SchemataId id, const Mutation.Kind[] kinds,
+            const Mutation.Status status) @trusted {
         const sql = format!"SELECT count(*)
         FROM %s t1, %s t2, %s t3
         WHERE
@@ -1658,14 +1659,21 @@ struct Database {
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
-        stmt.get.bind(":status", cast(long) Mutation.Status.unknown);
+        stmt.get.bind(":status", cast(long) status);
         return stmt.get.execute.oneValue!long != 0;
     }
 
-    MutationStatusId[] getSchemataMutants(SchemataId id) @trusted {
-        immutable sql = format!"SELECT st_id FROM %s WHERE schem_id = :id"(schemataMutantTable);
+    MutationStatusId[] getSchemataMutants(SchemataId id, const Mutation.Status status) @trusted {
+        immutable sql = format!"SELECT t0.st_id
+            FROM %1$s t0, %2$s t1
+            WHERE
+            t0.schem_id = :id AND
+            t0.st_id = t1.id AND
+            t1.status = :status
+            "(schemataMutantTable, mutationStatusTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
+        stmt.get.bind(":status", cast(long) status);
 
         auto app = appender!(MutationStatusId[])();
         foreach (a; stmt.get.execute) {
