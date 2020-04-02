@@ -193,8 +193,8 @@ struct SchematasRange {
         auto values_ = appender!(ET[])();
         foreach (group; raw.byKeyValue) {
             auto relp = fio.toRelativeRoot(group.key);
-            auto app = appender!(SchemataFragment[])();
             foreach (a; group.value.byKeyValue) {
+                auto app = appender!(SchemataFragment[])();
                 ET v;
 
                 app.put(defaultHeader(relp));
@@ -204,7 +204,6 @@ struct SchematasRange {
                 v.mutants = a.value.mutants.toArray;
                 v.checksum = toSchemataChecksum(v.mutants);
                 values_.put(v);
-                app.clear;
             }
         }
         this.values = values_.data;
