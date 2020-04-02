@@ -54,10 +54,12 @@ Mutation.Kind[] dccMutations(Kind operator) @safe pure nothrow {
 
 immutable Mutation.Kind[] dccBranchMutationsRaw;
 immutable Mutation.Kind[] dccCaseMutationsRaw;
+immutable Mutation.Kind[] dccMutationsAll;
 
 shared static this() {
     with (Mutation.Kind) {
         dccBranchMutationsRaw = [dccTrue, dccFalse];
         dccCaseMutationsRaw = [dccBomb];
     }
+    dccMutationsAll = dccBranchMutationsRaw ~ dccCaseMutationsRaw;
 }
