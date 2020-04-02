@@ -42,8 +42,16 @@ CodeMutantsResult toCodeMutants(MutantsResult mutants, FilesysIO fio, TokenStrea
     foreach (f; mutants.files.map!(a => a.path)) {
         foreach (mp; mutants.getMutationPoints(f).array.sort!((a,
                 b) => a.point.offset < b.point.offset)) {
+            // use this to easily find zero length mutants.
+            // note though that it can't always be active because it has
+            // some false positives such as dccBomb
+            //if (mp.point.offset.begin == mp.point.offset.end) {
+            //    logger.warningf("Malformed mutant (begin == end), dropping. %s %s %s %s",
+            //            mp.kind, mp.point.offset, mp.point.sloc, f);
+            //}
+
             if (mp.point.offset.begin > mp.point.offset.end) {
-                logger.warningf("Malformed mutant, dropping. %s %s %s %s",
+                logger.warningf("Malformed mutant (begin > end), dropping. %s %s %s %s",
                         mp.kind, mp.point.offset, mp.point.sloc, f);
             } else {
                 result.put(f, mp.point.offset, mp.point.sloc, mp.kind);
@@ -633,7 +641,7 @@ class MutantVisitor : DepthFirstVisitor {
 
         put(loc, expr, n.blacklist);
         put(locOp, op, n.operator.blacklist);
-        if (n.lhs !is null) {
+        if (n.lhs !is null && locLhs.interval.begin != locOp.interval.end) {
             auto offset = Interval(locLhs.interval.begin, locOp.interval.end);
             put(new Location(locOp.file, offset,
                     SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), lhs, n.lhs.blacklist);
@@ -641,7 +649,7 @@ class MutantVisitor : DepthFirstVisitor {
         if (n.rhs !is null) {
             auto offset = Interval(locOp.interval.begin, locRhs.interval.end);
             put(new Location(locOp.file, offset,
-                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), rhs, n.rhs.blacklist);
+                    SourceLocRange(locRhs.sloc.begin, locOp.sloc.end)), rhs, n.rhs.blacklist);
         }
     }
 
@@ -667,7 +675,8 @@ class MutantVisitor : DepthFirstVisitor {
 
         put(loc, expr, n.blacklist);
         put(locOp, op, n.operator.blacklist);
-        if (n.lhs !is null) {
+        // the interval check is for unary operators such as ++
+        if (n.lhs !is null && locLhs.interval.begin != locOp.interval.end) {
             auto offset = Interval(locLhs.interval.begin, locOp.interval.end);
             put(new Location(locOp.file, offset,
                     SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), lhs, n.lhs.blacklist);
@@ -675,7 +684,7 @@ class MutantVisitor : DepthFirstVisitor {
         if (n.rhs !is null) {
             auto offset = Interval(locOp.interval.begin, locRhs.interval.end);
             put(new Location(locOp.file, offset,
-                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), rhs, n.rhs.blacklist);
+                    SourceLocRange(locRhs.sloc.begin, locOp.sloc.end)), rhs, n.rhs.blacklist);
         }
     }
 }
