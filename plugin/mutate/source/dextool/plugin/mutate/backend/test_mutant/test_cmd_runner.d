@@ -162,13 +162,15 @@ struct TestRunner {
         if (nrOfRuns == 0) {
             commands = commands.randomCover.array;
         } else if (nrOfRuns % reorderWhen == 0) {
-            // use those that kill the most first
+            // use a forget factor to make the order re-arrange over time
+            // if the "best" test case change.
             foreach (ref a; commands) {
                 a.kills = a.kills * 0.9;
             }
 
             import std.algorithm : sort;
 
+            // use those that kill the most first
             commands = commands.sort!((a, b) => a.kills > b.kills).array;
             logger.infof("Update test command order: %(%s, %)",
                     commands.take(reorderWhen).map!(a => format("%s:%.2f", a.cmd, a.kills)));
