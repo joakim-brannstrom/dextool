@@ -293,6 +293,7 @@ struct ArgParser {
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
                    "test-cmd", "program used to run the test suite", &mutationTester,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
+                   "use-early-stop", "stop executing tests for a mutant as soon as one kill a mutant to speed-up testing", &mutationTest.useEarlyTestCmdStop,
                    "use-schemata", "use schematas to speed-up testing", &mutationTest.useSchemata,
                    );
             // dfmt on
