@@ -263,63 +263,101 @@ class CppSchemataVisitor : DepthFirstVisitor {
     alias visit = DepthFirstVisitor.visit;
 
     override void visit(OpAdd n) {
-        visitBinaryOp(n, aorMutationsAll, MutantGroup.aor);
+        visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpSub n) {
-        visitBinaryOp(n, aorMutationsAll, MutantGroup.aor);
+        visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpMul n) {
-        visitBinaryOp(n, aorMutationsAll, MutantGroup.aor);
+        visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpMod n) {
-        visitBinaryOp(n, aorMutationsAll, MutantGroup.aor);
+        visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpDiv n) {
-        visitBinaryOp(n, aorMutationsAll, MutantGroup.aor);
+        visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
         accept(n, this);
     }
 
-    private void visitBinaryOp(T)(T n, const Mutation.Kind[] kinds, const MutantGroup group) {
+    private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds) {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
-        auto loc = ast.location(n.operator);
-        auto mutants = index.get(loc.file, loc.interval)
-            .filter!(a => canFind(kinds, a.mut.kind)).array;
-        if (mutants.empty)
-            return;
+        //TODO: reduce the copy/paste code
 
-        auto locExpr = ast.location(n);
+        auto loc = ast.location(n.operator);
         auto locLhs = ast.location(n.lhs);
         auto locRhs = ast.location(n.rhs);
-        if (locLhs is null || locRhs is null)
+        if (locLhs is null || locRhs is null) {
+            return;
+        }
+
+        auto opMutants = index.get(loc.file, loc.interval)
+            .filter!(a => canFind(opKinds, a.mut.kind)).array;
+
+        auto offsLhs = Offset(locLhs.interval.begin, loc.interval.end);
+        auto lhsMutants = index.get(loc.file, offsLhs)
+            .filter!(a => canFind(opKinds, a.mut.kind)).array;
+
+        auto offsRhs = Offset(loc.interval.begin, locRhs.interval.end);
+        auto rhsMutants = index.get(loc.file, offsRhs)
+            .filter!(a => canFind(opKinds, a.mut.kind)).array;
+
+        if (opMutants.empty && lhsMutants.empty && rhsMutants.empty)
             return;
 
-        auto app = appender!(const(ubyte)[])();
         auto fin = fio.makeInput(loc.file);
+        auto app = appender!(const(ubyte)[])();
         app.put("(".rewrite);
-        foreach (const mutant; mutants) {
+
+        foreach (const mutant; opMutants) {
             app.put("(gDEXTOOL_MUTID == ".rewrite);
             app.put(mutant.id.c0.to!string.rewrite);
             app.put("ull".rewrite);
             app.put(") ? (".rewrite);
             app.put(fin.content[locLhs.interval.begin .. locLhs.interval.end]);
-            app.put(makeMutation(mutant.mut.kind, ast.lang).mutate(null));
+            app.put(makeMutation(mutant.mut.kind, ast.lang)
+                    .mutate(fin.content[loc.interval.begin .. loc.interval.end]));
             app.put(fin.content[locRhs.interval.begin .. locRhs.interval.end]);
             app.put(") : ".rewrite);
         }
+
+        foreach (const mutant; lhsMutants) {
+            app.put("(gDEXTOOL_MUTID == ".rewrite);
+            app.put(mutant.id.c0.to!string.rewrite);
+            app.put("ull".rewrite);
+            app.put(") ? (".rewrite);
+            app.put(makeMutation(mutant.mut.kind, ast.lang)
+                    .mutate(fin.content[offsLhs.begin .. offsLhs.end]));
+            app.put(fin.content[locRhs.interval.begin .. locRhs.interval.end]);
+            app.put(") : ".rewrite);
+        }
+
+        foreach (const mutant; rhsMutants) {
+            app.put("(gDEXTOOL_MUTID == ".rewrite);
+            app.put(mutant.id.c0.to!string.rewrite);
+            app.put("ull".rewrite);
+            app.put(") ? (".rewrite);
+            app.put(fin.content[locLhs.interval.begin .. locLhs.interval.end]);
+            app.put(makeMutation(mutant.mut.kind, ast.lang)
+                    .mutate(fin.content[offsRhs.begin .. offsRhs.end]));
+            app.put(") : ".rewrite);
+        }
+
+        auto locExpr = ast.location(n);
         app.put("(".rewrite);
         app.put(fin.content[locExpr.interval.begin .. locExpr.interval.end]);
         app.put("))".rewrite);
 
-        result.putFragment(loc.file, group, rewrite(locExpr, app.data), mutants);
+        result.putFragment(loc.file, group, rewrite(locExpr, app.data),
+                opMutants ~ lhsMutants ~ rhsMutants);
     }
 }
 

@@ -1030,19 +1030,19 @@ nothrow:
     void opCall(ref NextSchemata data) {
         auto schematas = local.get!NextSchemata.schematas;
 
-        while (!schematas.empty) {
+        while (!schematas.empty && !data.hasSchema) {
             auto id = schematas[0];
             schematas = schematas[1 .. $];
 
             if (spinSql!(() {
-                    return global.data.db.shouldTestSchemata(id, global.data.mutKind);
+                    return global.data.db.hasSchemataMutantsWithStatus(id,
+                    global.data.mutKind, Mutation.Status.unknown);
                 })) {
                 local.get!PreSchemata.schemata = spinSql!(() {
                     return global.data.db.getSchemata(id);
                 });
-                logger.info("Use schemata ", id).collectException;
+                logger.infof("Use schemata %s (%s left)", id, schematas.length).collectException;
                 data.hasSchema = true;
-                break;
             }
         }
 
@@ -1102,7 +1102,7 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         auto mutants = spinSql!(() {
-            return global.data.db.getSchemataMutants(data.id);
+            return global.data.db.getSchemataMutants(data.id, Mutation.Status.unknown);
         });
 
         try {
@@ -1148,7 +1148,8 @@ nothrow:
         auto app = appender!(SchemataId[])();
         foreach (id; spinSql!(() { return global.data.db.getSchematas(); })) {
             if (spinSql!(() {
-                    return global.data.db.shouldTestSchemata(id, global.data.mutKind);
+                    return global.data.db.hasSchemataMutantsWithStatus(id,
+                    global.data.mutKind, Mutation.Status.unknown);
                 })) {
                 app.put(id);
             }
