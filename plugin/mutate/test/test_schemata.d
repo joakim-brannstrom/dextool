@@ -55,6 +55,7 @@ class ShallRunADummySchemata : SchemataFixutre {
             .addPostArg(["--test-cmd", test_script])
             .addPostArg(["--test-case-analyze-cmd", analyze_script])
             .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["--use-schemata"])
             .addPostArg(["--log-schemata"])
             .run;
 

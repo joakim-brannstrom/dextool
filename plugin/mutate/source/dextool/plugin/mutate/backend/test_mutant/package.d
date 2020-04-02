@@ -1142,6 +1142,10 @@ nothrow:
     }
 
     void opCall(LoadSchematas data) {
+        if (!global.data.conf.useSchemata) {
+            return;
+        }
+
         auto app = appender!(SchemataId[])();
         foreach (id; spinSql!(() { return global.data.db.getSchematas(); })) {
             if (spinSql!(() {

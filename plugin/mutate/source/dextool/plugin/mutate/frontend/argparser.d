@@ -181,6 +181,8 @@ struct ArgParser {
         app.put(
                 "# This speed up the test phase but the report of test cases killing mutants is less accurate");
         app.put("use_early_stop = true");
+        app.put("# reduce the compile+link time when testing mutants");
+        app.put("use_schemata = true");
         app.put(null);
 
         app.put("[report]");
@@ -291,6 +293,7 @@ struct ArgParser {
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
                    "test-cmd", "program used to run the test suite", &mutationTester,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
+                   "use-schemata", "use schematas to speed-up testing", &mutationTest.useSchemata,
                    );
             // dfmt on
 
@@ -698,6 +701,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["mutant_test.use_early_stop"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.useEarlyTestCmdStop = v == true;
     };
+    callbacks["mutant_test.use_schemata"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.useSchemata = v == true;
+    };
 
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
         c.report.reportKind = v.str.to!ReportKind;
@@ -852,6 +858,19 @@ use_early_stop = true
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.mutationTest.useEarlyTestCmdStop.shouldBeTrue;
+}
+
+@("shall activate schematas")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[mutant_test]
+use_schemata = true
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.mutationTest.useSchemata.shouldBeTrue;
 }
 
 /// Minimal config to setup path to config file.
