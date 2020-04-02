@@ -16,6 +16,7 @@ import std.algorithm : sort, map, splitter, filter;
 import std.array : empty, array, appender;
 import std.datetime : SysTime, Clock;
 import std.exception : collectException;
+import std.format : format;
 import std.path : buildPath;
 import std.random : randomCover;
 import std.typecons : Nullable, Tuple, Yes;
@@ -1050,7 +1051,6 @@ nothrow:
     }
 
     void opCall(ref PreSchemata data) {
-        import std.format : format;
         import dextool.plugin.mutate.backend.database.type : SchemataFragment;
 
         auto schemata = local.get!PreSchemata.schemata;
@@ -1087,7 +1087,7 @@ nothrow:
                 global.data.filesysIO.makeOutput(absf).write(s);
 
                 if (global.data.conf.logSchemata) {
-                    global.data.filesysIO.makeOutput(AbsolutePath(format!"%s.schema%s"(absf,
+                    global.data.filesysIO.makeOutput(AbsolutePath(format!"%s.%s.schema"(absf,
                             schemata.id).Path)).write(s);
                 }
             }
@@ -1138,6 +1138,7 @@ nothrow:
                 data.error = true;
             }
         }
+        local.get!SchemataRestore.original = null;
     }
 
     void opCall(LoadSchematas data) {
@@ -1165,6 +1166,21 @@ nothrow:
         import colorlog;
 
         logger.infof("Compile schemata %s", data.id).collectException;
+
+        if (global.data.conf.logSchemata) {
+            const kinds = spinSql!(() {
+                return global.data.db.getSchemataKinds(data.id);
+            });
+            if (!local.get!SchemataRestore.original.empty) {
+                auto p = local.get!SchemataRestore.original[$ - 1].path;
+                try {
+                    global.data.filesysIO.makeOutput(AbsolutePath(format!"%s.%s.kinds.schema"(p,
+                            data.id).Path)).write(format("%s", kinds));
+                } catch (Exception e) {
+                    logger.warning(e.msg).collectException;
+                }
+            }
+        }
 
         bool successCompile;
         compile(global.data.conf.mutationCompile, global.data.conf.logSchemata).match!(

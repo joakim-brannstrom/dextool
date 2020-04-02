@@ -11,6 +11,7 @@ module dextool.plugin.mutate.backend.mutation_type.dcr;
 
 import dextool.plugin.mutate.backend.type;
 import dextool.plugin.mutate.backend.analyze.ast;
+import dextool.plugin.mutate.backend.mutation_type.dcc : dccBranchMutationsRaw;
 
 immutable Mutation.Kind[] dcrCaseMutationsRaw;
 
@@ -53,8 +54,11 @@ Mutation.Kind[] dcrMutations(Kind operator) @safe pure nothrow {
     return rval;
 }
 
+immutable Mutation.Kind[] dcrMutationsAll;
+
 shared static this() {
     with (Mutation.Kind) {
         dcrCaseMutationsRaw = [dcrCaseDel];
     }
+    dcrMutationsAll = dccBranchMutationsRaw ~ dcrCaseMutationsRaw;
 }

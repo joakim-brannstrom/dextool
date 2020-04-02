@@ -688,8 +688,8 @@ struct Database {
     }
 
     Mutation.Kind getKind(MutationId id) @trusted {
-        immutable s = format!"SELECT kind FROM %s WHERE id=:id"(mutationTable);
-        auto stmt = db.prepare(s);
+        immutable sql = format!"SELECT kind FROM %s WHERE id=:id"(mutationTable);
+        auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
 
         typeof(return) rval;
@@ -1645,8 +1645,8 @@ struct Database {
     }
 
     /// Returns: true if any of the mutants in the schemata have the status unknown and they are of `kind`.
-    bool hasSchemataMutantsWithStatus(SchemataId id, const Mutation.Kind[] kinds,
-            const Mutation.Status status) @trusted {
+    bool hasSchemataMutantsWithStatus(const SchemataId id,
+            const Mutation.Kind[] kinds, const Mutation.Status status) @trusted {
         const sql = format!"SELECT count(*)
         FROM %s t1, %s t2, %s t3
         WHERE
@@ -1663,7 +1663,7 @@ struct Database {
         return stmt.get.execute.oneValue!long != 0;
     }
 
-    MutationStatusId[] getSchemataMutants(SchemataId id, const Mutation.Status status) @trusted {
+    MutationStatusId[] getSchemataMutants(const SchemataId id, const Mutation.Status status) @trusted {
         immutable sql = format!"SELECT t0.st_id
             FROM %1$s t0, %2$s t1
             WHERE
@@ -1683,8 +1683,27 @@ struct Database {
         return app.data;
     }
 
+    /// Returns: the kind of mutants a schemata contains.
+    Mutation.Kind[] getSchemataKinds(const SchemataId id) @trusted {
+        immutable sql = format!"SELECT DISTINCT t1.kind
+            FROM %1$s t0, %2$s t1
+            WHERE
+            t0.schem_id = :id AND
+            t0.st_id = t1.st_id
+            "(schemataMutantTable, mutationTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", cast(long) id);
+
+        auto app = appender!(Mutation.Kind[])();
+        foreach (a; stmt.get.execute) {
+            app.put(a.peek!long(0).to!(Mutation.Kind));
+        }
+
+        return app.data;
+    }
+
     /// Mark a schemata as invalid.
-    void markInvalid(SchemataId id) @trusted {
+    void markInvalid(const SchemataId id) @trusted {
         immutable sql = format!"INSERT INTO %1$s VALUES(:id)"(invalidSchemataTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);

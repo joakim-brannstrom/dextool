@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.analyze.pass_schemata;
 
 import logger = std.experimental.logger;
-import std.algorithm : among, map, sort, filter, canFind, copy;
+import std.algorithm : among, map, sort, filter, canFind, copy, uniq;
 import std.array : appender, empty, array, Appender;
 import std.conv : to;
 import std.exception : collectException;
@@ -63,6 +63,7 @@ SchemataResult toSchemata(ref Ast ast, FilesysIO fio, CodeMutantsResult cresult)
 class SchemataResult {
     import dextool.set;
     import dextool.plugin.mutate.backend.database.type : SchemataFragment;
+    import dextool.plugin.mutate.backend.analyze.utility : Index;
 
     static struct Fragment {
         Offset offset;
@@ -77,6 +78,10 @@ class SchemataResult {
     private {
         Schemata[MutantGroup][AbsolutePath] schematas;
         FilesysIO fio;
+
+        // overlapping mutants is not supported "yet" thus make sure no
+        // fragment overlap with another fragment.
+        Index!MutantGroup[AbsolutePath] indexes;
     }
 
     this(FilesysIO fio) {
@@ -89,6 +94,17 @@ class SchemataResult {
 
     /// Assuming that all fragments for a file should be merged to one huge.
     private void putFragment(AbsolutePath file, MutantGroup g, Fragment sf, CodeMutant[] m) {
+        if (auto v = file in indexes) {
+            if ((*v).inside(g, sf.offset)) {
+                return;
+            }
+            (*v).put(g, sf.offset);
+        } else {
+            auto index = Index!MutantGroup.init;
+            index.put(g, sf.offset);
+            indexes[file] = index;
+        }
+
         if (auto v = file in schematas) {
             (*v)[g].fragments ~= sf;
             (*v)[g].mutants.add(m);
@@ -140,16 +156,17 @@ private:
  * Each file can have multiple groups.
  */
 enum MutantGroup {
-    any,
+    none,
     aor,
     ror,
-    rorp,
     lcr,
     lcrb,
     // the operator mutants that replace the whole expression. The schema have
     // a high probability of working because it isn't dependent on the
     // operators being implemented for lhs/rhs
     opExpr,
+    dcc,
+    dcr,
 }
 
 auto defaultHeader(Path f) {
@@ -193,8 +210,8 @@ struct SchematasRange {
         auto values_ = appender!(ET[])();
         foreach (group; raw.byKeyValue) {
             auto relp = fio.toRelativeRoot(group.key);
-            auto app = appender!(SchemataFragment[])();
             foreach (a; group.value.byKeyValue) {
+                auto app = appender!(SchemataFragment[])();
                 ET v;
 
                 app.put(defaultHeader(relp));
@@ -204,7 +221,6 @@ struct SchematasRange {
                 v.mutants = a.value.mutants.toArray;
                 v.checksum = toSchemataChecksum(v.mutants);
                 values_.put(v);
-                app.clear;
             }
         }
         this.values = values_.data;
@@ -255,9 +271,11 @@ class CodeMutantIndex {
 
 class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.aor : aorMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.ror : rorMutationsAll, rorpMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.dcc : dccMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.ror : rorMutationsAll, rorpMutationsAll;
 
     Ast* ast;
     CodeMutantIndex index;
@@ -280,6 +298,8 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     override void visit(OpAnd n) {
         visitBinaryOp(n, MutantGroup.lcr, lcrMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
@@ -290,42 +310,50 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     override void visit(OpOr n) {
         visitBinaryOp(n, MutantGroup.lcr, lcrMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpLess n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
-        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpLessEq n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
-        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpGreater n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
-        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpGreaterEq n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
-        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpEqual n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
-        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpNotEqual n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
-        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
+        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
@@ -354,7 +382,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
-    private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds) {
+    private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds_) {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
         //TODO: reduce the copy/paste code
@@ -366,6 +394,8 @@ class CppSchemataVisitor : DepthFirstVisitor {
         if (locLhs is null || locRhs is null) {
             return;
         }
+
+        auto opKinds = opKinds_.dup.sort.uniq.array;
 
         auto opMutants = index.get(loc.file, loc.interval)
             .filter!(a => canFind(opKinds, a.mut.kind)).array;
