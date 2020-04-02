@@ -641,7 +641,7 @@ class MutantVisitor : DepthFirstVisitor {
 
         put(loc, expr, n.blacklist);
         put(locOp, op, n.operator.blacklist);
-        if (n.lhs !is null && locLhs.interval.begin != locOp.interval.end) {
+        if (n.lhs !is null && locLhs.interval.begin < locOp.interval.end) {
             auto offset = Interval(locLhs.interval.begin, locOp.interval.end);
             put(new Location(locOp.file, offset,
                     SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), lhs, n.lhs.blacklist);
@@ -675,8 +675,12 @@ class MutantVisitor : DepthFirstVisitor {
 
         put(loc, expr, n.blacklist);
         put(locOp, op, n.operator.blacklist);
-        // the interval check is for unary operators such as ++
-        if (n.lhs !is null && locLhs.interval.begin != locOp.interval.end) {
+        // the interval check:
+        // != is sufficiently for unary operators such as ++.
+        // but there are also malformed that can be created thus '<' is needed.
+        // Change this to != and run on the game tutorial to see them being
+        // produced. Seems to be something with templates and function calls.
+        if (n.lhs !is null && locLhs.interval.begin < locOp.interval.end) {
             auto offset = Interval(locLhs.interval.begin, locOp.interval.end);
             put(new Location(locOp.file, offset,
                     SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), lhs, n.lhs.blacklist);
