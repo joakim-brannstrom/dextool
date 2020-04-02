@@ -146,6 +146,10 @@ enum MutantGroup {
     rorp,
     lcr,
     lcrb,
+    // the operator mutants that replace the whole expression. The schema have
+    // a high probability of working because it isn't dependent on the
+    // operators being implemented for lhs/rhs
+    opExpr,
 }
 
 auto defaultHeader(Path f) {
@@ -381,59 +385,39 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return;
 
         auto fin = fio.makeInput(loc.file);
-        auto app = appender!(const(ubyte)[])();
-        app.put("(".rewrite);
+        auto schema = ExpressionChain(fin.content[locExpr.interval.begin .. locExpr.interval.end]);
+        auto robustSchema = ExpressionChain(
+                fin.content[locExpr.interval.begin .. locExpr.interval.end]);
 
         foreach (const mutant; opMutants) {
-            app.put("(gDEXTOOL_MUTID == ".rewrite);
-            app.put(mutant.id.c0.to!string.rewrite);
-            app.put("ull".rewrite);
-            app.put(") ? (".rewrite);
-            app.put(fin.content[locLhs.interval.begin .. locLhs.interval.end]);
-            app.put(makeMutation(mutant.mut.kind, ast.lang)
-                    .mutate(fin.content[loc.interval.begin .. loc.interval.end]));
-            app.put(fin.content[locRhs.interval.begin .. locRhs.interval.end]);
-            app.put(") : ".rewrite);
+            schema.put(mutant.id.c0, fin.content[locLhs.interval.begin .. locLhs.interval.end],
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(fin.content[loc.interval.begin .. loc.interval.end]),
+                    fin.content[locRhs.interval.begin .. locRhs.interval.end]);
         }
 
         foreach (const mutant; lhsMutants) {
-            app.put("(gDEXTOOL_MUTID == ".rewrite);
-            app.put(mutant.id.c0.to!string.rewrite);
-            app.put("ull".rewrite);
-            app.put(") ? (".rewrite);
-            app.put(makeMutation(mutant.mut.kind, ast.lang)
-                    .mutate(fin.content[offsLhs.begin .. offsLhs.end]));
-            app.put(fin.content[locRhs.interval.begin .. locRhs.interval.end]);
-            app.put(") : ".rewrite);
+            robustSchema.put(mutant.id.c0, schema.put(mutant.id.c0,
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(fin.content[offsLhs.begin .. offsLhs.end]),
+                    fin.content[locRhs.interval.begin .. locRhs.interval.end]));
         }
 
         foreach (const mutant; rhsMutants) {
-            app.put("(gDEXTOOL_MUTID == ".rewrite);
-            app.put(mutant.id.c0.to!string.rewrite);
-            app.put("ull".rewrite);
-            app.put(") ? (".rewrite);
-            app.put(fin.content[locLhs.interval.begin .. locLhs.interval.end]);
-            app.put(makeMutation(mutant.mut.kind, ast.lang)
-                    .mutate(fin.content[offsRhs.begin .. offsRhs.end]));
-            app.put(") : ".rewrite);
+            robustSchema.put(mutant.id.c0, schema.put(mutant.id.c0,
+                    fin.content[locLhs.interval.begin .. locLhs.interval.end],
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(
+                    fin.content[offsRhs.begin .. offsRhs.end])));
         }
 
         foreach (const mutant; exprMutants) {
-            app.put("(gDEXTOOL_MUTID == ".rewrite);
-            app.put(mutant.id.c0.to!string.rewrite);
-            app.put("ull".rewrite);
-            app.put(") ? (".rewrite);
-            app.put(makeMutation(mutant.mut.kind, ast.lang)
-                    .mutate(fin.content[locExpr.interval.begin .. locExpr.interval.end]));
-            app.put(") : ".rewrite);
+            robustSchema.put(mutant.id.c0, schema.put(mutant.id.c0,
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(
+                    fin.content[locExpr.interval.begin .. locExpr.interval.end])));
         }
 
-        app.put("(".rewrite);
-        app.put(fin.content[locExpr.interval.begin .. locExpr.interval.end]);
-        app.put("))".rewrite);
-
-        result.putFragment(loc.file, group, rewrite(locExpr, app.data),
+        result.putFragment(loc.file, group, rewrite(locExpr, schema.generate),
                 opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants);
+        result.putFragment(loc.file, MutantGroup.opExpr, rewrite(locExpr,
+                robustSchema.generate), lhsMutants ~ rhsMutants ~ exprMutants);
     }
 }
 
@@ -470,4 +454,50 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
     }
 
     return SchemataChecksum(toChecksum(h));
+}
+
+/** Accumulate multiple modifications for an expression to then generate a via
+ * ternery operator that activate one mutant if necessary.
+ */
+struct ExpressionChain {
+    alias Mutant = Tuple!(ulong, "id", const(ubyte)[], "value");
+    Appender!(Mutant[]) mutants;
+    const(ubyte)[] original;
+
+    this(const(ubyte)[] original) {
+        this.original = original;
+    }
+
+    /// Returns: `value`
+    const(ubyte)[] put(ulong id, const(ubyte)[] value) {
+        mutants.put(Mutant(id, value));
+        return value;
+    }
+
+    /// Returns: the merge of `values`
+    const(ubyte)[] put(T...)(ulong id, auto ref T values) {
+        auto app = appender!(const(ubyte)[])();
+        static foreach (a; values) {
+            app.put(a);
+        }
+        return this.put(id, app.data);
+    }
+
+    /// Returns: the generated chain that can replace the original expression.
+    const(ubyte)[] generate() {
+        auto app = appender!(const(ubyte)[])();
+        app.put("(".rewrite);
+        foreach (const mutant; mutants.data) {
+            app.put("(gDEXTOOL_MUTID == ".rewrite);
+            app.put(mutant.id.to!string.rewrite);
+            app.put("ull".rewrite);
+            app.put(") ? (".rewrite);
+            app.put(mutant.value);
+            app.put(") : ".rewrite);
+        }
+        app.put("(".rewrite);
+        app.put(original);
+        app.put("))".rewrite);
+        return app.data;
+    }
 }
