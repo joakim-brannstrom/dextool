@@ -142,6 +142,10 @@ private:
 enum MutantGroup {
     any,
     aor,
+    ror,
+    rorp,
+    lcr,
+    lcrb,
 }
 
 auto defaultHeader(Path f) {
@@ -247,6 +251,9 @@ class CodeMutantIndex {
 
 class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.aor : aorMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.ror : rorMutationsAll, rorpMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
 
     Ast* ast;
     CodeMutantIndex index;
@@ -261,6 +268,62 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     alias visit = DepthFirstVisitor.visit;
+
+    override void visit(OpAndBitwise n) {
+        visitBinaryOp(n, MutantGroup.lcrb, lcrbMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(OpAnd n) {
+        visitBinaryOp(n, MutantGroup.lcr, lcrMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(OpOrBitwise n) {
+        visitBinaryOp(n, MutantGroup.lcrb, lcrbMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(OpOr n) {
+        visitBinaryOp(n, MutantGroup.lcr, lcrMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(OpLess n) {
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
+        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(OpLessEq n) {
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
+        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(OpGreater n) {
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
+        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(OpGreaterEq n) {
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
+        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(OpEqual n) {
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
+        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(OpNotEqual n) {
+        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll);
+        visitBinaryOp(n, MutantGroup.rorp, rorpMutationsAll);
+        accept(n, this);
+    }
 
     override void visit(OpAdd n) {
         visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
@@ -293,6 +356,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         //TODO: reduce the copy/paste code
 
         auto loc = ast.location(n.operator);
+        auto locExpr = ast.location(n);
         auto locLhs = ast.location(n.lhs);
         auto locRhs = ast.location(n.rhs);
         if (locLhs is null || locRhs is null) {
@@ -300,6 +364,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
         }
 
         auto opMutants = index.get(loc.file, loc.interval)
+            .filter!(a => canFind(opKinds, a.mut.kind)).array;
+
+        auto exprMutants = index.get(loc.file, locExpr.interval)
             .filter!(a => canFind(opKinds, a.mut.kind)).array;
 
         auto offsLhs = Offset(locLhs.interval.begin, loc.interval.end);
@@ -351,13 +418,22 @@ class CppSchemataVisitor : DepthFirstVisitor {
             app.put(") : ".rewrite);
         }
 
-        auto locExpr = ast.location(n);
+        foreach (const mutant; exprMutants) {
+            app.put("(gDEXTOOL_MUTID == ".rewrite);
+            app.put(mutant.id.c0.to!string.rewrite);
+            app.put("ull".rewrite);
+            app.put(") ? (".rewrite);
+            app.put(makeMutation(mutant.mut.kind, ast.lang)
+                    .mutate(fin.content[locExpr.interval.begin .. locExpr.interval.end]));
+            app.put(") : ".rewrite);
+        }
+
         app.put("(".rewrite);
         app.put(fin.content[locExpr.interval.begin .. locExpr.interval.end]);
         app.put("))".rewrite);
 
         result.putFragment(loc.file, group, rewrite(locExpr, app.data),
-                opMutants ~ lhsMutants ~ rhsMutants);
+                opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants);
     }
 }
 
