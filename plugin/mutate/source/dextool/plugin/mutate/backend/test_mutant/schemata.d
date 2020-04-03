@@ -88,6 +88,9 @@ struct SchemataTestDriver {
         Checksum checksum;
         MutationTestResult result;
         bool hasTestOutput;
+        // if there are mutants status id's related to a file but the mutants
+        // have been removed.
+        bool mutantIdError;
     }
 
     static struct TestCaseAnalyzeData {
@@ -130,6 +133,8 @@ struct SchemataTestDriver {
                 return fsm(Done.init);
             return fsm(TestMutant(a.id, a.checksum));
         }, (TestMutant a) {
+            if (a.mutantIdError)
+                return fsm(NextMutant.init);
             if (a.result.status == Mutation.Status.killed
                 && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && a.hasTestOutput) {
                 return fsm(TestCaseAnalyze(a.result));
@@ -189,8 +194,17 @@ nothrow:
 
         data.result.id = data.id;
 
-        auto id = spinSql!(() { return db.getMutationId(data.id); }).get;
-        auto entry = spinSql!(() { return db.getMutation(id); }).get;
+        auto id = spinSql!(() { return db.getMutationId(data.id); });
+        if (id.isNull) {
+            data.mutantIdError = true;
+            return;
+        }
+        auto entry_ = spinSql!(() { return db.getMutation(id.get); });
+        if (entry_.isNull) {
+            data.mutantIdError = true;
+            return;
+        }
+        auto entry = entry_.get;
 
         try {
             const file = fio.toAbsoluteRoot(entry.file);

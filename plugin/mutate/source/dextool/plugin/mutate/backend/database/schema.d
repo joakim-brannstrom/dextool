@@ -1022,7 +1022,7 @@ void upgradeV17(ref Miniorm db) {
 }
 
 /// 2020-03-21
-void upgradev18(ref Miniorm db) {
+void upgradeV18(ref Miniorm db) {
     // this force an old database to add indexes
 }
 
