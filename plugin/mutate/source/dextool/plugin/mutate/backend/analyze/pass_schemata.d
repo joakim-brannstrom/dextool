@@ -14,7 +14,7 @@ import std.algorithm : among, map, sort, filter, canFind, copy, uniq;
 import std.array : appender, empty, array, Appender;
 import std.conv : to;
 import std.exception : collectException;
-import std.format : formattedWrite;
+import std.format : formattedWrite, format;
 import std.meta : AliasSeq;
 import std.range : retro, ElementType;
 import std.traits : EnumMembers;
@@ -35,6 +35,12 @@ import dextool.plugin.mutate.backend.type : Language, SourceLoc, Offset,
 
 import dextool.plugin.mutate.backend.analyze.ast;
 import dextool.plugin.mutate.backend.analyze.pass_mutant : CodeMutantsResult;
+
+// constant defined by the schemata that test_mutant uses too
+/// The global variable that a mutant reads to see if it should activate.
+immutable schemataMutantIdentifier = "gDEXTOOL_MUTID";
+/// The environment variable that is read to set the current active mutant.
+immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
 /// Translate a mutation AST to a schemata.
 SchemataResult toSchemata(ref Ast ast, FilesysIO fio, CodeMutantsResult cresult) @trusted {
@@ -499,7 +505,7 @@ struct ExpressionChain {
         auto app = appender!(const(ubyte)[])();
         app.put("(".rewrite);
         foreach (const mutant; mutants.data) {
-            app.put("(gDEXTOOL_MUTID == ".rewrite);
+            app.put(format!"(%s == "(schemataMutantIdentifier).rewrite);
             app.put(mutant.id.to!string.rewrite);
             app.put("ull".rewrite);
             app.put(") ? (".rewrite);

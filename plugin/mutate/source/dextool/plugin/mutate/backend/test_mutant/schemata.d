@@ -29,6 +29,8 @@ import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, Checksum;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
 
+import dextool.plugin.mutate.backend.analyze.pass_schemata : schemataMutantEnvKey;
+
 @safe:
 
 struct MutationTestResult {
@@ -217,10 +219,9 @@ nothrow:
             logger.info(e.msg).collectException;
         }
 
-        static immutable idKey = "DEXTOOL_MUTID";
-        runner.env[idKey] = data.checksum.c0.to!string;
+        runner.env[schemataMutantEnvKey] = data.checksum.c0.to!string;
         scope (exit)
-            runner.env.remove(idKey);
+            runner.env.remove(schemataMutantEnvKey);
 
         auto sw = StopWatch(AutoStart.yes);
         auto res = runTester(*runner);
