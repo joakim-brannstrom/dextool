@@ -1654,8 +1654,9 @@ struct Database {
         t1.st_id = t2.id AND
         t2.status = :status AND
         t3.st_id = t1.st_id AND
-        t3.kind IN (%(%s,%))"(schemataMutantTable,
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+        t3.kind IN (%(%s,%))
+        "(schemataMutantTable, mutationStatusTable,
+                mutationTable, kinds.map!(a => cast(int) a));
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
@@ -1663,14 +1664,18 @@ struct Database {
         return stmt.get.execute.oneValue!long != 0;
     }
 
-    MutationStatusId[] getSchemataMutants(const SchemataId id, const Mutation.Status status) @trusted {
-        immutable sql = format!"SELECT t0.st_id
-            FROM %1$s t0, %2$s t1
+    MutationStatusId[] getSchemataMutants(const SchemataId id,
+            const Mutation.Kind[] kinds, const Mutation.Status status) @trusted {
+        immutable sql = format!"SELECT t1.st_id
+            FROM %s t1, %s t2, %s t3
             WHERE
-            t0.schem_id = :id AND
-            t0.st_id = t1.id AND
-            t1.status = :status
-            "(schemataMutantTable, mutationStatusTable);
+            t1.schem_id = :id AND
+            t1.st_id = t2.id AND
+            t2.status = :status AND
+            t3.st_id = t1.st_id AND
+            t3.kind IN (%(%s,%))
+            "(schemataMutantTable,
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
         stmt.get.bind(":status", cast(long) status);
