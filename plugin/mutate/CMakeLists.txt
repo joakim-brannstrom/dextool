@@ -6,7 +6,7 @@ list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/stan
 set(EXE_NAME ${DEXTOOL_MAIN_EXE}-mutate)
 
 set(flags "-I${CMAKE_SOURCE_DIR}/libs/cpptooling/source
--J${CMAKE_CURRENT_LIST_DIR}/view
+-J${CMAKE_CURRENT_LIST_DIR}/views
 -I${CMAKE_SOURCE_DIR}/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool/source
 -I${CMAKE_SOURCE_DIR}/dsrcgen/source
