@@ -104,10 +104,26 @@ struct GtestParser {
                 report.reportFailed(TestCase(testCaseName(m["tc"].idup), data.fail_msg_file));
                 // the best we can do for now is for the first failed test case.
                 // May improve in the future.
-                data.fail_msg_file = null;
             }
+            data.fail_msg_file = null;
             data.last_run = null;
         }
+    }
+
+    void finalize(TestCaseReport report) @safe nothrow {
+        final switch (data.delim) {
+        case DelimState.unknown:
+            goto case;
+        case DelimState.start:
+            if (!data.last_run.empty) {
+                report.reportFailed(TestCase(testCaseName(data.last_run), data.fail_msg_file));
+            }
+            break;
+        case DelimState.stop:
+            break;
+        }
+
+        data.last_run = null;
     }
 }
 
@@ -256,7 +272,7 @@ TestCase(`Unsigned/TypedTestP`),
     shouldEqual(app.failed.length, expected.length);
 }
 
-@("shall report the last test case before the crash")
+@("shall report the last test case before the crash (variant 1)")
 unittest {
 
     auto app = new GatherTestCase;
@@ -265,6 +281,24 @@ unittest {
     testData6.each!(a => parser.process(a, app));
 
     auto expected = [TestCase(`Test.segfault`), TestCase(`Test.next`)];
+
+    foreach (v; expected) {
+        v.shouldBeIn(app.failed);
+    }
+
+    shouldEqual(app.failed.length, expected.length);
+}
+
+@("shall report the last test case before the crash (variant 2)")
+unittest {
+
+    auto app = new GatherTestCase;
+
+    GtestParser parser;
+    testData7.each!(a => parser.process(a, app));
+    parser.finalize(app);
+
+    auto expected = [TestCase(`Test.segfault1`), TestCase(`Test.segfault2`)];
 
     foreach (v; expected) {
         v.shouldBeIn(app.failed);
@@ -989,6 +1023,24 @@ string[] testData6() {
 "[----------] 17 tests from MessageTest",
 "[ RUN      ] Test.next",
 "[  FAILED  ] Test.next (0 ms)",
+        ];
+        // dfmt on
+}
+
+string[] testData7() {
+    // dfmt off
+        return [
+"Running main() from gtest_main.cc",
+"[==========] Running 17 tests from 1 test case.",
+"[----------] Global test environment set-up.",
+"[----------] 17 tests from MessageTest",
+"[ RUN      ] Test.segfault1",
+"junk",
+"Running main() from gtest_main.cc",
+"[==========] Running 17 tests from 1 test case.",
+"[----------] Global test environment set-up.",
+"[----------] 17 tests from MessageTest",
+"[ RUN      ] Test.segfault2",
         ];
         // dfmt on
 }

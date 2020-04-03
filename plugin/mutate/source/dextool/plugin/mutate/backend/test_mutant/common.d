@@ -157,6 +157,18 @@ void builtin(DrainElement[] output,
             logger.warning(e.msg).collectException;
         }
     }
+
+    foreach (const p; tc_analyze_builtin) {
+        final switch (p) {
+        case TestCaseAnalyzeBuiltin.gtest:
+            gtest.finalize(app);
+            break;
+        case TestCaseAnalyzeBuiltin.ctest:
+            break;
+        case TestCaseAnalyzeBuiltin.makefile:
+            break;
+        }
+    }
 }
 
 struct LineRange {
