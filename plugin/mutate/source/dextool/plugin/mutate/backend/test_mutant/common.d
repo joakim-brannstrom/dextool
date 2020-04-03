@@ -157,6 +157,18 @@ void builtin(DrainElement[] output,
             logger.warning(e.msg).collectException;
         }
     }
+
+    foreach (const p; tc_analyze_builtin) {
+        final switch (p) {
+        case TestCaseAnalyzeBuiltin.gtest:
+            gtest.finalize(app);
+            break;
+        case TestCaseAnalyzeBuiltin.ctest:
+            break;
+        case TestCaseAnalyzeBuiltin.makefile:
+            break;
+        }
+    }
 }
 
 struct LineRange {
@@ -294,10 +306,10 @@ bool externalProgram(ShellCommand cmd, DrainElement[] output,
         foreach (a; output) {
             final switch (a.type) {
             case DrainElement.Type.stdout:
-                stdout.write(a.data);
+                stdout.rawWrite(a.data);
                 break;
             case DrainElement.Type.stderr:
-                stderr.write(a.data);
+                stderr.rawWrite(a.data);
                 break;
             }
         }
