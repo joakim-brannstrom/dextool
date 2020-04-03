@@ -43,7 +43,7 @@ SchemataResult toSchemata(ref Ast ast, FilesysIO fio, CodeMutantsResult cresult)
 
     final switch (ast.lang) {
     case Language.c:
-        break;
+        goto case;
     case Language.assumeCpp:
         goto case;
     case Language.cpp:
