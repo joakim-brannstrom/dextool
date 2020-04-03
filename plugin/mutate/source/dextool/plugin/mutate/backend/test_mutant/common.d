@@ -294,10 +294,10 @@ bool externalProgram(ShellCommand cmd, DrainElement[] output,
         foreach (a; output) {
             final switch (a.type) {
             case DrainElement.Type.stdout:
-                stdout.write(a.data);
+                stdout.rawWrite(a.data);
                 break;
             case DrainElement.Type.stderr:
-                stderr.write(a.data);
+                stderr.rawWrite(a.data);
                 break;
             }
         }
