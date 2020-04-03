@@ -125,24 +125,7 @@ function(compile_d_unittest name input_d compiler_args linker_args libs)
         target_link_libraries(${target_name} ${lib})
     endforeach()
 
-    # make cmake aware that the executable is a test.
-    # note that the working directory is to collect all coverage data in one
-    # place to easily provide it to codecov or other tooling.
-    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/coverage)
-    add_test(NAME ${target_name}_
-        COMMAND ${target_name}
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/coverage)
-    # build a dependency that mean that when check triggers it triggers a rerun
-    # which in turn is dependent on the executable
-    add_custom_command(OUTPUT "${target_name}.stamp"
-        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -R "${target_name}_"
-        COMMAND touch ${target_name}.stamp
-        DEPENDS ${target_name}
-        COMMENT "Running test ${target_name}"
-        )
-    set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES "${target_name}.stamp")
-    add_custom_target("${target_name}__run" DEPENDS "${target_name}.stamp")
-    add_dependencies(check "${target_name}__run")
+    add_unittest_to_check(${target_name})
 endfunction()
 
 #=============================================================================#

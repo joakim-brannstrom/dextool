@@ -77,3 +77,31 @@ macro(setup_integration_testing_env)
             )
     endif()
 endmacro()
+
+#=============================================================================#
+# [PUBLIC]
+# Add a binary as a test that check is dependent on
+# supplied libraries.
+#   name        - Target name for the executable
+function(add_unittest_to_check name)
+    if(NOT BUILD_TEST)
+        return()
+    endif()
+
+    # note that the working directory is to collect all coverage data in one
+    # place to easily provide it to codecov or other tooling.
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/coverage)
+
+    add_test(NAME ${name}_ COMMAND ${name} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/coverage)
+    # build a dependency that mean that when check triggers it triggers a rerun
+    # which in turn is dependent on the executable
+    add_custom_command(OUTPUT "${name}.stamp"
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -R "${name}_"
+        COMMAND touch ${name}.stamp
+        DEPENDS ${name}
+        COMMENT "Running test ${name}"
+        )
+    set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES "${name}.stamp")
+    add_custom_target("${name}__run" DEPENDS "${name}.stamp")
+    add_dependencies(check "${name}__run")
+endfunction()
