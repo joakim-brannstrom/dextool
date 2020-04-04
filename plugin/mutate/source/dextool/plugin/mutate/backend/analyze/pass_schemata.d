@@ -182,6 +182,7 @@ enum MutantGroup {
     opExpr,
     dcc,
     dcr,
+    uoi,
 }
 
 auto defaultHeader(Path f) {
@@ -266,6 +267,7 @@ class CodeMutantIndex {
 }
 
 class CppSchemataVisitor : DepthFirstVisitor {
+    import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
     import dextool.plugin.mutate.backend.mutation_type.aor : aorMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.dcc : dccMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutationsAll;
@@ -286,6 +288,17 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     alias visit = DepthFirstVisitor.visit;
+
+    override void visit(Expr n) {
+        accept(n, this);
+    }
+
+    override void visit(OpNegate n) {
+        import dextool.plugin.mutate.backend.mutation_type.uoi : uoiLvalueMutationsRaw;
+
+        visitUnaryOp(n, MutantGroup.uoi, uoiLvalueMutationsRaw);
+        accept(n, this);
+    }
 
     override void visit(OpAndBitwise n) {
         visitBinaryOp(n, MutantGroup.lcrb, lcrbMutationsAll);
@@ -378,11 +391,28 @@ class CppSchemataVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
+    private void visitUnaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+        auto loc = ast.location(n.operator);
+        auto locExpr = ast.location(n);
+
+        auto mutants = index.get(loc.file, loc.interval)
+            .filter!(a => canFind(kinds, a.mut.kind)).array;
+
+        if (mutants.empty)
+            return;
+
+        auto fin = fio.makeInput(loc.file);
+        auto schema = ExpressionChain(fin.content[locExpr.interval.begin .. locExpr.interval.end]);
+        foreach (const mutant; mutants) {
+            schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang)
+                    .mutate(fin.content[loc.interval.begin .. loc.interval.end]),
+                    fin.content[loc.interval.end .. locExpr.interval.end]);
+        }
+
+        result.putFragment(loc.file, group, rewrite(locExpr, schema.generate), mutants);
+    }
+
     private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds_) {
-        import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
-
-        //TODO: reduce the copy/paste code
-
         auto loc = ast.location(n.operator);
         auto locExpr = ast.location(n);
         auto locLhs = ast.location(n.lhs);
