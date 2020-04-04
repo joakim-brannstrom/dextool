@@ -1,28 +1,18 @@
-/** @file main.cpp
- * @brief Functional test of stubs.
- * @author Joakim Brännström (joakim.brannstrom@gmx.com)
- * @date 2015
- * @copyright GNU Licence
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+/// @copyright Boost License 1.0, http://boost.org/LICENSE_1_0.txt
+/// @date 2015-2020
+/// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 #include "stub_ifs1.hpp"
-#include <iostream>
 #include <assert.h>
+#include <iostream>
 
-#define start_test() do{std::cout << " # " <<  __func__ << "\t\t" << __FILE__ << ":" << __LINE__ << std::endl;}while(0)
-#define msg(x) do{std::cout << __FILE__ << ":" << __LINE__ << " " << x << std::endl;}while(0)
+#define start_test()                                                                               \
+    do {                                                                                           \
+        std::cout << " # " << __func__ << "\t\t" << __FILE__ << ":" << __LINE__ << std::endl;      \
+    } while (0)
+#define msg(x)                                                                                     \
+    do {                                                                                           \
+        std::cout << __FILE__ << ":" << __LINE__ << " " << x << std::endl;                         \
+    } while (0)
 
 void test_stack_instance() {
     start_test();
@@ -194,15 +184,13 @@ void test_static_param_stored() {
 }
 
 class TestCallback : public StubCallbackIfs1::Irun,
-    public StubCallbackIfs1::Iifs2_func1_int_char,
-    public StubCallbackIfs1::Iget_ifc3 {
+                     public StubCallbackIfs1::Iifs2_func1_int_char,
+                     public StubCallbackIfs1::Iget_ifc3 {
 public:
     TestCallback() : called(false), x0(0), x1(0) {}
     ~TestCallback() {}
 
-    void run() {
-        called = true;
-    }
+    void run() { called = true; }
     bool called;
 
     int ifs2_func1_int_char(int v, char c) {
@@ -213,9 +201,7 @@ public:
     int x0;
     char x1;
 
-    Ifs3& get_ifc3() {
-        return ifs3_inst;
-    }
+    Ifs3& get_ifc3() { return ifs3_inst; }
     StubIfs3 ifs3_inst;
 };
 
