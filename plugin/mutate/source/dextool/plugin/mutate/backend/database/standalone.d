@@ -1644,8 +1644,8 @@ struct Database {
         return rval;
     }
 
-    /// Returns: true if any of the mutants in the schemata have the status unknown and they are of `kind`.
-    bool hasSchemataMutantsWithStatus(const SchemataId id,
+    /// Returns: number of mutants in a schemata with the specified kind and status.
+    long schemataMutantsWithStatus(const SchemataId id,
             const Mutation.Kind[] kinds, const Mutation.Status status) @trusted {
         const sql = format!"SELECT count(*)
         FROM %s t1, %s t2, %s t3
@@ -1661,7 +1661,7 @@ struct Database {
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
         stmt.get.bind(":status", cast(long) status);
-        return stmt.get.execute.oneValue!long != 0;
+        return stmt.get.execute.oneValue!long;
     }
 
     MutationStatusId[] getSchemataMutants(const SchemataId id,

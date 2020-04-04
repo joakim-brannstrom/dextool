@@ -293,6 +293,8 @@ struct TestDriver {
 
     static struct NextSchemataData {
         SchemataId[] schematas;
+        long totalSchematas;
+        long invalidSchematas;
     }
 
     static struct NextSchemata {
@@ -1031,14 +1033,18 @@ nothrow:
     void opCall(ref NextSchemata data) {
         auto schematas = local.get!NextSchemata.schematas;
 
+        const threshold = schemataMutantsThreshold(global.data.conf.sanityCheckSchemata,
+                local.get!NextSchemata.invalidSchematas, local.get!NextSchemata.totalSchematas);
+        logger.trace("Schemata threshold is ", threshold).collectException;
+
         while (!schematas.empty && !data.hasSchema) {
             auto id = schematas[0];
             schematas = schematas[1 .. $];
 
             if (spinSql!(() {
-                    return global.data.db.hasSchemataMutantsWithStatus(id,
+                    return global.data.db.schemataMutantsWithStatus(id,
                     global.data.mutKind, Mutation.Status.unknown);
-                })) {
+                }) >= threshold) {
                 local.get!PreSchemata.schemata = spinSql!(() {
                     return global.data.db.getSchemata(id);
                 });
@@ -1150,9 +1156,9 @@ nothrow:
         auto app = appender!(SchemataId[])();
         foreach (id; spinSql!(() { return global.data.db.getSchematas(); })) {
             if (spinSql!(() {
-                    return global.data.db.hasSchemataMutantsWithStatus(id,
+                    return global.data.db.schemataMutantsWithStatus(id,
                     global.data.mutKind, Mutation.Status.unknown);
-                })) {
+                }) >= schemataMutantsThreshold(global.data.conf.sanityCheckSchemata, 0, 0)) {
                 app.put(id);
             }
         }
@@ -1161,6 +1167,7 @@ nothrow:
         // random reorder to reduce the chance that multipe instances of dextool do
         // use the same schema
         local.get!NextSchemata.schematas = app.data.randomCover.array;
+        local.get!NextSchemata.totalSchematas = app.data.length;
     }
 
     void opCall(ref SanityCheckSchemata data) {
@@ -1192,6 +1199,7 @@ nothrow:
         if (!successCompile) {
             logger.info("Failed".color(Color.red)).collectException;
             spinSql!(() { global.data.db.markInvalid(data.id); });
+            local.get!NextSchemata.invalidSchematas++;
             return;
         }
 
@@ -1207,6 +1215,7 @@ nothrow:
             auto res = runner.run;
             data.passed = res.status == TestResult.Status.passed;
             if (!data.passed) {
+                local.get!NextSchemata.invalidSchematas++;
                 debug logger.tracef("%(%s%)", res.output.map!(a => a.byUTF8));
             }
         } catch (Exception e) {
@@ -1223,6 +1232,25 @@ nothrow:
 }
 
 private:
+
+/** A schemata must have at least this many mutants that have the status unknown
+ * for it to be cost efficient to use schemata.
+ *
+ * The weights dynamically adjust with how many of the schemas that has failed
+ * to compile.
+ *
+ * Params:
+ *  checkSchemata = if the user has activated check_schemata that run all test cases before the schemata is used.
+ */
+long schemataMutantsThreshold(bool checkSchemata, long invalidSchematas, long totalSchematas) @safe pure nothrow @nogc {
+    double f = checkSchemata ? 3 : 2;
+    // "10" is a magic number that felt good but not too conservative. A future
+    // improvement is to instead base it on the ratio between compilation time
+    // and test suite execution time.
+    if (totalSchematas > 0)
+        f += 10.0 * (cast(double) invalidSchematas / cast(double) totalSchematas);
+    return cast(long) f;
+}
 
 /** Compare the old test cases with those that have been found this run.
  *
