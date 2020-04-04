@@ -61,7 +61,7 @@ class ShallRunADummySchemata : SchemataFixutre {
         // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `Found schemata`,
-                `Use schemata`,
+                `Use schema`,
                 `from '+' to '-'`,
                 `alive`,
                 `SchemataTestResult`,
@@ -99,7 +99,7 @@ class ShallGenerateDcrSchema : SchemataFixutre {
         // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `Found schemata`,
-                `Use schemata`,
+                `Use schema`,
                 `SchemataTestResult`,
                 ]).shouldBeIn(r.output);
         // dfmt on
@@ -134,8 +134,8 @@ class ShallUseSchemataSanityCheck : SchemataFixutre {
 
         testConsecutiveSparseOrder!SubStr([
                 `Found schemata`,
-                `Use schemata`,
-                `Compile schemata`,
+                `Use schema`,
+                `Compile schema`,
                 `Ok`,
                 `Sanity check`,
                 `Ok`,

@@ -6,7 +6,7 @@ list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/stan
 set(EXE_NAME ${DEXTOOL_MAIN_EXE}-mutate)
 
 set(flags "-I${CMAKE_SOURCE_DIR}/libs/cpptooling/source
--J${CMAKE_CURRENT_LIST_DIR}/view
+-J${CMAKE_CURRENT_LIST_DIR}/views
 -I${CMAKE_SOURCE_DIR}/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool/source
 -I${CMAKE_SOURCE_DIR}/dsrcgen/source
@@ -60,3 +60,9 @@ list(APPEND SUT_REUSED_FILES
 file(GLOB_RECURSE TEST_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/test/*.d)
 file(GLOB_RECURSE TESTDATA_FILES ${CMAKE_SOURCE_DIR}/test/testdata/* ${CMAKE_CURRENT_LIST_DIR}/testdata/*)
 compile_d_integration_test(${EXE_NAME} "${TEST_SRC_FILES};${SUT_REUSED_FILES}" "${flags}" "" "dextool_dextool_test;dextool_miniorm;dextool_d2sqlite3;dextool_dextool" "${TESTDATA_FILES}")
+
+# c/c++ code
+
+add_executable(test_schemata_c_header ${CMAKE_CURRENT_LIST_DIR}/test/test_schemata_c_header.cpp)
+target_include_directories(test_schemata_c_header PRIVATE ${CMAKE_CURRENT_LIST_DIR}/views)
+add_unittest_to_check(test_schemata_c_header)

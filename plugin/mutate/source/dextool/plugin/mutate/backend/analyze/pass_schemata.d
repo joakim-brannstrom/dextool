@@ -14,7 +14,7 @@ import std.algorithm : among, map, sort, filter, canFind, copy, uniq;
 import std.array : appender, empty, array, Appender;
 import std.conv : to;
 import std.exception : collectException;
-import std.format : formattedWrite;
+import std.format : formattedWrite, format;
 import std.meta : AliasSeq;
 import std.range : retro, ElementType;
 import std.traits : EnumMembers;
@@ -35,6 +35,12 @@ import dextool.plugin.mutate.backend.type : Language, SourceLoc, Offset,
 
 import dextool.plugin.mutate.backend.analyze.ast;
 import dextool.plugin.mutate.backend.analyze.pass_mutant : CodeMutantsResult;
+
+// constant defined by the schemata that test_mutant uses too
+/// The global variable that a mutant reads to see if it should activate.
+immutable schemataMutantIdentifier = "gDEXTOOL_MUTID";
+/// The environment variable that is read to set the current active mutant.
+immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
 /// Translate a mutation AST to a schemata.
 SchemataResult toSchemata(ref Ast ast, FilesysIO fio, CodeMutantsResult cresult) @trusted {
@@ -58,6 +64,15 @@ SchemataResult toSchemata(ref Ast ast, FilesysIO fio, CodeMutantsResult cresult)
 }
 
 @safe:
+
+/// Converts a checksum to a 32-bit ID that can be used to activate a mutant.
+uint checksumToId(Checksum cs) @safe pure nothrow @nogc {
+    return checksumToId(cs.c0);
+}
+
+uint checksumToId(ulong cs) @safe pure nothrow @nogc {
+    return cast(uint) cs;
+}
 
 /// Language generic
 class SchemataResult {
@@ -170,26 +185,7 @@ enum MutantGroup {
 }
 
 auto defaultHeader(Path f) {
-    static immutable code = `
-#ifndef DEXTOOL_MUTANT_SCHEMATA_INCL_GUARD
-#define DEXTOOL_MUTANT_SCHEMATA_INCL_GUARD
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-static uint64_t gDEXTOOL_MUTID;
-
-__attribute__((constructor))
-static void init_dextool_mutid(void) {
-    gDEXTOOL_MUTID = 0;
-    const char* e = getenv("DEXTOOL_MUTID");
-    if (e != NULL) {
-        sscanf(e, "%lu", &gDEXTOOL_MUTID);
-    }
-}
-
-#endif /* DEXTOOL_MUTANT_SCHEMATA_INCL_GUARD */
-`;
+    enum code = import("schemata_header.c");
     return SchemataFragment(f, Offset(0, 0), cast(const(ubyte)[]) code);
 }
 
@@ -463,6 +459,7 @@ SchemataResult.Fragment rewrite(Location loc, string s) {
 SchemataResult.Fragment rewrite(Location loc, const(ubyte)[] s) {
     return SchemataResult.Fragment(loc.interval, s);
 }
+
 /** A schemata is uniquely identified by the mutants that it contains.
  *
  * The order of the mutants are irrelevant because they are always sorted by
@@ -518,9 +515,9 @@ struct ExpressionChain {
         auto app = appender!(const(ubyte)[])();
         app.put("(".rewrite);
         foreach (const mutant; mutants.data) {
-            app.put("(gDEXTOOL_MUTID == ".rewrite);
-            app.put(mutant.id.to!string.rewrite);
-            app.put("ull".rewrite);
+            app.put(format!"(%s == "(schemataMutantIdentifier).rewrite);
+            app.put(mutant.id.checksumToId.to!string.rewrite);
+            app.put("u".rewrite);
             app.put(") ? (".rewrite);
             app.put(mutant.value);
             app.put(") : ".rewrite);

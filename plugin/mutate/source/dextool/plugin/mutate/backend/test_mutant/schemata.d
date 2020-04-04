@@ -190,6 +190,8 @@ nothrow:
 
     void opCall(ref TestMutant data) {
         import std.datetime.stopwatch : StopWatch, AutoStart;
+        import dextool.plugin.mutate.backend.analyze.pass_schemata : schemataMutantEnvKey,
+            checksumToId;
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
         data.result.id = data.id;
@@ -217,10 +219,9 @@ nothrow:
             logger.info(e.msg).collectException;
         }
 
-        static immutable idKey = "DEXTOOL_MUTID";
-        runner.env[idKey] = data.checksum.c0.to!string;
+        runner.env[schemataMutantEnvKey] = data.checksum.checksumToId.to!string;
         scope (exit)
-            runner.env.remove(idKey);
+            runner.env.remove(schemataMutantEnvKey);
 
         auto sw = StopWatch(AutoStart.yes);
         auto res = runTester(*runner);

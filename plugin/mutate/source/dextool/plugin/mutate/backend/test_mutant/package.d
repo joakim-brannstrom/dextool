@@ -1035,20 +1035,23 @@ nothrow:
 
         const threshold = schemataMutantsThreshold(global.data.conf.sanityCheckSchemata,
                 local.get!NextSchemata.invalidSchematas, local.get!NextSchemata.totalSchematas);
-        logger.trace("Schemata threshold is ", threshold).collectException;
 
         while (!schematas.empty && !data.hasSchema) {
             auto id = schematas[0];
             schematas = schematas[1 .. $];
-
-            if (spinSql!(() {
-                    return global.data.db.schemataMutantsWithStatus(id,
+            const mutants = spinSql!(() {
+                return global.data.db.schemataMutantsWithStatus(id,
                     global.data.mutKind, Mutation.Status.unknown);
-                }) >= threshold) {
+            });
+
+            logger.infof("Schema %s has %s mutants (threshold %s)", id,
+                    mutants, threshold).collectException;
+
+            if (mutants >= threshold) {
                 local.get!PreSchemata.schemata = spinSql!(() {
                     return global.data.db.getSchemata(id);
                 });
-                logger.infof("Use schemata %s (%s left)", id, schematas.length).collectException;
+                logger.infof("Use schema %s (%s left)", id, schematas.length).collectException;
                 data.hasSchema = true;
             }
         }
@@ -1164,8 +1167,8 @@ nothrow:
         }
 
         logger.trace("Found schematas: ", app.data).collectException;
-        // random reorder to reduce the chance that multipe instances of dextool do
-        // use the same schema
+        // random reorder to reduce the chance that multipe instances of
+        // dextool use the same schema
         local.get!NextSchemata.schematas = app.data.randomCover.array;
         local.get!NextSchemata.totalSchematas = app.data.length;
     }
@@ -1173,7 +1176,7 @@ nothrow:
     void opCall(ref SanityCheckSchemata data) {
         import colorlog;
 
-        logger.infof("Compile schemata %s", data.id).collectException;
+        logger.infof("Compile schema %s", data.id).collectException;
 
         if (global.data.conf.logSchemata) {
             const kinds = spinSql!(() {
