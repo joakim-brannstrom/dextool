@@ -1167,8 +1167,8 @@ nothrow:
         }
 
         logger.trace("Found schematas: ", app.data).collectException;
-        // random reorder to reduce the chance that multipe instances of dextool do
-        // use the same schema
+        // random reorder to reduce the chance that multipe instances of
+        // dextool use the same schema
         local.get!NextSchemata.schematas = app.data.randomCover.array;
         local.get!NextSchemata.totalSchematas = app.data.length;
     }
