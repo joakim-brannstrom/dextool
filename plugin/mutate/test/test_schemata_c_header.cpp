@@ -5,11 +5,10 @@
 // This test the preamble for mutants that it works as expected
 
 #include <assert.h>
-#include <cstdint>
-#include <cstring>
 #include <iostream>
+#include <stdio.h>
 #include <stdlib.h>
-#include <string>
+#include <string.h>
 
 #define start_test()                                                                               \
     do {                                                                                           \
@@ -24,10 +23,9 @@
 
 const char* EnvKey = "DEXTOOL_MUTID";
 
-void set_env_mutid(uint64_t v) {
-    auto ss = std::string(EnvKey) + "=" + std::to_string(v);
-    char* s = new char[ss.length() + 1];
-    strcpy(s, ss.c_str());
+void set_env_mutid(unsigned int v) {
+    char* s = new char[1024];
+    sprintf(s, "%s=%u", EnvKey, v);
     assert(putenv(s) == 0);
 }
 
@@ -48,12 +46,12 @@ void test_read_largest() {
     start_test();
 
     msg("Setting the env to the largest possible value");
-    set_env_mutid(UINT64_MAX);
+    set_env_mutid(4294967295);
 
     init_dextool_mutid();
 
     msg("global variable gDEXTOOL_MUTID is " << gDEXTOOL_MUTID);
-    assert(gDEXTOOL_MUTID == UINT64_MAX);
+    assert(gDEXTOOL_MUTID == 4294967295);
 }
 
 int main(int argc, char** argv) {
