@@ -143,3 +143,41 @@ class ShallUseSchemataSanityCheck : SchemataFixutre {
         // dfmt on
     }
 }
+
+class ShallGenerateUoiSchema : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "simple_schemata.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--mutant", "uoi"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["--use-schemata"])
+            .addPostArg(["--log-schemata"])
+            .run;
+
+        // verify that a AOR schemata has executed and saved the result
+        testConsecutiveSparseOrder!SubStr([
+                `Found schemata`,
+                `Use schema`,
+                `from '!' to ''`,
+                `alive`,
+                `SchemataTestResult`,
+                ]).shouldBeIn(r.output);
+        // dfmt on
+    }
+}
