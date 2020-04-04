@@ -65,6 +65,15 @@ SchemataResult toSchemata(ref Ast ast, FilesysIO fio, CodeMutantsResult cresult)
 
 @safe:
 
+/// Converts a checksum to a 32-bit ID that can be used to activate a mutant.
+uint checksumToId(Checksum cs) @safe pure nothrow @nogc {
+    return checksumToId(cs.c0);
+}
+
+uint checksumToId(ulong cs) @safe pure nothrow @nogc {
+    return cast(uint) cs;
+}
+
 /// Language generic
 class SchemataResult {
     import dextool.set;
@@ -450,6 +459,7 @@ SchemataResult.Fragment rewrite(Location loc, string s) {
 SchemataResult.Fragment rewrite(Location loc, const(ubyte)[] s) {
     return SchemataResult.Fragment(loc.interval, s);
 }
+
 /** A schemata is uniquely identified by the mutants that it contains.
  *
  * The order of the mutants are irrelevant because they are always sorted by
@@ -506,8 +516,8 @@ struct ExpressionChain {
         app.put("(".rewrite);
         foreach (const mutant; mutants.data) {
             app.put(format!"(%s == "(schemataMutantIdentifier).rewrite);
-            app.put(mutant.id.to!string.rewrite);
-            app.put("ull".rewrite);
+            app.put(mutant.id.checksumToId.to!string.rewrite);
+            app.put("u".rewrite);
             app.put(") ? (".rewrite);
             app.put(mutant.value);
             app.put(") : ".rewrite);

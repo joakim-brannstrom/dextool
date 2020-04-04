@@ -61,7 +61,7 @@ class ShallRunADummySchemata : SchemataFixutre {
         // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `Found schemata`,
-                `Use schemata`,
+                `Use schema`,
                 `from '+' to '-'`,
                 `alive`,
                 `SchemataTestResult`,

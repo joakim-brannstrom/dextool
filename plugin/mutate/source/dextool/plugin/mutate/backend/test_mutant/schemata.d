@@ -29,8 +29,6 @@ import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, Checksum;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
 
-import dextool.plugin.mutate.backend.analyze.pass_schemata : schemataMutantEnvKey;
-
 @safe:
 
 struct MutationTestResult {
@@ -192,6 +190,8 @@ nothrow:
 
     void opCall(ref TestMutant data) {
         import std.datetime.stopwatch : StopWatch, AutoStart;
+        import dextool.plugin.mutate.backend.analyze.pass_schemata : schemataMutantEnvKey,
+            checksumToId;
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
         data.result.id = data.id;
@@ -219,7 +219,7 @@ nothrow:
             logger.info(e.msg).collectException;
         }
 
-        runner.env[schemataMutantEnvKey] = data.checksum.c0.to!string;
+        runner.env[schemataMutantEnvKey] = data.checksum.checksumToId.to!string;
         scope (exit)
             runner.env.remove(schemataMutantEnvKey);
 
