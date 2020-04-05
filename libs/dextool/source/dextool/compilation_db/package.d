@@ -550,7 +550,7 @@ struct ParseFlags {
     string toString() @safe pure const {
         import std.format : format;
 
-        return format("Compiler: %-(%s %) flags: %-(%s %)", compiler, completeFlags);
+        return format("Compiler:%s flags: %-(%s %)", compiler, completeFlags);
     }
 
     /** Easy to use method that has the complete flags ready to use with a GCC

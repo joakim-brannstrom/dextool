@@ -203,7 +203,10 @@ struct SchematasRange {
 
             Set!CodeMutant mutants;
             foreach (a; fragments) {
-                if (index.inside(0, a.offset)) {
+                // conservative to only allow up to 100 mutants per schemata.
+                // but it reduces the chance that one failing schemata is
+                // "fatal", loosing too many muntats.
+                if (index.inside(0, a.offset) || mutants.length == 100) {
                     spillOver.put(a);
                 } else {
                     app.put(SchemataFragment(relp, a.offset, a.text));
@@ -333,6 +336,166 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(OpAndBitwise n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpAnd n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpOrBitwise n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpOr n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpLess n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpLessEq n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpGreater n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpGreaterEq n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpEqual n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpNotEqual n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpAdd n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpSub n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpMul n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpMod n) {
+        visitBinaryOp(n);
+    }
+
+    override void visit(OpDiv n) {
+        visitBinaryOp(n);
+    }
+
+    private void visitBlock(ChainT, T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+        auto loc = ast.location(n);
+
+        auto offs = loc.interval;
+        auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
+
+        if (mutants.empty)
+            return;
+
+        auto fin = fio.makeInput(loc.file);
+        auto schema = ChainT(fin.content[offs.begin .. offs.end]);
+        foreach (const mutant; mutants) {
+            schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang)
+                    .mutate(fin.content[offs.begin .. offs.end]));
+        }
+
+        result.putFragment(loc.file, group, rewrite(loc, schema.generate, mutants));
+    }
+
+    private void visitUnaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+        auto loc = ast.location(n.operator);
+        auto locExpr = ast.location(n);
+
+        auto mutants = index.get(loc.file, loc.interval)
+            .filter!(a => canFind(kinds, a.mut.kind)).array;
+
+        if (mutants.empty)
+            return;
+
+        auto fin = fio.makeInput(loc.file);
+        auto schema = ExpressionChain(fin.content[locExpr.interval.begin .. locExpr.interval.end]);
+        foreach (const mutant; mutants) {
+            schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang)
+                    .mutate(fin.content[loc.interval.begin .. loc.interval.end]),
+                    fin.content[loc.interval.end .. locExpr.interval.end]);
+        }
+
+        result.putFragment(loc.file, group, rewrite(locExpr, schema.generate, mutants));
+    }
+
+    private void visitBinaryOp(T)(T n) @trusted {
+        try {
+            auto v = scoped!BinaryOpVisitor(ast, &index, fio, n);
+            v.startVisit(n);
+
+            foreach (a; v.schema.byKeyValue.filter!(a => !a.value.empty)) {
+                result.putFragment(v.rootLoc.file, a.key, rewrite(v.rootLoc,
+                        a.value.generate, v.mutants[a.key]));
+            }
+        } catch (Exception e) {
+        }
+    }
+}
+
+class BinaryOpVisitor : DepthFirstVisitor {
+    import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
+    import dextool.plugin.mutate.backend.mutation_type.aor : aorMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.dcc : dccMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.ror : rorMutationsAll, rorpMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutationsRaw;
+
+    Ast* ast;
+    CodeMutantIndex* index;
+    FilesysIO fio;
+
+    // the root of the expression that is being mutated
+    Location rootLoc;
+    Interval root;
+
+    /// Content of the file that contains the mutant.
+    const(ubyte)[] content;
+
+    /// The resulting fragments of the expression.
+    ExpressionChain[MutantGroup] schema;
+    CodeMutant[][MutantGroup] mutants;
+
+    this(T)(Ast* ast, CodeMutantIndex* index, FilesysIO fio, T root) {
+        this.ast = ast;
+        this.index = index;
+        this.fio = fio;
+    }
+
+    void startVisit(T)(T n) {
+        rootLoc = ast.location(n);
+        root = rootLoc.interval;
+        content = fio.makeInput(rootLoc.file).content;
+
+        foreach (mg; [EnumMembers!MutantGroup]) {
+            schema[mg] = ExpressionChain(content[root.begin .. root.end]);
+            mutants[mg] = CodeMutant[].init;
+        }
+
+        visit(n);
+    }
+
+    alias visit = DepthFirstVisitor.visit;
+
+    override void visit(OpAndBitwise n) {
         visitBinaryOp(n, MutantGroup.lcrb, lcrbMutationsAll);
         accept(n, this);
     }
@@ -423,54 +586,17 @@ class CppSchemataVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
-    private void visitBlock(ChainT, T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
-        auto loc = ast.location(n);
-
-        auto offs = loc.interval;
-        auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
-
-        if (mutants.empty)
-            return;
-
-        auto fin = fio.makeInput(loc.file);
-        auto schema = ChainT(fin.content[offs.begin .. offs.end]);
-        foreach (const mutant; mutants) {
-            schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang)
-                    .mutate(fin.content[offs.begin .. offs.end]));
-        }
-
-        result.putFragment(loc.file, group, rewrite(loc, schema.generate, mutants));
-    }
-
-    private void visitUnaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
-        auto loc = ast.location(n.operator);
-        auto locExpr = ast.location(n);
-
-        auto mutants = index.get(loc.file, loc.interval)
-            .filter!(a => canFind(kinds, a.mut.kind)).array;
-
-        if (mutants.empty)
-            return;
-
-        auto fin = fio.makeInput(loc.file);
-        auto schema = ExpressionChain(fin.content[locExpr.interval.begin .. locExpr.interval.end]);
-        foreach (const mutant; mutants) {
-            schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang)
-                    .mutate(fin.content[loc.interval.begin .. loc.interval.end]),
-                    fin.content[loc.interval.end .. locExpr.interval.end]);
-        }
-
-        result.putFragment(loc.file, group, rewrite(locExpr, schema.generate, mutants));
-    }
-
     private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds_) {
-        auto loc = ast.location(n.operator);
         auto locExpr = ast.location(n);
+        auto loc = ast.location(n.operator);
         auto locLhs = ast.location(n.lhs);
         auto locRhs = ast.location(n.rhs);
         if (locLhs is null || locRhs is null) {
             return;
         }
+
+        auto left = content[root.begin .. locExpr.interval.begin];
+        auto right = content[locExpr.interval.end .. root.end];
 
         auto opKinds = opKinds_.dup.sort.uniq.array;
 
@@ -491,40 +617,36 @@ class CppSchemataVisitor : DepthFirstVisitor {
         if (opMutants.empty && lhsMutants.empty && rhsMutants.empty)
             return;
 
-        auto fin = fio.makeInput(loc.file);
-        auto schema = ExpressionChain(fin.content[locExpr.interval.begin .. locExpr.interval.end]);
-        auto robustSchema = ExpressionChain(
-                fin.content[locExpr.interval.begin .. locExpr.interval.end]);
-
         foreach (const mutant; opMutants) {
-            schema.put(mutant.id.c0, fin.content[locLhs.interval.begin .. locLhs.interval.end],
-                    makeMutation(mutant.mut.kind, ast.lang).mutate(fin.content[loc.interval.begin .. loc.interval.end]),
-                    fin.content[locRhs.interval.begin .. locRhs.interval.end]);
+            schema[group].put(mutant.id.c0, left,
+                    content[locLhs.interval.begin .. locLhs.interval.end], makeMutation(mutant.mut.kind, ast.lang)
+                    .mutate(content[loc.interval.begin .. loc.interval.end]),
+                    content[locRhs.interval.begin .. locRhs.interval.end], right);
         }
 
         foreach (const mutant; lhsMutants) {
-            robustSchema.put(mutant.id.c0, schema.put(mutant.id.c0,
-                    makeMutation(mutant.mut.kind, ast.lang).mutate(fin.content[offsLhs.begin .. offsLhs.end]),
-                    fin.content[locRhs.interval.begin .. locRhs.interval.end]));
+            schema[MutantGroup.opExpr].put(mutant.id.c0,
+                    schema[group].put(mutant.id.c0, left, makeMutation(mutant.mut.kind,
+                        ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
+                        content[locRhs.interval.begin .. locRhs.interval.end], right));
         }
 
         foreach (const mutant; rhsMutants) {
-            robustSchema.put(mutant.id.c0, schema.put(mutant.id.c0,
-                    fin.content[locLhs.interval.begin .. locLhs.interval.end],
-                    makeMutation(mutant.mut.kind, ast.lang).mutate(
-                    fin.content[offsRhs.begin .. offsRhs.end])));
+            schema[MutantGroup.opExpr].put(mutant.id.c0,
+                    schema[group].put(mutant.id.c0, left,
+                        content[locLhs.interval.begin .. locLhs.interval.end], makeMutation(mutant.mut.kind,
+                        ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]), right));
         }
 
         foreach (const mutant; exprMutants) {
-            robustSchema.put(mutant.id.c0, schema.put(mutant.id.c0,
-                    makeMutation(mutant.mut.kind, ast.lang).mutate(
-                    fin.content[locExpr.interval.begin .. locExpr.interval.end])));
+            schema[MutantGroup.opExpr].put(mutant.id.c0,
+                    schema[group].put(mutant.id.c0, left, makeMutation(mutant.mut.kind,
+                        ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
+                        right));
         }
 
-        result.putFragment(loc.file, group, rewrite(locExpr, schema.generate,
-                opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants));
-        result.putFragment(loc.file, MutantGroup.opExpr, rewrite(locExpr,
-                robustSchema.generate, lhsMutants ~ rhsMutants ~ exprMutants));
+        mutants[group] ~= opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants;
+        mutants[MutantGroup.opExpr] ~= lhsMutants ~ rhsMutants ~ exprMutants;
     }
 }
 
@@ -576,6 +698,10 @@ struct ExpressionChain {
         this.original = original;
     }
 
+    bool empty() @safe pure nothrow const @nogc {
+        return mutants.data.empty;
+    }
+
     /// Returns: `value`
     const(ubyte)[] put(ulong id, const(ubyte)[] value) {
         mutants.put(Mutant(id, value));
@@ -621,6 +747,10 @@ struct BlockChain {
 
     this(const(ubyte)[] original) {
         this.original = original;
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return mutants.data.empty;
     }
 
     /// Returns: `value`

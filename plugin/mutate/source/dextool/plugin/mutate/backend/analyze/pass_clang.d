@@ -547,9 +547,8 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const(CompoundStmt) v) {
         mixin(mixinNodeLog!());
 
-        auto loc = v.cursor.toLocation;
-
         try {
+            auto loc = v.cursor.toLocation;
             auto fin = fio.makeInput(loc.file);
 
             // a CompoundStmt that represent a "{..}" can for example be the
@@ -564,6 +563,7 @@ final class BaseVisitor : ExtendedVisitor {
                 if (begin < end) {
                     loc.interval = Interval(begin, end);
                 }
+
                 auto n = new analyze.Block;
                 ast.put(n, loc);
                 nstack.back.children ~= n;
