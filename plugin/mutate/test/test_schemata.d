@@ -17,6 +17,10 @@ import dextool_test.utility;
 import dextool_test.fixtures;
 
 class SchemataFixutre : SimpleFixture {
+    override string programFile() {
+        return (testData ~ "simple_schemata.cpp").toString;
+    }
+
     override string scriptBuild() {
         return "#!/bin/bash
 set -e
@@ -30,26 +34,14 @@ set -e
 %s
 ", program_bin);
     }
-}
 
-class ShallRunADummySchemata : SchemataFixutre {
-    override string programFile() {
-        return (testData ~ "simple_schemata.cpp").toString;
-    }
-
-    override void test() {
-        mixin(EnvSetup(globalTestdir));
-        precondition(testEnv);
-        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
-
+    auto runDextoolTest(ref TestEnv testEnv, string[] args) {
         // dfmt off
-        auto r = dextool_test.makeDextool(testEnv)
+        return dextool_test.makeDextool(testEnv)
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
-            .addPostArg(["--mutant", "aor"])
+            .addPostArg(args)
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compile_script])
             .addPostArg(["--test-cmd", test_script])
@@ -57,6 +49,23 @@ class ShallRunADummySchemata : SchemataFixutre {
             .addPostArg(["--use-schemata"])
             .addPostArg(["--log-schemata"])
             .run;
+        // dfmt on
+    }
+}
+
+class ShallRunAorSchema : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "simple_schemata.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = runDextoolTest(testEnv, ["--mutant", "aor"]);
 
         // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
@@ -70,7 +79,7 @@ class ShallRunADummySchemata : SchemataFixutre {
     }
 }
 
-class ShallGenerateDcrSchema : SchemataFixutre {
+class ShallRunDccSchema : SchemataFixutre {
     override string programFile() {
         return (testData ~ "simple_schemata.cpp").toString;
     }
@@ -78,28 +87,42 @@ class ShallGenerateDcrSchema : SchemataFixutre {
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
-        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
         makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
 
         // dfmt off
-        auto r = dextool_test.makeDextool(testEnv)
-            .setWorkdir(workDir)
-            .args(["mutate"])
-            .addArg(["test"])
-            .addPostArg(["--mutant", "dcr"])
-            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
-            .addPostArg(["--test-timeout", "10000"])
-            .addPostArg(["--use-schemata"])
-            .addPostArg(["--log-schemata"])
-            .run;
+        auto r = runDextoolTest(testEnv, ["--mutant", "dcc"]);
 
         // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `Found schemata`,
                 `Use schema`,
+                `from 'x < 10' to 'false'`,
+                `SchemataTestResult`,
+                ]).shouldBeIn(r.output);
+        // dfmt on
+    }
+}
+
+class ShallRunDcrSchema : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "simple_schemata.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = runDextoolTest(testEnv, ["--mutant", "dcr"]);
+
+        // verify that a AOR schemata has executed and saved the result
+        testConsecutiveSparseOrder!SubStr([
+                `Found schemata`,
+                `Use schema`,
+                `from 'x < 10' to 'false'`,
                 `SchemataTestResult`,
                 ]).shouldBeIn(r.output);
         // dfmt on
@@ -114,23 +137,11 @@ class ShallUseSchemataSanityCheck : SchemataFixutre {
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
-        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
         makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
 
         // dfmt off
-        auto r = dextool_test.makeDextool(testEnv)
-            .setWorkdir(workDir)
-            .args(["mutate"])
-            .addArg(["test"])
-            .addPostArg(["--mutant", "aor"])
-            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
-            .addPostArg(["--test-timeout", "10000"])
-            .addPostArg(["--use-schemata"])
-            .addPostArg(["--check-schemata"])
-            .run;
+        auto r = runDextoolTest(testEnv, ["--mutant", "aor"]);
 
         testConsecutiveSparseOrder!SubStr([
                 `Found schemata`,
@@ -144,31 +155,15 @@ class ShallUseSchemataSanityCheck : SchemataFixutre {
     }
 }
 
-class ShallGenerateUoiSchema : SchemataFixutre {
-    override string programFile() {
-        return (testData ~ "simple_schemata.cpp").toString;
-    }
-
+class ShallRunUoiSchema : SchemataFixutre {
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
-        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
         makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
 
         // dfmt off
-        auto r = dextool_test.makeDextool(testEnv)
-            .setWorkdir(workDir)
-            .args(["mutate"])
-            .addArg(["test"])
-            .addPostArg(["--mutant", "uoi"])
-            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
-            .addPostArg(["--test-timeout", "10000"])
-            .addPostArg(["--use-schemata"])
-            .addPostArg(["--log-schemata"])
-            .run;
+        auto r = runDextoolTest(testEnv, ["--mutant", "uoi"]);
 
         // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
