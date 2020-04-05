@@ -56,7 +56,12 @@ int test_binary_op(int x) {
     x = x | 5;
     x = x && true;
     x = x || false;
+
     return x;
+}
+
+int test_complex_binary_op(int x, int left, int width, int y, int top, int height) {
+    return x >= left && x < left + width && y <= top && y > top - height;
 }
 
 int test_assign_op(int x) {
