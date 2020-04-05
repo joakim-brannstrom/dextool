@@ -167,6 +167,25 @@ class ShallRunUoiSchema : SchemataFixutre {
     }
 }
 
+class ShallRunLcrSchema : SchemataFixutre {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = runDextoolTest(testEnv, ["--mutant", "lcr"]);
+
+        // verify that a AOR schemata has executed and saved the result
+        testConsecutiveSparseOrder!SubStr([
+                `from '&&' to '||'`,
+                `alive`,
+                ]).shouldBeIn(r.output);
+        // dfmt on
+    }
+}
+
 class ShallRunSdlSchema : SchemataFixutre {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -179,7 +198,7 @@ class ShallRunSdlSchema : SchemataFixutre {
 
         // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
-                //`from '' to ''`,
+                `from 'x = test_unary_op(x)' to ''`,
                 `alive`,
                 ]).shouldBeIn(r.output);
         // dfmt on
