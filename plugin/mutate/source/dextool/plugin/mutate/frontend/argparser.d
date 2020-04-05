@@ -232,6 +232,7 @@ struct ArgParser {
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &analyze.unifiedDiffFromStdin,
                    "fast-db-store", "improve the write speed of the analyze result (may corrupt the database)", &analyze.fastDbStore,
                    "file-exclude", "exclude files in these directory tree from the analysis (default: none)", &exclude_files,
+                   "force-save", "force the result from the analyze to be saved", &analyze.forceSaveAnalyze,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "no-prune", "do not prune the database of files that aren't found during the analyze", &noPrune,
                    "out", out_help, &workArea.rawRoot,

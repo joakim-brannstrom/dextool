@@ -95,6 +95,9 @@ struct ConfigAnalyze {
 
     /// If profiling data should be printed.
     bool profile;
+
+    /// Force the result from the files to always be saved
+    bool forceSaveAnalyze;
 }
 
 /// Settings for the compiler
