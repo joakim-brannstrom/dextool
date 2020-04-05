@@ -306,12 +306,22 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Block n) {
-        visitBlock(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(Call n) {
+        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(OpAssign n) {
-        visitBlock(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(Return n) {
+        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
         accept(n, this);
     }
 
@@ -413,7 +423,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
-    private void visitBlock(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+    private void visitBlock(ChainT, T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
         auto loc = ast.location(n);
 
         auto offs = loc.interval;
@@ -423,7 +433,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return;
 
         auto fin = fio.makeInput(loc.file);
-        auto schema = BlockChain(fin.content[offs.begin .. offs.end]);
+        auto schema = ChainT(fin.content[offs.begin .. offs.end]);
         foreach (const mutant; mutants) {
             schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang)
                     .mutate(fin.content[offs.begin .. offs.end]));
