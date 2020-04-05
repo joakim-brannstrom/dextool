@@ -468,7 +468,7 @@ struct Analyze {
             return;
         }
 
-        auto ast = toMutateAst(tu.cursor);
+        auto ast = toMutateAst(tu.cursor, fio);
         debug logger.trace(ast);
         auto mutants = toMutants(ast, fio, val_loc);
 

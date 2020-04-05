@@ -347,10 +347,7 @@ class MutantVisitor : DepthFirstVisitor {
 
     /// Returns: the depth (1+) if any of the parent nodes is `k`.
     uint isInside(Kind k) {
-        foreach (a; nstack.range.filter!(a => a.data.kind == k)) {
-            return a.depth;
-        }
-        return 0;
+        return nstack.isInside(k);
     }
 
     /// Returns: the type, if any, of the function that the current visited node is inside.

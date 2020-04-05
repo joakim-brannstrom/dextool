@@ -69,11 +69,8 @@ class ShallRunAorSchema : SchemataFixutre {
 
         // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
-                `Found schemata`,
-                `Use schema`,
                 `from '+' to '-'`,
                 `alive`,
-                `SchemataTestResult`,
                 ]).shouldBeIn(r.output);
         // dfmt on
     }
@@ -170,6 +167,28 @@ class ShallRunUoiSchema : SchemataFixutre {
                 `Found schemata`,
                 `Use schema`,
                 `from '!' to ''`,
+                `alive`,
+                `SchemataTestResult`,
+                ]).shouldBeIn(r.output);
+        // dfmt on
+    }
+}
+
+class ShallRunSdlSchema : SchemataFixutre {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = runDextoolTest(testEnv, ["--mutant", "sdl"]);
+
+        // verify that a AOR schemata has executed and saved the result
+        testConsecutiveSparseOrder!SubStr([
+                `Found schemata`,
+                `Use schema`,
+                `from 'x = 42' to ''`,
                 `alive`,
                 `SchemataTestResult`,
                 ]).shouldBeIn(r.output);

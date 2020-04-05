@@ -33,6 +33,7 @@ import dextool.type : Path;
 import dextool.plugin.mutate.backend.analyze.ast : Interval, Location;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.utility;
+import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.type : Language, SourceLoc, Offset, SourceLocRange;
 
 import analyze = dextool.plugin.mutate.backend.analyze.ast;
@@ -41,10 +42,10 @@ alias accept = dextool.plugin.mutate.backend.analyze.extensions.accept;
 
 /** Translate a clang AST to a mutation AST.
  */
-analyze.Ast toMutateAst(const Cursor root) @trusted {
+analyze.Ast toMutateAst(const Cursor root, FilesysIO fio) @trusted {
     import cpptooling.analyzer.clang.ast : ClangAST;
 
-    auto svisitor = scoped!BaseVisitor();
+    auto svisitor = scoped!BaseVisitor(fio);
     auto visitor = cast(BaseVisitor) svisitor;
     auto ast = ClangAST!BaseVisitor(root);
     ast.accept(visitor);
@@ -370,7 +371,10 @@ final class BaseVisitor : ExtendedVisitor {
 
     analyze.Ast ast;
 
-    this() nothrow {
+    FilesysIO fio;
+
+    this(FilesysIO fio) nothrow {
+        this.fio = fio;
     }
 
     override void incr() @safe {
@@ -395,6 +399,11 @@ final class BaseVisitor : ExtendedVisitor {
         ast.put(n, loc);
         nstack.back.children ~= n;
         pushStack(n, loc);
+    }
+
+    /// Returns: the depth (1+) if any of the parent nodes is `k`.
+    private uint isInside(analyze.Kind k) {
+        return nstack.isInside(k);
     }
 
     override void visit(const(TranslationUnit) v) {
@@ -537,7 +546,35 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const(CompoundStmt) v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Block, v);
+
+        auto loc = v.cursor.toLocation;
+
+        try {
+            auto fin = fio.makeInput(loc.file);
+
+            // a CompoundStmt that represent a "{..}" can for example be the
+            // body of a function or the block that a try statement encompase.
+            // The block that can be modified is the inside of it thus the
+            // location has to be the inside. If this modification to isn't
+            // done then a SDL can't be generated that delete the inside of
+            // e.g. void functions.
+            if (fin.content[loc.interval.begin .. loc.interval.begin + 1] == cast(const(ubyte)[]) "{") {
+                const begin = loc.interval.begin + 1;
+                const end = loc.interval.end - 1;
+                if (begin < end) {
+                    loc.interval = Interval(begin, end);
+                }
+                auto n = new analyze.Block;
+                ast.put(n, loc);
+                nstack.back.children ~= n;
+                pushStack(n, loc);
+            } else {
+                pushStack(new analyze.Block, v);
+            }
+        } catch (Exception e) {
+            logger.trace(e.msg).collectException;
+        }
+
         v.accept(this);
     }
 
