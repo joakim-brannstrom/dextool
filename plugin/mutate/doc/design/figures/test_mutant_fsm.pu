@@ -49,6 +49,7 @@ NextPullRequestMutant --> PreMutationTest
 NextPullRequestMutant --> Done : allTested
 
 NextSchemata --> PreSchemata : hasSchema
+NextSchemata --> Done : !hasSchema && userStop
 NextSchemata --> NextMutant
 PreSchemata --> SanityCheckSchemata
 SanityCheckSchemata --> SchemataRestore : failed

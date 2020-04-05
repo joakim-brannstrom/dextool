@@ -126,18 +126,19 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * merge all schemas with only 1-2 mutants to "one" schema
+ * document early stop and schemata
+ * write a tutorial/guide for integrating dextool in a pull request workflow
+ * add a threshold for the max number of mutants that a schema contains. Less mutants mean it is a higher probability that it actually compiles.
+ * present the first mutant that survived in a pull request as a diff. It should be "good enough" because the user is working on the pieace of code thus it should be able to "fast" understand what the mutant means.
  * because mutation testing is a specialization of fuzzy testing it should be possible to integrate similare techniques as is used in AFL such as the coverage instrumentation. The least we can do with this is getting the path coverage of a SUT. Could it also be used to "guide" us in what mutants to prioritize?
- * automatically mark a schemata as "done" if there are no mutants related to it with the status "unknown".
  * build a dependency for a file that is mutated such that it is only re-analyzed if that file or any of its dependencies has changed. Use the includeVisitor to find the dependencies.
- * implement prioritization of what binaries to execute for a mutant. Prioritize the order to execute binaries in by those that have killed mutants in a file that has been mutated. Maybe call it "test_cmd_auto_prio"?
  * show how the score is trending over time.
  * save changes to the mutation score in the database each time it has "finished" a run. It means that the user do not need external tooling to "plot" and visualize how the mutation score change over time.
  * add a database query that returns test cases sorted by the number of mutants they killed.
    change package.d to using it instead of sort_tcs_on_kills.
  * rank mutants by how much they changed the source code. more tokens then higher risk? Add to high interest mutants.
    an alternative would be how much they change the dataflow based on the LLVM IR.
- * inactivate unused parts of UOI.
- * update aor to mutate "a + " to "a", "b" besides the normal.
  * allow the limits for the colors in the html report for files to be configurable.
     * The user may have either looser or stricter requirements than those that are hard coded atm.
  * save stdout/stderr log when testing mutants. this makes it easier to understand why "test" and "build" scripts fail.

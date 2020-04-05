@@ -299,6 +299,9 @@ struct TestDriver {
 
     static struct NextSchemata {
         bool hasSchema;
+        /// stop mutation testing because the last schema has been used and the
+        /// user has configured that the testing should stop now.
+        bool stop;
     }
 
     static struct PreSchemataData {
@@ -478,6 +481,8 @@ struct TestDriver {
         }, (NextSchemata a) {
             if (a.hasSchema)
                 return fsm(PreSchemata.init);
+            if (a.stop)
+                return fsm(Done.init);
             return fsm(NextMutant.init);
         }, (PreSchemata a) {
             if (a.error)
@@ -1037,7 +1042,7 @@ nothrow:
                 local.get!NextSchemata.invalidSchematas, local.get!NextSchemata.totalSchematas);
 
         while (!schematas.empty && !data.hasSchema) {
-            auto id = schematas[0];
+            const id = schematas[0];
             schematas = schematas[1 .. $];
             const mutants = spinSql!(() {
                 return global.data.db.schemataMutantsWithStatus(id,
@@ -1048,15 +1053,20 @@ nothrow:
                     mutants, threshold).collectException;
 
             if (mutants >= threshold) {
-                local.get!PreSchemata.schemata = spinSql!(() {
+                auto schema = spinSql!(() {
                     return global.data.db.getSchemata(id);
                 });
-                logger.infof("Use schema %s (%s left)", id, schematas.length).collectException;
-                data.hasSchema = true;
+                if (!schema.isNull) {
+                    local.get!PreSchemata.schemata = schema;
+                    logger.infof("Use schema %s (%s left)", id, schematas.length).collectException;
+                    data.hasSchema = true;
+                }
             }
         }
 
         local.get!NextSchemata.schematas = schematas;
+
+        data.stop = !data.hasSchema && global.data.conf.stopAfterLastSchema;
     }
 
     void opCall(ref PreSchemata data) {

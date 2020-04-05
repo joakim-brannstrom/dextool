@@ -183,6 +183,7 @@ enum MutantGroup {
     dcc,
     dcr,
     uoi,
+    sdl,
 }
 
 auto defaultHeader(Path f) {
@@ -274,6 +275,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.ror : rorMutationsAll, rorpMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutationsRaw;
 
     Ast* ast;
     CodeMutantIndex index;
@@ -290,6 +292,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
     alias visit = DepthFirstVisitor.visit;
 
     override void visit(Expr n) {
+        accept(n, this);
+    }
+
+    override void visit(Block n) {
+        visitBlock(n, MutantGroup.sdl, stmtDelMutationsRaw);
         accept(n, this);
     }
 
@@ -389,6 +396,25 @@ class CppSchemataVisitor : DepthFirstVisitor {
     override void visit(OpDiv n) {
         visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
         accept(n, this);
+    }
+
+    private void visitBlock(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+        auto loc = ast.location(n);
+
+        auto offs = loc.interval;
+        auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
+
+        if (mutants.empty)
+            return;
+
+        auto fin = fio.makeInput(loc.file);
+        auto schema = BlockChain(fin.content[offs.begin .. offs.end]);
+        foreach (const mutant; mutants) {
+            schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang)
+                    .mutate(fin.content[offs.begin .. offs.end]));
+        }
+
+        result.putFragment(loc.file, group, rewrite(loc, schema.generate), mutants);
     }
 
     private void visitUnaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
@@ -555,6 +581,65 @@ struct ExpressionChain {
         app.put("(".rewrite);
         app.put(original);
         app.put("))".rewrite);
+        return app.data;
+    }
+}
+
+/** Accumulate block modification of the program to then generate a
+ * if-statement chain that activates them if the mutant is set. The last one is
+ * the original.
+ */
+struct BlockChain {
+    alias Mutant = Tuple!(ulong, "id", const(ubyte)[], "value");
+    Appender!(Mutant[]) mutants;
+    const(ubyte)[] original;
+
+    this(const(ubyte)[] original) {
+        this.original = original;
+    }
+
+    /// Returns: `value`
+    const(ubyte)[] put(ulong id, const(ubyte)[] value) {
+        mutants.put(Mutant(id, value));
+        return value;
+    }
+
+    /// Returns: the merge of `values`
+    const(ubyte)[] put(T...)(ulong id, auto ref T values) {
+        auto app = appender!(const(ubyte)[])();
+        static foreach (a; values) {
+            app.put(a);
+        }
+        return this.put(id, app.data);
+    }
+
+    /// Returns: the generated chain that can replace the original expression.
+    const(ubyte)[] generate() {
+        auto app = appender!(const(ubyte)[])();
+        bool isFirst = true;
+        foreach (const mutant; mutants.data) {
+            if (isFirst) {
+                app.put("if (".rewrite);
+            } else {
+                app.put(" else if (".rewrite);
+            }
+            isFirst = false;
+
+            app.put(format!"%s == "(schemataMutantIdentifier).rewrite);
+            app.put(mutant.id.checksumToId.to!string.rewrite);
+            app.put("u".rewrite);
+            app.put(") {".rewrite);
+            app.put(mutant.value);
+            app.put("} ".rewrite);
+        }
+
+        app.put("else {".rewrite);
+        app.put(original);
+        if (original[$ - 1 .. $] != ";".rewrite) {
+            app.put(";".rewrite);
+        }
+        app.put("}".rewrite);
+
         return app.data;
     }
 }

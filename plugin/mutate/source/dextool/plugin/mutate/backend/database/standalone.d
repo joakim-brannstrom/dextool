@@ -1763,24 +1763,34 @@ struct Database {
         return typeof(return)(schemId.SchemataId);
     }
 
-    void pruneSchematas() @trusted {
+    void pruneSchemas() @trusted {
         import dextool.utility : dextoolBinaryId;
 
         auto remove = () {
-            immutable sql = format!"SELECT t0.id,t0.version,t0.fragments,t1.fragments
+            auto remove = appender!(long[])();
+
+            immutable sqlVersion = format!"SELECT t0.id
+            FROM %1$s t0
+            WHERE t0.version != %2$s
+            "(schemataTable, dextoolBinaryId);
+            auto stmt = db.prepare(sqlVersion);
+
+            foreach (a; stmt.get.execute) {
+                remove.put(a.peek!long(0));
+            }
+
+            immutable sqlFragment = format!"SELECT t0.id
             FROM
             %1$s t0,
             (SELECT schem_id id,count(*) fragments FROM %2$s GROUP BY schem_id) t1
             WHERE
-            t0.id = t1.id
+            t0.id = t1.id AND
+            t0.fragments != t1.fragments
             "(schemataTable, schemataFragmentTable);
-            auto stmt = db.prepare(sql);
+            stmt = db.prepare(sqlFragment);
 
-            auto remove = appender!(long[])();
             foreach (a; stmt.get.execute) {
-                if (a.peek!long(2) != a.peek!long(3) || a.peek!long(1) != dextoolBinaryId) {
-                    remove.put(a.peek!long(0));
-                }
+                remove.put(a.peek!long(0));
             }
             return remove.data;
         }();

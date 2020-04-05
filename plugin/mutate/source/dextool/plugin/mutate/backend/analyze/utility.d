@@ -54,6 +54,16 @@ struct Stack(T) {
     bool empty() @safe pure nothrow const @nogc {
         return stack.empty;
     }
+
+    /// Returns: the depth (1+) if any of the parent nodes is `k`, zero otherwise.
+    uint isInside(K)(K k) {
+        import std.algorithm : filter;
+
+        foreach (a; stack.range.filter!(a => a.data.kind == k)) {
+            return a.depth;
+        }
+        return 0;
+    }
 }
 
 /** An index that can be queries to see if an interval overlap any of those

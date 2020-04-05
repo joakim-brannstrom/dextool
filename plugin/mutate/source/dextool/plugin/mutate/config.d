@@ -95,6 +95,9 @@ struct ConfigAnalyze {
 
     /// If profiling data should be printed.
     bool profile;
+
+    /// Force the result from the files to always be saved
+    bool forceSaveAnalyze;
 }
 
 /// Settings for the compiler
@@ -185,6 +188,9 @@ struct ConfigMutationTest {
 
     /// If the schematas should additionall be written to a separate file for offline inspection.
     bool logSchemata;
+
+    /// Stop mutation testing after the last schemata has been executed
+    bool stopAfterLastSchema;
 }
 
 /// Settings for the administration mode

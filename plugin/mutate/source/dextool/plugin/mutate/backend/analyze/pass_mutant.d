@@ -347,10 +347,7 @@ class MutantVisitor : DepthFirstVisitor {
 
     /// Returns: the depth (1+) if any of the parent nodes is `k`.
     uint isInside(Kind k) {
-        foreach (a; nstack.range.filter!(a => a.data.kind == k)) {
-            return a.depth;
-        }
-        return 0;
+        return nstack.isInside(k);
     }
 
     /// Returns: the type, if any, of the function that the current visited node is inside.
@@ -720,19 +717,13 @@ class SdlBlockVisitor : DepthFirstVisitor {
     void startVisit(Block n) {
         auto l = ast.location(n);
 
-        if (l.interval.begin.among(l.interval.end, l.interval.end + 1, l.interval.end + 2)) {
+        if (l.interval.end.among(l.interval.begin, l.interval.begin + 1)) {
             // it is an empty block so it can't be removed.
             return;
         }
 
-        // the source range should also be modified but it isn't crucial for
-        // mutation testing. Only the visualisation of the result.
-        const begin = l.interval.begin + 1;
-        const end = l.interval.end - 1;
-
-        if (begin < end) {
-            loc = new Location(l.file, Interval(begin, end),
-                    SourceLocRange(l.sloc.begin, l.sloc.end));
+        if (l.interval.begin < l.interval.end) {
+            loc = l;
             canRemove = true;
             accept(n, this);
         }

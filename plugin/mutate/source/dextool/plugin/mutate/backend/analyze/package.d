@@ -69,7 +69,8 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
 
     // will only be used by one thread at a time.
     auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup,
-            conf_analyze.prune, conf_analyze.fastDbStore, conf_analyze.poolSize);
+            conf_analyze.prune, conf_analyze.fastDbStore,
+            conf_analyze.poolSize, conf_analyze.forceSaveAnalyze);
 
     int taskCnt;
     Set!AbsolutePath alreadyAnalyzed;
@@ -179,7 +180,7 @@ void analyzeActor(SearchResult fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
 
 /// Store the result of the analyze.
 void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared,
-        const bool prune, const bool fastDbStore, const long poolSize) @trusted nothrow {
+        const bool prune, const bool fastDbStore, const long poolSize, const bool forceSave) @trusted nothrow {
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
     import cachetools : CacheLRU;
     import dextool.cachetools : nullableCache;
@@ -213,7 +214,8 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         foreach (f; result.idFile
                 .byKey
                 .filter!(a => a !in savedFiles)
-                .filter!(a => getFileDbChecksum(fio.toRelativeRoot(a)) == getFileFsChecksum(a))) {
+                .filter!(a => getFileDbChecksum(fio.toRelativeRoot(a)) == getFileFsChecksum(a)
+                    && !forceSave)) {
             logger.info("Unchanged ".color(Color.yellow), f);
             savedFiles.add(f);
         }
@@ -364,7 +366,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
             {
                 auto profile = Profile("prune schematas");
                 logger.info("Prune schematas");
-                db.pruneSchematas;
+                db.pruneSchemas;
             }
         }
 
@@ -468,7 +470,7 @@ struct Analyze {
             return;
         }
 
-        auto ast = toMutateAst(tu.cursor);
+        auto ast = toMutateAst(tu.cursor, fio);
         debug logger.trace(ast);
         auto mutants = toMutants(ast, fio, val_loc);
 
