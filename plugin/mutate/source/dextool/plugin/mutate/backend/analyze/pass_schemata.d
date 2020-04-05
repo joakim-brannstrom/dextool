@@ -203,7 +203,10 @@ struct SchematasRange {
 
             Set!CodeMutant mutants;
             foreach (a; fragments) {
-                if (index.inside(0, a.offset)) {
+                // conservative to only allow up to 100 mutants per schemata.
+                // but it reduces the chance that one failing schemata is
+                // "fatal", loosing too many muntats.
+                if (index.inside(0, a.offset) || mutants.length == 100) {
                     spillOver.put(a);
                 } else {
                     app.put(SchemataFragment(relp, a.offset, a.text));
