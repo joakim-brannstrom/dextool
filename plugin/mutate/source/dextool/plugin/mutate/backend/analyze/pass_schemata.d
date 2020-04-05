@@ -22,6 +22,7 @@ import std.typecons : Nullable, tuple, Tuple, scoped;
 
 import automem : vector, Vector;
 
+import dextool.set;
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.analyze.ast : Interval, Location;
@@ -76,27 +77,22 @@ uint checksumToId(ulong cs) @safe pure nothrow @nogc {
 
 /// Language generic
 class SchemataResult {
-    import dextool.set;
     import dextool.plugin.mutate.backend.database.type : SchemataFragment;
     import dextool.plugin.mutate.backend.analyze.utility : Index;
 
     static struct Fragment {
         Offset offset;
         const(ubyte)[] text;
+        CodeMutant[] mutants;
     }
 
     static struct Schemata {
         Fragment[] fragments;
-        Set!CodeMutant mutants;
     }
 
     private {
         Schemata[MutantGroup][AbsolutePath] schematas;
         FilesysIO fio;
-
-        // overlapping mutants is not supported "yet" thus make sure no
-        // fragment overlap with another fragment.
-        Index!MutantGroup[AbsolutePath] indexes;
     }
 
     this(FilesysIO fio) {
@@ -108,26 +104,14 @@ class SchemataResult {
     }
 
     /// Assuming that all fragments for a file should be merged to one huge.
-    private void putFragment(AbsolutePath file, MutantGroup g, Fragment sf, CodeMutant[] m) {
-        if (auto v = file in indexes) {
-            if ((*v).inside(g, sf.offset)) {
-                return;
-            }
-            (*v).put(g, sf.offset);
-        } else {
-            auto index = Index!MutantGroup.init;
-            index.put(g, sf.offset);
-            indexes[file] = index;
-        }
-
+    private void putFragment(AbsolutePath file, MutantGroup g, Fragment sf) {
         if (auto v = file in schematas) {
             (*v)[g].fragments ~= sf;
-            (*v)[g].mutants.add(m);
         } else {
             foreach (a; [EnumMembers!MutantGroup]) {
                 schematas[file][a] = Schemata.init;
             }
-            schematas[file][g] = Schemata([sf], m.toSet);
+            schematas[file][g] = Schemata([sf]);
         }
     }
 
@@ -138,8 +122,8 @@ class SchemataResult {
         auto w = appender!string();
 
         void toBuf(Schemata s) {
-            formattedWrite(w, "Mutants\n%(%s\n%)\n", s.mutants.toArray);
             foreach (f; s.fragments) {
+                formattedWrite(w, "Mutants\n%(%s\n%)\n", f.mutants);
                 formattedWrite(w, "%s: %s\n", f.offset,
                         (cast(const(char)[]) f.text).byUTF!(const(char)));
             }
@@ -206,19 +190,45 @@ struct SchematasRange {
         // TODO: maybe accumulate the fragments for more files? that would make
         // it possible to easily create a large schemata.
         auto values_ = appender!(ET[])();
+
+        SchemataResult.Fragment[] makeSchema(SchemataResult.Fragment[] fragments, Path relp) {
+            // overlapping mutants is not supported "yet" thus make sure no
+            // fragment overlap with another fragment.
+            Index!int index;
+            auto spillOver = appender!(SchemataResult.Fragment[])();
+
+            auto app = appender!(SchemataFragment[])();
+
+            app.put(defaultHeader(relp));
+
+            Set!CodeMutant mutants;
+            foreach (a; fragments) {
+                if (index.inside(0, a.offset)) {
+                    spillOver.put(a);
+                } else {
+                    app.put(SchemataFragment(relp, a.offset, a.text));
+                    mutants.add(a.mutants);
+                    index.put(0, a.offset);
+                }
+            }
+
+            ET v;
+            v.fragments = app.data;
+
+            v.mutants = mutants.toArray;
+            v.checksum = toSchemataChecksum(v.mutants);
+            values_.put(v);
+
+            return spillOver.data;
+        }
+
         foreach (group; raw.byKeyValue) {
             auto relp = fio.toRelativeRoot(group.key);
-            foreach (a; group.value.byKeyValue) {
-                auto app = appender!(SchemataFragment[])();
-                ET v;
-
-                app.put(defaultHeader(relp));
-                a.value.fragments.map!(a => SchemataFragment(relp, a.offset, a.text)).copy(app);
-                v.fragments = app.data;
-
-                v.mutants = a.value.mutants.toArray;
-                v.checksum = toSchemataChecksum(v.mutants);
-                values_.put(v);
+            foreach (a; group.value.byValue) {
+                auto spillOver = makeSchema(a.fragments, relp);
+                while (!spillOver.empty) {
+                    spillOver = makeSchema(spillOver, relp);
+                }
             }
         }
         this.values = values_.data;
@@ -296,6 +306,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Block n) {
+        visitBlock(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssign n) {
         visitBlock(n, MutantGroup.sdl, stmtDelMutationsRaw);
         accept(n, this);
     }
@@ -414,7 +429,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
                     .mutate(fin.content[offs.begin .. offs.end]));
         }
 
-        result.putFragment(loc.file, group, rewrite(loc, schema.generate), mutants);
+        result.putFragment(loc.file, group, rewrite(loc, schema.generate, mutants));
     }
 
     private void visitUnaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
@@ -435,7 +450,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
                     fin.content[loc.interval.end .. locExpr.interval.end]);
         }
 
-        result.putFragment(loc.file, group, rewrite(locExpr, schema.generate), mutants);
+        result.putFragment(loc.file, group, rewrite(locExpr, schema.generate, mutants));
     }
 
     private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds_) {
@@ -496,10 +511,10 @@ class CppSchemataVisitor : DepthFirstVisitor {
                     fin.content[locExpr.interval.begin .. locExpr.interval.end])));
         }
 
-        result.putFragment(loc.file, group, rewrite(locExpr, schema.generate),
-                opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants);
+        result.putFragment(loc.file, group, rewrite(locExpr, schema.generate,
+                opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants));
         result.putFragment(loc.file, MutantGroup.opExpr, rewrite(locExpr,
-                robustSchema.generate), lhsMutants ~ rhsMutants ~ exprMutants);
+                robustSchema.generate, lhsMutants ~ rhsMutants ~ exprMutants));
     }
 }
 
@@ -507,13 +522,13 @@ const(ubyte)[] rewrite(string s) {
     return cast(const(ubyte)[]) s;
 }
 
-SchemataResult.Fragment rewrite(Location loc, string s) {
-    return rewrite(loc, cast(const(ubyte)[]) s);
+SchemataResult.Fragment rewrite(Location loc, string s, CodeMutant[] mutants) {
+    return rewrite(loc, cast(const(ubyte)[]) s, mutants);
 }
 
 /// Create a fragment that rewrite a source code location to `s`.
-SchemataResult.Fragment rewrite(Location loc, const(ubyte)[] s) {
-    return SchemataResult.Fragment(loc.interval, s);
+SchemataResult.Fragment rewrite(Location loc, const(ubyte)[] s, CodeMutant[] mutants) {
+    return SchemataResult.Fragment(loc.interval, s, mutants);
 }
 
 /** A schemata is uniquely identified by the mutants that it contains.

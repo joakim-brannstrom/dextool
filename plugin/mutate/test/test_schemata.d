@@ -179,7 +179,7 @@ class ShallRunSdlSchema : SchemataFixutre {
 
         // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
-                //`from '' to ''`,
+                `from 'x = test_unary_op(x)' to ''`,
                 `alive`,
                 ]).shouldBeIn(r.output);
         // dfmt on
