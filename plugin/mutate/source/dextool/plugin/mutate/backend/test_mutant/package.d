@@ -299,6 +299,9 @@ struct TestDriver {
 
     static struct NextSchemata {
         bool hasSchema;
+        /// stop mutation testing because the last schema has been used and the
+        /// user has configured that the testing should stop now.
+        bool stop;
     }
 
     static struct PreSchemataData {
@@ -478,6 +481,8 @@ struct TestDriver {
         }, (NextSchemata a) {
             if (a.hasSchema)
                 return fsm(PreSchemata.init);
+            if (a.stop)
+                return fsm(Done.init);
             return fsm(NextMutant.init);
         }, (PreSchemata a) {
             if (a.error)
@@ -1060,6 +1065,8 @@ nothrow:
         }
 
         local.get!NextSchemata.schematas = schematas;
+
+        data.stop = !data.hasSchema && global.data.conf.stopAfterLastSchema;
     }
 
     void opCall(ref PreSchemata data) {

@@ -188,6 +188,9 @@ struct ConfigMutationTest {
 
     /// If the schematas should additionall be written to a separate file for offline inspection.
     bool logSchemata;
+
+    /// Stop mutation testing after the last schemata has been executed
+    bool stopAfterLastSchema;
 }
 
 /// Settings for the administration mode
