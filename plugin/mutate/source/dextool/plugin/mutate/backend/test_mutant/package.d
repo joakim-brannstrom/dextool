@@ -1037,7 +1037,7 @@ nothrow:
                 local.get!NextSchemata.invalidSchematas, local.get!NextSchemata.totalSchematas);
 
         while (!schematas.empty && !data.hasSchema) {
-            auto id = schematas[0];
+            const id = schematas[0];
             schematas = schematas[1 .. $];
             const mutants = spinSql!(() {
                 return global.data.db.schemataMutantsWithStatus(id,
@@ -1048,11 +1048,14 @@ nothrow:
                     mutants, threshold).collectException;
 
             if (mutants >= threshold) {
-                local.get!PreSchemata.schemata = spinSql!(() {
+                auto schema = spinSql!(() {
                     return global.data.db.getSchemata(id);
                 });
-                logger.infof("Use schema %s (%s left)", id, schematas.length).collectException;
-                data.hasSchema = true;
+                if (!schema.isNull) {
+                    local.get!PreSchemata.schemata = schema;
+                    logger.infof("Use schema %s (%s left)", id, schematas.length).collectException;
+                    data.hasSchema = true;
+                }
             }
         }
 

@@ -366,7 +366,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
             {
                 auto profile = Profile("prune schematas");
                 logger.info("Prune schematas");
-                db.pruneSchematas;
+                db.pruneSchemas;
             }
         }
 
