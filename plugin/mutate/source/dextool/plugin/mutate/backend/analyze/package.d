@@ -86,7 +86,7 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
             .filter!(a => !isPathInsideAnyRoot(conf_analyze.exclude, a.absoluteFile))
             .filter!(a => fileFilter.shouldAnalyze(a.absoluteFile))) {
         try {
-            pool.put(task!analyzeActor(f, val_loc.dup, fio.dup, conf_compiler, store));
+            pool.put(task!analyzeActor(f, val_loc.dup, fio.dup, conf_compiler, conf_analyze, store));
             taskCnt++;
         } catch (Exception e) {
             logger.trace(e);
@@ -160,11 +160,12 @@ struct StoreDoneMsg {
 
 /// Start an analyze of a file
 void analyzeActor(SearchResult fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
-        ConfigCompiler conf, Tid storeActor) @trusted nothrow {
+        ConfigCompiler compilerConf, ConfigAnalyze analyzeConf, Tid storeActor) @trusted nothrow {
     auto profile = Profile("analyze file " ~ fileToAnalyze.absoluteFile);
 
     try {
-        auto analyzer = Analyze(vloc, fio, conf.forceSystemIncludes);
+        auto analyzer = Analyze(vloc, fio,
+                Analyze.Config(compilerConf.forceSystemIncludes, analyzeConf.mutantsPerSchema));
         analyzer.process(fileToAnalyze);
         send(storeActor, cast(immutable) analyzer.result);
         return;
@@ -403,6 +404,11 @@ struct Analyze {
     import dextool.type : Exists, makeExists;
     import dextool.utility : analyzeFile;
 
+    static struct Config {
+        bool forceSystemIncludes;
+        long mutantsPerSchema;
+    }
+
     private {
         static immutable raw_re_nomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`;
 
@@ -415,19 +421,22 @@ struct Analyze {
         Cache cache;
 
         Result result;
+
+        Config conf;
     }
 
-    this(ValidateLoc val_loc, FilesysIO fio, bool forceSystemIncludes) @trusted {
+    this(ValidateLoc val_loc, FilesysIO fio, Config conf) @trusted {
         this.val_loc = val_loc;
         this.fio = fio;
         this.cache = new Cache;
         this.re_nomut = regex(raw_re_nomut);
         this.forceSystemIncludes = forceSystemIncludes;
         this.result = new Result;
+        this.conf = conf;
     }
 
     void process(SearchResult in_file) @safe {
-        in_file.flags.forceSystemIncludes = forceSystemIncludes;
+        in_file.flags.forceSystemIncludes = conf.forceSystemIncludes;
 
         // find the file and flags to analyze
         Exists!AbsolutePath checked_in_file;
@@ -479,7 +488,7 @@ struct Analyze {
         debug logger.trace(codeMutants);
         () @trusted { .destroy(mutants); }();
 
-        auto schemas = toSchemata(ast, fio, codeMutants);
+        auto schemas = toSchemata(ast, fio, codeMutants, conf.mutantsPerSchema);
         debug logger.trace(schemas);
         foreach (f; schemas.getSchematas.filter!(a => !(a.fragments.empty || a.mutants.empty))) {
             const id = result.schematas.length;

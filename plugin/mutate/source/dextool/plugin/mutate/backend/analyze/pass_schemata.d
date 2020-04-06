@@ -44,8 +44,9 @@ immutable schemataMutantIdentifier = "gDEXTOOL_MUTID";
 immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
 /// Translate a mutation AST to a schemata.
-SchemataResult toSchemata(ref Ast ast, FilesysIO fio, CodeMutantsResult cresult) @trusted {
-    auto rval = new SchemataResult(fio);
+SchemataResult toSchemata(ref Ast ast, FilesysIO fio,
+        CodeMutantsResult cresult, long mutantsPerSchema) @trusted {
+    auto rval = new SchemataResult(fio, mutantsPerSchema);
     auto index = scoped!CodeMutantIndex(cresult);
 
     final switch (ast.lang) {
@@ -93,14 +94,16 @@ class SchemataResult {
     private {
         Schemata[MutantGroup][AbsolutePath] schematas;
         FilesysIO fio;
+        long mutantsPerSchema;
     }
 
-    this(FilesysIO fio) {
+    this(FilesysIO fio, long mutantsPerSchema) {
         this.fio = fio;
+        this.mutantsPerSchema = mutantsPerSchema;
     }
 
     SchematasRange getSchematas() @safe {
-        return SchematasRange(fio, schematas);
+        return SchematasRange(fio, schematas, mutantsPerSchema);
     }
 
     /// Assuming that all fragments for a file should be merged to one huge.
@@ -184,7 +187,8 @@ struct SchematasRange {
         ET[] values;
     }
 
-    this(FilesysIO fio, SchemataResult.Schemata[MutantGroup][AbsolutePath] raw) {
+    this(FilesysIO fio, SchemataResult.Schemata[MutantGroup][AbsolutePath] raw,
+            long mutantsPerSchema) {
         this.fio = fio;
 
         // TODO: maybe accumulate the fragments for more files? that would make
@@ -206,7 +210,8 @@ struct SchematasRange {
                 // conservative to only allow up to 100 mutants per schemata.
                 // but it reduces the chance that one failing schemata is
                 // "fatal", loosing too many muntats.
-                if (index.inside(0, a.offset) || mutants.length >= 100) {
+                if (index.inside(0, a.offset)
+                        || (mutants.length >= mutantsPerSchema && mutants.length != 0)) {
                     spillOver.put(a);
                 } else {
                     app.put(SchemataFragment(relp, a.offset, a.text));
