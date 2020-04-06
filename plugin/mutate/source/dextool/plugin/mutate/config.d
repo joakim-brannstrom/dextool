@@ -98,6 +98,9 @@ struct ConfigAnalyze {
 
     /// Force the result from the files to always be saved
     bool forceSaveAnalyze;
+
+    /// Number of mutants to at most put in a schema (soft limit)
+    long mutantsPerSchema = 100;
 }
 
 /// Settings for the compiler

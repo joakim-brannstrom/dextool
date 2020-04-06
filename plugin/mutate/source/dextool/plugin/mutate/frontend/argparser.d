@@ -106,6 +106,8 @@ struct ArgParser {
         app.put("# threads = 1");
         app.put("# prune (remove) files from the database that aren't found during the analyze");
         app.put(`# prune = true`);
+        app.put("# number of mutants per schema (soft upper limit). Zero means no limit");
+        app.put("# mutants_per_schema = 100");
         app.put(null);
 
         app.put("[database]");
@@ -238,6 +240,7 @@ struct ArgParser {
                    "out", out_help, &workArea.rawRoot,
                    "profile", "print performance profile for the analyzers that are part of the report", &analyze.profile,
                    "restrict", restrict_help, &workArea.rawRestrict,
+                   "schema-mutants", "number of mutants per schema (soft upper limit)", &analyze.mutantsPerSchema,
                    "threads", "number of threads to use for analysing files (default: CPU cores available)", &analyze.poolSize,
                    );
             // dfmt on
@@ -612,6 +615,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["analyze.prune"] = (ref ArgParser c, ref TOMLValue v) {
         c.analyze.prune = v == true;
     };
+    callbacks["analyze.mutants_per_schema"] = (ref ArgParser c, ref TOMLValue v) {
+        c.analyze.mutantsPerSchema = cast(int) v.integer;
+    };
 
     callbacks["workarea.root"] = (ref ArgParser c, ref TOMLValue v) {
         c.workArea.rawRoot = v.str;
@@ -883,6 +889,19 @@ check_schemata = true
     auto ap = loadConfig(ArgParser.init, doc);
     ap.mutationTest.useSchemata.shouldBeTrue;
     ap.mutationTest.sanityCheckSchemata.shouldBeTrue;
+}
+
+@("shall set the number of mutants per schema")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[analyze]
+mutants_per_schema = 200
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.analyze.mutantsPerSchema.shouldEqual(200);
 }
 
 /// Minimal config to setup path to config file.
