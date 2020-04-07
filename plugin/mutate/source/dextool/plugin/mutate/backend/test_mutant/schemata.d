@@ -61,6 +61,10 @@ struct SchemataTestDriver {
     static struct None {
     }
 
+    static struct InitializeData {
+        MutationStatusId[] mutants;
+    }
+
     static struct Initialize {
     }
 
@@ -69,13 +73,12 @@ struct SchemataTestDriver {
 
     static struct NextMutantData {
         /// Mutants to test.
-        MutationStatusId[] mutants;
+        InjectIdResult mutants;
     }
 
     static struct NextMutant {
         bool done;
-        MutationStatusId id;
-        Checksum checksum;
+        InjectIdResult.InjectId inject;
     }
 
     static struct TestMutantData {
@@ -84,8 +87,8 @@ struct SchemataTestDriver {
     }
 
     static struct TestMutant {
-        MutationStatusId id;
-        Checksum checksum;
+        InjectIdResult.InjectId inject;
+
         MutationTestResult result;
         bool hasTestOutput;
         // if there are mutants status id's related to a file but the mutants
@@ -109,11 +112,12 @@ struct SchemataTestDriver {
 
     alias Fsm = dextool.fsm.Fsm!(None, Initialize, Done, NextMutant,
             TestMutant, TestCaseAnalyze, StoreResult);
-    alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData, NextMutantData);
+    alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData,
+            NextMutantData, InitializeData);
 
     private {
         Fsm fsm;
-        TypeDataMap!(LocalStateDataT, TestMutant, TestCaseAnalyze, NextMutant) local;
+        TypeDataMap!(LocalStateDataT, TestMutant, TestCaseAnalyze, NextMutant, Initialize) local;
     }
 
     this(FilesysIO fio, TestRunner* runner, Database* db,
@@ -121,7 +125,7 @@ struct SchemataTestDriver {
         this.fio = fio;
         this.runner = runner;
         this.db = db;
-        this.local.get!NextMutant.mutants = mutants;
+        this.local.get!Initialize.mutants = mutants;
         this.local.get!TestCaseAnalyze.testCaseAnalyzer = testCaseAnalyzer;
         this.local.get!TestMutant.hasTestCaseOutputAnalyzer = !testCaseAnalyzer.empty;
     }
@@ -131,7 +135,7 @@ struct SchemataTestDriver {
                 (Initialize a) => fsm(NextMutant.init), (NextMutant a) {
             if (a.done)
                 return fsm(Done.init);
-            return fsm(TestMutant(a.id, a.checksum));
+            return fsm(TestMutant(a.inject));
         }, (TestMutant a) {
             if (a.mutantIdError)
                 return fsm(NextMutant.init);
@@ -172,6 +176,18 @@ nothrow:
     }
 
     void opCall(Initialize data) {
+        scope (exit)
+            local.get!Initialize.mutants = null;
+
+        InjectIdBuilder builder;
+        foreach (mutant; local.get!Initialize.mutants) {
+            auto cs = spinSql!(() { return db.getChecksum(mutant); });
+            if (!cs.isNull) {
+                builder.put(mutant, cs.get);
+            }
+        }
+
+        local.get!NextMutant.mutants = builder.finalize;
     }
 
     void opCall(Done data) {
@@ -181,10 +197,9 @@ nothrow:
     void opCall(ref NextMutant data) {
         data.done = local.get!NextMutant.mutants.empty;
 
-        if (!local.get!NextMutant.mutants.empty) {
-            data.id = local.get!NextMutant.mutants[$ - 1];
-            local.get!NextMutant.mutants = local.get!NextMutant.mutants[0 .. $ - 1];
-            data.checksum = spinSql!(() { return db.getChecksum(data.id); });
+        if (!data.done) {
+            data.inject = local.get!NextMutant.mutants.front;
+            local.get!NextMutant.mutants.popFront;
         }
     }
 
@@ -194,9 +209,9 @@ nothrow:
             checksumToId;
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
-        data.result.id = data.id;
+        data.result.id = data.inject.statusId;
 
-        auto id = spinSql!(() { return db.getMutationId(data.id); });
+        auto id = spinSql!(() { return db.getMutationId(data.inject.statusId); });
         if (id.isNull) {
             data.mutantIdError = true;
             return;
@@ -213,13 +228,13 @@ nothrow:
             auto original = fio.makeInput(file);
             auto txt = makeMutationText(original, entry.mp.offset,
                     entry.mp.mutations[0].kind, entry.lang);
-            logger.infof("%s from '%s' to '%s' in %s:%s:%s", data.id, txt.original,
-                    txt.mutation, file, entry.sloc.line, entry.sloc.column);
+            logger.infof("%s from '%s' to '%s' in %s:%s:%s", data.inject.injectId,
+                    txt.original, txt.mutation, file, entry.sloc.line, entry.sloc.column);
         } catch (Exception e) {
             logger.info(e.msg).collectException;
         }
 
-        runner.env[schemataMutantEnvKey] = data.checksum.checksumToId.to!string;
+        runner.env[schemataMutantEnvKey] = data.inject.injectId.to!string;
         scope (exit)
             runner.env.remove(schemataMutantEnvKey);
 
@@ -262,4 +277,77 @@ nothrow:
     void opCall(StoreResult data) {
         result_ ~= data.result;
     }
+}
+
+/** Generate schemata injection IDs (32bit) from mutant checksums (128bit).
+ *
+ * There is a possibility that an injection ID result in a collision because
+ * they are only 32 bit. If that happens the mutant is discarded as unfeasable
+ * to use for schemata.
+ *
+ * TODO: if this is changed to being order dependent then it can handle all
+ * mutants. But I can't see how that can be done easily both because of how the
+ * schemas are generated and how the database is setup.
+ */
+struct InjectIdBuilder {
+    import dextool.set;
+
+    private {
+        alias InjectId = InjectIdResult.InjectId;
+
+        InjectId[uint] result;
+        Set!uint collisions;
+    }
+
+    void put(MutationStatusId id, Checksum cs) @safe pure nothrow {
+        import dextool.plugin.mutate.backend.analyze.pass_schemata : checksumToId;
+
+        const injectId = checksumToId(cs);
+
+        if (injectId in collisions) {
+        } else if (injectId in result) {
+            collisions.add(injectId);
+            result.remove(injectId);
+        } else {
+            result[injectId] = InjectId(id, injectId);
+        }
+    }
+
+    InjectIdResult finalize() @safe pure nothrow {
+        import std.array : array;
+
+        return InjectIdResult(result.byValue.array);
+    }
+}
+
+struct InjectIdResult {
+    alias InjectId = Tuple!(MutationStatusId, "statusId", uint, "injectId");
+    InjectId[] ids;
+
+    InjectId front() @safe pure nothrow {
+        assert(!empty, "Can't get front of an empty range");
+        return ids[0];
+    }
+
+    void popFront() @safe pure nothrow {
+        assert(!empty, "Can't pop front of an empty range");
+        ids = ids[1 .. $];
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return ids.empty;
+    }
+}
+
+@("shall detect a collision and make sure it is never part of the result")
+unittest {
+    InjectIdBuilder builder;
+    builder.put(MutationStatusId(1), Checksum(1, 2));
+    builder.put(MutationStatusId(2), Checksum(3, 4));
+    builder.put(MutationStatusId(3), Checksum(1, 2));
+    auto r = builder.finalize;
+
+    assert(r.front.statusId == MutationStatusId(2));
+    r.popFront;
+    assert(r.empty);
 }
