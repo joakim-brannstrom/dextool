@@ -1709,7 +1709,7 @@ struct Database {
 
     /// Mark a schemata as invalid.
     void markInvalid(const SchemataId id) @trusted {
-        immutable sql = format!"INSERT INTO %1$s VALUES(:id)"(invalidSchemataTable);
+        immutable sql = format!"INSERT OR IGNORE INTO %1$s VALUES(:id)"(invalidSchemataTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
         stmt.get.execute;
