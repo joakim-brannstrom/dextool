@@ -429,6 +429,29 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const VarDecl v) @trusted {
+        mixin(mixinNodeLog!());
+        visitVar(v);
+        v.accept(this);
+    }
+
+    override void visit(const ParmDecl v) @trusted {
+        mixin(mixinNodeLog!());
+        visitVar(v);
+        v.accept(this);
+    }
+
+    private void visitVar(T)(T v) @trusted {
+        auto n = new analyze.VarDecl;
+
+        auto ty = v.cursor.type;
+        if (ty.isValid) {
+            n.isConst = ty.isConst;
+        }
+
+        pushStack(n, v);
+    }
+
     override void visit(const(Directive) v) {
         mixin(mixinNodeLog!());
         v.accept(this);
