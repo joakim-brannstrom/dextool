@@ -184,6 +184,12 @@ class AstPrintVisitor : DepthFirstVisitor {
             printNode;
             printTypeSymbol((cast(Function) n).return_);
             break;
+        case Kind.VarDecl:
+            printNode;
+            if ((cast(VarDecl) n).isConst) {
+                put(buf, " const");
+            }
+            break;
         default:
             printNode;
             if (isExpression(n.kind)) {
@@ -316,6 +322,8 @@ alias Nodes = AliasSeq!(
     Statement,
     TranslationUnit,
     UnaryOp,
+    VarDecl,
+    VarRef,
 );
 
 // It should be possible to generate the enum from Nodes. How?
@@ -357,6 +365,8 @@ enum Kind {
     Statement,
     TranslationUnit,
     UnaryOp,
+    VarDecl,
+    VarRef,
 }
 
 bool isExpression(Kind k) @safe pure nothrow @nogc {
@@ -385,6 +395,8 @@ bool isExpression(Kind k) @safe pure nothrow @nogc {
             OpSub,
             Return,
             UnaryOp,
+            VarDecl,
+            VarRef,
             ) != 0;
     }
 }
@@ -459,22 +471,6 @@ class Branch : Node {
     Block inside;
 }
 
-//class Arithmetic : Expr {
-//    mixin NodeKind;
-//}
-
-//class Comparison : Expr {
-//    mixin NodeKind;
-//}
-
-//class Logical : Expr {
-//    mixin NodeKind;
-//}
-
-//class Bitwise : Expr {
-//    mixin NodeKind;
-//}
-
 /// Results in the bottom type or up.
 class Return : Expr {
     mixin NodeKind;
@@ -483,6 +479,25 @@ class Return : Expr {
 /// A condition wraps "something" which always evaluates to a boolean.
 class Condition : Expr {
     mixin NodeKind;
+}
+
+class VarDecl : Expr {
+    mixin NodeKind;
+    bool isConst;
+}
+
+class VarRef : Expr {
+    mixin NodeKind;
+    // should always refer to something
+    VarDecl to;
+
+    this(VarDecl to) {
+        this.to = to;
+    }
+
+    invariant {
+        assert(to !is null);
+    }
 }
 
 class UnaryOp : Expr {

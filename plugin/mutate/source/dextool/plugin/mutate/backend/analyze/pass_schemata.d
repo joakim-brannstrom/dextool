@@ -309,6 +309,17 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     alias visit = DepthFirstVisitor.visit;
 
+    override void visit(VarDecl n) {
+        // block schematas if the visitor is inside a const declared variable.
+        // a schemata is dependent on a runtime variable but a const
+        // declaration requires its expression to be resolved at compile time.
+        // Thus if a schema mutant is injected inside this part of the tree it
+        // will result in a schema that do not compile.
+        if (!n.isConst) {
+            accept(n, this);
+        }
+    }
+
     override void visit(Expr n) {
         accept(n, this);
     }

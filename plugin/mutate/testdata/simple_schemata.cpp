@@ -72,6 +72,11 @@ int test_assign_op(int x) {
     return x;
 }
 
+int test_const(int x, const int y) {
+    int w = 42;
+    const int a = 84 + 4;
+}
+
 int test_sdl1(int x) {
     x = test_unary_op(x);
     test_assign_op(x);
