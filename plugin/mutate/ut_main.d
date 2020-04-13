@@ -22,6 +22,7 @@ int main(string[] args) {
                           "dextool.plugin.mutate.backend.type",
                           "dextool.plugin.mutate.frontend.argparser",
                           "process",
+                          "process.pid",
                           );
     //dfmt on
 }
