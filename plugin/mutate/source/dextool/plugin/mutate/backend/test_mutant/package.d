@@ -150,7 +150,7 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothro
 
     auto runtime = Duration.max;
     bool failed;
-    for (int i; i < 3 && !failed; ++i) {
+    for (int i; i < 2 && !failed; ++i) {
         try {
             auto res = runTest;
             final switch (res.result.status) with (TestResult) {
