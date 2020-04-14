@@ -335,6 +335,7 @@ PidMap makePidMap() @trusted nothrow {
 
             rval.put(PidMap.Pid(pid, PidMap.Stat(uid), null, parent, null));
             rval.putChild(parent, pid);
+        } catch (ConvException e) {
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
