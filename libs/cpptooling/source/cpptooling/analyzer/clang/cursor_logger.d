@@ -27,6 +27,7 @@ void logNode(ref const Cursor c, const int indent = 0, const string func = __FUN
     // dfmt off
     debug {
         string indent_ = repeat(' ', indent).array();
+        auto loc = c.location;
         logger.logf!(-1, "", "", "", "")
             (logger.LogLevel.trace,
              "%d %s%s|%s|%s|%s:%d:%d [%s:%d]",
@@ -35,9 +36,9 @@ void logNode(ref const Cursor c, const int indent = 0, const string func = __FUN
              dump(c),
              c.displayName,
              abilities(c),
-             c.location.file,
-             c.location.spelling.line,
-             c.location.spelling.column,
+             loc.file,
+             loc.spelling.line,
+             loc.spelling.column,
              func,
              line);
     }

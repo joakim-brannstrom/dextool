@@ -654,27 +654,25 @@ class MutantVisitor : DepthFirstVisitor {
 
     private void visitBinaryOp(T)(T n, Mutation.Kind[] op, Mutation.Kind[] lhs,
             Mutation.Kind[] rhs, Mutation.Kind[] expr) {
-        auto loc = ast.location(n);
-        auto locLhs = ast.location(n.lhs);
-        auto locRhs = ast.location(n.rhs);
+        auto locExpr = ast.location(n);
         auto locOp = ast.location(n.operator);
 
-        put(loc, expr, n.blacklist);
+        put(locExpr, expr, n.blacklist);
         put(locOp, op, n.operator.blacklist);
         // the interval check:
         // != is sufficiently for unary operators such as ++.
         // but there are also malformed that can be created thus '<' is needed.
         // Change this to != and run on the game tutorial to see them being
         // produced. Seems to be something with templates and function calls.
-        if (n.lhs !is null && locLhs.interval.begin < locOp.interval.end) {
-            auto offset = Interval(locLhs.interval.begin, locOp.interval.end);
+        if (n.lhs !is null && locExpr.interval.begin < locOp.interval.end) {
+            auto offset = Interval(locExpr.interval.begin, locOp.interval.end);
             put(new Location(locOp.file, offset,
-                    SourceLocRange(locLhs.sloc.begin, locOp.sloc.end)), lhs, n.lhs.blacklist);
+                    SourceLocRange(locExpr.sloc.begin, locOp.sloc.end)), lhs, n.lhs.blacklist);
         }
-        if (n.rhs !is null && locOp.interval.begin < locRhs.interval.end) {
-            auto offset = Interval(locOp.interval.begin, locRhs.interval.end);
+        if (n.rhs !is null && locOp.interval.begin < locExpr.interval.end) {
+            auto offset = Interval(locOp.interval.begin, locExpr.interval.end);
             put(new Location(locOp.file, offset,
-                    SourceLocRange(locOp.sloc.begin, locRhs.sloc.end)), rhs, n.rhs.blacklist);
+                    SourceLocRange(locOp.sloc.begin, locExpr.sloc.end)), rhs, n.rhs.blacklist);
         }
     }
 }
