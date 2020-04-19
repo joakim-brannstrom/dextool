@@ -15,7 +15,7 @@ import std.file;
 import std.path;
 import std.range : iota;
 import std.stdio : File, writeln, writefln;
-import std.typecons : Nullable, NullableRef, Tuple, tuple;
+import std.typecons : Nullable, NullableRef, Tuple, tuple, Flag;
 
 import core.sys.posix.sys.types : uid_t;
 
@@ -134,6 +134,18 @@ struct PidMap {
         return this;
     }
 
+    ref PidMap removeUser(uid_t uid) return nothrow {
+        auto removePids = appender!(RawPid[])();
+        foreach (a; stat.byKeyValue.filter!(a => a.value.uid == uid)) {
+            removePids.put(a.key);
+        }
+        foreach (k; removePids.data) {
+            this.remove(k);
+        }
+
+        return this;
+    }
+
     RawPid[] getChildren(RawPid p) nothrow {
         if (auto v = p in children) {
             return *v;
@@ -186,7 +198,8 @@ struct PidMap {
 
         formattedWrite(w, "PidMap(\n");
         foreach (n; pids) {
-            formattedWrite(w, `Pid(%s, "%s", %s, %s)`, n, getProc(n), getChildren(n), parent[n]);
+            formattedWrite(w, `Pid(%s, stat:%s, parent:%s, "%s", %s)`, n,
+                    stat[n], parent[n], getProc(n), getChildren(n));
             put(w, "\n");
         }
         put(w, ")");
@@ -203,7 +216,7 @@ struct PidMap {
  *
  * TODO: remove @trusted when upgrading the minimum compiler >2.091.0
  */
-RawPid[] kill(PidMap pmap) @trusted nothrow {
+RawPid[] kill(PidMap pmap, Flag!"onlyCurrentUser" user) @trusted nothrow {
     static import core.sys.posix.signal;
 
     static void killMap(RawPid[] pids) @trusted nothrow {
@@ -222,7 +235,12 @@ RawPid[] kill(PidMap pmap) @trusted nothrow {
         killMap(pids);
         rval.put(pids);
 
-        pmap = makePidMap.filterByCurrentUser;
+        pmap = () {
+            if (user)
+                return makePidMap.filterByCurrentUser;
+            return makePidMap;
+        }();
+
         foreach (s; pids.map!(a => tuple(a, pmap.getSubMap(a)))
                 .map!(a => a[1].remove(a[0]))
                 .filter!(a => !a.empty)) {

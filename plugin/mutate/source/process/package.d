@@ -16,6 +16,7 @@ import std.algorithm : filter, count, joiner, map;
 import std.array : appender, empty, array;
 import std.exception : collectException;
 import std.stdio : File, fileno, writeln;
+import std.typecons : Flag, Yes;
 static import std.process;
 static import std.stdio;
 
@@ -400,7 +401,7 @@ struct Sandbox(ProcessT) {
 
         // only kill and reap the children
         pmap.remove(pid);
-        process.pid.kill(pmap).reap;
+        process.pid.kill(pmap, Yes.onlyCurrentUser).reap;
     }
 
     int wait() @safe {
