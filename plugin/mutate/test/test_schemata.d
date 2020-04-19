@@ -220,8 +220,8 @@ class ShallRemoveParenthesisBalanced : SchemataFixutre {
                 `from '| x' to ''`,
                 `from 'x &' to ''`,
                 `from '& (x - 1)' to ''`,
-                `from '(x & (x - 1)) | x' to '(x & (x - 1)) & x'`,
-                `from 'x & (x - 1)' to 'x | (x - 1)'`,
+                `from '|' to '&'`,
+                `from '&' to '|'`,
                 ]).shouldBeIn(r.output);
         // dfmt on
     }

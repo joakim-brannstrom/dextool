@@ -396,13 +396,11 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
 /// Analyze a file for mutants.
 struct Analyze {
     import std.regex : Regex, regex, matchFirst;
-    import std.typecons : NullableRef, Nullable, Yes;
-    import miniorm : Transaction;
+    import std.typecons : Yes;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.utility.virtualfilesystem;
     import dextool.compilation_db : SearchResult;
     import dextool.type : Exists, makeExists;
-    import dextool.utility : analyzeFile;
 
     static struct Config {
         bool forceSystemIncludes;
@@ -595,32 +593,27 @@ unittest {
 
 /// Stream of tokens excluding comment tokens.
 class TokenStreamImpl : TokenStream {
-    import std.typecons : NullableRef, nullableRef;
     import cpptooling.analyzer.clang.context : ClangContext;
     import dextool.plugin.mutate.backend.type : Token;
+    import dextool.plugin.mutate.backend.utility : tokenize;
 
-    NullableRef!ClangContext ctx;
+    ClangContext* ctx;
 
     /// The context must outlive any instance of this class.
     // TODO remove @trusted when upgrading to dmd-fe 2.091.0+ and activate dip25 + 1000
     this(ref ClangContext ctx) @trusted {
-        this.ctx = nullableRef(&ctx);
+        this.ctx = &ctx;
     }
 
     Token[] getTokens(Path p) {
-        import dextool.plugin.mutate.backend.utility : tokenize;
-
-        return tokenize(ctx, p);
+        return tokenize(*ctx, p);
     }
 
     Token[] getFilteredTokens(Path p) {
-        import std.array : array;
-        import std.algorithm : filter;
         import clang.c.Index : CXTokenKind;
-        import dextool.plugin.mutate.backend.utility : tokenize;
 
         // Filter a stream of tokens for those that should affect the checksum.
-        return tokenize(ctx, p).filter!(a => a.kind != CXTokenKind.comment).array;
+        return tokenize(*ctx, p).filter!(a => a.kind != CXTokenKind.comment).array;
     }
 }
 

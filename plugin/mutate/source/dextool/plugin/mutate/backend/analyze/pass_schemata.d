@@ -604,7 +604,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
     private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds_) {
         auto locExpr = ast.location(n);
-        auto loc = ast.location(n.operator);
+        auto locOp = ast.location(n.operator);
         auto locLhs = ast.location(n.lhs);
         auto locRhs = ast.location(n.rhs);
         if (locLhs is null || locRhs is null) {
@@ -616,53 +616,68 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         auto opKinds = opKinds_.dup.sort.uniq.array;
 
-        auto opMutants = index.get(loc.file, loc.interval)
+        auto opMutants = index.get(locOp.file, locOp.interval)
             .filter!(a => canFind(opKinds, a.mut.kind)).array;
 
-        auto exprMutants = index.get(loc.file, locExpr.interval)
+        auto exprMutants = index.get(locOp.file, locExpr.interval)
             .filter!(a => canFind(opKinds, a.mut.kind)).array;
 
-        auto offsLhs = Offset(locLhs.interval.begin, loc.interval.end);
-        auto lhsMutants = index.get(loc.file, offsLhs)
+        auto offsLhs = Offset(locExpr.interval.begin, locOp.interval.end);
+        auto lhsMutants = index.get(locOp.file, offsLhs)
             .filter!(a => canFind(opKinds, a.mut.kind)).array;
 
-        auto offsRhs = Offset(loc.interval.begin, locRhs.interval.end);
-        auto rhsMutants = index.get(loc.file, offsRhs)
+        auto offsRhs = Offset(locOp.interval.begin, locExpr.interval.end);
+        auto rhsMutants = index.get(locOp.file, offsRhs)
             .filter!(a => canFind(opKinds, a.mut.kind)).array;
 
         if (opMutants.empty && lhsMutants.empty && rhsMutants.empty)
             return;
 
         foreach (const mutant; opMutants) {
-            schema[group].put(mutant.id.c0, left,
-                    content[locLhs.interval.begin .. locLhs.interval.end], makeMutation(mutant.mut.kind, ast.lang)
-                    .mutate(content[loc.interval.begin .. loc.interval.end]),
-                    content[locRhs.interval.begin .. locRhs.interval.end], right);
+            // dfmt off
+            schema[group].put(mutant.id.c0,
+                    left,
+                    content[locExpr.interval.begin .. locOp.interval.begin],
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(content[locOp.interval.begin .. locOp.interval.end]),
+                    content[locOp.interval.end .. locExpr.interval.end],
+                    right);
+            // dfmt on
         }
 
         foreach (const mutant; lhsMutants) {
+            // dfmt off
             schema[MutantGroup.opExpr].put(mutant.id.c0,
-                    schema[group].put(mutant.id.c0, left, makeMutation(mutant.mut.kind,
-                        ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
-                        content[locRhs.interval.begin .. locRhs.interval.end], right));
+                    schema[group].put(mutant.id.c0,
+                    left,
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
+                    content[offsLhs.end .. locExpr.interval.end],
+                    right));
+            // dfmt on
         }
 
         foreach (const mutant; rhsMutants) {
+            // dfmt off
             schema[MutantGroup.opExpr].put(mutant.id.c0,
-                    schema[group].put(mutant.id.c0, left,
-                        content[locLhs.interval.begin .. locLhs.interval.end], makeMutation(mutant.mut.kind,
-                        ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]), right));
+                    schema[group].put(mutant.id.c0,
+                    left,
+                    content[locExpr.interval.begin .. offsRhs.begin],
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
+                    right));
+            // dfmt on
         }
 
         foreach (const mutant; exprMutants) {
+            // dfmt off
             schema[MutantGroup.opExpr].put(mutant.id.c0,
-                    schema[group].put(mutant.id.c0, left, makeMutation(mutant.mut.kind,
-                        ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
-                        right));
+                    schema[group].put(mutant.id.c0,
+                    left,
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
+                    right));
+            // dfmt on
         }
 
         mutants[group] ~= opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants;
-        mutants[MutantGroup.opExpr] ~= lhsMutants ~ rhsMutants ~ exprMutants;
+        mutants[MutantGroup.opExpr] ~= exprMutants;
     }
 }
 

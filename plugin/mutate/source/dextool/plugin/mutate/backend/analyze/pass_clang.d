@@ -28,12 +28,12 @@ import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
 import dextool.clang_extensions : getUnderlyingExprNode;
 
-import dextool.type : Path;
+import dextool.type : Path, AbsolutePath;
 
 import dextool.plugin.mutate.backend.analyze.ast : Interval, Location;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.utility;
-import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Language, SourceLoc, Offset, SourceLocRange;
 
 import analyze = dextool.plugin.mutate.backend.analyze.ast;

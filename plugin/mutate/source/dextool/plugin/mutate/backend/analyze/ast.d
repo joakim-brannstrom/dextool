@@ -209,6 +209,19 @@ class AstPrintVisitor : DepthFirstVisitor {
         override void visit(N n) {
             toBuf(n);
             ++depth;
+
+            auto op = () @trusted {
+                if (auto v = cast(BinaryOp) n) {
+                    return v.operator;
+                } else if (auto v = cast(UnaryOp) n) {
+                    return v.operator;
+                }
+                return null;
+            }();
+            if (op !is null) {
+                visit(op);
+            }
+
             n.accept(this);
             --depth;
         }

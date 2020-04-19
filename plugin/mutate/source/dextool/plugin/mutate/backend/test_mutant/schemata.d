@@ -186,6 +186,7 @@ nothrow:
                 builder.put(mutant, cs.get);
             }
         }
+        debug logger.trace(builder).collectException;
 
         local.get!NextMutant.mutants = builder.finalize;
     }
@@ -228,6 +229,7 @@ nothrow:
             auto original = fio.makeInput(file);
             auto txt = makeMutationText(original, entry.mp.offset,
                     entry.mp.mutations[0].kind, entry.lang);
+            debug logger.trace(entry);
             logger.infof("%s from '%s' to '%s' in %s:%s:%s", data.inject.injectId,
                     txt.original, txt.mutation, file, entry.sloc.line, entry.sloc.column);
         } catch (Exception e) {
@@ -246,7 +248,7 @@ nothrow:
         data.hasTestOutput = !res.output.empty;
         local.get!TestCaseAnalyze.output = res.output;
 
-        logger.infof("%s %s (%s)", data.result.id, data.result.status,
+        logger.infof("%s %s (%s)", data.inject.injectId, data.result.status,
                 data.result.testTime).collectException;
     }
 
@@ -303,6 +305,7 @@ struct InjectIdBuilder {
         import dextool.plugin.mutate.backend.analyze.pass_schemata : checksumToId;
 
         const injectId = checksumToId(cs);
+        debug logger.tracef("%s %s %s", id, cs, injectId).collectException;
 
         if (injectId in collisions) {
         } else if (injectId in result) {
