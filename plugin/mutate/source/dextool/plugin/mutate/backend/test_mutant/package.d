@@ -381,9 +381,6 @@ struct TestDriver {
         bool reachedMax;
     }
 
-    static struct SetMaxRuntime {
-    }
-
     static struct LoadSchematas {
     }
 
@@ -392,9 +389,9 @@ struct TestDriver {
             CleanupTempDirs, CheckMutantsLeft, PreCompileSut, MeasureTestSuite,
             PreMutationTest, NextMutant, MutationTest, HandleTestResult,
             CheckTimeout, Done, Error, UpdateTimeout, CheckRuntime,
-            SetMaxRuntime, PullRequest, NextPullRequestMutant, ParseStdin,
-            FindTestCmds, ChooseMode, NextSchemata, PreSchemata,
-            SchemataTest, SchemataTestResult, SchemataRestore, LoadSchematas, SanityCheckSchemata);
+            PullRequest, NextPullRequestMutant, ParseStdin, FindTestCmds,
+            ChooseMode, NextSchemata, PreSchemata, SchemataTest,
+            SchemataTestResult, SchemataRestore, LoadSchematas, SanityCheckSchemata);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData,
             ResetOldMutantData, SchemataRestoreData, PreSchemataData, NextSchemataData);
 
@@ -472,9 +469,8 @@ struct TestDriver {
         }, (PullRequest a) => fsm(CheckMutantsLeft.init), (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
-            return fsm(SetMaxRuntime.init);
-        }, (SetMaxRuntime a) => fsm(LoadSchematas.init),
-                (LoadSchematas a) => fsm(UpdateTimeout.init), (NextPullRequestMutant a) {
+            return fsm(LoadSchematas.init);
+        }, (LoadSchematas a) => fsm(UpdateTimeout.init), (NextPullRequestMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(Done.init);
             return fsm(PreMutationTest.init);
@@ -543,6 +539,7 @@ nothrow:
     }
 
     void opCall(Initialize data) {
+        global.maxRuntime = Clock.currTime + global.data.conf.maxRuntime;
     }
 
     void opCall(Done data) {
@@ -1021,10 +1018,6 @@ nothrow:
 
         data.result.value.match!((MutationTestResult.NoResult a) {},
                 (MutationTestResult.StatusUpdate a) => statusUpdate(a));
-    }
-
-    void opCall(SetMaxRuntime) {
-        global.maxRuntime = Clock.currTime + global.data.conf.maxRuntime;
     }
 
     void opCall(ref CheckRuntime data) {
