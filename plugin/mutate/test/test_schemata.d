@@ -68,7 +68,6 @@ class ShallRunAorSchema : SchemataFixutre {
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "aor"]);
 
-        // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `from '+' to '-'`,
                 `alive`,
@@ -91,7 +90,6 @@ class ShallRunDccSchema : SchemataFixutre {
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "dcc"]);
 
-        // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `from 'x < 10' to 'false'`,
                 ]).shouldBeIn(r.output);
@@ -113,7 +111,6 @@ class ShallRunDcrSchema : SchemataFixutre {
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "dcr"]);
 
-        // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `from 'x < 10' to 'false'`,
                 ]).shouldBeIn(r.output);
@@ -158,7 +155,6 @@ class ShallRunUoiSchema : SchemataFixutre {
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "uoi"]);
 
-        // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `from '!' to ''`,
                 `alive`,
@@ -177,7 +173,6 @@ class ShallRunLcrSchema : SchemataFixutre {
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "lcr"]);
 
-        // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `from '&&' to '||'`,
                 `alive`,
@@ -196,10 +191,37 @@ class ShallRunSdlSchema : SchemataFixutre {
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "sdl"]);
 
-        // verify that a AOR schemata has executed and saved the result
         testConsecutiveSparseOrder!SubStr([
                 `from 'x = test_unary_op(x)' to ''`,
                 `alive`,
+                ]).shouldBeIn(r.output);
+        // dfmt on
+    }
+}
+
+// There is a problem in the clang AST wherein it sometimes is off-by-one when
+// it comes to deleting lhs and/or rhs of binary operator.
+class ShallRemoveParenthesisBalanced : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_bug_unbalanced_parenthesis.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+
+        // dfmt off
+        auto r = runDextoolTest(testEnv, ["--mutant", "lcrb"]);
+
+        testAnyOrder!SubStr([
+                `from '(x & (x - 1)) |' to ''`,
+                `from '| x' to ''`,
+                `from 'x &' to ''`,
+                `from '& (x - 1)' to ''`,
+                `from '(x & (x - 1)) | x' to '(x & (x - 1)) & x'`,
+                `from 'x & (x - 1)' to 'x | (x - 1)'`,
                 ]).shouldBeIn(r.output);
         // dfmt on
     }
