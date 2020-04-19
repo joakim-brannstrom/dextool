@@ -22,10 +22,10 @@ auto lcrMutations(Kind operator) {
 
     switch (operator) with (Mutation.Kind) {
     case Kind.OpAnd:
-        rval = Rval([lcrOr], [lcrTrue, lcrFalse], [lcrLhs], [lcrRhs]);
+        rval = Rval([lcrOr], [lcrTrue, lcrFalse], null, null);
         break;
     case Kind.OpOr:
-        rval = Rval([lcrAnd], [lcrTrue, lcrFalse], [lcrLhs], [lcrRhs]);
+        rval = Rval([lcrAnd], [lcrTrue, lcrFalse], null, null);
         break;
         // TODO: add assign
     default:

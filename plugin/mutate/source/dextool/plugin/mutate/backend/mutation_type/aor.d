@@ -24,24 +24,19 @@ auto aorMutations(Kind operator) @safe pure nothrow {
 
     switch (operator) with (Mutation.Kind) {
     case Kind.OpAdd:
-        rval = Rval([aorMul, aorDiv, aorRem, aorSub],
-                [Mutation.Kind.aorLhs], [Mutation.Kind.aorRhs]);
+        rval = Rval([aorMul, aorDiv, aorRem, aorSub], null, null);
         break;
     case Kind.OpDiv:
-        rval = Rval([aorMul, aorRem, aorAdd, aorSub],
-                [Mutation.Kind.aorLhs], [Mutation.Kind.aorRhs]);
+        rval = Rval([aorMul, aorRem, aorAdd, aorSub], null, null);
         break;
     case Kind.OpMod:
-        rval = Rval([aorMul, aorDiv, aorAdd, aorSub],
-                [Mutation.Kind.aorLhs], [Mutation.Kind.aorRhs]);
+        rval = Rval([aorMul, aorDiv, aorAdd, aorSub], null, null);
         break;
     case Kind.OpMul:
-        rval = Rval([aorDiv, aorRem, aorAdd, aorSub],
-                [Mutation.Kind.aorLhs], [Mutation.Kind.aorRhs]);
+        rval = Rval([aorDiv, aorRem, aorAdd, aorSub], null, null);
         break;
     case Kind.OpSub:
-        rval = Rval([aorMul, aorDiv, aorRem, aorAdd],
-                [Mutation.Kind.aorLhs], [Mutation.Kind.aorRhs]);
+        rval = Rval([aorMul, aorDiv, aorRem, aorAdd], null, null);
         break;
     case Kind.OpAssignAdd:
         rval = Rval([aorDivAssign, aorRemAssign,

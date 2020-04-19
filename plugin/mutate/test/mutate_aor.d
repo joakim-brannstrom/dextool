@@ -7,46 +7,40 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.mutate_aor;
 
+import std.algorithm;
+import std.array;
+import std.format : format;
+
 import dextool_test.utility;
 
-// dfmt off
+const ops = ["+", "-", "*", "/", "%"];
 
-@(testId ~ "shall produce all AOR mutations")
+@(testId ~ "shall produce all AOR operator mutations")
 @Values("aor_primitive.cpp", "aor_object_overload.cpp")
 unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
     testEnv.outputSuffix(getValue!string);
     testEnv.setupEnv;
 
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ getValue!string)
-        .run;
-    auto r = makeDextool(testEnv)
-        .addArg(["test"])
-        .addArg(["--mutant", "aor"])
-        .run;
-    verifyAor(r.output);
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue!string).run;
+    auto r = makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "aor"]).run;
+
+    testAnyOrder!SubStr(ops.map!(a => a)
+            .permutations
+            .filter!(a => a[0] != a[1])
+            .map!(a => format!"from '%s' to '%s'"(a[0], a[1]))
+            .array).shouldBeIn(r.output);
 }
 
-void verifyAor(string[] txt) {
-    import std.algorithm : filter;
-    import std.format : format;
+@(testId ~ "shall produce all AOR delete mutations")
+@Values("aor_primitive.cpp", "aor_object_overload.cpp")
+@ShouldFail unittest {
+    mixin(envSetup(globalTestdir, No.setupEnv));
+    testEnv.outputSuffix(getValue!string);
+    testEnv.setupEnv;
 
-    const ops = ["+", "-", "*", "/", "%"];
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue!string).run;
+    auto r = makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "aor"]).run;
 
-    foreach (op; ops) {
-        foreach (mut; ops.filter!(a => a != op)) {
-            auto expected = format("from '%s' to '%s'", op, mut);
-            logger.info("Testing: ", expected);
-            txt.sliceContains(expected).shouldBeTrue;
-
-            auto rhs = format("from 'a %s' to ''", op);
-            logger.info("Testing: ", rhs);
-            txt.sliceContains(rhs).shouldBeTrue;
-
-            auto lhs = format("from '%s b' to ''", op);
-            logger.info("Testing: ", lhs);
-            txt.sliceContains(lhs).shouldBeTrue;
-        }
-    }
+    testAnyOrder!SubStr(ops.map!(a => format!"from 'a %s' to ''"(a)).array).shouldBeIn(r.output);
 }
