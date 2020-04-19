@@ -1139,14 +1139,14 @@ nothrow:
     }
 
     void opCall(SchemataTestResult data) {
-        foreach (m; data.result) {
-            spinSql!(() {
+        spinSql!(() @trusted {
+            auto trans = global.data.db.transaction;
+            foreach (m; data.result) {
                 global.data.db.updateMutation(m.id, m.status, m.testTime);
-            });
-            spinSql!(() {
                 global.data.db.updateMutationTestCases(m.id, m.testCases);
-            });
-        }
+            }
+            trans.commit;
+        });
     }
 
     void opCall(ref SchemataRestore data) {
