@@ -441,6 +441,16 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const TemplateTemplateParameter v) {
+        mixin(mixinNodeLog!());
+        // block mutants inside template parameters
+    }
+
+    override void visit(const NonTypeTemplateParameter v) {
+        mixin(mixinNodeLog!());
+        // block mutants inside template parameters
+    }
+
     private void visitVar(T)(T v) @trusted {
         auto n = new analyze.VarDecl;
 
