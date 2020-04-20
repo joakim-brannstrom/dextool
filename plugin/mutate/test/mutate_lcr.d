@@ -30,11 +30,31 @@ unittest {
         "from '&&' to '||'",
         "from 'a && b' to 'true'",
         "from 'a && b' to 'false'",
-        "from '&& b' to ''",
-        "from 'a &&' to ''",
         "from '||' to '&&'",
         "from 'a || b' to 'true'",
         "from 'a || b' to 'false'",
+    ]).shouldBeIn(r.output);
+}
+
+@(testId ~ "shall produce all LCR delete mutations for primitive types")
+@Values("lcr_primitive.cpp", "lcr_overload.cpp", "lcr_in_ifstmt.cpp")
+@ShouldFail
+unittest {
+    mixin(envSetup(globalTestdir, No.setupEnv));
+    testEnv.outputSuffix(getValue!string);
+    testEnv.setupEnv;
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ getValue!string)
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["test"])
+        .addArg(["--mutant", "lcr"])
+        .run;
+
+    testAnyOrder!SubStr([
+        "from '&& b' to ''",
+        "from 'a &&' to ''",
         "from '|| b' to ''",
         "from 'a ||' to ''",
     ]).shouldBeIn(r.output);
