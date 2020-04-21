@@ -441,6 +441,11 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const TemplateTypeParameter v) {
+        mixin(mixinNodeLog!());
+        // block mutants inside template parameters
+    }
+
     override void visit(const TemplateTemplateParameter v) {
         mixin(mixinNodeLog!());
         // block mutants inside template parameters
