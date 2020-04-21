@@ -5,16 +5,19 @@ Author: Niklas Pettersson (nikpe353@student.liu.se)
 */
 module dextool_test.test_admin;
 
+import core.time : dur;
 import std.conv : to;
 import std.file : copy;
 import std.format : format;
 import std.path : relativePath;
+import std.traits : EnumMembers;
 
 import dextool.plugin.mutate.backend.database.standalone;
 import dextool.plugin.mutate.backend.database.type : MutationId, Rationale;
 import dextool.plugin.mutate.backend.type : Mutation;
 static import dextool.type;
 
+import dextool_test.fixtures;
 import dextool_test.utility;
 
 alias Status = Mutation.Status;
@@ -23,6 +26,53 @@ const errorOrFailure = ["error", "Failure"];
 
 void commandNotFailed(Command cmd) {
     testAnyOrder!SubStr(errorOrFailure).shouldNotBeIn(cmd.output);
+}
+
+class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
+    override string programFile() {
+        return (testData ~ "report_one_ror_mutation_point.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        import dextool.plugin.mutate.backend.type : TestCase;
+
+        // Arrange
+        const tc1 = TestCase("tc_1");
+        const tc2 = TestCase("tc_2");
+        const tc3 = TestCase("tc_3");
+        // tc1: [1,3,8,12,15]
+        // tc2: [1,8,12,15]
+        // tc3: [1,12]
+        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2, tc3
+                ]);
+        db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1
+                ]);
+        db.updateMutation(MutationId(8), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2
+                ]);
+        db.updateMutation(MutationId(12), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2, tc3
+                ]);
+        db.updateMutation(MutationId(15), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2
+                ]);
+
+        db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
+            .get.killedMutants.shouldBeGreaterThan(1);
+
+        auto r = makeDextoolAdmin(testEnv).addArg([
+                "--operation", "resetTestCase"
+                ]).addArg(["--test-case-regex", `.*_1`]).run;
+
+        db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)]).get.killedMutants.shouldEqual(0);
+    }
 }
 
 // dfmt off
@@ -51,7 +101,7 @@ unittest {
     ]).shouldBeIn(r.output);
 }
 
-@(testId ~ "shall promt a failure message when marking a mutant that does not exist")
+@(testId ~ "shall prompt a failure message when marking a mutant that does not exist")
 unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
