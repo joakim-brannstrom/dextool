@@ -136,6 +136,8 @@ enum AdminOperation {
     markMutant,
     ///
     removeMarkedMutant,
+    ///
+    resetTestCase,
 }
 
 /// Builtin analyzers for testing frameworks that find failing test cases

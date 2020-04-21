@@ -105,6 +105,8 @@ nothrow:
         case AdminOperation.removeTestCase:
             return removeTestCase(db,
                     data.kinds, data.test_case_regex);
+        case AdminOperation.resetTestCase:
+            return resetTestCase(db, data.test_case_regex);
         case AdminOperation.markMutant:
             return markMutant(db, data.mutant_id,
                     data.kinds, data.to_status, data.mutant_rationale, data.fio);
@@ -144,6 +146,30 @@ ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, cons
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }
+    return ExitStatusType.Ok;
+}
+
+ExitStatusType resetTestCase(ref Database db, const Regex!char re) @trusted nothrow {
+    import std.algorithm : filter, map;
+    import std.regex : matchFirst;
+    import std.typecons : tuple;
+
+    try {
+        auto trans = db.transaction;
+
+        foreach (a; db.getDetectedTestCases
+                .filter!(a => !matchFirst(a.name, re).empty)
+                .map!(a => tuple!("tc", "id")(a, db.getTestCaseId(a)))
+                .filter!(a => !a.id.isNull)) {
+            logger.info("Resetting ", a.tc);
+            db.resetTestCaseId(a.id.get);
+        }
+
+        trans.commit;
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+    }
+
     return ExitStatusType.Ok;
 }
 

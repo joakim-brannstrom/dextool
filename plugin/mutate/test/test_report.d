@@ -21,8 +21,8 @@ import dextool.plugin.mutate.backend.database.type;
 import dextool.plugin.mutate.backend.type;
 static import dextool.type;
 
-import dextool_test.utility;
 import dextool_test.fixtures;
+import dextool_test.utility;
 
 // dfmt off
 

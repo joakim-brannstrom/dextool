@@ -1496,6 +1496,23 @@ struct Database {
         }
     }
 
+    /// Change the status of all mutants that the test case has killed to unknown.
+    void resetTestCaseId(const TestCaseId id) @trusted {
+        {
+            immutable sql = format!"UPDATE %1$s SET status=0 WHERE id IN (SELECT t1.id FROM %2$s t0, %1$s t1 WHERE t0.tc_id = :id AND t0.st_id = t1.id)"(
+                    mutationStatusTable, killedTestCaseTable);
+            auto stmt = db.prepare(sql);
+            stmt.get.bind(":id", cast(long) id);
+            stmt.get.execute;
+        }
+        {
+            immutable sql = format!"delete from %1$s where tc_id = :id"(killedTestCaseTable);
+            auto stmt = db.prepare(sql);
+            stmt.get.bind(":id", cast(long) id);
+            stmt.get.execute;
+        }
+    }
+
     /// Returns: the context for the timeout algorithm.
     MutantTimeoutCtx getMutantTimeoutCtx() @trusted {
         foreach (res; db.run(select!MutantTimeoutCtx))
