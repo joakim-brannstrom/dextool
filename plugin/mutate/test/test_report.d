@@ -424,13 +424,13 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
 
         testConsecutiveSparseOrder!SubStr([
             "Diff View",
-            "Mutation Score <b>0.9",
+            "Mutation Score <b>0.5",
             "Analyzed Diff",
             "build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp",
         ]).shouldBeIn(File((testEnv.outdir ~ "html/diff_view.html").toString).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["diff"];
-        (cast(int) (10 * j["score"].floating)).shouldEqual(9);
+        (cast(int) (10 * j["score"].floating)).shouldEqual(5);
     }
 }
 

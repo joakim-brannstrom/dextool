@@ -941,7 +941,10 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
     if (total.length == 0) {
         rval.score = 1.0;
     } else {
-        rval.score = cast(double) killing_mutants.length / cast(double) total.length;
+        // TODO: use total to compute e.g. a standard deviation or some other
+        // useful statistical metric to convey a "confidence" of the value.
+        rval.score = cast(double) rval.killed.length / cast(double)(
+                rval.killed.length + rval.alive.length);
     }
 
     return rval;
