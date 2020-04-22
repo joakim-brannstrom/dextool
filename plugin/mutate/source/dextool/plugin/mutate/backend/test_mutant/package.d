@@ -179,6 +179,7 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothro
 struct TestDriver {
     import std.datetime : SysTime;
     import std.typecons : Unique;
+    import dextool.gc : MemFree;
     import dextool.plugin.mutate.backend.database : Schemata, SchemataId, MutationStatusId;
     import dextool.plugin.mutate.backend.test_mutant.source_mutant : MutationTestDriver,
         MutationTestResult;
@@ -255,7 +256,7 @@ struct TestDriver {
         long maxReset;
     }
 
-    static struct CleanupTempDirs {
+    static struct Cleanup {
     }
 
     static struct CheckMutantsLeft {
@@ -386,12 +387,12 @@ struct TestDriver {
 
     alias Fsm = dextool.fsm.Fsm!(None, Initialize, SanityCheck,
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
-            CleanupTempDirs, CheckMutantsLeft, PreCompileSut, MeasureTestSuite,
-            PreMutationTest, NextMutant, MutationTest, HandleTestResult,
-            CheckTimeout, Done, Error, UpdateTimeout, CheckRuntime,
-            PullRequest, NextPullRequestMutant, ParseStdin, FindTestCmds,
-            ChooseMode, NextSchemata, PreSchemata, SchemataTest,
-            SchemataTestResult, SchemataRestore, LoadSchematas, SanityCheckSchemata);
+            Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
+            NextMutant, MutationTest, HandleTestResult, CheckTimeout,
+            Done, Error, UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant,
+            ParseStdin, FindTestCmds, ChooseMode, NextSchemata,
+            PreSchemata, SchemataTest, SchemataTestResult, SchemataRestore,
+            LoadSchematas, SanityCheckSchemata);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData,
             ResetOldMutantData, SchemataRestoreData, PreSchemataData, NextSchemataData);
 
@@ -401,6 +402,7 @@ struct TestDriver {
         TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant,
                 PullRequest, ResetOldMutant, SchemataRestore, PreSchemata, NextSchemata) local;
         bool isRunning_ = true;
+        MemFree mfree;
     }
 
     this(DriverData data) {
@@ -444,7 +446,7 @@ struct TestDriver {
             if (a.doneTestingOldMutants)
                 return fsm(Done.init);
             return fsm(UpdateTimeout.init);
-        }, (CleanupTempDirs a) {
+        }, (Cleanup a) {
             if (self.local.get!PullRequest.constraint.empty)
                 return fsm(NextSchemata.init);
             return fsm(NextPullRequestMutant.init);
@@ -498,7 +500,7 @@ struct TestDriver {
                 return fsm(CheckTimeout.init);
             return fsm(PreMutationTest.init);
         }, (PreMutationTest a) => fsm(MutationTest.init),
-                (UpdateTimeout a) => fsm(CleanupTempDirs.init), (MutationTest a) {
+                (UpdateTimeout a) => fsm(Cleanup.init), (MutationTest a) {
             if (a.mutationError)
                 return fsm(Error.init);
             return fsm(HandleTestResult(a.result));
@@ -719,8 +721,9 @@ nothrow:
         }
     }
 
-    void opCall(CleanupTempDirs data) {
+    void opCall(Cleanup data) {
         global.data.autoCleanup.cleanup;
+        mfree.tick;
     }
 
     void opCall(ref CheckMutantsLeft data) {

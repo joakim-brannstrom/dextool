@@ -27,18 +27,16 @@ AnalyzeTestCmdForTestCase --> UpdateAndResetAliveMutants
 
 UpdateAndResetAliveMutants --> CheckMutantsLeft
 
-UpdateTimeout --> CleanupTempDirs
+UpdateTimeout --> Cleanup
 
-CleanupTempDirs --> NextSchemata
-CleanupTempDirs --> NextPullRequestMutant : hasConstraint
+Cleanup --> NextSchemata
+Cleanup --> NextPullRequestMutant : hasConstraint
 
 CheckMutantsLeft --> Done : allTested && !resetOld
 CheckMutantsLeft --> MeasureTestSuite
 
 MeasureTestSuite --> Error : unreliable
-MeasureTestSuite --> SetMaxRuntime
-
-SetMaxRuntime --> LoadSchematas
+MeasureTestSuite --> LoadSchematas
 
 LoadSchematas --> UpdateTimeout
 
@@ -49,7 +47,7 @@ NextPullRequestMutant --> PreMutationTest
 NextPullRequestMutant --> Done : allTested
 
 NextSchemata --> PreSchemata : hasSchema
-NextSchemata --> Done : !hasSchema && userStop
+NextSchemata --> Done : !hasSchema && user
 NextSchemata --> NextMutant
 PreSchemata --> SanityCheckSchemata
 SanityCheckSchemata --> SchemataRestore : failed

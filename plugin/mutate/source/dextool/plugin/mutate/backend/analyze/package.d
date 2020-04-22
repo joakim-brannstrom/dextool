@@ -182,9 +182,10 @@ void analyzeActor(SearchResult fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
 /// Store the result of the analyze.
 void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared,
         const bool prune, const bool fastDbStore, const long poolSize, const bool forceSave) @trusted nothrow {
-    import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
     import cachetools : CacheLRU;
     import dextool.cachetools : nullableCache;
+    import dextool.gc : MemFree;
+    import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
 
     Database* db = cast(Database*) dbShared;
     FilesysIO fio = cast(FilesysIO) fioShared;
@@ -283,12 +284,14 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         int resultCnt;
         Nullable!int maxResults;
         bool running = true;
+        MemFree mfree;
 
         while (running) {
             try {
                 receive((AnalyzeCntMsg a) { maxResults = a.value; }, (immutable Analyze.Result a) {
                     resultCnt++;
                     save(a);
+                    mfree.tick;
                 },);
             } catch (Exception e) {
                 logger.trace(e).collectException;

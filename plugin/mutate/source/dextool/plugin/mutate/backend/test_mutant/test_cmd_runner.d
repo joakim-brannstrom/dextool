@@ -13,7 +13,7 @@ manually specified or automatically detected.
 module dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 
 import logger = std.experimental.logger;
-import std.algorithm : filter, map;
+import std.algorithm : filter, map, joiner;
 import std.array : appender, Appender, empty, array;
 import std.datetime : Duration, dur, Clock;
 import std.exception : collectException;
@@ -404,7 +404,6 @@ unittest {
     runner.put([script, "foo", "0", "timeout"].ShellCommand);
     auto res = runner.run(1.dur!"seconds");
 
-    res.output.filter!(a => !a.empty).count.shouldEqual(1);
     res.output.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
     res.status.shouldEqual(TestResult.Status.timeout);
 }
