@@ -1477,23 +1477,10 @@ struct Database {
         return rval.data;
     }
 
-    void removeTestCase(const Regex!char rex, const(Mutation.Kind)[] kinds) @trusted {
-        immutable sql = format!"SELECT t1.id,t1.name FROM %s t1,%s t2, %s t3 WHERE t1.id = t2.tc_id AND t2.st_id = t3.st_id AND t3.kind IN (%(%s,%))"(
-                allTestCaseTable, killedTestCaseTable, mutationTable,
-                kinds.map!(a => cast(long) a));
-        auto stmt = db.prepare(sql);
-
-        auto del_stmt = db.prepare(format!"DELETE FROM %s WHERE id=:id"(allTestCaseTable));
-        foreach (row; stmt.get.execute) {
-            string tc = row.peek!string(1);
-            if (tc.matchFirst(rex).empty)
-                continue;
-
-            long id = row.peek!long(0);
-            del_stmt.get.bind(":id", id);
-            del_stmt.get.execute;
-            del_stmt.get.reset;
-        }
+    void removeTestCase(const TestCaseId id) @trusted {
+        auto stmt = db.prepare(format!"DELETE FROM %s WHERE id=:id"(allTestCaseTable));
+        stmt.get.bind(":id", cast(long) id);
+        stmt.get.execute;
     }
 
     /// Change the status of all mutants that the test case has killed to unknown.
@@ -1506,7 +1493,7 @@ struct Database {
             stmt.get.execute;
         }
         {
-            immutable sql = format!"delete from %1$s where tc_id = :id"(killedTestCaseTable);
+            immutable sql = format!"DELETE FROM %1$s WHERE tc_id = :id"(killedTestCaseTable);
             auto stmt = db.prepare(sql);
             stmt.get.bind(":id", cast(long) id);
             stmt.get.execute;

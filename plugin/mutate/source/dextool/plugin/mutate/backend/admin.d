@@ -11,8 +11,10 @@ This module contains functionality to administrate the database
 */
 module dextool.plugin.mutate.backend.admin;
 
-import std.exception : collectException;
 import logger = std.experimental.logger;
+import std.algorithm : filter, map;
+import std.exception : collectException;
+import std.regex : matchFirst;
 
 import dextool.type;
 
@@ -103,8 +105,7 @@ nothrow:
         case AdminOperation.removeMutant:
             return removeMutant(db, data.kinds);
         case AdminOperation.removeTestCase:
-            return removeTestCase(db,
-                    data.kinds, data.test_case_regex);
+            return removeTestCase(db, data.test_case_regex);
         case AdminOperation.resetTestCase:
             return resetTestCase(db, data.test_case_regex);
         case AdminOperation.markMutant:
@@ -139,19 +140,30 @@ ExitStatusType removeMutant(ref Database db, const Mutation.Kind[] kinds) @safe 
     return ExitStatusType.Ok;
 }
 
-ExitStatusType removeTestCase(ref Database db, const Mutation.Kind[] kinds, const Regex!char regex) @safe nothrow {
+ExitStatusType removeTestCase(ref Database db, const Regex!char re) @trusted nothrow {
+    import std.typecons : tuple;
+
     try {
-        db.removeTestCase(regex, kinds);
+        auto trans = db.transaction;
+
+        foreach (a; db.getDetectedTestCases
+                .filter!(a => !matchFirst(a.name, re).empty)
+                .map!(a => tuple!("tc", "id")(a, db.getTestCaseId(a)))
+                .filter!(a => !a.id.isNull)) {
+            logger.info("Removing ", a.tc);
+            db.removeTestCase(a.id.get);
+        }
+
+        trans.commit;
     } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
     }
+
     return ExitStatusType.Ok;
 }
 
 ExitStatusType resetTestCase(ref Database db, const Regex!char re) @trusted nothrow {
-    import std.algorithm : filter, map;
-    import std.regex : matchFirst;
     import std.typecons : tuple;
 
     try {
@@ -168,6 +180,7 @@ ExitStatusType resetTestCase(ref Database db, const Regex!char re) @trusted noth
         trans.commit;
     } catch (Exception e) {
         logger.error(e.msg).collectException;
+        return ExitStatusType.Errors;
     }
 
     return ExitStatusType.Ok;
