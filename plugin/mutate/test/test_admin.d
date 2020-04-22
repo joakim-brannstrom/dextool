@@ -75,6 +75,48 @@ class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
     }
 }
 
+class ShallRemoveTestCase : SimpleAnalyzeFixture {
+    override string programFile() {
+        return (testData ~ "report_one_ror_mutation_point.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        import dextool.plugin.mutate.backend.type : TestCase;
+
+        // Arrange
+        const tc1 = TestCase("tc_1");
+        const tc2 = TestCase("tc_2");
+        // tc1: [1,3,8,12,15]
+        // tc2: [1,8,12,15]
+        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2
+                ]);
+        db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1
+                ]);
+        db.updateMutation(MutationId(8), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2
+                ]);
+        db.updateMutation(MutationId(15), Mutation.Status.killed, 5.dur!"msecs", [
+                tc1, tc2
+                ]);
+
+        db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
+            .get.killedMutants.shouldBeGreaterThan(1);
+
+        auto r = makeDextoolAdmin(testEnv).addArg([
+                "--operation", "removeTestCase"
+                ]).addArg(["--test-case-regex", `.*_1`]).run;
+
+        db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)]).get.killedMutants.shouldEqual(0);
+    }
+}
+
 // dfmt off
 @(testId ~ "shall mark a mutant without failing")
 unittest {
