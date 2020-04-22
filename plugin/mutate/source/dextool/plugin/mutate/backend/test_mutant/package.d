@@ -179,7 +179,6 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothro
 struct TestDriver {
     import std.datetime : SysTime;
     import std.typecons : Unique;
-    import dextool.gc : MemFree;
     import dextool.plugin.mutate.backend.database : Schemata, SchemataId, MutationStatusId;
     import dextool.plugin.mutate.backend.test_mutant.source_mutant : MutationTestDriver,
         MutationTestResult;
@@ -402,7 +401,6 @@ struct TestDriver {
         TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant,
                 PullRequest, ResetOldMutant, SchemataRestore, PreSchemata, NextSchemata) local;
         bool isRunning_ = true;
-        MemFree mfree;
     }
 
     this(DriverData data) {
@@ -723,7 +721,6 @@ nothrow:
 
     void opCall(Cleanup data) {
         global.data.autoCleanup.cleanup;
-        mfree.tick;
     }
 
     void opCall(ref CheckMutantsLeft data) {
