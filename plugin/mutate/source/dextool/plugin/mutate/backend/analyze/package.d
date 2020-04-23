@@ -247,7 +247,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                     .filter!(a => !a.isNull)
                     .map!(a => a.get)
                     .array;
-                if (!s.value.empty) {
+                if (!mutants.empty && !s.value.empty) {
                     const id = db.putSchemata(result.schemataChecksum[s.index], s.value, mutants);
                     logger.trace(!id.isNull, "Saving schemata ", id.get.value);
                 }

@@ -16,44 +16,6 @@ static import dextool.type;
 import dextool_test.utility;
 import dextool_test.fixtures;
 
-class SchemataFixutre : SimpleFixture {
-    override string programFile() {
-        return (testData ~ "simple_schemata.cpp").toString;
-    }
-
-    override string scriptBuild() {
-        return "#!/bin/bash
-set -e
-g++ %s -o %s
-";
-    }
-
-    override string scriptTest() {
-        return format("#!/bin/bash
-set -e
-%s
-", program_bin);
-    }
-
-    auto runDextoolTest(ref TestEnv testEnv, string[] args) {
-        // dfmt off
-        return dextool_test.makeDextool(testEnv)
-            .setWorkdir(workDir)
-            .args(["mutate"])
-            .addArg(["test"])
-            .addPostArg(args)
-            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
-            .addPostArg(["--test-timeout", "10000"])
-            .addPostArg(["--only-schemata"])
-            .addPostArg(["--use-schemata"])
-            .addPostArg(["--log-schemata"])
-            .run;
-        // dfmt on
-    }
-}
-
 class ShallRunAorSchema : SchemataFixutre {
     override string programFile() {
         return (testData ~ "simple_schemata.cpp").toString;
@@ -63,7 +25,7 @@ class ShallRunAorSchema : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "aor"]);
@@ -85,7 +47,7 @@ class ShallRunDccSchema : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "dcc"]);
@@ -106,7 +68,7 @@ class ShallRunDcrSchema : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "dcr"]);
@@ -127,7 +89,7 @@ class ShallUseSchemataSanityCheck : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "aor", "--check-schemata"]);
@@ -150,7 +112,7 @@ class ShallRunUoiSchema : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "uoi"]);
@@ -168,7 +130,7 @@ class ShallRunLcrSchema : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "lcr"]);
@@ -186,7 +148,7 @@ class ShallRunSdlSchema : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "sdl"]);
@@ -210,7 +172,7 @@ class ShallRemoveParenthesisBalanced : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = runDextoolTest(testEnv, ["--mutant", "lcrb"]);

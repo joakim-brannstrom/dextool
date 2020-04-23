@@ -9,6 +9,7 @@ module dextool_test.mutate_dcc;
 
 import std.algorithm : joiner, count;
 
+import dextool_test.fixtures;
 import dextool_test.utility;
 
 // dfmt off
@@ -175,38 +176,6 @@ unittest {
     ]).shouldBeIn(r.output);
 }
 
-@(testId ~ "shall produce 6 predicate and 8 clause mutations for an expression of multiple clauses of C code")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "dcc_dc_stmt4.c")
-        .run;
-    auto r = makeDextool(testEnv)
-        .addArg(["test"])
-        .addArg(["--mutant", "dcc"])
-        .run;
-    testAnyOrder!SubStr([
-        // isPredicateFunc
-        "from 'x == 0 || y == 0' to '1'",
-        "from 'x == 0 || y == 0' to '0'",
-        "from 'x == 0' to '1'",
-        "from 'x == 0' to '0'",
-        "from 'y == 0' to '1'",
-        "from 'y == 0' to '0'",
-        // isPredicateFunc2
-        "from 'x == 0 || y == 0' to '1'",
-        "from 'x == 0 || y == 0' to '0'",
-        "from 'x == 0' to '1'",
-        "from 'x == 0' to '0'",
-        "from 'y == 0' to '1'",
-        "from 'y == 0' to '0'",
-        // isPredicateFunc3
-        "from 'x == TRUE' to '1'",
-        "from 'x == TRUE' to '0'",
-    ]).shouldBeIn(r.output);
-}
-
 @(testId ~ "shall produce 2 predicate mutants for the bool function")
 unittest {
     mixin(EnvSetup(globalTestdir));
@@ -222,4 +191,51 @@ unittest {
     "from 'fun(x)' to 'true'",
     "from 'fun(x)' to 'false'",
                         ]).shouldBeIn(r.output);
+}
+
+// shall produce 6 predicate and 8 clause mutations for an expression of
+// multiple clauses of C code
+class ShallProduceAllDccMutantsWithSchemataForC : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "dcc_dc_stmt4.c").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        programCode = "program.c";
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+
+        auto expected = [
+            // isIfStmt
+            "from 'x == 0 || y == 0' to '1'",
+            "from 'x == 0 || y == 0' to '0'",
+            "from 'x == 0' to '1'",
+            "from 'x == 0' to '0'",
+            "from 'y == 0' to '1'",
+            "from 'y == 0' to '0'",
+            // isPredicateFunc
+            "from 'x == 0 || y == 0' to '1'",
+            "from 'x == 0 || y == 0' to '0'",
+            "from 'x == 0' to '1'",
+            "from 'x == 0' to '0'",
+            "from 'y == 0' to '1'",
+            "from 'y == 0' to '0'",
+            // isPredicateFunc2
+            "from 'x == 0 || y == 0' to '1'",
+            "from 'x == 0 || y == 0' to '0'",
+            "from 'x == 0' to '1'",
+            "from 'x == 0' to '0'",
+            "from 'y == 0' to '1'",
+            "from 'y == 0' to '0'",
+            // isPredicateFunc3
+            "from 'x == TRUE' to '1'",
+            "from 'x == TRUE' to '0'",
+            ];
+
+        testAnyOrder!SubStr(expected).shouldBeIn(runDextoolTest(testEnv, ["--mutant", "dcc"]).output);
+        makeDextoolAdmin(testEnv).addArg(["--operation", "resetMutant", "--status", "alive"]).run;
+        testAnyOrder!SubStr(expected).shouldBeIn(makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "dcc"]).run.output);
+    }
 }

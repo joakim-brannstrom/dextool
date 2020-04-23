@@ -20,9 +20,9 @@ auto makeDextoolAnalyze(const ref TestEnv env) {
     return dextool_test.makeDextool(env)
         .setWorkdir(workDir)
         .args(["mutate", "analyze"])
-        .addPostArg(["--profile"])
-        .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
-        .addPostArg(["--fast-db-store"]);
+        .addArg(["--profile"])
+        .addArg(["--db", (env.outdir ~ defaultDb).toString])
+        .addArg(["--fast-db-store"]);
     // dfmt on
 }
 

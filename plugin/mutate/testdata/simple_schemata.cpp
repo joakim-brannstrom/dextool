@@ -34,6 +34,9 @@ int test_switch(int x) {
     case 1: {
         return 3;
     }
+    // fallthrough had a bug wherein dcc crashed
+    case 2:
+    case 3:
     default:
         x = 42;
         break;

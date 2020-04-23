@@ -30,29 +30,29 @@ class DatabaseFixture : TestCase {
 
 /// Input is a file with about one mutation point in it.
 class SimpleFixture : TestCase {
-    string program_cpp;
-    string program_bin;
-    string compile_script;
-    string test_script;
-    string analyze_script;
+    string programCode = "program.cpp";
+    string programBin = "program";
+    string compileScript = "compile.sh";
+    string testScript = "test.sh";
+    string analyzeScript = "analyze.sh";
 
     void precondition(ref TestEnv testEnv) {
-        compile_script = (testEnv.outdir ~ "compile.sh").toString;
-        test_script = (testEnv.outdir ~ "test.sh").toString;
-        program_cpp = (testEnv.outdir ~ "program.cpp").toString;
-        program_bin = (testEnv.outdir ~ "program").toString;
-        analyze_script = (testEnv.outdir ~ "analyze.sh").toString;
+        compileScript = (testEnv.outdir ~ compileScript).toString;
+        testScript = (testEnv.outdir ~ testScript).toString;
+        programCode = (testEnv.outdir ~ programCode).toString;
+        programBin = (testEnv.outdir ~ programBin).toString;
+        analyzeScript = (testEnv.outdir ~ analyzeScript).toString;
 
-        copy(programFile, program_cpp);
+        copy(programFile, programCode);
 
-        File(compile_script, "w").write(format(scriptBuild, program_cpp, program_bin));
-        makeExecutable(compile_script);
+        File(compileScript, "w").write(format(scriptBuild, programCode, programBin));
+        makeExecutable(compileScript);
 
-        File(test_script, "w").write(scriptTest);
-        makeExecutable(test_script);
+        File(testScript, "w").write(scriptTest);
+        makeExecutable(testScript);
 
-        File(analyze_script, "w").write(scriptAnalyzeTestOutput);
-        makeExecutable(analyze_script);
+        File(analyzeScript, "w").write(scriptAnalyzeTestOutput);
+        makeExecutable(analyzeScript);
     }
 
     string programFile() {
@@ -109,5 +109,43 @@ class MutantFixture : TestCase {
 
         auto r = makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", op]).run;
         return r;
+    }
+}
+
+class SchemataFixutre : SimpleFixture {
+    override string programFile() {
+        return (testData ~ "simple_schemata.cpp").toString;
+    }
+
+    override string scriptBuild() {
+        return "#!/bin/bash
+set -e
+g++ %s -o %s
+";
+    }
+
+    override string scriptTest() {
+        return format("#!/bin/bash
+set -e
+%s
+", programBin);
+    }
+
+    auto runDextoolTest(ref TestEnv testEnv, string[] args) {
+        // dfmt off
+        return dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(args)
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["--only-schemata"])
+            .addPostArg(["--use-schemata"])
+            .addPostArg(["--log-schemata"])
+            .run;
+        // dfmt on
     }
 }

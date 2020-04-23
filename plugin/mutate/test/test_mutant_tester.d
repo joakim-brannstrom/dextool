@@ -21,7 +21,7 @@ class ShallReportTestCaseKilledMutant : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -30,9 +30,9 @@ class ShallReportTestCaseKilledMutant : SimpleFixture {
             .addArg(["test"])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
-            .addPostArg(["--test-case-analyze-cmd", analyze_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
+            .addPostArg(["--test-case-analyze-cmd", analyzeScript])
             .addPostArg(["--test-timeout", "10000"])
             .run;
         // dfmt on
@@ -46,7 +46,7 @@ class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -55,8 +55,8 @@ class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
             .addArg(["test"])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-case-analyze-builtin", "gtest"])
             .addPostArg(["--test-timeout", "10000"])
             .run;
@@ -138,7 +138,7 @@ class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -147,8 +147,8 @@ class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
             .addArg(["test"])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-case-analyze-builtin", "ctest"])
             .addPostArg(["--test-timeout", "10000"])
             .run;
@@ -538,8 +538,8 @@ class ShallDetectAllTestCases : TestCaseDetection {
             .addArg(["test"])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-case-analyze-builtin", "gtest"])
             .addPostArg(["--test-timeout", "10000"])
             .run;
@@ -578,8 +578,8 @@ detected_new_test_case = "resetAlive"
             .addArg(["test"])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-case-analyze-builtin", "gtest"])
             .addPostArg(["--test-timeout", "10000"])
             .run;
@@ -610,8 +610,8 @@ EOF
 exit 1
 ";
 
-        File(test_script, "w").write(scriptGTestSuiteAddOne);
-        makeExecutable(test_script);
+        File(testScript, "w").write(scriptGTestSuiteAddOne);
+        makeExecutable(testScript);
 
         // dfmt off
         auto r1 = dextool_test.makeDextool(testEnv)
@@ -621,8 +621,8 @@ exit 1
             .addArg(["-c", conf_f])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-case-analyze-builtin", "gtest"])
             .addPostArg(["--test-timeout", "10000"])
             .run;
@@ -641,8 +641,8 @@ class DroppedTestCases : TestCaseDetection {
             .addArg(["test"])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-case-analyze-builtin", "gtest"])
             .addPostArg(["--test-timeout", "10000"])
             .run;
@@ -669,8 +669,8 @@ EOF
 exit 1
 ";
 
-        File(test_script, "w").write(scriptGTestSuiteDropOne);
-        makeExecutable(test_script);
+        File(testScript, "w").write(scriptGTestSuiteDropOne);
+        makeExecutable(testScript);
 
         // dfmt off
         auto r1 = dextool_test.makeDextool(testEnv)
@@ -680,8 +680,8 @@ exit 1
             .addPostArg(extra_args)
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-case-analyze-builtin", "gtest"])
             .addPostArg(["--test-timeout", "10000"])
             .run;
@@ -727,7 +727,9 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
 
         db.updateMutation(MutationId(1), Mutation.Status.killed,
                 5.dur!"msecs", [TestCase("tc_1")]);
+
         // verify pre-condition that test cases exist in the DB
+        // dfmt off
         auto r0 = makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
             .addArg(["--section", "tc_stat"])
@@ -746,6 +748,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
             .run;
         testConsecutiveSparseOrder!SubStr(["| 100        | 1     | tc_1     |"])
             .shouldBeIn(r1.output);
+        // dfmt on
     }
 }
 
@@ -832,7 +835,7 @@ class ShallStopAtMaxRuntime : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -841,8 +844,8 @@ class ShallStopAtMaxRuntime : SimpleFixture {
             .addArg(["test"])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-timeout", "10000"])
             .addPostArg(["--max-runtime", "5 msecs"])
             .run;
@@ -859,7 +862,7 @@ class ShallTestMutantsOnSpecifiedLines : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -868,10 +871,10 @@ class ShallTestMutantsOnSpecifiedLines : SimpleFixture {
             .addArg(["test"])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-timeout", "10000"])
-            .addPostArg(["-L", program_cpp.relativePath(workDir.toString) ~ ":11-14"])
+            .addPostArg(["-L", programCode.relativePath(workDir.toString) ~ ":11-14"])
             .run;
         // dfmt on
 
@@ -903,8 +906,8 @@ class ShallTestMutantsInDiff : SimpleFixture {
             .addArg(["test"])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-timeout", "10000"])
             .addPostArg(["--diff-from-stdin"])
             .setStdin(readText(programFile ~ ".diff"))
@@ -929,7 +932,7 @@ class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -937,11 +940,11 @@ class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", "/bin/true"])
             .addPostArg(["--test-timeout", "10000"])
             .addPostArg(["--max-alive", "3"])
-            .addPostArg(["-L", program_cpp.relativePath(workDir.toString) ~ ":8-18"])
+            .addPostArg(["-L", programCode.relativePath(workDir.toString) ~ ":8-18"])
             .run;
 
         testConsecutiveSparseOrder!Re([
@@ -967,7 +970,7 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(program_cpp).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -976,12 +979,12 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
             .addArg(["test"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--mutant", "all"])
-            .addPostArg(["--build-cmd", compile_script])
+            .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", "/bin/true"])
             .addPostArg(["--test-timeout", "10000"])
             .addPostArg(["--max-alive", "10"])
             .addPostArg(["--pull-request-seed", "42"])
-            .addPostArg(["-L", program_cpp.relativePath(workDir.toString) ~ ":8-18"])
+            .addPostArg(["-L", programCode.relativePath(workDir.toString) ~ ":8-18"])
             .run;
 
         testConsecutiveSparseOrder!Re([

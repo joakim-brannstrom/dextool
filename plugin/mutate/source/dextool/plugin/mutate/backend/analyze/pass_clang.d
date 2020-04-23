@@ -384,7 +384,6 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void decr() @trusted {
         --indent;
-
         lastDecr = nstack.popUntil(indent);
     }
 
@@ -407,6 +406,8 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     override void visit(const(TranslationUnit) v) {
+        import clang.c.Index : CXLanguageKind;
+
         mixin(mixinNodeLog!());
 
         blacklist = BlackList(v.cursor);
@@ -415,6 +416,18 @@ final class BaseVisitor : ExtendedVisitor {
         auto loc = v.cursor.toLocation;
         ast.put(ast.root, loc);
         pushStack(ast.root, loc);
+
+        // it is most often invalid
+        switch (v.cursor.language) {
+        case CXLanguageKind.c:
+            ast.lang = Language.c;
+            break;
+        case CXLanguageKind.cPlusPlus:
+            ast.lang = Language.cpp;
+            break;
+        default:
+            ast.lang = Language.assumeCpp;
+        }
 
         v.accept(this);
     }
@@ -500,14 +513,14 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
-    override void visit(const(Preprocessor) v) {
+    override void visit(const Preprocessor v) {
         mixin(mixinNodeLog!());
 
         const bool isCpp = v.spelling == "__cplusplus";
 
         if (isCpp)
             ast.lang = Language.cpp;
-        else if (ast.lang != Language.cpp)
+        else if (!isCpp && ast.lang != Language.cpp)
             ast.lang = Language.c;
 
         v.accept(this);
@@ -841,6 +854,7 @@ final class BaseVisitor : ExtendedVisitor {
         branch.children ~= inner;
         branch.inside = inner;
         pushStack(inner, res.get.insideBranch);
+
         dispatch(res.get.inner, this);
     }
 }
