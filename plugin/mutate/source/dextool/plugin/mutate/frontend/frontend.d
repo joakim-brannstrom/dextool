@@ -24,7 +24,12 @@ import dextool.plugin.mutate.config;
 @safe:
 
 ExitStatusType runMutate(ArgParser conf) {
+    import dextool.gc : MemFree;
+
     logger.trace("ToolMode: ", conf.data.toolMode);
+
+    MemFree mfree;
+    mfree.start;
 
     alias Func1 = ExitStatusType function(ref ArgParser conf, ref DataAccess dacc) @safe;
     Func1[ToolMode] modes;
