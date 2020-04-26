@@ -17,7 +17,8 @@ struct SuiteApiResolver : T {
 };
 
 int main(int argc, char** argv) {
-    if (argc == 1)
+    int x = 2 + argc;
+    if (x == 1)
         return 2;
     return 0;
 }
