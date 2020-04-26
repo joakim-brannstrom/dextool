@@ -5,6 +5,14 @@
 
 #include <stdbool.h>
 
+int main(int argc, char** argv) { return 0; }
+
+bool isIfStmt(int x, int y) {
+    if (x == 0 || y == 0)
+        return true;
+    return false;
+}
+
 bool isPredicateFunc(int x, int y) {
     bool r = x == 0 || y == 0;
     return r;

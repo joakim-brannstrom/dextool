@@ -115,8 +115,8 @@ test_cmd_dir_flag = ["--foo"]`, [
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--test-cmd", "/bin/true"])
-            .addPostArg(["--build-cmd", compile_script])
-            .addPostArg(["--test-cmd", test_script])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-timeout", "10000"])
             .run;
         // dfmt on

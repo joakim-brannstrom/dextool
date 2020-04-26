@@ -224,6 +224,14 @@ struct CodeChecksum {
 struct CodeMutant {
     CodeChecksum id;
     Mutation mut;
+
+    bool opEquals(const typeof(this) s) const {
+        return id == s.id;
+    }
+
+    size_t toHash() @safe pure nothrow const @nogc scope {
+        return id.toHash;
+    }
 }
 
 /// A test case from the test suite that is executed on mutants.

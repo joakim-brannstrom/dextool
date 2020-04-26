@@ -10,15 +10,15 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.analyze.pass_schemata;
 
 import logger = std.experimental.logger;
-import std.algorithm : among, map, sort, filter, canFind, copy, uniq;
+import std.algorithm : among, map, sort, filter, canFind, copy, uniq, any;
 import std.array : appender, empty, array, Appender;
 import std.conv : to;
 import std.exception : collectException;
 import std.format : formattedWrite, format;
 import std.meta : AliasSeq;
-import std.range : retro, ElementType;
+import std.range : ElementType, only;
 import std.traits : EnumMembers;
-import std.typecons : Nullable, tuple, Tuple, scoped;
+import std.typecons : tuple, Tuple, scoped;
 
 import automem : vector, Vector;
 
@@ -94,7 +94,7 @@ class SchemataResult {
     private {
         Schemata[MutantGroup][AbsolutePath] schematas;
         FilesysIO fio;
-        long mutantsPerSchema;
+        const long mutantsPerSchema;
     }
 
     this(FilesysIO fio, long mutantsPerSchema) {
@@ -126,15 +126,15 @@ class SchemataResult {
 
         void toBuf(Schemata s) {
             foreach (f; s.fragments) {
-                formattedWrite(w, "Mutants\n%(%s\n%)\n", f.mutants);
-                formattedWrite(w, "%s: %s\n", f.offset,
+                formattedWrite(w, "%(  %s\n%)\n", f.mutants);
+                formattedWrite(w, "  %s: %s\n", f.offset,
                         (cast(const(char)[]) f.text).byUTF!(const(char)));
             }
         }
 
         void toBufGroups(Schemata[MutantGroup] s) {
             foreach (a; s.byKeyValue) {
-                formattedWrite(w, "Group %s ", a.key);
+                formattedWrite(w, "Group %s\n", a.key);
                 toBuf(a.value);
             }
         }
@@ -207,17 +207,24 @@ struct SchematasRange {
 
             Set!CodeMutant mutants;
             foreach (a; fragments) {
-                // conservative to only allow up to 100 mutants per schemata.
-                // but it reduces the chance that one failing schemata is
-                // "fatal", loosing too many muntats.
-                if (index.inside(0, a.offset)
-                        || (mutants.length >= mutantsPerSchema && mutants.length != 0)) {
+                // conservative to only allow up to <user defined> mutants per
+                // schemata but it reduces the chance that one failing schemata
+                // is "fatal", loosing too many muntats.
+                if (index.inside(0, a.offset) || mutants.length >= mutantsPerSchema) {
                     spillOver.put(a);
-                } else {
-                    app.put(SchemataFragment(relp, a.offset, a.text));
-                    mutants.add(a.mutants);
-                    index.put(0, a.offset);
+                    continue;
                 }
+
+                // if any of the mutants in the schema has already been added
+                // then the new fragment is also overlapping
+                if (any!(a => a in mutants)(a.mutants)) {
+                    spillOver.put(a);
+                    continue;
+                }
+
+                app.put(SchemataFragment(relp, a.offset, a.text));
+                mutants.add(a.mutants);
+                index.put(0, a.offset);
             }
 
             ET v;
@@ -301,6 +308,8 @@ class CppSchemataVisitor : DepthFirstVisitor {
     FilesysIO fio;
 
     this(Ast* ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result) {
+        assert(ast !is null);
+
         this.ast = ast;
         this.index = index;
         this.fio = fio;
@@ -308,6 +317,20 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     alias visit = DepthFirstVisitor.visit;
+
+    override void visit(Branch n) {
+        if (n.inside !is null) {
+            visitBlock!BlockChain(n, MutantGroup.dcr, dcrMutationsAll);
+            visitBlock!BlockChain(n.inside, MutantGroup.dcc, dccMutationsAll);
+        }
+        accept(n, this);
+    }
+
+    override void visit(Condition n) {
+        visitCondition(n, MutantGroup.dcr, dcrMutationsAll);
+        visitCondition(n, MutantGroup.dcc, dccMutationsAll);
+        accept(n, this);
+    }
 
     override void visit(VarDecl n) {
         // block schematas if the visitor is inside a const declared variable.
@@ -411,9 +434,32 @@ class CppSchemataVisitor : DepthFirstVisitor {
         visitBinaryOp(n);
     }
 
+    private void visitCondition(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) @trusted {
+        // The schematas from the code below are only needed for e.g. function
+        // calls such as if (fn())...
+
+        auto loc = ast.location(n);
+        auto mutants = index.get(loc.file, loc.interval)
+            .filter!(a => canFind(kinds, a.mut.kind)).array;
+
+        if (mutants.empty)
+            return;
+
+        auto fin = fio.makeInput(loc.file);
+        auto schema = ExpressionChain(fin.content[loc.interval.begin .. loc.interval.end]);
+        foreach (const mutant; mutants) {
+            // dfmt off
+            schema.put(mutant.id.c0,
+                makeMutation(mutant.mut.kind, ast.lang).mutate(fin.content[loc.interval.begin .. loc.interval.end]),
+                );
+            // dfmt on
+        }
+
+        result.putFragment(loc.file, group, rewrite(loc, schema.generate, mutants));
+    }
+
     private void visitBlock(ChainT, T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
         auto loc = ast.location(n);
-
         auto offs = loc.interval;
         auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
 
@@ -421,10 +467,24 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return;
 
         auto fin = fio.makeInput(loc.file);
-        auto schema = ChainT(fin.content[offs.begin .. offs.end]);
+
+        auto content = () {
+            // TODO: why does it crash when null is returned? it shuld work...
+            // switch statements with fallthrough case-branches have an
+            // offs.begin == offs.end
+            if (offs.begin >= offs.end) {
+                return " ".rewrite;
+            }
+            // this is just defensive code. not proven to be a problem.
+            if (any!(a => a >= fin.content.length)(only(offs.begin, offs.end))) {
+                return " ".rewrite;
+            }
+            return fin.content[offs.begin .. offs.end];
+        }();
+
+        auto schema = ChainT(content);
         foreach (const mutant; mutants) {
-            schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang)
-                    .mutate(fin.content[offs.begin .. offs.end]));
+            schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang).mutate(content));
         }
 
         result.putFragment(loc.file, group, rewrite(loc, schema.generate, mutants));
@@ -458,7 +518,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
             foreach (a; v.schema.byKeyValue.filter!(a => !a.value.empty)) {
                 result.putFragment(v.rootLoc.file, a.key, rewrite(v.rootLoc,
-                        a.value.generate, v.mutants[a.key]));
+                        a.value.generate, v.mutants[a.key].toArray));
             }
         } catch (Exception e) {
         }
@@ -488,7 +548,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
     /// The resulting fragments of the expression.
     ExpressionChain[MutantGroup] schema;
-    CodeMutant[][MutantGroup] mutants;
+    Set!(CodeMutant)[MutantGroup] mutants;
 
     this(T)(Ast* ast, CodeMutantIndex* index, FilesysIO fio, T root) {
         this.ast = ast;
@@ -503,7 +563,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         foreach (mg; [EnumMembers!MutantGroup]) {
             schema[mg] = ExpressionChain(content[root.begin .. root.end]);
-            mutants[mg] = CodeMutant[].init;
+            mutants[mg] = Set!CodeMutant.init;
         }
 
         visit(n);
@@ -630,12 +690,13 @@ class BinaryOpVisitor : DepthFirstVisitor {
         auto rhsMutants = index.get(locOp.file, offsRhs)
             .filter!(a => canFind(opKinds, a.mut.kind)).array;
 
-        if (opMutants.empty && lhsMutants.empty && rhsMutants.empty)
+        if (opMutants.empty && lhsMutants.empty && rhsMutants.empty && exprMutants.empty)
             return;
 
         foreach (const mutant; opMutants) {
             // dfmt off
-            schema[group].put(mutant.id.c0,
+            schema[group].
+                put(mutant.id.c0,
                     left,
                     content[locExpr.interval.begin .. locOp.interval.begin],
                     makeMutation(mutant.mut.kind, ast.lang).mutate(content[locOp.interval.begin .. locOp.interval.end]),
@@ -646,38 +707,41 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         foreach (const mutant; lhsMutants) {
             // dfmt off
-            schema[MutantGroup.opExpr].put(mutant.id.c0,
+            schema[MutantGroup.opExpr]
+                .put(mutant.id.c0,
                     schema[group].put(mutant.id.c0,
-                    left,
-                    makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
-                    content[offsLhs.end .. locExpr.interval.end],
-                    right));
+                        left,
+                        makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
+                        content[offsLhs.end .. locExpr.interval.end],
+                        right));
             // dfmt on
         }
 
         foreach (const mutant; rhsMutants) {
             // dfmt off
-            schema[MutantGroup.opExpr].put(mutant.id.c0,
+            schema[MutantGroup.opExpr]
+                .put(mutant.id.c0,
                     schema[group].put(mutant.id.c0,
-                    left,
-                    content[locExpr.interval.begin .. offsRhs.begin],
-                    makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
-                    right));
+                        left,
+                        content[locExpr.interval.begin .. offsRhs.begin],
+                        makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
+                        right));
             // dfmt on
         }
 
         foreach (const mutant; exprMutants) {
             // dfmt off
-            schema[MutantGroup.opExpr].put(mutant.id.c0,
+            schema[MutantGroup.opExpr]
+                .put(mutant.id.c0,
                     schema[group].put(mutant.id.c0,
-                    left,
-                    makeMutation(mutant.mut.kind, ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
-                    right));
+                        left,
+                        makeMutation(mutant.mut.kind, ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
+                        right));
             // dfmt on
         }
 
-        mutants[group] ~= opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants;
-        mutants[MutantGroup.opExpr] ~= exprMutants;
+        mutants[group].add(opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants);
+        mutants[MutantGroup.opExpr].add(exprMutants);
     }
 }
 
@@ -719,10 +783,16 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
 
 /** Accumulate multiple modifications for an expression to then generate a via
  * ternery operator that activate one mutant if necessary.
+ *
+ * A id can only be added once to the chain. This ensure that there are no
+ * duplications. This can happen when e.g. adding rorFalse and dccFalse to an
+ * expression group. They both result in the same source code mutation thus
+ * only one of them is actually needed. This deduplications this case.
  */
 struct ExpressionChain {
     alias Mutant = Tuple!(ulong, "id", const(ubyte)[], "value");
     Appender!(Mutant[]) mutants;
+    Set!ulong mutantIds;
     const(ubyte)[] original;
 
     this(const(ubyte)[] original) {
@@ -735,7 +805,10 @@ struct ExpressionChain {
 
     /// Returns: `value`
     const(ubyte)[] put(ulong id, const(ubyte)[] value) {
-        mutants.put(Mutant(id, value));
+        if (id !in mutantIds) {
+            mutantIds.add(id);
+            mutants.put(Mutant(id, value));
+        }
         return value;
     }
 
@@ -770,9 +843,15 @@ struct ExpressionChain {
 /** Accumulate block modification of the program to then generate a
  * if-statement chain that activates them if the mutant is set. The last one is
  * the original.
+ *
+ * A id can only be added once to the chain. This ensure that there are no
+ * duplications. This can happen when e.g. adding rorFalse and dccFalse to an
+ * expression group. They both result in the same source code mutation thus
+ * only one of them is actually needed. This deduplications this case.
  */
 struct BlockChain {
     alias Mutant = Tuple!(ulong, "id", const(ubyte)[], "value");
+    Set!ulong mutantIds;
     Appender!(Mutant[]) mutants;
     const(ubyte)[] original;
 
@@ -786,7 +865,10 @@ struct BlockChain {
 
     /// Returns: `value`
     const(ubyte)[] put(ulong id, const(ubyte)[] value) {
-        mutants.put(Mutant(id, value));
+        if (id !in mutantIds) {
+            mutantIds.add(id);
+            mutants.put(Mutant(id, value));
+        }
         return value;
     }
 
