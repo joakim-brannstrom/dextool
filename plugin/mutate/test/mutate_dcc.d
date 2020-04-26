@@ -239,3 +239,20 @@ class ShallProduceAllDccMutantsWithSchemataForC : SchemataFixutre {
         testAnyOrder!SubStr(expected).shouldBeIn(makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "dcc"]).run.output);
     }
 }
+
+class ShallSkipDcrMutantInsideTemplate : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "dcr_inside_template_param.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+
+        // this mean that the schemata has to be able to compile and run with
+        // this mutant
+        testAnyOrder!SubStr(["from 'argc == 1' to 'true'"]).shouldBeIn(runDextoolTest(testEnv, ["--mutant", "dcr"]).output);
+    }
+}
