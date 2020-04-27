@@ -256,6 +256,6 @@ class ShallSkipDcrMutantInsideTemplate : SchemataFixutre {
         // TODO: add this to expected. from 'x == 1' to 'true'
         // but for now removing it because it seems to fail on min docker
         // image. Probably something to do with the compiler.
-        runDextoolTest(testEnv, ["--mutant", "dcr"]);
+        testAnyOrder!SubStr(["error:"]).shouldNotBeIn(runDextoolTest(testEnv, ["--mutant", "dcr"]).output);
     }
 }

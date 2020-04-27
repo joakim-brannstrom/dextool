@@ -474,6 +474,13 @@ final class BaseVisitor : ExtendedVisitor {
         // block mutants inside template parameters
     }
 
+    override void visit(const CxxBaseSpecifier v) {
+        mixin(mixinNodeLog!());
+        // block mutants inside template parameters.
+        // the only mutants that are inside an inheritance is template
+        // parameters and such.
+    }
+
     private void visitVar(T)(T v) @trusted {
         auto n = new analyze.VarDecl;
 
