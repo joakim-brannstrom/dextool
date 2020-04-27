@@ -469,6 +469,11 @@ final class BaseVisitor : ExtendedVisitor {
         // block mutants inside template parameters
     }
 
+    override void visit(const TypeAliasDecl v) {
+        mixin(mixinNodeLog!());
+        // block mutants inside template parameters
+    }
+
     private void visitVar(T)(T v) @trusted {
         auto n = new analyze.VarDecl;
 
