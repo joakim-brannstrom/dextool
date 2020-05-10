@@ -1,13 +1,9 @@
 /**
-Copyright: Copyright (c) 2019, Joakim Brännström. All rights reserved.
-License: MPL-2
+Copyright: Copyright (c) 2020, Joakim Brännström. All rights reserved.
+License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
-
-This Source Code Form is subject to the terms of the Mozilla Public License,
-v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
-one at http://mozilla.org/MPL/2.0/.
 */
-module process;
+module proc;
 
 import core.thread : Thread;
 import core.time : dur, Duration;
@@ -20,8 +16,8 @@ import std.typecons : Flag, Yes;
 static import std.process;
 static import std.stdio;
 
-public import process.channel;
-public import process.pid;
+public import proc.channel;
+public import proc.pid;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -391,8 +387,6 @@ struct Sandbox(ProcessT) {
     }
 
     void kill() nothrow @safe {
-        import process.pid;
-
         // must first retrieve the submap because after the process is killed
         // its children may have changed.
         auto pmap = makePidMap.getSubMap(pid);
@@ -401,7 +395,7 @@ struct Sandbox(ProcessT) {
 
         // only kill and reap the children
         pmap.remove(pid);
-        process.pid.kill(pmap, Yes.onlyCurrentUser).reap;
+        proc.pid.kill(pmap, Yes.onlyCurrentUser).reap;
     }
 
     int wait() @safe {
@@ -871,11 +865,15 @@ struct DrainByLineCopyRange(ProcessT) {
         }
 
         size_t idx;
-        do {
-            fillBuf();
-            idx = buf.countUntil('\n');
-        }
-        while (!range.empty && idx == -1);
+        () {
+            int cnt;
+            do {
+                fillBuf();
+                idx = buf.countUntil('\n');
+                // 10 is a magic number which mean that it at most wait 10x timeout for data
+            }
+            while (!range.empty && idx == -1 && cnt++ < 10);
+        }();
 
         const(ubyte)[] tmp;
         if (buf.empty) {

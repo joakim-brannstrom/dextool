@@ -3,7 +3,7 @@ Copyright: Copyright (c) 2020, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
-module process.pid;
+module proc.pid;
 
 import core.time : Duration;
 import logger = std.experimental.logger;
@@ -107,7 +107,7 @@ struct PidMap {
         return stat.empty;
     }
 
-    /** Remove a pid from the map.
+    /** Remove PID `p` from the map.
      *
      * An existing pid that have `p` as its parent will be rewritten such that
      * it is it's own parent.
@@ -134,6 +134,7 @@ struct PidMap {
         return this;
     }
 
+    /// Remove all PIDs owned by the user `uid`.
     ref PidMap removeUser(uid_t uid) return nothrow {
         auto removePids = appender!(RawPid[])();
         foreach (a; stat.byKeyValue.filter!(a => a.value.uid == uid)) {

@@ -166,7 +166,7 @@ struct BuildDextoolRun {
     }
 
     auto run() {
-        import process;
+        import proc;
 
         auto cmd = () {
             string[] cmd;
@@ -337,7 +337,7 @@ struct BuildCommandRun {
     }
 
     auto run() {
-        import process;
+        import proc;
 
         auto cmd = () {
             string[] cmd;

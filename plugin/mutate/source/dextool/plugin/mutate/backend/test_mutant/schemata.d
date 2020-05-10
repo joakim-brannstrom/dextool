@@ -17,7 +17,7 @@ import std.datetime : Duration;
 import std.exception : collectException;
 import std.typecons : Tuple;
 
-import process : DrainElement;
+import proc : DrainElement;
 import sumtype;
 
 import dextool.fsm : Fsm, next, act, get, TypeDataMap;

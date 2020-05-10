@@ -23,8 +23,6 @@ int main(string[] args) {
                           "dextool.plugin.mutate.backend.test_mutant.test_cmd_runner",
                           "dextool.plugin.mutate.backend.type",
                           "dextool.plugin.mutate.frontend.argparser",
-                          "process",
-                          "process.pid",
                           );
     //dfmt on
 }

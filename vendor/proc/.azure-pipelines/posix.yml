@@ -1,0 +1,21 @@
+# Each step starts in the checked-out source directory,
+# environment variables aren't persisted across steps.
+
+steps:
+- checkout: self
+  submodules: false
+  fetchDepth: 1
+- script: |
+    set -ex
+    cd ..
+    export DEBIAN_FRONTEND=noninteractive
+    sudo dpkg --add-architecture i386
+  displayName: Setup
+- script: |
+    set -ex
+    git archive -o repo.tar.gz HEAD
+  displayName: Package git repo
+- script: |
+    set -ex
+    docker image build -f .azure-pipelines/${DOCKERFILE} -t dsnapshot-image-ci --build-arg DMD_VERSION=${DMD_VERSION} .
+  displayName: Run test

@@ -20,7 +20,7 @@ import std.path : buildPath;
 import std.typecons : Flag, No;
 
 import sumtype;
-import process : DrainElement;
+import proc : DrainElement;
 
 import dextool.plugin.mutate.backend.database : MutationId;
 import dextool.plugin.mutate.backend.interface_;
@@ -284,7 +284,7 @@ bool externalProgram(ShellCommand cmd, DrainElement[] output,
     import std.algorithm : copy;
     import std.ascii : newline;
     import std.string : strip, startsWith;
-    import process;
+    import proc;
 
     immutable passed = "passed:";
     immutable failed = "failed:";
@@ -404,7 +404,7 @@ class AutoCleanup {
 alias CompileResult = SumType!(Mutation.Status, bool);
 
 CompileResult compile(ShellCommand cmd, bool printToStdout = false) nothrow {
-    import process;
+    import proc;
     import std.stdio : write;
 
     try {
@@ -437,7 +437,7 @@ CompileResult compile(ShellCommand cmd, bool printToStdout = false) nothrow {
  * Returns: the result of testing the mutant.
  */
 auto runTester(ref TestRunner runner) nothrow {
-    import process;
+    import proc;
 
     struct Rval {
         Mutation.Status status;
