@@ -23,7 +23,7 @@ import std.random : randomCover;
 import std.range : take;
 import std.typecons : Tuple;
 
-import process;
+import proc;
 
 import dextool.plugin.mutate.type : ShellCommand;
 import dextool.type;

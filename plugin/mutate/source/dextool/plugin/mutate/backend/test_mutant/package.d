@@ -22,7 +22,7 @@ import std.random : randomCover;
 import std.typecons : Nullable, Tuple, Yes;
 
 import blob_model : Blob;
-import process : DrainElement;
+import proc : DrainElement;
 import sumtype;
 
 import dextool.fsm : Fsm, next, act, get, TypeDataMap;
@@ -121,7 +121,7 @@ struct MeasureTestDurationResult {
 MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothrow {
     import std.algorithm : min;
     import std.datetime.stopwatch : StopWatch, AutoStart;
-    import process;
+    import proc;
 
     if (runner.empty) {
         collectException(logger.error("No test command(s) specified (--test-cmd)"));
@@ -736,7 +736,7 @@ nothrow:
     void opCall(ref PreCompileSut data) {
         import std.stdio : write;
         import colorlog : color, Color;
-        import process;
+        import proc;
 
         logger.info("Checking the build command").collectException;
         try {

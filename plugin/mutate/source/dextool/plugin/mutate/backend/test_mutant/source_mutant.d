@@ -16,7 +16,7 @@ import std.array : empty;
 import std.exception : collectException;
 
 import sumtype;
-import process : DrainElement;
+import proc : DrainElement;
 
 import dextool.fsm : Fsm, next, act, get, TypeDataMap;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry;
@@ -35,7 +35,7 @@ import dextool.type : AbsolutePath, Path;
 struct MutationTestResult {
     import std.datetime : Duration;
     import sumtype;
-    import process : DrainElement;
+    import proc : DrainElement;
     import dextool.plugin.mutate.backend.database : MutationId;
     import dextool.plugin.mutate.backend.type : TestCase;
 

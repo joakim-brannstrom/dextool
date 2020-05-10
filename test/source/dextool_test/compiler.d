@@ -87,7 +87,7 @@ auto addDefine(BuildCommandRun br, string v) {
 }
 
 string[] compilerFlags() {
-    import process;
+    import proc;
 
     auto default_flags = ["-std=c++98"];
 
