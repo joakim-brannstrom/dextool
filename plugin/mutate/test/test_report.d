@@ -15,6 +15,7 @@ import std.conv : to;
 import std.file : copy, exists, readText;
 import std.path : buildPath, buildNormalizedPath, absolutePath, relativePath, setExtension;
 import std.stdio : File;
+import std.traits : EnumMembers;
 
 import dextool.plugin.mutate.backend.database.standalone;
 import dextool.plugin.mutate.backend.database.type;
@@ -399,7 +400,16 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
         precondition(testEnv);
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-        db.updateMutation(MutationId(1), Mutation.Status.alive, 5.dur!"msecs", null);
+        const file1 = dextool.type.Path(relativePath(programFile, workDir.toString));
+        const fid = db.getFileId(file1);
+        fid.isNull.shouldBeFalse;
+        auto mutants = db.getMutationsOnLine([EnumMembers!(Mutation.Kind)], fid.get, SourceLoc(6,0));
+        foreach (id; mutants[0 .. $/3]) {
+            db.updateMutation(id, Mutation.Status.alive, 5.dur!"msecs");
+        }
+        foreach (id; mutants[$/3 .. $]) {
+            db.updateMutation(id, Mutation.Status.killed, 5.dur!"msecs");
+        }
 
         auto r = makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
@@ -424,13 +434,13 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
 
         testConsecutiveSparseOrder!SubStr([
             "Diff View",
-            "Mutation Score <b>0.5",
+            "Mutation Score <b>0.6",
             "Analyzed Diff",
             "build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp",
         ]).shouldBeIn(File((testEnv.outdir ~ "html/diff_view.html").toString).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["diff"];
-        (cast(int) (10 * j["score"].floating)).shouldEqual(5);
+        (cast(int) (10 * j["score"].floating)).shouldEqual(6);
     }
 }
 

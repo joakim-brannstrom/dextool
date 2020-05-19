@@ -13,7 +13,7 @@ analyzers of the data gathered in the database.
 module dextool.plugin.mutate.backend.report.analyzers;
 
 import logger = std.experimental.logger;
-import std.algorithm : sum, map, sort, filter, count, cmp, joiner;
+import std.algorithm : sum, map, sort, filter, count, cmp, joiner, among;
 import std.array : array, appender;
 import std.conv : to;
 import std.exception : collectException;
@@ -895,8 +895,8 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
     auto rval = new DiffReport;
 
     Set!MutationStatusId total;
-    // used for deriving what test cases killed mutants in the diff.
-    Set!MutationId killing_mutants;
+    Set!MutationId alive;
+    Set!MutationId killed;
 
     foreach (kv; diff.toRange(workdir)) {
         auto fid = db.getFileId(kv.key);
@@ -905,26 +905,27 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
             continue;
         }
 
-        bool has_mutants;
+        bool hasMutants;
         foreach (id; kv.value
                 .toRange
                 .map!(line => spinSql!(() => db.getMutationsOnLine(kinds,
                     fid.get, SourceLoc(line))))
                 .joiner
-                .filter!(id => id !in total)) {
-            has_mutants = true;
+                .filter!(a => a !in total)) {
+            hasMutants = true;
             total.add(id);
 
             const info = db.getMutantsInfo(kinds, [id])[0];
             if (info.status == Mutation.Status.alive) {
                 rval.alive[fid.get] ~= info;
-            } else {
+                alive.add(info.id);
+            } else if (info.status.among(Mutation.Status.killed, Mutation.Status.timeout)) {
                 rval.killed[fid.get] ~= info;
-                killing_mutants.add(info.id);
+                killed.add(info.id);
             }
         }
 
-        if (has_mutants) {
+        if (hasMutants) {
             rval.files[fid.get] = kv.key;
             rval.rawDiff[fid.get] = diff.rawDiff[kv.key];
         } else {
@@ -933,8 +934,9 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
     }
 
     Set!TestCase test_cases;
-    foreach (tc; killing_mutants.toRange.map!(a => db.getTestCases(a)).joiner)
+    foreach (tc; killed.toRange.map!(a => db.getTestCases(a)).joiner) {
         test_cases.add(tc);
+    }
 
     rval.testCases = test_cases.toArray.sort.array;
 
@@ -943,8 +945,7 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
     } else {
         // TODO: use total to compute e.g. a standard deviation or some other
         // useful statistical metric to convey a "confidence" of the value.
-        rval.score = cast(double) rval.killed.length / cast(double)(
-                rval.killed.length + rval.alive.length);
+        rval.score = cast(double) killed.length / cast(double)(killed.length + alive.length);
     }
 
     return rval;
