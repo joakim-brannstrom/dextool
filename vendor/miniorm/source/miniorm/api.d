@@ -467,9 +467,11 @@ SysTime fromSqLiteDateTime(string raw_dt) {
     }
 }
 
-string toSqliteDateTime(SysTime ts) {
+/// To ensure a consistency the time is always converted to UTC.
+string toSqliteDateTime(SysTime ts_) {
     import std.format;
 
+    auto ts = ts_.toUTC;
     return format("%04s-%02s-%02s %02s:%02s:%02s.%s", ts.year,
             cast(ushort) ts.month, ts.day, ts.hour, ts.minute, ts.second,
             ts.fracSecs.total!"msecs");
