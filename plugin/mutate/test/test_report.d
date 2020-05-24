@@ -280,8 +280,8 @@ unittest {
     testConsecutiveSparseOrder!SubStr([
         "| Percentage | Count | TestCase |",
         "|------------|-------|----------|",
-        "| 25         | 1     | tc_1     |",
-        "| 25         | 1     | tc_3     |",
+        "| 0.333333   | 1     | tc_1     |",
+        "| 0.333333   | 1     | tc_3     |",
     ]).shouldBeIn(r.output);
 }
 
