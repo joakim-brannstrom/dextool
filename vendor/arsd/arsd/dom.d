@@ -1,29 +1,54 @@
-// FIXME: add classList
+// FIXME: add classList. it is a live list and removes whitespace and duplicates when you use it.
+// FIXME: xml namespace support???
+// FIXME: https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentHTML
+// FIXME: parentElement is parentNode that skips DocumentFragment etc but will be hard to work in with my compatibility...
+
+// FIXME: the scriptable list is quite arbitrary
+
+// FIXME: https://developer.mozilla.org/en-US/docs/Web/CSS/:is
+
+// xml entity references?!
+
 /++
-    This is an html DOM implementation, started with cloning
-    what the browser offers in Javascript, but going well beyond
-    it in convenience.
+	This is an html DOM implementation, started with cloning
+	what the browser offers in Javascript, but going well beyond
+	it in convenience.
 
-    If you can do it in Javascript, you can probably do it with
-    this module, and much more.
+	If you can do it in Javascript, you can probably do it with
+	this module, and much more.
 
-    ---
-    import arsd.dom;
+	---
+	import arsd.dom;
 
-    void main() {
-        auto document = new Document("<html><p>paragraph</p></html>");
-        writeln(document.querySelector("p"));
-        document.root.innerHTML = "<p>hey</p>";
-        writeln(document);
-    }
-    ---
+	void main() {
+		auto document = new Document("<html><p>paragraph</p></html>");
+		writeln(document.querySelector("p"));
+		document.root.innerHTML = "<p>hey</p>";
+		writeln(document);
+	}
+	---
 
-    BTW: this file optionally depends on `arsd.characterencodings`, to
-    help it correctly read files from the internet. You should be able to
-    get characterencodings.d from the same place you got this file.
+	BTW: this file optionally depends on `arsd.characterencodings`, to
+	help it correctly read files from the internet. You should be able to
+	get characterencodings.d from the same place you got this file.
 
-    If you want it to stand alone, just always use the `Document.parseUtf8`
-    function or the constructor that takes a string.
+	If you want it to stand alone, just always use the `Document.parseUtf8`
+	function or the constructor that takes a string.
+
+	Symbol_groups:
+
+	core_functionality =
+
+	These members provide core functionality. The members on these classes
+	will provide most your direct interaction.
+
+	bonus_functionality =
+
+	These provide additional functionality for special use cases.
+
+	implementations =
+
+	These provide implementations of other functionality.
 +/
 module arsd.dom;
 
@@ -32,15 +57,16 @@ module arsd.dom;
 version (with_arsd_jsvar)
     import arsd.jsvar;
 else {
-    enum Scriptable;
+    enum scriptable = "arsd_jsvar_compatible";
 }
 
 // this is only meant to be used at compile time, as a filter for opDispatch
 // lists the attributes we want to allow without the use of .attr
 bool isConvenientAttribute(string name) {
     static immutable list = [
-        "name", "id", "href", "value", "checked", "selected", "type", "src", "content",
-        "pattern", "placeholder", "required", "alt", "rel", "method", "action", "enctype"
+        "name", "id", "href", "value", "checked", "selected", "type", "src",
+        "content", "pattern", "placeholder", "required", "alt", "rel",
+        "method", "action", "enctype"
     ];
     foreach (l; list)
         if (name == l)
@@ -54,20 +80,21 @@ bool isConvenientAttribute(string name) {
 // FIXME: it would be kinda cool to have some support for internal DTDs
 // and maybe XPath as well, to some extent
 /*
-    we could do
-    meh this sux
+	we could do
+	meh this sux
 
-    auto xpath = XPath(element);
+	auto xpath = XPath(element);
 
-         // get the first p
-    xpath.p[0].a["href"]
+	     // get the first p
+	xpath.p[0].a["href"]
 */
 
 /// The main document interface, including a html parser.
+/// Group: core_functionality
 class Document : FileResource {
     /// Convenience method for web scraping. Requires [arsd.http2] to be
-    /// included in the build.
-    static Document fromUrl()(string url) {
+    /// included in the build as well as [arsd.characterencodings].
+    static Document fromUrl()(string url, bool strictMode = false) {
         import arsd.http2;
 
         auto client = new HttpClient();
@@ -75,7 +102,14 @@ class Document : FileResource {
         auto req = client.navigateTo(Uri(url), HttpVerb.GET);
         auto res = req.waitForCompletion();
 
-        return new Document(cast(string) res.content);
+        auto document = new Document();
+        if (strictMode) {
+            document.parse(cast(string) res.content, true, true, res.contentTypeCharset);
+        } else {
+            document.parseGarbage(cast(string) res.content);
+        }
+
+        return document;
     }
 
     ///.
@@ -84,8 +118,8 @@ class Document : FileResource {
     }
 
     /**
-        Creates an empty document. It has *nothing* in it at all.
-    */
+		Creates an empty document. It has *nothing* in it at all.
+	*/
     this() {
 
     }
@@ -135,10 +169,10 @@ class Document : FileResource {
 
     /// Concatenates any consecutive text nodes
     /*
-    void normalize() {
+	void normalize() {
 
-    }
-    */
+	}
+	*/
 
     /// This will set delegates for parseSaw* (note: this overwrites anything else you set, and you setting subsequently will overwrite this) that add those things to the dom tree when it sees them.
     /// Call this before calling parse().
@@ -311,46 +345,46 @@ class Document : FileResource {
     }
 
     /**
-        Take XMLish data and try to make the DOM tree out of it.
+		Take XMLish data and try to make the DOM tree out of it.
 
-        The goal isn't to be perfect, but to just be good enough to
-        approximate Javascript's behavior.
+		The goal isn't to be perfect, but to just be good enough to
+		approximate Javascript's behavior.
 
-        If strict, it throws on something that doesn't make sense.
-        (Examples: mismatched tags. It doesn't validate!)
-        If not strict, it tries to recover anyway, and only throws
-        when something is REALLY unworkable.
+		If strict, it throws on something that doesn't make sense.
+		(Examples: mismatched tags. It doesn't validate!)
+		If not strict, it tries to recover anyway, and only throws
+		when something is REALLY unworkable.
 
-        If strict is false, it uses a magic list of tags that needn't
-        be closed. If you are writing a document specifically for this,
-        try to avoid such - use self closed tags at least. Easier to parse.
+		If strict is false, it uses a magic list of tags that needn't
+		be closed. If you are writing a document specifically for this,
+		try to avoid such - use self closed tags at least. Easier to parse.
 
-        The dataEncoding argument can be used to pass a specific
-        charset encoding for automatic conversion. If null (which is NOT
-        the default!), it tries to determine from the data itself,
-        using the xml prolog or meta tags, and assumes UTF-8 if unsure.
+		The dataEncoding argument can be used to pass a specific
+		charset encoding for automatic conversion. If null (which is NOT
+		the default!), it tries to determine from the data itself,
+		using the xml prolog or meta tags, and assumes UTF-8 if unsure.
 
-        If this assumption is wrong, it can throw on non-ascii
-        characters!
+		If this assumption is wrong, it can throw on non-ascii
+		characters!
 
 
-        Note that it previously assumed the data was encoded as UTF-8, which
-        is why the dataEncoding argument defaults to that.
+		Note that it previously assumed the data was encoded as UTF-8, which
+		is why the dataEncoding argument defaults to that.
 
-        So it shouldn't break backward compatibility.
+		So it shouldn't break backward compatibility.
 
-        But, if you want the best behavior on wild data - figuring it out from the document
-        instead of assuming - you'll probably want to change that argument to null.
+		But, if you want the best behavior on wild data - figuring it out from the document
+		instead of assuming - you'll probably want to change that argument to null.
 
-        This is a template so it lazily imports arsd.characterencodings, which is required
-        to fix up data encodings.
+		This is a template so it lazily imports arsd.characterencodings, which is required
+		to fix up data encodings.
 
-        If you are sure the encoding is good, try parseUtf8 or parseStrict to avoid the
-        dependency. If it is data from the Internet though, a random website, the encoding
-        is often a lie. This function, if dataEncoding == null, can correct for that, or
-        you can try parseGarbage. In those cases, arsd.characterencodings is required to
-        compile.
-    */
+		If you are sure the encoding is good, try parseUtf8 or parseStrict to avoid the
+		dependency. If it is data from the Internet though, a random website, the encoding
+		is often a lie. This function, if dataEncoding == null, can correct for that, or
+		you can try parseGarbage. In those cases, arsd.characterencodings is required to
+		compile.
+	*/
     void parse()(in string rawdata, bool caseSensitive = false, bool strict = false,
             string dataEncoding = "UTF-8") {
         auto data = handleDataEncoding(rawdata, dataEncoding, strict);
@@ -520,12 +554,12 @@ class Document : FileResource {
         struct Ele {
             int type; // element or closing tag or nothing
             /*
-                    type == 0 means regular node, self-closed (element is valid)
-                    type == 1 means closing tag (payload is the tag name, element may be valid)
-                    type == 2 means you should ignore it completely
-                    type == 3 means it is a special element that should be appended, if possible, e.g. a <!DOCTYPE> that was chosen to be kept, php code, or comment. It will be appended at the current element if inside the root, and to a special document area if not
-                    type == 4 means the document was totally empty
-                */
+					type == 0 means regular node, self-closed (element is valid)
+					type == 1 means closing tag (payload is the tag name, element may be valid)
+					type == 2 means you should ignore it completely
+					type == 3 means it is a special element that should be appended, if possible, e.g. a <!DOCTYPE> that was chosen to be kept, php code, or comment. It will be appended at the current element if inside the root, and to a special document area if not
+					type == 4 means the document was totally empty
+				*/
             Element element; // for type == 0 or type == 3
             string payload; // for type == 1
         }
@@ -654,39 +688,39 @@ class Document : FileResource {
                 }
 
                 /*
-                    if(pos < data.length && data[pos] == '>')
-                        pos++; // skip the >
-                    else
-                        assert(!strict);
-                    */
+					if(pos < data.length && data[pos] == '>')
+						pos++; // skip the >
+					else
+						assert(!strict);
+					*/
                 break;
             case '%':
             case '?':
                 /*
-                        Here's what we want to support:
+						Here's what we want to support:
 
-                        <% asp code %>
-                        <%= asp code %>
-                        <?php php code ?>
-                        <?= php code ?>
+						<% asp code %>
+						<%= asp code %>
+						<?php php code ?>
+						<?= php code ?>
 
-                        The contents don't really matter, just if it opens with
-                        one of the above for, it ends on the two char terminator.
+						The contents don't really matter, just if it opens with
+						one of the above for, it ends on the two char terminator.
 
-                        <?something>
-                            this is NOT php code
-                            because I've seen this in the wild: <?EM-dummyText>
+						<?something>
+							this is NOT php code
+							because I've seen this in the wild: <?EM-dummyText>
 
-                            This could be php with shorttags which would be cut off
-                            prematurely because if(a >) - that > counts as the close
-                            of the tag, but since dom.d can't tell the difference
-                            between that and the <?EM> real world example, it will
-                            not try to look for the ?> ending.
+							This could be php with shorttags which would be cut off
+							prematurely because if(a >) - that > counts as the close
+							of the tag, but since dom.d can't tell the difference
+							between that and the <?EM> real world example, it will
+							not try to look for the ?> ending.
 
-                        The difference between this and the asp/php stuff is that it
-                        ends on >, not ?>. ONLY <?php or <?= ends on ?>. The rest end
-                        on >.
-                    */
+						The difference between this and the asp/php stuff is that it
+						ends on >, not ?>. ONLY <?php or <?= ends on ?>. The rest end
+						on >.
+					*/
 
                 char end = data[pos];
                 auto started = pos;
@@ -765,11 +799,11 @@ class Document : FileResource {
 
                 return Ele(1, null, tname); // closing tag reports itself here
             case ' ': // assume it isn't a real element...
-                if (strict)
+                if (strict) {
                     parseError("bad markup - improperly placed <");
-                else
+                    assert(0); // parseError always throws
+                } else
                     return Ele(0, TextNode.fromUndecodedString(this, "<"), null);
-                break;
             default:
 
                 if (!strict) {
@@ -806,7 +840,9 @@ class Document : FileResource {
                     }
 
                     if (strict)
-                        enforce(data[pos] == '>'); //, format("got %s when expecting >\nContext:\n%s", data[pos], data[pos - 100 .. pos + 100]));
+                        enforce(data[pos] == '>',
+                                format("got %s when expecting > (possible missing attribute name)\nContext:\n%s",
+                                    data[pos], data[pos - 100 .. pos + 100]));
                     else {
                         // if we got here, it's probably because a slash was in an
                         // unquoted attribute - don't trust the selfClosed value
@@ -815,6 +851,12 @@ class Document : FileResource {
 
                         while (pos < data.length && data[pos] != '>')
                             pos++;
+
+                        if (pos >= data.length) {
+                            // the tag never closed
+                            assert(data.length != 0);
+                            pos = data.length - 1; // rewinding so it hits the end at the bottom..
+                        }
                     }
 
                     auto whereThisTagStarted = pos; // for better error messages
@@ -843,9 +885,9 @@ class Document : FileResource {
                             ending = indexOf(data[pos .. $], closer, 0, (loose
                                     ? CaseSensitive.no : CaseSensitive.yes));
                             /*
-                                if(loose && ending == -1 && pos < data.length)
-                                    ending = indexOf(data[pos..$], closer.toUpper());
-                                */
+								if(loose && ending == -1 && pos < data.length)
+									ending = indexOf(data[pos..$], closer.toUpper());
+								*/
                             if (ending == -1) {
                                 if (strict)
                                     throw new Exception("tag " ~ tagName ~ " never closed");
@@ -1169,37 +1211,66 @@ class Document : FileResource {
         assert(ret !is null);
     }
     body {
-        return root.requireSelector!(SomeElementType)(selector, file, line);
+        auto e = cast(SomeElementType) querySelector(selector);
+        if (e is null)
+            throw new ElementNotFoundException(SomeElementType.stringof,
+                    selector, this.root, file, line);
+        return e;
     }
 
     final MaybeNullElement!SomeElementType optionSelector(SomeElementType = Element)(
             string selector, string file = __FILE__, size_t line = __LINE__)
             if (is(SomeElementType : Element)) {
-        return root.optionSelector!(SomeElementType)(selector, file, line);
+        auto e = cast(SomeElementType) querySelector(selector);
+        return MaybeNullElement!SomeElementType(e);
     }
 
     /// ditto
-    Element querySelector(string selector) {
-        return root.querySelector(selector);
+    @scriptable Element querySelector(string selector) {
+        // see comment below on Document.querySelectorAll
+        auto s = Selector(selector); //, !loose);
+        foreach (ref comp; s.components)
+            if (comp.parts.length && comp.parts[0].separation == 0)
+                comp.parts[0].separation = -1;
+        foreach (e; s.getMatchingElementsLazy(this.root))
+            return e;
+        return null;
+
     }
 
     /// ditto
-    Element[] querySelectorAll(string selector) {
-        return root.querySelectorAll(selector);
+    @scriptable Element[] querySelectorAll(string selector) {
+        // In standards-compliant code, the document is slightly magical
+        // in that it is a pseudoelement at top level. It should actually
+        // match the root as one of its children.
+        //
+        // In versions of dom.d before Dec 29 2019, this worked because
+        // querySelectorAll was willing to return itself. With that bug fix
+        // (search "arbitrary id asduiwh" in this file for associated unittest)
+        // this would have failed. Hence adding back the root if it matches the
+        // selector itself.
+        //
+        // I'd love to do this better later.
+
+        auto s = Selector(selector); //, !loose);
+        foreach (ref comp; s.components)
+            if (comp.parts.length && comp.parts[0].separation == 0)
+                comp.parts[0].separation = -1;
+        return s.getMatchingElements(this.root);
     }
 
     /// ditto
-    Element[] getElementsBySelector(string selector) {
+    deprecated("use querySelectorAll instead") Element[] getElementsBySelector(string selector) {
         return root.getElementsBySelector(selector);
     }
 
     /// ditto
-    Element[] getElementsByTagName(string tag) {
+    @scriptable Element[] getElementsByTagName(string tag) {
         return root.getElementsByTagName(tag);
     }
 
     /// ditto
-    Element[] getElementsByClassName(string tag) {
+    @scriptable Element[] getElementsByClassName(string tag) {
         return root.getElementsByClassName(tag);
     }
 
@@ -1265,7 +1336,7 @@ class Document : FileResource {
 
         return e;
 
-        //      return new Element(this, name, null, selfClosed);
+        //		return new Element(this, name, null, selfClosed);
     }
 
     ///.
@@ -1336,11 +1407,11 @@ class Document : FileResource {
     }
 
     /++
-        Writes it out with whitespace for easier eyeball debugging
+		Writes it out with whitespace for easier eyeball debugging
 
-        Do NOT use for anything other than eyeball debugging,
-        because whitespace may be significant content in XML.
-    +/
+		Do NOT use for anything other than eyeball debugging,
+		because whitespace may be significant content in XML.
+	+/
     string toPrettyString(bool insertComments = false, int indentationLevel = 0,
             string indentWith = "\t") const {
         string s = prolog;
@@ -1379,6 +1450,7 @@ class Document : FileResource {
 }
 
 /// This represents almost everything in the DOM.
+/// Group: core_functionality
 class Element {
     /// Returns a collection of elements by selector.
     /// See: [Document.opIndex]
@@ -1388,11 +1460,11 @@ class Element {
     }
 
     /++
-        Returns the child node with the particular index.
+		Returns the child node with the particular index.
 
-        Be aware that child nodes include text nodes, including
-        whitespace-only nodes.
-    +/
+		Be aware that child nodes include text nodes, including
+		whitespace-only nodes.
+	+/
     Element opIndex(size_t index) {
         if (index >= children.length)
             return null;
@@ -1409,7 +1481,8 @@ class Element {
     body {
         auto e = cast(SomeElementType) getElementById(id);
         if (e is null)
-            throw new ElementNotFoundException(SomeElementType.stringof, "id=" ~ id, file, line);
+            throw new ElementNotFoundException(SomeElementType.stringof,
+                    "id=" ~ id, this, file, line);
         return e;
     }
 
@@ -1423,13 +1496,13 @@ class Element {
     body {
         auto e = cast(SomeElementType) querySelector(selector);
         if (e is null)
-            throw new ElementNotFoundException(SomeElementType.stringof, selector, file, line);
+            throw new ElementNotFoundException(SomeElementType.stringof, selector, this, file, line);
         return e;
     }
 
     /++
-        If a matching selector is found, it returns that Element. Otherwise, the returned object returns null for all methods.
-    +/
+		If a matching selector is found, it returns that Element. Otherwise, the returned object returns null for all methods.
+	+/
     final MaybeNullElement!SomeElementType optionSelector(SomeElementType = Element)(
             string selector, string file = __FILE__, size_t line = __LINE__)
             if (is(SomeElementType : Element)) {
@@ -1443,7 +1516,7 @@ class Element {
     }
 
     /// Adds a string to the class attribute. The class attribute is used a lot in CSS.
-    Element addClass(string c) {
+    @scriptable Element addClass(string c) {
         if (hasClass(c))
             return this; // don't add it twice
 
@@ -1459,7 +1532,7 @@ class Element {
     }
 
     /// Removes a particular class name.
-    Element removeClass(string c) {
+    @scriptable Element removeClass(string c) {
         if (!hasClass(c))
             return this;
         string n;
@@ -1490,31 +1563,31 @@ class Element {
         return false;
 
         /*
-        int rightSide = idx + c.length;
+		int rightSide = idx + c.length;
 
-        bool checkRight() {
-            if(rightSide == cn.length)
-                return true; // it's the only class
-            else if(iswhite(cn[rightSide]))
-                return true;
-            return false; // this is a substring of something else..
-        }
+		bool checkRight() {
+			if(rightSide == cn.length)
+				return true; // it's the only class
+			else if(iswhite(cn[rightSide]))
+				return true;
+			return false; // this is a substring of something else..
+		}
 
-        if(idx == 0) {
-            return checkRight();
-        } else {
-            if(!iswhite(cn[idx - 1]))
-                return false; // substring
-            return checkRight();
-        }
+		if(idx == 0) {
+			return checkRight();
+		} else {
+			if(!iswhite(cn[idx - 1]))
+				return false; // substring
+			return checkRight();
+		}
 
-        assert(0);
-        */
+		assert(0);
+		*/
     }
 
     /* *******************************
-          DOM Mutation
-    *********************************/
+		  DOM Mutation
+	*********************************/
     /// convenience function to quickly add a tag with some text or
     /// other relevant info (for example, it's a src for an <img> element
     /// instead of inner text)
@@ -1523,8 +1596,8 @@ class Element {
         assert(tagName !is null);
     }
     out (e) {
-        assert(e.parentNode is this);
-        assert(e.parentDocument is this.parentDocument);
+        //assert(e.parentNode is this);
+        //assert(e.parentDocument is this.parentDocument);
     }
     body {
         auto e = Element.make(tagName, childInfo, childInfo2);
@@ -1635,16 +1708,16 @@ class Element {
     }
 
     /**
-        Strips this tag out of the document, putting its inner html
-        as children of the parent.
+		Strips this tag out of the document, putting its inner html
+		as children of the parent.
 
-        For example, given: `<p>hello <b>there</b></p>`, if you
-        call `stripOut` on the `b` element, you'll be left with
-        `<p>hello there<p>`.
+		For example, given: `<p>hello <b>there</b></p>`, if you
+		call `stripOut` on the `b` element, you'll be left with
+		`<p>hello there<p>`.
 
-        The idea here is to make it easy to get rid of garbage
-        markup you aren't interested in.
-    */
+		The idea here is to make it easy to get rid of garbage
+		markup you aren't interested in.
+	*/
     void stripOut()
     in {
         assert(parentNode !is null);
@@ -1683,12 +1756,12 @@ class Element {
     }
 
     /++
-        Wraps this element inside the given element.
-        It's like `this.replaceWith(what); what.appendchild(this);`
+		Wraps this element inside the given element.
+		It's like `this.replaceWith(what); what.appendchild(this);`
 
-        Given: `<b>cool</b>`, if you call `b.wrapIn(new Link("site.com", "my site is "));`
-        you'll end up with: `<a href="site.com">my site is <b>cool</b></a>`.
-    +/
+		Given: `<b>cool</b>`, if you call `b.wrapIn(new Link("site.com", "my site is "));`
+		you'll end up with: `<a href="site.com">my site is <b>cool</b></a>`.
+	+/
     Element wrapIn(Element what)
     in {
         assert(what !is null);
@@ -1716,20 +1789,20 @@ class Element {
     }
 
     /**
-        Splits the className into an array of each class given
-    */
+		Splits the className into an array of each class given
+	*/
     string[] classNames() const {
         return className().split(" ");
     }
 
     /**
-        Fetches the first consecutive text nodes concatenated together.
+		Fetches the first consecutive text nodes concatenated together.
 
 
-        `firstInnerText` of `<example>some text<span>more text</span></example>` is `some text`. It stops at the first child tag encountered.
+		`firstInnerText` of `<example>some text<span>more text</span></example>` is `some text`. It stops at the first child tag encountered.
 
-        See_also: [directText], [innerText]
-    */
+		See_also: [directText], [innerText]
+	*/
     string firstInnerText() const {
         string s;
         foreach (child; children) {
@@ -1742,15 +1815,15 @@ class Element {
     }
 
     /**
-        Returns the text directly under this element.
+		Returns the text directly under this element.
+		
 
+		Unlike [innerText], it does not recurse, and unlike [firstInnerText], it continues
+		past child tags. So, `<example>some <b>bold</b> text</example>`
+		will return `some  text` because it only gets the text, skipping non-text children.
 
-        Unlike [innerText], it does not recurse, and unlike [firstInnerText], it continues
-        past child tags. So, `<example>some <b>bold</b> text</example>`
-        will return `some  text` because it only gets the text, skipping non-text children.
-
-        See_also: [firstInnerText], [innerText]
-    */
+		See_also: [firstInnerText], [innerText]
+	*/
     @property string directText() {
         string ret;
         foreach (e; children) {
@@ -1762,17 +1835,17 @@ class Element {
     }
 
     /**
-        Sets the direct text, without modifying other child nodes.
+		Sets the direct text, without modifying other child nodes.
 
 
-        Unlike [innerText], this does *not* remove existing elements in the element.
+		Unlike [innerText], this does *not* remove existing elements in the element.
 
-        It only replaces the first text node it sees.
+		It only replaces the first text node it sees.
 
-        If there are no text nodes, it calls [appendText].
+		If there are no text nodes, it calls [appendText].
 
-        So, given `<div><img />text here</div>`, it will keep the `<img />`, and replace the `text here`.
-    */
+		So, given `<div><img />text here</div>`, it will keep the `<img />`, and replace the `text here`.
+	*/
     @property void directText(string text) {
         foreach (e; children) {
             if (e.nodeType == NodeType.Text) {
@@ -2014,8 +2087,8 @@ class Element {
     }
 
     /* *******************************
-           Navigating the DOM
-    *********************************/
+	       Navigating the DOM
+	*********************************/
 
     /// Returns the first child of this element. If it has no children, returns null.
     /// Remember, text nodes are children too.
@@ -2026,6 +2099,36 @@ class Element {
     ///
     @property Element lastChild() {
         return children.length ? children[$ - 1] : null;
+    }
+
+    /// UNTESTED
+    /// the next element you would encounter if you were reading it in the source
+    Element nextInSource() {
+        auto n = firstChild;
+        if (n is null)
+            n = nextSibling();
+        if (n is null) {
+            auto p = this.parentNode;
+            while (p !is null && n is null) {
+                n = p.nextSibling;
+            }
+        }
+
+        return n;
+    }
+
+    /// UNTESTED
+    /// ditto
+    Element previousInSource() {
+        auto p = previousSibling;
+        if (p is null) {
+            auto par = parentNode;
+            if (par)
+                p = par.lastChild;
+            if (p is null)
+                p = par;
+        }
+        return p;
     }
 
     ///.
@@ -2095,7 +2198,7 @@ class Element {
         static if (!is(T == Element)) {
             auto t = cast(T) par;
             if (t is null)
-                throw new ElementNotFoundException("", tagName ~ " parent not found");
+                throw new ElementNotFoundException("", tagName ~ " parent not found", this);
         } else
             auto t = par;
 
@@ -2114,7 +2217,7 @@ class Element {
 
     /// Note: you can give multiple selectors, separated by commas.
     /// It will return the first match it finds.
-    Element querySelector(string selector) {
+    @scriptable Element querySelector(string selector) {
         // FIXME: inefficient; it gets all results just to discard most of them
         auto list = getElementsBySelector(selector);
         if (list.length == 0)
@@ -2123,50 +2226,74 @@ class Element {
     }
 
     /// a more standards-compliant alias for getElementsBySelector
-    Element[] querySelectorAll(string selector) {
+    @scriptable Element[] querySelectorAll(string selector) {
         return getElementsBySelector(selector);
     }
 
+    /// If the element matches the given selector. Previously known as `matchesSelector`.
+    @scriptable bool matches(string selector) {
+        /+
+		bool caseSensitiveTags = true;
+		if(parentDocument && parentDocument.loose)
+			caseSensitiveTags = false;
+		+/
+
+        Selector s = Selector(selector);
+        return s.matchesElement(this);
+    }
+
+    /// Returns itself or the closest parent that matches the given selector, or null if none found
+    /// See_also: https://developer.mozilla.org/en-US/docs/Web/API/Element/closest
+    @scriptable Element closest(string selector) {
+        Element e = this;
+        while (e !is null) {
+            if (e.matches(selector))
+                return e;
+            e = e.parentNode;
+        }
+        return null;
+    }
+
     /**
-        Returns elements that match the given CSS selector
+		Returns elements that match the given CSS selector
 
-        * -- all, default if nothing else is there
+		* -- all, default if nothing else is there
 
-        tag#id.class.class.class:pseudo[attrib=what][attrib=what] OP selector
+		tag#id.class.class.class:pseudo[attrib=what][attrib=what] OP selector
 
-        It is all additive
+		It is all additive
 
-        OP
+		OP
 
-        space = descendant
-        >     = direct descendant
-        +     = sibling (E+F Matches any F element immediately preceded by a sibling element E)
+		space = descendant
+		>     = direct descendant
+		+     = sibling (E+F Matches any F element immediately preceded by a sibling element E)
 
-        [foo]        Foo is present as an attribute
-        [foo="warning"]   Matches any E element whose "foo" attribute value is exactly equal to "warning".
-        E[foo~="warning"] Matches any E element whose "foo" attribute value is a list of space-separated values, one of which is exactly equal to "warning"
-        E[lang|="en"] Matches any E element whose "lang" attribute has a hyphen-separated list of values beginning (from the left) with "en".
+		[foo]        Foo is present as an attribute
+		[foo="warning"]   Matches any E element whose "foo" attribute value is exactly equal to "warning".
+		E[foo~="warning"] Matches any E element whose "foo" attribute value is a list of space-separated values, one of which is exactly equal to "warning"
+		E[lang|="en"] Matches any E element whose "lang" attribute has a hyphen-separated list of values beginning (from the left) with "en".
 
-        [item$=sdas] ends with
-        [item^-sdsad] begins with
+		[item$=sdas] ends with
+		[item^-sdsad] begins with
 
-        Quotes are optional here.
+		Quotes are optional here.
 
-        Pseudos:
-            :first-child
-            :last-child
-            :link (same as a[href] for our purposes here)
-
-
-        There can be commas separating the selector. A comma separated list result is OR'd onto the main.
+		Pseudos:
+			:first-child
+			:last-child
+			:link (same as a[href] for our purposes here)
 
 
+		There can be commas separating the selector. A comma separated list result is OR'd onto the main.
 
-        This ONLY cares about elements. text, etc, are ignored
 
 
-        There should be two functions: given element, does it match the selector? and given a selector, give me all the elements
-    */
+		This ONLY cares about elements. text, etc, are ignored
+
+
+		There should be two functions: given element, does it match the selector? and given a selector, give me all the elements
+	*/
     Element[] getElementsBySelector(string selector) {
         // FIXME: this function could probably use some performance attention
         // ... but only mildly so according to the profiler in the big scheme of things; probably negligible in a big app.
@@ -2199,16 +2326,16 @@ class Element {
     }
 
     /* *******************************
-              Attributes
-    *********************************/
+	          Attributes
+	*********************************/
 
     /**
-        Gets the given attribute value, or null if the
-        attribute is not set.
+		Gets the given attribute value, or null if the
+		attribute is not set.
 
-        Note that the returned string is decoded, so it no longer contains any xml entities.
-    */
-    string getAttribute(string name) const {
+		Note that the returned string is decoded, so it no longer contains any xml entities.
+	*/
+    @scriptable string getAttribute(string name) const {
         if (parentDocument && parentDocument.loose)
             name = name.toLower();
         auto e = name in attributes;
@@ -2219,9 +2346,9 @@ class Element {
     }
 
     /**
-        Sets an attribute. Returns this for easy chaining
-    */
-    Element setAttribute(string name, string value) {
+		Sets an attribute. Returns this for easy chaining
+	*/
+    @scriptable Element setAttribute(string name, string value) {
         if (parentDocument && parentDocument.loose)
             name = name.toLower();
 
@@ -2243,9 +2370,9 @@ class Element {
     }
 
     /**
-        Returns if the attribute exists.
-    */
-    bool hasAttribute(string name) {
+		Returns if the attribute exists.
+	*/
+    @scriptable bool hasAttribute(string name) {
         if (parentDocument && parentDocument.loose)
             name = name.toLower();
 
@@ -2256,9 +2383,9 @@ class Element {
     }
 
     /**
-        Removes the given attribute from the element.
-    */
-    Element removeAttribute(string name)
+		Removes the given attribute from the element.
+	*/
+    @scriptable Element removeAttribute(string name)
     out (ret) {
         assert(ret is this);
     }
@@ -2273,9 +2400,9 @@ class Element {
     }
 
     /**
-        Gets the class attribute's contents. Returns
-        an empty string if it has no class.
-    */
+		Gets the class attribute's contents. Returns
+		an empty string if it has no class.
+	*/
     @property string className() const {
         auto c = getAttribute("class");
         if (c is null)
@@ -2290,15 +2417,15 @@ class Element {
     }
 
     /**
-        Provides easy access to common HTML attributes, object style.
+		Provides easy access to common HTML attributes, object style.
 
-        ---
-        auto element = Element.make("a");
-        a.href = "cool.html"; // this is the same as a.setAttribute("href", "cool.html");
-        string where = a.href; // same as a.getAttribute("href");
-        ---
+		---
+		auto element = Element.make("a");
+		a.href = "cool.html"; // this is the same as a.setAttribute("href", "cool.html");
+		string where = a.href; // same as a.getAttribute("href");
+		---
 
-    */
+	*/
     @property string opDispatch(string name)(string v = null)
             if (isConvenientAttribute(name)) {
         if (v !is null)
@@ -2307,14 +2434,14 @@ class Element {
     }
 
     /**
-        Old access to attributes. Use [attrs] instead.
+		Old access to attributes. Use [attrs] instead.
 
-        DEPRECATED: generally open opDispatch caused a lot of unforeseen trouble with compile time duck typing and UFCS extensions.
-        so I want to remove it. A small whitelist of attributes is still allowed, but others are not.
-
-        Instead, use element.attrs.attribute, element.attrs["attribute"],
-        or element.getAttribute("attribute")/element.setAttribute("attribute").
-    */
+		DEPRECATED: generally open opDispatch caused a lot of unforeseen trouble with compile time duck typing and UFCS extensions.
+		so I want to remove it. A small whitelist of attributes is still allowed, but others are not.
+		
+		Instead, use element.attrs.attribute, element.attrs["attribute"],
+		or element.getAttribute("attribute")/element.setAttribute("attribute").
+	*/
     @property string opDispatch(string name)(string v = null)
             if (!isConvenientAttribute(name)) {
         static assert(0,
@@ -2322,18 +2449,18 @@ class Element {
     }
 
     /*
-    // this would be nice for convenience, but it broke the getter above.
-    @property void opDispatch(string name)(bool boolean) if(name != "popFront") {
-        if(boolean)
-            setAttribute(name, name);
-        else
-            removeAttribute(name);
-    }
-    */
+	// this would be nice for convenience, but it broke the getter above.
+	@property void opDispatch(string name)(bool boolean) if(name != "popFront") {
+		if(boolean)
+			setAttribute(name, name);
+		else
+			removeAttribute(name);
+	}
+	*/
 
     /**
-        Returns the element's children.
-    */
+		Returns the element's children.
+	*/
     @property const(Element[]) childNodes() const {
         return children;
     }
@@ -2344,37 +2471,37 @@ class Element {
     }
 
     /++
-        HTML5's dataset property. It is an alternate view into attributes with the data- prefix.
-        Given `<a data-my-property="cool" />`, we get `assert(a.dataset.myProperty == "cool");`
-    +/
+		HTML5's dataset property. It is an alternate view into attributes with the data- prefix.
+		Given `<a data-my-property="cool" />`, we get `assert(a.dataset.myProperty == "cool");`
+	+/
     @property DataSet dataset() {
         return DataSet(this);
     }
 
     /++
-        Gives dot/opIndex access to attributes
-        ---
-        ele.attrs.largeSrc = "foo"; // same as ele.setAttribute("largeSrc", "foo")
-        ---
-    +/
+		Gives dot/opIndex access to attributes
+		---
+		ele.attrs.largeSrc = "foo"; // same as ele.setAttribute("largeSrc", "foo")
+		---
+	+/
     @property AttributeSet attrs() {
         return AttributeSet(this);
     }
 
     /++
-        Provides both string and object style (like in Javascript) access to the style attribute.
+		Provides both string and object style (like in Javascript) access to the style attribute.
 
-        ---
-        element.style.color = "red"; // translates into setting `color: red;` in the `style` attribute
-        ---
-    +/
+		---
+		element.style.color = "red"; // translates into setting `color: red;` in the `style` attribute
+		---
+	+/
     @property ElementStyle style() {
         return ElementStyle(this);
     }
 
     /++
-        This sets the style attribute with a string.
-    +/
+		This sets the style attribute with a string.
+	+/
     @property ElementStyle style(string s) {
         this.setAttribute("style", s);
         return this.style;
@@ -2382,23 +2509,23 @@ class Element {
 
     private void parseAttributes(string[] whichOnes = null) {
         /+
-        if(whichOnes is null)
-            whichOnes = attributes.keys;
-        foreach(attr; whichOnes) {
-            switch(attr) {
-                case "id":
+		if(whichOnes is null)
+			whichOnes = attributes.keys;
+		foreach(attr; whichOnes) {
+			switch(attr) {
+				case "id":
 
-                break;
-                case "class":
+				break;
+				case "class":
 
-                break;
-                case "style":
+				break;
+				case "style":
 
-                break;
-                default:
-                    // we don't care about it
-            }
-        }
+				break;
+				default:
+					// we don't care about it
+			}
+		}
 +/
     }
 
@@ -2466,8 +2593,8 @@ class Element {
 public:
 
     /* *******************************
-              DOM Mutation
-    *********************************/
+	          DOM Mutation
+	*********************************/
 
     /// Removes all inner content from the tag; all child text and elements are gone.
     void removeAllChildren()
@@ -2478,11 +2605,17 @@ public:
         children = null;
     }
 
-    /// Appends the given element to this one. The given element must not have a parent already.
+    /++
+		Appends the given element to this one. If it already has a parent, it is removed from that tree and moved to this one.
+
+		See_also: https://developer.mozilla.org/en-US/docs/Web/API/Node/appendChild
+
+		History:
+			Prior to 1 Jan 2020 (git tag v4.4.1 and below), it required that the given element must not have a parent already. This was in violation of standard, so it changed the behavior to remove it from the existing parent and instead move it here.
+	+/
     Element appendChild(Element e)
     in {
         assert(e !is null);
-        assert(e.parentNode is null, e.parentNode.toString);
     }
     out (ret) {
         assert((cast(DocumentFragment) this !is null) || (e.parentNode is this), e.toString); // e.parentNode ? e.parentNode.toString : "null");
@@ -2490,6 +2623,9 @@ public:
         assert(e is ret);
     }
     body {
+        if (e.parentNode !is null)
+            e.parentNode.removeChild(e);
+
         selfClosed = false;
         e.parentNode = this;
         e.parentDocument = this.parentDocument;
@@ -2537,8 +2673,8 @@ public:
     }
 
     /++
-        Inserts the given element `what` as a sibling of the `this` element, after the element `where` in the parent node.
-    +/
+		Inserts the given element `what` as a sibling of the `this` element, after the element `where` in the parent node.
+	+/
     Element insertAfter(in Element where, Element what)
     in {
         assert(where !is null);
@@ -2596,30 +2732,30 @@ public:
     }
 
     /++
-        Appends the given to the node.
+		Appends the given to the node.
 
 
-        Calling `e.appendText(" hi")` on `<example>text <b>bold</b></example>`
-        yields `<example>text <b>bold</b> hi</example>`.
+		Calling `e.appendText(" hi")` on `<example>text <b>bold</b></example>`
+		yields `<example>text <b>bold</b> hi</example>`.
 
-        See_Also:
-            [firstInnerText], [directText], [innerText], [appendChild]
-    +/
-    Element appendText(string text) {
+		See_Also:
+			[firstInnerText], [directText], [innerText], [appendChild]
+	+/
+    @scriptable Element appendText(string text) {
         Element e = new TextNode(parentDocument, text);
         appendChild(e);
         return this;
     }
 
     /++
-        Returns child elements which are of a tag type (excludes text, comments, etc.).
+		Returns child elements which are of a tag type (excludes text, comments, etc.).
 
 
-        childElements of `<example>text <b>bold</b></example>` is just the `<b>` tag.
+		childElements of `<example>text <b>bold</b></example>` is just the `<b>` tag.
 
-        Params:
-            tagName = filter results to only the child elements with the given tag name.
-    +/
+		Params:
+			tagName = filter results to only the child elements with the given tag name.
+	+/
     @property Element[] childElements(string tagName = null) {
         Element[] ret;
         foreach (c; children)
@@ -2629,12 +2765,12 @@ public:
     }
 
     /++
-        Appends the given html to the element, returning the elements appended
+		Appends the given html to the element, returning the elements appended
 
 
-        This is similar to `element.innerHTML += "html string";` in Javascript.
-    +/
-    Element[] appendHtml(string html) {
+		This is similar to `element.innerHTML += "html string";` in Javascript.
+	+/
+    @scriptable Element[] appendHtml(string html) {
         Document d = new Document("<root>" ~ html ~ "</root>");
         return stealChildren(d.root);
     }
@@ -2670,12 +2806,12 @@ public:
     }
 
     /++
-        Reparents all the child elements of `e` to `this`, leaving `e` childless.
+		Reparents all the child elements of `e` to `this`, leaving `e` childless.
 
-        Params:
-            e = the element whose children you want to steal
-            position = an existing child element in `this` before which you want the stolen children to be inserted. If `null`, it will append the stolen children at the end of our current children.
-    +/
+		Params:
+			e = the element whose children you want to steal
+			position = an existing child element in `this` before which you want the stolen children to be inserted. If `null`, it will append the stolen children at the end of our current children.
+	+/
     Element[] stealChildren(Element e, Element position = null)
     in {
         assert(!selfClosed);
@@ -2736,9 +2872,9 @@ public:
     }
 
     /**
-        Returns a string containing all child elements, formatted such that it could be pasted into
-        an XML file.
-    */
+		Returns a string containing all child elements, formatted such that it could be pasted into
+		an XML file.
+	*/
     @property string innerHTML(Appender!string where = appender!string()) const {
         if (children is null)
             return "";
@@ -2755,8 +2891,8 @@ public:
     }
 
     /**
-        Takes some html and replaces the element's children with the tree made from the string.
-    */
+		Takes some html and replaces the element's children with the tree made from the string.
+	*/
     @property Element innerHTML(string html, bool strict = false) {
         if (html.length)
             selfClosed = false;
@@ -2795,13 +2931,13 @@ public:
     }
 
     /**
-        Replaces this node with the given html string, which is parsed
+		Replaces this node with the given html string, which is parsed
 
-        Note: this invalidates the this reference, since it is removed
-        from the tree.
+		Note: this invalidates the this reference, since it is removed
+		from the tree.
 
-        Returns the new children that replace this.
-    */
+		Returns the new children that replace this.
+	*/
     @property Element[] outerHTML(string html) {
         auto doc = new Document();
         doc.parseUtf8("<innerhtml>" ~ html ~ "</innerhtml>"); // FIXME: needs to preserve the strictness
@@ -2820,10 +2956,10 @@ public:
     }
 
     /++
-        Returns all the html for this element, including the tag itself.
+		Returns all the html for this element, including the tag itself.
 
-        This is equivalent to calling toString().
-    +/
+		This is equivalent to calling toString().
+	+/
     @property string outerHTML() {
         return this.toString();
     }
@@ -2872,8 +3008,8 @@ public:
     }
 
     /**
-        Replaces the given element with a whole group.
-    */
+		Replaces the given element with a whole group.
+	*/
     void replaceChild(Element find, Element[] replace)
     in {
         assert(find !is null);
@@ -2915,10 +3051,10 @@ public:
     }
 
     /**
-        Removes the given child from this list.
+		Removes the given child from this list.
 
-        Returns the removed element.
-    */
+		Returns the removed element.
+	*/
     Element removeChild(Element c)
     in {
         assert(c !is null);
@@ -2959,17 +3095,17 @@ public:
     }
 
     /**
-        Fetch the inside text, with all tags stripped out.
+		Fetch the inside text, with all tags stripped out.
 
-        <p>cool <b>api</b> &amp; code dude<p>
-        innerText of that is "cool api & code dude".
+		<p>cool <b>api</b> &amp; code dude<p>
+		innerText of that is "cool api & code dude".
 
-        This does not match what real innerText does!
-        http://perfectionkills.com/the-poor-misunderstood-innerText/
+		This does not match what real innerText does!
+		http://perfectionkills.com/the-poor-misunderstood-innerText/
 
-        It is more like textContent.
-    */
-    @property string innerText() const {
+		It is more like textContent.
+	*/
+    @scriptable @property string innerText() const {
         string s;
         foreach (child; children) {
             if (child.nodeType != NodeType.Text)
@@ -2980,11 +3116,14 @@ public:
         return s;
     }
 
+    ///
+    alias textContent = innerText;
+
     /**
-        Sets the inside text, replacing all children. You don't
-        have to worry about entity encoding.
-    */
-    @property void innerText(string text) {
+		Sets the inside text, replacing all children. You don't
+		have to worry about entity encoding.
+	*/
+    @scriptable @property void innerText(string text) {
         selfClosed = false;
         Element e = new TextNode(parentDocument, text);
         e.parentNode = this;
@@ -2992,53 +3131,48 @@ public:
     }
 
     /**
-        Strips this node out of the document, replacing it with the given text
-    */
+		Strips this node out of the document, replacing it with the given text
+	*/
     @property void outerText(string text) {
         parentNode.replaceChild(this, new TextNode(parentDocument, text));
     }
 
     /**
-        Same result as innerText; the tag with all inner tags stripped out
-    */
+		Same result as innerText; the tag with all inner tags stripped out
+	*/
     @property string outerText() const {
         return innerText;
     }
 
     /* *******************************
-              Miscellaneous
-    *********************************/
+	          Miscellaneous
+	*********************************/
 
-    /// This is a full clone of the element
+    /// This is a full clone of the element. Alias for cloneNode(true) now. Don't extend it.
     @property Element cloned() /+
-        out(ret) {
-            // FIXME: not sure why these fail...
-            assert(ret.children.length == this.children.length, format("%d %d", ret.children.length, this.children.length));
-            assert(ret.tagName == this.tagName);
-        }
-    body {
-    +/ {
-        auto e = Element.make(this.tagName);
-        e.parentDocument = this.parentDocument;
-        e.attributes = this.attributes.aadup;
-        e.selfClosed = this.selfClosed;
-        foreach (child; children) {
-            e.appendChild(child.cloned);
-        }
-
-        return e;
+		out(ret) {
+			// FIXME: not sure why these fail...
+			assert(ret.children.length == this.children.length, format("%d %d", ret.children.length, this.children.length));
+			assert(ret.tagName == this.tagName);
+		}
+	body {
+	+/ {
+        return this.cloneNode(true);
     }
 
     /// Clones the node. If deepClone is true, clone all inner tags too. If false, only do this tag (and its attributes), but it will have no contents.
     Element cloneNode(bool deepClone) {
-        if (deepClone)
-            return this.cloned;
-
-        // shallow clone
         auto e = Element.make(this.tagName);
         e.parentDocument = this.parentDocument;
         e.attributes = this.attributes.aadup;
         e.selfClosed = this.selfClosed;
+
+        if (deepClone) {
+            foreach (child; children) {
+                e.appendChild(child.cloneNode(true));
+            }
+        }
+
         return e;
     }
 
@@ -3058,34 +3192,36 @@ public:
 
         if (children !is null)
             debug foreach (child; children) {
-                //  assert(parentNode !is null);
+                //	assert(parentNode !is null);
                 assert(child !is null);
-                //      assert(child.parentNode is this, format("%s is not a parent of %s (it thought it was %s)", tagName, child.tagName, child.parentNode is null ? "null" : child.parentNode.tagName));
+                //		assert(child.parentNode is this, format("%s is not a parent of %s (it thought it was %s)", tagName, child.tagName, child.parentNode is null ? "null" : child.parentNode.tagName));
                 assert(child !is this);
                 //assert(child !is parentNode);
             }
 
         /+ // only depend on parentNode's accuracy if you shuffle things around and use the top elements - where the contracts guarantee it on out
-        if(parentNode !is null) {
-            // if you have a parent, you should share the same parentDocument; this is appendChild()'s job
-            auto lol = cast(TextNode) this;
-            assert(parentDocument is parentNode.parentDocument, lol is null ? this.tagName : lol.contents);
-        }
-        +/
+		if(parentNode !is null) {
+			// if you have a parent, you should share the same parentDocument; this is appendChild()'s job
+			auto lol = cast(TextNode) this;
+			assert(parentDocument is parentNode.parentDocument, lol is null ? this.tagName : lol.contents);
+		}
+		+/
         //assert(parentDocument !is null); // no more; if it is present, we use it, but it is not required
         // reason is so you can create these without needing a reference to the document
     }
 
     /**
-        Turns the whole element, including tag, attributes, and children, into a string which could be pasted into
-        an XML file.
-    */
+		Turns the whole element, including tag, attributes, and children, into a string which could be pasted into
+		an XML file.
+	*/
     override string toString() const {
         return writeToAppender();
     }
 
     protected string toPrettyStringIndent(bool insertComments,
             int indentationLevel, string indentWith) const {
+        if (indentWith is null)
+            return null;
         string s;
 
         if (insertComments)
@@ -3100,9 +3236,9 @@ public:
     }
 
     /++
-        Writes out with formatting. Be warned: formatting changes the contents. Use ONLY
-        for eyeball debugging.
-    +/
+		Writes out with formatting. Be warned: formatting changes the contents. Use ONLY
+		for eyeball debugging.
+	+/
     string toPrettyString(bool insertComments = false, int indentationLevel = 0,
             string indentWith = "\t") const {
 
@@ -3112,23 +3248,23 @@ public:
         //
         // actually i'm not allowed cuz it is const so i will cheat and lie
         /+
-        TextNode lastTextChild = null;
-        for(int a = 0; a < this.children.length; a++) {
-            auto child = this.children[a];
-            if(auto tn = cast(TextNode) child) {
-                if(lastTextChild) {
-                    lastTextChild.contents ~= tn.contents;
-                    for(int b = a; b < this.children.length - 1; b++)
-                        this.children[b] = this.children[b + 1];
-                    this.children = this.children[0 .. $-1];
-                } else {
-                    lastTextChild = tn;
-                }
-            } else {
-                lastTextChild = null;
-            }
-        }
-        +/
+		TextNode lastTextChild = null;
+		for(int a = 0; a < this.children.length; a++) {
+			auto child = this.children[a];
+			if(auto tn = cast(TextNode) child) {
+				if(lastTextChild) {
+					lastTextChild.contents ~= tn.contents;
+					for(int b = a; b < this.children.length - 1; b++)
+						this.children[b] = this.children[b + 1];
+					this.children = this.children[0 .. $-1];
+				} else {
+					lastTextChild = tn;
+				}
+			} else {
+				lastTextChild = null;
+			}
+		}
+		+/
 
         const(Element)[] children;
 
@@ -3180,7 +3316,7 @@ public:
         // just keep them on the same line
         if (tagName.isInArray(inlineElements) || allAreInlineHtml(children)) {
             foreach (child; children) {
-                s ~= child.toString();
+                s ~= child.toString(); //toPrettyString(false, 0, null);
             }
         } else {
             foreach (child; children) {
@@ -3200,11 +3336,12 @@ public:
     }
 
     /+
-    /// Writes out the opening tag only, if applicable.
-    string writeTagOnly(Appender!string where = appender!string()) const {
-    +/
+	/// Writes out the opening tag only, if applicable.
+	string writeTagOnly(Appender!string where = appender!string()) const {
+	+/
 
     /// This is the actual implementation used by toString. You can pass it a preallocated buffer to save some time.
+    /// Note: the ordering of attributes in the string is undefined.
     /// Returns the string it creates.
     string writeToAppender(Appender!string where = appender!string()) const {
         assert(tagName !is null);
@@ -3216,8 +3353,11 @@ public:
         where.put("<");
         where.put(tagName);
 
-        foreach (n, v; attributes) {
-            assert(n !is null);
+        import std.algorithm : sort;
+
+        auto keys = sort(attributes.keys);
+        foreach (n; keys) {
+            auto v = attributes[n]; // I am sorting these for convenience with another project. order of AAs is undefined, so I'm allowed to do it.... and it is still undefined, I might change it back later.
             //assert(v !is null);
             where.put(" ");
             where.put(n);
@@ -3243,8 +3383,8 @@ public:
     }
 
     /**
-        Returns a lazy range of all its children, recursively.
-    */
+		Returns a lazy range of all its children, recursively.
+	*/
     @property ElementStream tree() {
         return new ElementStream(this);
     }
@@ -3325,6 +3465,7 @@ public:
 
 // FIXME: since Document loosens the input requirements, it should probably be the sub class...
 /// Specializes Document for handling generic XML. (always uses strict mode, uses xml mime type and file header)
+/// Group: core_functionality
 class XmlDocument : Document {
     this(string data) {
         contentType = "text/xml; charset=utf-8";
@@ -3339,6 +3480,7 @@ import std.string;
 /* domconvenience follows { */
 
 /// finds comments that match the given txt. Case insensitive, strips whitespace.
+/// Group: core_functionality
 Element[] findComments(Document document, string txt) {
     return findComments(document.root, txt);
 }
@@ -3358,6 +3500,7 @@ Element[] findComments(Element element, string txt) {
 }
 
 /// An option type that propagates null. See: [Element.optionSelector]
+/// Group: implementations
 struct MaybeNullElement(SomeElementType) {
     this(SomeElementType ele) {
         this.element = ele;
@@ -3390,8 +3533,9 @@ struct MaybeNullElement(SomeElementType) {
 }
 
 /++
-    A collection of elements which forwards methods to the children.
+	A collection of elements which forwards methods to the children.
 +/
+/// Group: implementations
 struct ElementCollection {
     ///
     this(Element e) {
@@ -3445,8 +3589,14 @@ struct ElementCollection {
         return !elements.length;
     }
 
-    /// Collects strings from the collection, concatenating them together
-    /// Kinda like running reduce and ~= on it.
+    /++
+		Collects strings from the collection, concatenating them together
+		Kinda like running reduce and ~= on it.
+
+		---
+		document["p"].collect!"innerText";
+		---
+	+/
     string collect(string method)(string separator = "") {
         string text;
         foreach (e; elements) {
@@ -3456,12 +3606,23 @@ struct ElementCollection {
         return text;
     }
 
-    /// Forward method calls to each individual element of the collection
+    /// Forward method calls to each individual [Element|element] of the collection
     /// returns this so it can be chained.
     ElementCollection opDispatch(string name, T...)(T t) {
         foreach (e; elements) {
             mixin("e." ~ name)(t);
         }
+        return this;
+    }
+
+    /++
+		Calls [Element.wrapIn] on each member of the collection, but clones the argument `what` for each one.
+	+/
+    ElementCollection wrapIn(Element what) {
+        foreach (e; elements) {
+            e.wrapIn(what.cloneNode(false));
+        }
+
         return this;
     }
 
@@ -3472,6 +3633,7 @@ struct ElementCollection {
 }
 
 /// this puts in operators and opDispatch to handle string indexes and properties, forwarding to get and set functions.
+/// Group: implementations
 mixin template JavascriptStyleDispatch() {
     ///
     string opDispatch(string name)(string v = null) if (name != "popFront") { // popFront will make this look like a range. Do not want.
@@ -3499,6 +3661,7 @@ mixin template JavascriptStyleDispatch() {
 /// A proxy object to do the Element class' dataset property. See Element.dataset for more info.
 ///
 /// Do not create this object directly.
+/// Group: implementations
 struct DataSet {
     ///
     this(Element e) {
@@ -3522,6 +3685,7 @@ struct DataSet {
 }
 
 /// Proxy object for attributes which will replace the main opDispatch eventually
+/// Group: implementations
 struct AttributeSet {
     ///
     this(Element e) {
@@ -3547,6 +3711,7 @@ struct AttributeSet {
 /// for style, i want to be able to set it with a string like a plain attribute,
 /// but also be able to do properties Javascript style.
 
+/// Group: implementations
 struct ElementStyle {
     this(Element parent) {
         _element = parent;
@@ -3681,10 +3846,11 @@ import std.range;
 // most likely a typo so I say kill kill kill.
 
 /++
-    This might belong in another module, but it represents a file with a mime type and some data.
-    Document implements this interface with type = text/html (see Document.contentType for more info)
-    and data = document.toString, so you can return Documents anywhere web.d expects FileResources.
+	This might belong in another module, but it represents a file with a mime type and some data.
+	Document implements this interface with type = text/html (see Document.contentType for more info)
+	and data = document.toString, so you can return Documents anywhere web.d expects FileResources.
 +/
+/// Group: bonus_functionality
 interface FileResource {
     /// the content-type of the file. e.g. "text/html; charset=utf-8" or "image/png"
     @property string contentType() const;
@@ -3693,11 +3859,13 @@ interface FileResource {
 }
 
 ///.
+/// Group: bonus_functionality
 enum NodeType {
     Text = 3
 }
 
 /// You can use this to do an easy null check or a dynamic cast+null check on any element.
+/// Group: core_functionality
 T require(T = Element, string file = __FILE__, int line = __LINE__)(Element e)
         if (is(T : Element))
 in {
@@ -3708,11 +3876,12 @@ out (ret) {
 body {
     auto ret = cast(T) e;
     if (ret is null)
-        throw new ElementNotFoundException(T.stringof, "passed value", file, line);
+        throw new ElementNotFoundException(T.stringof, "passed value", e, file, line);
     return ret;
 }
 
 ///.
+/// Group: core_functionality
 class DocumentFragment : Element {
     ///.
     this(Document _parentDocument) {
@@ -3721,10 +3890,10 @@ class DocumentFragment : Element {
     }
 
     /++
-        Creates a document fragment from the given HTML. Note that the HTML is assumed to close all tags contained inside it.
+		Creates a document fragment from the given HTML. Note that the HTML is assumed to close all tags contained inside it.
 
-        Since: March 29, 2018 (or git tagged v2.1.0)
-    +/
+		Since: March 29, 2018 (or git tagged v2.1.0)
+	+/
     this(Html html) {
         this(null);
 
@@ -3745,10 +3914,10 @@ class DocumentFragment : Element {
 
     /// DocumentFragments don't really exist in a dom, so they ignore themselves in parent nodes
     /*
-    override inout(Element) parentNode() inout {
-        return children.length ? children[0].parentNode : null;
-    }
-    */
+	override inout(Element) parentNode() inout {
+		return children.length ? children[0].parentNode : null;
+	}
+	*/
     override Element parentNode(Element p) {
         this._parentNode = p;
         foreach (child; children)
@@ -3759,11 +3928,13 @@ class DocumentFragment : Element {
 
 /// Given text, encode all html entities on it - &, <, >, and ". This function also
 /// encodes all 8 bit characters as entities, thus ensuring the resultant text will work
-/// even if your charset isn't set right.
+/// even if your charset isn't set right. You can suppress with by setting encodeNonAscii = false
 ///
 /// The output parameter can be given to append to an existing buffer. You don't have to
 /// pass one; regardless, the return value will be usable for you, with just the data encoded.
-string htmlEntitiesEncode(string data, Appender!string output = appender!string()) {
+/// Group: core_functionality
+string htmlEntitiesEncode(string data,
+        Appender!string output = appender!string(), bool encodeNonAscii = true) {
     // if there's no entities, we can save a lot of time by not bothering with the
     // decoding loop. This check cuts the net toString time by better than half in my test.
     // let me know if it made your tests worse though, since if you use an entity in just about
@@ -3773,7 +3944,7 @@ string htmlEntitiesEncode(string data, Appender!string output = appender!string(
     bool shortcut = true;
     foreach (char c; data) {
         // non ascii chars are always higher than 127 in utf8; we'd better go to the full decoder if we see it.
-        if (c == '<' || c == '>' || c == '"' || c == '&' || cast(uint) c > 127) {
+        if (c == '<' || c == '>' || c == '"' || c == '&' || (encodeNonAscii && cast(uint) c > 127)) {
             shortcut = false; // there's actual work to be done
             break;
         }
@@ -3797,12 +3968,12 @@ string htmlEntitiesEncode(string data, Appender!string output = appender!string(
             output.put("&gt;");
         else if (d == '\"')
             output.put("&quot;");
-        //      else if (d == '\'')
-        //          output.put("&#39;"); // if you are in an attribute, it might be important to encode for the same reason as double quotes
+        //		else if (d == '\'')
+        //			output.put("&#39;"); // if you are in an attribute, it might be important to encode for the same reason as double quotes
         // FIXME: should I encode apostrophes too? as &#39;... I could also do space but if your html is so bad that it doesn't
         // quote attributes at all, maybe you deserve the xss. Encoding spaces will make everything really ugly so meh
         // idk about apostrophes though. Might be worth it, might not.
-        else if (d < 128 && d > 0)
+        else if (!encodeNonAscii || (d < 128 && d > 0))
             output.put(d);
         else
             output.put("&#" ~ std.conv.to!string(cast(int) d) ~ ";");
@@ -3811,15 +3982,17 @@ string htmlEntitiesEncode(string data, Appender!string output = appender!string(
     //assert(output !is null); // this fails on empty attributes.....
     return output.data[start .. $];
 
-    //  data = data.replace("\u00a0", "&nbsp;");
+    //	data = data.replace("\u00a0", "&nbsp;");
 }
 
 /// An alias for htmlEntitiesEncode; it works for xml too
+/// Group: core_functionality
 string xmlEntitiesEncode(string data) {
     return htmlEntitiesEncode(data);
 }
 
 /// This helper function is used for decoding html entities. It has a hard-coded list of entities and characters.
+/// Group: core_functionality
 dchar parseEntity(in dchar[] entity) {
     switch (entity[1 .. $ - 1]) {
     case "quot":
@@ -3834,6 +4007,158 @@ dchar parseEntity(in dchar[] entity) {
         return '&';
         // the next are html rather than xml
 
+        // Retrieved from https://en.wikipedia.org/wiki/List_of_XML_and_HTML_character_entity_references
+        // Only entities that resolve to U+0009 ~ U+1D56B are stated.
+    case "Tab":
+        return '\u0009';
+    case "NewLine":
+        return '\u000A';
+    case "excl":
+        return '\u0021';
+    case "QUOT":
+        return '\u0022';
+    case "num":
+        return '\u0023';
+    case "dollar":
+        return '\u0024';
+    case "percnt":
+        return '\u0025';
+    case "AMP":
+        return '\u0026';
+    case "lpar":
+        return '\u0028';
+    case "rpar":
+        return '\u0029';
+    case "ast":
+    case "midast":
+        return '\u002A';
+    case "plus":
+        return '\u002B';
+    case "comma":
+        return '\u002C';
+    case "period":
+        return '\u002E';
+    case "sol":
+        return '\u002F';
+    case "colon":
+        return '\u003A';
+    case "semi":
+        return '\u003B';
+    case "LT":
+        return '\u003C';
+    case "equals":
+        return '\u003D';
+    case "GT":
+        return '\u003E';
+    case "quest":
+        return '\u003F';
+    case "commat":
+        return '\u0040';
+    case "lsqb":
+    case "lbrack":
+        return '\u005B';
+    case "bsol":
+        return '\u005C';
+    case "rsqb":
+    case "rbrack":
+        return '\u005D';
+    case "Hat":
+        return '\u005E';
+    case "lowbar":
+    case "UnderBar":
+        return '\u005F';
+    case "grave":
+    case "DiacriticalGrave":
+        return '\u0060';
+    case "lcub":
+    case "lbrace":
+        return '\u007B';
+    case "verbar":
+    case "vert":
+    case "VerticalLine":
+        return '\u007C';
+    case "rcub":
+    case "rbrace":
+        return '\u007D';
+    case "nbsp":
+    case "NonBreakingSpace":
+        return '\u00A0';
+    case "iexcl":
+        return '\u00A1';
+    case "cent":
+        return '\u00A2';
+    case "pound":
+        return '\u00A3';
+    case "curren":
+        return '\u00A4';
+    case "yen":
+        return '\u00A5';
+    case "brvbar":
+        return '\u00A6';
+    case "sect":
+        return '\u00A7';
+    case "Dot":
+    case "die":
+    case "DoubleDot":
+    case "uml":
+        return '\u00A8';
+    case "copy":
+    case "COPY":
+        return '\u00A9';
+    case "ordf":
+        return '\u00AA';
+    case "laquo":
+        return '\u00AB';
+    case "not":
+        return '\u00AC';
+    case "shy":
+        return '\u00AD';
+    case "reg":
+    case "circledR":
+    case "REG":
+        return '\u00AE';
+    case "macr":
+    case "strns":
+        return '\u00AF';
+    case "deg":
+        return '\u00B0';
+    case "plusmn":
+    case "pm":
+    case "PlusMinus":
+        return '\u00B1';
+    case "sup2":
+        return '\u00B2';
+    case "sup3":
+        return '\u00B3';
+    case "acute":
+    case "DiacriticalAcute":
+        return '\u00B4';
+    case "micro":
+        return '\u00B5';
+    case "para":
+        return '\u00B6';
+    case "middot":
+    case "centerdot":
+    case "CenterDot":
+        return '\u00B7';
+    case "cedil":
+    case "Cedilla":
+        return '\u00B8';
+    case "sup1":
+        return '\u00B9';
+    case "ordm":
+        return '\u00BA';
+    case "raquo":
+        return '\u00BB';
+    case "frac14":
+        return '\u00BC';
+    case "frac12":
+    case "half":
+        return '\u00BD';
+    case "frac34":
+        return '\u00BE';
+    case "iquest":
+        return '\u00BF';
     case "Agrave":
         return '\u00C0';
     case "Aacute":
@@ -3845,6 +4170,7 @@ dchar parseEntity(in dchar[] entity) {
     case "Auml":
         return '\u00C4';
     case "Aring":
+    case "angst":
         return '\u00C5';
     case "AElig":
         return '\u00C6';
@@ -3880,6 +4206,8 @@ dchar parseEntity(in dchar[] entity) {
         return '\u00D5';
     case "Ouml":
         return '\u00D6';
+    case "times":
+        return '\u00D7';
     case "Oslash":
         return '\u00D8';
     case "Ugrave":
@@ -3942,6 +4270,9 @@ dchar parseEntity(in dchar[] entity) {
         return '\u00F5';
     case "ouml":
         return '\u00F6';
+    case "divide":
+    case "div":
+        return '\u00F7';
     case "oslash":
         return '\u00F8';
     case "ugrave":
@@ -3958,114 +4289,3198 @@ dchar parseEntity(in dchar[] entity) {
         return '\u00FE';
     case "yuml":
         return '\u00FF';
-    case "nbsp":
-        return '\u00A0';
-    case "iexcl":
-        return '\u00A1';
-    case "cent":
-        return '\u00A2';
-    case "pound":
-        return '\u00A3';
-    case "curren":
-        return '\u00A4';
-    case "yen":
-        return '\u00A5';
-    case "brvbar":
-        return '\u00A6';
-    case "sect":
-        return '\u00A7';
-    case "uml":
-        return '\u00A8';
-    case "copy":
-        return '\u00A9';
-    case "ordf":
-        return '\u00AA';
-    case "laquo":
-        return '\u00AB';
-    case "not":
-        return '\u00AC';
-    case "shy":
-        return '\u00AD';
-    case "reg":
-        return '\u00AE';
-    case "ldquo":
-        return '\u201c';
-    case "rdquo":
-        return '\u201d';
-    case "macr":
-        return '\u00AF';
-    case "deg":
-        return '\u00B0';
-    case "plusmn":
-        return '\u00B1';
-    case "sup2":
-        return '\u00B2';
-    case "sup3":
-        return '\u00B3';
-    case "acute":
-        return '\u00B4';
-    case "micro":
-        return '\u00B5';
-    case "para":
-        return '\u00B6';
-    case "middot":
-        return '\u00B7';
-    case "cedil":
-        return '\u00B8';
-    case "sup1":
-        return '\u00B9';
-    case "ordm":
-        return '\u00BA';
-    case "raquo":
-        return '\u00BB';
-    case "frac14":
-        return '\u00BC';
-    case "frac12":
-        return '\u00BD';
-    case "frac34":
-        return '\u00BE';
-    case "iquest":
-        return '\u00BF';
-    case "times":
-        return '\u00D7';
-    case "divide":
-        return '\u00F7';
+    case "Amacr":
+        return '\u0100';
+    case "amacr":
+        return '\u0101';
+    case "Abreve":
+        return '\u0102';
+    case "abreve":
+        return '\u0103';
+    case "Aogon":
+        return '\u0104';
+    case "aogon":
+        return '\u0105';
+    case "Cacute":
+        return '\u0106';
+    case "cacute":
+        return '\u0107';
+    case "Ccirc":
+        return '\u0108';
+    case "ccirc":
+        return '\u0109';
+    case "Cdot":
+        return '\u010A';
+    case "cdot":
+        return '\u010B';
+    case "Ccaron":
+        return '\u010C';
+    case "ccaron":
+        return '\u010D';
+    case "Dcaron":
+        return '\u010E';
+    case "dcaron":
+        return '\u010F';
+    case "Dstrok":
+        return '\u0110';
+    case "dstrok":
+        return '\u0111';
+    case "Emacr":
+        return '\u0112';
+    case "emacr":
+        return '\u0113';
+    case "Edot":
+        return '\u0116';
+    case "edot":
+        return '\u0117';
+    case "Eogon":
+        return '\u0118';
+    case "eogon":
+        return '\u0119';
+    case "Ecaron":
+        return '\u011A';
+    case "ecaron":
+        return '\u011B';
+    case "Gcirc":
+        return '\u011C';
+    case "gcirc":
+        return '\u011D';
+    case "Gbreve":
+        return '\u011E';
+    case "gbreve":
+        return '\u011F';
+    case "Gdot":
+        return '\u0120';
+    case "gdot":
+        return '\u0121';
+    case "Gcedil":
+        return '\u0122';
+    case "Hcirc":
+        return '\u0124';
+    case "hcirc":
+        return '\u0125';
+    case "Hstrok":
+        return '\u0126';
+    case "hstrok":
+        return '\u0127';
+    case "Itilde":
+        return '\u0128';
+    case "itilde":
+        return '\u0129';
+    case "Imacr":
+        return '\u012A';
+    case "imacr":
+        return '\u012B';
+    case "Iogon":
+        return '\u012E';
+    case "iogon":
+        return '\u012F';
+    case "Idot":
+        return '\u0130';
+    case "imath":
+    case "inodot":
+        return '\u0131';
+    case "IJlig":
+        return '\u0132';
+    case "ijlig":
+        return '\u0133';
+    case "Jcirc":
+        return '\u0134';
+    case "jcirc":
+        return '\u0135';
+    case "Kcedil":
+        return '\u0136';
+    case "kcedil":
+        return '\u0137';
+    case "kgreen":
+        return '\u0138';
+    case "Lacute":
+        return '\u0139';
+    case "lacute":
+        return '\u013A';
+    case "Lcedil":
+        return '\u013B';
+    case "lcedil":
+        return '\u013C';
+    case "Lcaron":
+        return '\u013D';
+    case "lcaron":
+        return '\u013E';
+    case "Lmidot":
+        return '\u013F';
+    case "lmidot":
+        return '\u0140';
+    case "Lstrok":
+        return '\u0141';
+    case "lstrok":
+        return '\u0142';
+    case "Nacute":
+        return '\u0143';
+    case "nacute":
+        return '\u0144';
+    case "Ncedil":
+        return '\u0145';
+    case "ncedil":
+        return '\u0146';
+    case "Ncaron":
+        return '\u0147';
+    case "ncaron":
+        return '\u0148';
+    case "napos":
+        return '\u0149';
+    case "ENG":
+        return '\u014A';
+    case "eng":
+        return '\u014B';
+    case "Omacr":
+        return '\u014C';
+    case "omacr":
+        return '\u014D';
+    case "Odblac":
+        return '\u0150';
+    case "odblac":
+        return '\u0151';
     case "OElig":
         return '\u0152';
     case "oelig":
         return '\u0153';
+    case "Racute":
+        return '\u0154';
+    case "racute":
+        return '\u0155';
+    case "Rcedil":
+        return '\u0156';
+    case "rcedil":
+        return '\u0157';
+    case "Rcaron":
+        return '\u0158';
+    case "rcaron":
+        return '\u0159';
+    case "Sacute":
+        return '\u015A';
+    case "sacute":
+        return '\u015B';
+    case "Scirc":
+        return '\u015C';
+    case "scirc":
+        return '\u015D';
+    case "Scedil":
+        return '\u015E';
+    case "scedil":
+        return '\u015F';
     case "Scaron":
         return '\u0160';
     case "scaron":
         return '\u0161';
+    case "Tcedil":
+        return '\u0162';
+    case "tcedil":
+        return '\u0163';
+    case "Tcaron":
+        return '\u0164';
+    case "tcaron":
+        return '\u0165';
+    case "Tstrok":
+        return '\u0166';
+    case "tstrok":
+        return '\u0167';
+    case "Utilde":
+        return '\u0168';
+    case "utilde":
+        return '\u0169';
+    case "Umacr":
+        return '\u016A';
+    case "umacr":
+        return '\u016B';
+    case "Ubreve":
+        return '\u016C';
+    case "ubreve":
+        return '\u016D';
+    case "Uring":
+        return '\u016E';
+    case "uring":
+        return '\u016F';
+    case "Udblac":
+        return '\u0170';
+    case "udblac":
+        return '\u0171';
+    case "Uogon":
+        return '\u0172';
+    case "uogon":
+        return '\u0173';
+    case "Wcirc":
+        return '\u0174';
+    case "wcirc":
+        return '\u0175';
+    case "Ycirc":
+        return '\u0176';
+    case "ycirc":
+        return '\u0177';
     case "Yuml":
         return '\u0178';
+    case "Zacute":
+        return '\u0179';
+    case "zacute":
+        return '\u017A';
+    case "Zdot":
+        return '\u017B';
+    case "zdot":
+        return '\u017C';
+    case "Zcaron":
+        return '\u017D';
+    case "zcaron":
+        return '\u017E';
     case "fnof":
         return '\u0192';
+    case "imped":
+        return '\u01B5';
+    case "gacute":
+        return '\u01F5';
+    case "jmath":
+        return '\u0237';
     case "circ":
         return '\u02C6';
+    case "caron":
+    case "Hacek":
+        return '\u02C7';
+    case "breve":
+    case "Breve":
+        return '\u02D8';
+    case "dot":
+    case "DiacriticalDot":
+        return '\u02D9';
+    case "ring":
+        return '\u02DA';
+    case "ogon":
+        return '\u02DB';
     case "tilde":
+    case "DiacriticalTilde":
         return '\u02DC';
-    case "trade":
-        return '\u2122';
-    case "euro":
-        return '\u20AC';
-
-    case "hellip":
-        return '\u2026';
+    case "dblac":
+    case "DiacriticalDoubleAcute":
+        return '\u02DD';
+    case "DownBreve":
+        return '\u0311';
+    case "Alpha":
+        return '\u0391';
+    case "Beta":
+        return '\u0392';
+    case "Gamma":
+        return '\u0393';
+    case "Delta":
+        return '\u0394';
+    case "Epsilon":
+        return '\u0395';
+    case "Zeta":
+        return '\u0396';
+    case "Eta":
+        return '\u0397';
+    case "Theta":
+        return '\u0398';
+    case "Iota":
+        return '\u0399';
+    case "Kappa":
+        return '\u039A';
+    case "Lambda":
+        return '\u039B';
+    case "Mu":
+        return '\u039C';
+    case "Nu":
+        return '\u039D';
+    case "Xi":
+        return '\u039E';
+    case "Omicron":
+        return '\u039F';
+    case "Pi":
+        return '\u03A0';
+    case "Rho":
+        return '\u03A1';
+    case "Sigma":
+        return '\u03A3';
+    case "Tau":
+        return '\u03A4';
+    case "Upsilon":
+        return '\u03A5';
+    case "Phi":
+        return '\u03A6';
+    case "Chi":
+        return '\u03A7';
+    case "Psi":
+        return '\u03A8';
+    case "Omega":
+    case "ohm":
+        return '\u03A9';
+    case "alpha":
+        return '\u03B1';
+    case "beta":
+        return '\u03B2';
+    case "gamma":
+        return '\u03B3';
+    case "delta":
+        return '\u03B4';
+    case "epsi":
+    case "epsilon":
+        return '\u03B5';
+    case "zeta":
+        return '\u03B6';
+    case "eta":
+        return '\u03B7';
+    case "theta":
+        return '\u03B8';
+    case "iota":
+        return '\u03B9';
+    case "kappa":
+        return '\u03BA';
+    case "lambda":
+        return '\u03BB';
+    case "mu":
+        return '\u03BC';
+    case "nu":
+        return '\u03BD';
+    case "xi":
+        return '\u03BE';
+    case "omicron":
+        return '\u03BF';
+    case "pi":
+        return '\u03C0';
+    case "rho":
+        return '\u03C1';
+    case "sigmav":
+    case "varsigma":
+    case "sigmaf":
+        return '\u03C2';
+    case "sigma":
+        return '\u03C3';
+    case "tau":
+        return '\u03C4';
+    case "upsi":
+    case "upsilon":
+        return '\u03C5';
+    case "phi":
+        return '\u03C6';
+    case "chi":
+        return '\u03C7';
+    case "psi":
+        return '\u03C8';
+    case "omega":
+        return '\u03C9';
+    case "thetav":
+    case "vartheta":
+    case "thetasym":
+        return '\u03D1';
+    case "Upsi":
+    case "upsih":
+        return '\u03D2';
+    case "straightphi":
+    case "phiv":
+    case "varphi":
+        return '\u03D5';
+    case "piv":
+    case "varpi":
+        return '\u03D6';
+    case "Gammad":
+        return '\u03DC';
+    case "gammad":
+    case "digamma":
+        return '\u03DD';
+    case "kappav":
+    case "varkappa":
+        return '\u03F0';
+    case "rhov":
+    case "varrho":
+        return '\u03F1';
+    case "epsiv":
+    case "varepsilon":
+    case "straightepsilon":
+        return '\u03F5';
+    case "bepsi":
+    case "backepsilon":
+        return '\u03F6';
+    case "IOcy":
+        return '\u0401';
+    case "DJcy":
+        return '\u0402';
+    case "GJcy":
+        return '\u0403';
+    case "Jukcy":
+        return '\u0404';
+    case "DScy":
+        return '\u0405';
+    case "Iukcy":
+        return '\u0406';
+    case "YIcy":
+        return '\u0407';
+    case "Jsercy":
+        return '\u0408';
+    case "LJcy":
+        return '\u0409';
+    case "NJcy":
+        return '\u040A';
+    case "TSHcy":
+        return '\u040B';
+    case "KJcy":
+        return '\u040C';
+    case "Ubrcy":
+        return '\u040E';
+    case "DZcy":
+        return '\u040F';
+    case "Acy":
+        return '\u0410';
+    case "Bcy":
+        return '\u0411';
+    case "Vcy":
+        return '\u0412';
+    case "Gcy":
+        return '\u0413';
+    case "Dcy":
+        return '\u0414';
+    case "IEcy":
+        return '\u0415';
+    case "ZHcy":
+        return '\u0416';
+    case "Zcy":
+        return '\u0417';
+    case "Icy":
+        return '\u0418';
+    case "Jcy":
+        return '\u0419';
+    case "Kcy":
+        return '\u041A';
+    case "Lcy":
+        return '\u041B';
+    case "Mcy":
+        return '\u041C';
+    case "Ncy":
+        return '\u041D';
+    case "Ocy":
+        return '\u041E';
+    case "Pcy":
+        return '\u041F';
+    case "Rcy":
+        return '\u0420';
+    case "Scy":
+        return '\u0421';
+    case "Tcy":
+        return '\u0422';
+    case "Ucy":
+        return '\u0423';
+    case "Fcy":
+        return '\u0424';
+    case "KHcy":
+        return '\u0425';
+    case "TScy":
+        return '\u0426';
+    case "CHcy":
+        return '\u0427';
+    case "SHcy":
+        return '\u0428';
+    case "SHCHcy":
+        return '\u0429';
+    case "HARDcy":
+        return '\u042A';
+    case "Ycy":
+        return '\u042B';
+    case "SOFTcy":
+        return '\u042C';
+    case "Ecy":
+        return '\u042D';
+    case "YUcy":
+        return '\u042E';
+    case "YAcy":
+        return '\u042F';
+    case "acy":
+        return '\u0430';
+    case "bcy":
+        return '\u0431';
+    case "vcy":
+        return '\u0432';
+    case "gcy":
+        return '\u0433';
+    case "dcy":
+        return '\u0434';
+    case "iecy":
+        return '\u0435';
+    case "zhcy":
+        return '\u0436';
+    case "zcy":
+        return '\u0437';
+    case "icy":
+        return '\u0438';
+    case "jcy":
+        return '\u0439';
+    case "kcy":
+        return '\u043A';
+    case "lcy":
+        return '\u043B';
+    case "mcy":
+        return '\u043C';
+    case "ncy":
+        return '\u043D';
+    case "ocy":
+        return '\u043E';
+    case "pcy":
+        return '\u043F';
+    case "rcy":
+        return '\u0440';
+    case "scy":
+        return '\u0441';
+    case "tcy":
+        return '\u0442';
+    case "ucy":
+        return '\u0443';
+    case "fcy":
+        return '\u0444';
+    case "khcy":
+        return '\u0445';
+    case "tscy":
+        return '\u0446';
+    case "chcy":
+        return '\u0447';
+    case "shcy":
+        return '\u0448';
+    case "shchcy":
+        return '\u0449';
+    case "hardcy":
+        return '\u044A';
+    case "ycy":
+        return '\u044B';
+    case "softcy":
+        return '\u044C';
+    case "ecy":
+        return '\u044D';
+    case "yucy":
+        return '\u044E';
+    case "yacy":
+        return '\u044F';
+    case "iocy":
+        return '\u0451';
+    case "djcy":
+        return '\u0452';
+    case "gjcy":
+        return '\u0453';
+    case "jukcy":
+        return '\u0454';
+    case "dscy":
+        return '\u0455';
+    case "iukcy":
+        return '\u0456';
+    case "yicy":
+        return '\u0457';
+    case "jsercy":
+        return '\u0458';
+    case "ljcy":
+        return '\u0459';
+    case "njcy":
+        return '\u045A';
+    case "tshcy":
+        return '\u045B';
+    case "kjcy":
+        return '\u045C';
+    case "ubrcy":
+        return '\u045E';
+    case "dzcy":
+        return '\u045F';
+    case "ensp":
+        return '\u2002';
+    case "emsp":
+        return '\u2003';
+    case "emsp13":
+        return '\u2004';
+    case "emsp14":
+        return '\u2005';
+    case "numsp":
+        return '\u2007';
+    case "puncsp":
+        return '\u2008';
+    case "thinsp":
+    case "ThinSpace":
+        return '\u2009';
+    case "hairsp":
+    case "VeryThinSpace":
+        return '\u200A';
+    case "ZeroWidthSpace":
+    case "NegativeVeryThinSpace":
+    case "NegativeThinSpace":
+    case "NegativeMediumSpace":
+    case "NegativeThickSpace":
+        return '\u200B';
+    case "zwnj":
+        return '\u200C';
+    case "zwj":
+        return '\u200D';
+    case "lrm":
+        return '\u200E';
+    case "rlm":
+        return '\u200F';
+    case "hyphen":
+    case "dash":
+        return '\u2010';
     case "ndash":
         return '\u2013';
     case "mdash":
         return '\u2014';
+    case "horbar":
+        return '\u2015';
+    case "Verbar":
+    case "Vert":
+        return '\u2016';
     case "lsquo":
+    case "OpenCurlyQuote":
         return '\u2018';
     case "rsquo":
+    case "rsquor":
+    case "CloseCurlyQuote":
         return '\u2019';
-
-    case "Omicron":
-        return '\u039f';
-    case "omicron":
-        return '\u03bf';
+    case "lsquor":
+    case "sbquo":
+        return '\u201A';
+    case "ldquo":
+    case "OpenCurlyDoubleQuote":
+        return '\u201C';
+    case "rdquo":
+    case "rdquor":
+    case "CloseCurlyDoubleQuote":
+        return '\u201D';
+    case "ldquor":
+    case "bdquo":
+        return '\u201E';
+    case "dagger":
+        return '\u2020';
+    case "Dagger":
+    case "ddagger":
+        return '\u2021';
+    case "bull":
+    case "bullet":
+        return '\u2022';
+    case "nldr":
+        return '\u2025';
+    case "hellip":
+    case "mldr":
+        return '\u2026';
+    case "permil":
+        return '\u2030';
+    case "pertenk":
+        return '\u2031';
+    case "prime":
+        return '\u2032';
+    case "Prime":
+        return '\u2033';
+    case "tprime":
+        return '\u2034';
+    case "bprime":
+    case "backprime":
+        return '\u2035';
+    case "lsaquo":
+        return '\u2039';
+    case "rsaquo":
+        return '\u203A';
+    case "oline":
+    case "OverBar":
+        return '\u203E';
+    case "caret":
+        return '\u2041';
+    case "hybull":
+        return '\u2043';
+    case "frasl":
+        return '\u2044';
+    case "bsemi":
+        return '\u204F';
+    case "qprime":
+        return '\u2057';
+    case "MediumSpace":
+        return '\u205F';
+    case "NoBreak":
+        return '\u2060';
+    case "ApplyFunction":
+    case "af":
+        return '\u2061';
+    case "InvisibleTimes":
+    case "it":
+        return '\u2062';
+    case "InvisibleComma":
+    case "ic":
+        return '\u2063';
+    case "euro":
+        return '\u20AC';
+    case "tdot":
+    case "TripleDot":
+        return '\u20DB';
+    case "DotDot":
+        return '\u20DC';
+    case "Copf":
+    case "complexes":
+        return '\u2102';
+    case "incare":
+        return '\u2105';
+    case "gscr":
+        return '\u210A';
+    case "hamilt":
+    case "HilbertSpace":
+    case "Hscr":
+        return '\u210B';
+    case "Hfr":
+    case "Poincareplane":
+        return '\u210C';
+    case "quaternions":
+    case "Hopf":
+        return '\u210D';
+    case "planckh":
+        return '\u210E';
+    case "planck":
+    case "hbar":
+    case "plankv":
+    case "hslash":
+        return '\u210F';
+    case "Iscr":
+    case "imagline":
+        return '\u2110';
+    case "image":
+    case "Im":
+    case "imagpart":
+    case "Ifr":
+        return '\u2111';
+    case "Lscr":
+    case "lagran":
+    case "Laplacetrf":
+        return '\u2112';
+    case "ell":
+        return '\u2113';
+    case "Nopf":
+    case "naturals":
+        return '\u2115';
+    case "numero":
+        return '\u2116';
+    case "copysr":
+        return '\u2117';
+    case "weierp":
+    case "wp":
+        return '\u2118';
+    case "Popf":
+    case "primes":
+        return '\u2119';
+    case "rationals":
+    case "Qopf":
+        return '\u211A';
+    case "Rscr":
+    case "realine":
+        return '\u211B';
+    case "real":
+    case "Re":
+    case "realpart":
+    case "Rfr":
+        return '\u211C';
+    case "reals":
+    case "Ropf":
+        return '\u211D';
+    case "rx":
+        return '\u211E';
+    case "trade":
+    case "TRADE":
+        return '\u2122';
+    case "integers":
+    case "Zopf":
+        return '\u2124';
+    case "mho":
+        return '\u2127';
+    case "Zfr":
+    case "zeetrf":
+        return '\u2128';
+    case "iiota":
+        return '\u2129';
+    case "bernou":
+    case "Bernoullis":
+    case "Bscr":
+        return '\u212C';
+    case "Cfr":
+    case "Cayleys":
+        return '\u212D';
+    case "escr":
+        return '\u212F';
+    case "Escr":
+    case "expectation":
+        return '\u2130';
+    case "Fscr":
+    case "Fouriertrf":
+        return '\u2131';
+    case "phmmat":
+    case "Mellintrf":
+    case "Mscr":
+        return '\u2133';
+    case "order":
+    case "orderof":
+    case "oscr":
+        return '\u2134';
+    case "alefsym":
+    case "aleph":
+        return '\u2135';
+    case "beth":
+        return '\u2136';
+    case "gimel":
+        return '\u2137';
+    case "daleth":
+        return '\u2138';
+    case "CapitalDifferentialD":
+    case "DD":
+        return '\u2145';
+    case "DifferentialD":
+    case "dd":
+        return '\u2146';
+    case "ExponentialE":
+    case "exponentiale":
+    case "ee":
+        return '\u2147';
+    case "ImaginaryI":
+    case "ii":
+        return '\u2148';
+    case "frac13":
+        return '\u2153';
+    case "frac23":
+        return '\u2154';
+    case "frac15":
+        return '\u2155';
+    case "frac25":
+        return '\u2156';
+    case "frac35":
+        return '\u2157';
+    case "frac45":
+        return '\u2158';
+    case "frac16":
+        return '\u2159';
+    case "frac56":
+        return '\u215A';
+    case "frac18":
+        return '\u215B';
+    case "frac38":
+        return '\u215C';
+    case "frac58":
+        return '\u215D';
+    case "frac78":
+        return '\u215E';
+    case "larr":
+    case "leftarrow":
+    case "LeftArrow":
+    case "slarr":
+    case "ShortLeftArrow":
+        return '\u2190';
+    case "uarr":
+    case "uparrow":
+    case "UpArrow":
+    case "ShortUpArrow":
+        return '\u2191';
+    case "rarr":
+    case "rightarrow":
+    case "RightArrow":
+    case "srarr":
+    case "ShortRightArrow":
+        return '\u2192';
+    case "darr":
+    case "downarrow":
+    case "DownArrow":
+    case "ShortDownArrow":
+        return '\u2193';
+    case "harr":
+    case "leftrightarrow":
+    case "LeftRightArrow":
+        return '\u2194';
+    case "varr":
+    case "updownarrow":
+    case "UpDownArrow":
+        return '\u2195';
+    case "nwarr":
+    case "UpperLeftArrow":
+    case "nwarrow":
+        return '\u2196';
+    case "nearr":
+    case "UpperRightArrow":
+    case "nearrow":
+        return '\u2197';
+    case "searr":
+    case "searrow":
+    case "LowerRightArrow":
+        return '\u2198';
+    case "swarr":
+    case "swarrow":
+    case "LowerLeftArrow":
+        return '\u2199';
+    case "nlarr":
+    case "nleftarrow":
+        return '\u219A';
+    case "nrarr":
+    case "nrightarrow":
+        return '\u219B';
+    case "rarrw":
+    case "rightsquigarrow":
+        return '\u219D';
+    case "Larr":
+    case "twoheadleftarrow":
+        return '\u219E';
+    case "Uarr":
+        return '\u219F';
+    case "Rarr":
+    case "twoheadrightarrow":
+        return '\u21A0';
+    case "Darr":
+        return '\u21A1';
+    case "larrtl":
+    case "leftarrowtail":
+        return '\u21A2';
+    case "rarrtl":
+    case "rightarrowtail":
+        return '\u21A3';
+    case "LeftTeeArrow":
+    case "mapstoleft":
+        return '\u21A4';
+    case "UpTeeArrow":
+    case "mapstoup":
+        return '\u21A5';
+    case "map":
+    case "RightTeeArrow":
+    case "mapsto":
+        return '\u21A6';
+    case "DownTeeArrow":
+    case "mapstodown":
+        return '\u21A7';
+    case "larrhk":
+    case "hookleftarrow":
+        return '\u21A9';
+    case "rarrhk":
+    case "hookrightarrow":
+        return '\u21AA';
+    case "larrlp":
+    case "looparrowleft":
+        return '\u21AB';
+    case "rarrlp":
+    case "looparrowright":
+        return '\u21AC';
+    case "harrw":
+    case "leftrightsquigarrow":
+        return '\u21AD';
+    case "nharr":
+    case "nleftrightarrow":
+        return '\u21AE';
+    case "lsh":
+    case "Lsh":
+        return '\u21B0';
+    case "rsh":
+    case "Rsh":
+        return '\u21B1';
+    case "ldsh":
+        return '\u21B2';
+    case "rdsh":
+        return '\u21B3';
+    case "crarr":
+        return '\u21B5';
+    case "cularr":
+    case "curvearrowleft":
+        return '\u21B6';
+    case "curarr":
+    case "curvearrowright":
+        return '\u21B7';
+    case "olarr":
+    case "circlearrowleft":
+        return '\u21BA';
+    case "orarr":
+    case "circlearrowright":
+        return '\u21BB';
+    case "lharu":
+    case "LeftVector":
+    case "leftharpoonup":
+        return '\u21BC';
+    case "lhard":
+    case "leftharpoondown":
+    case "DownLeftVector":
+        return '\u21BD';
+    case "uharr":
+    case "upharpoonright":
+    case "RightUpVector":
+        return '\u21BE';
+    case "uharl":
+    case "upharpoonleft":
+    case "LeftUpVector":
+        return '\u21BF';
+    case "rharu":
+    case "RightVector":
+    case "rightharpoonup":
+        return '\u21C0';
+    case "rhard":
+    case "rightharpoondown":
+    case "DownRightVector":
+        return '\u21C1';
+    case "dharr":
+    case "RightDownVector":
+    case "downharpoonright":
+        return '\u21C2';
+    case "dharl":
+    case "LeftDownVector":
+    case "downharpoonleft":
+        return '\u21C3';
+    case "rlarr":
+    case "rightleftarrows":
+    case "RightArrowLeftArrow":
+        return '\u21C4';
+    case "udarr":
+    case "UpArrowDownArrow":
+        return '\u21C5';
+    case "lrarr":
+    case "leftrightarrows":
+    case "LeftArrowRightArrow":
+        return '\u21C6';
+    case "llarr":
+    case "leftleftarrows":
+        return '\u21C7';
+    case "uuarr":
+    case "upuparrows":
+        return '\u21C8';
+    case "rrarr":
+    case "rightrightarrows":
+        return '\u21C9';
+    case "ddarr":
+    case "downdownarrows":
+        return '\u21CA';
+    case "lrhar":
+    case "ReverseEquilibrium":
+    case "leftrightharpoons":
+        return '\u21CB';
+    case "rlhar":
+    case "rightleftharpoons":
+    case "Equilibrium":
+        return '\u21CC';
+    case "nlArr":
+    case "nLeftarrow":
+        return '\u21CD';
+    case "nhArr":
+    case "nLeftrightarrow":
+        return '\u21CE';
+    case "nrArr":
+    case "nRightarrow":
+        return '\u21CF';
+    case "lArr":
+    case "Leftarrow":
+    case "DoubleLeftArrow":
+        return '\u21D0';
+    case "uArr":
+    case "Uparrow":
+    case "DoubleUpArrow":
+        return '\u21D1';
+    case "rArr":
+    case "Rightarrow":
+    case "Implies":
+    case "DoubleRightArrow":
+        return '\u21D2';
+    case "dArr":
+    case "Downarrow":
+    case "DoubleDownArrow":
+        return '\u21D3';
+    case "hArr":
+    case "Leftrightarrow":
+    case "DoubleLeftRightArrow":
+    case "iff":
+        return '\u21D4';
+    case "vArr":
+    case "Updownarrow":
+    case "DoubleUpDownArrow":
+        return '\u21D5';
+    case "nwArr":
+        return '\u21D6';
+    case "neArr":
+        return '\u21D7';
+    case "seArr":
+        return '\u21D8';
+    case "swArr":
+        return '\u21D9';
+    case "lAarr":
+    case "Lleftarrow":
+        return '\u21DA';
+    case "rAarr":
+    case "Rrightarrow":
+        return '\u21DB';
+    case "zigrarr":
+        return '\u21DD';
+    case "larrb":
+    case "LeftArrowBar":
+        return '\u21E4';
+    case "rarrb":
+    case "RightArrowBar":
+        return '\u21E5';
+    case "duarr":
+    case "DownArrowUpArrow":
+        return '\u21F5';
+    case "loarr":
+        return '\u21FD';
+    case "roarr":
+        return '\u21FE';
+    case "hoarr":
+        return '\u21FF';
+    case "forall":
+    case "ForAll":
+        return '\u2200';
+    case "comp":
+    case "complement":
+        return '\u2201';
+    case "part":
+    case "PartialD":
+        return '\u2202';
+    case "exist":
+    case "Exists":
+        return '\u2203';
+    case "nexist":
+    case "NotExists":
+    case "nexists":
+        return '\u2204';
+    case "empty":
+    case "emptyset":
+    case "emptyv":
+    case "varnothing":
+        return '\u2205';
+    case "nabla":
+    case "Del":
+        return '\u2207';
+    case "isin":
+    case "isinv":
+    case "Element":
+    case "in":
+        return '\u2208';
+    case "notin":
+    case "NotElement":
+    case "notinva":
+        return '\u2209';
+    case "niv":
+    case "ReverseElement":
+    case "ni":
+    case "SuchThat":
+        return '\u220B';
+    case "notni":
+    case "notniva":
+    case "NotReverseElement":
+        return '\u220C';
+    case "prod":
+    case "Product":
+        return '\u220F';
+    case "coprod":
+    case "Coproduct":
+        return '\u2210';
+    case "sum":
+    case "Sum":
+        return '\u2211';
+    case "minus":
+        return '\u2212';
+    case "mnplus":
+    case "mp":
+    case "MinusPlus":
+        return '\u2213';
+    case "plusdo":
+    case "dotplus":
+        return '\u2214';
+    case "setmn":
+    case "setminus":
+    case "Backslash":
+    case "ssetmn":
+    case "smallsetminus":
+        return '\u2216';
+    case "lowast":
+        return '\u2217';
+    case "compfn":
+    case "SmallCircle":
+        return '\u2218';
+    case "radic":
+    case "Sqrt":
+        return '\u221A';
+    case "prop":
+    case "propto":
+    case "Proportional":
+    case "vprop":
+    case "varpropto":
+        return '\u221D';
+    case "infin":
+        return '\u221E';
+    case "angrt":
+        return '\u221F';
+    case "ang":
+    case "angle":
+        return '\u2220';
+    case "angmsd":
+    case "measuredangle":
+        return '\u2221';
+    case "angsph":
+        return '\u2222';
+    case "mid":
+    case "VerticalBar":
+    case "smid":
+    case "shortmid":
+        return '\u2223';
+    case "nmid":
+    case "NotVerticalBar":
+    case "nsmid":
+    case "nshortmid":
+        return '\u2224';
+    case "par":
+    case "parallel":
+    case "DoubleVerticalBar":
+    case "spar":
+    case "shortparallel":
+        return '\u2225';
+    case "npar":
+    case "nparallel":
+    case "NotDoubleVerticalBar":
+    case "nspar":
+    case "nshortparallel":
+        return '\u2226';
+    case "and":
+    case "wedge":
+        return '\u2227';
+    case "or":
+    case "vee":
+        return '\u2228';
+    case "cap":
+        return '\u2229';
+    case "cup":
+        return '\u222A';
+    case "int":
+    case "Integral":
+        return '\u222B';
+    case "Int":
+        return '\u222C';
+    case "tint":
+    case "iiint":
+        return '\u222D';
+    case "conint":
+    case "oint":
+    case "ContourIntegral":
+        return '\u222E';
+    case "Conint":
+    case "DoubleContourIntegral":
+        return '\u222F';
+    case "Cconint":
+        return '\u2230';
+    case "cwint":
+        return '\u2231';
+    case "cwconint":
+    case "ClockwiseContourIntegral":
+        return '\u2232';
+    case "awconint":
+    case "CounterClockwiseContourIntegral":
+        return '\u2233';
+    case "there4":
+    case "therefore":
+    case "Therefore":
+        return '\u2234';
+    case "becaus":
+    case "because":
+    case "Because":
+        return '\u2235';
+    case "ratio":
+        return '\u2236';
+    case "Colon":
+    case "Proportion":
+        return '\u2237';
+    case "minusd":
+    case "dotminus":
+        return '\u2238';
+    case "mDDot":
+        return '\u223A';
+    case "homtht":
+        return '\u223B';
+    case "sim":
+    case "Tilde":
+    case "thksim":
+    case "thicksim":
+        return '\u223C';
+    case "bsim":
+    case "backsim":
+        return '\u223D';
+    case "ac":
+    case "mstpos":
+        return '\u223E';
+    case "acd":
+        return '\u223F';
+    case "wreath":
+    case "VerticalTilde":
+    case "wr":
+        return '\u2240';
+    case "nsim":
+    case "NotTilde":
+        return '\u2241';
+    case "esim":
+    case "EqualTilde":
+    case "eqsim":
+        return '\u2242';
+    case "sime":
+    case "TildeEqual":
+    case "simeq":
+        return '\u2243';
+    case "nsime":
+    case "nsimeq":
+    case "NotTildeEqual":
+        return '\u2244';
+    case "cong":
+    case "TildeFullEqual":
+        return '\u2245';
+    case "simne":
+        return '\u2246';
+    case "ncong":
+    case "NotTildeFullEqual":
+        return '\u2247';
+    case "asymp":
+    case "ap":
+    case "TildeTilde":
+    case "approx":
+    case "thkap":
+    case "thickapprox":
+        return '\u2248';
+    case "nap":
+    case "NotTildeTilde":
+    case "napprox":
+        return '\u2249';
+    case "ape":
+    case "approxeq":
+        return '\u224A';
+    case "apid":
+        return '\u224B';
+    case "bcong":
+    case "backcong":
+        return '\u224C';
+    case "asympeq":
+    case "CupCap":
+        return '\u224D';
+    case "bump":
+    case "HumpDownHump":
+    case "Bumpeq":
+        return '\u224E';
+    case "bumpe":
+    case "HumpEqual":
+    case "bumpeq":
+        return '\u224F';
+    case "esdot":
+    case "DotEqual":
+    case "doteq":
+        return '\u2250';
+    case "eDot":
+    case "doteqdot":
+        return '\u2251';
+    case "efDot":
+    case "fallingdotseq":
+        return '\u2252';
+    case "erDot":
+    case "risingdotseq":
+        return '\u2253';
+    case "colone":
+    case "coloneq":
+    case "Assign":
+        return '\u2254';
+    case "ecolon":
+    case "eqcolon":
+        return '\u2255';
+    case "ecir":
+    case "eqcirc":
+        return '\u2256';
+    case "cire":
+    case "circeq":
+        return '\u2257';
+    case "wedgeq":
+        return '\u2259';
+    case "veeeq":
+        return '\u225A';
+    case "trie":
+    case "triangleq":
+        return '\u225C';
+    case "equest":
+    case "questeq":
+        return '\u225F';
+    case "ne":
+    case "NotEqual":
+        return '\u2260';
+    case "equiv":
+    case "Congruent":
+        return '\u2261';
+    case "nequiv":
+    case "NotCongruent":
+        return '\u2262';
+    case "le":
+    case "leq":
+        return '\u2264';
+    case "ge":
+    case "GreaterEqual":
+    case "geq":
+        return '\u2265';
+    case "lE":
+    case "LessFullEqual":
+    case "leqq":
+        return '\u2266';
+    case "gE":
+    case "GreaterFullEqual":
+    case "geqq":
+        return '\u2267';
+    case "lnE":
+    case "lneqq":
+        return '\u2268';
+    case "gnE":
+    case "gneqq":
+        return '\u2269';
+    case "Lt":
+    case "NestedLessLess":
+    case "ll":
+        return '\u226A';
+    case "Gt":
+    case "NestedGreaterGreater":
+    case "gg":
+        return '\u226B';
+    case "twixt":
+    case "between":
+        return '\u226C';
+    case "NotCupCap":
+        return '\u226D';
+    case "nlt":
+    case "NotLess":
+    case "nless":
+        return '\u226E';
+    case "ngt":
+    case "NotGreater":
+    case "ngtr":
+        return '\u226F';
+    case "nle":
+    case "NotLessEqual":
+    case "nleq":
+        return '\u2270';
+    case "nge":
+    case "NotGreaterEqual":
+    case "ngeq":
+        return '\u2271';
+    case "lsim":
+    case "LessTilde":
+    case "lesssim":
+        return '\u2272';
+    case "gsim":
+    case "gtrsim":
+    case "GreaterTilde":
+        return '\u2273';
+    case "nlsim":
+    case "NotLessTilde":
+        return '\u2274';
+    case "ngsim":
+    case "NotGreaterTilde":
+        return '\u2275';
+    case "lg":
+    case "lessgtr":
+    case "LessGreater":
+        return '\u2276';
+    case "gl":
+    case "gtrless":
+    case "GreaterLess":
+        return '\u2277';
+    case "ntlg":
+    case "NotLessGreater":
+        return '\u2278';
+    case "ntgl":
+    case "NotGreaterLess":
+        return '\u2279';
+    case "pr":
+    case "Precedes":
+    case "prec":
+        return '\u227A';
+    case "sc":
+    case "Succeeds":
+    case "succ":
+        return '\u227B';
+    case "prcue":
+    case "PrecedesSlantEqual":
+    case "preccurlyeq":
+        return '\u227C';
+    case "sccue":
+    case "SucceedsSlantEqual":
+    case "succcurlyeq":
+        return '\u227D';
+    case "prsim":
+    case "precsim":
+    case "PrecedesTilde":
+        return '\u227E';
+    case "scsim":
+    case "succsim":
+    case "SucceedsTilde":
+        return '\u227F';
+    case "npr":
+    case "nprec":
+    case "NotPrecedes":
+        return '\u2280';
+    case "nsc":
+    case "nsucc":
+    case "NotSucceeds":
+        return '\u2281';
+    case "sub":
+    case "subset":
+        return '\u2282';
+    case "sup":
+    case "supset":
+    case "Superset":
+        return '\u2283';
+    case "nsub":
+        return '\u2284';
+    case "nsup":
+        return '\u2285';
+    case "sube":
+    case "SubsetEqual":
+    case "subseteq":
+        return '\u2286';
+    case "supe":
+    case "supseteq":
+    case "SupersetEqual":
+        return '\u2287';
+    case "nsube":
+    case "nsubseteq":
+    case "NotSubsetEqual":
+        return '\u2288';
+    case "nsupe":
+    case "nsupseteq":
+    case "NotSupersetEqual":
+        return '\u2289';
+    case "subne":
+    case "subsetneq":
+        return '\u228A';
+    case "supne":
+    case "supsetneq":
+        return '\u228B';
+    case "cupdot":
+        return '\u228D';
+    case "uplus":
+    case "UnionPlus":
+        return '\u228E';
+    case "sqsub":
+    case "SquareSubset":
+    case "sqsubset":
+        return '\u228F';
+    case "sqsup":
+    case "SquareSuperset":
+    case "sqsupset":
+        return '\u2290';
+    case "sqsube":
+    case "SquareSubsetEqual":
+    case "sqsubseteq":
+        return '\u2291';
+    case "sqsupe":
+    case "SquareSupersetEqual":
+    case "sqsupseteq":
+        return '\u2292';
+    case "sqcap":
+    case "SquareIntersection":
+        return '\u2293';
+    case "sqcup":
+    case "SquareUnion":
+        return '\u2294';
+    case "oplus":
+    case "CirclePlus":
+        return '\u2295';
+    case "ominus":
+    case "CircleMinus":
+        return '\u2296';
+    case "otimes":
+    case "CircleTimes":
+        return '\u2297';
+    case "osol":
+        return '\u2298';
+    case "odot":
+    case "CircleDot":
+        return '\u2299';
+    case "ocir":
+    case "circledcirc":
+        return '\u229A';
+    case "oast":
+    case "circledast":
+        return '\u229B';
+    case "odash":
+    case "circleddash":
+        return '\u229D';
+    case "plusb":
+    case "boxplus":
+        return '\u229E';
+    case "minusb":
+    case "boxminus":
+        return '\u229F';
+    case "timesb":
+    case "boxtimes":
+        return '\u22A0';
+    case "sdotb":
+    case "dotsquare":
+        return '\u22A1';
+    case "vdash":
+    case "RightTee":
+        return '\u22A2';
+    case "dashv":
+    case "LeftTee":
+        return '\u22A3';
+    case "top":
+    case "DownTee":
+        return '\u22A4';
+    case "bottom":
+    case "bot":
+    case "perp":
+    case "UpTee":
+        return '\u22A5';
+    case "models":
+        return '\u22A7';
+    case "vDash":
+    case "DoubleRightTee":
+        return '\u22A8';
+    case "Vdash":
+        return '\u22A9';
+    case "Vvdash":
+        return '\u22AA';
+    case "VDash":
+        return '\u22AB';
+    case "nvdash":
+        return '\u22AC';
+    case "nvDash":
+        return '\u22AD';
+    case "nVdash":
+        return '\u22AE';
+    case "nVDash":
+        return '\u22AF';
+    case "prurel":
+        return '\u22B0';
+    case "vltri":
+    case "vartriangleleft":
+    case "LeftTriangle":
+        return '\u22B2';
+    case "vrtri":
+    case "vartriangleright":
+    case "RightTriangle":
+        return '\u22B3';
+    case "ltrie":
+    case "trianglelefteq":
+    case "LeftTriangleEqual":
+        return '\u22B4';
+    case "rtrie":
+    case "trianglerighteq":
+    case "RightTriangleEqual":
+        return '\u22B5';
+    case "origof":
+        return '\u22B6';
+    case "imof":
+        return '\u22B7';
+    case "mumap":
+    case "multimap":
+        return '\u22B8';
+    case "hercon":
+        return '\u22B9';
+    case "intcal":
+    case "intercal":
+        return '\u22BA';
+    case "veebar":
+        return '\u22BB';
+    case "barvee":
+        return '\u22BD';
+    case "angrtvb":
+        return '\u22BE';
+    case "lrtri":
+        return '\u22BF';
+    case "xwedge":
+    case "Wedge":
+    case "bigwedge":
+        return '\u22C0';
+    case "xvee":
+    case "Vee":
+    case "bigvee":
+        return '\u22C1';
+    case "xcap":
+    case "Intersection":
+    case "bigcap":
+        return '\u22C2';
+    case "xcup":
+    case "Union":
+    case "bigcup":
+        return '\u22C3';
+    case "diam":
+    case "diamond":
+    case "Diamond":
+        return '\u22C4';
+    case "sdot":
+        return '\u22C5';
+    case "sstarf":
+    case "Star":
+        return '\u22C6';
+    case "divonx":
+    case "divideontimes":
+        return '\u22C7';
+    case "bowtie":
+        return '\u22C8';
+    case "ltimes":
+        return '\u22C9';
+    case "rtimes":
+        return '\u22CA';
+    case "lthree":
+    case "leftthreetimes":
+        return '\u22CB';
+    case "rthree":
+    case "rightthreetimes":
+        return '\u22CC';
+    case "bsime":
+    case "backsimeq":
+        return '\u22CD';
+    case "cuvee":
+    case "curlyvee":
+        return '\u22CE';
+    case "cuwed":
+    case "curlywedge":
+        return '\u22CF';
+    case "Sub":
+    case "Subset":
+        return '\u22D0';
+    case "Sup":
+    case "Supset":
+        return '\u22D1';
+    case "Cap":
+        return '\u22D2';
+    case "Cup":
+        return '\u22D3';
+    case "fork":
+    case "pitchfork":
+        return '\u22D4';
+    case "epar":
+        return '\u22D5';
+    case "ltdot":
+    case "lessdot":
+        return '\u22D6';
+    case "gtdot":
+    case "gtrdot":
+        return '\u22D7';
+    case "Ll":
+        return '\u22D8';
+    case "Gg":
+    case "ggg":
+        return '\u22D9';
+    case "leg":
+    case "LessEqualGreater":
+    case "lesseqgtr":
+        return '\u22DA';
+    case "gel":
+    case "gtreqless":
+    case "GreaterEqualLess":
+        return '\u22DB';
+    case "cuepr":
+    case "curlyeqprec":
+        return '\u22DE';
+    case "cuesc":
+    case "curlyeqsucc":
+        return '\u22DF';
+    case "nprcue":
+    case "NotPrecedesSlantEqual":
+        return '\u22E0';
+    case "nsccue":
+    case "NotSucceedsSlantEqual":
+        return '\u22E1';
+    case "nsqsube":
+    case "NotSquareSubsetEqual":
+        return '\u22E2';
+    case "nsqsupe":
+    case "NotSquareSupersetEqual":
+        return '\u22E3';
+    case "lnsim":
+        return '\u22E6';
+    case "gnsim":
+        return '\u22E7';
+    case "prnsim":
+    case "precnsim":
+        return '\u22E8';
+    case "scnsim":
+    case "succnsim":
+        return '\u22E9';
+    case "nltri":
+    case "ntriangleleft":
+    case "NotLeftTriangle":
+        return '\u22EA';
+    case "nrtri":
+    case "ntriangleright":
+    case "NotRightTriangle":
+        return '\u22EB';
+    case "nltrie":
+    case "ntrianglelefteq":
+    case "NotLeftTriangleEqual":
+        return '\u22EC';
+    case "nrtrie":
+    case "ntrianglerighteq":
+    case "NotRightTriangleEqual":
+        return '\u22ED';
+    case "vellip":
+        return '\u22EE';
+    case "ctdot":
+        return '\u22EF';
+    case "utdot":
+        return '\u22F0';
+    case "dtdot":
+        return '\u22F1';
+    case "disin":
+        return '\u22F2';
+    case "isinsv":
+        return '\u22F3';
+    case "isins":
+        return '\u22F4';
+    case "isindot":
+        return '\u22F5';
+    case "notinvc":
+        return '\u22F6';
+    case "notinvb":
+        return '\u22F7';
+    case "isinE":
+        return '\u22F9';
+    case "nisd":
+        return '\u22FA';
+    case "xnis":
+        return '\u22FB';
+    case "nis":
+        return '\u22FC';
+    case "notnivc":
+        return '\u22FD';
+    case "notnivb":
+        return '\u22FE';
+    case "barwed":
+    case "barwedge":
+        return '\u2305';
+    case "Barwed":
+    case "doublebarwedge":
+        return '\u2306';
+    case "lceil":
+    case "LeftCeiling":
+        return '\u2308';
+    case "rceil":
+    case "RightCeiling":
+        return '\u2309';
+    case "lfloor":
+    case "LeftFloor":
+        return '\u230A';
+    case "rfloor":
+    case "RightFloor":
+        return '\u230B';
+    case "drcrop":
+        return '\u230C';
+    case "dlcrop":
+        return '\u230D';
+    case "urcrop":
+        return '\u230E';
+    case "ulcrop":
+        return '\u230F';
+    case "bnot":
+        return '\u2310';
+    case "profline":
+        return '\u2312';
+    case "profsurf":
+        return '\u2313';
+    case "telrec":
+        return '\u2315';
+    case "target":
+        return '\u2316';
+    case "ulcorn":
+    case "ulcorner":
+        return '\u231C';
+    case "urcorn":
+    case "urcorner":
+        return '\u231D';
+    case "dlcorn":
+    case "llcorner":
+        return '\u231E';
+    case "drcorn":
+    case "lrcorner":
+        return '\u231F';
+    case "frown":
+    case "sfrown":
+        return '\u2322';
+    case "smile":
+    case "ssmile":
+        return '\u2323';
+    case "cylcty":
+        return '\u232D';
+    case "profalar":
+        return '\u232E';
+    case "topbot":
+        return '\u2336';
+    case "ovbar":
+        return '\u233D';
+    case "solbar":
+        return '\u233F';
+    case "angzarr":
+        return '\u237C';
+    case "lmoust":
+    case "lmoustache":
+        return '\u23B0';
+    case "rmoust":
+    case "rmoustache":
+        return '\u23B1';
+    case "tbrk":
+    case "OverBracket":
+        return '\u23B4';
+    case "bbrk":
+    case "UnderBracket":
+        return '\u23B5';
+    case "bbrktbrk":
+        return '\u23B6';
+    case "OverParenthesis":
+        return '\u23DC';
+    case "UnderParenthesis":
+        return '\u23DD';
+    case "OverBrace":
+        return '\u23DE';
+    case "UnderBrace":
+        return '\u23DF';
+    case "trpezium":
+        return '\u23E2';
+    case "elinters":
+        return '\u23E7';
+    case "blank":
+        return '\u2423';
+    case "oS":
+    case "circledS":
+        return '\u24C8';
+    case "boxh":
+    case "HorizontalLine":
+        return '\u2500';
+    case "boxv":
+        return '\u2502';
+    case "boxdr":
+        return '\u250C';
+    case "boxdl":
+        return '\u2510';
+    case "boxur":
+        return '\u2514';
+    case "boxul":
+        return '\u2518';
+    case "boxvr":
+        return '\u251C';
+    case "boxvl":
+        return '\u2524';
+    case "boxhd":
+        return '\u252C';
+    case "boxhu":
+        return '\u2534';
+    case "boxvh":
+        return '\u253C';
+    case "boxH":
+        return '\u2550';
+    case "boxV":
+        return '\u2551';
+    case "boxdR":
+        return '\u2552';
+    case "boxDr":
+        return '\u2553';
+    case "boxDR":
+        return '\u2554';
+    case "boxdL":
+        return '\u2555';
+    case "boxDl":
+        return '\u2556';
+    case "boxDL":
+        return '\u2557';
+    case "boxuR":
+        return '\u2558';
+    case "boxUr":
+        return '\u2559';
+    case "boxUR":
+        return '\u255A';
+    case "boxuL":
+        return '\u255B';
+    case "boxUl":
+        return '\u255C';
+    case "boxUL":
+        return '\u255D';
+    case "boxvR":
+        return '\u255E';
+    case "boxVr":
+        return '\u255F';
+    case "boxVR":
+        return '\u2560';
+    case "boxvL":
+        return '\u2561';
+    case "boxVl":
+        return '\u2562';
+    case "boxVL":
+        return '\u2563';
+    case "boxHd":
+        return '\u2564';
+    case "boxhD":
+        return '\u2565';
+    case "boxHD":
+        return '\u2566';
+    case "boxHu":
+        return '\u2567';
+    case "boxhU":
+        return '\u2568';
+    case "boxHU":
+        return '\u2569';
+    case "boxvH":
+        return '\u256A';
+    case "boxVh":
+        return '\u256B';
+    case "boxVH":
+        return '\u256C';
+    case "uhblk":
+        return '\u2580';
+    case "lhblk":
+        return '\u2584';
+    case "block":
+        return '\u2588';
+    case "blk14":
+        return '\u2591';
+    case "blk12":
+        return '\u2592';
+    case "blk34":
+        return '\u2593';
+    case "squ":
+    case "square":
+    case "Square":
+        return '\u25A1';
+    case "squf":
+    case "squarf":
+    case "blacksquare":
+    case "FilledVerySmallSquare":
+        return '\u25AA';
+    case "EmptyVerySmallSquare":
+        return '\u25AB';
+    case "rect":
+        return '\u25AD';
+    case "marker":
+        return '\u25AE';
+    case "fltns":
+        return '\u25B1';
+    case "xutri":
+    case "bigtriangleup":
+        return '\u25B3';
+    case "utrif":
+    case "blacktriangle":
+        return '\u25B4';
+    case "utri":
+    case "triangle":
+        return '\u25B5';
+    case "rtrif":
+    case "blacktriangleright":
+        return '\u25B8';
+    case "rtri":
+    case "triangleright":
+        return '\u25B9';
+    case "xdtri":
+    case "bigtriangledown":
+        return '\u25BD';
+    case "dtrif":
+    case "blacktriangledown":
+        return '\u25BE';
+    case "dtri":
+    case "triangledown":
+        return '\u25BF';
+    case "ltrif":
+    case "blacktriangleleft":
+        return '\u25C2';
+    case "ltri":
+    case "triangleleft":
+        return '\u25C3';
+    case "loz":
+    case "lozenge":
+        return '\u25CA';
+    case "cir":
+        return '\u25CB';
+    case "tridot":
+        return '\u25EC';
+    case "xcirc":
+    case "bigcirc":
+        return '\u25EF';
+    case "ultri":
+        return '\u25F8';
+    case "urtri":
+        return '\u25F9';
+    case "lltri":
+        return '\u25FA';
+    case "EmptySmallSquare":
+        return '\u25FB';
+    case "FilledSmallSquare":
+        return '\u25FC';
+    case "starf":
+    case "bigstar":
+        return '\u2605';
+    case "star":
+        return '\u2606';
+    case "phone":
+        return '\u260E';
+    case "female":
+        return '\u2640';
+    case "male":
+        return '\u2642';
+    case "spades":
+    case "spadesuit":
+        return '\u2660';
+    case "clubs":
+    case "clubsuit":
+        return '\u2663';
+    case "hearts":
+    case "heartsuit":
+        return '\u2665';
+    case "diams":
+    case "diamondsuit":
+        return '\u2666';
+    case "sung":
+        return '\u266A';
+    case "flat":
+        return '\u266D';
+    case "natur":
+    case "natural":
+        return '\u266E';
+    case "sharp":
+        return '\u266F';
+    case "check":
+    case "checkmark":
+        return '\u2713';
+    case "cross":
+        return '\u2717';
+    case "malt":
+    case "maltese":
+        return '\u2720';
+    case "sext":
+        return '\u2736';
+    case "VerticalSeparator":
+        return '\u2758';
+    case "lbbrk":
+        return '\u2772';
+    case "rbbrk":
+        return '\u2773';
+    case "bsolhsub":
+        return '\u27C8';
+    case "suphsol":
+        return '\u27C9';
+    case "lobrk":
+    case "LeftDoubleBracket":
+        return '\u27E6';
+    case "robrk":
+    case "RightDoubleBracket":
+        return '\u27E7';
+    case "lang":
+    case "LeftAngleBracket":
+    case "langle":
+        return '\u27E8';
+    case "rang":
+    case "RightAngleBracket":
+    case "rangle":
+        return '\u27E9';
+    case "Lang":
+        return '\u27EA';
+    case "Rang":
+        return '\u27EB';
+    case "loang":
+        return '\u27EC';
+    case "roang":
+        return '\u27ED';
+    case "xlarr":
+    case "longleftarrow":
+    case "LongLeftArrow":
+        return '\u27F5';
+    case "xrarr":
+    case "longrightarrow":
+    case "LongRightArrow":
+        return '\u27F6';
+    case "xharr":
+    case "longleftrightarrow":
+    case "LongLeftRightArrow":
+        return '\u27F7';
+    case "xlArr":
+    case "Longleftarrow":
+    case "DoubleLongLeftArrow":
+        return '\u27F8';
+    case "xrArr":
+    case "Longrightarrow":
+    case "DoubleLongRightArrow":
+        return '\u27F9';
+    case "xhArr":
+    case "Longleftrightarrow":
+    case "DoubleLongLeftRightArrow":
+        return '\u27FA';
+    case "xmap":
+    case "longmapsto":
+        return '\u27FC';
+    case "dzigrarr":
+        return '\u27FF';
+    case "nvlArr":
+        return '\u2902';
+    case "nvrArr":
+        return '\u2903';
+    case "nvHarr":
+        return '\u2904';
+    case "Map":
+        return '\u2905';
+    case "lbarr":
+        return '\u290C';
+    case "rbarr":
+    case "bkarow":
+        return '\u290D';
+    case "lBarr":
+        return '\u290E';
+    case "rBarr":
+    case "dbkarow":
+        return '\u290F';
+    case "RBarr":
+    case "drbkarow":
+        return '\u2910';
+    case "DDotrahd":
+        return '\u2911';
+    case "UpArrowBar":
+        return '\u2912';
+    case "DownArrowBar":
+        return '\u2913';
+    case "Rarrtl":
+        return '\u2916';
+    case "latail":
+        return '\u2919';
+    case "ratail":
+        return '\u291A';
+    case "lAtail":
+        return '\u291B';
+    case "rAtail":
+        return '\u291C';
+    case "larrfs":
+        return '\u291D';
+    case "rarrfs":
+        return '\u291E';
+    case "larrbfs":
+        return '\u291F';
+    case "rarrbfs":
+        return '\u2920';
+    case "nwarhk":
+        return '\u2923';
+    case "nearhk":
+        return '\u2924';
+    case "searhk":
+    case "hksearow":
+        return '\u2925';
+    case "swarhk":
+    case "hkswarow":
+        return '\u2926';
+    case "nwnear":
+        return '\u2927';
+    case "nesear":
+    case "toea":
+        return '\u2928';
+    case "seswar":
+    case "tosa":
+        return '\u2929';
+    case "swnwar":
+        return '\u292A';
+    case "rarrc":
+        return '\u2933';
+    case "cudarrr":
+        return '\u2935';
+    case "ldca":
+        return '\u2936';
+    case "rdca":
+        return '\u2937';
+    case "cudarrl":
+        return '\u2938';
+    case "larrpl":
+        return '\u2939';
+    case "curarrm":
+        return '\u293C';
+    case "cularrp":
+        return '\u293D';
+    case "rarrpl":
+        return '\u2945';
+    case "harrcir":
+        return '\u2948';
+    case "Uarrocir":
+        return '\u2949';
+    case "lurdshar":
+        return '\u294A';
+    case "ldrushar":
+        return '\u294B';
+    case "LeftRightVector":
+        return '\u294E';
+    case "RightUpDownVector":
+        return '\u294F';
+    case "DownLeftRightVector":
+        return '\u2950';
+    case "LeftUpDownVector":
+        return '\u2951';
+    case "LeftVectorBar":
+        return '\u2952';
+    case "RightVectorBar":
+        return '\u2953';
+    case "RightUpVectorBar":
+        return '\u2954';
+    case "RightDownVectorBar":
+        return '\u2955';
+    case "DownLeftVectorBar":
+        return '\u2956';
+    case "DownRightVectorBar":
+        return '\u2957';
+    case "LeftUpVectorBar":
+        return '\u2958';
+    case "LeftDownVectorBar":
+        return '\u2959';
+    case "LeftTeeVector":
+        return '\u295A';
+    case "RightTeeVector":
+        return '\u295B';
+    case "RightUpTeeVector":
+        return '\u295C';
+    case "RightDownTeeVector":
+        return '\u295D';
+    case "DownLeftTeeVector":
+        return '\u295E';
+    case "DownRightTeeVector":
+        return '\u295F';
+    case "LeftUpTeeVector":
+        return '\u2960';
+    case "LeftDownTeeVector":
+        return '\u2961';
+    case "lHar":
+        return '\u2962';
+    case "uHar":
+        return '\u2963';
+    case "rHar":
+        return '\u2964';
+    case "dHar":
+        return '\u2965';
+    case "luruhar":
+        return '\u2966';
+    case "ldrdhar":
+        return '\u2967';
+    case "ruluhar":
+        return '\u2968';
+    case "rdldhar":
+        return '\u2969';
+    case "lharul":
+        return '\u296A';
+    case "llhard":
+        return '\u296B';
+    case "rharul":
+        return '\u296C';
+    case "lrhard":
+        return '\u296D';
+    case "udhar":
+    case "UpEquilibrium":
+        return '\u296E';
+    case "duhar":
+    case "ReverseUpEquilibrium":
+        return '\u296F';
+    case "RoundImplies":
+        return '\u2970';
+    case "erarr":
+        return '\u2971';
+    case "simrarr":
+        return '\u2972';
+    case "larrsim":
+        return '\u2973';
+    case "rarrsim":
+        return '\u2974';
+    case "rarrap":
+        return '\u2975';
+    case "ltlarr":
+        return '\u2976';
+    case "gtrarr":
+        return '\u2978';
+    case "subrarr":
+        return '\u2979';
+    case "suplarr":
+        return '\u297B';
+    case "lfisht":
+        return '\u297C';
+    case "rfisht":
+        return '\u297D';
+    case "ufisht":
+        return '\u297E';
+    case "dfisht":
+        return '\u297F';
+    case "lopar":
+        return '\u2985';
+    case "ropar":
+        return '\u2986';
+    case "lbrke":
+        return '\u298B';
+    case "rbrke":
+        return '\u298C';
+    case "lbrkslu":
+        return '\u298D';
+    case "rbrksld":
+        return '\u298E';
+    case "lbrksld":
+        return '\u298F';
+    case "rbrkslu":
+        return '\u2990';
+    case "langd":
+        return '\u2991';
+    case "rangd":
+        return '\u2992';
+    case "lparlt":
+        return '\u2993';
+    case "rpargt":
+        return '\u2994';
+    case "gtlPar":
+        return '\u2995';
+    case "ltrPar":
+        return '\u2996';
+    case "vzigzag":
+        return '\u299A';
+    case "vangrt":
+        return '\u299C';
+    case "angrtvbd":
+        return '\u299D';
+    case "ange":
+        return '\u29A4';
+    case "range":
+        return '\u29A5';
+    case "dwangle":
+        return '\u29A6';
+    case "uwangle":
+        return '\u29A7';
+    case "angmsdaa":
+        return '\u29A8';
+    case "angmsdab":
+        return '\u29A9';
+    case "angmsdac":
+        return '\u29AA';
+    case "angmsdad":
+        return '\u29AB';
+    case "angmsdae":
+        return '\u29AC';
+    case "angmsdaf":
+        return '\u29AD';
+    case "angmsdag":
+        return '\u29AE';
+    case "angmsdah":
+        return '\u29AF';
+    case "bemptyv":
+        return '\u29B0';
+    case "demptyv":
+        return '\u29B1';
+    case "cemptyv":
+        return '\u29B2';
+    case "raemptyv":
+        return '\u29B3';
+    case "laemptyv":
+        return '\u29B4';
+    case "ohbar":
+        return '\u29B5';
+    case "omid":
+        return '\u29B6';
+    case "opar":
+        return '\u29B7';
+    case "operp":
+        return '\u29B9';
+    case "olcross":
+        return '\u29BB';
+    case "odsold":
+        return '\u29BC';
+    case "olcir":
+        return '\u29BE';
+    case "ofcir":
+        return '\u29BF';
+    case "olt":
+        return '\u29C0';
+    case "ogt":
+        return '\u29C1';
+    case "cirscir":
+        return '\u29C2';
+    case "cirE":
+        return '\u29C3';
+    case "solb":
+        return '\u29C4';
+    case "bsolb":
+        return '\u29C5';
+    case "boxbox":
+        return '\u29C9';
+    case "trisb":
+        return '\u29CD';
+    case "rtriltri":
+        return '\u29CE';
+    case "LeftTriangleBar":
+        return '\u29CF';
+    case "RightTriangleBar":
+        return '\u29D0';
+    case "iinfin":
+        return '\u29DC';
+    case "infintie":
+        return '\u29DD';
+    case "nvinfin":
+        return '\u29DE';
+    case "eparsl":
+        return '\u29E3';
+    case "smeparsl":
+        return '\u29E4';
+    case "eqvparsl":
+        return '\u29E5';
+    case "lozf":
+    case "blacklozenge":
+        return '\u29EB';
+    case "RuleDelayed":
+        return '\u29F4';
+    case "dsol":
+        return '\u29F6';
+    case "xodot":
+    case "bigodot":
+        return '\u2A00';
+    case "xoplus":
+    case "bigoplus":
+        return '\u2A01';
+    case "xotime":
+    case "bigotimes":
+        return '\u2A02';
+    case "xuplus":
+    case "biguplus":
+        return '\u2A04';
+    case "xsqcup":
+    case "bigsqcup":
+        return '\u2A06';
+    case "qint":
+    case "iiiint":
+        return '\u2A0C';
+    case "fpartint":
+        return '\u2A0D';
+    case "cirfnint":
+        return '\u2A10';
+    case "awint":
+        return '\u2A11';
+    case "rppolint":
+        return '\u2A12';
+    case "scpolint":
+        return '\u2A13';
+    case "npolint":
+        return '\u2A14';
+    case "pointint":
+        return '\u2A15';
+    case "quatint":
+        return '\u2A16';
+    case "intlarhk":
+        return '\u2A17';
+    case "pluscir":
+        return '\u2A22';
+    case "plusacir":
+        return '\u2A23';
+    case "simplus":
+        return '\u2A24';
+    case "plusdu":
+        return '\u2A25';
+    case "plussim":
+        return '\u2A26';
+    case "plustwo":
+        return '\u2A27';
+    case "mcomma":
+        return '\u2A29';
+    case "minusdu":
+        return '\u2A2A';
+    case "loplus":
+        return '\u2A2D';
+    case "roplus":
+        return '\u2A2E';
+    case "Cross":
+        return '\u2A2F';
+    case "timesd":
+        return '\u2A30';
+    case "timesbar":
+        return '\u2A31';
+    case "smashp":
+        return '\u2A33';
+    case "lotimes":
+        return '\u2A34';
+    case "rotimes":
+        return '\u2A35';
+    case "otimesas":
+        return '\u2A36';
+    case "Otimes":
+        return '\u2A37';
+    case "odiv":
+        return '\u2A38';
+    case "triplus":
+        return '\u2A39';
+    case "triminus":
+        return '\u2A3A';
+    case "tritime":
+        return '\u2A3B';
+    case "iprod":
+    case "intprod":
+        return '\u2A3C';
+    case "amalg":
+        return '\u2A3F';
+    case "capdot":
+        return '\u2A40';
+    case "ncup":
+        return '\u2A42';
+    case "ncap":
+        return '\u2A43';
+    case "capand":
+        return '\u2A44';
+    case "cupor":
+        return '\u2A45';
+    case "cupcap":
+        return '\u2A46';
+    case "capcup":
+        return '\u2A47';
+    case "cupbrcap":
+        return '\u2A48';
+    case "capbrcup":
+        return '\u2A49';
+    case "cupcup":
+        return '\u2A4A';
+    case "capcap":
+        return '\u2A4B';
+    case "ccups":
+        return '\u2A4C';
+    case "ccaps":
+        return '\u2A4D';
+    case "ccupssm":
+        return '\u2A50';
+    case "And":
+        return '\u2A53';
+    case "Or":
+        return '\u2A54';
+    case "andand":
+        return '\u2A55';
+    case "oror":
+        return '\u2A56';
+    case "orslope":
+        return '\u2A57';
+    case "andslope":
+        return '\u2A58';
+    case "andv":
+        return '\u2A5A';
+    case "orv":
+        return '\u2A5B';
+    case "andd":
+        return '\u2A5C';
+    case "ord":
+        return '\u2A5D';
+    case "wedbar":
+        return '\u2A5F';
+    case "sdote":
+        return '\u2A66';
+    case "simdot":
+        return '\u2A6A';
+    case "congdot":
+        return '\u2A6D';
+    case "easter":
+        return '\u2A6E';
+    case "apacir":
+        return '\u2A6F';
+    case "apE":
+        return '\u2A70';
+    case "eplus":
+        return '\u2A71';
+    case "pluse":
+        return '\u2A72';
+    case "Esim":
+        return '\u2A73';
+    case "Colone":
+        return '\u2A74';
+    case "Equal":
+        return '\u2A75';
+    case "eDDot":
+    case "ddotseq":
+        return '\u2A77';
+    case "equivDD":
+        return '\u2A78';
+    case "ltcir":
+        return '\u2A79';
+    case "gtcir":
+        return '\u2A7A';
+    case "ltquest":
+        return '\u2A7B';
+    case "gtquest":
+        return '\u2A7C';
+    case "les":
+    case "LessSlantEqual":
+    case "leqslant":
+        return '\u2A7D';
+    case "ges":
+    case "GreaterSlantEqual":
+    case "geqslant":
+        return '\u2A7E';
+    case "lesdot":
+        return '\u2A7F';
+    case "gesdot":
+        return '\u2A80';
+    case "lesdoto":
+        return '\u2A81';
+    case "gesdoto":
+        return '\u2A82';
+    case "lesdotor":
+        return '\u2A83';
+    case "gesdotol":
+        return '\u2A84';
+    case "lap":
+    case "lessapprox":
+        return '\u2A85';
+    case "gap":
+    case "gtrapprox":
+        return '\u2A86';
+    case "lne":
+    case "lneq":
+        return '\u2A87';
+    case "gne":
+    case "gneq":
+        return '\u2A88';
+    case "lnap":
+    case "lnapprox":
+        return '\u2A89';
+    case "gnap":
+    case "gnapprox":
+        return '\u2A8A';
+    case "lEg":
+    case "lesseqqgtr":
+        return '\u2A8B';
+    case "gEl":
+    case "gtreqqless":
+        return '\u2A8C';
+    case "lsime":
+        return '\u2A8D';
+    case "gsime":
+        return '\u2A8E';
+    case "lsimg":
+        return '\u2A8F';
+    case "gsiml":
+        return '\u2A90';
+    case "lgE":
+        return '\u2A91';
+    case "glE":
+        return '\u2A92';
+    case "lesges":
+        return '\u2A93';
+    case "gesles":
+        return '\u2A94';
+    case "els":
+    case "eqslantless":
+        return '\u2A95';
+    case "egs":
+    case "eqslantgtr":
+        return '\u2A96';
+    case "elsdot":
+        return '\u2A97';
+    case "egsdot":
+        return '\u2A98';
+    case "el":
+        return '\u2A99';
+    case "eg":
+        return '\u2A9A';
+    case "siml":
+        return '\u2A9D';
+    case "simg":
+        return '\u2A9E';
+    case "simlE":
+        return '\u2A9F';
+    case "simgE":
+        return '\u2AA0';
+    case "LessLess":
+        return '\u2AA1';
+    case "GreaterGreater":
+        return '\u2AA2';
+    case "glj":
+        return '\u2AA4';
+    case "gla":
+        return '\u2AA5';
+    case "ltcc":
+        return '\u2AA6';
+    case "gtcc":
+        return '\u2AA7';
+    case "lescc":
+        return '\u2AA8';
+    case "gescc":
+        return '\u2AA9';
+    case "smt":
+        return '\u2AAA';
+    case "lat":
+        return '\u2AAB';
+    case "smte":
+        return '\u2AAC';
+    case "late":
+        return '\u2AAD';
+    case "bumpE":
+        return '\u2AAE';
+    case "pre":
+    case "preceq":
+    case "PrecedesEqual":
+        return '\u2AAF';
+    case "sce":
+    case "succeq":
+    case "SucceedsEqual":
+        return '\u2AB0';
+    case "prE":
+        return '\u2AB3';
+    case "scE":
+        return '\u2AB4';
+    case "prnE":
+    case "precneqq":
+        return '\u2AB5';
+    case "scnE":
+    case "succneqq":
+        return '\u2AB6';
+    case "prap":
+    case "precapprox":
+        return '\u2AB7';
+    case "scap":
+    case "succapprox":
+        return '\u2AB8';
+    case "prnap":
+    case "precnapprox":
+        return '\u2AB9';
+    case "scnap":
+    case "succnapprox":
+        return '\u2ABA';
+    case "Pr":
+        return '\u2ABB';
+    case "Sc":
+        return '\u2ABC';
+    case "subdot":
+        return '\u2ABD';
+    case "supdot":
+        return '\u2ABE';
+    case "subplus":
+        return '\u2ABF';
+    case "supplus":
+        return '\u2AC0';
+    case "submult":
+        return '\u2AC1';
+    case "supmult":
+        return '\u2AC2';
+    case "subedot":
+        return '\u2AC3';
+    case "supedot":
+        return '\u2AC4';
+    case "subE":
+    case "subseteqq":
+        return '\u2AC5';
+    case "supE":
+    case "supseteqq":
+        return '\u2AC6';
+    case "subsim":
+        return '\u2AC7';
+    case "supsim":
+        return '\u2AC8';
+    case "subnE":
+    case "subsetneqq":
+        return '\u2ACB';
+    case "supnE":
+    case "supsetneqq":
+        return '\u2ACC';
+    case "csub":
+        return '\u2ACF';
+    case "csup":
+        return '\u2AD0';
+    case "csube":
+        return '\u2AD1';
+    case "csupe":
+        return '\u2AD2';
+    case "subsup":
+        return '\u2AD3';
+    case "supsub":
+        return '\u2AD4';
+    case "subsub":
+        return '\u2AD5';
+    case "supsup":
+        return '\u2AD6';
+    case "suphsub":
+        return '\u2AD7';
+    case "supdsub":
+        return '\u2AD8';
+    case "forkv":
+        return '\u2AD9';
+    case "topfork":
+        return '\u2ADA';
+    case "mlcp":
+        return '\u2ADB';
+    case "Dashv":
+    case "DoubleLeftTee":
+        return '\u2AE4';
+    case "Vdashl":
+        return '\u2AE6';
+    case "Barv":
+        return '\u2AE7';
+    case "vBar":
+        return '\u2AE8';
+    case "vBarv":
+        return '\u2AE9';
+    case "Vbar":
+        return '\u2AEB';
+    case "Not":
+        return '\u2AEC';
+    case "bNot":
+        return '\u2AED';
+    case "rnmid":
+        return '\u2AEE';
+    case "cirmid":
+        return '\u2AEF';
+    case "midcir":
+        return '\u2AF0';
+    case "topcir":
+        return '\u2AF1';
+    case "nhpar":
+        return '\u2AF2';
+    case "parsim":
+        return '\u2AF3';
+    case "parsl":
+        return '\u2AFD';
+    case "fflig":
+        return '\uFB00';
+    case "filig":
+        return '\uFB01';
+    case "fllig":
+        return '\uFB02';
+    case "ffilig":
+        return '\uFB03';
+    case "ffllig":
+        return '\uFB04';
+    case "Ascr":
+        return '\U0001D49C';
+    case "Cscr":
+        return '\U0001D49E';
+    case "Dscr":
+        return '\U0001D49F';
+    case "Gscr":
+        return '\U0001D4A2';
+    case "Jscr":
+        return '\U0001D4A5';
+    case "Kscr":
+        return '\U0001D4A6';
+    case "Nscr":
+        return '\U0001D4A9';
+    case "Oscr":
+        return '\U0001D4AA';
+    case "Pscr":
+        return '\U0001D4AB';
+    case "Qscr":
+        return '\U0001D4AC';
+    case "Sscr":
+        return '\U0001D4AE';
+    case "Tscr":
+        return '\U0001D4AF';
+    case "Uscr":
+        return '\U0001D4B0';
+    case "Vscr":
+        return '\U0001D4B1';
+    case "Wscr":
+        return '\U0001D4B2';
+    case "Xscr":
+        return '\U0001D4B3';
+    case "Yscr":
+        return '\U0001D4B4';
+    case "Zscr":
+        return '\U0001D4B5';
+    case "ascr":
+        return '\U0001D4B6';
+    case "bscr":
+        return '\U0001D4B7';
+    case "cscr":
+        return '\U0001D4B8';
+    case "dscr":
+        return '\U0001D4B9';
+    case "fscr":
+        return '\U0001D4BB';
+    case "hscr":
+        return '\U0001D4BD';
+    case "iscr":
+        return '\U0001D4BE';
+    case "jscr":
+        return '\U0001D4BF';
+    case "kscr":
+        return '\U0001D4C0';
+    case "lscr":
+        return '\U0001D4C1';
+    case "mscr":
+        return '\U0001D4C2';
+    case "nscr":
+        return '\U0001D4C3';
+    case "pscr":
+        return '\U0001D4C5';
+    case "qscr":
+        return '\U0001D4C6';
+    case "rscr":
+        return '\U0001D4C7';
+    case "sscr":
+        return '\U0001D4C8';
+    case "tscr":
+        return '\U0001D4C9';
+    case "uscr":
+        return '\U0001D4CA';
+    case "vscr":
+        return '\U0001D4CB';
+    case "wscr":
+        return '\U0001D4CC';
+    case "xscr":
+        return '\U0001D4CD';
+    case "yscr":
+        return '\U0001D4CE';
+    case "zscr":
+        return '\U0001D4CF';
+    case "Afr":
+        return '\U0001D504';
+    case "Bfr":
+        return '\U0001D505';
+    case "Dfr":
+        return '\U0001D507';
+    case "Efr":
+        return '\U0001D508';
+    case "Ffr":
+        return '\U0001D509';
+    case "Gfr":
+        return '\U0001D50A';
+    case "Jfr":
+        return '\U0001D50D';
+    case "Kfr":
+        return '\U0001D50E';
+    case "Lfr":
+        return '\U0001D50F';
+    case "Mfr":
+        return '\U0001D510';
+    case "Nfr":
+        return '\U0001D511';
+    case "Ofr":
+        return '\U0001D512';
+    case "Pfr":
+        return '\U0001D513';
+    case "Qfr":
+        return '\U0001D514';
+    case "Sfr":
+        return '\U0001D516';
+    case "Tfr":
+        return '\U0001D517';
+    case "Ufr":
+        return '\U0001D518';
+    case "Vfr":
+        return '\U0001D519';
+    case "Wfr":
+        return '\U0001D51A';
+    case "Xfr":
+        return '\U0001D51B';
+    case "Yfr":
+        return '\U0001D51C';
+    case "afr":
+        return '\U0001D51E';
+    case "bfr":
+        return '\U0001D51F';
+    case "cfr":
+        return '\U0001D520';
+    case "dfr":
+        return '\U0001D521';
+    case "efr":
+        return '\U0001D522';
+    case "ffr":
+        return '\U0001D523';
+    case "gfr":
+        return '\U0001D524';
+    case "hfr":
+        return '\U0001D525';
+    case "ifr":
+        return '\U0001D526';
+    case "jfr":
+        return '\U0001D527';
+    case "kfr":
+        return '\U0001D528';
+    case "lfr":
+        return '\U0001D529';
+    case "mfr":
+        return '\U0001D52A';
+    case "nfr":
+        return '\U0001D52B';
+    case "ofr":
+        return '\U0001D52C';
+    case "pfr":
+        return '\U0001D52D';
+    case "qfr":
+        return '\U0001D52E';
+    case "rfr":
+        return '\U0001D52F';
+    case "sfr":
+        return '\U0001D530';
+    case "tfr":
+        return '\U0001D531';
+    case "ufr":
+        return '\U0001D532';
+    case "vfr":
+        return '\U0001D533';
+    case "wfr":
+        return '\U0001D534';
+    case "xfr":
+        return '\U0001D535';
+    case "yfr":
+        return '\U0001D536';
+    case "zfr":
+        return '\U0001D537';
+    case "Aopf":
+        return '\U0001D538';
+    case "Bopf":
+        return '\U0001D539';
+    case "Dopf":
+        return '\U0001D53B';
+    case "Eopf":
+        return '\U0001D53C';
+    case "Fopf":
+        return '\U0001D53D';
+    case "Gopf":
+        return '\U0001D53E';
+    case "Iopf":
+        return '\U0001D540';
+    case "Jopf":
+        return '\U0001D541';
+    case "Kopf":
+        return '\U0001D542';
+    case "Lopf":
+        return '\U0001D543';
+    case "Mopf":
+        return '\U0001D544';
+    case "Oopf":
+        return '\U0001D546';
+    case "Sopf":
+        return '\U0001D54A';
+    case "Topf":
+        return '\U0001D54B';
+    case "Uopf":
+        return '\U0001D54C';
+    case "Vopf":
+        return '\U0001D54D';
+    case "Wopf":
+        return '\U0001D54E';
+    case "Xopf":
+        return '\U0001D54F';
+    case "Yopf":
+        return '\U0001D550';
+    case "aopf":
+        return '\U0001D552';
+    case "bopf":
+        return '\U0001D553';
+    case "copf":
+        return '\U0001D554';
+    case "dopf":
+        return '\U0001D555';
+    case "eopf":
+        return '\U0001D556';
+    case "fopf":
+        return '\U0001D557';
+    case "gopf":
+        return '\U0001D558';
+    case "hopf":
+        return '\U0001D559';
+    case "iopf":
+        return '\U0001D55A';
+    case "jopf":
+        return '\U0001D55B';
+    case "kopf":
+        return '\U0001D55C';
+    case "lopf":
+        return '\U0001D55D';
+    case "mopf":
+        return '\U0001D55E';
+    case "nopf":
+        return '\U0001D55F';
+    case "oopf":
+        return '\U0001D560';
+    case "popf":
+        return '\U0001D561';
+    case "qopf":
+        return '\U0001D562';
+    case "ropf":
+        return '\U0001D563';
+    case "sopf":
+        return '\U0001D564';
+    case "topf":
+        return '\U0001D565';
+    case "uopf":
+        return '\U0001D566';
+    case "vopf":
+        return '\U0001D567';
+    case "wopf":
+        return '\U0001D568';
+    case "xopf":
+        return '\U0001D569';
+    case "yopf":
+        return '\U0001D56A';
+    case "zopf":
+        return '\U0001D56B';
 
         // and handling numeric entities
     default:
@@ -4102,6 +7517,7 @@ import std.stdio;
 /// This takes a string of raw HTML and decodes the entities into a nice D utf-8 string.
 /// By default, it uses loose mode - it will try to return a useful string from garbage input too.
 /// Set the second parameter to true if you'd prefer it to strictly throw exceptions on garbage input.
+/// Group: core_functionality
 string htmlEntitiesDecode(string data, bool strict = false) {
     // this check makes a *big* difference; about a 50% improvement of parse speed on my test.
     if (data.indexOf("&") == -1) // all html entities begin with &
@@ -4133,7 +7549,7 @@ string htmlEntitiesDecode(string data, bool strict = false) {
                     a ~= "&"; // double amp means keep the first one, still try to parse the next one
                 else
                     a ~= buffer[0 .. std.utf.encode(buffer,
-                            parseEntity(entityBeingTried[0 .. entityBeingTriedLength]))];
+                                parseEntity(entityBeingTried[0 .. entityBeingTriedLength]))];
 
                 // tryingEntity is still true
                 entityBeingTriedLength = 1;
@@ -4141,7 +7557,7 @@ string htmlEntitiesDecode(string data, bool strict = false) {
             } else if (ch == ';') {
                 tryingEntity = false;
                 a ~= buffer[0 .. std.utf.encode(buffer,
-                        parseEntity(entityBeingTried[0 .. entityBeingTriedLength]))];
+                            parseEntity(entityBeingTried[0 .. entityBeingTriedLength]))];
             } else if (ch == ' ') {
                 // e.g. you &amp i
                 if (strict)
@@ -4187,6 +7603,7 @@ string htmlEntitiesDecode(string data, bool strict = false) {
     return cast(string) a; // assumeUnique is actually kinda slow, lol
 }
 
+/// Group: implementations
 abstract class SpecialElement : Element {
     this(Document _parentDocument) {
         super(_parentDocument);
@@ -4204,6 +7621,7 @@ abstract class SpecialElement : Element {
 }
 
 ///.
+/// Group: implementations
 class RawSource : SpecialElement {
     ///.
     this(Document _parentDocument, string s) {
@@ -4227,10 +7645,15 @@ class RawSource : SpecialElement {
         return source;
     }
 
+    override RawSource cloneNode(bool deep) {
+        return new RawSource(parentDocument, source);
+    }
+
     ///.
     string source;
 }
 
+/// Group: implementations
 abstract class ServerSideCode : SpecialElement {
     this(Document _parentDocument, string type) {
         super(_parentDocument);
@@ -4260,24 +7683,35 @@ abstract class ServerSideCode : SpecialElement {
 }
 
 ///.
+/// Group: implementations
 class PhpCode : ServerSideCode {
     ///.
     this(Document _parentDocument, string s) {
         super(_parentDocument, "php");
         source = s;
     }
+
+    override PhpCode cloneNode(bool deep) {
+        return new PhpCode(parentDocument, source);
+    }
 }
 
 ///.
+/// Group: implementations
 class AspCode : ServerSideCode {
     ///.
     this(Document _parentDocument, string s) {
         super(_parentDocument, "asp");
         source = s;
     }
+
+    override AspCode cloneNode(bool deep) {
+        return new AspCode(parentDocument, source);
+    }
 }
 
 ///.
+/// Group: implementations
 class BangInstruction : SpecialElement {
     ///.
     this(Document _parentDocument, string s) {
@@ -4289,6 +7723,10 @@ class BangInstruction : SpecialElement {
     ///.
     override string nodeValue() const {
         return this.source;
+    }
+
+    override BangInstruction cloneNode(bool deep) {
+        return new BangInstruction(parentDocument, source);
     }
 
     ///.
@@ -4313,12 +7751,17 @@ class BangInstruction : SpecialElement {
 }
 
 ///.
+/// Group: implementations
 class QuestionInstruction : SpecialElement {
     ///.
     this(Document _parentDocument, string s) {
         super(_parentDocument);
         source = s;
         tagName = "#qpi";
+    }
+
+    override QuestionInstruction cloneNode(bool deep) {
+        return new QuestionInstruction(parentDocument, source);
     }
 
     ///.
@@ -4348,12 +7791,17 @@ class QuestionInstruction : SpecialElement {
 }
 
 ///.
+/// Group: implementations
 class HtmlComment : SpecialElement {
     ///.
     this(Document _parentDocument, string s) {
         super(_parentDocument);
         source = s;
         tagName = "#comment";
+    }
+
+    override HtmlComment cloneNode(bool deep) {
+        return new HtmlComment(parentDocument, source);
     }
 
     ///.
@@ -4383,6 +7831,7 @@ class HtmlComment : SpecialElement {
 }
 
 ///.
+/// Group: implementations
 class TextNode : Element {
 public:
     ///.
@@ -4404,13 +7853,13 @@ public:
     ///.
     static TextNode fromUndecodedString(Document _parentDocument, string html) {
         auto e = new TextNode(_parentDocument, "");
-        e.contents = htmlEntitiesDecode(html, _parentDocument is null ? false
-                : !_parentDocument.loose);
+        e.contents = htmlEntitiesDecode(html, _parentDocument is null
+                ? false : !_parentDocument.loose);
         return e;
     }
 
     ///.
-    override @property Element cloned() {
+    override @property TextNode cloneNode(bool deep) {
         auto n = new TextNode(parentDocument, contents);
         return n;
     }
@@ -4498,11 +7947,12 @@ public:
 }
 
 /**
-    There are subclasses of Element offering improved helper
-    functions for the element in HTML.
+	There are subclasses of Element offering improved helper
+	functions for the element in HTML.
 */
 
 ///.
+/// Group: implementations
 class Link : Element {
 
     ///.
@@ -4518,18 +7968,18 @@ class Link : Element {
         innerText = text;
     }
     /+
-    /// Returns everything in the href EXCEPT the query string
-    @property string targetSansQuery() {
+	/// Returns everything in the href EXCEPT the query string
+	@property string targetSansQuery() {
 
-    }
+	}
 
-    ///.
-    @property string domainName() {
+	///.
+	@property string domainName() {
 
-    }
+	}
 
-    ///.
-    @property string path
+	///.
+	@property string path
 +/
     /// This gets a variable from the URL's query string.
     string getValue(string name) {
@@ -4625,22 +8075,23 @@ class Link : Element {
     }
 
     /*
-    ///.
-    override string toString() {
+	///.
+	override string toString() {
 
-    }
+	}
 
-    ///.
-    override string getAttribute(string name) {
-        if(name == "href") {
+	///.
+	override string getAttribute(string name) {
+		if(name == "href") {
 
-        } else
-            return super.getAttribute(name);
-    }
-    */
+		} else
+			return super.getAttribute(name);
+	}
+	*/
 }
 
 ///.
+/// Group: implementations
 class Form : Element {
 
     ///.
@@ -4716,7 +8167,7 @@ class Form : Element {
                 switch (type) {
                 case "checkbox":
                 case "radio":
-                    if (value.length)
+                    if (value.length && value != "false")
                         e.setAttribute("checked", "checked");
                     else
                         e.removeAttribute("checked");
@@ -4751,7 +8202,7 @@ class Form : Element {
             foreach (e; eles) {
                 string val = e.getAttribute("value");
                 //if(val is null)
-                //  throw new Exception("don't know what to do with radio boxes with null value");
+                //	throw new Exception("don't know what to do with radio boxes with null value");
                 if (val == value)
                     e.setAttribute("checked", "checked");
                 else
@@ -4871,30 +8322,31 @@ class Form : Element {
     }
 
     /+
-    /// Returns all form members.
-    @property Element[] elements() {
+	/// Returns all form members.
+	@property Element[] elements() {
 
-    }
+	}
 
-    ///.
-    string opDispatch(string name)(string v = null)
-        // filter things that should actually be attributes on the form
-        if( name != "method" && name != "action" && name != "enctype"
-         && name != "style"  && name != "name" && name != "id" && name != "class")
-    {
+	///.
+	string opDispatch(string name)(string v = null)
+		// filter things that should actually be attributes on the form
+		if( name != "method" && name != "action" && name != "enctype"
+		 && name != "style"  && name != "name" && name != "id" && name != "class")
+	{
 
-    }
-    +/
+	}
+	+/
     /+
-    void submit() {
-        // take its elements and submit them through http
-    }
+	void submit() {
+		// take its elements and submit them through http
+	}
 +/
 }
 
 import std.conv;
 
 ///.
+/// Group: implementations
 class Table : Element {
 
     ///.
@@ -4979,6 +8431,12 @@ class Table : Element {
                 foreach (ele; e)
                     a.appendChild(ele);
                 row.appendChild(a);
+            } else static if (is(typeof(e) == string[])) {
+                foreach (ele; e) {
+                    Element a = Element.make(innerType);
+                    a.innerText = to!string(ele);
+                    row.appendChild(a);
+                }
             } else {
                 Element a = Element.make(innerType);
                 a.innerText = to!string(e);
@@ -5086,7 +8544,7 @@ class Table : Element {
             return position;
         }
 
-        foreach (int i, rowElement; rows) {
+        foreach (i, rowElement; rows) {
             auto row = cast(TableRow) rowElement;
             assert(row !is null);
             assert(i < ret.length);
@@ -5102,7 +8560,7 @@ class Table : Element {
                 // the table, not skip it
                 foreach (int j; 0 .. cell.colspan) {
                     foreach (int k; 0 .. cell.rowspan) // if the first row, always append.
-                        insertCell(k + i, k == 0 ? -1 : position, cell);
+                        insertCell(k + cast(int) i, k == 0 ? -1 : position, cell);
                     position++;
                 }
             }
@@ -5122,6 +8580,7 @@ class Table : Element {
 }
 
 /// Represents a table row element - a <tr>
+/// Group: implementations
 class TableRow : Element {
     ///.
     this(Document _parentDocument) {
@@ -5134,6 +8593,7 @@ class TableRow : Element {
 }
 
 /// Represents anything that can be a table cell - <td> or <th> html.
+/// Group: implementations
 class TableCell : Element {
     ///.
     this(Document _parentDocument, string _tagName) {
@@ -5169,6 +8629,7 @@ class TableCell : Element {
 }
 
 ///.
+/// Group: implementations
 class MarkupException : Exception {
 
     ///.
@@ -5178,17 +8639,23 @@ class MarkupException : Exception {
 }
 
 /// This is used when you are using one of the require variants of navigation, and no matching element can be found in the tree.
+/// Group: implementations
 class ElementNotFoundException : Exception {
 
     /// type == kind of element you were looking for and search == a selector describing the search.
-    this(string type, string search, string file = __FILE__, size_t line = __LINE__) {
+    this(string type, string search, Element searchContext, string file = __FILE__,
+            size_t line = __LINE__) {
+        this.searchContext = searchContext;
         super("Element of type '" ~ type ~ "' matching {" ~ search ~ "} not found.", file, line);
     }
+
+    Element searchContext;
 }
 
 /// The html struct is used to differentiate between regular text nodes and html in certain functions
 ///
 /// Easiest way to construct it is like this: `auto html = Html("<p>hello</p>");`
+/// Group: core_functionality
 struct Html {
     /// This string holds the actual html. Use it to retrieve the contents.
     string source;
@@ -5221,11 +8688,14 @@ struct DomMutationEvent {
 
 private immutable static string[] selfClosedElements = [
     // html 4
-    "img", "hr", "input", "br", "col", "link", "meta", // html 5
+    "img", "hr", "input", "br", "col", "link", "meta",
+    // html 5
     "source"
 ];
 
-private immutable static string[] inlineElements = ["span", "strong", "em", "b", "i", "a"];
+private immutable static string[] inlineElements = [
+    "span", "strong", "em", "b", "i", "a"
+];
 
 static import std.conv;
 
@@ -5269,8 +8739,8 @@ static immutable string[] selectorTokens = [
     "~=", "*=", "|=", "^=", "$=", "!=", // "::" should be there too for full standard
     "::", ">>", "<<", // my any-parent extension (reciprocal of whitespace)
     // " - ", // previous-sibling extension (whitespace required to disambiguate tag-names)
-    ".", ">", "+", "*", ":",
-    "[", "]", "=", "\"", "#", ",", " ", "~", "<", "(", ")"
+    ".", ">", "+", "*", ":", "[", "]", "=", "\"", "#", ",", " ", "~", "<", "(",
+    ")"
 ]; // other is white space or a name.
 
 ///.
@@ -5828,6 +9298,7 @@ Element[] getElementsBySelectorParts(Element start, SelectorPart[] parts) {
     }
 
     auto part = parts[0];
+    //writeln("checking ", part, " against ", start, " with ", part.separation);
     switch (part.separation) {
     default:
         assert(0);
@@ -5877,58 +9348,63 @@ Element[] getElementsBySelectorParts(Element start, SelectorPart[] parts) {
             ret ~= getElementsBySelectorParts(e, parts[1 .. $]);
         }
         /*
-                    Example of usefulness:
+					Example of usefulness:
 
-                    Consider you have an HTML table. If you want to get all rows that have a th, you can do:
+					Consider you have an HTML table. If you want to get all rows that have a th, you can do:
 
-                    table th < tr
+					table th < tr
 
-                    Get all th descendants of the table, then walk back up the tree to fetch their parent tr nodes
-                */
+					Get all th descendants of the table, then walk back up the tree to fetch their parent tr nodes
+				*/
         break;
     case 5: // any parent note, another extension of mine to go up the tree (backward of the whitespace operator)
         /*
-                    Like with the < operator, this is best used to find some parent of a particular known element.
+					Like with the < operator, this is best used to find some parent of a particular known element.
 
-                    Say you have an anchor inside a
-                */
+					Say you have an anchor inside a
+				*/
     }
 
     return ret;
 }
 
 /++
-        Represents a parsed CSS selector.
+		Represents a parsed CSS selector. You never have to use this directly, but you can if you know it is going to be reused a lot to avoid a bit of repeat parsing.
 
-        See_Also:
-            [Element.querySelector]
-            [Element.querySelectorAll]
-            [Document.querySelector]
-            [Document.querySelectorAll]
-    +/
+		See_Also:
+			$(LIST
+				* [Element.querySelector]
+				* [Element.querySelectorAll]
+				* [Element.matches]
+				* [Element.closest]
+				* [Document.querySelector]
+				* [Document.querySelectorAll]
+			)
+	+/
+/// Group: core_functionality
 struct Selector {
     SelectorComponent[] components;
     string original;
     /++
-            Parses the selector string and returns the usable structure.
-        +/
+			Parses the selector string and constructs the usable structure.
+		+/
     this(string cssSelector) {
         components = parseSelectorString(cssSelector);
         original = cssSelector;
     }
 
     /++
-            Returns true if the given element matches this selector,
-            considered relative to an arbitrary element.
+			Returns true if the given element matches this selector,
+			considered relative to an arbitrary element.
 
-            You can do a form of lazy [Element.querySelectorAll|querySelectorAll] by using this
-            with [std.algorithm.iteration.filter]:
+			You can do a form of lazy [Element.querySelectorAll|querySelectorAll] by using this
+			with [std.algorithm.iteration.filter]:
 
-            ---
-            Selector sel = Selector("foo > bar");
-            auto lazySelectorRange = element.tree.filter!(e => sel.matchElement(e))(document.root);
-            ---
-        +/
+			---
+			Selector sel = Selector("foo > bar");
+			auto lazySelectorRange = element.tree.filter!(e => sel.matchElement(e))(document.root);
+			---
+		+/
     bool matchesElement(Element e, Element relativeTo = null) {
         foreach (component; components)
             if (component.matchElement(e, relativeTo))
@@ -5938,8 +9414,8 @@ struct Selector {
     }
 
     /++
-            Reciprocal of [Element.querySelectorAll]
-        +/
+			Reciprocal of [Element.querySelectorAll]
+		+/
     Element[] getMatchingElements(Element start) {
         Element[] ret;
         foreach (component; components)
@@ -5948,9 +9424,9 @@ struct Selector {
     }
 
     /++
-            Like [getMatchingElements], but returns a lazy range. Be careful
-            about mutating the dom as you iterate through this.
-        +/
+			Like [getMatchingElements], but returns a lazy range. Be careful
+			about mutating the dom as you iterate through this.
+		+/
     auto getMatchingElementsLazy(Element start, Element relativeTo = null) {
         import std.algorithm.iteration;
 
@@ -5963,11 +9439,11 @@ struct Selector {
     }
 
     /++
-            Returns a string from the parsed result
+			Returns a string from the parsed result
 
 
-            (may not match the original, this is mostly for debugging right now but in the future might be useful for pretty-printing)
-        +/
+			(may not match the original, this is mostly for debugging right now but in the future might be useful for pretty-printing)
+		+/
     string parsedToString() {
         string ret;
 
@@ -6007,9 +9483,25 @@ struct SelectorComponent {
             return false;
         Element where = e;
         int lastSeparation = -1;
-        foreach (part; retro(parts)) {
+
+        auto lparts = parts;
+
+        if (parts.length && parts[0].separation > 0) {
+            // if it starts with a non-trivial separator, inject
+            // a "*" matcher to act as a root. for cases like document.querySelector("> body")
+            // which implies html
+
+            // there is probably a MUCH better way to do this.
+            auto dummy = SelectorPart.init;
+            dummy.tagNameFilter = "*";
+            dummy.separation = 0;
+            lparts = dummy ~ lparts;
+        }
+
+        foreach (part; retro(lparts)) {
 
             // writeln("matching ", where, " with ", part, " via ", lastSeparation);
+            // writeln(parts);
 
             if (lastSeparation == -1) {
                 if (!part.matchElement(where))
@@ -6017,6 +9509,7 @@ struct SelectorComponent {
             } else if (lastSeparation == 0) { // generic parent
                 // need to go up the whole chain
                 where = where.parentNode;
+
                 while (where !is null) {
                     if (part.matchElement(where))
                         break;
@@ -6152,6 +9645,9 @@ SelectorComponent parseSelector(string[] tokens, bool caseSensitiveTags = true) 
 
                 if (current.isCleanSlateExceptSeparation()) {
                     current.tagNameFilter = token;
+                    // default thing, see comment under "*" below
+                    if (current.separation == -1)
+                        current.separation = 0;
                 } else {
                     // if it was already set, we must see two thingies
                     // separated by whitespace...
@@ -6164,6 +9660,11 @@ SelectorComponent parseSelector(string[] tokens, bool caseSensitiveTags = true) 
                 switch (token) {
                 case "*":
                     current.tagNameFilter = "*";
+                    // the idea here is if we haven't actually set a separation
+                    // yet (e.g. the > operator), it should assume the generic
+                    // whitespace (descendant) mode to avoid matching self with -1
+                    if (current.separation == -1)
+                        current.separation = 0;
                     break;
                 case " ":
                     // If some other separation has already been set,
@@ -6196,16 +9697,24 @@ SelectorComponent parseSelector(string[] tokens, bool caseSensitiveTags = true) 
                     break;
                 case "[":
                     state = State.ReadingAttributeSelector;
+                    if (current.separation == -1)
+                        current.separation = 0;
                     break;
                 case ".":
                     state = State.ReadingClass;
+                    if (current.separation == -1)
+                        current.separation = 0;
                     break;
                 case "#":
                     state = State.ReadingId;
+                    if (current.separation == -1)
+                        current.separation = 0;
                     break;
                 case ":":
                 case "::":
                     state = State.ReadingPseudoClass;
+                    if (current.separation == -1)
+                        current.separation = 0;
                     break;
 
                 default:
@@ -6284,17 +9793,18 @@ SelectorComponent parseSelector(string[] tokens, bool caseSensitiveTags = true) 
                 current.attributesPresent ~= "checked";
                 break;
 
-            case "visited", "active", "hover", "target", "focus", "selected":
-                current.attributesPresent ~= "nothing";
+            case "visited", "active", "hover", "target", "focus",
+                    "selected":
+                    current.attributesPresent ~= "nothing";
                 // FIXME
                 /*
-                        // defined in the standard, but I don't implement it
-                        case "not":
-                        */
+						// defined in the standard, but I don't implement it
+						case "not":
+						*/
                 /+
-                        // extensions not implemented
-                        //case "text": // takes the text in the element and wraps it in an element, returning it
-                        +/
+						// extensions not implemented
+						//case "text": // takes the text in the element and wraps it in an element, returning it
+						+/
                 goto case;
             case "before", "after":
                 current.attributesPresent ~= "FIXME";
@@ -6365,10 +9875,14 @@ SelectorComponent parseSelector(string[] tokens, bool caseSensitiveTags = true) 
                 current.attributesEqual ~= [attributeName, attributeValue];
                 break;
             case "|=":
-                current.attributesIncludesSeparatedByDashes ~= [attributeName, attributeValue];
+                current.attributesIncludesSeparatedByDashes ~= [
+                    attributeName, attributeValue
+                ];
                 break;
             case "~=":
-                current.attributesIncludesSeparatedBySpaces ~= [attributeName, attributeValue];
+                current.attributesIncludesSeparatedBySpaces ~= [
+                    attributeName, attributeValue
+                ];
                 break;
             case "$=":
                 current.attributesEndsWith ~= [attributeName, attributeValue];
@@ -6459,7 +9973,7 @@ class CssStyle {
     Specificity getSpecificityOfRule(string rule) {
         Specificity s;
         if (rule.length == 0) { // inline
-            //  s.important = 2;
+            //	s.important = 2;
         } else {
             // FIXME
         }
@@ -6807,10 +10321,10 @@ final class ElementStream {
     }
 
     /*
-        Handle it
-        handle its children
+		Handle it
+		handle its children
 
-    */
+	*/
 
     ///.
     void popFront() {
@@ -6986,8 +10500,8 @@ class Event {
             // the default on capture should really be to always do nothing
 
             //if(!defaultPrevented)
-            //  if(eventName in e.defaultEventHandlers)
-            //      e.defaultEventHandlers[eventName](e.element, this);
+            //	if(eventName in e.defaultEventHandlers)
+            //		e.defaultEventHandlers[eventName](e.element, this);
 
             if (propagationStopped)
                 break;
@@ -7149,16 +10663,16 @@ private:
     string delegate() getMoreHelper;
 
     /+
-        // used to maybe clear some old stuff
-        // you might have to remove elements parsed with it too since they can hold slices into the
-        // old stuff, preventing gc
-        void dropFront(int bytes) {
-            posAdjustment += bytes;
-            data = data[bytes .. $];
-        }
+		// used to maybe clear some old stuff
+		// you might have to remove elements parsed with it too since they can hold slices into the
+		// old stuff, preventing gc
+		void dropFront(int bytes) {
+			posAdjustment += bytes;
+			data = data[bytes .. $];
+		}
 
-        int posAdjustment;
-        +/
+		int posAdjustment;
+		+/
 }
 
 void fillForm(T)(Form form, T obj, string name) {
@@ -7177,30 +10691,30 @@ Children: Tee or Variable
 Variable: $varname with optional |funcname following.
 
 If a variable has a tree after it, it breaks the variable down:
-    * if array, foreach it does the tree
-    * if struct, it breaks down the member variables
+	* if array, foreach it does the tree
+	* if struct, it breaks down the member variables
 
 stolen from georgy on irc, see: https://github.com/georgy7/stringplate
 +/
 struct Stringplate {
-    /++
+	/++
 
-    +/
-    this(string s) {
+	+/
+	this(string s) {
 
-    }
+	}
 
-    /++
+	/++
 
-    +/
-    Element expand(T...)(T vars) {
-        return null;
-    }
+	+/
+	Element expand(T...)(T vars) {
+		return null;
+	}
 }
 ///
 unittest {
-    auto stringplate = Stringplate("#bar(.foo($foo), .baz($baz))");
-    assert(stringplate.expand.innerHTML == `<div id="bar"><div class="foo">$foo</div><div class="baz">$baz</div></div>`);
+	auto stringplate = Stringplate("#bar(.foo($foo), .baz($baz))");
+	assert(stringplate.expand.innerHTML == `<div id="bar"><div class="foo">$foo</div><div class="baz">$baz</div></div>`);
 }
 +/
 
@@ -7222,28 +10736,84 @@ private bool isSimpleWhite(dchar c) {
     return c == ' ' || c == '\r' || c == '\n' || c == '\t';
 }
 
-/*
-Copyright: Adam D. Ruppe, 2010 - 2017
-License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
-Authors: Adam D. Ruppe, with contributions by Nick Sabalausky, Trass3r, and ketmar among others
-
-        Copyright Adam D. Ruppe 2010-2017.
-Distributed under the Boost Software License, Version 1.0.
-   (See accompanying file LICENSE_1_0.txt or copy at
-        http://www.boost.org/LICENSE_1_0.txt)
-*/
-
 unittest {
     // Test for issue #120
     string s = `<html>
-    <body>
-        <P>AN
-        <P>bubbles</P>
-        <P>giggles</P>
-    </body>
+	<body>
+		<P>AN
+		<P>bubbles</P>
+		<P>giggles</P>
+	</body>
 </html>`;
     auto doc = new Document();
     doc.parseUtf8(s, false, false);
     auto s2 = doc.toString();
     assert(s2.indexOf("bubbles") < s2.indexOf("giggles"), "paragraph order incorrect:\n" ~ s2);
 }
+
+unittest {
+    // test for suncarpet email dec 24 2019
+    // arbitrary id asduiwh
+    auto document = new Document("<html>
+        <head>
+                <meta charset=\"utf-8\"></meta>
+                <title>Element.querySelector Test</title>
+        </head>
+        <body>
+                <div id=\"foo\">
+                        <div>Foo</div>
+                        <div>Bar</div>
+                </div>
+        </body>
+</html>");
+
+    auto doc = document;
+
+    assert(doc.querySelectorAll("div div").length == 2);
+    assert(doc.querySelector("div").querySelectorAll("div").length == 2);
+    assert(doc.querySelectorAll("> html").length == 0);
+    assert(doc.querySelector("head").querySelectorAll("> title").length == 1);
+    assert(doc.querySelector("head").querySelectorAll("> meta[charset]").length == 1);
+
+    assert(doc.root.matches("html"));
+    assert(!doc.root.matches("nothtml"));
+    assert(doc.querySelector("#foo > div").matches("div"));
+    assert(doc.querySelector("body > #foo").matches("#foo"));
+
+    assert(doc.root.querySelectorAll(":root > body").length == 0); // the root has no CHILD root!
+    assert(doc.querySelectorAll(":root > body").length == 1); // but the DOCUMENT does
+    assert(doc.querySelectorAll(" > body").length == 1); //  should mean the same thing
+    assert(doc.root.querySelectorAll(" > body").length == 1); // the root of HTML has this
+    assert(doc.root.querySelectorAll(" > html").length == 0); // but not this
+}
+
+unittest {
+    // based on https://developer.mozilla.org/en-US/docs/Web/API/Element/closest example
+    auto document = new Document(`<article>
+  <div id="div-01">Here is div-01
+    <div id="div-02">Here is div-02
+      <div id="div-03">Here is div-03</div>
+    </div>
+  </div>
+</article>`, true, true);
+
+    auto el = document.getElementById("div-03");
+    assert(el.closest("#div-02").id == "div-02");
+    assert(el.closest("div div").id == "div-03");
+    assert(el.closest("article > div").id == "div-01");
+    assert(el.closest(":not(div)").tagName == "article");
+
+    assert(el.closest("p") is null);
+    assert(el.closest("p, div") is el);
+}
+
+/*
+Copyright: Adam D. Ruppe, 2010 - 2020
+License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+Authors: Adam D. Ruppe, with contributions by Nick Sabalausky, Trass3r, and ketmar among others
+
+        Copyright Adam D. Ruppe 2010-2020.
+Distributed under the Boost Software License, Version 1.0.
+   (See accompanying file LICENSE_1_0.txt or copy at
+        http://www.boost.org/LICENSE_1_0.txt)
+*/
