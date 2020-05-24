@@ -223,13 +223,27 @@ class ShallReportTopTestCaseStats : ReportTestCaseStats {
             .addArg(["--style", "plain"])
             .run;
 
+         makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--section", "tc_stat"])
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
+         testConsecutiveSparseOrder!SubStr([
+             "| Percentage | Count | TestCase |",
+             "|------------|-------|----------|",
+             "| 66.6667    | 2     | tc_2     |",
+             "| 33.3333    | 1     | tc_3     |",
+             "| 33.3333    | 1     | tc_1     |",
+         ]).shouldBeIn(r.output);
+
         testConsecutiveSparseOrder!SubStr([
-            "| Percentage | Count | TestCase |",
-            "|------------|-------|----------|",
-            "| 66.6667    | 2     | tc_2     |",
-            "| 33.3333    | 1     | tc_3     |",
-            "| 33.3333    | 1     | tc_1     |",
-        ]).shouldBeIn(r.output);
+            "Test Case Statistics",
+            "0.67", "2", "tc_2",
+            "0.33", "1", "tc_3",
+            "0.33", "1", "tc_1",
+        ]).shouldBeIn(File((testEnv.outdir ~ "html/test_case_stat.html").toString).byLineCopy.array);
     }
 }
 
