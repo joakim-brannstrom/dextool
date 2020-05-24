@@ -288,12 +288,13 @@ struct FileIndex {
     override void postProcessEvent(ref Database db) @trusted {
         import std.datetime : Clock;
         import std.path : buildPath, baseName;
+        import dextool.plugin.mutate.backend.report.html.page_diff;
         import dextool.plugin.mutate.backend.report.html.page_long_term_view;
         import dextool.plugin.mutate.backend.report.html.page_minimal_set;
         import dextool.plugin.mutate.backend.report.html.page_nomut;
-        import dextool.plugin.mutate.backend.report.html.page_diff;
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
+        import dextool.plugin.mutate.backend.report.html.page_test_case_stat;
         import dextool.plugin.mutate.backend.report.html.page_test_case_unique;
         import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
@@ -323,6 +324,10 @@ struct FileIndex {
                 "long_term_view", "Long Term View");
         if (ReportSection.treemap in sections) {
             addSubPage(() => makeTreeMapPage(files.data), "tree_map", "Treemap");
+        }
+        if (ReportSection.tc_stat in sections) {
+            addSubPage(() => makeTestCaseStats(db, conf, humanReadableKinds,
+                    kinds), "test_case_stat", "Test Case Statistics");
         }
         if (ReportSection.tc_groups in sections) {
             addSubPage(() => makeTestGroups(db, conf, humanReadableKinds,

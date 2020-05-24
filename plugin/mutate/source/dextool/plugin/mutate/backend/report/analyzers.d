@@ -61,67 +61,97 @@ void reportMutationSubtypeStats(ref const long[MakeMutationTextResult] mut_stat,
     }
 }
 
+/** Test case score based on how many mutants they killed.
+ */
+struct TestCaseStat {
+    import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
+
+    struct Info {
+        double ratio;
+        TestCase tc;
+        TestCaseInfo info;
+        alias info this;
+    }
+
+    Info[TestCase] testCases;
+
+    /// Returns: the test cases sorted from most kills to least kills.
+    auto toSortedRange() {
+        static bool cmp(T)(ref T a, ref T b) {
+            if (a.killedMutants > b.killedMutants)
+                return true;
+            else if (a.killedMutants < b.killedMutants)
+                return false;
+            else if (a.tc.name > b.tc.name)
+                return true;
+            else if (a.tc.name < b.tc.name)
+                return false;
+            return false;
+        }
+
+        return testCases.byValue.array.sort!cmp;
+    }
+}
+
 /** Update the table with the score of test cases and how many mutants they killed.
  *
  * Params:
- *  db = ?
- *  kinds = type of mutants to count for the test case
  *  take_ = how many from the top should be moved to the table
  *  sort_order = ctrl if the top or bottom of the test cases should be reported
  *  tbl = table to write the data to
  */
-void reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds,
-        const long take_, const ReportKillSortOrder sort_order, ref Table!3 tbl) @safe nothrow {
-    import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
-
-    auto profile = Profile(ReportSection.tc_stat);
-
-    alias TcInfo = Tuple!(string, "name", TestCaseInfo, "tc");
-
-    const total = spinSql!(() { return db.totalMutants(kinds).count; });
-
-    // nothing to do. this also ensure that we do not divide by zero.
-    if (total == 0)
-        return;
-
-    static bool cmp(T)(ref T a, ref T b) {
-        if (a.tc.killedMutants > b.tc.killedMutants)
-            return true;
-        else if (a.tc.killedMutants < b.tc.killedMutants)
-            return false;
-        else if (a.name > b.name)
-            return true;
-        else if (a.name < b.name)
-            return false;
-        return false;
-    }
-
+void toTable(ref TestCaseStat st, const long take_,
+        const ReportKillSortOrder sort_order, ref Table!3 tbl) @safe nothrow {
     auto takeOrder(RangeT)(RangeT range) {
         final switch (sort_order) {
         case ReportKillSortOrder.top:
             return range.take(take_).array;
         case ReportKillSortOrder.bottom:
-            return range.array.retro.take(take_).array;
+            return range.retro.take(take_).array;
         }
     }
 
-    const test_cases = spinSql!(() { return db.getDetectedTestCases; });
-
-    foreach (v; takeOrder(test_cases.map!(a => TcInfo(a.name, spinSql!(() {
-                return db.getTestCaseInfo(a, kinds);
-            })))
-            .array
-            .sort!cmp)) {
+    foreach (v; takeOrder(st.toSortedRange)) {
         try {
-            auto percentage = (cast(double) v.tc.killedMutants / cast(double) total) * 100.0;
             typeof(tbl).Row r = [
-                percentage.to!string, v.tc.killedMutants.to!string, v.name
+                (100.0 * v.ratio).to!string, v.info.killedMutants.to!string,
+                v.tc.name
             ];
             tbl.put(r);
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
     }
+}
+
+/** Extract the number of source code mutants that a test case has killed and
+ * how much the kills contributed to the total.
+ */
+TestCaseStat reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds) @safe nothrow {
+    import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
+
+    auto profile = Profile(ReportSection.tc_stat);
+
+    const total = spinSql!(() { return db.totalSrcMutants(kinds).count; });
+    // nothing to do. this also ensure that we do not divide by zero.
+    if (total == 0)
+        return TestCaseStat.init;
+
+    alias TcInfo = Tuple!(TestCase, "tc", TestCaseInfo, "info");
+    TestCaseStat rval;
+
+    foreach (v; spinSql!(() { return db.getDetectedTestCases; }).map!(a => TcInfo(a, spinSql!(() {
+                return db.getTestCaseInfo(a, kinds);
+            })))) {
+        try {
+            const ratio = cast(double) v.info.killedMutants / cast(double) total;
+            rval.testCases[v.tc] = TestCaseStat.Info(ratio, v.tc, v.info);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    return rval;
 }
 
 /** The result of analysing the test cases to see how similare they are to each

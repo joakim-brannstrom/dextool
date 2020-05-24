@@ -170,49 +170,6 @@ unittest {
     ]).shouldBeIn(r.output);
 }
 
-@(testId ~ "shall report test cases with how many mutants killed correctly counting the sum of mutants as two")
-unittest {
-    // regression that the count of mutations are the total are correct (killed+timeout+alive)
-    import dextool.plugin.mutate.backend.type : TestCase;
-
-    mixin(EnvSetup(globalTestdir));
-    // Arrange
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
-        .run;
-    auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-    // Updating this test case requires manually inspecting the database.
-    //
-    // The mutation ID's are chosen in such a way that 1 and 2 is the same.
-    // This mean that the second updateMutation will overwrite whatever 1 was
-    // set to.
-    //
-    // By setting mutant 4 to killed it automatically propagate to mutant 5
-    // because they are the same source code change.
-    //
-    // Then tc_1 is added to mutant 4 because it makes the score of the test
-    // suite sto be different when it is based on the distinct mutants killed.
-    db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
-    db.updateMutation(MutationId(2), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
-    db.updateMutation(MutationId(4), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
-    db.updateMutation(MutationId(7), Mutation.Status.alive, 10.dur!"msecs", null);
-
-    // Act
-    auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addPostArg(["--mutant", "all"])
-        .addArg(["--section", "tc_stat"])
-        .addArg(["--style", "plain"])
-        .run;
-
-    testConsecutiveSparseOrder!SubStr([
-        "| Percentage | Count | TestCase |",
-        "|------------|-------|----------|",
-        "| 60         | 3     | tc_2     |",
-        "| 40         | 2     | tc_1     |",
-        "| 20         | 1     | tc_3     |",
-    ]).shouldBeIn(r.output);
-}
-
 @(testId ~ "shall report test cases that kill the same mutants (overlap)")
 unittest {
     // regression that the count of mutations are the total are correct (killed+timeout+alive)
@@ -253,36 +210,83 @@ unittest {
     ]).shouldBeIn(r.output);
 }
 
-@(testId ~ "shall report the bottom (least killed) test cases stat of how many mutants they killed")
-unittest {
-    // regression that the count of mutations are the total are correct (killed+timeout+alive)
-    import dextool.plugin.mutate.backend.type : TestCase;
+class ShallReportTopTestCaseStats : ReportTestCaseStats {
+    override void test() {
+        import dextool.plugin.mutate.backend.type : TestCase;
 
-    mixin(EnvSetup(globalTestdir));
-    // Arrange
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
-        .run;
-    auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-    db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
-    db.updateMutation(MutationId(4), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
-    db.updateMutation(MutationId(7), Mutation.Status.alive, 10.dur!"msecs", null);
+        mixin(EnvSetup(globalTestdir));
+        auto db = precondition(testEnv);
 
-    // Act
-    auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addPostArg(["--mutant", "all"])
-        .addArg(["--section", "tc_stat"])
-        .addArg(["--style", "plain"])
-        .addArg(["--section-tc_stat-num", "2"])
-        .addArg(["--section-tc_stat-sort", "bottom"])
-        .run;
+        auto r = makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--section", "tc_stat"])
+            .addArg(["--style", "plain"])
+            .run;
 
-    testConsecutiveSparseOrder!SubStr([
-        "| Percentage | Count | TestCase |",
-        "|------------|-------|----------|",
-        "| 25         | 1     | tc_1     |",
-        "| 25         | 1     | tc_3     |",
-    ]).shouldBeIn(r.output);
+         makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--section", "tc_stat"])
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
+         testConsecutiveSparseOrder!SubStr([
+             "| Percentage | Count | TestCase |",
+             "|------------|-------|----------|",
+             "| 66.6667    | 2     | tc_2     |",
+             "| 33.3333    | 1     | tc_3     |",
+             "| 33.3333    | 1     | tc_1     |",
+         ]).shouldBeIn(r.output);
+
+        testConsecutiveSparseOrder!SubStr([
+            "Test Case Statistics",
+            "0.67", "2", "tc_2",
+            "0.33", "1", "tc_3",
+            "0.33", "1", "tc_1",
+        ]).shouldBeIn(File((testEnv.outdir ~ "html/test_case_stat.html").toString).byLineCopy.array);
+    }
+}
+
+class ShallReportBottomTestCaseStats : ReportTestCaseStats {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto r = makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--section", "tc_stat"])
+            .addArg(["--style", "plain"])
+            .addArg(["--section-tc_stat-num", "2"])
+            .addArg(["--section-tc_stat-sort", "bottom"])
+            .run;
+
+        testConsecutiveSparseOrder!SubStr([
+            "| Percentage | Count | TestCase |",
+            "|------------|-------|----------|",
+            "| 33.3333    | 1     | tc_1     |",
+            "| 33.3333    | 1     | tc_3     |",
+        ]).shouldBeIn(r.output);
+    }
+}
+
+class ReportTestCaseStats : unit_threaded.TestCase {
+    auto precondition(ref TestEnv testEnv) {
+        import dextool.plugin.mutate.backend.type : TestCase;
+
+        makeDextoolAnalyze(testEnv)
+            .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
+            .run;
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        // Updating this test case requires manually inspecting the database.
+        //
+        // By setting mutant 4 to killed it automatically propagate to mutant 5
+        // because they are the same source code change.
+        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
+        db.updateMutation(MutationId(4), Mutation.Status.killed, 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
+        db.updateMutation(MutationId(7), Mutation.Status.alive, 10.dur!"msecs", null);
+        return db;
+    }
 }
 
 @(testId ~ "shall report one marked mutant (plain)")

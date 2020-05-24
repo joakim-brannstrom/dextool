@@ -226,8 +226,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
             Table!3 tc_tbl;
 
             tc_tbl.heading = ["Percentage", "Count", "TestCase"];
-            const total = db.totalMutants(kinds);
-            reportTestCaseStats(db, kinds, conf.tcKillSortNum, conf.tcKillSortOrder, tc_tbl);
+            auto r = reportTestCaseStats(db, kinds);
+            r.toTable(conf.tcKillSortNum, conf.tcKillSortOrder, tc_tbl);
 
             writeln(tc_tbl);
         }
