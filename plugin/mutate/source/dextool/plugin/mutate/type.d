@@ -138,6 +138,8 @@ enum AdminOperation {
     removeMarkedMutant,
     ///
     resetTestCase,
+    /// compact the database to reduce the disc space it takes up
+    compact,
 }
 
 /// Builtin analyzers for testing frameworks that find failing test cases
