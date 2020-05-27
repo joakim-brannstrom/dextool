@@ -113,6 +113,8 @@ nothrow:
                     data.kinds, data.to_status, data.mutant_rationale, data.fio);
         case AdminOperation.removeMarkedMutant:
             return removeMarkedMutant(db, data.mutant_id);
+        case AdminOperation.compact:
+            return compact(db);
         }
     }
 }
@@ -245,6 +247,17 @@ ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothr
         }
 
         trans.commit;
+        return ExitStatusType.Ok;
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+    }
+    return ExitStatusType.Errors;
+}
+
+ExitStatusType compact(ref Database db) @trusted nothrow {
+    try {
+        logger.info("Running a SQL vacuum on the database");
+        db.run("VACUUM");
         return ExitStatusType.Ok;
     } catch (Exception e) {
         logger.error(e.msg).collectException;
