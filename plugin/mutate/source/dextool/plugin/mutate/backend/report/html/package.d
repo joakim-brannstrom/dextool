@@ -48,7 +48,6 @@ struct FileIndex {
 @safe final class ReportHtml : FileReport, FilesReporter {
     import std.array : Appender;
     import std.stdio : File, writefln, writeln;
-    import std.xml : encode;
     import dextool.set;
 
     const Mutation.Kind[] kinds;
