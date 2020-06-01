@@ -1670,7 +1670,8 @@ struct Database {
 
     MutationStatusId[] getSchemataMutants(const SchemataId id,
             const Mutation.Kind[] kinds, const Mutation.Status status) @trusted {
-        immutable sql = format!"SELECT t1.st_id
+        // TODO: DISTINCT should not be needed. Instead use e.g. a constraint on the table or something
+        immutable sql = format!"SELECT DISTINCT t1.st_id
             FROM %s t1, %s t2, %s t3
             WHERE
             t1.schem_id = :id AND
