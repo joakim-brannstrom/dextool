@@ -421,6 +421,7 @@ struct MarkedMutantTbl {
 @TableName(schemataMutantTable)
 @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 @TableForeignKey("schem_id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
+@TableConstraint("unique_ UNIQUE (st_id, schem_id)")
 struct SchemataMutantTable {
     @ColumnName("st_id")
     long statusId;
@@ -1033,6 +1034,12 @@ void upgradeV19(ref Miniorm db) {
     db.run(format!"DROP TABLE %s"(schemataMutantTable));
 
     db.run(buildSchema!(SchemataTable, SchemataMutantTable, InvalidSchemataTable));
+}
+
+/// 2020-06-01
+void upgradeV20(ref Miniorm db) {
+    db.run(format!"DROP TABLE %s"(schemataMutantTable));
+    db.run(buildSchema!(SchemataMutantTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

@@ -1762,7 +1762,7 @@ struct Database {
         }
 
         // relate mutants to this schemata.
-        db.run(insertOrReplace!SchemataMutantTable,
+        db.run(insertOrIgnore!SchemataMutantTable,
                 mutants.map!(a => SchemataMutantTable(cast(long) a, schemId)));
 
         return typeof(return)(schemId.SchemataId);
