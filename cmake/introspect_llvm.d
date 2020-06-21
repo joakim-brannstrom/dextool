@@ -164,6 +164,11 @@ string[] llvmSearchPaths() {
     return [
         llvmLibdir,
         // Ubuntu
+        "/usr/lib/llvm-10/lib",
+        "/usr/lib/llvm-9/lib",
+        "/usr/lib/llvm-8/lib",
+        "/usr/lib/llvm-7/lib",
+        "/usr/lib/llvm-6.0/lib",
         "/usr/lib/llvm-5.0/lib",
         "/usr/lib/llvm-4.0/lib",
         "/usr/lib/llvm-3.9/lib",
@@ -182,7 +187,17 @@ string[] llvmSearchPaths() {
   As fallback try to use the "latest" llvm-config.
   */
 string llvmCmd(bool print_candidates = false) {
+    import std.regex : regex, matchFirst;
+
     immutable llvm_cmd = "llvm-config";
+    auto reVersion = regex(`.*llvm-config-(?P<nr>.*)`);
+
+    Llvm makeLlvm(string s) {
+        auto m = matchFirst(s, reVersion);
+        if (m.empty)
+            return Llvm(SemVer.init, s);
+        return Llvm(SemVer.make(m["nr"]), s);
+    }
 
     // try to see if it works as-is.
     try {
@@ -192,7 +207,7 @@ string llvmCmd(bool print_candidates = false) {
     }
 
     // dfmt off
-    string[] candidates = environment.get("PATH", null)
+    Llvm[] candidates = environment.get("PATH", null)
         .splitter(":")
         .filter!(a => !a.empty)
         .filter!(a => exists(a))
@@ -201,9 +216,9 @@ string llvmCmd(bool print_candidates = false) {
         .joiner
         .filter!(a => exists(a))
         .filter!(a => a.baseName.startsWith(llvm_cmd))
+        .map!(a => makeLlvm(a))
         .array
-        .sort
-        .retro
+        .sort!((a,b) => a.v > b.v)
         .array;
     // dfmt on
 
@@ -212,7 +227,71 @@ string llvmCmd(bool print_candidates = false) {
         writeln("Using:");
     }
 
-    foreach (a; candidates.takeOne)
-        return a;
+    foreach (a; candidates)
+        return a.cmd;
     return llvm_cmd;
+}
+
+struct Llvm {
+    SemVer v;
+    string cmd;
+}
+
+/// Semantic version
+struct SemVer {
+    private int[3] value;
+
+    int major() {
+        return value[0];
+    }
+
+    int minor() {
+        return value[0];
+    }
+
+    int bugFix() {
+        return value[0];
+    }
+
+    int opCmp(ref const typeof(this) rhs) const {
+        foreach (i; 0 .. value.length) {
+            if (value[i] < rhs.value[i])
+                return -1;
+            if (value[i] > rhs.value[i])
+                return 1;
+        }
+        return 0;
+    }
+
+    bool opEquals()(auto ref const SemVer s) const {
+        return value == s.value;
+    }
+
+    static SemVer make(string s) {
+        import std.conv : to;
+        import std.regex : regex, matchFirst;
+
+        SemVer rval;
+
+        const re = regex(`^(?:(\d+)\.)?(?:(\d+)\.)?(\d+)$`);
+        auto m = matchFirst(s, re);
+        if (m.empty)
+            return rval;
+
+        try {
+            foreach (a; m.dropOne.filter!(a => !a.empty).enumerate) {
+                rval.value[a.index] = a.value.to!int;
+            }
+        } catch (Exception e) {
+        }
+
+        return rval;
+    }
+}
+
+unittest {
+    assert(SemVer.make("1.2.3") == [1, 2, 3]);
+    assert(SemVer.make("1.2") == [1, 2, 0]);
+    assert(SemVer.make("1") == [1, 0, 0]);
+    assert(SemVer.make("1.2.3.4") == [1, 2, 3]);
 }
