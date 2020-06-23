@@ -77,7 +77,7 @@ message(STATUS "clang-config LDFLAGS: ${clang_config_LDFLAGS}")
 
 function(try_clang_from_user_config)
     if (LIBCLANG_LDFLAGS)
-        set(LIBCLANG_CONFIG_DONE YES CACHE bool "CLANG Configuration status" FORCE)
+        set(LIBCLANG_CONFIG_DONE YES CACHE BOOL "CLANG Configuration status" FORCE)
         message("Detected user configuration of CLANG")
     endif()
 endfunction()
@@ -87,14 +87,14 @@ function(try_find_libclang)
         return()
     endif()
 
-    set(LIBCLANG_LDFLAGS "${clang_config_LDFLAGS}" CACHE string "Linker flags for libclang")
+    set(LIBCLANG_LDFLAGS "${clang_config_LDFLAGS}" CACHE STRING "Linker flags for libclang")
 
-    set(LIBCLANG_CONFIG_DONE YES CACHE bool "CLANG Configuration status" FORCE)
+    set(LIBCLANG_CONFIG_DONE YES CACHE BOOL "CLANG Configuration status" FORCE)
 endfunction()
 
 # === RUNNING ===
 
-set(LIBCLANG_CONFIG_DONE NO CACHE bool "CLANG Configuration status")
+set(LIBCLANG_CONFIG_DONE NO CACHE BOOL "CLANG Configuration status")
 try_clang_from_user_config()
 if (NOT LIBCLANG_CONFIG_DONE)
     try_find_libclang()
@@ -107,27 +107,27 @@ function(try_llvm_config_find)
         return()
     endif()
 
-    set(LIBLLVM_VERSION "${llvm_config_VERSION}" CACHE "libLLVM version" string)
+    set(LIBLLVM_VERSION "${llvm_config_VERSION}" CACHE STRING "libLLVM version")
 
-    set(LIBLLVM_LIBS "${llvm_config_LIBS}" CACHE string "Linker libraries for libLLVM")
+    set(LIBLLVM_LIBS "${llvm_config_LIBS}" CACHE STRING "Linker libraries for libLLVM")
 
-    set(LIBLLVM_LDFLAGS "${llvm_config_LDFLAGS}" CACHE string "Linker flags for libLLVM")
+    set(LIBLLVM_LDFLAGS "${llvm_config_LDFLAGS}" CACHE STRING "Linker flags for libLLVM")
 
-    set(LIBLLVM_CXX_FLAGS "${llvm_config_CPPFLAGS} ${LIBLLVM_CXX_EXTRA_FLAGS}" CACHE string "Compiler flags for C++ using LLVM")
+    set(LIBLLVM_CXX_FLAGS "${llvm_config_CPPFLAGS} ${LIBLLVM_CXX_EXTRA_FLAGS}" CACHE STRING "Compiler flags for C++ using LLVM")
 
-    set(LIBLLVM_CONFIG_DONE YES CACHE bool "LLVM Configuration status" FORCE)
+    set(LIBLLVM_CONFIG_DONE YES CACHE BOOL "LLVM Configuration status" FORCE)
 endfunction()
 
 function(try_llvm_from_user_config)
     if (LIBLLVM_LDFLAGS AND LIBLLVM_FLAGS AND LIBLLVM_CXX_FLAGS)
-        set(LIBLLVM_CONFIG_DONE YES CACHE bool "LLVM Configuration status" FORCE)
+        set(LIBLLVM_CONFIG_DONE YES CACHE BOOL "LLVM Configuration status" FORCE)
         message("Detected user configuration of LLVM")
     endif()
 endfunction()
 
 # === RUNNING ===
 
-set(LIBLLVM_CONFIG_DONE NO CACHE bool "LLVM Configuration status")
+set(LIBLLVM_CONFIG_DONE NO CACHE BOOL "LLVM Configuration status")
 try_llvm_from_user_config()
 if (NOT LIBLLVM_CONFIG_DONE)
     try_llvm_config_find()
@@ -136,7 +136,7 @@ endif()
 # Fixup
 # Simplify to only support x86
 set(LIBLLVM_TARGET "LLVM_Target_X86")
-set(LIBLLVM_FLAGS "-version=${LIBLLVM_VERSION} -version=${LIBLLVM_TARGET}" CACHE string "D version flags for libLLVM")
+set(LIBLLVM_FLAGS "-version=${LIBLLVM_VERSION} -version=${LIBLLVM_TARGET}" CACHE STRING "D version flags for libLLVM")
 
 message(STATUS "libclang config status : ${LIBCLANG_CONFIG_DONE}")
 message(STATUS "libclang linker flags: ${LIBCLANG_LDFLAGS}")

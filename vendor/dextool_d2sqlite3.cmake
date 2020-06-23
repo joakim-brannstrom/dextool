@@ -5,7 +5,7 @@ find_library(found_sqlite3_path NAMES sqlite3)
 get_filename_component(sqlite_lib_name ${found_sqlite3_path} NAME)
 get_filename_component(sqlite_lib_dir ${found_sqlite3_path} DIRECTORY)
 
-set(SQLITE3_LIB "-L${sqlite_lib_dir} -l:${sqlite_lib_name}" CACHE string "Flags to link with a sqlite3 library (example: -L/usr/lib -lsqlite3)")
+set(SQLITE3_LIB "-L${sqlite_lib_dir} -l:${sqlite_lib_name}" CACHE STRING "Flags to link with a sqlite3 library (example: -L/usr/lib -lsqlite3)")
 message(STATUS "sqlite3 found: ${SQLITE3_LIB}")
 
 set(flags "-I${CMAKE_CURRENT_LIST_DIR}/d2sqlite3/source -version=SqliteEnableColumnMetadata -version=SqliteEnableUnlockNotify")
