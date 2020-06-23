@@ -451,7 +451,11 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             use_cflags = db_search_result.get.cflags;
             abs_in_file = db_search_result.get.absoluteFile;
         } else {
-            use_cflags = user_cflags.dup;
+            import std.array : array;
+            import dextool.compilation_db : deduceSystemIncludes, Compiler;
+
+            use_cflags = user_cflags.dup ~ deduceSystemIncludes(user_cflags,
+                    Compiler("/usr/bin/c++")).map!(a => "-I" ~ a).array;
             abs_in_file = AbsolutePath(Path(input_file));
         }
 

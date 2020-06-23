@@ -30,27 +30,28 @@ struct RawConfiguration {
 
     Nullable!XmlConfig xmlConfig;
 
+    Config_YesNo gtestPODPrettyPrint = Config_YesNo.yes;
+    Path[] inFiles;
+    bool doFreeFuncs;
+    bool genPostInclude;
+    bool generatePreInclude;
+    bool gmock;
+    bool help;
+    bool shortPluginHelp;
+    string config;
+    string header;
+    string headerFile;
+    string mainFileName = "test_double";
+    string mainName = "TestDouble";
+    string out_;
+    string prefix = "Test_";
+    string stripInclude;
+    string systemCompiler = "/usr/bin/c++";
+    string[] cflags;
+    string[] compileDb;
     string[] fileExclude;
     string[] fileRestrict;
     string[] testDoubleInclude;
-    Path[] inFiles;
-    string[] cflags;
-    string[] compileDb;
-    string header;
-    string headerFile;
-    string mainName = "TestDouble";
-    string mainFileName = "test_double";
-    string prefix = "Test_";
-    string stripInclude;
-    string out_;
-    string config;
-    bool doFreeFuncs;
-    bool shortPluginHelp;
-    bool help;
-    bool gmock;
-    Config_YesNo gtestPODPrettyPrint = Config_YesNo.yes;
-    bool generatePreInclude;
-    bool genPostInclude;
 
     string[] originalFlags;
 
@@ -87,6 +88,7 @@ struct RawConfiguration {
                    "prefix", "Prefix used when generating test artifacts [default: Test_]", &prefix,
                    "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
                    "strip-incl", "A regex used to strip the include paths", &stripInclude,
+                   "system-compiler", "Derive the system include paths from this compiler [default /usr/bin/c++]", &systemCompiler,
                    "td-include", "User supplied includes used instead of those found", &testDoubleInclude,
                    );
             // dfmt on

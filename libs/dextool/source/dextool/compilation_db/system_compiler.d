@@ -24,6 +24,9 @@ This module exists for those times that:
 module dextool.compilation_db.system_compiler;
 
 import logger = std.experimental.logger;
+import std.algorithm : countUntil, map;
+import std.array : empty, array;
+import std.string : startsWith, stripLeft, splitLines;
 
 import dextool.compilation_db : CompileCommand;
 
@@ -48,9 +51,14 @@ struct SystemIncludePath {
  * Note that how the compilers are inspected is hard coded.
  */
 SystemIncludePath[] deduceSystemIncludes(ref CompileCommand cmd, const Compiler compiler) {
+    return deduceSystemIncludes(cmd.command, compiler);
+}
+
+/// ditto
+SystemIncludePath[] deduceSystemIncludes(const string[] cmd, const Compiler compiler) {
     import std.process : execute;
 
-    if (cmd.command.length == 0 || compiler.length == 0)
+    if (cmd.empty || compiler.empty)
         return null;
 
     if (auto v = compiler in cacheSysIncludes) {
@@ -74,41 +82,32 @@ SystemIncludePath[] deduceSystemIncludes(ref CompileCommand cmd, const Compiler 
 
 private:
 
-string[] systemCompilerArg(ref CompileCommand cmd, const Compiler compiler) {
+string[] systemCompilerArg(const string[] cmd, const Compiler compiler) {
     string[] args = ["-v", "/dev/null", "-fsyntax-only"];
-    if (auto v = language(compiler, cmd.command)) {
+    if (auto v = language(compiler, cmd)) {
         args = [v] ~ args;
     }
-    if (auto v = sysroot(cmd.command)) {
+    if (auto v = sysroot(cmd)) {
         args ~= v;
     }
     return [compiler.value] ~ args;
 }
 
-SystemIncludePath[] parseCompilerOutput(T)(T output) {
-    import std.algorithm : countUntil, map;
-    import std.array : array;
-    import std.string : stripLeft, splitLines;
-
+SystemIncludePath[] parseCompilerOutput(const string output) {
     auto lines = output.splitLines;
     const start = lines.countUntil("#include <...> search starts here:") + 1;
     const end = lines.countUntil("End of search list.");
-    if (start == 0 || end == 0)
+    if (start == 0 || end == 0 || start > end)
         return null;
 
-    auto incls = lines[start .. end].map!(a => SystemIncludePath(a.stripLeft)).array;
-
-    return incls;
+    return lines[start .. end].map!(a => SystemIncludePath(a.stripLeft)).array;
 }
 
 SystemIncludePath[][Compiler] cacheSysIncludes;
 
 // assumes that compilers adher to the gcc and llvm commands use of --sysroot / -isysroot.
 // depends on the fact that CompileCommand.Command always splits e.g. a --isysroot=foo to ["--sysroot", "foo"].
-string[] sysroot(ref CompileCommand.Command cmd) {
-    import std.algorithm : countUntil;
-    import std.string : startsWith;
-
+const(string[]) sysroot(const string[] cmd) {
     auto index = cmd.countUntil!(a => a.startsWith("--sysroot")) + 1;
     if (index > 0 && (index + 1) < cmd.length)
         return cmd[index .. index + 1];
@@ -121,14 +120,12 @@ string[] sysroot(ref CompileCommand.Command cmd) {
 }
 
 // assumes that compilers adher to the gcc and llvm commands of using -xLANG
-string language(Compiler compiler, ref CompileCommand.Command cmd) {
-    import std.algorithm : countUntil;
+string language(Compiler compiler, const string[] cmd) {
     import std.path : baseName;
-    import std.string : startsWith;
     import std.typecons : No;
 
     auto index = cmd.countUntil!(a => a.startsWith("-x")) + 1;
-    if (index > 0)
+    if (index > 0 && index < cmd.length)
         return cmd[index];
 
     switch (compiler.baseName) {

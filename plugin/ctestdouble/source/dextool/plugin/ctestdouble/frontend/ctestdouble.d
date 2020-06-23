@@ -422,7 +422,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         import dextool.compilation_db : defaultCompilerFlagFilter;
 
         if (conf.isNull) {
-            compiler_flag_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
+            compiler_flag_filter = CompileCommandFilter(defaultCompilerFlagFilter, 0);
             return this;
         }
 

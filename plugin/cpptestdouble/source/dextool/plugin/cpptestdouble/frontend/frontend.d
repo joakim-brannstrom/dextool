@@ -64,6 +64,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         Flag!"PreInclude" pre_incl;
         Flag!"PostInclude" post_incl;
 
+        string system_compiler;
+
         Nullable!XmlConfig xmlConfig;
         CompileCommandFilter compiler_flag_filter;
 
@@ -90,7 +92,8 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
             .argFileExclude(args.fileExclude)
             .argFileRestrict(args.fileRestrict)
             .argCustomHeader(args.header, args.headerFile)
-            .argXmlConfig(args.xmlConfig);
+            .argXmlConfig(args.xmlConfig)
+            .systemCompiler(args.systemCompiler);
         // dfmt on
 
         return variant;
@@ -192,7 +195,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         import dextool.compilation_db : defaultCompilerFlagFilter;
 
         if (conf.isNull) {
-            compiler_flag_filter = CompileCommandFilter(defaultCompilerFlagFilter, 1);
+            compiler_flag_filter = CompileCommandFilter(defaultCompilerFlagFilter, 0);
             return this;
         }
 
@@ -200,6 +203,11 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         compiler_flag_filter = CompileCommandFilter(conf.get.filterClangFlags,
                 conf.get.skipCompilerArgs);
 
+        return this;
+    }
+
+    auto systemCompiler(string a) {
+        this.system_compiler = a;
         return this;
     }
 
@@ -314,6 +322,18 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return custom_hdr;
     }
 
+    /**
+     * Params:
+     *  args = arguments to the compiler by the user
+     */
+    auto getSystemIncludes(const string[] args) {
+        import std.algorithm : map;
+        import std.array : array;
+        import dextool.compilation_db : deduceSystemIncludes, Compiler;
+
+        return deduceSystemIncludes(args, Compiler(system_compiler));
+    }
+
     // -- Products --
 
     void putFile(AbsolutePath fname, CppHModule hdr_data) {
@@ -393,6 +413,7 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, FrontendTransform transform,
             pdata = tmp.get;
         } else {
             pdata.flags.prependCflags(user_cflags.dup);
+            pdata.flags.systemIncludes = variant.getSystemIncludes(user_cflags);
             pdata.absoluteFile = AbsolutePath(Path(in_file));
         }
 
