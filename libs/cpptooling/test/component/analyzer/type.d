@@ -312,39 +312,6 @@ final class ClassVisitor : Visitor {
     }
 }
 
-version (linux) {
-    @("Should be a type of kind 'func'")
-    unittest {
-        enum code = `
-        #include <clocale>
-
-        namespace dextool__gnu_cxx {
-        extern "C" __typeof(uselocale) __uselocale;
-        }
-        `;
-
-        // arrange
-        auto visitor = new AllFuncVisitor;
-
-        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-        ctx.vfs.open(new Blob(Uri("issue.hpp"), code));
-        auto tu = ctx.makeTranslationUnit("issue.hpp");
-
-        // act
-        auto ast = ClangAST!(typeof(visitor))(tu.cursor);
-        ast.accept(visitor);
-
-        // assert
-        checkForCompilerErrors(tu).shouldBeFalse;
-        visitor.funcs.length.shouldBeGreaterThan(0);
-        visitor.funcs[0].type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
-        visitor.funcs
-            .map!(a => a.name)
-            .filter!(a => a == "__uselocale")
-            .take(1).shouldEqual(["__uselocale"]);
-    }
-}
-
 @("Should be parameters and return type that are of primitive type")
 // dfmt off
 @Values("int",
@@ -723,8 +690,8 @@ const some_array& some_func();
 @("shall be a TypeRef with a canonical ref referencing the type at the end of the typedef chain")
 unittest {
     immutable code = "
-#include <string>
-typedef std::string myString1;
+typedef char* string;
+typedef string myString1;
 typedef myString1 myString2;
 typedef myString2 myString3;
 
@@ -734,7 +701,7 @@ void my_func(myString3 s);
     // arrange
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
-    auto tu = ctx.makeTranslationUnit("/issue.hpp");
+    auto tu = ctx.makeTranslationUnit("/issue.hpp", ["-std=c++11"]);
     auto visitor = new TestVisitor;
 
     // act
