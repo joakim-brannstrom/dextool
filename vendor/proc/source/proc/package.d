@@ -703,16 +703,16 @@ struct DrainElement {
  * There may be `DrainElement` that are empty.
  */
 struct DrainRange(ProcessT) {
-    enum State {
-        start,
-        draining,
-        lastStdout,
-        lastStderr,
-        lastElement,
-        empty,
-    }
-
     private {
+        enum State {
+            start,
+            draining,
+            lastStdout,
+            lastStderr,
+            lastElement,
+            empty,
+        }
+
         Duration timeout;
         ProcessT p;
         DrainElement front_;
@@ -831,8 +831,17 @@ auto drain(T)(T p, Duration timeout) {
 /// Read the data from a ReadChannel by line.
 struct DrainByLineCopyRange(ProcessT) {
     private {
+        enum State {
+            start,
+            draining,
+            lastLine,
+            lastBuf,
+            empty,
+        }
+
         ProcessT process;
         DrainRange!ProcessT range;
+        State st;
         const(ubyte)[] buf;
         const(char)[] line;
     }
@@ -855,52 +864,91 @@ struct DrainByLineCopyRange(ProcessT) {
         import std.array : array;
         static import std.utf;
 
-        void fillBuf() {
-            if (!range.empty) {
-                range.popFront;
+        const(ubyte)[] updateBuf(size_t idx) {
+            const(ubyte)[] tmp;
+            if (buf.empty) {
+                // do nothing
+            } else if (idx == -1) {
+                tmp = buf;
+                buf = null;
+            } else {
+                idx = () {
+                    if (idx < buf.length) {
+                        return idx + 1;
+                    }
+                    return idx;
+                }();
+                tmp = buf[0 .. idx];
+                buf = buf[idx .. $];
             }
-            if (!range.empty) {
-                buf ~= range.front.data;
+
+            if (!tmp.empty && tmp[$ - 1] == '\n') {
+                tmp = tmp[0 .. $ - 1];
             }
+            return tmp;
         }
 
-        size_t idx;
-        () {
-            int cnt;
-            do {
-                fillBuf();
-                idx = buf.countUntil('\n');
-                // 10 is a magic number which mean that it at most wait 10x timeout for data
-            }
-            while (!range.empty && idx == -1 && cnt++ < 10);
-        }();
-
-        const(ubyte)[] tmp;
-        if (buf.empty) {
-            // do nothing
-        } else if (idx == -1) {
-            tmp = buf;
-            buf = null;
-        } else {
-            idx = () {
-                if (idx < buf.length) {
-                    return idx + 1;
+        void drainLine() {
+            void fillBuf() {
+                if (!range.empty) {
+                    range.popFront;
                 }
-                return idx;
+                if (!range.empty) {
+                    buf ~= range.front.data;
+                }
+            }
+
+            size_t idx;
+            () {
+                int cnt;
+                do {
+                    fillBuf();
+                    idx = buf.countUntil('\n');
+                    // 10 is a magic number which mean that it at most wait 10x timeout for data
+                }
+                while (!range.empty && idx == -1 && cnt++ < 10);
             }();
-            tmp = buf[0 .. idx];
-            buf = buf[idx .. $];
+
+            auto tmp = updateBuf(idx);
+            line = std.utf.byUTF!(const(char))(cast(const(char)[]) tmp).array;
         }
 
-        if (!tmp.empty && tmp[$ - 1] == '\n') {
-            tmp = tmp[0 .. $ - 1];
+        bool lastLine() {
+            size_t idx = buf.countUntil('\n');
+            if (idx == -1)
+                return true;
+
+            auto tmp = updateBuf(idx);
+            line = std.utf.byUTF!(const(char))(cast(const(char)[]) tmp).array;
+            return false;
         }
 
-        line = std.utf.byUTF!(const(char))(cast(const(char)[]) tmp).array;
+        line = null;
+        final switch (st) {
+        case State.start:
+            drainLine;
+            st = State.draining;
+            break;
+        case State.draining:
+            drainLine;
+            if (range.empty)
+                st = State.lastLine;
+            break;
+        case State.lastLine:
+            if (lastLine)
+                st = State.lastBuf;
+            break;
+        case State.lastBuf:
+            line = std.utf.byUTF!(const(char))(cast(const(char)[]) buf).array;
+            st = State.empty;
+            break;
+        case State.empty:
+            break;
+        }
     }
 
     bool empty() @safe pure nothrow const @nogc {
-        return range.empty && buf.empty && line.empty;
+        return st == State.empty;
     }
 }
 
