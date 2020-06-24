@@ -140,6 +140,8 @@ enum AdminOperation {
     resetTestCase,
     /// compact the database to reduce the disc space it takes up
     compact,
+    /// force a mutation testing to stop testing timeout mutants
+    stopTimeoutTest
 }
 
 /// Builtin analyzers for testing frameworks that find failing test cases
