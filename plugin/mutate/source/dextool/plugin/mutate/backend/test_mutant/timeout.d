@@ -278,8 +278,9 @@ struct TimeoutFsm {
     }
 }
 
-// If the mutants has been tested 3 times it should be good enough. Sometimes
+// If the mutants has been tested 2 times it should be good enough. Sometimes
 // there are so many timeout that it would feel like the tool just end up in an
 // infinite loop. Maybe this should be moved so it is user configurable in the
 // future.
-immutable MaxTimeoutIterations = 3;
+// The user also have the admin operation stopTimeoutTest to use.
+immutable MaxTimeoutIterations = 2;
