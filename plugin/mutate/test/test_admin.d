@@ -284,3 +284,12 @@ unittest {
         "| 3  |", `fibonacci.cpp | 8    | 8      | killedByCompiler | "Lost"    |`,
     ]).shouldBeIn(r.output);
 }
+
+@("shall successfully execute the admin operation stopTimeoutTest")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    makeDextoolAdmin(testEnv)
+        .addArg(["--operation", "stopTimeoutTest"])
+        .run;
+}

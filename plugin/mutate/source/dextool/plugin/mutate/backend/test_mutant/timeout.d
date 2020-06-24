@@ -278,8 +278,6 @@ struct TimeoutFsm {
     }
 }
 
-private:
-
 // If the mutants has been tested 3 times it should be good enough. Sometimes
 // there are so many timeout that it would feel like the tool just end up in an
 // infinite loop. Maybe this should be moved so it is user configurable in the

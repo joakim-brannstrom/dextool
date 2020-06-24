@@ -115,6 +115,8 @@ nothrow:
             return removeMarkedMutant(db, data.mutant_id);
         case AdminOperation.compact:
             return compact(db);
+        case AdminOperation.stopTimeoutTest:
+            return stopTimeoutTest(db);
         }
     }
 }
@@ -258,6 +260,29 @@ ExitStatusType compact(ref Database db) @trusted nothrow {
     try {
         logger.info("Running a SQL vacuum on the database");
         db.run("VACUUM");
+        return ExitStatusType.Ok;
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+    }
+    return ExitStatusType.Errors;
+}
+
+ExitStatusType stopTimeoutTest(ref Database db) @trusted nothrow {
+    import dextool.plugin.mutate.backend.database : Database, MutantTimeoutCtx;
+    import dextool.plugin.mutate.backend.test_mutant.timeout : MaxTimeoutIterations;
+
+    try {
+        logger.info("Forcing the testing of timeout mutants to stop");
+        auto t = db.transaction;
+
+        db.clearMutantTimeoutWorklist;
+
+        MutantTimeoutCtx ctx;
+        ctx.iter = MaxTimeoutIterations;
+        ctx.state = MutantTimeoutCtx.State.done;
+        db.putMutantTimeoutCtx(ctx);
+
+        t.commit;
         return ExitStatusType.Ok;
     } catch (Exception e) {
         logger.error(e.msg).collectException;
