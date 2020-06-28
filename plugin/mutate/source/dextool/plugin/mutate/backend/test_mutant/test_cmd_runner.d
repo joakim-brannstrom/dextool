@@ -273,9 +273,10 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signa
     try {
         auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).scopeKill;
         auto output = appender!(DrainElement[])();
-        foreach (a; p.process.drain(20.dur!"msecs")) {
-            if (!a.empty)
+        foreach (a; p.process.drain()) {
+            if (!a.empty) {
                 output.put(a);
+            }
             if (earlyStop.isActive) {
                 debug logger.tracef("Early stop detected. Stopping %s (%s)", cmd, Clock.currTime);
                 p.kill;

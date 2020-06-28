@@ -21,8 +21,8 @@ struct Pipe {
         this.output = FileWriteChannel(output);
     }
 
-    bool hasData() @safe {
-        return input.hasData;
+    bool isOpen() @safe {
+        return input.isOpen;
     }
 
     /// If there is data to read.
@@ -56,20 +56,24 @@ struct Pipe {
 struct FileReadChannel {
     private {
         File in_;
-        bool eof;
+        enum State {
+            active,
+            hup,
+            eof
+        }
+
+        State st;
     }
 
     this(File in_) @trusted {
         this.in_ = in_;
     }
 
-    // TODO: rename to isOpen.
     /// If the channel is open.
-    bool hasData() @safe {
-        return !eof;
+    bool isOpen() @safe {
+        return st != State.eof;
     }
 
-    // TODO: rename to hasData.
     /** If there is data to read, non blocking.
      *
      * If this is called before read then it is guaranteed that read will not
@@ -77,6 +81,13 @@ struct FileReadChannel {
      */
     bool hasPendingData() @safe {
         import core.sys.posix.poll;
+
+        if (st == State.eof) {
+            return false;
+        } else if (st == State.hup) {
+            // will never block and transition to eof when out of data.
+            return true;
+        }
 
         pollfd[1] fds;
         fds[0].fd = in_.fileno;
@@ -89,15 +100,33 @@ struct FileReadChannel {
         }
 
         if (ready < 0) {
-            eof = true;
+            import core.stdc.errno : errno, EINTR;
+
+            if (errno == EINTR) {
+                // poll just interrupted. try again.
+                return false;
+            }
+
+            // an errnor occured.
+            st = State.eof;
             return false;
         }
 
-        if (fds[0].revents & (POLLNVAL | POLLERR)) {
-            eof = true;
+        if (fds[0].revents & POLLHUP) {
+            // POLLHUP mean that the other side has been closed. A read will
+            // always succeed. If the read returns zero length then it means
+            // that the pipe is out of data. Thus the worst thing that happens
+            // is that we get nothing, an empty slice.
+            st = State.hup;
+            return true;
         }
 
-        return (fds[0].revents & (POLLIN | POLLPRI | POLLHUP)) != 0;
+        if (fds[0].revents & (POLLNVAL | POLLERR)) {
+            st = State.eof;
+            return false;
+        }
+
+        return (fds[0].revents & POLLIN) != 0;
     }
 
     /** Read at most `s` bytes from the channel.
@@ -120,13 +149,13 @@ struct FileReadChannel {
     ubyte[] read(ref ubyte[] buf) return scope @trusted {
         static import core.sys.posix.unistd;
 
-        if (eof || buf.length == 0 || !hasPendingData) {
+        if (st == State.eof || buf.length == 0) {
             return null;
         }
 
-        auto res = core.sys.posix.unistd.read(in_.fileno, &buf[0], buf.length);
+        const res = core.sys.posix.unistd.read(in_.fileno, &buf[0], buf.length);
         if (res <= 0) {
-            eof = true;
+            st = State.eof;
             return null;
         }
 
