@@ -322,7 +322,7 @@ bool externalProgram(ShellCommand cmd, DrainElement[] output,
         cleanup.add(tmpdir.Path.AbsolutePath);
         cmd = writeOutput(cmd);
         auto p = pipeProcess(cmd.value).sandbox.scopeKill;
-        foreach (l; p.process.drainByLineCopy(200.dur!"msecs").map!(a => a.strip)
+        foreach (l; p.process.drainByLineCopy().map!(a => a.strip)
                 .filter!(a => !a.empty)) {
             if (l.startsWith(passed))
                 report.reportFound(TestCase(l[passed.length .. $].strip.idup));
@@ -409,7 +409,7 @@ CompileResult compile(ShellCommand cmd, bool printToStdout = false) nothrow {
 
     try {
         auto p = pipeProcess(cmd.value).sandbox.scopeKill;
-        foreach (a; p.process.drain(200.dur!"msecs")) {
+        foreach (a; p.process.drain()) {
             if (!a.empty && printToStdout) {
                 write(a.byUTF8);
             }

@@ -92,7 +92,7 @@ string[] compilerFlags() {
     auto default_flags = ["-std=c++98"];
 
     auto p = pipeProcess(["g++", "-dumpversion"]).scopeKill;
-    auto output = p.process.drainByLineCopy(1.dur!"hours").array;
+    auto output = p.process.drainByLineCopy().array;
     if (p.wait != 0) {
         throw new Exception("Failed inspecting the compiler version with g++ -dumpversion");
     }
