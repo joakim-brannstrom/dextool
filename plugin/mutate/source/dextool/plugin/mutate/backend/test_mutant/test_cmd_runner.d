@@ -273,7 +273,7 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signa
     try {
         auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).scopeKill;
         auto output = appender!(DrainElement[])();
-        foreach (a; p.process.drain()) {
+        foreach (a; p.process.drain) {
             if (!a.empty) {
                 output.put(a);
             }

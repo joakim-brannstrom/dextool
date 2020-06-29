@@ -884,7 +884,8 @@ nothrow:
                 auto global = MutationTestDriver.Global(d.filesysIO, d.db, mutp, runner);
                 return Unique!MutationTestDriver(new MutationTestDriver(global,
                         MutationTestDriver.TestMutantData(!(d.conf.mutationTestCaseAnalyze.empty
-                        && d.conf.mutationTestCaseBuiltin.empty), d.conf.mutationCompile,),
+                        && d.conf.mutationTestCaseBuiltin.empty),
+                        d.conf.mutationCompile, d.conf.buildCmdTimeout),
                         MutationTestDriver.TestCaseAnalyzeData(&testCaseAnalyzer)));
             } catch (Exception e) {
                 logger.error(e.msg).collectException;
@@ -1197,7 +1198,8 @@ nothrow:
         }
 
         bool successCompile;
-        compile(global.data.conf.mutationCompile, global.data.conf.logSchemata).match!(
+        compile(global.data.conf.mutationCompile,
+                global.data.conf.buildCmdTimeout, global.data.conf.logSchemata).match!(
                 (Mutation.Status a) {}, (bool success) {
             successCompile = success;
         },);

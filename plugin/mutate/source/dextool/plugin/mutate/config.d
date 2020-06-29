@@ -130,7 +130,14 @@ struct ConfigMutationTest {
     ShellCommand mutationCompile;
     ShellCommand[] mutationTestCaseAnalyze;
     TestCaseAnalyzeBuiltin[] mutationTestCaseBuiltin;
+
+    /// If the user hard code a timeout for the test suite.
     Nullable!Duration mutationTesterRuntime;
+
+    /// Timeout to use when compiling.
+    Duration buildCmdTimeout = 30.dur!"minutes";
+
+    /// In what order to choose mutants to test.
     MutationOrder mutationOrder;
     bool dryRun;
 
