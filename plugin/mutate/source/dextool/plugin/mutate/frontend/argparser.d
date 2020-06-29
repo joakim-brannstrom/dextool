@@ -150,11 +150,13 @@ struct ArgParser {
         app.put(`test_cmd_dir = ["./build/test"]`);
         app.put(`# flags to add to all executables found in test_cmd_dir`);
         app.put(`# test_cmd_dir_flag = ["--gtest_filter", "-*foo"]`);
-        app.put("# timeout to use for the test suite (msecs)");
-        app.put("# test_cmd_timeout = 1000");
+        app.put("# timeout to use for the test suite");
+        app.put(`# test_cmd_timeout = "1 hours 1 minutes 1 seconds 1 msecs"`);
         app.put("# (required) program used to build the application");
         app.put(`# the arguments for build_cmd can be an array: ["./build.sh", "-x"]`);
         app.put(`build_cmd = "./build.sh"`);
+        app.put("# timeout to use when compiling the SUT and test suite (default: 30 minutes)");
+        app.put(`# build_cmd_timeout = "1 hours 1 minutes 1 seconds 1 msecs"`);
         app.put(
                 "# program used to analyze the output from the test suite for test cases that killed the mutant");
         app.put(`# analyze_cmd = "analyze.sh"`);
@@ -663,11 +665,14 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         c.mutationTest.testCommandDirFlag = v.array.map!(a => a.str).array;
     };
     callbacks["mutant_test.test_cmd_timeout"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationTesterRuntime = v.integer.dur!"msecs";
+        c.mutationTest.mutationTesterRuntime = v.str.parseDuration;
     };
     callbacks["mutant_test.build_cmd"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationCompile = toShellCommand(v,
                 "config: failed to parse mutant_test.build_cmd");
+    };
+    callbacks["mutant_test.build_cmd_timeout"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.buildCmdTimeout = v.str.parseDuration;
     };
     callbacks["mutant_test.analyze_cmd"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTestCaseAnalyze = toShellCommands(v,
@@ -902,6 +907,19 @@ mutants_per_schema = 200
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.analyze.mutantsPerSchema.shouldEqual(200);
+}
+
+@("shall parse the build command timeout")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[mutant_test]
+build_cmd_timeout = "1 hours"
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.mutationTest.buildCmdTimeout.shouldEqual(1.dur!"hours");
 }
 
 /// Minimal config to setup path to config file.

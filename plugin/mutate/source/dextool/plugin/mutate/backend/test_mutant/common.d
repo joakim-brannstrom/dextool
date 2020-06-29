@@ -403,13 +403,13 @@ class AutoCleanup {
 
 alias CompileResult = SumType!(Mutation.Status, bool);
 
-CompileResult compile(ShellCommand cmd, bool printToStdout = false) nothrow {
+CompileResult compile(ShellCommand cmd, Duration timeout, bool printToStdout = false) @trusted nothrow {
     import proc;
     import std.stdio : write;
 
     try {
-        auto p = pipeProcess(cmd.value).sandbox.scopeKill;
-        foreach (a; p.process.drain()) {
+        auto p = pipeProcess(cmd.value).sandbox.timeout(timeout).scopeKill;
+        foreach (a; p.process.drain) {
             if (!a.empty && printToStdout) {
                 write(a.byUTF8);
             }

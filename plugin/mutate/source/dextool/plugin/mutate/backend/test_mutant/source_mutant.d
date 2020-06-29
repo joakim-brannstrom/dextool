@@ -11,6 +11,7 @@ Test a mutant by modifying the source code.
 */
 module dextool.plugin.mutate.backend.test_mutant.source_mutant;
 
+import core.time : Duration;
 import logger = std.experimental.logger;
 import std.array : empty;
 import std.exception : collectException;
@@ -109,7 +110,8 @@ struct MutationTestDriver {
     static struct TestMutantData {
         /// If the user has configured that the test cases should be analyzed.
         bool hasTestCaseOutputAnalyzer;
-        ShellCommand compile_cmd;
+        ShellCommand buildCmd;
+        Duration buildCmdTimeout;
     }
 
     static struct TestMutant {
@@ -303,9 +305,10 @@ nothrow:
         global.mut_status = Mutation.Status.unknown;
 
         bool successCompile;
-        compile(local.get!TestMutant.compile_cmd).match!((Mutation.Status a) {
-            global.mut_status = a;
-        }, (bool success) { successCompile = success; },);
+        compile(local.get!TestMutant.buildCmd, local.get!TestMutant.buildCmdTimeout).match!(
+                (Mutation.Status a) { global.mut_status = a; }, (bool success) {
+            successCompile = success;
+        },);
 
         if (!successCompile)
             return;
