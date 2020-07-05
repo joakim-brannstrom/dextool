@@ -275,6 +275,7 @@ ExitStatusType stopTimeoutTest(ref Database db) @trusted nothrow {
         logger.info("Forcing the testing of timeout mutants to stop");
         auto t = db.transaction;
 
+        db.resetMutantTimeoutWorklist(Mutation.Status.timeout);
         db.clearMutantTimeoutWorklist;
 
         MutantTimeoutCtx ctx;

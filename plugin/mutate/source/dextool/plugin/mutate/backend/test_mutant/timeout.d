@@ -238,7 +238,7 @@ struct TimeoutFsm {
     }
 
     void opCall(ResetWorkList) {
-        global.db.resetMutantTimeoutWorklist;
+        global.db.resetMutantTimeoutWorklist(Mutation.Status.unknown);
     }
 
     void opCall(UpdateCtx) {

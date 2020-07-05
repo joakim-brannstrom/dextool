@@ -1547,11 +1547,11 @@ struct Database {
     }
 
     /// Changes the status of mutants in the timeout worklist to unknown.
-    void resetMutantTimeoutWorklist() @trusted {
+    void resetMutantTimeoutWorklist(Mutation.Status toStatus) @trusted {
         immutable sql = format!"UPDATE %1$s SET status=:st WHERE id IN (SELECT id FROM %2$s)"(
                 mutationStatusTable, mutantTimeoutWorklistTable);
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":st", cast(ubyte) Mutation.Status.unknown);
+        stmt.get.bind(":st", cast(ubyte) toStatus);
         stmt.get.execute;
     }
 
