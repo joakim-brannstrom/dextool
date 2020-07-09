@@ -465,6 +465,7 @@ struct Analyze {
     void analyzeForMutants(SearchResult in_file,
             Exists!AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
         import dextool.plugin.mutate.backend.analyze.pass_clang;
+        import dextool.plugin.mutate.backend.analyze.pass_filter;
         import dextool.plugin.mutate.backend.analyze.pass_mutant;
         import dextool.plugin.mutate.backend.analyze.pass_schemata;
         import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
@@ -480,8 +481,12 @@ struct Analyze {
         auto ast = toMutateAst(tu.cursor, fio);
         debug logger.trace(ast);
         auto mutants = toMutants(ast, fio, val_loc);
-
         debug logger.trace(mutants);
+
+        debug logger.trace("filter mutants");
+        mutants = filterMutants(fio, mutants);
+        debug logger.trace(mutants);
+
         auto codeMutants = toCodeMutants(mutants, fio, tstream);
         debug logger.trace(codeMutants);
         () @trusted { .destroy(mutants); }();

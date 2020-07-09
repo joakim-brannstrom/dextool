@@ -18,13 +18,13 @@ import std.path : buildPath;
 import std.typecons : Nullable;
 import std.utf : validate;
 
+import blob_model : Blob, Edit, change, Interval, Uri, merge;
+
 import dextool.type : AbsolutePath, ExitStatusType, Path;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry, MutationId, spinSql;
 import dextool.plugin.mutate.backend.type : Language;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput, ValidateLoc;
 import dextool.plugin.mutate.type : MutationKind;
-
-import blob_model : Blob, Edit, change, Interval, Uri, merge;
 
 enum GenerateMutantStatus {
     error,

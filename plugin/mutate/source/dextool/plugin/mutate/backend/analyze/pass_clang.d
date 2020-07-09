@@ -562,15 +562,6 @@ final class BaseVisitor : ExtendedVisitor {
         visitFunc(v);
     }
 
-    override void visit(const(CallExpr) v) {
-        mixin(mixinNodeLog!());
-
-        if (!visitOp(v)) {
-            pushStack(new analyze.Call, v);
-            v.accept(this);
-        }
-    }
-
     override void visit(const(BreakStmt) v) {
         mixin(mixinNodeLog!());
         v.accept(this);
@@ -593,12 +584,26 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const(CallExpr) v) {
+        mixin(mixinNodeLog!());
+
+        if (!visitOp(v)) {
+            pushStack(new analyze.Call, v);
+            v.accept(this);
+        }
+    }
+
     override void visit(const CxxThrowExpr v) {
         mixin(mixinNodeLog!());
         // model a C++ exception as a return expression because that is
         // "basically" what happens.
         pushStack(new analyze.Return, v);
         v.accept(this);
+    }
+
+    override void visit(const InitListExpr v) {
+        mixin(mixinNodeLog!());
+        // block mutants inside the initialization list
     }
 
     override void visit(const(ReturnStmt) v) {
