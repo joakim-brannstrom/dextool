@@ -79,7 +79,7 @@ class ShallDeleteFuncCalls : SdlFixture {
     }
 }
 
-class ShallDeleteThrowStmt : SdlFixture {
+class ShallNotDeleteThrowStmt : SdlFixture {
     override string programFile() {
         return "sdl_throw.cpp";
     }
@@ -88,7 +88,7 @@ class ShallDeleteThrowStmt : SdlFixture {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv);
 
-        testAnyOrder!SubStr([`from 'throw Bun()' to ''`]).shouldBeIn(r.output);
+        testAnyOrder!SubStr([`from 'throw Bun()' to ''`]).shouldNotBeIn(r.output);
 
         // this would result in "throw ;" which is totally junk. This is the
         // old behavior before the introduced fix of being throw aware.

@@ -10,6 +10,15 @@ bool wun() {
     return false;
 }
 
+int& bun() {
+    if (true)
+        return *(new int);
+    else {
+        return *(new int);
+    }
+    return *(new int);
+}
+
 struct Foo {};
 
 struct Bar {

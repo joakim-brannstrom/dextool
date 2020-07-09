@@ -137,16 +137,10 @@ void accept(T)(ref dextool.clang_extensions.IfStmt n, T v)
     }
     if (n.then.isValid) {
         auto sub = new IfStmtThen(n.then);
-        static if (__traits(hasMember, T, "ignoreCursors")) {
-            v.ignoreCursors.add(n.then.toHash);
-        }
         v.visit(sub);
     }
     if (n.else_.isValid) {
         auto sub = new IfStmtElse(n.else_);
-        static if (__traits(hasMember, T, "ignoreCursors")) {
-            v.ignoreCursors.add(n.else_.toHash);
-        }
         v.visit(sub);
     }
 

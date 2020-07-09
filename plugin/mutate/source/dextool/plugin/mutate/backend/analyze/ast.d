@@ -423,7 +423,7 @@ interface Visitor {
 
 // TODO: implement a breath first.
 class DepthFirstVisitor : Visitor {
-    debug int visitDepth;
+    int visitDepth;
 
     static foreach (N; Nodes) {
         override void visit(N n) {
