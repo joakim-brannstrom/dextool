@@ -144,7 +144,7 @@ unittest {
     j["timeout"].integer.shouldEqual(0);
     j["total"].integer.shouldEqual(0);
     j["totalTime"].integer.shouldEqual(0);
-    j["untested"].integer.shouldEqual(7);
+    j["untested"].integer.shouldEqual(5);
 }
 
 @(testId ~ "shall report mutants in csv format")

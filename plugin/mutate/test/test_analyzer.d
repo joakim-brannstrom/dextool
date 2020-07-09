@@ -55,3 +55,20 @@ unittest {
         .addArg(["--fast-db-store"])
         .run;
 }
+
+
+@(testId ~ "shall drop the undesired mutants when analyzing")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto r = makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "undesired_mutants.cpp")
+        .addArg(["--fast-db-store"])
+        .addFlag("-std=c++11")
+        .run;
+
+    testConsecutiveSparseOrder!Re([
+        `trace:.*Dropping undesired mutant.*dccTrue`,
+        `trace:.*Dropping undesired mutant.*dccFalse`,
+        `trace:.*Dropping undesired mutant.*stmtDel`,
+    ]).shouldBeIn(r.output);
+}

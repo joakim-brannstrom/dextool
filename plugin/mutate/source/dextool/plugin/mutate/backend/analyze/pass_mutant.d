@@ -111,6 +111,15 @@ class MutantsResult {
         return points[file].byKeyValue.map!(a => RType(a.value.toArray, a.key)).array;
     }
 
+    /// Drop a mutant.
+    void drop(AbsolutePath p, MutationPoint mp, Mutation.Kind kind) @safe {
+        if (auto a = p in points) {
+            if (auto b = mp in *a) {
+                (*b).remove(kind);
+            }
+        }
+    }
+
     private void put(AbsolutePath absp) @trusted {
         import dextool.plugin.mutate.backend.utility : checksum;
 
