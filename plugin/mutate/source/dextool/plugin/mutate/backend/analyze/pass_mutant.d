@@ -409,6 +409,12 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Call n) {
+        // e.g. a C++ class constructor calls a members constructor in its
+        // initialization list.
+        if (!isInside(Kind.Function)) {
+            return;
+        }
+
         auto loc = ast.location(n);
 
         if (ast.type(n) is null && !isInside(Kind.Return)) {
