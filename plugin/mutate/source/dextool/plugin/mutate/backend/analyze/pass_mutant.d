@@ -437,7 +437,7 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Return n) {
-        if (closestFuncType is null) {
+        if (n.children.empty) {
             // if the function return void then it is safe to delete the return.
             //
             // c++ throw expressions is modelled as returns with a child node
