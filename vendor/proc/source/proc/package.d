@@ -906,8 +906,10 @@ struct DrainByLineCopyRange(ProcessT) {
                 while (!range.empty && idx == -1 && cnt++ < 2);
             }();
 
-            auto tmp = updateBuf(idx);
-            line = std.utf.byUTF!(const(char))(cast(const(char)[]) tmp).array;
+            if (idx != -1) {
+                auto tmp = updateBuf(idx);
+                line = std.utf.byUTF!(const(char))(cast(const(char)[]) tmp).array;
+            }
         }
 
         bool lastLine() {
@@ -955,9 +957,9 @@ unittest {
     import std.array : array;
 
     auto p = pipeProcess(["dd", "if=/dev/zero", "bs=10", "count=3"]).scopeKill;
-    auto res = p.process.drainByLineCopy(1.dur!"minutes").filter!"!a.empty".array;
+    auto res = p.process.drainByLineCopy.filter!"!a.empty".array;
 
-    res.length.shouldEqual(4);
+    res.length.shouldEqual(3);
     res.joiner.count.shouldBeGreaterThan(30);
     p.wait.shouldEqual(0);
     p.terminated.shouldBeTrue;
@@ -985,7 +987,7 @@ auto drain(ProcessT, T)(ProcessT p, ref T range) {
 @("shall drain the output of a process while it is running with a separation of stdout and stderr")
 unittest {
     auto p = pipeProcess(["dd", "if=/dev/urandom", "bs=10", "count=3"]).scopeKill;
-    auto res = p.process.drain(1.dur!"minutes").array;
+    auto res = p.process.drain.array;
 
     // this is just a sanity check. It has to be kind a high because there is
     // some wiggleroom allowed
@@ -1012,7 +1014,7 @@ sleep 10m
     auto p = pipeProcess([script]).sandbox.timeout(1.dur!"seconds").scopeKill;
     waitUntilChildren(p.osHandle, 1);
     const preChildren = makePidMap.getSubMap(p.osHandle).remove(p.osHandle).length;
-    const res = p.process.drain(1.dur!"minutes").array;
+    const res = p.process.drain.array;
     const postChildren = makePidMap.getSubMap(p.osHandle).remove(p.osHandle).length;
 
     p.wait.shouldEqual(-9);
