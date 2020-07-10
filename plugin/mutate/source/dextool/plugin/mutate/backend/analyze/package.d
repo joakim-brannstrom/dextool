@@ -480,28 +480,31 @@ struct Analyze {
 
         auto ast = toMutateAst(tu.cursor, fio);
         debug logger.trace(ast);
-        auto mutants = toMutants(ast, fio, val_loc);
-        debug logger.trace(mutants);
 
-        debug logger.trace("filter mutants");
-        mutants = filterMutants(fio, mutants);
-        debug logger.trace(mutants);
+        auto codeMutants = () {
+            auto mutants = toMutants(ast, fio, val_loc);
+            debug logger.trace(mutants);
 
-        auto codeMutants = toCodeMutants(mutants, fio, tstream);
+            debug logger.trace("filter mutants");
+            mutants = filterMutants(fio, mutants);
+            debug logger.trace(mutants);
+
+            return toCodeMutants(mutants, fio, tstream);
+        }();
         debug logger.trace(codeMutants);
-        () @trusted { .destroy(mutants); }();
 
-        auto schemas = toSchemata(ast, fio, codeMutants, conf.mutantsPerSchema);
-        debug logger.trace(schemas);
-        foreach (f; schemas.getSchematas.filter!(a => !(a.fragments.empty || a.mutants.empty))) {
-            const id = result.schematas.length;
-            result.schematas ~= f.fragments;
-            result.schemataMutants[id] = f.mutants.map!(a => a.id).array;
-            result.schemataChecksum[id] = f.checksum;
+        {
+            auto schemas = toSchemata(ast, fio, codeMutants, conf.mutantsPerSchema);
+            debug logger.trace(schemas);
+            foreach (f; schemas.getSchematas.filter!(a => !(a.fragments.empty || a.mutants.empty))) {
+                const id = result.schematas.length;
+                result.schematas ~= f.fragments;
+                result.schemataMutants[id] = f.mutants.map!(a => a.id).array;
+                result.schemataChecksum[id] = f.checksum;
+            }
+
+            ast = typeof(ast).init;
         }
-        () @trusted { .destroy(schemas); }();
-
-        .destroy(ast);
 
         result.mutationPoints = codeMutants.points.byKeyValue.map!(
                 a => a.value.map!(b => MutationPointEntry2(fio.toRelativeRoot(a.key),
@@ -512,8 +515,6 @@ struct Analyze {
             result.fileId[id] = f;
             result.infoId[id] = Result.FileInfo(codeMutants.csFiles[f], codeMutants.lang);
         }
-
-        () @trusted { .destroy(codeMutants); .destroy(schemas); }();
     }
 
     /** Tokens are always from the same file.

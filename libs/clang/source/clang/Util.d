@@ -71,6 +71,9 @@ mixin template CX(string name = "") {
      * community is good _enough_. Any bugs should by now have been found.
      */
     void dispose() @trusted {
+        if (cx is CType.init)
+            return;
+
         static if (name.length == 0)
             enum methodName = "clang_dispose" ~ typeof(this).stringof;
         else
@@ -81,6 +84,8 @@ mixin template CX(string name = "") {
             mixin(methodCall);
         else
             pragma(msg, "warning: clang dispose not found: " ~ methodName);
+
+        cx = CType.init;
     }
 
     @property bool isValid() @safe pure nothrow const @nogc {
