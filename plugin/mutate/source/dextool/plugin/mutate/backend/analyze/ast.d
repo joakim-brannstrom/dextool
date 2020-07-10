@@ -423,9 +423,14 @@ interface Visitor {
 
 // TODO: implement a breath first.
 class DepthFirstVisitor : Visitor {
+    int visitDepth;
+
     static foreach (N; Nodes) {
         override void visit(N n) {
+            debug logger.tracef("%s %s %X", visitDepth, n.kind, cast(void*) n);
+            ++visitDepth;
             n.accept(this);
+            --visitDepth;
         }
     }
 }

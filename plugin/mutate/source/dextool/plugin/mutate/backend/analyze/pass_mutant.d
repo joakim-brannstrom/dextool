@@ -437,7 +437,7 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Return n) {
-        if (closestFuncType is null) {
+        if (n.children.empty) {
             // if the function return void then it is safe to delete the return.
             //
             // c++ throw expressions is modelled as returns with a child node
@@ -727,25 +727,21 @@ class SdlBlockVisitor : DepthFirstVisitor {
         if (l.interval.begin < l.interval.end) {
             loc = l;
             canRemove = true;
-            accept(n, this);
+            visit(n);
         }
     }
 
     alias visit = DepthFirstVisitor.visit;
-
-    override void visit(Block n) {
-        accept(n, this);
-    }
 
     override void visit(Return n) {
         hasReturn = true;
 
         // a return expression that is NOT void always have a child which is
         // the value returned.
-        if (!n.children.empty) {
-            canRemove = false;
-        } else {
+        if (n.children.empty) {
             accept(n, this);
+        } else {
+            canRemove = false;
         }
     }
 }

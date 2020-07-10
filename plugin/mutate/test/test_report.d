@@ -144,7 +144,7 @@ unittest {
     j["timeout"].integer.shouldEqual(0);
     j["total"].integer.shouldEqual(0);
     j["totalTime"].integer.shouldEqual(0);
-    j["untested"].integer.shouldEqual(5);
+    j["untested"].integer.shouldEqual(6);
 }
 
 @(testId ~ "shall report mutants in csv format")
@@ -520,23 +520,23 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
         testConsecutiveSparseOrder!SubStr([
             "Score:       0.5",
             "Total:       26",
-            "Untested:    34",
+            "Untested:    33",
             "Alive:       15",
             "Killed:      11",
             "Timeout:     0",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 4 (0.15",
+            "Suppressed (nomut): 5 (0.19",
         ]).shouldBeIn(plain.output);
 
         testConsecutiveSparseOrder!SubStr([
             "Score:       0.5",
             "Total:       26",
-            "Untested:    34",
+            "Untested:    33",
             "Alive:       15",
             "Killed:      11",
             "Timeout:     0",
             "Killed by compiler: 0",
-            "Suppressed (nomut): 4 (0.15",
+            "Suppressed (nomut): 5 (0.19",
         ]).shouldBeIn(markdown.output);
     }
 }
@@ -562,11 +562,11 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            "Mutation Score <b>0.5</b>",
+            "Mutation Score <b>0.52",
             "Total",
             "26",
             "Untested",
-            "34",
+            "33",
             "Alive",
             "15",
             "Killed",
@@ -576,9 +576,9 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "Killed by compiler",
             "0",
             "NoMut",
-            "4",
+            "5",
             "NoMut/total",
-            "0.15",
+            "0.19",
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "stats.html")).byLineCopy.array);
     }
 }
@@ -696,9 +696,9 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         // Assert
         testConsecutiveSparseOrder!SubStr([
                 `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
-                `<td>tc_2`, `<td>0.8`, `<td>tc_3`, `<td>0.2`,
+                `<td>tc_2`, `<td>0.8`, `<td>tc_3`, `<td>0.4`,
                 `<h2 class="tbl_header"><i class="right"></i> tc_2</h2>`,
-                `<td>tc_1`, `<td>1.00`, `<td>tc_3`, `<td>0.2`,
+                `<td>tc_1`, `<td>1.00`, `<td>tc_3`, `<td>0.5`,
                 `<h2 class="tbl_header"><i class="right"></i> tc_3</h2>`,
                 `<td>tc_1`, `<td>1.00`, `<td>tc_2`, `<td>1.00`,
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
