@@ -402,7 +402,7 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void pushStack(analyze.Node n, analyze.Location l, const CXCursorKind cKind) @trusted {
-        n.blacklist = blacklist.inside(l);
+        n.blacklist = n.blacklist || blacklist.inside(l);
         nstack.put(n, indent);
         cstack.put(cKind, indent);
     }
