@@ -60,6 +60,16 @@ detected_dropped_test_case = "remove"
 oldest_mutants = "test"
 # How many of the oldest mutants to do the above with
 oldest_mutants_nr = 5
+# limit the number of threads used when running tests in parallel. Default is as many as there are cores available
+# parallel_test = 1
+# stop executing tests as soon as a test command fails.
+# This speed up the test phase but the report of test cases killing mutants is less accurate
+use_early_stop = true
+# reduce the compile+link time when testing mutants
+use_schemata = true
+# sanity check the schemata before it is used by executing the test cases
+# it is a slowdown but nice robustness that is usually worth having
+check_schemata = true
 
 [report]
 # default style to use
