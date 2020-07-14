@@ -29,9 +29,8 @@ pure string[] prependDefaultFlags(const string[] in_cflags, const PreferLang lan
     immutable syntax_only = "-fsyntax-only";
     if (in_cflags.canFind(syntax_only)) {
         return prependLangFlagIfMissing(in_cflags, lang);
-    } else {
-        return syntax_only ~ prependLangFlagIfMissing(in_cflags, lang);
     }
+    return syntax_only ~ prependLangFlagIfMissing(in_cflags, lang);
 }
 
 ///TODO move to clang module.
