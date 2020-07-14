@@ -307,6 +307,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     SchemataResult result;
     FilesysIO fio;
 
+    Stack!(Node) nstack;
+    uint depth;
+
     this(Ast* ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result) {
         assert(ast !is null);
 
@@ -314,6 +317,15 @@ class CppSchemataVisitor : DepthFirstVisitor {
         this.index = index;
         this.fio = fio;
         this.result = result;
+    }
+
+    void visitPush(Node n) {
+        nstack.put(n, ++depth);
+    }
+
+    void visitPop() {
+        nstack.pop;
+        --depth;
     }
 
     alias visit = DepthFirstVisitor.visit;
@@ -353,7 +365,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Call n) {
-        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        if (!nstack.isInside(Kind.VarDecl)) {
+            visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        }
         accept(n, this);
     }
 

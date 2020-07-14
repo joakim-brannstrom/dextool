@@ -112,3 +112,25 @@ class ShallDeleteAssignment : SdlFixture {
                 ]).shouldNotBeIn(r.output);
     }
 }
+
+class ShallOnlyGenerateValidSdlSchemas : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_sdl.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "sdl"]).addFlag("-std=c++11").run;
+
+        // dfmt off
+        testAnyOrder!SubStr([
+            `from '`, `r = e;`, `to ''`,
+            `from 'a.push_back(x)' to ''`
+        ]).shouldBeIn(r.output);
+        // dfmt on
+    }
+}

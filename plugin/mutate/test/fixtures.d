@@ -131,21 +131,19 @@ set -e
 ", programBin);
     }
 
-    auto runDextoolTest(ref TestEnv testEnv, string[] args) {
+    auto runDextoolTest(ref TestEnv testEnv) {
         // dfmt off
         return dextool_test.makeDextool(testEnv)
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
-            .addPostArg(args)
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-timeout", "10000"])
             .addPostArg(["--only-schemata"])
             .addPostArg(["--use-schemata"])
-            .addPostArg(["--log-schemata"])
-            .run;
+            .addPostArg(["--log-schemata"]);
         // dfmt on
     }
 }

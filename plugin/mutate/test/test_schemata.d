@@ -27,54 +27,12 @@ class ShallRunAorSchema : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        // dfmt off
-        auto r = runDextoolTest(testEnv, ["--mutant", "aor"]);
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "aor"]).run;
 
+        // dfmt off
         testConsecutiveSparseOrder!SubStr([
                 `from '+' to '-'`,
                 `alive`,
-                ]).shouldBeIn(r.output);
-        // dfmt on
-    }
-}
-
-class ShallRunDccSchema : SchemataFixutre {
-    override string programFile() {
-        return (testData ~ "simple_schemata.cpp").toString;
-    }
-
-    override void test() {
-        mixin(EnvSetup(globalTestdir));
-        precondition(testEnv);
-
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
-
-        // dfmt off
-        auto r = runDextoolTest(testEnv, ["--mutant", "dcc"]);
-
-        testConsecutiveSparseOrder!SubStr([
-                `from 'x < 10' to 'false'`,
-                ]).shouldBeIn(r.output);
-        // dfmt on
-    }
-}
-
-class ShallRunDcrSchema : SchemataFixutre {
-    override string programFile() {
-        return (testData ~ "simple_schemata.cpp").toString;
-    }
-
-    override void test() {
-        mixin(EnvSetup(globalTestdir));
-        precondition(testEnv);
-
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
-
-        // dfmt off
-        auto r = runDextoolTest(testEnv, ["--mutant", "dcr"]);
-
-        testConsecutiveSparseOrder!SubStr([
-                `from 'x < 10' to 'false'`,
                 ]).shouldBeIn(r.output);
         // dfmt on
     }
@@ -91,9 +49,9 @@ class ShallUseSchemataSanityCheck : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        // dfmt off
-        auto r = runDextoolTest(testEnv, ["--mutant", "aor", "--check-schemata"]);
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "aor", "--check-schemata"]).run;
 
+        // dfmt off
         testConsecutiveSparseOrder!SubStr([
             `Found schemata`,
             `Schema`,
@@ -114,9 +72,9 @@ class ShallRunUoiSchema : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        // dfmt off
-        auto r = runDextoolTest(testEnv, ["--mutant", "uoi"]);
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "uoi"]).run;
 
+        // dfmt off
         testConsecutiveSparseOrder!SubStr([
                 `from '!' to ''`,
                 `alive`,
@@ -132,29 +90,11 @@ class ShallRunLcrSchema : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        // dfmt off
-        auto r = runDextoolTest(testEnv, ["--mutant", "lcr"]);
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "lcr"]).run;
 
+        // dfmt off
         testConsecutiveSparseOrder!SubStr([
                 `from '&&' to '||'`,
-                `alive`,
-                ]).shouldBeIn(r.output);
-        // dfmt on
-    }
-}
-
-class ShallRunSdlSchema : SchemataFixutre {
-    override void test() {
-        mixin(EnvSetup(globalTestdir));
-        precondition(testEnv);
-
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
-
-        // dfmt off
-        auto r = runDextoolTest(testEnv, ["--mutant", "sdl"]);
-
-        testConsecutiveSparseOrder!SubStr([
-                `from 'x = test_unary_op(x)' to ''`,
                 `alive`,
                 ]).shouldBeIn(r.output);
         // dfmt on
@@ -174,9 +114,9 @@ class ShallRemoveParenthesisBalanced : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        // dfmt off
-        auto r = runDextoolTest(testEnv, ["--mutant", "lcrb"]);
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "lcrb"]).run;
 
+        // dfmt off
         testAnyOrder!SubStr([
                 `from '(x & (x - 1)) |' to ''`,
                 `from '| x' to ''`,
