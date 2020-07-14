@@ -334,6 +334,10 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return deduceSystemIncludes(args, Compiler(system_compiler));
     }
 
+    string getSystemCompiler() const {
+        return system_compiler;
+    }
+
     // -- Products --
 
     void putFile(AbsolutePath fname, CppHModule hdr_data) {
@@ -390,34 +394,36 @@ ExitStatusType genCpp(CppTestDoubleVariant variant, FrontendTransform transform,
     import std.typecons : Yes;
 
     import dextool.clang : findFlags;
-    import dextool.compilation_db : ParseData = SearchResult;
+    import dextool.compilation_db : ParsedCompileCommand, limitOrAllRange,
+        parse, prependFlags, Compiler;
     import dextool.plugin.cpptestdouble.backend : Backend;
     import dextool.io : writeFileData;
     import dextool.type : AbsolutePath;
     import dextool.utility : prependDefaultFlags, PreferLang;
 
-    const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
-    const auto total_files = in_files.length;
+    auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
     auto generator = Backend(variant, variant, variant, transform);
 
-    foreach (idx, in_file; in_files) {
-        logger.infof("File %d/%d ", idx + 1, total_files);
-        ParseData pdata;
+    foreach (pdata; limitOrAllRange(compile_db, in_files).parse(variant.getCompileCommandFilter,
+            Compiler(variant.getSystemCompiler)).prependFlags(user_cflags)) {
+        logger.info("File ", pdata.cmd.absoluteFile);
+        //ParseData pdata;
+        //
+        //if (compile_db.length > 0) {
+        //    auto tmp = compile_db.findFlags(Path(in_file), user_cflags,
+        //            variant.getCompileCommandFilter);
+        //    if (tmp.isNull) {
+        //        return ExitStatusType.Errors;
+        //    }
+        //    pdata = tmp.get;
+        //} else {
+        //    pdata.flags.prependCflags(user_cflags.dup);
+        //    pdata.flags.systemIncludes = variant.getSystemIncludes(user_cflags);
+        //    pdata.absoluteFile = AbsolutePath(Path(in_file));
+        //}
 
-        if (compile_db.length > 0) {
-            auto tmp = compile_db.findFlags(Path(in_file), user_cflags,
-                    variant.getCompileCommandFilter);
-            if (tmp.isNull) {
-                return ExitStatusType.Errors;
-            }
-            pdata = tmp.get;
-        } else {
-            pdata.flags.prependCflags(user_cflags.dup);
-            pdata.flags.systemIncludes = variant.getSystemIncludes(user_cflags);
-            pdata.absoluteFile = AbsolutePath(Path(in_file));
-        }
-
-        if (generator.analyzeFile(pdata.absoluteFile, pdata.cflags) == ExitStatusType.Errors) {
+        if (generator.analyzeFile(pdata.cmd.absoluteFile,
+                pdata.flags.completeFlags) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 

@@ -23,6 +23,8 @@ auto flags = dbs.appendOrError(dbs, null, "foo.cpp", defaultCompilerFlagFilter);
 module dextool.compilation_db;
 
 import logger = std.experimental.logger;
+import std.algorithm : map, filter, splitter, joiner;
+import std.array : empty, array, appender;
 import std.exception : collectException;
 import std.json : JSONValue;
 import std.typecons : Nullable;
@@ -72,7 +74,7 @@ version (unittest) {
  * path. The logic chosen in dextool is to treat it as relative to the path
  * the compilation database file is read from.
  */
-@safe struct CompileCommand {
+struct CompileCommand {
     import dextool.type : Path, AbsolutePath;
 
     /// The raw command from the tuples "command" or "arguments value.
@@ -124,6 +126,10 @@ struct AbsoluteCompileDbDirectory {
 struct CompileCommandDB {
     CompileCommand[] payload;
     alias payload this;
+
+    bool empty() @safe pure nothrow const @nogc {
+        return payload.empty;
+    }
 }
 
 // The result of searching for a file in a compilation DB.
@@ -131,6 +137,10 @@ struct CompileCommandDB {
 struct CompileCommandSearch {
     CompileCommand[] payload;
     alias payload this;
+
+    bool empty() @safe pure nothrow const @nogc {
+        return payload.empty;
+    }
 }
 
 /**
@@ -138,8 +148,6 @@ struct CompileCommandSearch {
  * remove the trusted attribute when the minimal requirement is upgraded.
  */
 private Nullable!CompileCommand toCompileCommand(JSONValue v, AbsoluteCompileDbDirectory db_dir) nothrow @trusted {
-    import std.algorithm : map, filter, splitter;
-    import std.array : array;
     import std.exception : assumeUnique;
     import std.range : only;
     import std.utf : byUTF;
@@ -265,8 +273,6 @@ private void parseCommands(T)(string raw_input, CompileDbFile db, ref T out_rang
     import std.json : parseJSON, JSONException;
 
     static void put(T)(JSONValue v, AbsoluteCompileDbDirectory dbdir, ref T out_range) nothrow {
-        import std.algorithm : map, filter;
-        import std.array : array;
 
         try {
             // dfmt off
@@ -322,9 +328,6 @@ void fromFiles(T)(CompileDbFile[] fnames, ref T app) {
 /** Return default path if argument is null.
  */
 CompileDbFile[] orDefaultDb(string[] cli_path) @safe nothrow {
-    import std.array : array;
-    import std.algorithm : map;
-
     if (cli_path.length == 0) {
         return [CompileDbFile("compile_commands.json")];
     }
@@ -332,7 +335,8 @@ CompileDbFile[] orDefaultDb(string[] cli_path) @safe nothrow {
     return cli_path.map!(a => CompileDbFile(a)).array();
 }
 
-/** Contains the results of a search in the compilation database.
+/** Find a best matching compile_command in the database against the path
+ * pattern `glob`.
  *
  * When searching for the compile command for a file, the compilation db can
  * return several commands, as the file may have been compiled with different
@@ -341,103 +345,34 @@ CompileDbFile[] orDefaultDb(string[] cli_path) @safe nothrow {
  * Params:
  *  glob = glob pattern to find a matching file in the DB against
  */
-CompileCommandSearch find(CompileCommandDB db, string glob) @safe
-in {
-    debug logger.trace("Looking for " ~ glob);
+CompileCommandSearch find(CompileCommandDB db, string glob) @safe {
+    foreach (a; db.filter!(a => isMatch(a, glob))) {
+        return CompileCommandSearch([a]);
+    }
+    return CompileCommandSearch.init;
 }
-out (result) {
-    import std.conv : to;
 
-    debug logger.trace("Found " ~ to!string(result));
-}
-body {
+/** Check if `glob` fuzzy matches `a`.
+ */
+bool isMatch(CompileCommand a, string glob) {
     import std.path : globMatch;
 
-    foreach (a; db) {
-        if (a.absoluteFile == glob)
-            return CompileCommandSearch([a]);
-        else if (a.file == glob)
-            return CompileCommandSearch([a]);
-        else if (globMatch(a.absoluteFile, glob))
-            return CompileCommandSearch([a]);
-        else if (a.absoluteOutput == glob)
-            return CompileCommandSearch([a]);
-        else if (a.output == glob)
-            return CompileCommandSearch([a]);
-        else if (globMatch(a.absoluteOutput, glob))
-            return CompileCommandSearch([a]);
-    }
-
-    logger.errorf("\n%s\nNo match found in the compile command database", db.toString);
-
-    return CompileCommandSearch();
-}
-
-struct SearchResult {
-    ParseFlags flags;
-    AbsolutePath absoluteFile;
-
-    this(ParseFlags flags, AbsolutePath p) {
-        this.flags = flags;
-        this.absoluteFile = p;
-    }
-
-    // TODO: consider deprecating.
-    this(string[] flags, AbsolutePath p) {
-        this(ParseFlags(null, flags), p);
-    }
-
-    // TODO: consider deprecating.
-    string[] cflags() @safe pure nothrow const {
-        return flags.completeFlags;
-    }
-}
-
-/** Append the compiler flags if a match is found in the DB or error out.
- */
-Nullable!(SearchResult) appendOrError(ref CompileCommandDB compilation_db,
-        const string[] cflags, const string input_file, const Compiler user_compiler = Compiler
-        .init) @safe {
-
-    return appendOrError(compilation_db, cflags, input_file, defaultCompilerFilter, user_compiler);
-}
-
-/** Append the compiler flags if a match is found in the DB or error out.
- *
- * TODO: consider using exceptions instead of Nullable.
- */
-Nullable!SearchResult appendOrError(ref CompileCommandDB compilation_db, const string[] cflags, const string input_file,
-        const CompileCommandFilter flag_filter, const Compiler user_compiler = Compiler.init) @safe {
-
-    auto compile_commands = compilation_db.find(input_file.idup);
-    debug {
-        logger.trace(compile_commands.length > 0,
-                "CompilationDatabase match (by filename):\n", compile_commands.toString);
-        if (compile_commands.length == 0) {
-            logger.trace(compilation_db.toString);
-        }
-
-        logger.tracef("CompilationDatabase filter: %s", flag_filter);
-    }
-
-    typeof(return) rval;
-    if (compile_commands.length == 0) {
-        logger.warning("File not found in compilation database: ", input_file);
-        return rval;
-    } else {
-        rval = SearchResult.init;
-        auto p = compile_commands[0].parseFlag(flag_filter, user_compiler);
-        p.prependCflags(cflags.dup);
-        rval.get.flags = p;
-        rval.get.absoluteFile = compile_commands[0].absoluteFile;
-    }
-
-    return rval;
+    if (a.absoluteFile == glob)
+        return true;
+    else if (a.file == glob)
+        return true;
+    else if (globMatch(a.absoluteFile, glob))
+        return true;
+    else if (a.absoluteOutput == glob)
+        return true;
+    else if (a.output == glob)
+        return true;
+    else if (globMatch(a.absoluteOutput, glob))
+        return true;
+    return false;
 }
 
 string toString(CompileCommand[] db) @safe pure {
-    import std.array;
-    import std.algorithm : map, joiner;
     import std.conv : text;
     import std.format : formattedWrite;
 
@@ -466,12 +401,12 @@ string toString(CompileCommandSearch search) @safe pure {
     return toString(search.payload);
 }
 
-const auto defaultCompilerFilter = CompileCommandFilter(defaultCompilerFlagFilter, 0);
+CompileCommandFilter defaultCompilerFilter() {
+    return CompileCommandFilter(defaultCompilerFlagFilter, 0);
+}
 
 /// Returns: array of default flags to exclude.
 auto defaultCompilerFlagFilter() @safe {
-    import std.array : appender;
-
     auto app = appender!(FilterClangFlag[])();
 
     // dfmt off
@@ -561,9 +496,6 @@ struct ParseFlags {
      * Returns: flags with the system flags appended.
      */
     string[] completeFlags() @safe pure nothrow const {
-        import std.algorithm : map, joiner;
-        import std.array : array;
-
         auto incl_param = forceSystemIncludes_ ? "-I" : "-isystem";
 
         return cflags.idup ~ systemIncludes.map!(a => [incl_param, a.value]).joiner.array;
@@ -593,9 +525,8 @@ struct ParseFlags {
  *  - Remove excess white space.
  *  - Convert all filenames to absolute path.
  */
-ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
-        const Compiler user_compiler = Compiler.init) @safe {
-    import std.algorithm : among, map, strip, startsWith, filter, count;
+ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter) @safe {
+    import std.algorithm : among, strip, startsWith, count;
     import std.string : empty, split;
 
     static bool excludeStartWith(const string raw_flag, const FilterClangFlag[] flag_filter) @safe {
@@ -694,7 +625,7 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
             checkingForEndQuotation,
         }
 
-        import std.array : Appender, appender, array, join;
+        import std.array : Appender, join;
         import std.range : ElementType;
 
         auto st = State.keep;
@@ -789,7 +720,7 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
         return ParseFlags(compiler, includes.data.map!(a => ParseFlags.Include(a)).array, rval.data);
     }
 
-    import std.algorithm : filter, splitter, min;
+    import std.algorithm : min;
 
     string[] skipArgs = () @safe {
         string[] args;
@@ -801,20 +732,8 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
     }();
 
     auto pargs = filterPair(skipArgs, cmd.directory, flag_filter.filter);
-    auto compiler = user_compiler.length == 0 ? pargs.compiler : user_compiler;
 
-    auto sysincls = () {
-        try {
-            import dextool.compilation_db.system_compiler : deduceSystemIncludes;
-
-            return deduceSystemIncludes(cmd, compiler);
-        } catch (Exception e) {
-            logger.info(e.msg);
-        }
-        return SystemIncludePath[].init;
-    }();
-
-    return ParseFlags(compiler, pargs.includes, sysincls, pargs.cflags);
+    return ParseFlags(pargs.compiler, pargs.includes, null, pargs.cflags);
 }
 
 /** Convert the string to a CompileCommandDB.
@@ -824,24 +743,17 @@ ParseFlags parseFlag(CompileCommand cmd, const CompileCommandFilter flag_filter,
  * data = input to convert
  */
 CompileCommandDB toCompileCommandDB(string data, Path path) @safe {
-    import std.array : appender;
-
     auto app = appender!(CompileCommand[])();
     data.parseCommands(CompileDbFile(cast(string) path), app);
     return CompileCommandDB(app.data);
 }
 
 CompileCommandDB fromArgCompileDb(AbsolutePath[] paths) @safe {
-    import std.algorithm : map;
-    import std.array : array;
-
     return fromArgCompileDb(paths.map!(a => cast(string) a).array);
 }
 
 /// Import and merge many compilation databases into one DB.
 CompileCommandDB fromArgCompileDb(string[] paths) @safe {
-    import std.array : appender;
-
     auto app = appender!(CompileCommand[])();
     paths.orDefaultDb.fromFiles(app);
 
@@ -866,7 +778,7 @@ unittest {
             "g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun", "-c",
             "a_filename.c"
             ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
-    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -877,7 +789,7 @@ unittest {
             "g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun"
             ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
-    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -889,7 +801,7 @@ unittest {
             "bar", "-Igun", "-c", "a_filename.c"
             ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
-    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -901,7 +813,7 @@ unittest {
             "-c", "a_filename.c"
             ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
-    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
 }
@@ -912,7 +824,7 @@ unittest {
             "g++", "-std=c++11", "-c", "a_filename.c"
             ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
-    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-std=c++11"]);
 }
 
@@ -923,7 +835,7 @@ unittest {
             ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
     auto my_filter = CompileCommandFilter(defaultCompilerFlagFilter, 0);
     my_filter.filter ~= FilterClangFlag("-mfloat-gprs=double", FilterClangFlag.Kind.exclude);
-    auto s = cmd.get.parseFlag(my_filter, Compiler.init);
+    auto s = cmd.get.parseFlag(my_filter);
     s.cflags.shouldEqual(["-std=c++11"]);
 }
 
@@ -932,7 +844,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-Da", "-D",
             "b"], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
-    auto s = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-Da", "-D", "b"]);
 }
 
@@ -1008,10 +920,6 @@ version (unittest) {
         "output": "file3.o"
     }
 ]`;
-}
-
-version (unittest) {
-    import std.array : appender;
 }
 
 @("Should be a compile command DB")
@@ -1161,8 +1069,9 @@ unittest {
     auto found = cmds.find(buildPath(abs_path, "dir2", "file3.cpp"));
     assert(found.length == 1);
 
-    found[0].parseFlag(defaultCompilerFilter, Compiler.init)
-        .cflags.shouldEqual(["-I", buildPath(abs_path, "dir2", "dir1")]);
+    found[0].parseFlag(defaultCompilerFilter).cflags.shouldEqual([
+            "-I", buildPath(abs_path, "dir2", "dir1")
+            ]);
 }
 
 @("shall find the entry based on an output match")
@@ -1214,7 +1123,7 @@ unittest {
     auto cmd = toCompileCommand("/home", "file.cpp", [
             "-I", `"dir with spaces"`, "-I", `\"dir with spaces\"`
             ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
-    auto pargs = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto pargs = cmd.get.parseFlag(defaultCompilerFilter);
     pargs.cflags.shouldEqual([
             "-I", "/home/dir with spaces", "-I", "/home/dir with spaces"
             ]);
@@ -1229,7 +1138,7 @@ unittest {
             "-I", `"separate dir/with space"`, "-I", `\"separate dir/with space\"`,
             `-I"combined dir/with space"`, `-I\"combined dir/with space\"`,
             ], AbsoluteCompileDbDirectory("/project".Path.AbsolutePath), null);
-    auto pargs = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto pargs = cmd.get.parseFlag(defaultCompilerFilter);
     pargs.cflags.shouldEqual([
             "-I", "/project/separate dir/with space", "-I",
             "/project/separate dir/with space", "-I",
@@ -1251,7 +1160,7 @@ unittest {
                 `"one space/lots of     space"`, `-I`,
                 `\"one space/lots of     space\"`,
             ], AbsoluteCompileDbDirectory("/project".Path.AbsolutePath), null);
-    auto pargs = cmd.get.parseFlag(defaultCompilerFilter, Compiler.init);
+    auto pargs = cmd.get.parseFlag(defaultCompilerFilter);
     pargs.cflags.shouldEqual([
             "-I", "/project/one space/lots of     space", "-I",
             "/project/one space/lots of     space", "-I",
