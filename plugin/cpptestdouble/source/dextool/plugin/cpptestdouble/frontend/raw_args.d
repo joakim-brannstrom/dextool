@@ -46,7 +46,7 @@ struct RawConfiguration {
     string out_;
     string prefix = "Test_";
     string stripInclude;
-    string systemCompiler = "/usr/bin/c++";
+    string systemCompiler;
     string[] cflags;
     string[] compileDb;
     string[] fileExclude;
@@ -88,7 +88,7 @@ struct RawConfiguration {
                    "prefix", "Prefix used when generating test artifacts [default: Test_]", &prefix,
                    "short-plugin-help", "short description of the plugin",  &shortPluginHelp,
                    "strip-incl", "A regex used to strip the include paths", &stripInclude,
-                   "system-compiler", "Derive the system include paths from this compiler [default /usr/bin/c++]", &systemCompiler,
+                   "system-compiler", "Derive the system include paths from this compiler [default: use from compile_commands.json]", &systemCompiler,
                    "td-include", "User supplied includes used instead of those found", &testDoubleInclude,
                    );
             // dfmt on

@@ -16,13 +16,15 @@ Responsible for:
 */
 module dextool.plugin.cpptestdouble.frontend.frontend;
 
-import std.typecons : Nullable;
+import std.algorithm : map;
+import std.array : array, empty;
+import std.typecons : Nullable, Yes;
 
 import logger = std.experimental.logger;
 
 import cpptooling.type : CustomHeader, MainFileName, MainName, MainNs;
 
-import dextool.compilation_db : CompileCommandDB;
+import dextool.compilation_db : CompileCommandDB, Compiler;
 import dextool.type : AbsolutePath, DextoolVersion, ExitStatusType, Path;
 import dextool.io : WriteStrategy;
 
@@ -113,17 +115,11 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     }
 
     auto argFileExclude(string[] a) {
-        import std.array : array;
-        import std.algorithm : map;
-
         this.exclude = a.map!(a => regex(a)).array();
         return this;
     }
 
     auto argFileRestrict(string[] a) {
-        import std.array : array;
-        import std.algorithm : map;
-
         this.restrict = a.map!(a => regex(a)).array();
         return this;
     }
@@ -290,9 +286,6 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     // -- Parameters --
 
     Path[] getIncludes() {
-        import std.algorithm : map;
-        import std.array : array;
-
         return td_includes.includes.map!(a => Path(a)).array();
     }
 
@@ -322,20 +315,14 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         return custom_hdr;
     }
 
-    /**
-     * Params:
-     *  args = arguments to the compiler by the user
-     */
-    auto getSystemIncludes(const string[] args) {
-        import std.algorithm : map;
-        import std.array : array;
-        import dextool.compilation_db : deduceSystemIncludes, Compiler;
-
-        return deduceSystemIncludes(args, Compiler(system_compiler));
+    Compiler getSystemCompiler() const {
+        return Compiler(system_compiler);
     }
 
-    string getSystemCompiler() const {
-        return system_compiler;
+    Compiler getMissingFileCompiler() const {
+        if (system_compiler.empty)
+            return Compiler("/usr/bin/c++");
+        return getSystemCompiler();
     }
 
     // -- Products --
@@ -388,40 +375,40 @@ class FrontendTransform : Transform {
     }
 }
 
-/// TODO refactor, doing too many things.
 ExitStatusType genCpp(CppTestDoubleVariant variant, FrontendTransform transform,
-        string[] in_cflags, CompileCommandDB compile_db, Path[] in_files) {
-    import std.typecons : Yes;
-
-    import dextool.clang : findFlags;
-    import dextool.compilation_db : ParsedCompileCommand, limitOrAllRange,
-        parse, prependFlags, Compiler;
+        string[] userCflags, CompileCommandDB compile_db, Path[] inFiles) {
+    import dextool.clang : reduceMissingFiles;
+    import dextool.compilation_db : limitOrAllRange, parse, prependFlags,
+        addCompiler, replaceCompiler, addSystemIncludes, fileRange;
     import dextool.plugin.cpptestdouble.backend : Backend;
     import dextool.io : writeFileData;
-    import dextool.type : AbsolutePath;
     import dextool.utility : prependDefaultFlags, PreferLang;
 
-    auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
     auto generator = Backend(variant, variant, variant, transform);
 
-    foreach (pdata; limitOrAllRange(compile_db, in_files).parse(variant.getCompileCommandFilter,
-            Compiler(variant.getSystemCompiler)).prependFlags(user_cflags)) {
-        logger.info("File ", pdata.cmd.absoluteFile);
-        //ParseData pdata;
-        //
-        //if (compile_db.length > 0) {
-        //    auto tmp = compile_db.findFlags(Path(in_file), user_cflags,
-        //            variant.getCompileCommandFilter);
-        //    if (tmp.isNull) {
-        //        return ExitStatusType.Errors;
-        //    }
-        //    pdata = tmp.get;
-        //} else {
-        //    pdata.flags.prependCflags(user_cflags.dup);
-        //    pdata.flags.systemIncludes = variant.getSystemIncludes(user_cflags);
-        //    pdata.absoluteFile = AbsolutePath(Path(in_file));
-        //}
+    auto compDbRange() {
+        if (compile_db.empty) {
+            return fileRange(inFiles, variant.getMissingFileCompiler);
+        }
+        return compile_db.fileRange;
+    }
 
+    auto fixedDb = compDbRange.parse(variant.getCompileCommandFilter)
+        .addCompiler(variant.getMissingFileCompiler).replaceCompiler(
+                variant.getSystemCompiler).addSystemIncludes.prependFlags(
+                prependDefaultFlags(userCflags, PreferLang.cpp)).array;
+
+    auto limitRange = limitOrAllRange(fixedDb, inFiles.map!(a => cast(string) a).array)
+        .reduceMissingFiles(fixedDb);
+
+    if (!compile_db.empty && !limitRange.isMissingFilesEmpty) {
+        foreach (a; limitRange.missingFiles) {
+            logger.error("Unable to find any compiler flags for .", a);
+        }
+        return ExitStatusType.Errors;
+    }
+
+    foreach (pdata; limitRange.range) {
         if (generator.analyzeFile(pdata.cmd.absoluteFile,
                 pdata.flags.completeFlags) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
