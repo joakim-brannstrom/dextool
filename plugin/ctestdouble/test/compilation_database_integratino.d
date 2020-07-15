@@ -54,7 +54,7 @@ unittest {
         .addInputArg(testData ~ getValue!(string[])[0])
         .run;
 
-    r.output.sliceContains("No match found in the compile command database").shouldBeTrue;
+    r.output.sliceContains(`Analyzing all files in the compilation DB for one that has an '#include "single_file.h"'`).shouldBeTrue;
     // the file returned shall be the full path for the one searching for
     r.output.sliceContains("because it has an '#include' for '" ~ (testData ~ "compile_db/dir1/single_file.h").toString).shouldBeTrue;
 }

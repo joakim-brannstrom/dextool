@@ -9,9 +9,11 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.ctestdouble.frontend.ctestdouble;
 
-import std.typecons : Nullable;
-
 import logger = std.experimental.logger;
+import std.algorithm : find, map;
+import std.array : array, empty;
+import std.range : drop;
+import std.typecons : Nullable;
 
 import cpptooling.type;
 import dextool.compilation_db;
@@ -47,6 +49,7 @@ struct RawConfiguration {
     string stripInclude;
     string out_;
     string config;
+    string systemCompiler = "/usr/bin/cc";
     bool help;
     bool shortPluginHelp;
     bool gmock;
@@ -86,6 +89,7 @@ struct RawConfiguration {
                    "prefix", &prefix,
                    "short-plugin-help", &shortPluginHelp,
                    "strip-incl", &stripInclude,
+                   "system-compiler", "Derive the system include paths from this compiler [default /usr/bin/cc]", &systemCompiler,
                    "td-include", &testDoubleInclude);
             // dfmt on
             generateZeroGlobals = !no_zero_globals;
@@ -106,10 +110,6 @@ struct RawConfiguration {
                 invalidXmlConfig = true;
             }
         }
-
-        import std.algorithm : find, map;
-        import std.array : array;
-        import std.range : drop;
 
         inFiles = input.map!(a => Path(a)).array;
 
@@ -273,6 +273,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         Flag!"locationAsComment" loc_as_comment;
         Flag!"generateZeroGlobals" generate_zero_globals;
 
+        string system_compiler;
+
         Nullable!XmlConfig xmlConfig;
         CompileCommandFilter compiler_flag_filter;
         FilterSymbol restrict_symbols;
@@ -303,7 +305,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
             .argFileRestrict(args.fileRestrict)
             .argCustomHeader(args.header, args.headerFile)
             .argGenerateZeroGlobals(args.generateZeroGlobals)
-            .argXmlConfig(args.xmlConfig);
+            .argXmlConfig(args.xmlConfig)
+            .systemCompiler(args.systemCompiler);
         // dfmt on
 
         return variant;
@@ -340,17 +343,11 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     auto argFileExclude(string[] a) {
-        import std.array : array;
-        import std.algorithm : map;
-
         this.exclude = a.map!(a => regex(a)).array();
         return this;
     }
 
     auto argFileRestrict(string[] a) {
-        import std.array : array;
-        import std.algorithm : map;
-
         this.restrict = a.map!(a => regex(a)).array();
         return this;
     }
@@ -476,6 +473,11 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         file_data ~= FileData(fname, data);
     }
 
+    auto systemCompiler(string a) {
+        this.system_compiler = a;
+        return this;
+    }
+
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
@@ -553,9 +555,6 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     // -- Parameters --
 
     Path[] getIncludes() {
-        import std.algorithm : map;
-        import std.array : array;
-
         return td_includes.includes.map!(a => Path(a)).array();
     }
 
@@ -602,6 +601,16 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         return generate_zero_globals;
     }
 
+    Compiler getSystemCompiler() const {
+        return Compiler(system_compiler);
+    }
+
+    Compiler getMissingFileCompiler() const {
+        if (system_compiler.empty)
+            return Compiler("/usr/bin/cc");
+        return getSystemCompiler();
+    }
+
     // -- Products --
 
     void putFile(Path fname, CppHModule hdr_data) {
@@ -618,41 +627,47 @@ class CTestDoubleVariant : Controller, Parameters, Products {
 }
 
 /// TODO refactor, doing too many things.
-ExitStatusType genCstub(CTestDoubleVariant variant, in string[] in_cflags,
-        CompileCommandDB compile_db, Path[] in_files) {
+ExitStatusType genCstub(CTestDoubleVariant variant, string[] userCflags,
+        CompileCommandDB compile_db, Path[] inFiles) {
     import std.typecons : Yes;
 
-    import dextool.clang : findFlags;
-    import dextool.compilation_db : ParseData = SearchResult;
     import cpptooling.analyzer.clang.context : ClangContext;
+    import dextool.clang : reduceMissingFiles;
+    import dextool.compilation_db : limitOrAllRange, parse, prependFlags,
+        addCompiler, replaceCompiler, addSystemIncludes, fileRange;
     import dextool.io : writeFileData;
     import dextool.plugin.ctestdouble.backend.cvariant : CVisitor, Generator;
     import dextool.utility : prependDefaultFlags, PreferLang, analyzeFile;
 
-    const user_cflags = prependDefaultFlags(in_cflags, PreferLang.c);
-    const total_files = in_files.length;
     auto visitor = new CVisitor(variant, variant);
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     auto generator = Generator(variant, variant, variant);
 
-    foreach (idx, in_file; in_files) {
-        logger.infof("File %d/%d ", idx + 1, total_files);
-        ParseData pdata;
-
-        // TODO duplicate code in c, c++ and plantuml. Fix it.
-        if (compile_db.length > 0) {
-            auto tmp = compile_db.findFlags(Path(in_file), user_cflags,
-                    variant.getCompileCommandFilter);
-            if (tmp.isNull) {
-                return ExitStatusType.Errors;
-            }
-            pdata = tmp.get;
-        } else {
-            pdata.flags.prependCflags(user_cflags.dup);
-            pdata.absoluteFile = AbsolutePath(Path(in_file));
+    auto compDbRange() {
+        if (compile_db.empty) {
+            return fileRange(inFiles, variant.getMissingFileCompiler);
         }
+        return compile_db.fileRange;
+    }
 
-        if (analyzeFile(pdata.absoluteFile, pdata.cflags, visitor, ctx) == ExitStatusType.Errors) {
+    auto fixedDb = compDbRange.parse(variant.getCompileCommandFilter)
+        .addCompiler(variant.getMissingFileCompiler).replaceCompiler(
+                variant.getSystemCompiler).addSystemIncludes.prependFlags(
+                prependDefaultFlags(userCflags, PreferLang.c)).array;
+
+    auto limitRange = limitOrAllRange(fixedDb, inFiles.map!(a => cast(string) a).array)
+        .reduceMissingFiles(fixedDb);
+
+    if (!compile_db.empty && !limitRange.isMissingFilesEmpty) {
+        foreach (a; limitRange.missingFiles) {
+            logger.error("Unable to find any compiler flags for .", a);
+        }
+        return ExitStatusType.Errors;
+    }
+
+    foreach (pdata; limitRange.range) {
+        if (analyzeFile(pdata.cmd.absoluteFile, pdata.flags.completeFlags,
+                visitor, ctx) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
 
