@@ -27,7 +27,7 @@ struct Function {
     int complexity;
 
     nothrow @safe size_t toHash() {
-        import std.digest.digest;
+        import std.digest;
         import std.digest.crc;
 
         auto hash = makeDigest!CRC32();

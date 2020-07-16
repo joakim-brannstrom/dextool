@@ -35,35 +35,31 @@ Worker thread:
 */
 module dextool.plugin.analyze.analyze;
 
+import logger = std.experimental.logger;
+import std.algorithm : map, filter;
+import std.array : array, empty;
 import std.concurrency : Tid;
 import std.typecons : Flag;
-import logger = std.experimental.logger;
+import std.range : enumerate, popFront, front;
 
-import dextool.compilation_db : SearchResult, CompileCommandDB;
+import dextool.compilation_db : limitOrAllRange, parse, prependFlags, addCompiler, replaceCompiler,
+    addSystemIncludes, fileRange, ParsedCompileCommand, CompileCommandDB, Compiler;
 import dextool.type : ExitStatusType, Path, AbsolutePath;
 
 import dextool.plugin.analyze.visitor : TUVisitor;
 import dextool.plugin.analyze.mccabe;
 
-immutable(SearchResult) immDup(SearchResult v) @trusted {
-    import std.algorithm : map;
-    import std.array : array;
-    import dextool.compilation_db : SystemIncludePath;
-
-    auto f = v.flags;
-    f.cflags = f.cflags.map!"a.idup".array;
-    f.systemIncludes = f.systemIncludes.map!(a => SystemIncludePath(a.value.idup)).array;
-
-    return cast(immutable) SearchResult(f, AbsolutePath(v.absoluteFile));
+/// The commands have a lifetime that persist throughout the whole analyze thus
+/// just reuse them as-is.
+immutable(ParsedCompileCommand) immReuse(ParsedCompileCommand v) @trusted {
+    return cast(immutable) v;
 }
 
 ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults analyze_results, string[] in_cflags,
         string[] in_files, CompileCommandDB compile_db, AbsolutePath restrictDir, int workerThreads) @safe {
     import std.conv : to;
-    import std.range : enumerate;
-    import dextool.compilation_db : defaultCompilerFilter, SearchResult;
+    import dextool.compilation_db : defaultCompilerFilter;
     import dextool.utility : prependDefaultFlags, PreferLang;
-    import dextool.plugin.analyze.filerange : AnalyzeFileRange;
 
     {
         import std.concurrency : setMaxMailboxSize, OnCrowding, thisTid;
@@ -72,9 +68,15 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
         () @trusted { setMaxMailboxSize(thisTid, 1024, OnCrowding.block); }();
     }
 
-    const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.cpp);
+    auto compDbRange() {
+        if (compile_db.empty) {
+            return fileRange(in_files.map!(a => Path(a)).array, Compiler("/usr/bin/c++"));
+        }
+        return compile_db.fileRange;
+    }
 
-    auto files = AnalyzeFileRange(compile_db, in_files, in_cflags, defaultCompilerFilter).enumerate;
+    auto files = compDbRange.parse(defaultCompilerFilter).addSystemIncludes.prependFlags(
+            prependDefaultFlags(in_cflags, PreferLang.cpp)).enumerate.array;
     const total_files = files.length;
 
     enum State {
@@ -127,30 +129,19 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
 
         switch (st) {
         case State.init:
-            import std.algorithm : filter;
-
             for (; !files.empty; files.popFront) {
-                if (files.front.value.isNull) {
-                    logger.warning(
-                            "Skipping file because it is not possible to determine the compiler flags");
-                } else if (!pool.run(&analyzeWorker, analyze_builder, files.front.index,
-                        total_files, files.front.value.get.immDup, restrictDir)) {
+                if (!pool.run(&analyzeWorker, analyze_builder, files.front.index,
+                        total_files, files.front.value.immReuse, restrictDir)) {
                     // reached CPU limit
                     break;
                 }
             }
             break;
         case State.putFile:
-            if (files.front.value.isNull) {
-                logger.warning(
-                        "Skipping file because it is not possible to determine the compiler flags");
+            if (pool.run(&analyzeWorker, analyze_builder,
+                    files.front.index, total_files, files.front.value.immReuse, restrictDir)) {
+                // successfully spawned a worker
                 files.popFront;
-            } else {
-                if (pool.run(&analyzeWorker, analyze_builder, files.front.index,
-                        total_files, files.front.value.get.immDup, restrictDir)) {
-                    // successfully spawned a worker
-                    files.popFront;
-                }
             }
             break;
         case State.receive:
@@ -169,7 +160,7 @@ ExitStatusType doAnalyze(AnalyzeBuilder analyze_builder, ref AnalyzeResults anal
 }
 
 void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
-        size_t total_files, immutable SearchResult pdata, AbsolutePath restrictDir) nothrow {
+        size_t total_files, immutable ParsedCompileCommand pdata, AbsolutePath restrictDir) nothrow {
     import std.concurrency : send;
     import std.typecons : Yes;
     import std.exception : collectException;
@@ -187,8 +178,9 @@ void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
         analyzers = analyze_builder.finalize;
         analyzers.register(visitor);
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-        if (analyzeFile(pdata.absoluteFile, pdata.cflags, visitor, ctx) == ExitStatusType.Errors) {
-            logger.error("Unable to analyze: ", cast(string) pdata.absoluteFile);
+        if (analyzeFile(pdata.cmd.absoluteFile, pdata.flags.completeFlags,
+                visitor, ctx) == ExitStatusType.Errors) {
+            logger.error("Unable to analyze: ", cast(string) pdata.cmd.absoluteFile);
             return;
         }
     } catch (Exception e) {
@@ -263,7 +255,6 @@ class Pool {
 
     void removeWorker(Tid tid) {
         import std.array : array;
-        import std.algorithm : filter;
 
         pool = pool.filter!(a => tid != a).array();
     }
