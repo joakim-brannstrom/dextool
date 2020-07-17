@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.frontend.frontend;
 
 import logger = std.experimental.logger;
-import std.array : empty;
+import std.array : empty, array;
 import std.exception : collectException;
 
 import dextool.compilation_db;
@@ -75,8 +75,8 @@ import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
 struct DataAccess {
     import std.typecons : Nullable;
 
-    import dextool.compilation_db : CompileCommandFilter,
-        defaultCompilerFlagFilter, fromArgCompileDb;
+    import dextool.compilation_db : limitOrAllRange, parse, prependFlags, addCompiler, replaceCompiler,
+        addSystemIncludes, fileRange, fromArgCompileDb, ParsedCompileCommandRange, Compiler;
     import dextool.plugin.mutate.backend : Database;
     import dextool.user_filerange;
 
@@ -89,14 +89,25 @@ struct DataAccess {
     string[] inFiles;
 
     // only generate it on demand. All modes do not require it.
-    UserFileRange frange() @trusted {
+    ParsedCompileCommandRange frange() @trusted {
+        import std.algorithm : map, joiner;
+        import std.range : only;
+
         CompileCommandDB fusedCompileDb;
         if (!compileDb.dbs.empty) {
             fusedCompileDb = compileDb.dbs.fromArgCompileDb;
         }
 
-        return UserFileRange(fusedCompileDb, inFiles, compiler.extraFlags,
-                compileDb.flagFilter, compiler.useCompilerSystemIncludes);
+        // dfmt off
+        return ParsedCompileCommandRange.make(
+            only(fusedCompileDb.fileRange, fileRange(inFiles.map!(a => Path(a)).array, Compiler("/usr/bin/c++"))).joiner
+            .parse(compileDb.flagFilter)
+            .addCompiler(compiler.useCompilerSystemIncludes)
+            .replaceCompiler(compiler.useCompilerSystemIncludes)
+            .addSystemIncludes
+            .prependFlags(compiler.extraFlags)
+            .array);
+        // dfmt on
     }
 
     static auto make(ref ArgParser conf) @trusted {
@@ -121,7 +132,6 @@ struct DataAccess {
  * #SPC-file_security-single_output
  */
 final class FrontendIO : FilesysIO {
-    import std.exception : collectException;
     import std.stdio : File;
     import blob_model;
     import dextool.plugin.mutate.backend : SafeOutput, Blob;

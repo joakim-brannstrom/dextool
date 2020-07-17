@@ -11,22 +11,38 @@ This file contains helpers for interactive with the clang abstractions.
 */
 module dextool.clang;
 
-import std.typecons : Nullable;
 import logger = std.experimental.logger;
+import std.algorithm : filter, map;
+import std.array : appender, array, empty;
+import std.file : exists, getcwd;
+import std.path : baseName, buildPath;
+import std.typecons : Nullable, Yes;
 
-import dextool.compilation_db : SearchResult, CompileCommandDB,
-    CompileCommandFilter, CompileCommand, parseFlag, DbCompiler = Compiler;
+import dextool.compilation_db : CompileCommandDB, LimitFileRange, ParsedCompileCommand,
+    ParseFlags, CompileCommandFilter, CompileCommand, parseFlag, DbCompiler = Compiler;
 import dextool.type : Path, AbsolutePath;
 
 @safe:
 
-private struct IncludeResult {
+struct IncludeResult {
     /// The entry that had an #include with the desired file
-    CompileCommand original;
+    ParsedCompileCommand original;
 
     /// The compile command derived from the original with adjusted file and
     /// absoluteFile.
-    CompileCommand derived;
+    ParsedCompileCommand derived;
+}
+
+/// Find the path on the filesystem where f exists as if the compiler search for the file.
+Nullable!AbsolutePath findFile(Path f, ParseFlags.Include[] includes, AbsolutePath dir) {
+    typeof(return) rval;
+
+    foreach (a; includes.map!(a => buildPath(cast(string) dir, a, f))
+            .filter!(a => exists(a))) {
+        rval = AbsolutePath(Path(a));
+        break;
+    }
+    return rval;
 }
 
 /** Find a CompileCommand that in any way have an `#include` which pull in fname.
@@ -38,14 +54,7 @@ private struct IncludeResult {
  *
  * Returns: The first CompileCommand object which _probably_ has the flags needed to parse fname.
  */
-Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compdb, Path fname,
-        ref const CompileCommandFilter flag_filter, const string[] extra_flags,
-        const DbCompiler user_compiler = DbCompiler.init) @trusted {
-    import std.algorithm : filter;
-    import std.file : exists;
-    import std.path : baseName;
-    import std.typecons : Yes;
-
+Nullable!IncludeResult findCompileCommandFromIncludes(ParsedCompileCommand[] compdb, Path fname) @trusted {
     import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.analyzer.clang.include_visitor : hasInclude;
@@ -58,25 +67,33 @@ Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compd
         return find_file == include.baseName;
     }
 
-    Nullable!IncludeResult r;
+    typeof(return) r;
 
-    foreach (entry; compdb.filter!(a => exists(a.absoluteFile))) {
-        auto flags = extra_flags ~ entry.parseFlag(flag_filter, user_compiler);
-        auto translation_unit = ctx.makeTranslationUnit(entry.absoluteFile, flags);
+    foreach (entry; compdb.filter!(a => exists(a.cmd.absoluteFile))) {
+        auto translation_unit = ctx.makeTranslationUnit(entry.cmd.absoluteFile,
+                entry.flags.completeFlags);
 
         if (translation_unit.hasParseErrors) {
-            logger.warningf("Skipping '%s' because of compilation errors", entry.absoluteFile);
+            logger.infof("Skipping '%s' because of compilation errors", entry.cmd.absoluteFile);
             logDiagnostic(translation_unit);
             continue;
         }
 
         auto found = translation_unit.cursor.hasInclude!isMatch();
         if (!found.isNull) {
-            r = IncludeResult();
+            r = IncludeResult.init;
             r.get.original = entry;
             r.get.derived = entry;
-            r.get.derived.file = found.get;
-            r.get.derived.absoluteFile = AbsolutePath(found.get, entry.directory);
+            r.get.derived.cmd.file = found.get;
+            auto onDisc = findFile(found.get, entry.flags.includes, entry.cmd.directory);
+            if (onDisc.isNull) {
+                // wild guess
+                r.get.derived.cmd.absoluteFile = AbsolutePath(Path(buildPath(entry.cmd.directory,
+                        found.get)));
+            } else {
+                r.get.derived.cmd.absoluteFile = onDisc.get;
+            }
+
             return r;
         }
     }
@@ -84,50 +101,51 @@ Nullable!IncludeResult findCompileCommandFromIncludes(ref CompileCommandDB compd
     return r;
 }
 
-/// Find flags for fname by searching in the compilation DB.
-Nullable!SearchResult findFlags(ref CompileCommandDB compdb, Path fname, const string[] flags,
-        ref const CompileCommandFilter flag_filter, const DbCompiler user_compiler = DbCompiler
-        .init) {
-    import std.file : exists;
-    import std.path : baseName;
+/** Try and find matching compiler flags for the missing files.
+ *
+ * Returns: an updated LimitFileRange where those that where found have been moved from `missingFiles` to `commands`.
+ */
+auto reduceMissingFiles(LimitFileRange lfr, ParsedCompileCommand[] db) {
+    import std.algorithm : canFind;
 
-    import dextool.compilation_db : appendOrError;
+    if (db.empty || lfr.isMissingFilesEmpty)
+        return lfr;
 
-    typeof(return) rval;
+    auto found = appender!(string[])();
+    auto newCmds = appender!(ParsedCompileCommand[])();
 
-    auto db_search_result = compdb.appendOrError(flags, fname, flag_filter);
-    if (!db_search_result.isNull) {
-        rval = SearchResult(db_search_result.get.flags, db_search_result.get.absoluteFile);
-        logger.trace(rval.get.flags);
-        return rval;
+    foreach (f; lfr.missingFiles) {
+        logger.infof(`Analyzing all files in the compilation DB for one that has an '#include "%s"'`,
+                f.baseName);
+
+        auto res = findCompileCommandFromIncludes(db, Path(f));
+        if (res.isNull) {
+            continue;
+        }
+
+        logger.infof(`Using compiler flags derived from '%s' because it has an '#include' for '%s'`,
+                res.get.original.cmd.absoluteFile, res.get.derived.cmd.absoluteFile);
+
+        ParsedCompileCommand cmd = res.get.derived;
+
+        if (exists(f)) {
+            // check if the file from the user is directly accessable on the
+            // filesystem. In such a case assume that the located file is the
+            // one the user want to parse. Otherwise derive it from the compile
+            // command DB.
+            cmd.cmd.file = Path(f);
+            cmd.cmd.absoluteFile = AbsolutePath(Path(buildPath(cmd.cmd.directory, f)));
+        } else {
+            logger.tracef("Unable to locate '%s' on the filesystem", f);
+            logger.tracef("Using the filename from the compile DB instead '%s'",
+                    cmd.cmd.absoluteFile);
+        }
+
+        newCmds.put(cmd);
+        found.put(f);
     }
 
-    logger.warningf(`Analyzing all files in the compilation DB for one that has an '#include "%s"'`,
-            fname.baseName);
-
-    auto sres = compdb.findCompileCommandFromIncludes(fname, flag_filter, flags);
-    if (sres.isNull) {
-        logger.error("Unable to find any compiler flags for: ", fname);
-        return rval;
-    }
-
-    // check if the file from the user is directly accessable on the filesystem.
-    // in such a case assume that the located file is the one the user want to parse.
-    // otherwise derive it from the compile command DB.
-    auto p = AbsolutePath(fname);
-
-    if (!exists(p)) {
-        logger.tracef("Unable to locate '%s' on the filesystem", p);
-        p = sres.get.derived.absoluteFile;
-        logger.tracef("Using the filename from the compile DB instead '%s'", p);
-    }
-
-    logger.warningf(`Using compiler flags derived from '%s' because it has an '#include' for '%s'`,
-            sres.get.original.absoluteFile, sres.get.derived.absoluteFile);
-
-    rval = SearchResult(flags ~ sres.get.derived.parseFlag(flag_filter, user_compiler), p);
-    // the user may want to see the flags but usually uninterested
-    logger.trace(rval.get.flags);
-
-    return rval;
+    lfr.commands ~= newCmds.data;
+    lfr.missingFiles = lfr.missingFiles.filter!(a => !found.data.canFind(a)).array;
+    return lfr;
 }

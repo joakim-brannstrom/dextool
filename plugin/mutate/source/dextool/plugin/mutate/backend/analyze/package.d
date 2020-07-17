@@ -26,7 +26,7 @@ import std.typecons;
 import colorlog;
 
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
-    CompileCommandDB, SearchResult;
+    CompileCommandDB, ParsedCompileCommandRange, ParsedCompileCommand;
 import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
 import dextool.plugin.mutate.backend.database : Database, LineMetadata, MutationPointEntry2;
 import dextool.plugin.mutate.backend.database.type : MarkedMutant;
@@ -46,8 +46,8 @@ version (unittest) {
 
 /** Analyze the files in `frange` for mutations.
  */
-ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
-        ConfigCompiler conf_compiler, UserFileRange frange, ValidateLoc val_loc, FilesysIO fio) @trusted {
+ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze, ConfigCompiler conf_compiler,
+        ParsedCompileCommandRange frange, ValidateLoc val_loc, FilesysIO fio) @trusted {
     import dextool.plugin.mutate.backend.diff_parser : diffFromStdin, Diff;
 
     auto fileFilter = () {
@@ -75,16 +75,15 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze,
     int taskCnt;
     Set!AbsolutePath alreadyAnalyzed;
     // dfmt off
-    foreach (f; frange.filter!(a => !a.isNull)
-            .map!(a => a.get)
+    foreach (f; frange
             // The tool only supports analyzing a file one time.
             // This optimize it in some cases where the same file occurs
             // multiple times in the compile commands database.
-            .filter!(a => a.absoluteFile !in alreadyAnalyzed)
-            .tee!(a => alreadyAnalyzed.add(a.absoluteFile))
+            .filter!(a => a.cmd.absoluteFile !in alreadyAnalyzed)
+            .tee!(a => alreadyAnalyzed.add(a.cmd.absoluteFile))
             .cache
-            .filter!(a => !isPathInsideAnyRoot(conf_analyze.exclude, a.absoluteFile))
-            .filter!(a => fileFilter.shouldAnalyze(a.absoluteFile))) {
+            .filter!(a => !isPathInsideAnyRoot(conf_analyze.exclude, a.cmd.absoluteFile))
+            .filter!(a => fileFilter.shouldAnalyze(a.cmd.absoluteFile))) {
         try {
             pool.put(task!analyzeActor(f, val_loc.dup, fio.dup, conf_compiler, conf_analyze, store));
             taskCnt++;
@@ -159,9 +158,9 @@ struct StoreDoneMsg {
 }
 
 /// Start an analyze of a file
-void analyzeActor(SearchResult fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
+void analyzeActor(ParsedCompileCommand fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
         ConfigCompiler compilerConf, ConfigAnalyze analyzeConf, Tid storeActor) @trusted nothrow {
-    auto profile = Profile("analyze file " ~ fileToAnalyze.absoluteFile);
+    auto profile = Profile("analyze file " ~ fileToAnalyze.cmd.absoluteFile);
 
     try {
         auto analyzer = Analyze(vloc, fio,
@@ -399,7 +398,6 @@ struct Analyze {
     import std.typecons : Yes;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.utility.virtualfilesystem;
-    import dextool.compilation_db : SearchResult;
     import dextool.type : Exists, makeExists;
 
     static struct Config {
@@ -433,13 +431,13 @@ struct Analyze {
         this.conf = conf;
     }
 
-    void process(SearchResult in_file) @safe {
+    void process(ParsedCompileCommand in_file) @safe {
         in_file.flags.forceSystemIncludes = conf.forceSystemIncludes;
 
         // find the file and flags to analyze
         Exists!AbsolutePath checked_in_file;
         try {
-            checked_in_file = makeExists(in_file.absoluteFile);
+            checked_in_file = makeExists(in_file.cmd.absoluteFile);
         } catch (Exception e) {
             logger.warning(e.msg);
             return;
@@ -458,11 +456,11 @@ struct Analyze {
         } catch (Exception e) {
             () @trusted { logger.trace(e); }();
             logger.info(e.msg);
-            logger.error("failed analyze of ", in_file).collectException;
+            logger.error("failed analyze of ", in_file.cmd.absoluteFile).collectException;
         }
     }
 
-    void analyzeForMutants(SearchResult in_file,
+    void analyzeForMutants(ParsedCompileCommand in_file,
             Exists!AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
         import dextool.plugin.mutate.backend.analyze.pass_clang;
         import dextool.plugin.mutate.backend.analyze.pass_filter;

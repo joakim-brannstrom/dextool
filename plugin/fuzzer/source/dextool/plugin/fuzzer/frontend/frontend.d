@@ -235,35 +235,43 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
     }
 }
 
-auto genFuzzer(FuzzerFrontend frontend, in string[] in_cflags,
-        CompileCommandDB compile_db, Path[] in_files, Regex!char strip_incl) {
+auto genFuzzer(FuzzerFrontend frontend, in string[] userCflags,
+        CompileCommandDB compile_db, Path[] inFiles, Regex!char strip_incl) {
+    import std.algorithm : map;
+    import std.array : array;
+
+    import dextool.clang : reduceMissingFiles;
+    import dextool.compilation_db : limitOrAllRange, parse, prependFlags,
+        addCompiler, replaceCompiler, addSystemIncludes, fileRange;
     import dextool.io : writeFileData;
     import dextool.plugin.fuzzer.backend.backend : Backend;
     import dextool.utility : prependDefaultFlags, PreferLang;
 
-    const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.none);
-    const auto total_files = in_files.length;
     auto backend = Backend(frontend, frontend, frontend, frontend, strip_incl);
 
-    foreach (idx, in_file; in_files) {
-        logger.infof("File %d/%d ", idx + 1, total_files);
-        string[] use_cflags;
-        AbsolutePath analyze_file;
-
-        if (compile_db.length > 0) {
-            auto db_search_result = compile_db.appendOrError(user_cflags,
-                    in_file, frontend.getCompileCommandFilter);
-            if (db_search_result.isNull) {
-                return ExitStatusType.Errors;
-            }
-            use_cflags = db_search_result.get.cflags;
-            analyze_file = db_search_result.get.absoluteFile;
-        } else {
-            use_cflags = user_cflags.dup;
-            analyze_file = AbsolutePath(Path(in_file));
+    auto compDbRange() {
+        if (compile_db.empty) {
+            return fileRange(inFiles, Compiler("/usr/bin/c++"));
         }
+        return compile_db.fileRange;
+    }
 
-        if (backend.analyzeFile(analyze_file, use_cflags) == ExitStatusType.Errors) {
+    auto fixedDb = compDbRange.parse(frontend.getCompileCommandFilter).addCompiler(Compiler("/usr/bin/c++"))
+        .addSystemIncludes.prependFlags(prependDefaultFlags(userCflags, PreferLang.none)).array;
+
+    auto limitRange = limitOrAllRange(fixedDb, inFiles.map!(a => cast(string) a).array)
+        .reduceMissingFiles(fixedDb);
+
+    if (!compile_db.empty && !limitRange.isMissingFilesEmpty) {
+        foreach (a; limitRange.missingFiles) {
+            logger.error("Unable to find any compiler flags for .", a);
+        }
+        return ExitStatusType.Errors;
+    }
+
+    foreach (pdata; limitRange.range) {
+        if (backend.analyzeFile(pdata.cmd.absoluteFile,
+                pdata.flags.completeFlags) == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
     }

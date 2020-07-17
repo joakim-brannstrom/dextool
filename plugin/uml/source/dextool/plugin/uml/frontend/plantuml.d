@@ -134,31 +134,6 @@ Information about --file-restrict.
 );
 // dfmt on
 
-/** Contains the file processing directives after parsing user arguments.
- *
- * If no --in argument then it is assumed that all files in the CompileDB
- * shall be processed.
- *
- * Indicated by the directive All.
- */
-struct FileProcess {
-    enum Directive {
-        Single,
-        All
-    }
-
-    static auto make() {
-        return FileProcess(Directive.All, Path(null));
-    }
-
-    static auto make(Path input_file) {
-        return FileProcess(Directive.Single, input_file);
-    }
-
-    Directive directive;
-    Path inputFile;
-}
-
 /** Frontend for PlantUML generator.
  *
  * TODO implement --in=... for multi-file handling
@@ -375,16 +350,18 @@ struct Lookup {
 }
 
 ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
-        CompileCommandDB compile_db, FileProcess file_process, Flag!"skipFileError" skipFileError) {
+        CompileCommandDB compile_db, Path[] inFiles, Flag!"skipFileError" skipFileError) {
     import std.algorithm : map, joiner;
+    import std.array : array;
     import std.conv : text;
     import std.path : buildNormalizedPath, asAbsolutePath;
     import std.typecons : Yes;
 
     import cpptooling.data : CppRoot;
     import cpptooling.data.symbol : Container;
-
     import cpptooling.analyzer.clang.context : ClangContext;
+
+    import dextool.clang : reduceMissingFiles;
     import dextool.io : writeFileData;
     import dextool.plugin.backend.plantuml : Generator, UMLVisitor,
         UMLClassDiagram, UMLComponentDiagram, TransformToDiagram;
@@ -401,68 +378,49 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
     auto visitor = new UMLVisitor!(Controller, typeof(transform))(variant, transform, container);
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 
-    final switch (file_process.directive) {
-    case FileProcess.Directive.All:
-        const auto cflags = prependDefaultFlags(in_cflags, PreferLang.none);
-        AbsolutePath[] unable_to_parse;
-
-        const auto total_files = compile_db.length;
-
-        foreach (idx, entry; compile_db) {
-            logger.infof("File %d/%d ", idx + 1, total_files);
-            auto entry_cflags = cflags ~ parseFlag(entry, defaultCompilerFilter);
-
-            auto analyze_status = analyzeFile(entry.absoluteFile, entry_cflags, visitor, ctx);
-
-            // compile error, let user decide how to proceed.
-            if (analyze_status == ExitStatusType.Errors && skipFileError) {
-                logger.errorf("Continue analyze...");
-                unable_to_parse ~= entry.absoluteFile;
-            } else if (analyze_status == ExitStatusType.Errors) {
-                return ExitStatusType.Errors;
-            }
+    auto compDbRange() {
+        if (compile_db.empty) {
+            return fileRange(inFiles, Compiler("/usr/bin/c++"));
         }
+        return compile_db.fileRange;
+    }
 
-        if (unable_to_parse.length > 0) {
-            // TODO be aware that no test exist for this logic
-            import std.ascii : newline;
-            import std.range : roundRobin, repeat;
+    auto fixedDb = compDbRange.parse(defaultCompilerFilter).addCompiler(Compiler("/usr/bin/c++"))
+        .addSystemIncludes.prependFlags(prependDefaultFlags(in_cflags, PreferLang.none)).array;
 
-            logger.errorf("Compile errors in the following files:\n%s\n",
-                    unable_to_parse.map!(a => (cast(string) a))
-                    .roundRobin(newline.repeat(unable_to_parse.length)).joiner().text);
+    auto limitRange = limitOrAllRange(fixedDb, inFiles.map!(a => cast(string) a).array)
+        .reduceMissingFiles(fixedDb);
+
+    if (!compile_db.empty && !limitRange.isMissingFilesEmpty) {
+        foreach (a; limitRange.missingFiles) {
+            logger.error("Unable to find any compiler flags for .", a);
         }
-        break;
+        return ExitStatusType.Errors;
+    }
 
-    case FileProcess.Directive.Single:
-        const auto user_cflags = prependDefaultFlags(in_cflags, PreferLang.none);
+    AbsolutePath[] unable_to_parse;
 
-        string[] use_cflags;
-        AbsolutePath abs_in_file;
-        string input_file = cast(string) file_process.inputFile;
+    foreach (entry; limitRange.range) {
+        auto analyze_status = analyzeFile(entry.cmd.absoluteFile,
+                entry.flags.completeFlags, visitor, ctx);
 
-        logger.trace("Input file: ", input_file);
-
-        if (compile_db.length > 0) {
-            auto db_search_result = compile_db.appendOrError(user_cflags, input_file);
-            if (db_search_result.isNull) {
-                return ExitStatusType.Errors;
-            }
-            use_cflags = db_search_result.get.cflags;
-            abs_in_file = db_search_result.get.absoluteFile;
-        } else {
-            import std.array : array;
-            import dextool.compilation_db : deduceSystemIncludes, Compiler;
-
-            use_cflags = user_cflags.dup ~ deduceSystemIncludes(user_cflags,
-                    Compiler("/usr/bin/c++")).map!(a => "-I" ~ a).array;
-            abs_in_file = AbsolutePath(Path(input_file));
-        }
-
-        if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
+        // compile error, let user decide how to proceed.
+        if (analyze_status == ExitStatusType.Errors && skipFileError) {
+            logger.errorf("Continue analyze...");
+            unable_to_parse ~= entry.cmd.absoluteFile;
+        } else if (analyze_status == ExitStatusType.Errors) {
             return ExitStatusType.Errors;
         }
-        break;
+    }
+
+    if (unable_to_parse.length > 0) {
+        // TODO be aware that no test exist for this logic
+        import std.ascii : newline;
+        import std.range : roundRobin, repeat;
+
+        logger.errorf("Compile errors in the following files:\n%s\n",
+                unable_to_parse.map!(a => (cast(string) a))
+                .roundRobin(newline.repeat(unable_to_parse.length)).joiner().text);
     }
 
     transform.finalize();

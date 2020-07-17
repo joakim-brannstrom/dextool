@@ -50,7 +50,7 @@ struct SystemIncludePath {
  *
  * Note that how the compilers are inspected is hard coded.
  */
-SystemIncludePath[] deduceSystemIncludes(ref CompileCommand cmd, const Compiler compiler) {
+SystemIncludePath[] deduceSystemIncludes(CompileCommand cmd, const Compiler compiler) {
     return deduceSystemIncludes(cmd.command, compiler);
 }
 
@@ -108,15 +108,19 @@ SystemIncludePath[][Compiler] cacheSysIncludes;
 // assumes that compilers adher to the gcc and llvm commands use of --sysroot / -isysroot.
 // depends on the fact that CompileCommand.Command always splits e.g. a --isysroot=foo to ["--sysroot", "foo"].
 const(string[]) sysroot(const string[] cmd) {
-    auto index = cmd.countUntil!(a => a.startsWith("--sysroot")) + 1;
-    if (index > 0 && (index + 1) < cmd.length)
-        return cmd[index .. index + 1];
-
-    index = cmd.countUntil!(a => a.startsWith("-isysroot")) + 1;
-    if (index > 0 && (index + 1) < cmd.length)
-        return cmd[index .. index + 1];
+    foreach (flag; ["--sysroot", "-isysroot"]) {
+        auto index = cmd.countUntil!(a => a.startsWith(flag)) + 1;
+        if (index > 0 && (index + 1) < cmd.length)
+            return cmd[index .. index + 1];
+    }
 
     return null;
+}
+
+@("shall extract --sysroot and its argument")
+unittest {
+    ["foo", "--sysroot", "bar"].sysroot.shouldEqual(["--sysroot", "bar"]);
+    ["foo", "-isysroot", "bar"].sysroot.shouldEqual(["-isysroot", "bar"]);
 }
 
 // assumes that compilers adher to the gcc and llvm commands of using -xLANG
