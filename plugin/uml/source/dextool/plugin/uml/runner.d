@@ -12,7 +12,8 @@ module dextool.plugin.runner;
 import std.typecons : Flag;
 
 auto runPlugin(string[] args) {
-    import std.array : appender;
+    import std.algorithm : map;
+    import std.array : appender, array;
     import std.stdio : writeln;
     import dextool.compilation_db;
     import dextool.type;
@@ -39,15 +40,8 @@ auto runPlugin(string[] args) {
         compile_db = pargs.compileDb.fromArgCompileDb;
     }
 
-    FileProcess file_process;
-    if (pargs.inFiles.length == 0) {
-        file_process = FileProcess.make;
-    } else {
-        //TODO part of the multi file handling
-        file_process = FileProcess.make(Path(pargs.inFiles[0]));
-    }
-
     auto skipFileError = cast(Flag!"skipFileError") pargs.skipFileError;
 
-    return genUml(variant, pargs.cflags, compile_db, file_process, skipFileError);
+    return genUml(variant, pargs.cflags, compile_db,
+            pargs.inFiles.map!(a => Path(a)).array, skipFileError);
 }
