@@ -1,55 +1,49 @@
-# REQ-plugin_mutate-mutations
-partof: REQ-plugin_mutate
-###
+# Mutations {id="req-mutations"}
+
+This chapter describe the supported mutants, the requirements and how those
+requirements are verified.
+
+There are a multitude of mutants described in the academical literature (100+).
+It isn't feasible to support all of them and there are neither a consensus of
+which ones are *best* for a specific language and code base. But to allow a
+predetermined *stop* in the development of the plugin a specific few have been
+chosen as recommended by the following papers and quotes.
+
+Quote from [@mutationSurvey, p. 6] :
+
+    Offutt et al. [182] extended their 6-selective mutation further using a
+    similar selection strategy. Based on the type of the Mothra mutation
+    operators, they divided them into three categories: statements, operands
+    and expressions. They tried to omit operators from each class in turn. They
+    discovered that 5 operators from the operands and expressions class became
+    the key operators.  These 5 operators are ABS, UOI, LCR, AOR and ROR. These
+    key operators achieved 99.5% mutation score.
+
+Quote from [@detSufficientMutOperators, p. 18] :
+
+    The 5 sufficient operators are ABS, which forces each arithmetic expression
+    to take on the value 0, a positive value and a negative value, AOR, which
+    replaces each arithmetic operator with every syntactically legal operator,
+    LCR, which replaces each logical connector (AND and OR) with several kinds
+    of logical connectors, ROR, which replaces relational operators with other
+    relational operators, and UOI, which insert unary operators in front of
+    expressions. It is interesting to note that this set includes the operators
+    that are required to satisfy branch and extended branch coverage leading us
+    to believe that extended branch coverage is in some sense a major part of
+    mutation.
+
+The plugin focus on generating as good as possible mutants from these mutation
+operators by using type information from the language to reduce unproductive and
+equivalent mutants as much as possible.
+
+## Requirements
 
 The plugin shall support **at least** the mutations ROR, AOR, LCR, UOI and ABS.
 
-## Why?
+## Relational Operator Replacement (ROR) {id="design-mutation_ror"}
 
-Quote from [@mutationSurvey, p. 6] :
-*Offutt et al. [182] extended their 6-selective mutation further
-using a similar selection strategy. Based on the type of the Mothra
-mutation operators, they divided them into three categories:
-statements, operands and expressions. They tried to omit operators
-from each class in turn. They discovered that 5 operators from
-the operands and expressions class became the key operators.
-These 5 operators are ABS, UOI, LCR, AOR and ROR. These
-key operators achieved 99.5% mutation score.*
+[partof](#req-mutations)
 
-Quote from [@detSufficientMutOperators, p. 18] :
-*The 5 sufficient operators are ABS, which forces each arithmetic expression to
-take on the value 0, a positive value and a negative value, AOR, which replaces
-each arithmetic operator with every syntactically legal operator, LCR, which
-replaces each logical connector (AND and OR) with several kinds of logical
-connectors, ROR, which replaces relational operators with other relational
-operators, and UOI, which insert unary operators in front of expressions. It is
-interesting to note that this set includes the operators that are required to
-satisfy branch and extended branch coverage leading us to believe that extended
-branch coverage is in some sense a major part of mutation.*
-
-# SPC-mutation_ror
-partof: REQ-mutations
-###
-
-The plugin shall mutate the relational operators according to the RORG schema.
-
-The plugin shall use the *floating point RORG schema* when the type of the expressions on both sides of the operator are floating point types.
-
-**Note**: See [[SPC-mutation_ror_float]].
-
-The plugin shall use the *enum RORG schema* when the type of the expressions on both sides of the operator are enums and of the same enum type.
-
-**Note**: See [[SPC-mutation_ror_enum]]
-
-The plugin shall use the *pointer RORG schema* when the type of the expressions on either sides of the operator are pointer types and the mutation type is RORP.
-
-**Note**: See [[SPC-mutation_ror_ptr]]
-
-The plugin shall use the *bool RORG schema* when the type of the expressions on both sides of the operator are boolean types.
-
-**Note**: See [[SPC-mutation_ror_bool]]
-
-## Relational Operator Replacement (ROR)
 Replace a single operand with another operand.
 
 The operands are: `<,<=,>,>=,==,!=,true,false`
@@ -57,6 +51,31 @@ The operands are: `<,<=,>,>=,==,!=,true,false`
 The implementation should use what is in literature called RORG (Relational
 Operator Replacement Global) because it results in fewer mutations and less
 amplification of infeasible mutants.
+
+### Requirements
+
+The plugin shall mutate the relational operators according to the RORG schema.
+
+The plugin shall use the *floating point RORG schema* when the type of the
+expressions on both sides of the operator are floating point types.
+
+**Note**: See [[SPC-mutation_ror_float]].
+
+The plugin shall use the *enum RORG schema* when the type of the expressions on
+both sides of the operator are enums and of the same enum type.
+
+**Note**: See [[SPC-mutation_ror_enum]]
+
+The plugin shall use the *pointer RORG schema* when the type of the expressions
+on either sides of the operator are pointer types and the mutation type is
+RORP.
+
+**Note**: See [[SPC-mutation_ror_ptr]]
+
+The plugin shall use the *bool RORG schema* when the type of the expressions on
+both sides of the operator are boolean types.
+
+**Note**: See [[SPC-mutation_ror_bool]]
 
 ### RORG
 
@@ -75,28 +94,35 @@ Mutation subsuming table from [@thesis1]:
 | `x == y`            | `x <= y` | `x >= y` | `false`  |
 | `x != y`            | `x < y`  | `x > y`  | `true`   |
 
-# SPC-mutation_ror_bool
-partof: SPC-mutation_ror
-###
+### ROR for Booleans {id="design-mutation_ror_bool"}
 
-This schema is only applicable when the type of the expressions on both sides of an operator are of boolean type.
+[partof](#design-mutation_ror)
+
+Mutations such as `<` for a boolean type is nonsensical in C++ or in C when the
+type is `_Bool`.
+
+This schema is only applicable when the type of the expressions on both sides
+of an operator are of boolean type.
 
 | Original Expression | Mutant 1 | Mutant 2 |
 | ------------------- | -------- | -------- |
 | `x == y`            | `x != y` |  `false` |
 | `x != y`            | `x == y` |  `true`  |
 
-## Why?
+### ROR for Floating Points {id="design-mutation_ror_float"}
 
-Mutations such as `<` for a boolean type is nonsensical in C++ or in C when the type is `_Bool`.
+[partof](#design-mutation_ror)
 
-# SPC-mutation_ror_float
-partof: SPC-mutation_ror
-###
+The goal is to reduce the number of *undesired* mutants.
 
-This schema is only applicable when the type of the expressions on both sides of an operator are of floating point type.
+Strict equal is not recommended to ever use for floating point numbers. Because
+of this the test suite is probably not designed to catch these type of
+mutations which lead to *undesired* mutants. They are *techincally* not
+equivalent but they aren't supposed to be cought because the SUT is never
+supposed to do these type of operations.
 
-TODO investigate Mutant 3. What should it be?
+This schema is only applicable when the type of the expressions on both sides
+of an operator are of floating point type.
 
 | Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
 | ------------------- | -------- | -------- | ---------- |
@@ -107,21 +133,30 @@ TODO investigate Mutant 3. What should it be?
 | `x == y`            | `x <= y` | `x >= y` | `false`    |
 | `x != y`            | `x < y`  | `x > y`  | `true`     |
 
-*Note*: that `==` and `!=` isn't changed compared to the original mutation schema because normally they shouldn't be used for a floating point value but if they are, and it is a valid use, the original schema should work.
+*Note*: that `==` and `!=` isn't changed compared to the original mutation
+schema because normally they shouldn't be used for a floating point value but
+if they are, and it is a valid use, the original schema should work.
 
-## Why?
 
-The goal is to reduce the number of *undesired* mutants.
+TODO investigate Mutant 3. What should it be?
 
-Strict equal is not recommended to ever use for floating point numbers. Because of this the test suite is probably not designed to catch these type of mutations which lead to *undesired* mutants. They are *techincally* not equivalent but they aren't supposed to be cought because the SUT is never supposed to do these type of operations.
+TODO empirical evidence needed to demonstrate how much the undesired mutations
+are reduced.
 
-TODO empirical evidence needed to demonstrate how much the undesired mutations are reduced.
+### ROR for Enumerations {id="design-mutation_ror_enum"}
 
-# SPC-mutation_ror_enum
-partof: SPC-mutation_ror
-###
+[partof](#design-mutation_ror)
 
-This schema is only applicable when type of the expressions on both sides of an operator are enums and the same enum type.
+The schema try to avoid generating mutants that isn't possible to kill in C/C++
+without using undefined behavior. We do not want users to write that type of
+test cases. The mutants that are problematic is those that are on the boundary
+of the enumerations range. Normally an enum can't be *outside* the boundaries
+of an enum thus the test suite can't possibly kill such a mutants that would
+require an enum outside the boundaries.
+
+
+This schema is only applicable when type of the expressions on both sides of an
+operator are enums and the same enum type.
 
 | Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
 | ------------------- | -------- | -------- | -------- |
@@ -153,11 +188,6 @@ Lets explain why the third line is true. Because `x` is on the boundary of `y`
 it means that the only valid mutants are `>=` and `false` if we consider the
 RORG schema. `>=` would in this case always be `true`. Thus it follows that the
 mutants for the third line should be `true` and `false`.
-
-## Why?
-
-The goal is to reduce the number of equivalent mutants.
-Normally an enum can't be *outside* the boundaries of an enum thus the test suite can't possibly kill such a mutants that would require an enum outside the boundaries.
 
 # SPC-mutation_ror_ptr
 partof: SPC-mutation_ror
