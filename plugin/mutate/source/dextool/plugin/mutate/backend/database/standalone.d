@@ -1774,16 +1774,17 @@ struct Database {
         auto remove = () {
             auto remove = appender!(long[])();
 
+            // remove those that where created by a another version of the tool
             immutable sqlVersion = format!"SELECT t0.id
             FROM %1$s t0
             WHERE t0.version != %2$s
             "(schemataTable, dextoolBinaryId);
             auto stmt = db.prepare(sqlVersion);
-
             foreach (a; stmt.get.execute) {
                 remove.put(a.peek!long(0));
             }
 
+            // remove those that have lost some fragments
             immutable sqlFragment = format!"SELECT t0.id
             FROM
             %1$s t0,
@@ -1793,10 +1794,18 @@ struct Database {
             t0.fragments != t1.fragments
             "(schemataTable, schemataFragmentTable);
             stmt = db.prepare(sqlFragment);
-
             foreach (a; stmt.get.execute) {
                 remove.put(a.peek!long(0));
             }
+
+            // remove those that have lost all fragments
+            immutable sqlNoFragment = format!"SELECT t0.id FROM %1$s t0 WHERE t0.id NOT IN (SELECT schem_id FROM %2$s)"(
+                    schemataTable, schemataFragmentTable);
+            stmt = db.prepare(sqlNoFragment);
+            foreach (a; stmt.get.execute) {
+                remove.put(a.peek!long(0));
+            }
+
             return remove.data;
         }();
 
