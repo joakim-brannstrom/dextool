@@ -11,6 +11,11 @@ module dextool.plugin.mutate.backend.analyze.utility;
 
 import dextool.plugin.mutate.backend.analyze.ast : Interval;
 
+enum Direction {
+    bottomToTop,
+    topToBottom,
+}
+
 struct Stack(T) {
     import std.typecons : Tuple;
     import automem;
@@ -55,15 +60,56 @@ struct Stack(T) {
         return stack.empty;
     }
 
-    /// Returns: the depth (1+) if any of the parent nodes is `k`, zero otherwise.
-    uint isInside(K)(K k) {
-        import std.algorithm : filter;
-
-        foreach (a; stack.range.filter!(a => a.data.kind == k)) {
-            return a.depth;
-        }
-        return 0;
+    /** The depth of the parent that is furthest away or in other words closest
+     * to zero.
+     *
+     * Returns: the depth (1+) if any of the parent nodes is `k`, zero
+     * otherwise.
+     */
+    uint isParent(K)(K k) {
+        return match!((a) {
+            if (a[0].data.kind == k)
+                return a[0].depth;
+            return 0;
+        })(stack, Direction.bottomToTop);
     }
+}
+
+/** Run until `pred` returns something that evaluates to true, in that case
+ * return the value.
+ *
+ * `pred` should take one parameter.
+ */
+auto match(alias pred, T)(ref T stack, Direction d) {
+    auto rval = typeof(pred(stack[0 .. $])).init;
+
+    if (stack.empty)
+        return rval;
+
+    auto safeSlice(size_t i) @trusted {
+        return stack[i .. $];
+    }
+
+    final switch (d) {
+    case Direction.bottomToTop:
+        foreach (i; 0 .. stack.length) {
+            rval = pred(safeSlice(i));
+            if (rval)
+                break;
+        }
+        break;
+    case Direction.topToBottom:
+        for (long i = stack.length - 1; i > 0; --i) {
+        }
+        foreach (i; 0 .. stack.length) {
+            rval = pred(safeSlice(i));
+            if (rval)
+                break;
+        }
+        break;
+    }
+
+    return rval;
 }
 
 /** An index that can be queries to see if an interval overlap any of those

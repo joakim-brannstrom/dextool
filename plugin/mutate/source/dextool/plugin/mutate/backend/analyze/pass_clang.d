@@ -400,11 +400,6 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(n, loc);
     }
 
-    /// Returns: the depth (1+) if any of the parent nodes is `k`.
-    private uint isInside(analyze.Kind k) {
-        return nstack.isInside(k);
-    }
-
     override void visit(const(TranslationUnit) v) {
         import clang.c.Index : CXLanguageKind;
 
@@ -603,7 +598,17 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const InitListExpr v) {
         mixin(mixinNodeLog!());
-        // block mutants inside the initialization list
+        pushStack(new analyze.Expr, v);
+        // not visiting in order to block block mutants inside the
+        // initialization list
+    }
+
+    override void visit(const(LambdaExpr) v) @trusted {
+        mixin(mixinNodeLog!());
+
+        // model C++ lambdas as functions. It should be enough to know that it
+        // is a function and the return type when generating mutants.
+        visitFunc(v);
     }
 
     override void visit(const(ReturnStmt) v) {
@@ -654,6 +659,30 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const DefaultStmt v) {
         mixin(mixinNodeLog!());
         visitCaseStmt(v);
+    }
+
+    override void visit(const ForStmt v) {
+        mixin(mixinNodeLog!());
+        pushStack(new analyze.Loop, v);
+        v.accept(this);
+    }
+
+    override void visit(const CxxForRangeStmt v) {
+        mixin(mixinNodeLog!());
+        pushStack(new analyze.Loop, v);
+        v.accept(this);
+    }
+
+    override void visit(const WhileStmt v) {
+        mixin(mixinNodeLog!());
+        pushStack(new analyze.Loop, v);
+        v.accept(this);
+    }
+
+    override void visit(const DoStmt v) {
+        mixin(mixinNodeLog!());
+        pushStack(new analyze.Loop, v);
+        v.accept(this);
     }
 
     override void visit(const IfStmt v) @trusted {

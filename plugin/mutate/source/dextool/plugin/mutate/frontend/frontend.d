@@ -214,7 +214,6 @@ private:
         import std.string : startsWith;
 
         if (!dry_run && !p.startsWith((cast(string) root))) {
-            logger.tracef("Path '%s' escaping output directory (--out) '%s'", p, root);
             throw new Exception(format("Path '%s' escaping output directory (--out) '%s'", p, root));
         }
     }
@@ -265,7 +264,6 @@ final class FrontendValidateLoc : ValidateLoc {
             return false;
 
         bool res = p.startsWith(output_dir);
-        logger.tracef(!res, "Path '%s' escaping output directory (--out) '%s'", p, output_dir);
 
         if (res) {
             return shouldAnalyze(p);

@@ -120,7 +120,7 @@ class SchemataFixutre : SimpleFixture {
     override string scriptBuild() {
         return "#!/bin/bash
 set -e
-g++ %s -o %s
+g++ -std=c++11 %s -o %s
 ";
     }
 

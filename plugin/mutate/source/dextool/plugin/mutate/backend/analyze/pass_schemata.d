@@ -319,11 +319,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
         this.result = result;
     }
 
-    void visitPush(Node n) {
+    override void visitPush(Node n) {
         nstack.put(n, ++depth);
     }
 
-    void visitPop() {
+    override void visitPop(Node n) {
         nstack.pop;
         --depth;
     }
@@ -365,7 +365,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Call n) {
-        if (!nstack.isInside(Kind.VarDecl)) {
+        // VarDecl: this would remove the identifier or e.g. parameters in a
+        // constructor.
+        // Call: this is e.g. chaining which is hard to generate a schema which
+        // removes only one of them, in the middle.
+        if (!(nstack.isParent(Kind.VarDecl) || nstack.isParent(Kind.Call))) {
             visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
         }
         accept(n, this);
