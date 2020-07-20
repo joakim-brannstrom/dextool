@@ -222,7 +222,7 @@ class AstPrintVisitor : DepthFirstVisitor {
                 visit(op);
             }
 
-            n.accept(this);
+            accept(n, this);
             --depth;
         }
     }
@@ -291,7 +291,7 @@ void accept(VisitorT)(Node n, VisitorT v) {
     }
 
     static if (__traits(hasMember, VisitorT, "visitPop"))
-        v.visitPop();
+        v.visitPop(n);
 }
 
 /// All nodes that a visitor must be able to handle.
@@ -305,6 +305,7 @@ alias Nodes = AliasSeq!(
     Condition,
     Expr,
     Function,
+    Loop,
     Node,
     OpAdd,
     OpAnd,
@@ -348,6 +349,7 @@ enum Kind {
     Condition,
     Expr,
     Function,
+    Loop,
     Node,
     OpAdd,
     OpAnd,
@@ -425,11 +427,16 @@ interface Visitor {
 class DepthFirstVisitor : Visitor {
     int visitDepth;
 
+    void visitPush(Node n) {
+    }
+
+    void visitPop(Node n) {
+    }
+
     static foreach (N; Nodes) {
         override void visit(N n) {
-            debug logger.tracef("%s %s %X", visitDepth, n.kind, cast(void*) n);
             ++visitDepth;
-            n.accept(this);
+            accept(n, this);
             --visitDepth;
         }
     }
@@ -440,6 +447,10 @@ class TranslationUnit : Node {
 }
 
 class Statement : Node {
+    mixin NodeKind;
+}
+
+class Loop : Node {
     mixin NodeKind;
 }
 

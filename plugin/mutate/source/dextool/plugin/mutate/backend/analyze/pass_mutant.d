@@ -307,12 +307,6 @@ class CodeMutantsResult {
 
 private:
 
-// Mutation
-
-/**
- * TODO: remove OpTypeInfo. It is just used to reduce the impact of the
- * refactoring.
- */
 class MutantVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.abs : absMutations;
     import dextool.plugin.mutate.backend.mutation_type.dcc : dccMutations;
@@ -338,17 +332,17 @@ class MutantVisitor : DepthFirstVisitor {
         }
     }
 
-    void visitPush(Node n) {
+    override void visitPush(Node n) {
         nstack.put(n, ++depth);
     }
 
-    void visitPop() {
+    override void visitPop(Node n) {
         nstack.pop;
         --depth;
     }
 
     /// Returns: true if the current node is inside a function that returns bool.
-    bool isInsideBoolFunc() {
+    bool isParentBoolFunc() {
         if (auto rty = closestFuncType) {
             if (rty.kind == TypeKind.boolean) {
                 return true;
@@ -358,8 +352,15 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     /// Returns: the depth (1+) if any of the parent nodes is `k`.
-    uint isInside(Kind k) {
-        return nstack.isInside(k);
+    uint isParent(Kind k) {
+        return nstack.isParent(k);
+    }
+
+    /// Returns: if the previous nodes is of kind `k`.
+    bool isDirectParent(Kind k) {
+        if (nstack.empty)
+            return false;
+        return nstack[$ - 1].data.kind == k;
     }
 
     /// Returns: the type, if any, of the function that the current visited node is inside.
@@ -389,7 +390,7 @@ class MutantVisitor : DepthFirstVisitor {
         auto loc = ast.location(n);
         put(loc, absMutations(n.kind), n.blacklist);
 
-        if (isInsideBoolFunc && isInside(Kind.Return) && !isInside(Kind.Call)) {
+        if (isParentBoolFunc && isParent(Kind.Return) && !isParent(Kind.Call)) {
             put(loc, dccMutations(n.kind), n.blacklist);
             put(loc, dcrMutations(n.kind), n.blacklist);
         }
@@ -411,17 +412,31 @@ class MutantVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
+    override void visit(Loop n) @trusted {
+        auto sdlAnalyze = scoped!SdlBlockVisitor(ast);
+        sdlAnalyze.startVisit(n);
+        if (sdlAnalyze.canRemove) {
+            put(sdlAnalyze.loc, stmtDelMutations(n.kind), n.blacklist);
+        }
+
+        accept(n, this);
+    }
+
     override void visit(Call n) {
         // e.g. a C++ class constructor calls a members constructor in its
         // initialization list.
-        if (!isInside(Kind.Function)) {
+        if (!isParent(Kind.Function)) {
             return;
         }
 
         auto loc = ast.location(n);
 
-        if (ast.type(n) is null && !isInside(Kind.Return)) {
+        if (ast.type(n) is null && !isParent(Kind.Return) && isDirectParent(Kind.Block)) {
             // the check for Return blocks all SDL when an exception is thrown.
+            //
+            // the check isDirectParent(Kind.Block) is to only delete function
+            // or method calls that are at the root of a chain of calls in the
+            // AST.
             //
             // a bit restricive to be begin with to only delete void returning
             // functions. Extend it in the future when it can "see" that the
@@ -429,7 +444,7 @@ class MutantVisitor : DepthFirstVisitor {
             put(loc, stmtDelMutations(n.kind), n.blacklist);
         }
 
-        if (isInsideBoolFunc && isInside(Kind.Return)) {
+        if (isParentBoolFunc && isParent(Kind.Return)) {
             put(loc, dccMutations(n.kind), n.blacklist);
             put(loc, dcrMutations(n.kind), n.blacklist);
         }
@@ -453,42 +468,58 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(OpAssign n) {
-        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        if (isDirectParent(Kind.Block)) {
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        }
         accept(n, this);
     }
 
     override void visit(OpAssignAdd n) {
-        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        if (isDirectParent(Kind.Block)) {
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        }
         accept(n, this);
     }
 
     override void visit(OpAssignAndBitwise n) {
-        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        if (isDirectParent(Kind.Block)) {
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        }
         accept(n, this);
     }
 
     override void visit(OpAssignDiv n) {
-        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        if (isDirectParent(Kind.Block)) {
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        }
         accept(n, this);
     }
 
     override void visit(OpAssignMod n) {
-        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        if (isDirectParent(Kind.Block)) {
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        }
         accept(n, this);
     }
 
     override void visit(OpAssignMul n) {
-        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        if (isDirectParent(Kind.Block)) {
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        }
         accept(n, this);
     }
 
     override void visit(OpAssignOrBitwise n) {
-        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        if (isDirectParent(Kind.Block)) {
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        }
         accept(n, this);
     }
 
     override void visit(OpAssignSub n) {
-        put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        if (isDirectParent(Kind.Block)) {
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        }
         accept(n, this);
     }
 
@@ -719,7 +750,7 @@ class SdlBlockVisitor : DepthFirstVisitor {
     }
 
     /// The node to start analysis from.
-    void startVisit(Block n) {
+    void startVisit(Node n) {
         auto l = ast.location(n);
 
         if (l.interval.end.among(l.interval.begin, l.interval.begin + 1)) {

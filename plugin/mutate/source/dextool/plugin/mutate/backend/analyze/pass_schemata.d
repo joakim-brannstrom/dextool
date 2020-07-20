@@ -307,6 +307,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     SchemataResult result;
     FilesysIO fio;
 
+    Stack!(Node) nstack;
+    uint depth;
+
     this(Ast* ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result) {
         assert(ast !is null);
 
@@ -314,6 +317,15 @@ class CppSchemataVisitor : DepthFirstVisitor {
         this.index = index;
         this.fio = fio;
         this.result = result;
+    }
+
+    override void visitPush(Node n) {
+        nstack.put(n, ++depth);
+    }
+
+    override void visitPop(Node n) {
+        nstack.pop;
+        --depth;
     }
 
     alias visit = DepthFirstVisitor.visit;
@@ -353,7 +365,13 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Call n) {
-        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        // VarDecl: this would remove the identifier or e.g. parameters in a
+        // constructor.
+        // Call: this is e.g. chaining which is hard to generate a schema which
+        // removes only one of them, in the middle.
+        if (!(nstack.isParent(Kind.VarDecl) || nstack.isParent(Kind.Call))) {
+            visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        }
         accept(n, this);
     }
 

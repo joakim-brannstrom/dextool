@@ -69,13 +69,8 @@ class ShallDeleteFuncCalls : SdlFixture {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv);
         testAnyOrder!SubStr([
-                "'gun()' to ''", "'wun(5)' to ''", "'calc(6)' to ''",
-                "'wun(calc(6))' to ''",
+                "'gun()' to ''", "'wun(5)' to ''", "'wun(calc(6))' to ''",
                 ]).shouldBeIn(r.output);
-        //TODO: maybe these should be deletable too? But it would require forward
-        //looking.
-        //"'calc(10)' to ''",
-        //"'calc(11)' to ''",
     }
 }
 
@@ -110,5 +105,31 @@ class ShallDeleteAssignment : SdlFixture {
                 `from 'int x = 2' to ''`, `from 'bool y = true' to ''`,
                 `from 'int w = 3' to ''`,
                 ]).shouldNotBeIn(r.output);
+    }
+}
+
+class ShallOnlyGenerateValidSdlSchemas : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_sdl.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "sdl"]).addFlag("-std=c++11").run;
+
+        // dfmt off
+        testAnyOrder!SubStr([
+            `from 'a.push_back(x)' to ''`,
+            `from 'a.values().push_back(x)' to ''`,
+            `from 'r = e' to ''`,
+            `from 'r = e' to ''`,
+            `from`, `x++;`, `to ''`,
+            `from`, `x++;`, `to ''`,
+        ]).shouldBeIn(r.output);
+        // dfmt on
     }
 }

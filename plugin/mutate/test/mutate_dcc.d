@@ -234,7 +234,7 @@ class ShallProduceAllDccMutantsWithSchemataForC : SchemataFixutre {
             "from 'x == TRUE' to '0'",
             ];
 
-        testAnyOrder!SubStr(expected).shouldBeIn(runDextoolTest(testEnv, ["--mutant", "dcc"]).output);
+        testAnyOrder!SubStr(expected).shouldBeIn(runDextoolTest(testEnv).addPostArg(["--mutant", "dcc"]).run.output);
         makeDextoolAdmin(testEnv).addArg(["--operation", "resetMutant", "--status", "alive"]).run;
         testAnyOrder!SubStr(expected).shouldBeIn(makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "dcc"]).run.output);
     }
@@ -256,6 +256,6 @@ class ShallSkipDcrMutantInsideTemplate : SchemataFixutre {
         // TODO: add this to expected. from 'x == 1' to 'true'
         // but for now removing it because it seems to fail on min docker
         // image. Probably something to do with the compiler.
-        testAnyOrder!SubStr(["error:"]).shouldNotBeIn(runDextoolTest(testEnv, ["--mutant", "dcr"]).output);
+        testAnyOrder!SubStr(["error:"]).shouldNotBeIn(runDextoolTest(testEnv).addPostArg(["--mutant", "dcr"]).run.output);
     }
 }
