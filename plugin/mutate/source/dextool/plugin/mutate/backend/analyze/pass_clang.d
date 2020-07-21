@@ -400,7 +400,7 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(n, loc);
     }
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(const TranslationUnit v) {
         import clang.c.Index : CXLanguageKind;
 
         mixin(mixinNodeLog!());
@@ -427,12 +427,12 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const(Attribute) v) {
+    override void visit(const Attribute v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Declaration) v) {
+    override void visit(const Declaration v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
@@ -487,22 +487,22 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(n, v);
     }
 
-    override void visit(const(Directive) v) {
+    override void visit(const Directive v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Reference) v) {
+    override void visit(const Reference v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Statement) v) {
+    override void visit(const Statement v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Expression) v) {
+    override void visit(const Expression v) {
         import cpptooling.analyzer.clang.ast : dispatch;
         import dextool.clang_extensions : getUnderlyingExprNode;
 
@@ -533,7 +533,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const(EnumDecl) v) @trusted {
+    override void visit(const EnumDecl v) @trusted {
         mixin(mixinNodeLog!());
 
         import std.typecons : scoped;
@@ -544,12 +544,12 @@ final class BaseVisitor : ExtendedVisitor {
         ast.types.set(vis.id, vis.toType);
     }
 
-    override void visit(const(FunctionDecl) v) @trusted {
+    override void visit(const FunctionDecl v) @trusted {
         mixin(mixinNodeLog!());
         visitFunc(v);
     }
 
-    override void visit(const(CxxMethod) v) {
+    override void visit(const CxxMethod v) {
         mixin(mixinNodeLog!());
 
         // model C++ methods as functions. It should be enough to know that it
@@ -557,7 +557,7 @@ final class BaseVisitor : ExtendedVisitor {
         visitFunc(v);
     }
 
-    override void visit(const(BreakStmt) v) {
+    override void visit(const BreakStmt v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
@@ -579,7 +579,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const(CallExpr) v) {
+    override void visit(const CallExpr v) {
         mixin(mixinNodeLog!());
 
         if (!visitOp(v)) {
@@ -603,7 +603,7 @@ final class BaseVisitor : ExtendedVisitor {
         // initialization list
     }
 
-    override void visit(const(LambdaExpr) v) @trusted {
+    override void visit(const LambdaExpr v) @trusted {
         mixin(mixinNodeLog!());
 
         // model C++ lambdas as functions. It should be enough to know that it
@@ -611,13 +611,13 @@ final class BaseVisitor : ExtendedVisitor {
         visitFunc(v);
     }
 
-    override void visit(const(ReturnStmt) v) {
+    override void visit(const ReturnStmt v) {
         mixin(mixinNodeLog!());
         pushStack(new analyze.Return, v);
         v.accept(this);
     }
 
-    override void visit(const(CompoundStmt) v) {
+    override void visit(const CompoundStmt v) {
         mixin(mixinNodeLog!());
 
         try {
@@ -685,9 +685,15 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const SwitchStmt v) {
+        mixin(mixinNodeLog!());
+        pushStack(new analyze.BranchBundle, v);
+        v.accept(this);
+    }
+
     override void visit(const IfStmt v) @trusted {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Block, v);
+        pushStack(new analyze.BranchBundle, v);
         dextool.plugin.mutate.backend.analyze.extensions.accept(v, this);
     }
 

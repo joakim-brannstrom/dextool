@@ -57,4 +57,18 @@ int a_do(int x) {
     return x;
 }
 
+struct Values2 {
+    int x;
+    int value() { return x; }
+};
+
+int a_switch(Values2 x) {
+    switch (x.value()) {
+    case 0:
+        return 1;
+    default:
+        return 2;
+    }
+}
+
 int main(int argc, char** argv) { return 0; }

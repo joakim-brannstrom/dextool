@@ -402,24 +402,16 @@ class MutantVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
-    override void visit(Block n) @trusted {
-        auto sdlAnalyze = scoped!SdlBlockVisitor(ast);
-        sdlAnalyze.startVisit(n);
-        if (sdlAnalyze.canRemove) {
-            put(sdlAnalyze.loc, stmtDelMutations(n.kind), n.blacklist);
-        }
-
-        accept(n, this);
+    override void visit(Block n) {
+        sdlVisitBlock(n, stmtDelMutations(n.kind));
     }
 
-    override void visit(Loop n) @trusted {
-        auto sdlAnalyze = scoped!SdlBlockVisitor(ast);
-        sdlAnalyze.startVisit(n);
-        if (sdlAnalyze.canRemove) {
-            put(sdlAnalyze.loc, stmtDelMutations(n.kind), n.blacklist);
-        }
+    override void visit(Loop n) {
+        sdlVisitBlock(n, stmtDelMutations(n.kind));
+    }
 
-        accept(n, this);
+    override void visit(BranchBundle n) {
+        sdlVisitBlock(n, stmtDelMutations(n.kind));
     }
 
     override void visit(Call n) {
@@ -723,6 +715,16 @@ class MutantVisitor : DepthFirstVisitor {
             put(new Location(locOp.file, offset,
                     SourceLocRange(locOp.sloc.begin, locExpr.sloc.end)), rhs, n.rhs.blacklist);
         }
+    }
+
+    private void sdlVisitBlock(T)(T n, Mutation.Kind[] op) @trusted {
+        auto sdlAnalyze = scoped!SdlBlockVisitor(ast);
+        sdlAnalyze.startVisit(n);
+        if (sdlAnalyze.canRemove) {
+            put(sdlAnalyze.loc, op, n.blacklist);
+        }
+
+        accept(n, this);
     }
 }
 

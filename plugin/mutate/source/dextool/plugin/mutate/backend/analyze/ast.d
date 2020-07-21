@@ -301,6 +301,7 @@ alias Nodes = AliasSeq!(
     BinaryOp,
     Block,
     Branch,
+    BranchBundle,
     Call,
     Condition,
     Expr,
@@ -345,6 +346,7 @@ enum Kind {
     BinaryOp,
     Block,
     Branch,
+    BranchBundle,
     Call,
     Condition,
     Expr,
@@ -482,6 +484,14 @@ class Operator : Node {
  * analyzed for e.g. `Return` nodes.
  */
 class Block : Node {
+    mixin NodeKind;
+}
+
+/** Multiple branches are contained in the bundle that can be e.g. deleted.
+ *
+ * This can, in C/C++, be either a whole if-statement or switch.
+ */
+class BranchBundle : Node {
     mixin NodeKind;
 }
 
