@@ -63,12 +63,24 @@ struct Values2 {
 };
 
 int a_switch(Values2 x) {
+    // should not be removed because it has return
     switch (x.value()) {
-    case 0:
+    case 5:
         return 1;
-    default:
+    case 6:
         return 2;
     }
+
+    int rval;
+    switch (x.value()) {
+    case 0:
+        rval = 1;
+        break;
+    default:
+        rval = 2;
+        break;
+    }
+    return rval;
 }
 
 int main(int argc, char** argv) { return 0; }

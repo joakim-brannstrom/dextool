@@ -359,8 +359,11 @@ final class BaseVisitor : ExtendedVisitor {
 
     // the depth the visitor is at.
     uint indent;
-    // A stack of visited cursors up to the current one.
+    // A stack of the nodes that are generated up to the current one.
     Stack!(analyze.Node) nstack;
+
+    // A stack of visited cursors up to the current one.
+    Stack!(CXCursorKind) cstack;
 
     /// The elements that where removed from the last decrement.
     Vector!(analyze.Node) lastDecr;
@@ -377,6 +380,13 @@ final class BaseVisitor : ExtendedVisitor {
         this.fio = fio;
     }
 
+    /// Returns: if the previous nodes is a CXCursorKind `k`.
+    bool isDirectParent(CXCursorKind k) {
+        if (cstack.empty)
+            return false;
+        return cstack[$ - 1].data == k;
+    }
+
     override void incr() @safe {
         ++indent;
         lastDecr.clear;
@@ -385,19 +395,21 @@ final class BaseVisitor : ExtendedVisitor {
     override void decr() @trusted {
         --indent;
         lastDecr = nstack.popUntil(indent);
+        cstack.popUntil(indent);
     }
 
-    private void pushStack(analyze.Node n, analyze.Location l) @trusted {
+    private void pushStack(analyze.Node n, analyze.Location l, const CXCursorKind cKind) @trusted {
         n.blacklist = blacklist.inside(l);
         nstack.put(n, indent);
+        cstack.put(cKind, indent);
     }
 
     /// Returns: true if it is OK to modify the cursor
-    private void pushStack(AstT, ClangT)(AstT n, ClangT v) @trusted {
-        auto loc = v.cursor.toLocation;
+    private void pushStack(AstT, ClangT)(AstT n, ClangT c) @trusted {
+        auto loc = c.cursor.toLocation;
         ast.put(n, loc);
         nstack.back.children ~= n;
-        pushStack(n, loc);
+        pushStack(n, loc, c.kind);
     }
 
     override void visit(const TranslationUnit v) {
@@ -410,7 +422,7 @@ final class BaseVisitor : ExtendedVisitor {
         ast.root = new analyze.TranslationUnit;
         auto loc = v.cursor.toLocation;
         ast.put(ast.root, loc);
-        pushStack(ast.root, loc);
+        pushStack(ast.root, loc, v.cursor.kind);
 
         // it is most often invalid
         switch (v.cursor.language) {
@@ -564,12 +576,12 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const BinaryOperator v) @trusted {
         mixin(mixinNodeLog!());
-        visitOp(v);
+        visitOp(v, v.cursor.kind);
     }
 
     override void visit(const UnaryOperator v) @trusted {
         mixin(mixinNodeLog!());
-        visitOp(v);
+        visitOp(v, v.cursor.kind);
     }
 
     override void visit(const CompoundAssignOperator v) {
@@ -582,7 +594,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const CallExpr v) {
         mixin(mixinNodeLog!());
 
-        if (!visitOp(v)) {
+        if (!visitOp(v, v.cursor.kind)) {
             pushStack(new analyze.Call, v);
             v.accept(this);
         }
@@ -620,33 +632,41 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const CompoundStmt v) {
         mixin(mixinNodeLog!());
 
-        try {
-            auto loc = v.cursor.toLocation;
-            auto fin = fio.makeInput(loc.file);
+        if (isDirectParent(CXCursorKind.switchStmt)) {
+            // the CompoundStmt statement {} directly inside a switch statement
+            // isn't useful to manipulate as a block. The useful part is the
+            // smaller blocks that the case and default break down the block
+            // into thus this avoid generating useless blocks that lead to
+            // equivalent or unproductive mutants.
+        } else
+            try {
+                auto loc = v.cursor.toLocation;
+                auto fin = fio.makeInput(loc.file);
 
-            // a CompoundStmt that represent a "{..}" can for example be the
-            // body of a function or the block that a try statement encompase.
-            // The block that can be modified is the inside of it thus the
-            // location has to be the inside. If this modification to isn't
-            // done then a SDL can't be generated that delete the inside of
-            // e.g. void functions.
-            if (fin.content[loc.interval.begin .. loc.interval.begin + 1] == cast(const(ubyte)[]) "{") {
-                const begin = loc.interval.begin + 1;
-                const end = loc.interval.end - 1;
-                if (begin < end) {
-                    loc.interval = Interval(begin, end);
+                // a CompoundStmt that represent a "{..}" can for example be the
+                // body of a function or the block that a try statement encompase.
+                // The block that can be modified is the inside of it thus the
+                // location has to be the inside. If this modification to isn't
+                // done then a SDL can't be generated that delete the inside of
+                // e.g. void functions.
+                if (fin.content[loc.interval.begin .. loc.interval.begin + 1] == cast(
+                        const(ubyte)[]) "{") {
+                    const begin = loc.interval.begin + 1;
+                    const end = loc.interval.end - 1;
+                    if (begin < end) {
+                        loc.interval = Interval(begin, end);
+                    }
+
+                    auto n = new analyze.Block;
+                    ast.put(n, loc);
+                    nstack.back.children ~= n;
+                    pushStack(n, loc, v.cursor.kind);
+                } else {
+                    pushStack(new analyze.Block, v);
                 }
-
-                auto n = new analyze.Block;
-                ast.put(n, loc);
-                nstack.back.children ~= n;
-                pushStack(n, loc);
-            } else {
-                pushStack(new analyze.Block, v);
+            } catch (Exception e) {
+                logger.trace(e.msg).collectException;
             }
-        } catch (Exception e) {
-            logger.trace(e.msg).collectException;
-        }
 
         v.accept(this);
     }
@@ -704,7 +724,7 @@ final class BaseVisitor : ExtendedVisitor {
         incr;
         scope (exit)
             decr;
-        if (!visitOp(v)) {
+        if (!visitOp(v, v.cursor.kind)) {
             v.accept(this);
         }
     }
@@ -721,19 +741,19 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    private bool visitOp(T)(ref const T v) @trusted {
+    private bool visitOp(T)(ref const T v, const CXCursorKind cKind) @trusted {
         auto op = operatorCursor(v);
         if (op.isNull) {
             return false;
         }
 
-        if (visitBinaryOp(op.get))
+        if (visitBinaryOp(op.get, cKind))
             return true;
-        return visitUnaryOp(op.get);
+        return visitUnaryOp(op.get, cKind);
     }
 
     /// Returns: true if it added a binary operator, false otherwise.
-    private bool visitBinaryOp(ref OperatorCursor op) @trusted {
+    private bool visitBinaryOp(ref OperatorCursor op, const CXCursorKind cKind) @trusted {
         import cpptooling.analyzer.clang.ast : dispatch;
 
         auto astOp = cast(analyze.BinaryOp) op.astOp;
@@ -744,7 +764,7 @@ final class BaseVisitor : ExtendedVisitor {
         astOp.operator.blacklist = blacklist.inside(op.opLoc);
 
         op.put(nstack.back, ast);
-        pushStack(astOp, op.exprLoc);
+        pushStack(astOp, op.exprLoc, cKind);
         incr;
         scope (exit)
             decr;
@@ -798,7 +818,7 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     /// Returns: true if it added a binary operator, false otherwise.
-    private bool visitUnaryOp(ref OperatorCursor op) @trusted {
+    private bool visitUnaryOp(ref OperatorCursor op, CXCursorKind cKind) @trusted {
         import cpptooling.analyzer.clang.ast : dispatch;
 
         auto astOp = cast(analyze.UnaryOp) op.astOp;
@@ -809,7 +829,7 @@ final class BaseVisitor : ExtendedVisitor {
         astOp.operator.blacklist = blacklist.inside(op.opLoc);
 
         op.put(nstack.back, ast);
-        pushStack(astOp, op.exprLoc);
+        pushStack(astOp, op.exprLoc, cKind);
         incr;
         scope (exit)
             decr;
@@ -866,7 +886,7 @@ final class BaseVisitor : ExtendedVisitor {
         auto n = new analyze.Function;
         ast.put(n, loc);
         nstack.back.children ~= n;
-        pushStack(n, loc);
+        pushStack(n, loc, v.cursor.kind);
 
         auto fRetval = new analyze.Return;
         auto rty = deriveType(v.cursor.func.resultType);
@@ -894,7 +914,7 @@ final class BaseVisitor : ExtendedVisitor {
         auto branch = new analyze.Branch;
         ast.put(branch, res.get.branch);
         nstack.back.children ~= branch;
-        pushStack(branch, res.get.branch);
+        pushStack(branch, res.get.branch, v.cursor.kind);
 
         // create an node depth that diverge from the clang AST wherein the
         // inside of a case stmt is modelled as a block.
@@ -905,7 +925,7 @@ final class BaseVisitor : ExtendedVisitor {
         ast.put(inner, res.get.insideBranch);
         branch.children ~= inner;
         branch.inside = inner;
-        pushStack(inner, res.get.insideBranch);
+        pushStack(inner, res.get.insideBranch, v.cursor.kind);
 
         dispatch(res.get.inner, this);
     }
