@@ -75,12 +75,31 @@ int a_switch(Values2 x) {
     switch (x.value()) {
     case 0:
         rval = 1;
+        rval = 3;
+        break;
+    case 1:
+        rval = 1;
+        rval = 3;
         break;
     default:
         rval = 2;
+        rval = 5;
         break;
     }
     return rval;
+}
+
+int a_binary_unary_inside_if(int x) {
+    int y = x;
+    if (x == 2) {
+        y++;
+    }
+    if (x == 3) {
+        y = 2;
+    }
+    if (x == 4) {
+        y += 5;
+    }
 }
 
 int main(int argc, char** argv) { return 0; }

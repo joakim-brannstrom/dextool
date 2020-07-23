@@ -293,6 +293,7 @@ Nullable!CaseStmtCursor caseStmtCursor(T)(T node) {
     res.inner = mp.subStmt;
 
     auto sr = res.inner.extent;
+
     auto insideLoc = SourceLocRange(SourceLoc(sr.start.line, sr.start.column),
             SourceLoc(sr.end.line, sr.end.column));
     auto offs = Interval(sr.start.offset, sr.end.offset);
@@ -916,7 +917,7 @@ final class BaseVisitor : ExtendedVisitor {
         nstack.back.children ~= branch;
         pushStack(branch, res.get.branch, v.cursor.kind);
 
-        // create an node depth that diverge from the clang AST wherein the
+        // create a node depth that diverge from the clang AST wherein the
         // inside of a case stmt is modelled as a block.
         incr;
         scope (exit)

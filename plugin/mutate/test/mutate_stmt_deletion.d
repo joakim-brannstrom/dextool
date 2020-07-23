@@ -129,6 +129,9 @@ class ShallOnlyGenerateValidSdlSchemas : SchemataFixutre {
             `from 'r = e' to ''`,
             `from`, `x++;`, `to ''`,
             `from`, `x++;`, `to ''`,
+            `from 'y++' to ''`,
+            `from 'y = 2' to ''`,
+            `from 'y += 5' to ''`,
         ]).shouldBeIn(r.output);
         // dfmt on
     }
