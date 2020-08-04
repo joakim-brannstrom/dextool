@@ -39,6 +39,11 @@ struct Offset {
     uint begin;
     uint end;
 
+    /// If the offset has size zero.
+    bool isZero() @safe pure nothrow const @nogc {
+        return begin >= end;
+    }
+
     size_t toHash() @safe pure nothrow const @nogc scope {
         auto a = begin.hashOf();
         return end.hashOf(a); // mixing two hash values
