@@ -307,8 +307,10 @@ class CppSchemataVisitor : DepthFirstVisitor {
     SchemataResult result;
     FilesysIO fio;
 
-    Stack!(Node) nstack;
-    uint depth;
+    private {
+        Stack!(Node) nstack;
+        uint depth;
+    }
 
     this(Ast* ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result) {
         assert(ast !is null);
@@ -460,6 +462,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
         auto mutants = index.get(loc.file, loc.interval)
             .filter!(a => canFind(kinds, a.mut.kind)).array;
 
+        if (loc.interval.isZero)
+            return;
+
         if (mutants.empty)
             return;
 
@@ -480,6 +485,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
         auto loc = ast.location(n);
         auto offs = loc.interval;
         auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
+
+        if (loc.interval.isZero)
+            return;
 
         if (mutants.empty)
             return;
@@ -511,6 +519,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     private void visitUnaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
         auto loc = ast.location(n.operator);
         auto locExpr = ast.location(n);
+
+        if (loc.interval.isZero || locExpr.interval.isZero)
+            return;
 
         auto mutants = index.get(loc.file, loc.interval)
             .filter!(a => canFind(kinds, a.mut.kind)).array;
@@ -683,14 +694,15 @@ class BinaryOpVisitor : DepthFirstVisitor {
     private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds_) {
         auto locExpr = ast.location(n);
         auto locOp = ast.location(n.operator);
-        auto locLhs = ast.location(n.lhs);
-        auto locRhs = ast.location(n.rhs);
-        if (locLhs is null || locRhs is null) {
+
+        if (locExpr.interval.isZero || locOp.interval.isZero) {
             return;
         }
 
-        auto left = content[root.begin .. locExpr.interval.begin];
-        auto right = content[locExpr.interval.end .. root.end];
+        auto left = contentOrNull(root.begin, locExpr.interval.begin, content);
+
+        // must check otherwise it crash on intervals that have zero length e.g. [9, 9].
+        auto right = contentOrNull(locExpr.interval.end, root.end, content);
 
         auto opKinds = opKinds_.dup.sort.uniq.array;
 
@@ -928,4 +940,10 @@ struct BlockChain {
 
         return app.data;
     }
+}
+
+auto contentOrNull(uint begin, uint end, const(ubyte)[] content) {
+    if (begin >= end)
+        return null;
+    return content[begin .. end];
 }

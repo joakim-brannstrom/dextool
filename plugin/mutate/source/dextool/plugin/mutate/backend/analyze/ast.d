@@ -272,13 +272,14 @@ abstract class Node {
  */
 void accept(VisitorT)(Node n, VisitorT v) {
     static string mixinSwitch() {
-        import std.format : format;
+        import std.conv : text;
         import std.traits : EnumMembers;
 
         string s;
         s ~= "final switch(c.kind) {\n";
-        foreach (k; [EnumMembers!Kind]) {
-            s ~= format!"case Kind.%1$s: v.visit(cast(%1$s) c); break;\n"(k);
+        foreach (kind; [EnumMembers!Kind]) {
+            const k = text(kind);
+            s ~= format!"case Kind." ~ k ~ ": v.visit(cast(" ~ k ~ ") c); break;\n";
         }
         s ~= "}";
         return s;
