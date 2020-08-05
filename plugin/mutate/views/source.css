@@ -5,13 +5,13 @@
 .status_alive {background-color: lightpink;}
 .status_killed {background-color: lightgreen;}
 .status_killedByCompiler {background-color: #eeeeee;}
-.status_timeout {background-color: limegreen;}
-.status_unknown {background-color: mistyrose;}
+.status_timeout {background-color: lightgreen;}
+.status_unknown {background-color: lightyellow;}
 .hover_alive {color: lightpink;}
 .hover_killed {color: lightgreen;}
 .hover_killedByCompiler {color: #eeeeee;}
-.hover_timeout {color: limegreen;}
-.hover_unknown {color: mistyrose;}
+.hover_timeout {color: lightgreen;}
+.hover_unknown {color: lightyellow;}
 .literal {color: darkred;}
 .keyword {color: blue;}
 .comment {color: grey;}
