@@ -18,11 +18,16 @@ struct DXCaseStmt {
     CXSourceLocation colonLoc;
     /// The statement that is contained inside the case statement.
     CXCursor subStmt;
+
+    CXSourceLocation beginLoc;
+    CXSourceLocation endLoc;
 };
 
 DXCaseStmt dex_getCaseStmt(const CXCursor cx) {
     DXCaseStmt rval;
     rval.colonLoc = clang_getNullLocation();
+    rval.beginLoc = clang_getNullLocation();
+    rval.endLoc = clang_getNullLocation();
     rval.subStmt = clang_getNullCursor();
 
     const clang::Stmt* stmt = getCursorStmt(cx);
@@ -40,6 +45,15 @@ DXCaseStmt dex_getCaseStmt(const CXCursor cx) {
         rval.subStmt = clang::cxcursor::dex_MakeCXCursor(subs, parent, tu, subs->getSourceRange());
     }
 
+// the API has changed from 4->8. getStartLoc where finally removed in
+// libclang-8.
+#if CINDEX_VERSION < 50
+    rval.beginLoc = translateSourceLocation(*getCursorContext(cx), case_stmt->getLocStart());
+    rval.endLoc = translateSourceLocation(*getCursorContext(cx), case_stmt->getLocEnd());
+#else
+    rval.beginLoc = translateSourceLocation(*getCursorContext(cx), case_stmt->getBeginLoc());
+    rval.endLoc = translateSourceLocation(*getCursorContext(cx), case_stmt->getEndLoc());
+#endif
     rval.colonLoc = translateSourceLocation(*getCursorContext(cx), case_stmt->getColonLoc());
     rval.hasValue = true;
 

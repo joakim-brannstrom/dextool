@@ -220,6 +220,8 @@ extern (C++,dextool_clang_extension) {
         bool hasValue;
         CXSourceLocation colonLoc;
         CXCursor subStmt;
+        CXSourceLocation beginLoc;
+        CXSourceLocation endLoc;
     }
 
     extern (C++) DXCaseStmt dex_getCaseStmt(const CXCursor cx);
@@ -444,14 +446,30 @@ IfStmt getIfStmt(const CXCursor cx) @trusted {
         return SourceLocation(dx.colonLoc);
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
-        import std.format : formatValue;
+    SourceLocation beginLocation() const {
+        return SourceLocation(dx.beginLoc);
+    }
+
+    SourceLocation endLocation() const {
+        return SourceLocation(dx.endLoc);
+    }
+
+    string toString() @safe const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(scope Writer w) const {
+        import std.format : formattedWrite;
         import std.range.primitives : put;
 
-        put(w, "CaseStmt(colon:");
+        put(w, "CaseStmt(");
+        formattedWrite(w, "colon:%s begin:%s end:%s", colonLocation, beginLocation, endLocation);
+        put(w, " subStmt:");
         put(w, subStmt.spelling);
-        put(w, " colon:");
-        formatValue(w, location, fmt);
         put(w, ")");
     }
 }

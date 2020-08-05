@@ -367,13 +367,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Call n) {
-        // VarDecl: this would remove the identifier or e.g. parameters in a
-        // constructor.
-        // Call: this is e.g. chaining which is hard to generate a schema which
-        // removes only one of them, in the middle.
-        if (!(nstack.isParent(Kind.VarDecl) || nstack.isParent(Kind.Call))) {
-            visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
-        }
+        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
         accept(n, this);
     }
 
@@ -383,6 +377,12 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Return n) {
+        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(BinaryOp n) {
+        // these are operators such as x += 2
         visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
         accept(n, this);
     }

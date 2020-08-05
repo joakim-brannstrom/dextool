@@ -417,6 +417,8 @@ class MutantVisitor : DepthFirstVisitor {
     override void visit(Call n) {
         // e.g. a C++ class constructor calls a members constructor in its
         // initialization list.
+        // TODO: is this needed? I do not think so considering the rest of the
+        // code.
         if (!isParent(Kind.Function)) {
             return;
         }
@@ -456,6 +458,13 @@ class MutantVisitor : DepthFirstVisitor {
             put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         }
 
+        accept(n, this);
+    }
+
+    override void visit(BinaryOp n) {
+        if (isDirectParent(Kind.Block)) {
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+        }
         accept(n, this);
     }
 
@@ -631,6 +640,9 @@ class MutantVisitor : DepthFirstVisitor {
         {
             expr ~= absMutations(n.kind);
         }
+        if (isDirectParent(Kind.Block)) {
+            expr ~= stmtDelMutations(n.kind);
+        }
 
         put(loc, expr, n.blacklist);
         put(locOp, op, n.operator.blacklist);
@@ -671,6 +683,9 @@ class MutantVisitor : DepthFirstVisitor {
             expr ~= dcrMutations(n.kind);
             expr ~= dccMutations(n.kind);
         }
+        if (isDirectParent(Kind.Block)) {
+            expr ~= stmtDelMutations(n.kind);
+        }
 
         visitBinaryOp(n, op, lhs, rhs, expr);
     }
@@ -688,6 +703,9 @@ class MutantVisitor : DepthFirstVisitor {
             op ~= m.op;
             lhs ~= m.lhs;
             rhs ~= m.rhs;
+        }
+        if (isDirectParent(Kind.Block)) {
+            expr ~= stmtDelMutations(n.kind);
         }
 
         visitBinaryOp(n, op, lhs, rhs, expr);

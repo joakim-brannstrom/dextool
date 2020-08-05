@@ -63,11 +63,42 @@ struct Values2 {
 };
 
 int a_switch(Values2 x) {
+    // should not be removed because it has return
+    switch (x.value()) {
+    case 5:
+        return 1;
+    case 6:
+        return 2;
+    }
+
+    int rval;
     switch (x.value()) {
     case 0:
-        return 1;
+        rval = 1;
+        rval = 3;
+        break;
+    case 1:
+        rval = 1;
+        rval = 3;
+        break;
     default:
-        return 2;
+        rval = 2;
+        rval = 5;
+        break;
+    }
+    return rval;
+}
+
+int a_binary_unary_inside_if(int x) {
+    int y = x;
+    if (x == 2) {
+        y++;
+    }
+    if (x == 3) {
+        y = 2;
+    }
+    if (x == 4) {
+        y += 5;
     }
 }
 
