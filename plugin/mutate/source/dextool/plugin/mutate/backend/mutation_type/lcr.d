@@ -28,6 +28,18 @@ auto lcrMutations(Kind operator) {
         rval = Rval([lcrAnd], [lcrTrue, lcrFalse], null, null);
         break;
         // TODO: add assign
+    case Kind.OpAndBitwise:
+        rval = Rval([lcrbOr], null, [lcrbLhs], [lcrbRhs]);
+        break;
+    case Kind.OpOrBitwise:
+        rval = Rval([lcrbAnd], null, [lcrbLhs], [lcrbRhs]);
+        break;
+    case Kind.OpAssignAndBitwise:
+        rval = Rval([lcrbOrAssign], null, null, null);
+        break;
+    case Kind.OpAssignOrBitwise:
+        rval = Rval([lcrbAndAssign], null, null, null);
+        break;
     default:
     }
 
@@ -38,6 +50,9 @@ immutable Mutation.Kind[] lcrMutationsAll;
 
 shared static this() {
     with (Mutation.Kind) {
-        lcrMutationsAll = [lcrAnd, lcrOr, lcrLhs, lcrRhs, lcrTrue, lcrFalse];
+        lcrMutationsAll = [
+            lcrAnd, lcrOr, lcrLhs, lcrRhs, lcrTrue, lcrFalse, lcrbAnd, lcrbOr,
+            lcrbLhs, lcrbRhs
+        ];
     }
 }

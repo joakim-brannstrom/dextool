@@ -59,23 +59,23 @@ The plugin shall mutate the relational operators according to the RORG schema.
 The plugin shall use the *floating point RORG schema* when the type of the
 expressions on both sides of the operator are floating point types.
 
-**Note**: See [[SPC-mutation_ror_float]].
+**Note**: See [ROR for Floating Point](#design-mutation_ror_float).
 
 The plugin shall use the *enum RORG schema* when the type of the expressions on
 both sides of the operator are enums and of the same enum type.
 
-**Note**: See [[SPC-mutation_ror_enum]]
+**Note**: See [ROR for Enumeration](#design-mutation_ror_enum).
 
 The plugin shall use the *pointer RORG schema* when the type of the expressions
 on either sides of the operator are pointer types and the mutation type is
 RORP.
 
-**Note**: See [[SPC-mutation_ror_ptr]]
+**Note**: See [ROR for Pointers](#design-mutation_ror_ptr).
 
 The plugin shall use the *bool RORG schema* when the type of the expressions on
 both sides of the operator are boolean types.
 
-**Note**: See [[SPC-mutation_ror_bool]]
+**Note**: See [ROR for Booleans](#design-mutation_ror_bool).
 
 ### RORG
 
@@ -189,11 +189,22 @@ it means that the only valid mutants are `>=` and `false` if we consider the
 RORG schema. `>=` would in this case always be `true`. Thus it follows that the
 mutants for the third line should be `true` and `false`.
 
-# SPC-mutation_ror_ptr
-partof: SPC-mutation_ror
-###
+### ROR for Pointers {id="design-mutation_ror_ptr"}
 
-This schema is only applicable when type of the expressions either sides is a pointer type.
+[partof](#design-mutation_ror)
+
+The goal is to reduce the number of undesired mutants when the user of the
+plugin has knowledge about the internal design of the program.
+
+Design knowledge: Do the program use such C++ constructs that guarantee memory
+address order and use this guarantees?
+
+This schema can't fully replace parts of ROR because there are programs that
+make use of the memory address order that is guaranteed by the language. It is
+thus left to the user to choose the correct schema.
+
+This schema is only applicable when type of the expressions either sides is a
+pointer type.
 
 | Original Expression | Mutant 1 | Mutant 2 | Mutant 3 |
 | ------------------- | -------- | -------- | -------- |
@@ -204,21 +215,9 @@ This schema is only applicable when type of the expressions either sides is a po
 | `x == y`            | `x != y` | `false`  |
 | `x != y`            | `x == y` | `true`   |
 
-## Why?
+## Arithmetic Operator Replacement (AOR) {id="design-mutation_aor"}
 
-The goal is to reduce the number of undesired mutants when the user of the plugin has knowledge about the internal design of the program.
-
-Design knowledge: Do the program use such C++ constructs that guarantee memory address order and use this guarantees?
-
-This schema can't fully replace parts of ROR because there are programs that make use of the memory address order that is guaranteed by the language. It is thus left to the user to choose the correct schema.
-
-# SPC-mutation_aor
-partof: REQ-mutations
-###
-
-TODO: add requirement.
-
-## Arithmetic Operator Replacement (AOR)
+[partof](#req-mutations)
 
 Replace a single arithmetic operator with another operand.
 
@@ -232,13 +231,13 @@ Replace a single arithmetic operator with another operand.
 
 Column 1-2 where added after studying [@googleStateOfMutationTesting2018] p.4.
 
-# SPC-mutation_lcr
-partof: REQ-mutations
-###
+## Logical Connector Replacement (LCR) {id="design-mutation_lcr"}
 
-TODO: add requirement.
+[partof](#req-mutations)
 
-## Logical Connector Replacement (LCR)
+The plugin shall mutate the logical operators `||` and `&&`.
+
+The plugin shall mutate the bitwise operators `|` and `&`.
 
 Replace a logical operand with the inverse.
 
@@ -247,19 +246,24 @@ Replace a logical operand with the inverse.
 | `x && y` | `x || y` | `true`   | `false`  | `x` | `y` |
 | `x || y` | `x && y` | `true`   | `false`  | `x` | `y` |
 
+Also see the table for [LCRb](#design-mutation_lcrb).
+
 ### Note
 
 Column 2-5 where added after studying [@googleStateOfMutationTesting2018] p.4.
 
-# SPC-lcrb
-partof: REQ-mutations
-###
+The plugin shall mutate the bitwise operators `|` and `&`.
+
+## Logical Connector Replacement Bit-wise (LCRB) {id="design-mutation_lcrb"}
+
+[partof](#req-mutations)
 
 The plugin shall mutate the bitwise operators `|` and `&`.
 
-## Logical Connector Replacement Bit-wise (LCRB)
-
-These two bitwise operators correlate well with the LCR operator. Coverage tools have a general problem with bitwise operators. This mutation operator can replace the manual coverage inspection activity when bitwise operators are used.
+These two bitwise operators correlate well with the LCR operator. Coverage
+tools have a general problem with bitwise operators. This mutation operator can
+replace the manual coverage inspection activity when bitwise operators are
+used.
 
 | Original Expression | Mutant 1 |
 | ------------------- | -------- |
@@ -276,9 +280,9 @@ These two bitwise operators correlate well with the LCR operator. Coverage tools
 Column 2-3 where added after studying [@googleStateOfMutationTesting2018] p.4
 and concluding that if LCR is updated then LCRb should also be updated.
 
-# SPC-mutation_uoi
-partof: REQ-mutations
-###
+## Unary Operator Insertion (UOI) {id="design-mutation_uoi"}
+
+[partof](#req-mutations)
 
 The plugins shall mutate `!` in unary expressions by removing it.
 
@@ -290,7 +294,6 @@ mutants. This lead to the redesign of how it mutates. Instead of mutating
 everything it can it now only generate mutants that is highly likely to be
 productive. Less "false positives".
 
-## Unary Operator Insertion (UOI)
 Insert a single unary operator in expressions where it is possible.
 
 The operands are:
@@ -313,13 +316,9 @@ Note: The address, indirection and complement operator need to be evaluated to
 see how efficient those mutants are.
 Are most mutants killed? Compilation errors?
 
-# SPC-mutation_abs
-partof: REQ-mutations
-###
+## Absolute Value Insertion (ABS) {id="design-mutation_abs"}
 
-TODO: add requirement.
-
-## Absolute Value Insertion (ABS)
+[partof](#req-mutations)
 
 Replace a numerical expression with the absolute value.
 
@@ -343,13 +342,9 @@ Further studies on this subject is needed.
 > The mutation abs(0) and abs(0.0) is undesired because it has no semantic effect.
 > Note though that abs(-0.0) is a separate case.
 
-# SPC-mutation_cor
-partof: REQ-mutations
-###
+## Conditional Operator Replacement (COR) {id="design-mutation_cor"}
 
-TODO: add requirement.
-
-## Conditional Operator Replacement (COR)
+[partof](#req-mutations)
 
 This mutation subsumes LCR and all negation mutations generated by UOI.
 
@@ -372,17 +367,14 @@ See [@conf:1, p. 2].
 
 TODO: OR should be `||` but it doesn't render corrently on github.
 
-# SPC-mutation_dcc
-partof: REQ-mutations
-###
+### Note
 
-TODO: add requirement.
+This mutant is inactivated in the tool because it has turned out to generate
+too much junk.
 
-The intention is to be at least equivalent to a coverage tools report for decision/condition coverage.
-This is the reason why a *bomb* is part of DCC.
+## Decision/Condition Coverage (DCC) {id="design-mutation_dcc"}
 
-## Why?
-See [@thesis1].
+[partof](#req-mutations)
 
 A test suite that achieve MC/DC should kill 100% of these mutants.
 
@@ -391,46 +383,54 @@ As discussed in [@thesis1] a specialized mutation for DC/C results in:
  * less equivalent mutations
  * makes it easier for the human to interpret the results
 
-## Decision Coverage
+See [@thesis1].
+
+The intention is to be at least equivalent to a coverage tools report for
+decision/condition coverage. This is the reason why a *bomb* is part of DCC.
+
+### Decision Coverage
 
 The DC criteria requires that all branches in a program are executed.
 
-As discussed in [@thesis1, p. 19] the DC criteria is simulated by replacing predicates with `true` or `false`.
-For switch statements this isn't possible to do. In those cases a bomb is inserted.
+As discussed in [@thesis1, p. 19] the DC criteria is simulated by replacing
+predicates with `true` or `false`.  For switch statements this isn't possible
+to do. In those cases a bomb is inserted.
 
-## Condition Coverage
+### Condition Coverage
 
 The CC criteria requires that all conditions clauses are executed with true/false.
 
-As discussed in [@thesis1, p. 20] the CC criteria is simulated by replacing clauses with `true` or `false`.
-See [@subsumeCondMutTesting] for further discussions.
+As discussed in [@thesis1, p. 20] the CC criteria is simulated by replacing
+clauses with `true` or `false`.  See [@subsumeCondMutTesting] for further
+discussions.
 
-## Bomb
+### Bomb
 
 A statement that halts the program.
 
 The DCC bomb is only needed for case statements.
 
-Note that the bomb do not provide any more information than a coverage report do because it doesn't force the test suite to check the output of the program. It is equivalent to coverage information.
+Note that the bomb do not provide any more information than a coverage report
+do because it doesn't force the test suite to check the output of the program.
+It is equivalent to coverage information.
 
-# SPC-mutation_dcr
-partof: REQ-mutations
-###
+## Decision/Condition Requirement (DCR) {id="design-mutation_dcr"}
 
-TODO: add requirement.
+[partof](#req-mutations)
 
-## Why?
+This is a twist of DCC. It replaces the bomb with statement deletion. The
+intention is to require the test suite to check the output.
 
-This is a twist of DCC. It replaces the bomb with statement deletion.
-The intention is to require the test suite to check the output.
-
-## Case Deletion
+### Case Deletion
 
 This is only needed for switch statements.
 It *deactivates* the functionality in the case branch in a switch statement.
 
-It is **more** equivalent to the DCC mutation for predicates (decision) that is set to *false* than using a bomb for the branch because deleting the functionality requires the test suite to *test* the side effect to be able to kill the mutant.
-It isn't enough to *visit* the branch which is the case for a bomb.
+It is **more** equivalent to the DCC mutation for predicates (decision) that is
+set to *false* than using a bomb for the branch because deleting the
+functionality requires the test suite to *test* the side effect to be able to
+kill the mutant.  It isn't enough to *visit* the branch which is the case for a
+bomb.
 
 Motivation why it is equivalent.
 
@@ -468,31 +468,29 @@ The branch is deleted.
 
 Thus `false` is equivalent to statement deletion of the branch content.
 
-# SPC-mutation_dcr_bool_func
-partof: SPC-mutation_dcr
-###
+### DCR for Bool Function {id="design-mutation_dcr-bool_func"}
 
-TODO: add req.
-
-## Why?
+[partof](#design-mutation_dcr)
 
 The intention of DCR is to test that the test suite verify logical expressions.
-It is assumed that a function that returns bool is used in logical expressions in *some* way.
-This use should be verified by the test suite.
+It is assumed that a function that returns bool is used in logical expressions
+in *some* way.  This use should be verified by the test suite.
 
-# SPC-mutations_statement_del
-partof: REQ-mutations
-###
+## Statement Deletion (SDL) {id="design-mutation_sdl"}
 
-The plugin shall remove one statement when generating a _SDL_ mutation.
+[partof](#req-mutations)
 
-## Statement Deletion (SDL)
+The main purpose of this mutation operator is to find unused code. By
+selectively deleting code that turns out to not affecting the test cases it is
+found and can be removed. Because if it was crucial, the code that where
+removed by SDL, it should have affected the behavior of the program in such a
+way that at least one test case failed.
 
-Delete one statement at a time.
+The plugin shall remove statements either individually or as a group.
 
-# SPC-mutations_statement_del-call_expression
-partof: SPC-mutations_statement_del
-###
+### SDL for Function and Method Calls {id="design-mutation_sdl-calls"}
+
+[partof](#design-mutation_sdl)
 
 The plugin shall remove the specific function call.
 
@@ -500,51 +498,29 @@ The plugin shall remove the specific function call.
 A function call that is terminated with a `;` should remove the trailing `;`.
 In contrast with the initialization list where it should remove the trailing `,`.
 
-# SPC-mutations_statement_del-void_func_body
-partof: SPC-mutations_statement_del
-###
+### SDL for Void Function Body {id="design-mutation_sdl-void_func"}
 
-The plugin shall remove the content of the specified void function body.
-
-## Rationale
+[partof](#design-mutation_sdl)
 
 This is useful to force a test case to demonstrate that a function has
 observable and testable side effects. It is a *high probability* that when the
 body is deleted and test cases do not kill the mutant that the function is
 *unused* or *dead code*.
 
-## To Prove
+The plugin shall remove the content of the specified void function body.
 
-This type of mutation is *probably* more useful for C++ object oriented code
-because it forces tests to kill methods that have a void return type.
+## Mutation Identifier {id="design-mutation_id"}
 
-# TST-statement_del_call_expression
-partof: SPC-mutations_statement_del-call_expression
-###
+[partof](#req-mutations)
 
-A mutation is expected to produce valid code.
-
-# TST-mutation_aor
-partof: SPC-mutation_aor
-###
-
-```
-ops = {+,-,/,%,*}
-```
-
-Expected result when the input is a single assignment using the operator from column _original expression_.
-
-Expected result for a C++ file containg *ops* between integers.
-
-Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
-
-# SPC-mutant_identifier
-partof: REQ-mutations
-###
+This is to reduce the number of mutations that need to be tested by enabling
+reuse of the results. From this perspective it is an performance improvements.
+The checksum is intended to be used in the future for mutation metaprograms.
+See [@thesis1].
 
 The plugin shall generate an identifier for each mutant.
 
-## Checksum algorithm
+### Checksum algorithm
 
 The algorithm is a simple Merkel tree. It is based on [@thesis1, p. 27].
 The hash algorithm should be murmurhash3 128-bit.
@@ -554,79 +530,3 @@ The hash algorithm should be murmurhash3 128-bit.
 3. Generate the hash *o2* of the end offset.
 4. Generate the hash *m* of the textual representation of the mutation.
 5. Generate the final hash of *s*, *o1*, *o2* and *m*.
-
-## Why?
-
-This is to reduce the number of mutations that need to be tested by enabling reuse of the results.
-From this perspective it is an performance improvements.
-
-The checksum is intended to be used in the future for mutation metaprograms. See [@thesis1].
-
-# TST-mutation_lcr
-partof: SPC-mutation_lcr
-###
-
-```
-ops = {&&, ||}
-```
-
-Expected result for a C++ file containg *ops* between integers.
-
-Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
-
-# TST-mutation_ror
-partof: SPC-mutation_ror
-###
-
-```
-ops = {<,<=,>,>=,==,!=}
-```
-
-Expected result for a C++ file containg *ops* between integers.
-
-Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
-
-# TST-mutation_cor
-partof: SPC-mutation_cor
-###
-
-```
-ops = {&&, ||}
-```
-
-Expected result for a C++ file containg *ops* between integers.
-
-Expected result for a C++ file containg *ops* between instances of a class overloading the tested operator.
-
-# TST-mutation_dcc
-partof: SPC-mutation_dcc
-###
-
-## Decision Coverage
-
-*ifstmt* = {
- * `if` stmt with one clause
- * `if` stmt with multiple clauses
- * nested `if` stmts
-}
-
-Expected result for *ifstmt*.
-
-*switchstmt* = {
- * `switch` stmt with one case and the default branch
- * empty `switch` stmt
-}
-
-Expected result for *switchstmt*.
-
-## Condition Coverage
-
-*ifstmt* = {
- * `if` stmt with one clause
- * `if` stmt with multiple clauses
- * `if` stmt with nested clauses
-}
-
-Expected result for *ifstmt*.
-
-**Note**: For the one clause case only ONE mutation point shall be generated.

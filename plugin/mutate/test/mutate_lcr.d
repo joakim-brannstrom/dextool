@@ -79,3 +79,22 @@ unittest {
 
     testAnyOrder!SubStr(["from '||' to '&&'",]).shouldNotBeIn(r.output);
 }
+
+@(testId ~ "shall produce all lcrb mutations for primitive types when using --mutant lcr")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcrb_primitive.cpp").run;
+    auto r = makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "lcr"]).run;
+
+    // dfmt off
+    testAnyOrder!SubStr([
+        "from '&' to '|'",
+        "from 'a &' to ''",
+        "from '& b' to ''",
+        "from '|' to '&'",
+        "from 'a |' to ''",
+        "from '| b' to ''",
+    ]).shouldBeIn(r.output);
+    // dfmt on
+}
