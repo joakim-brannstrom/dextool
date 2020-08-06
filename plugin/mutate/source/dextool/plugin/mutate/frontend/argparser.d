@@ -87,117 +87,137 @@ struct ArgParser {
         auto app = appender!(string[])();
 
         app.put("[workarea]");
-        app.put("# path used as the root for accessing files");
-        app.put(
-                "# dextool will not modify files outside the root when it perform mutation testing");
+        app.put(null);
+        app.put("# base path (absolute or relative) to look for C/C++ files to mutate.");
         app.put(`# root = "."`);
-        app.put("# restrict analysis to files in this directory tree");
-        app.put("# this make it possible to only mutate certain parts of an application");
-        app.put("# use relative paths that are inside the root");
+        app.put(null);
+        app.put("# files and/or directories (relative to root) to be the **only** sources to mutate.");
         app.put("# restrict = []");
         app.put(null);
 
         app.put("[analyze]");
-        app.put("# exclude files in these directory tree(s) from analysis");
-        app.put("# relative paths are relative to workarea.root");
+        app.put(null);
+        app.put("# files and/or directories (relative to root) to be excluded from analysis.");
         app.put("# exclude = []");
-        app.put(
-                "# limit the number of threads used when analysing. Default is as many as there are cores available");
+        app.put(null);
+        app.put("# number of threads to be used for analysis (default is the number of cores).");
         app.put("# threads = 1");
-        app.put("# prune (remove) files from the database that aren't found during the analyze");
+        app.put(null);
+        app.put("# remove files from the database that aren't found during analysis.");
         app.put(`# prune = true`);
-        app.put("# number of mutants per schema (soft upper limit). Zero means no limit");
+        app.put(null);
+        app.put("# maximum number of mutants per schema (zero means no limit).");
         app.put("# mutants_per_schema = 100");
         app.put(null);
 
         app.put("[database]");
-        app.put("# path to where to store the sqlite3 database");
+        app.put(null);
+        app.put("# path (absolute or relative) where to store mutation statistics.");
         app.put(`# db = "dextool_mutate.sqlite3"`);
         app.put(null);
 
         app.put("[compiler]");
-        app.put("# extra flags to pass on to the compiler such as the C++ standard");
+        app.put(null);
+        app.put("# extra flags to pass on to the compiler such as the C++ standard.");
         app.put(format(`# extra_flags = [%(%s, %)]`, compiler.extraFlags));
-        app.put("# toggle this to force system include paths to use -I instead of -isystem");
+        app.put(null);
+        app.put("# force system includes to use -I instead of -isystem");
         app.put("# force_system_includes = true");
-        app.put(
-                "# use this compilers system includes instead of the one used in the compile_commands.json");
+        app.put(null);
+        app.put("# system include paths to use instead of the ones in compile_commands.json");
         app.put(format(`# use_compiler_system_includes = "%s"`, compiler.useCompilerSystemIncludes.length == 0
                 ? "/path/to/c++" : compiler.useCompilerSystemIncludes.value));
         app.put(null);
 
         app.put("[compile_commands]");
-        app.put("# search for compile_commands.json in this paths");
+        app.put(null);
+        app.put("# search for compile_commands.json in these path(s).");
         if (compileDb.dbs.length == 0)
             app.put(`# search_paths = ["./compile_commands.json"]`);
         else
             app.put(format("search_paths = %s", compileDb.rawDbs));
-        app.put("# flags to remove when analyzing a file in the DB");
+        app.put(null);
+        app.put("# compile flags to remove when analyzing a file.");
         app.put(format("# filter = [%(%s, %)]", compileDb.flagFilter.filter));
-        app.put("# compiler arguments to skip from the beginning. Needed when the first argument is NOT a compiler but rather a wrapper");
+        app.put(null);
+        app.put("# number of compiler arguments to skip from the beginning (needed when the first argument is NOT a compiler but rather a wrapper).");
         app.put(format("# skip_compiler_args = %s", compileDb.flagFilter.skipCompilerArgs));
         app.put(null);
 
         app.put("[mutant_test]");
-        app.put("# (required) program used to run the test suite");
-        app.put(`# the arguments for test_cmd can be an array of multiple test commands`);
+        app.put(null);
+        app.put("# (required) command(s) to test the application, for example:");
         app.put(`# 1. ["test1.sh", "test2.sh"]`);
         app.put(`# 2. [["test1.sh", "-x"], "test2.sh"]`);
-        app.put(`# test_cmd = "./test.sh"`);
-        app.put(
-                `# find, recursively, all executables in the directory tree(s) and add them as test_cmds`);
-        app.put(`# use this as a convenience to specifying the binaries manually`);
+        app.put(`# test_cmd = ["./test.sh"]`);
+        app.put(null);
+        app.put(`# find, recursively, all executables in the directory tree(s) and add them as test_cmds`);
+        app.put(`# use this as a convenience to specifying the binaries manually.`);
         app.put(`test_cmd_dir = ["./build/test"]`);
-        app.put(`# flags to add to all executables found in test_cmd_dir`);
+        app.put(null);
+        app.put(`# flags to add to all executables found in test_cmd_dir.`);
         app.put(`# test_cmd_dir_flag = ["--gtest_filter", "-*foo"]`);
-        app.put("# timeout to use for the test suite");
+        app.put(null);
+        app.put("# timeout to use for the test suite.");
         app.put(`# test_cmd_timeout = "1 hours 1 minutes 1 seconds 1 msecs"`);
-        app.put("# (required) program used to build the application");
-        app.put(`# the arguments for build_cmd can be an array: ["./build.sh", "-x"]`);
-        app.put(`build_cmd = "./build.sh"`);
-        app.put("# timeout to use when compiling the SUT and test suite (default: 30 minutes)");
+        app.put(null);
+        app.put("# (required) command to build the application **and** test suite.");
+        app.put(`build_cmd = ["./build.sh"]`);
+        app.put(null);
+        app.put("# timeout to use when compiling the SUT and test suite (default: 30 minutes)");
         app.put(`# build_cmd_timeout = "1 hours 1 minutes 1 seconds 1 msecs"`);
-        app.put(
-                "# program used to analyze the output from the test suite for test cases that killed the mutant");
+        app.put(null);
+        app.put("# program used to analyze the output from the test suite for test cases that killed the mutant");
         app.put(`# analyze_cmd = "analyze.sh"`);
-        app.put("# builtin analyzer of output from testing frameworks to find failing test cases");
+        app.put(null);
+        app.put("# built-in analyzer of output from testing frameworks to find failing test cases");
         app.put(format("# analyze_using_builtin = [%(%s, %)]",
                 [EnumMembers!TestCaseAnalyzeBuiltin].map!(a => a.to!string)));
+        app.put(null);
         app.put("# determine in what order mutations are chosen");
         app.put(format("# order = %(%s|%)", [EnumMembers!MutationOrder].map!(a => a.to!string)));
+        app.put(null);
         app.put("# how to behave when new test cases are found");
         app.put(format("# detected_new_test_case = %(%s|%)",
                 [EnumMembers!(ConfigMutationTest.NewTestCases)].map!(a => a.to!string)));
+        app.put(null);
         app.put("# how to behave when test cases are detected as having been removed");
-        app.put("# should the test and the gathered statistics be remove too?");
+        app.put("# should the test and the gathered statistics be removed too?");
         app.put(format("# detected_dropped_test_case = %(%s|%)",
                 [EnumMembers!(ConfigMutationTest.RemovedTestCases)].map!(a => a.to!string)));
+        app.put(null);
         app.put("# how the oldest mutants should be treated.");
         app.put("# It is recommended to test them again.");
         app.put("# Because you may have changed the test suite so mutants that where previously killed by the test suite now survive.");
         app.put(format("# oldest_mutants = %(%s|%)",
                 [EnumMembers!(ConfigMutationTest.OldMutant)].map!(a => a.to!string)));
-        app.put("# How many of the oldest mutants to do the above with");
+        app.put(null);
+        app.put("# how many of the oldest mutants to do the above with");
         app.put("# oldest_mutants_nr = 10");
-        app.put("# limit the number of threads used when running tests in parallel. Default is as many as there are cores available");
+        app.put(null);
+        app.put("# number of threads to be used when running tests in parallel (default is the number of cores).");
         app.put("# parallel_test = 1");
+        app.put(null);
         app.put("# stop executing tests as soon as a test command fails.");
-        app.put(
-                "# This speed up the test phase but the report of test cases killing mutants is less accurate");
+        app.put("# This speed up the test phase but the report of test cases killing mutants is less accurate");
         app.put("use_early_stop = true");
-        app.put("# reduce the compile+link time when testing mutants");
+        app.put(null);
+        app.put("# reduce the compile and link time when testing mutants");
         app.put("use_schemata = true");
+        app.put(null);
         app.put("# sanity check the schemata before it is used by executing the test cases");
         app.put("# it is a slowdown but nice robustness that is usually worth having");
         app.put("check_schemata = true");
         app.put(null);
 
         app.put("[report]");
+        app.put(null);
         app.put("# default style to use");
         app.put(format("# style = %(%s|%)", [EnumMembers!ReportKind].map!(a => a.to!string)));
         app.put(null);
 
         app.put("[test_group]");
+        app.put(null);
         app.put("# subgroups with a description and pattern. Example:");
         app.put("# [test_group.uc1]");
         app.put(`# description = "use case 1"`);
