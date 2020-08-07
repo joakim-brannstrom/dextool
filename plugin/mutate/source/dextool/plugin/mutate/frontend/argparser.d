@@ -103,7 +103,7 @@ struct ArgParser {
         app.put("# number of threads to be used for analysis (default is the number of cores).");
         app.put("# threads = 1");
         app.put(null);
-        app.put("# remove files from the database that aren't found during analysis.");
+        app.put("# remove files from the database that are no longer found during analysis.");
         app.put(`# prune = true`);
         app.put(null);
         app.put("# maximum number of mutants per schema (zero means no limit).");
@@ -112,7 +112,7 @@ struct ArgParser {
 
         app.put("[database]");
         app.put(null);
-        app.put("# path (absolute or relative) where to store mutation statistics.");
+        app.put("# path (absolute or relative) where mutation statistics will be stored.");
         app.put(`# db = "dextool_mutate.sqlite3"`);
         app.put(null);
 
@@ -131,7 +131,7 @@ struct ArgParser {
 
         app.put("[compile_commands]");
         app.put(null);
-        app.put("# search for compile_commands.json in these path(s).");
+        app.put("# files and/or directories to look for compile_commands.json.");
         if (compileDb.dbs.length == 0)
             app.put(`# search_paths = ["./compile_commands.json"]`);
         else
@@ -146,25 +146,24 @@ struct ArgParser {
 
         app.put("[mutant_test]");
         app.put(null);
-        app.put("# (required) command(s) to test the application, for example:");
-        app.put(`# 1. ["test1.sh", "test2.sh"]`);
-        app.put(`# 2. [["test1.sh", "-x"], "test2.sh"]`);
-        app.put(`# test_cmd = ["./test.sh"]`);
+        app.put("# command to build the program **and** test suite.");
+        app.put(`build_cmd = ["./build.sh"]`);
         app.put(null);
-        app.put(`# find, recursively, all executables in the directory tree(s) and add them as test_cmds`);
-        app.put(`# use this as a convenience to specifying the binaries manually.`);
+        app.put("# at least one of test_cmd_dir (faster) or test_cmd (slower) needs to be specified.");
+        app.put(null);
+        app.put(`# path(s) to recursively look for test binaries to execute.`);
         app.put(`test_cmd_dir = ["./build/test"]`);
         app.put(null);
         app.put(`# flags to add to all executables found in test_cmd_dir.`);
         app.put(`# test_cmd_dir_flag = ["--gtest_filter", "-*foo"]`);
         app.put(null);
-        app.put("# timeout to use for the test suite.");
+        app.put("# command(s) to test the program.");
+        app.put(`# test_cmd = ["./test.sh"]`);
+        app.put(null);
+        app.put("# timeout to use for the test suite (by default a measurement-based heuristic will be used).");
         app.put(`# test_cmd_timeout = "1 hours 1 minutes 1 seconds 1 msecs"`);
         app.put(null);
-        app.put("# (required) command to build the application **and** test suite.");
-        app.put(`build_cmd = ["./build.sh"]`);
-        app.put(null);
-        app.put("# timeout to use when compiling the SUT and test suite (default: 30 minutes)");
+        app.put("# timeout to use when compiling the program and test suite (default: 30 minutes)");
         app.put(`# build_cmd_timeout = "1 hours 1 minutes 1 seconds 1 msecs"`);
         app.put(null);
         app.put("# program used to analyze the output from the test suite for test cases that killed the mutant");
