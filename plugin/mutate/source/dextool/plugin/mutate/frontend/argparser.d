@@ -149,7 +149,7 @@ struct ArgParser {
         app.put("# command to build the program **and** test suite.");
         app.put(`build_cmd = ["./build.sh"]`);
         app.put(null);
-        app.put("# at least one of test_cmd_dir (faster) or test_cmd (slower) needs to be specified.");
+        app.put("# at least one of test_cmd_dir (recommended) or test_cmd needs to be specified.");
         app.put(null);
         app.put(`# path(s) to recursively look for test binaries to execute.`);
         app.put(`test_cmd_dir = ["./build/test"]`);
