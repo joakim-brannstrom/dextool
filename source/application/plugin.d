@@ -15,7 +15,7 @@ almost never relevant besides when making changes to this module.
 */
 module application.plugin;
 
-import dextool.type : Path;
+import my.path : AbsolutePath, Path;
 
 import logger = std.experimental.logger;
 
@@ -63,61 +63,20 @@ Validated[] scanForExecutables() {
     import std.algorithm : filter, map;
     import std.array : array;
     import std.file : thisExePath, dirEntries, SpanMode;
-    import std.path : absolutePath, dirName;
+    import std.path : absolutePath, dirName, stripExtension, baseName;
     import std.range : tee;
+    import my.file : which, whichFromEnv;
 
-    static bool isExecutable(uint attrs) {
-        import core.sys.posix.sys.stat;
-        import std.file : attrIsSymlink;
+    auto pluginPattern = thisExePath.baseName.stripExtension ~ "*";
 
-        // is a regular file and any of owner/group/other have execute
-        // permission.
-        // symlinks are NOT checked but accepted as they are.
-        //  - simplifies the logic
-        //  - makes it possible for the user to use symlinks.
-        //      it is the users responsibility that the symlink is correct.
-        return attrIsSymlink(attrs) || (attrs & S_IFMT) == S_IFREG
-            && ((attrs & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0);
+    auto primaryPlugins() {
+        return which([AbsolutePath(thisExePath.dirName)], pluginPattern).map!(
+                a => Validated(a, Kind.primary));
     }
 
-    static Path[] safeDirEntries(string path) nothrow {
-        import std.array : appender;
-
-        auto res = appender!(Path[])();
-        string err_msg;
-        try {
-            // dfmt off
-            foreach (e; dirEntries(path, SpanMode.shallow)
-                     .filter!(a => isExecutable(a.attributes))
-                     .map!(a => Path(a.name.absolutePath))) {
-                res.put(e);
-            }
-            // dfmt on
-        } catch (Exception ex) {
-            err_msg = ex.msg;
-        }
-
-        nothrowTrace(err_msg.length != 0, "Unable to access ", err_msg);
-
-        return res.data;
-    }
-
-    static auto primaryPlugins() {
-        return safeDirEntries(thisExePath.dirName).map!(a => Validated(a, Kind.primary));
-    }
-
-    static auto secondaryPlugins() {
-        import std.algorithm : splitter, joiner, map;
-        import std.process : environment;
-
-        auto env_plugin = environment.get("DEXTOOL_PLUGINS", null);
-
-        // dfmt off
-        return env_plugin.splitter(":")
-            .map!(a => safeDirEntries(a))
-            .joiner
-            .map!(a => Validated(a, Kind.secondary));
-        // dfmt on
+    auto secondaryPlugins() {
+        return whichFromEnv("DEXTOOL_PLUGINS", pluginPattern).map!(a => Validated(a,
+                Kind.secondary));
     }
 
     static auto merge(T0, T1)(T0 primary, T1 secondary) {
