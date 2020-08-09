@@ -17,6 +17,8 @@ import std.format : formattedWrite;
 import std.range : retro, ElementType;
 import std.typecons : tuple, Tuple, scoped;
 
+import my.gc.refc : RefCounted;
+
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.analyze.ast;
@@ -28,9 +30,9 @@ import dextool.plugin.mutate.backend.type : Language, Offset, Mutation, SourceLo
 @safe:
 
 /// Find mutants.
-MutantsResult toMutants(ref Ast ast, FilesysIO fio, ValidateLoc vloc) {
-    auto visitor = () @trusted { return new MutantVisitor(&ast, fio, vloc); }();
-    ast.accept(visitor);
+MutantsResult toMutants(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc) @trusted {
+    auto visitor = scoped!MutantVisitor(ast, fio, vloc);
+    ast.accept(cast(MutantVisitor) visitor);
     return visitor.result;
 }
 
@@ -313,7 +315,7 @@ class MutantVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutations;
     import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutations;
 
-    Ast* ast;
+    RefCounted!Ast ast;
     MutantsResult result;
 
     private {
@@ -321,7 +323,7 @@ class MutantVisitor : DepthFirstVisitor {
         Stack!(Node) nstack;
     }
 
-    this(Ast* ast, FilesysIO fio, ValidateLoc vloc) {
+    this(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc) {
         this.ast = ast;
         result = new MutantsResult(ast.lang, fio, vloc);
 
@@ -754,7 +756,7 @@ class MutantVisitor : DepthFirstVisitor {
  *  * not contain a `Return` that returns a type other than void.
  */
 class SdlBlockVisitor : DepthFirstVisitor {
-    Ast* ast;
+    RefCounted!Ast ast;
 
     // if the analyzer has determined that this node in the tree can be removed
     // with SDL. Note though that it doesn't know anything about the parent
@@ -765,7 +767,7 @@ class SdlBlockVisitor : DepthFirstVisitor {
     /// The location that represent the block to remove.
     Location loc;
 
-    this(Ast* ast) {
+    this(RefCounted!Ast ast) {
         this.ast = ast;
     }
 

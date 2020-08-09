@@ -493,6 +493,8 @@ struct Analyze {
 
         {
             auto schemas = toSchemata(ast, fio, codeMutants, conf.mutantsPerSchema);
+            ast.release;
+
             debug logger.trace(schemas);
             foreach (f; schemas.getSchematas.filter!(a => !(a.fragments.empty || a.mutants.empty))) {
                 const id = result.schematas.length;
@@ -500,8 +502,6 @@ struct Analyze {
                 result.schemataMutants[id] = f.mutants.map!(a => a.id).array;
                 result.schemataChecksum[id] = f.checksum;
             }
-
-            ast = typeof(ast).init;
         }
 
         result.mutationPoints = codeMutants.points.byKeyValue.map!(

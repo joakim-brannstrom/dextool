@@ -21,6 +21,7 @@ import std.traits : EnumMembers;
 import std.typecons : tuple, Tuple, scoped;
 
 import automem : vector, Vector;
+import my.gc.refc : RefCounted;
 
 import dextool.set;
 import dextool.type : AbsolutePath, Path;
@@ -44,7 +45,7 @@ immutable schemataMutantIdentifier = "gDEXTOOL_MUTID";
 immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
 /// Translate a mutation AST to a schemata.
-SchemataResult toSchemata(ref Ast ast, FilesysIO fio,
+SchemataResult toSchemata(RefCounted!Ast ast, FilesysIO fio,
         CodeMutantsResult cresult, long mutantsPerSchema) @trusted {
     auto rval = new SchemataResult(fio, mutantsPerSchema);
     auto index = scoped!CodeMutantIndex(cresult);
@@ -55,10 +56,8 @@ SchemataResult toSchemata(ref Ast ast, FilesysIO fio,
     case Language.assumeCpp:
         goto case;
     case Language.cpp:
-        auto visitor = () @trusted {
-            return new CppSchemataVisitor(&ast, index, fio, rval);
-        }();
-        ast.accept(visitor);
+        auto visitor = scoped!CppSchemataVisitor(ast, index, fio, rval);
+        ast.accept(cast(CppSchemataVisitor) visitor);
         break;
     }
 
@@ -302,7 +301,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.ror : rorMutationsAll, rorpMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutationsRaw;
 
-    Ast* ast;
+    RefCounted!Ast ast;
     CodeMutantIndex index;
     SchemataResult result;
     FilesysIO fio;
@@ -312,8 +311,8 @@ class CppSchemataVisitor : DepthFirstVisitor {
         uint depth;
     }
 
-    this(Ast* ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result) {
-        assert(ast !is null);
+    this(RefCounted!Ast ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result) {
+        assert(!ast.empty);
 
         this.ast = ast;
         this.index = index;
@@ -564,7 +563,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.ror : rorMutationsAll, rorpMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutationsRaw;
 
-    Ast* ast;
+    RefCounted!Ast ast;
     CodeMutantIndex* index;
     FilesysIO fio;
 
@@ -579,7 +578,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
     ExpressionChain[MutantGroup] schema;
     Set!(CodeMutant)[MutantGroup] mutants;
 
-    this(T)(Ast* ast, CodeMutantIndex* index, FilesysIO fio, T root) {
+    this(T)(RefCounted!Ast ast, CodeMutantIndex* index, FilesysIO fio, T root) {
         this.ast = ast;
         this.index = index;
         this.fio = fio;
