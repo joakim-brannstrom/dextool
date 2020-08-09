@@ -1,0 +1,22 @@
+# See https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema
+
+trigger:
+  - master
+
+jobs:
+- job: Linux
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    CI_OS: linux
+  steps:
+    - template: .azure-pipelines/posix.yml
+  strategy:
+    matrix:
+      latest:
+        DMD_VERSION: dummy
+        DOCKERFILE: Dockerfile.latest_dmd
+      # min:
+      #   DMD_VERSION: 2.087.1
+      #   DOCKERFILE: Dockerfile

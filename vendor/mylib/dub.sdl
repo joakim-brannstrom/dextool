@@ -1,0 +1,25 @@
+name "my"
+description "A library collection of algorithms and data structures for personal use"
+authors "Joakim Brännström"
+copyright "Copyright © 2019, Joakim Brännström"
+license "BSL-1.0"
+
+dependency "sumtype" version="~>0.9.4" optional=false default=true
+
+// if you are on a closed network with no internet access you can use the local
+// copy of sumtype and unit-threaded by adding them as local packages.
+// dub add-local vendor/sumtype 0.9.4
+// dub add-local vendor/silly 1.0.2
+
+targetPath "build"
+
+dflags "-verrors=context"
+//dflags "-checkaction=context"
+
+configuration "library" {
+    targetType "library"
+}
+
+configuration "unittest" {
+    dependency "silly" version="~>1.0.2"
+}
