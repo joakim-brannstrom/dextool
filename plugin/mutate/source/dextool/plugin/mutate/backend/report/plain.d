@@ -15,6 +15,7 @@ import logger = std.experimental.logger;
 import std.array : empty;
 import std.exception : collectException;
 import std.typecons : Yes, No;
+import std.path : buildPath;
 
 import dextool.type;
 
@@ -73,7 +74,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
             MakeMutationTextResult mut_txt;
             AbsolutePath abs_path;
             try {
-                abs_path = AbsolutePath(r.file.Path, fio.getOutputDir);
+                abs_path = AbsolutePath(buildPath(fio.getOutputDir, r.file.Path));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
             } catch (Exception e) {
@@ -90,7 +91,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
                 return;
 
             try {
-                auto abs_path = AbsolutePath(r.file.Path, fio.getOutputDir);
+                auto abs_path = AbsolutePath(buildPath(fio.getOutputDir, r.file.Path));
                 auto mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
 
@@ -108,7 +109,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
                 return;
 
             try {
-                auto abs_path = AbsolutePath(r.file.Path, fio.getOutputDir);
+                auto abs_path = AbsolutePath(buildPath(fio.getOutputDir, r.file.Path));
                 auto mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
             } catch (Exception e) {
@@ -121,7 +122,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
                 return;
 
             try {
-                auto abs_path = AbsolutePath(r.file.Path, fio.getOutputDir);
+                auto abs_path = AbsolutePath(buildPath(fio.getOutputDir, r.file.Path));
                 auto mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
                 mutationReprMap[r.id] = MutationRepr(r.sloc, r.file, mut_txt);

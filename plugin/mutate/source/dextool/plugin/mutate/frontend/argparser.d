@@ -17,6 +17,7 @@ import logger = std.experimental.logger;
 import std.algorithm : joiner, sort, map, filter;
 import std.array : empty, array, appender;
 import std.exception : collectException;
+import std.path : buildPath;
 import std.traits : EnumMembers;
 
 import toml : TOMLDocument;
@@ -91,7 +92,8 @@ struct ArgParser {
         app.put("# base path (absolute or relative) to look for C/C++ files to mutate.");
         app.put(`# root = "."`);
         app.put(null);
-        app.put("# files and/or directories (relative to root) to be the **only** sources to mutate.");
+        app.put(
+                "# files and/or directories (relative to root) to be the **only** sources to mutate.");
         app.put("# restrict = []");
         app.put(null);
 
@@ -160,13 +162,15 @@ struct ArgParser {
         app.put("# command(s) to test the program.");
         app.put(`# test_cmd = ["./test.sh"]`);
         app.put(null);
-        app.put("# timeout to use for the test suite (by default a measurement-based heuristic will be used).");
+        app.put(
+                "# timeout to use for the test suite (by default a measurement-based heuristic will be used).");
         app.put(`# test_cmd_timeout = "1 hours 1 minutes 1 seconds 1 msecs"`);
         app.put(null);
         app.put("# timeout to use when compiling the program and test suite (default: 30 minutes)");
         app.put(`# build_cmd_timeout = "1 hours 1 minutes 1 seconds 1 msecs"`);
         app.put(null);
-        app.put("# program used to analyze the output from the test suite for test cases that killed the mutant");
+        app.put(
+                "# program used to analyze the output from the test suite for test cases that killed the mutant");
         app.put(`# analyze_cmd = "analyze.sh"`);
         app.put(null);
         app.put("# built-in analyzer of output from testing frameworks to find failing test cases");
@@ -194,11 +198,13 @@ struct ArgParser {
         app.put("# how many of the oldest mutants to do the above with");
         app.put("# oldest_mutants_nr = 10");
         app.put(null);
-        app.put("# number of threads to be used when running tests in parallel (default is the number of cores).");
+        app.put(
+                "# number of threads to be used when running tests in parallel (default is the number of cores).");
         app.put("# parallel_test = 1");
         app.put(null);
         app.put("# stop executing tests as soon as a test command fails.");
-        app.put("# This speed up the test phase but the report of test cases killing mutants is less accurate");
+        app.put(
+                "# This speed up the test phase but the report of test cases killing mutants is less accurate");
         app.put("use_early_stop = true");
         app.put(null);
         app.put("# reduce the compile and link time when testing mutants");
@@ -463,11 +469,11 @@ struct ArgParser {
         if (workArea.rawRestrict.empty) {
             workArea.rawRestrict = [workArea.rawRoot];
         }
-        workArea.restrictDir = workArea.rawRestrict.map!(a => AbsolutePath(Path(a),
-                workArea.outputDirectory)).array;
+        workArea.restrictDir = workArea.rawRestrict.map!(
+                a => AbsolutePath(buildPath(workArea.outputDirectory, a))).array;
 
-        analyze.exclude = analyze.rawExclude.map!(a => AbsolutePath(Path(a),
-                workArea.outputDirectory)).array;
+        analyze.exclude = analyze.rawExclude.map!(
+                a => AbsolutePath(buildPath(workArea.outputDirectory, a))).array;
 
         if (data.mutation.empty) {
             // by default use the recommended operators

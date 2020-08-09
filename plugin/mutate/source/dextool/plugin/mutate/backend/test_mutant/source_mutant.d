@@ -15,6 +15,7 @@ import core.time : Duration;
 import logger = std.experimental.logger;
 import std.array : empty;
 import std.exception : collectException;
+import std.path : buildPath;
 
 import sumtype;
 import proc : DrainElement;
@@ -252,7 +253,7 @@ nothrow:
             GenerateMutantResult, GenerateMutantStatus;
 
         try {
-            global.mut_file = AbsolutePath(Path(global.mutp.file), global.fio.getOutputDir);
+            global.mut_file = AbsolutePath(buildPath(global.fio.getOutputDir, global.mutp.file));
             global.original = global.fio.makeInput(global.mut_file);
         } catch (Exception e) {
             logger.error(e.msg).collectException;

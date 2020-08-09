@@ -49,7 +49,7 @@ final class TUVisitor : Visitor {
         string s = "override void visit(const(" ~ node_t ~ ") v) {\n";
         s ~= "auto callbacks = " ~ callback_member ~ ";";
         s ~= q{
-            if (!v.cursor.location.path.startsWith(restrict))
+            if (!v.cursor.location.path.startsWith(restrict.toString))
                 return;
             foreach (c; callbacks)
                 c(v);

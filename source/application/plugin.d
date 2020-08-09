@@ -204,7 +204,7 @@ ExecuteResult executePluginForShortHelp(Validated plugin) @safe nothrow {
     return res;
 }
 
-Plugin[] toPlugins(alias execFunc, T)(T plugins) @safe nothrow {
+Plugin[] toPlugins(alias execFunc, T)(T plugins) @safe {
     import std.algorithm : filter, map, splitter, each, cache;
     import std.array : array;
     import std.ascii : newline;

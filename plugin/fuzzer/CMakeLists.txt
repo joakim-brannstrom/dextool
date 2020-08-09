@@ -4,14 +4,28 @@ file(GLOB_RECURSE SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/source/*.d)
 list(APPEND SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/standard.d)
 
 set(EXE_NAME ${DEXTOOL_MAIN_EXE}-fuzzer)
-set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source -I${CMAKE_SOURCE_DIR}/libs/cpptooling/source -I${CMAKE_SOURCE_DIR}/source -I${CMAKE_SOURCE_DIR}/libs/dextool/source -I${CMAKE_SOURCE_DIR}/libs/dsrcgen/source -I${CMAKE_SOURCE_DIR}/libs/clang/source -I${CMAKE_SOURCE_DIR}/libs/libclang/source -I${CMAKE_SOURCE_DIR}/plugin/source -J${CMAKE_SOURCE_DIR}/libs/clang/resources -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source")
+set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source
+-I${CMAKE_SOURCE_DIR}/libs/clang/source
+-I${CMAKE_SOURCE_DIR}/libs/cpptooling/source
+-I${CMAKE_SOURCE_DIR}/libs/dextool/source
+-I${CMAKE_SOURCE_DIR}/libs/dsrcgen/source
+-I${CMAKE_SOURCE_DIR}/libs/libclang/source
+-I${CMAKE_SOURCE_DIR}/plugin/source
+-I${CMAKE_SOURCE_DIR}/source
+-I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
+-I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
+-I${CMAKE_SOURCE_DIR}/vendor/mylib/source
+-I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
+-I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source
+-J${CMAKE_SOURCE_DIR}/libs/clang/resources
+")
 
 build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_colorlog"
+    "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_colorlog;dextool_mylib;dextool_sumtype"
 )
 
 collect_binary_in_root(${EXE_NAME})
@@ -23,7 +37,7 @@ list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main
 list(APPEND SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/test/ut_main.d
 )
-compile_d_unittest(fuzzer "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_blob_model")
+compile_d_unittest(fuzzer "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_blob_model;dextool_mylib;dextool_sumtype")
 
 set(dextoolfuzz_SRC
     ${CMAKE_CURRENT_LIST_DIR}/support/afl_integration.cpp

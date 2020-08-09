@@ -15,6 +15,7 @@ import logger = std.experimental.logger;
 import std.array : empty;
 import std.exception : collectException;
 import std.typecons : Yes, No;
+import std.path : buildPath;
 
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
@@ -185,7 +186,7 @@ struct Markdown(Writer, TraceWriter) {
         void report() {
             MakeMutationTextResult mut_txt;
             try {
-                auto abs_path = AbsolutePath(r.file.Path, fio.getOutputDir);
+                auto abs_path = AbsolutePath(buildPath(fio.getOutputDir, r.file.Path));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
 

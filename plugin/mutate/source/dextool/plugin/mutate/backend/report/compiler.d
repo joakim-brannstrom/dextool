@@ -11,6 +11,7 @@ module dextool.plugin.mutate.backend.report.compiler;
 
 import logger = std.experimental.logger;
 import std.exception : collectException;
+import std.path : buildPath;
 
 import dextool.type;
 
@@ -62,7 +63,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportLevel;
             AbsolutePath abs_path;
             MakeMutationTextResult mut_txt;
             try {
-                abs_path = AbsolutePath(r.file.Path, fio.getOutputDir);
+                abs_path = AbsolutePath(buildPath(fio.getOutputDir, r.file.Path));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
             } catch (Exception e) {

@@ -13,6 +13,7 @@ module dextool.plugin.mutate.backend.report.csv;
 
 import std.exception : collectException;
 import logger = std.experimental.logger;
+import std.path : buildPath;
 
 import dextool.type;
 
@@ -65,7 +66,7 @@ final class ReportCSV : ReportEvent {
             MakeMutationTextResult mut_txt;
             AbsolutePath abs_path;
             try {
-                abs_path = AbsolutePath(r.file.Path, fio.getOutputDir);
+                abs_path = AbsolutePath(buildPath(fio.getOutputDir, r.file.Path));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
             } catch (Exception e) {
