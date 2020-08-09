@@ -452,6 +452,8 @@ unittest {
 
 ///
 unittest {
+    import std.algorithm : canFind;
+
     if (exists("test2"))
         rmdirRecurse("test2");
     if (exists("test3"))
@@ -550,18 +552,18 @@ unittest {
     rmdirRecurse("test2/subdir");
     ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
     assert(ev.length == 3);
-    assert(ev[0].tryMatch!((Event.Delete x) {
-            assert(x.path == AbsolutePath("test2/subdir/c.txt"));
-            return true;
-        }));
-    assert(ev[1].tryMatch!((Event.Delete x) {
-            assert(x.path == AbsolutePath("test2/subdir"));
-            return true;
-        }));
-    assert(ev[2].tryMatch!((Event.DeleteSelf x) {
-            assert(x.path == AbsolutePath("test2/subdir"));
-            return true;
-        }));
+    foreach (e; ev) {
+        assert(ev[0].tryMatch!((Event.Delete x) {
+                assert(canFind([
+                    AbsolutePath("test2/subdir/c.txt"),
+                    AbsolutePath("test2/subdir")
+                ], x.path));
+                return true;
+            }, (Event.DeleteSelf x) {
+                assert(x.path == AbsolutePath("test2/subdir"));
+                return true;
+            }));
+    }
 
     // removal of watched folder
     rmdirRecurse("test2");
