@@ -18,6 +18,7 @@ import std.meta : AliasSeq;
 import std.typecons : Nullable, scoped;
 
 import automem : vector, Vector;
+import my.gc.refc : RefCounted;
 
 import clang.Cursor : Cursor;
 import clang.Eval : Eval;
@@ -42,7 +43,7 @@ alias accept = dextool.plugin.mutate.backend.analyze.extensions.accept;
 
 /** Translate a clang AST to a mutation AST.
  */
-analyze.Ast toMutateAst(const Cursor root, FilesysIO fio) @trusted {
+RefCounted!(analyze.Ast) toMutateAst(const Cursor root, FilesysIO fio) @trusted {
     import cpptooling.analyzer.clang.ast : ClangAST;
 
     auto svisitor = scoped!BaseVisitor(fio);
@@ -373,12 +374,13 @@ final class BaseVisitor : ExtendedVisitor {
     /// in any of them.
     BlackList blacklist;
 
-    analyze.Ast ast;
+    RefCounted!(analyze.Ast) ast;
 
     FilesysIO fio;
 
     this(FilesysIO fio) nothrow {
         this.fio = fio;
+        this.ast = analyze.Ast.init;
     }
 
     /// Returns: if the previous nodes is a CXCursorKind `k`.
