@@ -24,9 +24,9 @@ import std.range : take;
 import std.typecons : Tuple;
 
 import proc;
+import my.path : AbsolutePath, Path;
 
 import dextool.plugin.mutate.type : ShellCommand;
-import dextool.type;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -239,18 +239,11 @@ string[] findExecutables(AbsolutePath root) @trusted {
     import core.sys.posix.sys.stat;
     import std.file : getAttributes;
     import std.file : dirEntries, SpanMode;
-
-    static bool isExecutable(string p) nothrow {
-        try {
-            return (getAttributes(p) & S_IXUSR) != 0;
-        } catch (Exception e) {
-        }
-        return false;
-    }
+    import my.file : isExecutable;
 
     auto app = appender!(string[])();
     foreach (f; dirEntries(root, SpanMode.breadth).filter!(a => a.isFile)
-            .filter!(a => isExecutable(a.name))) {
+            .filter!(a => isExecutable(Path(a.name)))) {
         app.put([f.name]);
     }
 
