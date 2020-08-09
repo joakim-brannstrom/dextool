@@ -16,25 +16,38 @@ import std.typecons : Flag, Yes;
 static import std.process;
 static import std.stdio;
 
+import my.gc.refc;
+
 public import proc.channel;
 public import proc.pid;
 
 version (unittest) {
-    import unit_threaded.assertions;
     import std.file : remove;
 }
 
-/// Automatically terminate the process when it goes out of scope.
-auto scopeKill(T)(T p) {
-    return ScopeKill!T(p);
+/** Manage a process by reference counting so that it is terminated when the it
+ * stops being used such as the instance going out of scope.
+ */
+auto rcKill(T)(T p) {
+    return refCounted(ScopeKill!T(p));
 }
+
+// backward compatibility.
+alias scopeKill = rcKill;
 
 struct ScopeKill(T) {
     T process;
     alias process this;
+    private bool hasProcess;
 
-    ~this() {
-        process.dispose();
+    this(T process) @safe {
+        this.process = process;
+        this.hasProcess = true;
+    }
+
+    ~this() @safe {
+        if (hasProcess)
+            process.dispose();
     }
 }
 
@@ -58,6 +71,9 @@ struct SpawnProcess {
     this(std.process.Pid process) @safe {
         this.process = process;
         this.pid = process.osHandle.RawPid;
+    }
+
+    ~this() @safe {
     }
 
     /// Returns: The raw OS handle for the process ID.
@@ -350,7 +366,7 @@ PipeProcess pipeShell(scope const(char)[] command,
 /** Moves the process to a separate process group and on exit kill it and all
  * its children.
  */
-struct Sandbox(ProcessT) {
+@safe struct Sandbox(ProcessT) {
     private {
         ProcessT p;
         RawPid pid;
@@ -431,26 +447,25 @@ sleep 10m
     scope (exit)
         remove(scriptName);
 
-    auto p = pipeProcess([scriptName]).sandbox.scopeKill;
+    auto p = pipeProcess([scriptName]).sandbox.rcKill;
     waitUntilChildren(p.osHandle, 3);
     const preChildren = makePidMap.getSubMap(p.osHandle).remove(p.osHandle).length;
     p.kill;
     Thread.sleep(500.dur!"msecs"); // wait for the OS to kill the children
     const postChildren = makePidMap.getSubMap(p.osHandle).remove(p.osHandle).length;
 
-    p.wait.shouldEqual(-9);
-    p.terminated.shouldBeTrue;
-    preChildren.shouldEqual(3);
-    postChildren.shouldEqual(0);
+    assert(p.wait == -9);
+    assert(p.terminated);
+    assert(preChildren == 3);
+    assert(postChildren == 0);
 }
 
 /** dispose the process after the timeout.
  */
-struct Timeout(ProcessT) {
+@safe struct Timeout(ProcessT) {
     import std.algorithm : among;
     import std.datetime : Clock, Duration;
     import core.thread;
-    import std.typecons : RefCounted, refCounted;
 
     private {
         enum Msg {
@@ -484,6 +499,10 @@ struct Timeout(ProcessT) {
         rc.background = new Background(&rc.p, timeout);
         rc.background.isDaemon = true;
         rc.background.start;
+    }
+
+    ~this() @trusted {
+        rc.release;
     }
 
     private static class Background : Thread {
@@ -569,7 +588,7 @@ struct Timeout(ProcessT) {
 
             final switch (msg) {
             case Msg.none:
-                Thread.sleep(sleepInterval);
+                () @trusted { Thread.sleep(sleepInterval); }();
                 break;
             case Msg.stop:
                 forceStop = true;
@@ -580,9 +599,11 @@ struct Timeout(ProcessT) {
                 break;
             }
 
-            if (core.sys.posix.signal.kill(p, 0) == -1) {
-                running = false;
-            }
+            () @trusted {
+                if (core.sys.posix.signal.kill(p, 0) == -1) {
+                    running = false;
+                }
+            }();
         }
 
         // may be children alive thus must ensure that the whole process tree
@@ -664,17 +685,17 @@ void waitForPendingData(ProcessT)(Process p) {
 unittest {
     import std.datetime.stopwatch : StopWatch, AutoStart;
 
-    auto p = pipeProcess(["sleep", "1m"]).timeout(100.dur!"msecs").scopeKill;
+    auto p = pipeProcess(["sleep", "1m"]).timeout(100.dur!"msecs").rcKill;
     auto sw = StopWatch(AutoStart.yes);
     p.wait;
     sw.stop;
 
-    sw.peek.shouldBeGreaterThan(100.dur!"msecs");
-    sw.peek.shouldBeSmallerThan(500.dur!"msecs");
-    p.wait.shouldEqual(-9);
-    p.terminated.shouldBeTrue;
-    p.status.shouldEqual(-9);
-    p.timeoutTriggered.shouldBeTrue;
+    assert(sw.peek >= 100.dur!"msecs");
+    assert(sw.peek <= 500.dur!"msecs");
+    assert(p.wait == -9);
+    assert(p.terminated);
+    assert(p.status == -9);
+    assert(p.timeoutTriggered);
 }
 
 struct DrainElement {
@@ -843,7 +864,7 @@ struct DrainByLineCopyRange(ProcessT) {
         const(char)[] line;
     }
 
-    this(ProcessT p) @safe {
+    this(ProcessT p) {
         process = p;
         range = p.drain;
     }
@@ -956,21 +977,21 @@ unittest {
     import std.algorithm : filter, joiner, map;
     import std.array : array;
 
-    auto p = pipeProcess(["dd", "if=/dev/zero", "bs=10", "count=3"]).scopeKill;
+    auto p = pipeProcess(["dd", "if=/dev/zero", "bs=10", "count=3"]).rcKill;
     auto res = p.process.drainByLineCopy.filter!"!a.empty".array;
 
-    res.length.shouldEqual(3);
-    res.joiner.count.shouldBeGreaterThan(30);
-    p.wait.shouldEqual(0);
-    p.terminated.shouldBeTrue;
+    assert(res.length == 3);
+    assert(res.joiner.count >= 30);
+    assert(p.wait == 0);
+    assert(p.terminated);
 }
 
-auto drainByLineCopy(T)(T p) @safe {
+auto drainByLineCopy(T)(T p) {
     return DrainByLineCopyRange!T(p);
 }
 
 /// Drain the process output until it is done executing.
-auto drainToNull(T)(T p) @safe {
+auto drainToNull(T)(T p) {
     foreach (l; p.drain()) {
     }
     return p;
@@ -986,21 +1007,20 @@ auto drain(ProcessT, T)(ProcessT p, ref T range) {
 
 @("shall drain the output of a process while it is running with a separation of stdout and stderr")
 unittest {
-    auto p = pipeProcess(["dd", "if=/dev/urandom", "bs=10", "count=3"]).scopeKill;
-    auto res = p.process.drain.array;
+    auto p = pipeProcess(["dd", "if=/dev/urandom", "bs=10", "count=3"]).rcKill;
+    auto res = p.drain.array;
 
     // this is just a sanity check. It has to be kind a high because there is
     // some wiggleroom allowed
-    res.count.shouldBeSmallerThan(50);
+    assert(res.count <= 50);
 
-    res.filter!(a => a.type == DrainElement.Type.stdout)
-        .map!(a => a.data)
-        .joiner
-        .count
-        .shouldEqual(30);
-    res.filter!(a => a.type == DrainElement.Type.stderr).count.shouldBeGreaterThan(0);
-    p.wait.shouldEqual(0);
-    p.terminated.shouldBeTrue;
+    assert(res.filter!(a => a.type == DrainElement.Type.stdout)
+            .map!(a => a.data)
+            .joiner
+            .count == 30);
+    assert(res.filter!(a => a.type == DrainElement.Type.stderr).count == 0);
+    assert(p.wait == 0);
+    assert(p.terminated);
 }
 
 @("shall kill the process tree when the timeout is reached")
@@ -1011,16 +1031,16 @@ sleep 10m
     scope (exit)
         remove(script);
 
-    auto p = pipeProcess([script]).sandbox.timeout(1.dur!"seconds").scopeKill;
+    auto p = pipeProcess([script]).sandbox.timeout(1.dur!"seconds").rcKill;
     waitUntilChildren(p.osHandle, 1);
     const preChildren = makePidMap.getSubMap(p.osHandle).remove(p.osHandle).length;
     const res = p.process.drain.array;
     const postChildren = makePidMap.getSubMap(p.osHandle).remove(p.osHandle).length;
 
-    p.wait.shouldEqual(-9);
-    p.terminated.shouldBeTrue;
-    preChildren.shouldEqual(1);
-    postChildren.shouldEqual(0);
+    assert(p.wait == -9);
+    assert(p.terminated);
+    assert(preChildren == 1);
+    assert(postChildren == 0);
 }
 
 string makeScript(string script, string file = __FILE__, uint line = __LINE__) {
