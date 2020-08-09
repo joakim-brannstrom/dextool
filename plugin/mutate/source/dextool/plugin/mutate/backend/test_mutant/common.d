@@ -321,7 +321,7 @@ bool externalProgram(ShellCommand cmd, DrainElement[] output,
     try {
         cleanup.add(tmpdir.Path.AbsolutePath);
         cmd = writeOutput(cmd);
-        auto p = pipeProcess(cmd.value).sandbox.scopeKill;
+        auto p = pipeProcess(cmd.value).sandbox.rcKill;
         foreach (l; p.process.drainByLineCopy().map!(a => a.strip)
                 .filter!(a => !a.empty)) {
             if (l.startsWith(passed))
@@ -408,7 +408,7 @@ CompileResult compile(ShellCommand cmd, Duration timeout, bool printToStdout = f
     import std.stdio : write;
 
     try {
-        auto p = pipeProcess(cmd.value).sandbox.timeout(timeout).scopeKill;
+        auto p = pipeProcess(cmd.value).sandbox.timeout(timeout).rcKill;
         foreach (a; p.process.drain) {
             if (!a.empty && printToStdout) {
                 write(a.byUTF8);

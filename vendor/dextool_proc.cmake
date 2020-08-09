@@ -10,5 +10,5 @@ compile_d_static_lib(
     "${SRC_FILES}"
     "${flags}"
     ""
-    ""
+    "dextool_mylib"
 )

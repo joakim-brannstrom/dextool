@@ -7,6 +7,7 @@ file(GLOB_RECURSE DEXTOOL_TEST_FILES
 set(flags "
 -I${CMAKE_SOURCE_DIR}/vendor/unit-threaded/subpackages/exception/source
 -I${CMAKE_SOURCE_DIR}/vendor/proc/source
+-I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 ")
 
-compile_d_static_lib(dextool_dextool_test "${DEXTOOL_TEST_FILES}" "${flags}" "" "dextool_proc")
+compile_d_static_lib(dextool_dextool_test "${DEXTOOL_TEST_FILES}" "${flags}" "" "dextool_proc;dextool_mylib")
