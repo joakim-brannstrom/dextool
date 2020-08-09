@@ -5,7 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool.type;
 
-static import my;
+static import my.path;
 
 public import dextool.compilation_db : FilterClangFlag;
 
