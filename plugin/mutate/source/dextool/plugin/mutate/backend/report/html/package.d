@@ -112,7 +112,7 @@ struct FileIndex {
 
         const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
-        auto raw = fio.makeInput(AbsolutePath(fr.file, fio.getOutputDir));
+        auto raw = fio.makeInput(AbsolutePath(buildPath(fio.getOutputDir, fr.file)));
 
         auto tc_info = db.getAllTestCaseInfo2(fr.id, kinds);
 

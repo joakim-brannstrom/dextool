@@ -15,3 +15,5 @@ include(dextool_proc.cmake)
 include(dextool_sumtype.cmake)
 include(dextool_taggedalgebraic.cmake)
 include(dextool_toml.cmake)
+
+include(dextool_mylib.cmake)

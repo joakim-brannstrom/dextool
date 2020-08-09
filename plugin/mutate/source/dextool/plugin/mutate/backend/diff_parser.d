@@ -39,6 +39,7 @@ Example:
 module dextool.plugin.mutate.backend.diff_parser;
 
 import logger = std.experimental.logger;
+import std.path : buildPath;
 import std.range : ElementType;
 import std.traits : isSomeString;
 
@@ -127,7 +128,7 @@ struct DiffRange {
     KeyValue front() @safe {
         assert(!empty, "Can't get front of an empty range");
         debug logger.trace(keys[0]);
-        return KeyValue(keys[0], diff[keys[0]], AbsolutePath(keys[0], workdir));
+        return KeyValue(keys[0], diff[keys[0]], AbsolutePath(buildPath(workdir, keys[0])));
     }
 
     void popFront() @safe pure nothrow {

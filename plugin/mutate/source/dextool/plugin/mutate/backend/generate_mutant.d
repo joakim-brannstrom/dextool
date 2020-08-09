@@ -49,7 +49,7 @@ ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
 
     AbsolutePath mut_file;
     try {
-        mut_file = AbsolutePath(Path(mutp.get.file), Path(fio.getOutputDir));
+        mut_file = AbsolutePath(buildPath(fio.getOutputDir, mutp.get.file));
     } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;

@@ -8,7 +8,11 @@ set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/plugin.d
 )
 
-set(flags "-I${CMAKE_SOURCE_DIR}/libs/dextool/source -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source")
+set(flags "-I${CMAKE_SOURCE_DIR}/libs/dextool/source
+-I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
+-I${CMAKE_SOURCE_DIR}/vendor/mylib/source
+-I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
+")
 
 build_d_executable(
     "${DEXTOOL_MAIN_EXE}"
@@ -28,4 +32,4 @@ add_custom_command(
 install(TARGETS ${DEXTOOL_MAIN_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
 list(APPEND SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/ut_main.d")
-compile_d_unittest(${DEXTOOL_MAIN_EXE} "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS}" "dextool_dextool;dextool_colorlog")
+compile_d_unittest(${DEXTOOL_MAIN_EXE} "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS}" "dextool_dextool;dextool_colorlog;dextool_mylib;dextool_sumtype")

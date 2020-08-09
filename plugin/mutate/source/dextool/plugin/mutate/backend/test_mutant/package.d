@@ -568,7 +568,7 @@ nothrow:
             });
 
             try {
-                auto abs_f = AbsolutePath(file, global.data.filesysIO.getOutputDir);
+                auto abs_f = AbsolutePath(buildPath(global.data.filesysIO.getOutputDir, file));
                 auto f_checksum = checksum(global.data.filesysIO.makeInput(abs_f).content[]);
                 if (db_checksum != f_checksum) {
                     failed.put(abs_f);

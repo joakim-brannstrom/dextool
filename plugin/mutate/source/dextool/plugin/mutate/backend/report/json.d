@@ -12,6 +12,7 @@ module dextool.plugin.mutate.backend.report.json;
 import logger = std.experimental.logger;
 import std.array : empty;
 import std.exception : collectException;
+import std.path : buildPath;
 
 import dextool.type;
 
@@ -83,7 +84,7 @@ final class ReportJson : FileReport, FilesReporter {
 
             try {
                 MakeMutationTextResult mut_txt;
-                auto abs_path = AbsolutePath(current_file.file.Path, fio.getOutputDir);
+                auto abs_path = AbsolutePath(buildPath(fio.getOutputDir, current_file.file.Path));
                 mut_txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
                 m.object["value"] = mut_txt.mutation;

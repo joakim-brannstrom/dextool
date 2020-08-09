@@ -12,6 +12,7 @@ module dextool.plugin.mutate.frontend.frontend;
 import logger = std.experimental.logger;
 import std.array : empty, array;
 import std.exception : collectException;
+import std.path : buildPath;
 
 import dextool.compilation_db;
 import dextool.type : Path, AbsolutePath, ExitStatusType;
@@ -170,7 +171,7 @@ final class FrontendIO : FilesysIO {
     }
 
     override AbsolutePath toAbsoluteRoot(Path p) {
-        return AbsolutePath(p, output_dir);
+        return AbsolutePath(buildPath(output_dir, p));
     }
 
     override AbsolutePath getOutputDir() @safe pure nothrow @nogc {
@@ -213,7 +214,7 @@ private:
         import std.format : format;
         import std.string : startsWith;
 
-        if (!dry_run && !p.startsWith((cast(string) root))) {
+        if (!dry_run && !p.toString.startsWith((cast(string) root))) {
             throw new Exception(format("Path '%s' escaping output directory (--out) '%s'", p, root));
         }
     }
@@ -250,7 +251,7 @@ final class FrontendValidateLoc : ValidateLoc {
 
         auto realp = p.Path.AbsolutePath;
 
-        bool res = any!(a => realp.startsWith(a))(restrict_dir);
+        bool res = any!(a => realp.toString.startsWith(a.toString))(restrict_dir);
         logger.tracef(!res, "Path '%s' do not match any of [%(%s, %)]", realp, restrict_dir);
         return res;
     }
@@ -263,7 +264,7 @@ final class FrontendValidateLoc : ValidateLoc {
         if (!exists(p) || isDir(p))
             return false;
 
-        bool res = p.startsWith(output_dir);
+        bool res = p.toString.startsWith(output_dir.toString);
 
         if (res) {
             return shouldAnalyze(p);

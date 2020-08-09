@@ -27,6 +27,7 @@ import std.algorithm : map, filter, splitter, joiner;
 import std.array : empty, array, appender;
 import std.exception : collectException;
 import std.json : JSONValue;
+import std.path : buildPath;
 import std.typecons : Nullable;
 
 import dextool.type : AbsolutePath, Path;
@@ -243,9 +244,9 @@ Nullable!CompileCommand toCompileCommand(string directory, string file,
     Nullable!CompileCommand rval;
 
     try {
-        auto abs_workdir = AbsolutePath(directory.Path, db_dir);
-        auto abs_file = AbsolutePath(file.Path, abs_workdir);
-        auto abs_output = AbsolutePath(output.Path, abs_workdir);
+        auto abs_workdir = AbsolutePath(buildPath(db_dir, directory.Path));
+        auto abs_file = AbsolutePath(buildPath(abs_workdir, file.Path));
+        auto abs_output = AbsolutePath(buildPath(abs_workdir, output.Path));
         // dfmt off
         rval = CompileCommand(
             Path(file),

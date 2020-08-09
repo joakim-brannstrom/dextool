@@ -142,7 +142,7 @@ struct Database {
                         r.peek!int(1).to!(Mutation.Status));
                 auto offset = Offset(r.peek!uint(4), r.peek!uint(5));
                 d.mutationPoint = MutationPoint(offset, null);
-                d.file = r.peek!string(10);
+                d.file = r.peek!string(10).Path;
                 d.fileChecksum = checksum(r.peek!long(11), r.peek!long(12));
                 d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
                 d.slocEnd = SourceLoc(r.peek!uint(8), r.peek!uint(9));

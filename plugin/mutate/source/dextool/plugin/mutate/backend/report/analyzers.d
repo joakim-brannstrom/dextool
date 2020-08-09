@@ -899,7 +899,7 @@ class DiffReport {
         auto w = appender!string;
 
         foreach (file; files.byKeyValue) {
-            put(w, file.value);
+            put(w, file.value.toString);
             foreach (mut; alive[file.key])
                 formattedWrite(w, "  %s\n", mut);
             foreach (mut; killed[file.key])
