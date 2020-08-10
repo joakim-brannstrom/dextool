@@ -7,7 +7,7 @@ module proc.pid;
 
 import core.time : Duration;
 import logger = std.experimental.logger;
-import std.algorithm : splitter, map, filter, joiner, sort;
+import std.algorithm : splitter, map, filter, joiner, sort, canFind;
 import std.array : array, appender, empty;
 import std.conv;
 import std.exception : collectException, ifThrown;
@@ -416,8 +416,6 @@ void updateProc(ref PidMap pmap) @trusted nothrow {
 }
 
 version (unittest) {
-    import unit_threaded.assertions;
-
     auto makeTestPidMap(int nodes) {
         PidMap rval;
         foreach (n; iota(1, nodes + 1)) {
@@ -430,16 +428,16 @@ version (unittest) {
 @("shall produce a tree")
 unittest {
     auto t = makeTestPidMap(10).pids;
-    t.length.shouldEqual(10);
-    RawPid(1).shouldBeIn(t);
-    RawPid(10).shouldBeIn(t);
+    assert(t.length == 10);
+    assert(canFind(t, RawPid(1)));
+    assert(canFind(t, RawPid(10)));
 }
 
 @("shall produce as many subtrees as there are nodes when no node have a child")
 unittest {
     auto t = makeTestPidMap(10);
     auto s = splitToSubMaps(t);
-    s.length.shouldEqual(10);
+    assert(s.length == 10);
 }
 
 @("shall produce one subtree because a node have all the others as children")
@@ -449,5 +447,5 @@ unittest {
                 RawPid(1), RawPid(2), RawPid(3)
             ], RawPid(20), "top"));
     auto s = splitToSubMaps(t);
-    s.length.shouldEqual(1);
+    assert(s.length == 1);
 }

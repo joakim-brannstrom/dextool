@@ -149,7 +149,7 @@ function(compile_d_integration_test name input_d compiler_args linker_args libs 
     endif()
 
     set(target_name ${name}_integration)
-    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest ${UNIT_THREADED_IMPORT} -I${CMAKE_SOURCE_DIR}/test/source -I${CMAKE_SOURCE_DIR}/vendor/proc/source")
+    set(dflags "${DDMD_DFLAGS} ${compiler_args} -unittest ${UNIT_THREADED_IMPORT} -I${CMAKE_SOURCE_DIR}/test/source -I${CMAKE_SOURCE_DIR}/vendor/proc/source -I${CMAKE_SOURCE_DIR}/vendor/mylib/source")
     set(lflags "${linker_args}")
 
     conv_to_proper_args(dflags "${dflags}")

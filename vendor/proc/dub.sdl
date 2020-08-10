@@ -7,20 +7,13 @@ license "BSL-1.0"
 targetPath "build"
 targetType "library"
 
-configuration "unittest" {
-    dependency "unit-threaded" version="~>0.10"
-    targetType "executable"
-    targetName "unittest"
-    mainSourceFile "build/ut.d"
-    preBuildCommands "dub run unit-threaded -c gen_ut_main -- -f build/ut.d"
-    excludedSourceFiles "source/app.d"
+dependency "my" version="~>0.0.8"
+
+dflags "-verrors=context"
+
+configuration "library" {
 }
 
-// redirect testing which is primarily integration testing
-//configuration "integration_test" {
-//    targetType "executable"
-//    targetName "integration_test"
-//
-//    excludedSourceFiles "source/*"
-//    sourceFiles "test/redirect.d"
-//}
+configuration "unittest" {
+    dependency "silly" version="~>1.0.2"
+}
