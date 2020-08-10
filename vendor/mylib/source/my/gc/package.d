@@ -11,6 +11,15 @@ module my.gc;
 import std.concurrency : send, spawn, receiveTimeout, Tid;
 import std.datetime : SysTime, Clock, dur;
 
+import my.gc.refc;
+
+/// Returns: a started instance of MemFree.
+RefCounted!MemFree memFree() @safe {
+    MemFree inst;
+    inst.start;
+    return RefCounted!MemFree(inst);
+}
+
 /** Reduces the used memory by the GC and free the heap to the OS.
  *
  * To avoid calling this too often the struct have a timer to ensure it is
@@ -27,6 +36,7 @@ struct MemFree {
     ~this() @trusted {
         if (!isRunning)
             return;
+
         scope (exit)
             isRunning = false;
         send(bg, Msg.stop);
@@ -37,9 +47,8 @@ struct MemFree {
      * It terminates when the destructor is called.
      */
     void start() @trusted {
-        scope (success)
-            isRunning = true;
         bg = spawn(&tick);
+        isRunning = true;
     }
 
 }
