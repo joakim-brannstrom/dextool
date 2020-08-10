@@ -12,6 +12,7 @@ public import my.filter;
 public import my.from_;
 public import my.fsm;
 public import my.fswatch;
+public import my.gc;
 public import my.hash;
 public import my.parse;
 public import my.path;

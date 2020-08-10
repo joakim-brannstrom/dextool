@@ -43,7 +43,7 @@ import core.sys.linux.sys.inotify : inotify_rm_watch, inotify_init1,
     IN_MODIFY, IN_ATTRIB, IN_CLOSE_WRITE, IN_CLOSE_NOWRITE, IN_OPEN, IN_MOVED_FROM, IN_MOVED_TO, IN_CREATE,
     IN_DELETE, IN_DELETE_SELF, IN_MOVE_SELF, IN_UNMOUNT, IN_IGNORED, IN_EXCL_UNLINK;
 import core.sys.linux.unistd : close, read;
-import core.sys.posix.poll : pollfd, poll, POLLIN;
+import core.sys.posix.poll : pollfd, poll, POLLIN, POLLNVAL;
 import core.thread : Thread;
 import core.time : dur, Duration;
 import std.array : appender;
@@ -173,7 +173,6 @@ struct FileWatch {
     private {
         int fd;
         ubyte[1024 * 4] eventBuffer; // 4kb buffer for events
-        pollfd pfd;
         struct FDInfo {
             int wd;
             bool watched;
@@ -265,19 +264,33 @@ struct FileWatch {
         return watchRecurse!pred(Path(root), events);
     }
 
-    /// Returns: the events that has occured to the watched paths.
-    FileChangeEvent[] getEvents() {
+    /** The events that have occured since last query.
+     *
+     * Params:
+     *  timeout = max time to wait for events.
+     *
+     * Returns: the events that has occured to the watched paths.
+     */
+    FileChangeEvent[] getEvents(Duration timeout = Duration.zero) {
+        import std.algorithm : max;
+
         FileChangeEvent[] events;
         if (!fd)
             return events;
 
+        pollfd pfd;
         pfd.fd = fd;
         pfd.events = POLLIN;
-        const code = poll(&pfd, 1, 0);
-        if (code < 0)
+        const code = poll(&pfd, 1, cast(int) max(int.max, timeout.total!"msecs"));
+
+        if (code < 0) {
             throw new Exception("Failed to poll events. Error code " ~ errno.to!string);
-        else if (code == 0)
+        } else if (code == 0) {
+            // timeout triggered
             return events;
+        } else if ((pfd.revents & POLLNVAL) != 0) {
+            throw new Exception("Failed to poll events. File descriptor not open " ~ fd.to!string);
+        }
 
         const receivedBytes = read(fd, eventBuffer.ptr, eventBuffer.length);
         int i = 0;
@@ -368,28 +381,6 @@ struct FileWatch {
 
         return events;
     }
-
-    /** Check for events every interval.
-     *
-     * Params:
-     *  interval = how often to check for events.
-     *  timeout = max time to wait for events.
-     */
-    FileChangeEvent[] wait(Duration interval = 10.dur!"msecs", Duration timeout = 52.dur!"weeks") {
-        import std.datetime : Clock;
-        import core.thread : Thread;
-
-        const stopAt = Clock.currTime + timeout;
-        FileChangeEvent[] ret;
-
-        while ((ret = getEvents()).length == 0) {
-            if (Clock.currTime > stopAt)
-                break;
-            Thread.sleep(interval);
-        }
-
-        return ret;
-    }
 }
 
 ///
@@ -409,7 +400,7 @@ unittest {
     assert(watcher.watch("test"));
 
     write("test/a.txt", "abc");
-    auto ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    auto ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length > 0);
     assert(ev[0].tryMatch!((Event.Create x) {
             assert(x.path == AbsolutePath("test/a.txt"));
@@ -417,7 +408,7 @@ unittest {
         }));
 
     append("test/a.txt", "def");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length > 0);
     assert(ev[0].tryMatch!((Event.Modify x) {
             assert(x.path == AbsolutePath("test/a.txt"));
@@ -425,7 +416,7 @@ unittest {
         }));
 
     rename("test/a.txt", "test/b.txt");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length > 0);
     assert(ev[0].tryMatch!((Event.Rename x) {
             assert(x.from == AbsolutePath("test/a.txt"));
@@ -434,7 +425,7 @@ unittest {
         }));
 
     remove("test/b.txt");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length > 0);
     assert(ev[0].tryMatch!((Event.Delete x) {
             assert(x.path == AbsolutePath("test/b.txt"));
@@ -442,7 +433,7 @@ unittest {
         }));
 
     rmdirRecurse("test");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length > 0);
     assert(ev[0].tryMatch!((Event.DeleteSelf x) {
             assert(x.path == AbsolutePath("test"));
@@ -470,7 +461,7 @@ unittest {
     assert(watcher.watchRecurse("test2").length == 0);
 
     write("test2/a.txt", "abc");
-    auto ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    auto ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length == 3);
     assert(ev[0].tryMatch!((Event.Create x) {
             assert(x.path == AbsolutePath("test2/a.txt"));
@@ -486,7 +477,7 @@ unittest {
         }));
 
     rename("test2/a.txt", "./testfile-a.txt");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length == 1);
     assert(ev[0].tryMatch!((Event.Delete x) {
             assert(x.path == AbsolutePath("test2/a.txt"));
@@ -494,7 +485,7 @@ unittest {
         }));
 
     rename("./testfile-a.txt", "test2/b.txt");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length == 1);
     assert(ev[0].tryMatch!((Event.Create x) {
             assert(x.path == AbsolutePath("test2/b.txt"));
@@ -502,7 +493,7 @@ unittest {
         }));
 
     remove("test2/b.txt");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length == 1);
     assert(ev[0].tryMatch!((Event.Delete x) {
             assert(x.path == AbsolutePath("test2/b.txt"));
@@ -511,7 +502,7 @@ unittest {
 
     mkdir("test2/mydir");
     rmdir("test2/mydir");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length == 2);
     assert(ev[0].tryMatch!((Event.Create x) {
             assert(x.path == AbsolutePath("test2/mydir"));
@@ -524,7 +515,7 @@ unittest {
 
     // test for creation, modification, removal of subdirectory
     mkdir("test2/subdir");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length == 1);
     assert(ev[0].tryMatch!((Event.Create x) {
             assert(x.path == AbsolutePath("test2/subdir"));
@@ -534,7 +525,7 @@ unittest {
         }));
 
     write("test2/subdir/c.txt", "abc");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length == 3);
     assert(ev[0].tryMatch!((Event.Create x) {
             assert(x.path == AbsolutePath("test2/subdir/c.txt"));
@@ -542,7 +533,7 @@ unittest {
         }));
 
     write("test2/subdir/c.txt", "\nabc");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length == 2);
     assert(ev[0].tryMatch!((Event.Modify x) {
             assert(x.path == AbsolutePath("test2/subdir/c.txt"));
@@ -550,7 +541,7 @@ unittest {
         }));
 
     rmdirRecurse("test2/subdir");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length == 3);
     foreach (e; ev) {
         assert(ev[0].tryMatch!((Event.Delete x) {
@@ -567,7 +558,7 @@ unittest {
 
     // removal of watched folder
     rmdirRecurse("test2");
-    ev = watcher.wait(1.dur!"msecs", 5.dur!"seconds");
+    ev = watcher.getEvents(5.dur!"seconds");
     assert(ev.length == 1);
     assert(ev[0].tryMatch!((Event.DeleteSelf x) {
             assert(x.path == AbsolutePath("test2"));
