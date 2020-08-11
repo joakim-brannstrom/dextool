@@ -16,13 +16,13 @@ import dextool_test.utility;
 const ops = ["+", "-", "*", "/", "%"];
 
 @(testId ~ "shall produce all AOR operator mutations")
-@Values("aor_primitive.cpp", "aor_object_overload.cpp")
+@Values("aor_primitive.cpp", "aor_object_overload.cpp", "aor_primitive_modern_cpp.cpp")
 unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
     testEnv.outputSuffix(getValue!string);
     testEnv.setupEnv;
 
-    makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue!string).run;
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue!string).addFlag("-std=c++11").run;
     auto r = makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "aor"]).run;
 
     testAnyOrder!SubStr(ops.map!(a => a)
@@ -33,7 +33,7 @@ unittest {
 }
 
 @(testId ~ "shall produce all AOR delete mutations")
-@Values("aor_primitive.cpp", "aor_object_overload.cpp")
+@Values("aor_primitive.cpp", "aor_object_overload.cpp", "aor_primitive_modern_cpp.cpp")
 @ShouldFail unittest {
     mixin(envSetup(globalTestdir, No.setupEnv));
     testEnv.outputSuffix(getValue!string);

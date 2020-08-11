@@ -613,9 +613,8 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const InitListExpr v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Expr, v);
-        // not visiting in order to block block mutants inside the
-        // initialization list
+        pushStack(new analyze.Constructor, v);
+        v.accept(this);
     }
 
     override void visit(const LambdaExpr v) @trusted {
