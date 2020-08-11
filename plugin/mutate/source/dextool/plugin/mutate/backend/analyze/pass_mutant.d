@@ -400,6 +400,10 @@ class MutantVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
+    override void visit(Constructor n) {
+        accept(n, this);
+    }
+
     override void visit(Function n) {
         accept(n, this);
     }

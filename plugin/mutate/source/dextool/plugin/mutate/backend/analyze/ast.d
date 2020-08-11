@@ -305,6 +305,7 @@ alias Nodes = AliasSeq!(
     BranchBundle,
     Call,
     Condition,
+    Constructor,
     Expr,
     Function,
     Loop,
@@ -350,6 +351,7 @@ enum Kind {
     BranchBundle,
     Call,
     Condition,
+    Constructor,
     Expr,
     Function,
     Loop,
@@ -393,6 +395,7 @@ bool isExpression(Kind k) @safe pure nothrow @nogc {
             BinaryOp,
             Call,
             Condition,
+            Constructor,
             Expr,
             OpAdd,
             OpAnd,
@@ -467,6 +470,11 @@ class Function : Node {
 
     /// If the function has a return type it is associated with this expression.
     Return return_;
+}
+
+/// A constructor for a variable.
+class Constructor : Expr {
+    mixin NodeKind;
 }
 
 /// A function call.
