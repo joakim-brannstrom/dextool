@@ -66,6 +66,7 @@ extra_flags = [ "-D_POSIX_PATH_MAX=1024" ]
 search_paths = ["./build/compile_commands.json"]
 [mutant_test]
 test_cmd = "./test.sh"
+#test_cmd_dir = ["./build/test"]
 build_cmd = "./build.sh"
 analyze_using_builtin = ["gtest"]
 ```
