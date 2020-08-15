@@ -154,7 +154,7 @@ auto generateMutant(ref Database db, MutationEntry mutp, Blob original, ref Safe
         edits ~= new Edit(Interval(begin, end), to_);
 
         // #SPC-file_security-header_as_warning
-        edits ~= new Edit(Interval.append, "\n/* DEXTOOL: THIS FILE IS MUTATED */");
+        edits ~= new Edit(Interval.append, "\n/* DEXTOOL: THIS FILE IS MUTATED */\n");
 
         auto blob = new Blob(original.uri, original.content);
         auto m = merge(blob, edits);
