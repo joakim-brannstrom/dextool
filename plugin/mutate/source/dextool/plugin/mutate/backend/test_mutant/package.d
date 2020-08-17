@@ -68,6 +68,8 @@ nothrow:
     auto mutations(MutationKind[] v) {
         import dextool.plugin.mutate.backend.utility : toInternal;
 
+        logger.infof("mutation operators: %(%s, %)", v).collectException;
+
         data.mut_kinds = toInternal(v);
         return this;
     }

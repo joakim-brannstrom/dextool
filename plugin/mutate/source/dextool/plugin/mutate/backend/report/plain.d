@@ -64,6 +64,9 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
     }
 
     override void mutationKindEvent(const MutationKind[] kind_) {
+        import std.stdio : writefln;
+
+        writefln("Mutation operators: %(%s, %)", kind_);
     }
 
     override void locationStartEvent(ref Database db) @safe {

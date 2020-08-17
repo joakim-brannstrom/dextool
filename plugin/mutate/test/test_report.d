@@ -40,7 +40,7 @@ unittest {
         .run;
 
     testConsecutiveSparseOrder!SubStr([
-        "# Mutation Type",
+        "# Mutation Operators lcr, lcrb, sdl, uoi, dcr",
         "## Summary",
         "Score:",
         "Total:",
@@ -69,7 +69,7 @@ unittest {
         .run;
 
     testConsecutiveSparseOrder!SubStr([
-        "# Mutation Type",
+        "# Mutation Operators all",
         "## Mutants",
         "| From | To         | File Line:Column                                                          | ID | Status |",
         "|------|------------|---------------------------------------------------------------------------|----|--------|",
