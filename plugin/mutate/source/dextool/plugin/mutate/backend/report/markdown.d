@@ -172,7 +172,7 @@ struct Markdown(Writer, TraceWriter) {
             tracer = delegate(const(char)[] s) @safe {};
 
         markdown = Markdown!(SimpleWriter, SimpleWriter)((const(char[]) s) => write(s), tracer);
-        markdown = markdown.heading("Mutation Type %(%s, %)", kind_);
+        markdown = markdown.heading("Mutation Operators %(%s, %)", kind_);
     }
 
     override void locationStartEvent(ref Database db) {
