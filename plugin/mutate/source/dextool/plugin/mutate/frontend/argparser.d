@@ -319,7 +319,7 @@ struct ArgParser {
                    "log-schemata", "write the mutation schematas to a separate file", &mutationTest.logSchemata,
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
-                   "mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                   "m|mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                    "only-schemata", "stop testing after the last schema has been executed", &mutationTest.stopAfterLastSchema,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &workArea.rawRoot,
@@ -364,7 +364,7 @@ struct ArgParser {
                    "diff-from-stdin", "report alive mutants in the areas indicated as changed in the diff", &report.unifiedDiff,
                    "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &report.reportLevel,
                    "logdir", "Directory to write log files to (default: .)", &logDir,
-                   "mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                   "m|mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                    "out", out_help, &workArea.rawRoot,
                    "profile", "print performance profile for the analyzers that are part of the report", &report.profile,
                    "restrict", restrict_help, &workArea.rawRestrict,
@@ -397,7 +397,7 @@ struct ArgParser {
                 "db", db_help, &db,
                 "dump-config", "dump the detailed configuration used", &dump_conf,
                 "init", "create an initial config to use", &init_conf,
-                "mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                "m|mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
                 "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &admin.adminOp,
                 "test-case-regex", "regex to use when removing test cases", &admin.testCaseRegex,
                 "status", "change mutants with this state to the value specified by --to-status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantStatus,
@@ -476,7 +476,9 @@ struct ArgParser {
                 a => AbsolutePath(buildPath(workArea.outputDirectory, a))).array;
 
         if (data.mutation.empty) {
-            // by default use the recommended operators
+            // by default use the recommended operators. These are a good
+            // default that test those with relatively few equivalent mutants
+            // thus most that survive are relevant.
             with (MutationKind) {
                 data.mutation = [lcr, lcrb, sdl, uoi, dcr];
             }
