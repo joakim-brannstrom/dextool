@@ -735,7 +735,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
             .addArg(["--section", "tc_stat"])
             .run;
         testConsecutiveSparseOrder!SubStr(
-            ["| 100        | 1     | tc_1     |"])
+            ["| 1     | tc_1     |"])
             .shouldBeIn(r0.output);
 
         // Act
@@ -746,7 +746,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
             .addPostArg(["--mutant", "all"])
             .addArg(["--section", "tc_stat"])
             .run;
-        testConsecutiveSparseOrder!SubStr(["| 100        | 1     | tc_1     |"])
+        testConsecutiveSparseOrder!SubStr(["| 1     | tc_1     |"])
             .shouldBeIn(r1.output);
         // dfmt on
     }

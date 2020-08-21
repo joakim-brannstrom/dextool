@@ -87,8 +87,7 @@ struct Database {
 
     bool isMarked(MutationId id) @trusted {
         immutable s = format!"SELECT COUNT(*) FROM %s WHERE st_id IN
-            (SELECT st_id FROM %s WHERE id=:id)"(
-                markedMutantTable, mutationTable);
+            (SELECT st_id FROM %s WHERE id=:id)"(markedMutantTable, mutationTable);
         auto stmt = db.prepare(s);
         stmt.get.bind(":id", cast(long) id);
         auto res = stmt.get.execute;
@@ -99,8 +98,7 @@ struct Database {
     MarkedMutant[] getLostMarkings() @trusted {
         immutable sql = format!"SELECT checksum0 FROM %s
             WHERE
-            checksum0 NOT IN (SELECT checksum0 FROM %s)"(
-                markedMutantTable, mutationStatusTable);
+            checksum0 NOT IN (SELECT checksum0 FROM %s)"(markedMutantTable, mutationStatusTable);
 
         auto stmt = db.prepare(sql);
         auto app = appender!(MarkedMutant[])();
@@ -130,8 +128,7 @@ struct Database {
     Nullable!FileId getFileId(const MutationId id) @trusted {
         enum sql = format("SELECT t1.file_id
             FROM %s t0, %s t1
-            WHERE t0.id = :id AND t0.mp_id = t1.id",
-                    mutationTable, mutationPointTable);
+            WHERE t0.id = :id AND t0.mp_id = t1.id", mutationTable, mutationPointTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
 
@@ -351,8 +348,7 @@ struct Database {
             t0.mp_id = t1.id AND
             t1.file_id = t2.id AND
             t3.id = t0.st_id
-            ", mutationTable, mutationPointTable,
-                    filesTable, mutationStatusTable);
+            ", mutationTable, mutationPointTable, filesTable, mutationStatusTable);
 
         auto stmt = db.prepare(get_mut_sql);
         stmt.get.bind(":id", cast(long) id);
@@ -395,8 +391,8 @@ struct Database {
         t2.status = :status AND
         t1.kind IN (%(%s,%))
         ORDER BY
-        t.mut_id"(nomutDataTable, mutationTable,
-                mutationStatusTable, kinds.map!(a => cast(long) a));
+        t.mut_id"(nomutDataTable, mutationTable, mutationStatusTable,
+                kinds.map!(a => cast(long) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
 
@@ -436,8 +432,7 @@ struct Database {
             t0.st_id IN (%(%s,%)) AND
             t0.st_id = t2.id AND
             t0.kind IN (%(%s,%)) AND
-            t0.mp_id = t1.id",
-                mutationTable, mutationPointTable,
+            t0.mp_id = t1.id", mutationTable, mutationPointTable,
                 mutationStatusTable, id.map!(a => cast(long) a), kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(get_mutid_sql);
 
@@ -458,8 +453,8 @@ struct Database {
         const get_mutid_sql = format!"SELECT id FROM %s t0
             WHERE
             t0.st_id IN (%(%s,%)) AND
-            t0.kind IN (%(%s,%))"(mutationTable,
-                id.map!(a => cast(long) a), kinds.map!(a => cast(int) a));
+            t0.kind IN (%(%s,%))"(mutationTable, id.map!(a => cast(long) a),
+                kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(get_mutid_sql);
 
         auto app = appender!(MutationId[])();
@@ -529,8 +524,7 @@ struct Database {
                     t1.mp_id = t2.id AND
                     t2.file_id = :fid AND
                     (:line BETWEEN t2.line AND t2.line_end)
-                    ",
-                mutationStatusTable, mutationTable, mutationPointTable,
+                    ", mutationStatusTable, mutationTable, mutationPointTable,
                 kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":fid", cast(long) fid);
@@ -595,8 +589,8 @@ struct Database {
             t0.test_cnt DESC,
             t0.added_ts ASC,
             t0.update_ts ASC
-            LIMIT :limit",
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a), srcMetadataTable);
+            LIMIT :limit", mutationStatusTable, mutationTable,
+                kinds.map!(a => cast(int) a), srcMetadataTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
         stmt.get.bind(":limit", nr);
@@ -721,7 +715,8 @@ struct Database {
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
+            Mutation.Status.alive, Mutation.Status.killed,
+            Mutation.Status.timeout, Mutation.Status.unknown
             ], true);
 
     alias unknownSrcMutants = countMutants!([Mutation.Status.unknown], true);
@@ -949,8 +944,7 @@ struct Database {
 
     void put(const Path p, Checksum cs, const Language lang) @trusted {
         immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang)
-            VALUES (:path, :checksum0, :checksum1, :lang)"(
-                filesTable);
+            VALUES (:path, :checksum0, :checksum1, :lang)"(filesTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", cast(string) p);
         stmt.get.bind(":checksum0", cast(long) cs.c0);
@@ -977,8 +971,7 @@ struct Database {
         // TODO: convert to microrm
         enum sql = format!"INSERT OR IGNORE INTO %s
             (file_id, line, nomut, tag, comment)
-            VALUES(:fid, :line, :nomut, :tag, :comment)"(
-                    rawSrcMetadataTable);
+            VALUES(:fid, :line, :nomut, :tag, :comment)"(rawSrcMetadataTable);
 
         auto stmt = db.prepare(sql);
         foreach (meta; mdata) {
@@ -1018,8 +1011,7 @@ struct Database {
 
         enum insert_cmut_sql = format("INSERT OR IGNORE INTO %s
             (status,test_cnt,update_ts,added_ts,checksum0,checksum1)
-            VALUES(:st,0,:update_ts,:added_ts,:c0,:c1)",
-                    mutationStatusTable);
+            VALUES(:st,0,:update_ts,:added_ts,:c0,:c1)", mutationStatusTable);
         auto cmut_stmt = db.prepare(insert_cmut_sql);
         const ts = Clock.currTime.toUTC.toSqliteDateTime;
         cmut_stmt.get.bind(":st", Mutation.Status.unknown);
@@ -1040,8 +1032,8 @@ struct Database {
             t0.offset_begin = :off_begin AND
             t0.offset_end = :off_end AND
             t1.checksum0 = :c0 AND
-            t1.checksum1 = :c1", mutationTable,
-                    mutationPointTable, mutationStatusTable, filesTable);
+            t1.checksum1 = :c1", mutationTable, mutationPointTable,
+                    mutationStatusTable, filesTable);
         auto insert_m = db.prepare(insert_m_sql);
 
         foreach (mp; mps) {
@@ -1195,8 +1187,7 @@ struct Database {
             FROM %s t0, %s t1
             WHERE
             t0.name NOT IN (SELECT name FROM %s) AND
-            t0.id = t1.tc_id"(allTestCaseTable,
-                killedTestCaseTable, tmp_name);
+            t0.id = t1.tc_id"(allTestCaseTable, killedTestCaseTable, tmp_name);
         auto stmt = db.prepare(mut_st_id);
         foreach (res; stmt.get.execute)
             mut_status_ids.put(res.peek!long(0).MutationStatusId);
@@ -1292,8 +1283,8 @@ struct Database {
             WHERE
             t1.id = t2.tc_id AND
             t2.st_id == t3.st_id AND
-            t3.kind IN (%(%s,%))"(allTestCaseTable,
-                killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
+            t3.kind IN (%(%s,%))"(allTestCaseTable, killedTestCaseTable,
+                mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(TestCaseId[])();
         auto stmt = db.prepare(sql);
@@ -1321,9 +1312,8 @@ struct Database {
             t0.id = t1.tc_id AND
             t1.st_id = t2.id AND
             t2.id = t3.st_id AND
-            t3.kind IN (%(%s,%))", allTestCaseTable,
-                killedTestCaseTable, mutationStatusTable, mutationTable,
-                kinds.map!(a => cast(int) a));
+            t3.kind IN (%(%s,%))", allTestCaseTable, killedTestCaseTable,
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":name", tc.name);
 
@@ -1399,8 +1389,7 @@ struct Database {
             t1.st_id = t2.st_id AND
             t2.kind IN (%(%s,%))
             ORDER BY
-            t2.id"(killedTestCaseTable,
-                mutationTable, kinds.map!(a => cast(int) a));
+            t2.id"(killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(MutationId[])();
         auto stmt = db.prepare(sql);
@@ -1420,8 +1409,7 @@ struct Database {
             WHERE
             t3.id = :id AND
             t3.st_id = t2.st_id AND
-            t2.tc_id = t1.id"(allTestCaseTable,
-                    killedTestCaseTable, mutationTable);
+            t2.tc_id = t1.id"(allTestCaseTable, killedTestCaseTable, mutationTable);
         auto stmt = db.prepare(get_test_cases_sql);
         stmt.get.bind(":id", cast(long) id);
         foreach (a; stmt.get.execute)
@@ -1525,8 +1513,8 @@ struct Database {
     void reduceMutantTimeoutWorklist() @trusted {
         immutable sql = format!"DELETE FROM %1$s
             WHERE
-            id IN (SELECT id FROM %2$s WHERE status != :status)"(
-                mutantTimeoutWorklistTable, mutationStatusTable);
+            id IN (SELECT id FROM %2$s WHERE status != :status)"(mutantTimeoutWorklistTable,
+                mutationStatusTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(ubyte) Mutation.Status.timeout);
         stmt.get.execute;
@@ -1611,8 +1599,7 @@ struct Database {
         immutable sql = format!"SELECT t0.id
             FROM %1$s t0
             WHERE
-            t0.id NOT IN (SELECT id FROM %2$s)"(schemataTable,
-                invalidSchemataTable);
+            t0.id NOT IN (SELECT id FROM %2$s)"(schemataTable, invalidSchemataTable);
         auto stmt = db.prepare(sql);
         auto app = appender!(SchemataId[])();
         foreach (a; stmt.get.execute) {
@@ -1659,8 +1646,7 @@ struct Database {
         t2.status = :status AND
         t3.st_id = t1.st_id AND
         t3.kind IN (%(%s,%))
-        "(schemataMutantTable, mutationStatusTable,
-                mutationTable, kinds.map!(a => cast(int) a));
+        "(schemataMutantTable, mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
@@ -1679,8 +1665,8 @@ struct Database {
             t2.status = :status AND
             t3.st_id = t1.st_id AND
             t3.kind IN (%(%s,%))
-            "(schemataMutantTable,
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+            "(schemataMutantTable, mutationStatusTable, mutationTable,
+                kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
         stmt.get.bind(":status", cast(long) status);
