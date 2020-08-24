@@ -26,10 +26,10 @@ import logger = std.experimental.logger;
 import std.exception : collectException;
 
 import miniorm : spinSql;
+import my.from_;
 
 import dextool.from;
 import dextool.fsm;
-import dextool.from;
 
 import dextool.plugin.mutate.backend.database : Database, MutantTimeoutCtx, MutationStatusId;
 import dextool.plugin.mutate.backend.type : Mutation;

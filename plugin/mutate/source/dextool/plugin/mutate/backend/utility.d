@@ -17,9 +17,10 @@ import std.conv : to;
 import std.typecons : Flag, No, Tuple;
 import core.sync.mutex : Mutex;
 
+import my.from_;
+
 import dextool.hash : BuildChecksum128, toChecksum128;
 import dextool.type : Path, AbsolutePath;
-import dextool.from;
 
 public import dextool.hash : toBytes;
 
