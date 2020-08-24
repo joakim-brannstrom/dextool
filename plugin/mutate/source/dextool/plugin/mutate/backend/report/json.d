@@ -39,7 +39,7 @@ final class ReportJson : FileReport, FilesReporter {
     import std.conv : to;
     import std.format : format;
     import std.json;
-    import dextool.set;
+    import my.set;
 
     const Mutation.Kind[] kinds;
     const AbsolutePath logDir;

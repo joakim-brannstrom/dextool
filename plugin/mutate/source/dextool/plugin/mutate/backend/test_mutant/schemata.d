@@ -292,7 +292,7 @@ nothrow:
  * schemas are generated and how the database is setup.
  */
 struct InjectIdBuilder {
-    import dextool.set;
+    import my.set;
 
     private {
         alias InjectId = InjectIdResult.InjectId;

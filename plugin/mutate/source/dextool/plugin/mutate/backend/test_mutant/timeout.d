@@ -29,6 +29,7 @@ import miniorm : spinSql;
 
 import dextool.from;
 import dextool.fsm;
+import dextool.from;
 
 import dextool.plugin.mutate.backend.database : Database, MutantTimeoutCtx, MutationStatusId;
 import dextool.plugin.mutate.backend.type : Mutation;

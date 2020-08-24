@@ -49,7 +49,7 @@ struct FileIndex {
     import std.array : Appender;
     import std.stdio : File, writefln, writeln;
     import std.xml : encode;
-    import dextool.set;
+    import my.set;
 
     const Mutation.Kind[] kinds;
     const ConfigReport conf;

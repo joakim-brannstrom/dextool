@@ -28,7 +28,6 @@ import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : ShellCommand;
-import dextool.set;
 import dextool.type : AbsolutePath, Path;
 
 @safe:

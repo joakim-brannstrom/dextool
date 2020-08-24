@@ -24,6 +24,7 @@ import std.typecons : Nullable, Tuple, Yes;
 import blob_model : Blob;
 import proc : DrainElement;
 import sumtype;
+import my.set;
 
 import dextool.fsm : Fsm, next, act, get, TypeDataMap;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
@@ -35,7 +36,6 @@ import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
-import dextool.set;
 import dextool.type : AbsolutePath, ExitStatusType, Path;
 
 @safe:
@@ -791,7 +791,7 @@ nothrow:
         import std.random : Mt19937_64;
         import dextool.plugin.mutate.backend.database : MutationStatusId;
         import dextool.plugin.mutate.backend.type : SourceLoc;
-        import dextool.set;
+        import my.set;
 
         Set!MutationStatusId mut_ids;
 

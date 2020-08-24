@@ -17,7 +17,7 @@ module dextool.plugin.mutate.backend.analyze.extensions;
 import clang.Cursor : Cursor;
 import cpptooling.analyzer.clang.ast : Visitor;
 
-import dextool.set;
+import my.set;
 
 static import dextool.clang_extensions;
 

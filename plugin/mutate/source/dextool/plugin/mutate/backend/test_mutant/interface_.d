@@ -28,7 +28,7 @@ interface TestCaseReport {
 class GatherTestCase : TestCaseReport {
     import std.algorithm : map;
     import std.array : array;
-    import dextool.set;
+    import my.set;
 
     /// Test cases reported as failed.
     long[TestCase] failed;

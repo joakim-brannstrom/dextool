@@ -28,7 +28,7 @@ import dextool.plugin.mutate.type : MutationKind;
 string makeStats(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
     import dextool.plugin.mutate.type : ReportSection;
-    import dextool.set;
+    import my.set;
 
     auto sections = conf.reportSection.toSet;
 

@@ -24,6 +24,7 @@ import std.range : tee, enumerate;
 import std.typecons;
 
 import colorlog;
+import my.set;
 
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
     CompileCommandDB, ParsedCompileCommandRange, ParsedCompileCommand;
@@ -36,7 +37,6 @@ import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath,
     Checksum, getProfileResult, Profile;
 import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
-import dextool.set;
 import dextool.type : ExitStatusType, AbsolutePath, Path;
 import dextool.user_filerange;
 
