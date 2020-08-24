@@ -25,8 +25,9 @@ import blob_model : Blob;
 import proc : DrainElement;
 import sumtype;
 import my.set;
+import my.fsm : Fsm, next, act, get, TypeDataMap;
+static import my.fsm;
 
-import dextool.fsm : Fsm, next, act, get, TypeDataMap;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     NextMutationEntry, spinSql, MutantTimeoutCtx, MutationId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
@@ -386,7 +387,7 @@ struct TestDriver {
     static struct LoadSchematas {
     }
 
-    alias Fsm = dextool.fsm.Fsm!(None, Initialize, SanityCheck,
+    alias Fsm = my.fsm.Fsm!(None, Initialize, SanityCheck,
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
             NextMutant, MutationTest, HandleTestResult, CheckTimeout,
@@ -403,6 +404,7 @@ struct TestDriver {
         TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant,
                 PullRequest, ResetOldMutant, SchemataRestore, PreSchemata, NextSchemata) local;
         bool isRunning_ = true;
+        bool isDone = false;
     }
 
     this(DriverData data) {
@@ -532,7 +534,7 @@ nothrow:
     }
 
     ExitStatusType status() {
-        if (fsm.isState!Done)
+        if (isDone)
             return ExitStatusType.Ok;
         return ExitStatusType.Errors;
     }
@@ -548,6 +550,7 @@ nothrow:
         global.data.autoCleanup.cleanup;
         logger.info("Done!").collectException;
         isRunning_ = false;
+        isDone = true;
     }
 
     void opCall(Error data) {
