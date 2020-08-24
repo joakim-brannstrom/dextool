@@ -10,13 +10,11 @@ module cpptooling.data.kind_type;
 import std.conv : to;
 import std.string : format;
 import std.traits;
-import std.typecons : Tuple, Flag;
+import std.typecons : Tuple, Flag, Nullable;
 import logger = std.experimental.logger;
 
 import cpptooling.data.symbol.types : USRType;
 import cpptooling.data.type : LocationTag;
-
-import dextool.nullable;
 
 public import cpptooling.data.kind;
 

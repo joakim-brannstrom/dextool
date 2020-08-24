@@ -38,7 +38,6 @@ import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath,
     Checksum, getProfileResult, Profile;
 import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
 import dextool.type : ExitStatusType, AbsolutePath, Path;
-import dextool.user_filerange;
 
 version (unittest) {
     import unit_threaded.assertions;
