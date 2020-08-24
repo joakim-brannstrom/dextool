@@ -3,7 +3,6 @@ Copyright: Copyright (c) 2020, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
-
 module my.fsm;
 
 import std.format : format;
@@ -24,32 +23,12 @@ struct Fsm(StateTT...) {
     StateT state;
 
     /// Log messages of the last state transition (next).
+    /// Only updated in debug build.
     string logNext;
 
     /// Helper function to convert the return type to `StateT`.
     static StateT opCall(T)(auto ref T a) {
         return StateT(a);
-    }
-
-    /// Returns: true if the fsm is in the specified state.
-    bool isState(Ts...)() {
-        import std.meta : AliasSeq;
-
-        template Fns(Ts...) {
-            static if (Ts.length == 0) {
-                alias Fns = AliasSeq!();
-            } else static if (Ts.length == 1) {
-                alias Fns = AliasSeq!((Ts[0] a) => true);
-            } else {
-                alias Fns = AliasSeq!(Fns!(Ts[0 .. $ / 2]), Fns!(Ts[$ / 2 .. $]));
-            }
-        }
-
-        try {
-            return sumtype.tryMatch!(Fns!Ts)(state);
-        } catch (Exception e) {
-        }
-        return false;
     }
 }
 
@@ -59,7 +38,7 @@ template next(handlers...) {
         static import sumtype;
 
         auto nextSt = sumtype.match!handlers(self.state);
-        self.logNext = format!"%s -> %s"(self.state, nextSt);
+        debug self.logNext = format!"%s -> %s"(self.state, nextSt);
 
         self.state = nextSt;
     }
@@ -93,13 +72,15 @@ unittest {
 
     Global global;
     Fsm!(A, B, C) fsm;
+    bool running = true;
 
-    while (!fsm.isState!(B, C)) {
+    while (running) {
         fsm.next!((A a) { global.x++; return fsm(B(0)); }, (B a) {
+            running = false;
             if (a.x > 3)
                 return fsm(C(true));
             return fsm(a);
-        }, (C a) { return fsm(a); });
+        }, (C a) { running = false; return fsm(a); });
 
         fsm.act!((A a) {}, (ref B a) { a.x++; }, (C a) {});
     }
