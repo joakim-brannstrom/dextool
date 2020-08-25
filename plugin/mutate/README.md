@@ -140,6 +140,7 @@ following way when executing:
    added to `test_cmd`.
 
 For each mutant:
+
 2. Execute `build_cmd`. If `build_cmd` returns an exit code != 0 the mutant is
    marked as `killedByCompiler`. It is **very** important that this script also
    build the test suite if such is required for executing the test cases.
