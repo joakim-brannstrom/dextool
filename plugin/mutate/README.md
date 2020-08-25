@@ -340,6 +340,62 @@ git diff | dextool mutate report --diff-from-stdin --section summary --mutant lc
 git diff | dextool mutate report --diff-from-stdin --section summary --mutant lcr --style json
 ```
 
+## Mark a Mutant as Dont Care <a name="mark-mutant"></a>
+
+There are two ways of marking a mutant to the tool as "don't care". These are
+either via a source code annotation or by attaching a forced mutation status to
+a mutation ID.
+
+There are three flavors of the annotation.
+
+ * `// NOMUT`. All mutants on the line are marked.
+ * `// NOMUT (tag)`. The tag is used to group the annotations together in the HTML report.
+    A good group could be "trace log".
+ * `// NOMUT (tag) a comment`. The comment is added to the HTML report as a separate column.
+
+All mutants that are marked as `NOMUT` will be subtracted from the total when
+final mutation score is calculated. Additional fields in the statistics are
+also added which highlight how many of the total that are annotated as `NOMUT`.
+This is to make it easier to find and react if it where to become too many of
+them.
+
+The other way is by the administration interface. For example:
+```sh
+dextool mutate admin --operation markMutant --id 42 --to-status killed --rationale "Trace logging"
+# and to see them
+dextool mutate report --section marked_mutants
+```
+
+A marked mutant will affect the mutation score in the same way as the status it
+is set to would. In the above example the mutant would count as killed.
+
+The ID can be found by either looking in the report of all mutants/alive/killed
+via the `--section` report or easier by checking the HTML report.
+
+Each of these approaches have there pro and con. The basic problem that both
+approaches try to tackles in different ways is how to keep the annotation when
+the source code is changed. It is obvious that the source code annotation is
+easier to keep suppressing the correct mutants. The administration interface is
+unable to do that if the source code file is changed. If that happens the
+`markMutant` will be reported during the analyze phase as being lost.
+
+Source code annotations:
+
+ * Pro: stable when the source code is changed.
+ * Con: ugly because the source code needs to be annotated. By using the
+   tag+comment the ugliness can be reduced by providing valuable information
+   for why the mutant is not killed.
+ * Con: all mutants on the line are marked as `NOMUT` thus unable to mark only
+   one/a few. Low precision.
+
+Administration interface:
+
+ * Pro: no changes to the source code.
+ * Pro: high precision when marking a mutant because only the specific mutant
+   that is marked will be affected.
+ * Con: loses its mark when the source code file is changed. Requires that the
+   marking is re-applied manually.
+
 # Code Coverage
 
 It may be interesting to compare mutation testing results with code coverage.
