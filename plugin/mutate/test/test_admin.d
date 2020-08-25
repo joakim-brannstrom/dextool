@@ -117,30 +117,37 @@ class ShallRemoveTestCase : SimpleAnalyzeFixture {
     }
 }
 
-// dfmt off
-@(testId ~ "shall mark a mutant without failing")
+@(testId ~ "shall mark a mutant")
 unittest {
     // arrange
     mixin(EnvSetup(globalTestdir));
-    immutable dst = testEnv.outdir ~ "fibonacci.cpp";
-    copy((testData ~ "fibonacci.cpp").toString, dst.toString);
+    immutable dst = testEnv.outdir ~ "mark_sdl_mutant.cpp";
+    copy((testData ~ "mark_sdl_mutant.cpp").toString, dst.toString);
     makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
+    // dfmt off
     // act
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(MutationId(12))])
+        .addArg(["--id",        to!string(4)])
         .addArg(["--to-status", to!string(Status.killed)])
         .addArg(["--rationale", `"A good rationale"`])
+        .run;
+
+    auto report = makeDextoolReport(testEnv, testData.dirName)
+        .addPostArg(["--mutant", "all"])
+        .addArg(["--section", "all_mut"])
+        .addArg(["--section", "marked_mutants"])
         .run;
 
     // assert
     commandNotFailed(r);
     testAnyOrder!SubStr([
-        to!string(MutationId(12)),
+        to!string(12),
         to!string(Status.killed),
         `"A good rationale"`
     ]).shouldBeIn(r.output);
+    // dfmt on
 }
 
 @(testId ~ "shall prompt a failure message when marking a mutant that does not exist")
@@ -152,6 +159,7 @@ unittest {
     makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
     // act
+    // dfmt off
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
         .addArg(["--id",        "5000"])
@@ -159,6 +167,7 @@ unittest {
         .addArg(["--rationale", `"This mutant should not exist"`])
         .throwOnExitStatus(false)
         .run;
+    // dfmt on
 
     // assert
     r.success.shouldBeFalse;
@@ -168,8 +177,8 @@ unittest {
 
     testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.output);
     testAnyOrder!SubStr([
-        format!"Failure when marking mutant: %s"(to!string(MutationId(5000)))
-    ]).shouldBeIn(r.output);
+            format!"Failure when marking mutant: %s"(to!string(5000))
+            ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall mark same mutant twice")
@@ -181,15 +190,16 @@ unittest {
     makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
     // act
+    // dfmt off
     auto firstRes = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(MutationId(3))])
+        .addArg(["--id",        to!string(3)])
         .addArg(["--to-status", to!string(Status.killedByCompiler)])
         .addArg(["--rationale", `"Backend claims mutant should not compile on target cpu"`])
         .run;
     auto secondRes = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(MutationId(3))])
+        .addArg(["--id",        to!string(3)])
         .addArg(["--to-status", to!string(Status.unknown)])
         .addArg(["--rationale", `"Backend was wrong, mutant is legit..."`])
         .run;
@@ -197,10 +207,11 @@ unittest {
     // assert
     commandNotFailed(secondRes);
     testAnyOrder!SubStr([
-        to!string(MutationId(3)),
+        to!string(3),
         to!string(Status.unknown),
         `"Backend was wrong, mutant is legit..."`
     ]).shouldBeIn(secondRes.output);
+    // dfmt on
 }
 
 @(testId ~ "shall remove a marked mutant")
@@ -213,17 +224,19 @@ unittest {
     auto db = createDatabase(testEnv);
 
     // act
+    // dfmt off
     makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(MutationId(10))])
+        .addArg(["--id",        to!string(10)])
         .addArg(["--to-status", to!string(Status.killed)])
         .addArg(["--rationale", `"This marking should not exist"`])
         .run;
     db.isMarked(MutationId(10)).shouldBeTrue;
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "removeMarkedMutant"])
-        .addArg(["--id",        to!string(MutationId(10))])
+        .addArg(["--id",        to!string(10)])
         .run;
+    // dfmt on
 
     // assert
     commandNotFailed(r);
@@ -231,8 +244,8 @@ unittest {
     (db.getMutationStatus(MutationId(10)) == Status.unknown).shouldBeTrue;
 
     testAnyOrder!SubStr([
-        format!"info: Removed marking for mutant %s"(to!string(MutationId(10)))
-    ]).shouldBeIn(r.output);
+            format!"info: Removed marking for mutant %s"(to!string(MutationId(10)))
+            ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall fail to remove a marked mutant")
@@ -245,18 +258,22 @@ unittest {
     auto db = createDatabase(testEnv);
 
     // act
+    // dfmt off
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "removeMarkedMutant"])
         .addArg(["--id",        to!string(MutationId(20))])
         .run;
+    // dfmt on
 
     // assert
     db.isMarked(MutationId(20)).shouldBeFalse;
 
     testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.output);
-    testAnyOrder!SubStr([
-        format!"Failure when removing marked mutant (mutant %s is not marked)"(to!string(MutationId(20)))
-    ]).shouldBeIn(r.output);
+    testAnyOrder!SubStr(
+            [
+            format!"Failure when removing marked mutant (mutant %s is not marked)"(
+                to!string(MutationId(20)))
+            ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall notify lost marked mutant")
@@ -269,12 +286,14 @@ unittest {
     makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
     // act
+    // dfmt off
     makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
         .addArg(["--id",        3.to!string])
         .addArg(["--to-status", to!string(Status.killedByCompiler)])
         .addArg(["--rationale", `"Lost"`])
         .run;
+
     auto r = makeDextoolAnalyze(testEnv).addInputArg(testData ~ "abs.cpp").run;
 
     // assert
@@ -283,13 +302,12 @@ unittest {
         "|----|", "--------------|------|--------|------------------|-----------|",
         "| 3  |", `fibonacci.cpp | 8    | 8      | killedByCompiler | "Lost"    |`,
     ]).shouldBeIn(r.output);
+    // dfmt on
 }
 
 @("shall successfully execute the admin operation stopTimeoutTest")
 unittest {
     mixin(EnvSetup(globalTestdir));
 
-    makeDextoolAdmin(testEnv)
-        .addArg(["--operation", "stopTimeoutTest"])
-        .run;
+    makeDextoolAdmin(testEnv).addArg(["--operation", "stopTimeoutTest"]).run;
 }

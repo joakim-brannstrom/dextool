@@ -444,7 +444,8 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
 }
 
 /// Returns: a snippet of the mutation if it is OK otherwise an empty snippet.
-auto makeMutationText(Blob file_, const Offset offs, Mutation.Kind kind, Language lang) @safe {
+MakeMutationTextResult makeMutationText(Blob file_, const Offset offs,
+        Mutation.Kind kind, Language lang) @safe {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
     MakeMutationTextResult rval;
