@@ -528,7 +528,7 @@ MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kin
 struct TestCaseOverlapStat {
     import std.format : formattedWrite;
     import std.range : put;
-    import dextool.hash;
+    import my.hash;
     import dextool.plugin.mutate.backend.database.type : TestCaseId;
 
     long overlap;
@@ -617,7 +617,7 @@ template toTable(Flag!"colWithMutants" colMutants) {
 
 /// Test cases that kill exactly the same mutants.
 TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Kind[] kinds) @safe {
-    import dextool.hash;
+    import my.hash;
     import dextool.plugin.mutate.backend.database.type : TestCaseId;
 
     auto profile = Profile(ReportSection.tc_full_overlap);

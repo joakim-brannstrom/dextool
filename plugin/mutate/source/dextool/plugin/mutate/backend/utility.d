@@ -19,10 +19,10 @@ import core.sync.mutex : Mutex;
 
 import my.from_;
 
-import dextool.hash : BuildChecksum128, toChecksum128;
+import my.hash : BuildChecksum128, toChecksum128;
 import dextool.type : Path, AbsolutePath;
 
-public import dextool.hash : toBytes;
+public import my.hash : toBytes;
 
 public import dextool.plugin.mutate.backend.type;
 public import dextool.plugin.mutate.backend.mutation_type;
@@ -70,7 +70,7 @@ Path trustedRelativePath(string p, AbsolutePath root) @trusted {
  * trusted: void[] is perfectly representable as ubyte[] accoding to the specification.
  */
 Checksum checksum(const(ubyte)[] a) {
-    import dextool.hash : makeMurmur3;
+    import my.hash : makeMurmur3;
 
     return makeMurmur3(a);
 }

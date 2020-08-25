@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.type;
 
-import dextool.hash : Checksum128;
+import my.hash : Checksum128;
 public import dextool.plugin.mutate.backend.database.type : MutantAttr, MutantMetaData;
 
 @safe:

@@ -43,7 +43,6 @@ public import cpptooling.data.type;
 
 import cpptooling.data.kind_type;
 import cpptooling.data.symbol.types : USRType;
-import dextool.hash : makeHash;
 
 static import cpptooling.data.class_classification;
 
@@ -169,7 +168,9 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
 
     static if (is(IDType == size_t)) {
         private void setUniqueId(string identifier) @safe pure nothrow {
-            this.id_ = makeHash(identifier);
+            import my.hash : makeCrc64Iso;
+
+            this.id_ = makeCrc64Iso(cast(const(ubyte)[]) identifier).c0;
         }
     } else static if (is(IDType == string)) {
         private void setUniqueId(Char)(Char[] identifier) @safe pure nothrow {
@@ -631,7 +632,7 @@ struct CFunction {
         StorageClass storageClass_;
     }
 
-    invariant() {
+    invariant () {
         if (!usr.isNull) {
             assert(usr.get.length > 0);
             assert(name_.length > 0);
@@ -732,7 +733,7 @@ struct CppCtor {
         Nullable!CppMethodName name_;
     }
 
-    invariant() {
+    invariant () {
         if (!name_.isNull) {
             assert(usr.isNull || usr.get.length > 0);
             assert(name_.get.length > 0);
@@ -784,7 +785,7 @@ struct CppDtor {
     // TODO remove the Nullable, if possible.
     Nullable!USRType usr;
 
-    invariant() {
+    invariant () {
         if (!name_.isNull) {
             assert(usr.isNull || usr.get.length > 0);
             assert(name_.get.length > 0);
@@ -895,7 +896,7 @@ struct CppMethod {
 struct CppMethodOp {
     Nullable!USRType usr;
 
-    invariant() {
+    invariant () {
         if (!name_.isNull) {
             assert(name_.get.length > 0);
             assert(returnType_.toStringDecl.length > 0);
@@ -1362,7 +1363,7 @@ const:
         return comments;
     }
 
-    invariant() {
+    invariant () {
         //assert(usr.isNull || usr.length > 0);
         foreach (i; inherits_) {
             assert(i.name.length > 0);

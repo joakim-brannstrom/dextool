@@ -25,7 +25,7 @@ int main(string[] args) {
     spawnProcess(["dscanner", "--sloc"] ~ sourcePaths).wait;
 
     writeln("To rebuild on changes run:");
-    writeln(`dub run watchexec -- -w libs -w plugin -w source --shell -- "export CPUNR=$(nproc);cd build;make check -j \$CPUNR;make -j \$CPUNR;make check_integration -j \$CPUNR"`);
+    writeln(`dub run watchexec -- -w libs -w plugin -w source --shell -- "export CPUNR=$(nproc);cd build;make check -j \$CPUNR && make -j \$CPUNR && make check_integration -j \$CPUNR"`);
 
     return 0;
 }

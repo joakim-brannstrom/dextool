@@ -18,7 +18,6 @@ import dextool.plugin.fuzzer.backend.interface_;
 import dextool.plugin.fuzzer.backend.type;
 
 import dextool.compilation_db : CompileCommandFilter;
-import dextool.hash : makeHash;
 import dextool.type : Path, AbsolutePath;
 import cpptooling.data.type : LocationTag, Location;
 

@@ -103,7 +103,7 @@ private long dextoolBinaryId_;
 long dextoolBinaryId() @trusted {
     import std.file : thisExePath;
     import std.stdio : File;
-    import dextool.hash : BuildChecksum64, toLong;
+    import my.hash : BuildChecksum64, toLong;
 
     if (dextoolBinaryId_ == 0) {
         BuildChecksum64 h;

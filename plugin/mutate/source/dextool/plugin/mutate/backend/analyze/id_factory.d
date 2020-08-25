@@ -31,7 +31,7 @@ import dextool.plugin.mutate.backend.analyze.internal;
  *  * the mutated text
  */
 struct MutationIdFactory {
-    import dextool.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
+    import my.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
     import dextool.plugin.mutate.backend.type : CodeMutant, CodeChecksum, Mutation, Checksum;
     import dextool.type : Path;
 
