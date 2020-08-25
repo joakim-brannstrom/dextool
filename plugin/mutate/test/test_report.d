@@ -311,9 +311,9 @@ unittest {
 
     // assert
     testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)
-        "| File ", "        | Line | Column | Mutation        | Status           | Rationale                      |",
-        "|------", "--------|------|--------|-----------------|------------------|--------------------------------|",
-        "|", `fibonacci.cpp | 8    | 8      | -abs_dextool(x) | killedByCompiler | "Marked mutant to be reported" |`,
+        "| File ", "        | Line | Column | Mutation               | Status           | Rationale                      |",
+        "|------", "--------|------|--------|------------------------|------------------|--------------------------------|",
+        "|", `fibonacci.cpp | 8    | 8      | 'x'->'-abs_dextool(x)' | killedByCompiler | "Marked mutant to be reported" |`,
     ]).shouldBeIn(r.output);
 }
 

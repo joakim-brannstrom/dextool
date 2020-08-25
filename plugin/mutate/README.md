@@ -160,7 +160,7 @@ from stdout/stderr:
 # This script assumes that nothing is in stderr.
 
 # Using a more complex while loop to avoid side effects such as trimming leading
-# whitespace, interpretting backslash sequences, and skipping the trailing line
+# whitespace, interpreting backslash sequences, and skipping the trailing line
 # if it's missing a terminating linefeed. If these are concerns, you can do:
 while IFS="" read -r L || [ -n "$L" ]; do
     echo "$L"|grep -h "(Failed)" > /dev/null

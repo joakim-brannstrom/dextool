@@ -13,6 +13,7 @@ module dextool.plugin.mutate.backend.admin;
 
 import logger = std.experimental.logger;
 import std.algorithm : filter, map;
+import std.array : empty;
 import std.exception : collectException;
 import std.regex : matchFirst;
 
@@ -192,7 +193,15 @@ ExitStatusType resetTestCase(ref Database db, const Regex!char re) @trusted noth
 
 ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] kinds,
         const Mutation.Status status, string rationale, FilesysIO fio) @trusted nothrow {
+    import std.format : format;
+    import std.string : strip;
     import dextool.plugin.mutate.backend.database : Rationale;
+    import dextool.plugin.mutate.backend.report.utility : window;
+
+    if (rationale.empty) {
+        logger.error("The rationale must be set").collectException;
+        return ExitStatusType.Errors;
+    }
 
     try {
         auto trans = db.transaction;
@@ -209,12 +218,14 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
         const st_id = db.getMutationStatusId(id).get;
         const checksum = db.getChecksum(st_id).get;
 
-        // assume that mutant has kind
-        const txt = makeMutationText(fio.makeInput(fio.toAbsoluteRoot(mut.get.file)),
-                mut.get.mp.offset, db.getKind(id), mut.get.lang).mutation;
+        const txt = () {
+            auto tmp = makeMutationText(fio.makeInput(fio.toAbsoluteRoot(mut.get.file)),
+                    mut.get.mp.offset, db.getKind(id), mut.get.lang);
+            return window(format!"'%s'->'%s'"(tmp.original.strip, tmp.mutation.strip), 30);
+        }();
 
         db.markMutant(id, mut.get.file, mut.get.sloc, st_id, checksum, status,
-                Rationale(rationale), txt.idup);
+                Rationale(rationale), txt);
 
         db.updateMutationStatus(st_id, status);
 
