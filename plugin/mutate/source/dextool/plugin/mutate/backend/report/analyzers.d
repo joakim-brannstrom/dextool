@@ -184,7 +184,7 @@ private struct Similarity {
 // The set similairty measures how much of lhs is in rhs. This is a
 // directional metric.
 private Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
-    import dextool.set;
+    import my.set;
 
     auto lhs = lhs_.toSet;
     auto rhs = rhs_.toSet;
@@ -764,7 +764,7 @@ private bool isTestCaseInTestGroup(const TestCase tc, const Regex!char tg) {
 TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
         const(TestGroup) test_g) @safe {
     import dextool.plugin.mutate.backend.database : MutationStatusId;
-    import dextool.set;
+    import my.set;
 
     auto profile = Profile(ReportSection.tc_groups);
 
@@ -918,7 +918,7 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         ref Diff diff, AbsolutePath workdir) {
     import dextool.plugin.mutate.backend.database : MutationId, MutationStatusId;
     import dextool.plugin.mutate.backend.type : SourceLoc;
-    import dextool.set;
+    import my.set;
 
     auto profile = Profile(ReportSection.diff);
 
@@ -996,7 +996,7 @@ struct MinimalTestSet {
 
 MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
     import dextool.plugin.mutate.backend.database : TestCaseId, TestCaseInfo;
-    import dextool.set;
+    import my.set;
 
     auto profile = Profile(ReportSection.tc_min_set);
 
@@ -1043,7 +1043,7 @@ struct TestCaseUniqueness {
 /// Returns: a report of the mutants that a test case is the only one that kills.
 TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind[] kinds) {
     import dextool.plugin.mutate.backend.database.type : TestCaseId;
-    import dextool.set;
+    import my.set;
 
     auto profile = Profile(ReportSection.tc_unique);
 

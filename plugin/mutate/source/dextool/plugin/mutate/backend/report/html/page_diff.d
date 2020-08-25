@@ -13,7 +13,7 @@ import logger = std.experimental.logger;
 import std.format : format;
 
 import arsd.dom : Document, Element, require, Table;
-import dextool.from;
+import my.from_;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.diff_parser : Diff;

@@ -15,7 +15,6 @@ int main(string[] args) {
     //dfmt off
     return args.runTests!(
                           "dextool.compilation_db",
-                          "dextool.fsm",
                           "dextool.type",
                           "dextool.utility",
                           );

@@ -73,7 +73,7 @@ Diff toDiff(Range)(Range r) if (isSomeString!(ElementType!Range)) {
 @safe:
 
 struct Diff {
-    import dextool.set;
+    import my.set;
 
     static struct Line {
         uint line;
@@ -104,7 +104,7 @@ struct Diff {
 struct DiffRange {
     import std.path : relativePath;
     import std.array : array;
-    import dextool.set;
+    import my.set;
 
     static struct KeyValue {
         Path key;
@@ -175,7 +175,7 @@ struct UnifiedDiffParser {
         import std.traits : EnumMembers;
         import std.string : startsWith, split;
         import dextool.type : Path, AbsolutePath;
-        import dextool.set;
+        import my.set;
 
         auto is_git_diff = !matchFirst(line, re_git_diff_hdr).empty;
         auto hdr_original = matchFirst(line, re_hdr_original);
@@ -388,7 +388,7 @@ enum Action {
 
 version (unittest) {
     import std.string : lineSplitter;
-    import dextool.set;
+    import my.set;
     import dextool.type;
 }
 

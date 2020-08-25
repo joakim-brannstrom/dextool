@@ -22,8 +22,8 @@ import std.typecons : tuple, Tuple, scoped;
 
 import automem : vector, Vector;
 import my.gc.refc : RefCounted;
+import my.set;
 
-import dextool.set;
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.analyze.ast : Interval, Location;

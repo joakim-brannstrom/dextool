@@ -26,9 +26,8 @@ import logger = std.experimental.logger;
 import std.exception : collectException;
 
 import miniorm : spinSql;
-
-import dextool.from;
-import dextool.fsm;
+import my.from_;
+import my.fsm;
 
 import dextool.plugin.mutate.backend.database : Database, MutantTimeoutCtx, MutationStatusId;
 import dextool.plugin.mutate.backend.type : Mutation;
@@ -132,6 +131,7 @@ struct TimeoutFsm {
         MutantTimeoutCtx ctx;
         Mutation.Kind[] kinds;
         Database* db;
+        bool stop;
     }
 
     static struct Output {
@@ -184,7 +184,7 @@ struct TimeoutFsm {
             logger.warning(e.msg).collectException;
         }
 
-        while (!self.fsm.isState!Stop) {
+        while (!self.global.stop) {
             try {
                 step(self, *db);
             } catch (Exception e) {
@@ -275,6 +275,7 @@ struct TimeoutFsm {
     }
 
     void opCall(Stop) {
+        global.stop = true;
     }
 }
 

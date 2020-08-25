@@ -11,7 +11,7 @@ module dextool.cachetools;
 
 import std.datetime : Duration;
 
-import dextool.from;
+import my.from_;
 
 /***********************************
  * Looks up key; if it exists returns corresponding value else evaluates

@@ -17,6 +17,8 @@ import std.exception : collectException;
 import std.typecons : Yes, No;
 import std.path : buildPath;
 
+import my.set;
+
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
@@ -27,7 +29,6 @@ import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table,
 import dextool.plugin.mutate.backend.type : Mutation, Offset;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
-import dextool.set;
 import dextool.type;
 
 @safe:

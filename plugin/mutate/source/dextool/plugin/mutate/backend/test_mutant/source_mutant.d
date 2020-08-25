@@ -19,8 +19,10 @@ import std.path : buildPath;
 
 import sumtype;
 import proc : DrainElement;
+import my.fsm : Fsm, next, act, get, TypeDataMap;
 
-import dextool.fsm : Fsm, next, act, get, TypeDataMap;
+static import my.fsm;
+
 import dextool.plugin.mutate.backend.database : Database, MutationEntry;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
 import dextool.plugin.mutate.backend.test_mutant.common;
@@ -28,7 +30,6 @@ import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : ShellCommand;
-import dextool.set;
 import dextool.type : AbsolutePath, Path;
 
 @safe:
@@ -150,7 +151,7 @@ struct MutationTestDriver {
     static struct NoResult {
     }
 
-    alias Fsm = dextool.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode,
+    alias Fsm = my.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode,
             TestCaseAnalyze, StoreResult, Done, FilesysError, NoResultRestoreCode, NoResult);
     alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData);
 

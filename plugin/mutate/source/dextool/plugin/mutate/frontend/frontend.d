@@ -78,7 +78,6 @@ struct DataAccess {
     import dextool.compilation_db : limitOrAllRange, parse, prependFlags, addCompiler, replaceCompiler,
         addSystemIncludes, fileRange, fromArgCompileDb, ParsedCompileCommandRange, Compiler;
     import dextool.plugin.mutate.backend : Database;
-    import dextool.user_filerange;
 
     Database db;
     FrontendIO io;

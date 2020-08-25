@@ -89,7 +89,7 @@ private @safe nothrow struct AST_DepthFirstResult {
     static import std.array;
     import std.array : appender;
     import std.container : Array;
-    import dextool.set : Set;
+    import my.set : Set;
 
     //private Array!(Cursor) stack;
     // keeps the first node for each level of nodes that is traversed.

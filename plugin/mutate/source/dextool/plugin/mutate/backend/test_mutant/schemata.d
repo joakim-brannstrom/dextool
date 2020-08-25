@@ -20,7 +20,8 @@ import std.typecons : Tuple;
 import proc : DrainElement;
 import sumtype;
 
-import dextool.fsm : Fsm, next, act, get, TypeDataMap;
+import my.fsm : Fsm, next, act, get, TypeDataMap;
+static import my.fsm;
 
 import dextool.plugin.mutate.backend.database : MutationStatusId, Database, spinSql;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
@@ -110,8 +111,8 @@ struct SchemataTestDriver {
         MutationTestResult result;
     }
 
-    alias Fsm = dextool.fsm.Fsm!(None, Initialize, Done, NextMutant,
-            TestMutant, TestCaseAnalyze, StoreResult);
+    alias Fsm = my.fsm.Fsm!(None, Initialize, Done, NextMutant, TestMutant,
+            TestCaseAnalyze, StoreResult);
     alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData,
             NextMutantData, InitializeData);
 
@@ -292,7 +293,7 @@ nothrow:
  * schemas are generated and how the database is setup.
  */
 struct InjectIdBuilder {
-    import dextool.set;
+    import my.set;
 
     private {
         alias InjectId = InjectIdResult.InjectId;

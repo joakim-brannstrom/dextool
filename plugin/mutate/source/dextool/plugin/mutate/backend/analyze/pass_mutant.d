@@ -66,7 +66,7 @@ CodeMutantsResult toCodeMutants(MutantsResult mutants, FilesysIO fio, TokenStrea
 
 class MutantsResult {
     import dextool.plugin.mutate.backend.type : Checksum;
-    import dextool.set;
+    import my.set;
 
     static struct MutationPoint {
         Offset offset;

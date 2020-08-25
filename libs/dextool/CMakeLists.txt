@@ -6,14 +6,9 @@ set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/compilation_db/package.d
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/compilation_db/system_compiler.d
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/compilation_db/user_filerange.d
-    ${CMAKE_CURRENT_LIST_DIR}/source/dextool/from.d
-    ${CMAKE_CURRENT_LIST_DIR}/source/dextool/fsm.d
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/hash.d
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/io.d
-    ${CMAKE_CURRENT_LIST_DIR}/source/dextool/nullable.d
-    ${CMAKE_CURRENT_LIST_DIR}/source/dextool/set.d
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/type.d
-    ${CMAKE_CURRENT_LIST_DIR}/source/dextool/user_filerange.d
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/utility.d
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/xml.d
     )

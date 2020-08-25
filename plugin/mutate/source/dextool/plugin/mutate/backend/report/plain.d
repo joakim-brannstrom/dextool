@@ -33,16 +33,15 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
 @safe:
 
 /** Report mutations in a format easily readable by a human.
- *
- * TODO: use dextool.set for sections.
  */
 @safe final class ReportPlain : ReportEvent {
     import std.array : Appender;
     import dextool.plugin.mutate.backend.utility;
+    import my.set;
 
     const Mutation.Kind[] kinds;
     const ConfigReport conf;
-    bool[ReportSection] sections;
+    Set!ReportSection sections;
     FilesysIO fio;
 
     long[MakeMutationTextResult] mutationStat;
@@ -60,7 +59,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
             ? conf.reportLevel.toSections : conf.reportSection.dup;
 
         foreach (a; tmp_sec)
-            this.sections[a] = true;
+            this.sections.add(a);
     }
 
     override void mutationKindEvent(const MutationKind[] kind_) {
