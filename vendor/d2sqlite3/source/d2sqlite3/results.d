@@ -629,6 +629,10 @@ struct ColumnData {
     Returns the data converted to T.
 
     If the data is NULL, defaultValue is returned.
+
+    Throws:
+        VariantException if the value cannot be converted
+        to the desired type.
     +/
     auto as(T)(T defaultValue = T.init)
             if (isBoolean!T || isNumeric!T || isSomeString!T) {
@@ -647,12 +651,7 @@ struct ColumnData {
         if (_type == SqliteType.NULL)
             return defaultValue;
 
-        Blob data;
-        try
-            data = _value.get!Blob;
-        catch (VariantException e)
-            throw new SqliteException("impossible to convert this column to a " ~ T.stringof);
-
+        Blob data = _value.get!Blob;
         return cast(T) data;
     }
 

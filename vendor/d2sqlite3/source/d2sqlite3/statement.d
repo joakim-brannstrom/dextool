@@ -107,7 +107,7 @@ public:
     /++
     Gets the SQLite internal _handle of the statement.
     +/
-    sqlite3_stmt* handle() @property nothrow {
+    inout(sqlite3_stmt)* handle() inout @safe pure nothrow @nogc {
         return p.handle;
     }
 
@@ -123,7 +123,7 @@ public:
     /++
     Tells whether the statement is empty (no SQL statement).
     +/
-    bool empty() @property nothrow {
+    bool empty() const @safe pure nothrow @nogc {
         return p.handle is null;
     }
     ///

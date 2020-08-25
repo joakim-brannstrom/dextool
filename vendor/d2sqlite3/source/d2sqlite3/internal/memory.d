@@ -41,10 +41,6 @@ WrappedDelegate!T* delegateUnwrap(T)(void* ptr) nothrow if (isCallable!T) {
     return cast(WrappedDelegate!T*) ptr;
 }
 
-extern (C) void ptrFree(void* ptr) nothrow {
-    free(ptr);
-}
-
 // Anchors and returns a pointer to D memory, so that it will not
 // be moved or collected. For use with releaseMem.
 void* anchorMem(void* ptr) {
