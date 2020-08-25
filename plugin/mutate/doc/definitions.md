@@ -170,7 +170,7 @@ element with a value in it.
 ## Mutation Testing
 Mutation testing focus on determining the adequacy of a test suite.
 
-It is *fault based testing* directed towards *typical* syntatical faults that occur when constructing a program.
+It is *fault based testing* directed towards *typical* syntactical faults that occur when constructing a program.
 
 It relies on the Competent Programmer Hypothesis (CPH) and the Coupling Effect Hypothesis (CEH).
 
