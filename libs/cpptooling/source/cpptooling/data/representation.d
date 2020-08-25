@@ -43,7 +43,6 @@ public import cpptooling.data.type;
 
 import cpptooling.data.kind_type;
 import cpptooling.data.symbol.types : USRType;
-import dextool.hash : makeHash;
 
 static import cpptooling.data.class_classification;
 
@@ -169,7 +168,9 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
 
     static if (is(IDType == size_t)) {
         private void setUniqueId(string identifier) @safe pure nothrow {
-            this.id_ = makeHash(identifier);
+            import my.hash : makeCrc64Iso;
+
+            this.id_ = makeCrc64Iso(cast(const(ubyte)[]) identifier).c0;
         }
     } else static if (is(IDType == string)) {
         private void setUniqueId(Char)(Char[] identifier) @safe pure nothrow {

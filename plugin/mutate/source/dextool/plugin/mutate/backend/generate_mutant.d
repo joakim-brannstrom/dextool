@@ -430,7 +430,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     }
 
     size_t toHash() nothrow @safe const {
-        import dextool.hash;
+        import my.hash;
 
         BuildChecksum128 hash;
         hash.put(rawOriginal);

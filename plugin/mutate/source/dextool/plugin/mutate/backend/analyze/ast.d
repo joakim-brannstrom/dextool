@@ -677,7 +677,7 @@ class OpNotEqual : BinaryOp {
 }
 
 RetT makeId(RetT, T)(T data) {
-    import dextool.hash : makeCrc64Iso;
+    import my.hash : makeCrc64Iso;
 
     auto a = makeCrc64Iso(cast(const(ubyte)[]) data);
     return RetT(a.c0);
