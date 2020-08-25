@@ -632,7 +632,7 @@ struct CFunction {
         StorageClass storageClass_;
     }
 
-    invariant() {
+    invariant () {
         if (!usr.isNull) {
             assert(usr.get.length > 0);
             assert(name_.length > 0);
@@ -733,7 +733,7 @@ struct CppCtor {
         Nullable!CppMethodName name_;
     }
 
-    invariant() {
+    invariant () {
         if (!name_.isNull) {
             assert(usr.isNull || usr.get.length > 0);
             assert(name_.get.length > 0);
@@ -785,7 +785,7 @@ struct CppDtor {
     // TODO remove the Nullable, if possible.
     Nullable!USRType usr;
 
-    invariant() {
+    invariant () {
         if (!name_.isNull) {
             assert(usr.isNull || usr.get.length > 0);
             assert(name_.get.length > 0);
@@ -896,7 +896,7 @@ struct CppMethod {
 struct CppMethodOp {
     Nullable!USRType usr;
 
-    invariant() {
+    invariant () {
         if (!name_.isNull) {
             assert(name_.get.length > 0);
             assert(returnType_.toStringDecl.length > 0);
@@ -1363,7 +1363,7 @@ const:
         return comments;
     }
 
-    invariant() {
+    invariant () {
         //assert(usr.isNull || usr.length > 0);
         foreach (i; inherits_) {
             assert(i.name.length > 0);
