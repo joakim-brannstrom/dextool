@@ -28,6 +28,7 @@ class ShallReportTestCaseKilledMutant : SimpleFixture {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
@@ -53,6 +54,7 @@ class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
@@ -145,6 +147,7 @@ class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
@@ -536,6 +539,7 @@ class ShallDetectAllTestCases : TestCaseDetection {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
@@ -576,6 +580,7 @@ detected_new_test_case = "resetAlive"
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
@@ -618,6 +623,7 @@ exit 1
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addArg(["-c", conf_f])
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
@@ -639,6 +645,7 @@ class DroppedTestCases : TestCaseDetection {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
@@ -677,6 +684,7 @@ exit 1
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(extra_args)
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
@@ -842,6 +850,7 @@ class ShallStopAtMaxRuntime : SimpleFixture {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
@@ -869,18 +878,19 @@ class ShallTestMutantsOnSpecifiedLines : SimpleFixture {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-timeout", "10000"])
-            .addPostArg(["-L", programCode.relativePath(workDir.toString) ~ ":11-14"])
+            .addPostArg(["-L", programCode.relativePath(workDir.toString) ~ ":12-15"])
             .run;
         // dfmt on
 
         testConsecutiveSparseOrder!Re([
-                `.*Found 1 mutant.*program.cpp:11`,
-                `.*Found 1 mutant.*program.cpp:13`
+                `.*Found 1 mutant.*program.cpp:12`,
+                `.*Found 1 mutant.*program.cpp:14`
                 ]).shouldBeIn(r.output);
         testAnyOrder!Re([`info:.*from 'case 3:`, `info:.*from 'case 1:`,]).shouldBeIn(r.output);
     }
@@ -904,6 +914,7 @@ class ShallTestMutantsInDiff : SimpleFixture {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
@@ -939,6 +950,7 @@ class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", "/bin/true"])
@@ -977,6 +989,7 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--dry-run")
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--mutant", "all"])
             .addPostArg(["--build-cmd", compileScript])

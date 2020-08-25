@@ -62,8 +62,8 @@ private void nothrowTracef(T...)(auto ref T args) @safe nothrow {
 Validated[] scanForExecutables() {
     import std.algorithm : filter, map;
     import std.array : array;
-    import std.file : thisExePath, dirEntries, SpanMode;
-    import std.path : absolutePath, dirName, stripExtension, baseName;
+    import std.file : thisExePath;
+    import std.path : dirName, stripExtension, baseName;
     import std.range : tee;
     import my.file : which, whichFromEnv;
 
@@ -80,29 +80,18 @@ Validated[] scanForExecutables() {
     }
 
     static auto merge(T0, T1)(T0 primary, T1 secondary) {
-        import std.array : array;
-        import std.path : baseName;
         import std.range : chain;
+        import my.set;
 
         // remove secondary that clash with primary.
         // secondaries may never override a primary.
-        bool[string] prim;
-        foreach (p; primary.save) {
-            prim[p.path.baseName] = true;
-        }
+        auto prim = toSet(primary.save.map!(a => cast(string) a.path));
 
-        // dfmt off
-        return chain(primary,
-                     secondary.filter!(a => a.path.baseName !in prim))
-            .array();
-        // dfmt on
+        return chain(primary, secondary.filter!(a => a.path.baseName !in prim)).array;
     }
 
-    // dfmt off
-    return merge(primaryPlugins, secondaryPlugins)
-        .tee!(a => nothrowTrace("Found executable: ", a))
-        .array();
-    // dfmt on
+    return merge(primaryPlugins, secondaryPlugins).tee!(
+            a => nothrowTrace("Found executable: ", a)).array;
 }
 
 /** Filter the filenames for those that fulfill the requirement for a plugin.
