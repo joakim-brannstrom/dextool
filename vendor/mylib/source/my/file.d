@@ -5,6 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module my.file;
 
+import logger = std.experimental.logger;
 import std.algorithm : canFind;
 import std.file : mkdirRecurse, exists, copy, dirEntries, SpanMode;
 import std.path : relativePath, buildPath, dirName;
@@ -196,21 +197,27 @@ bool isExecutable(Path p) nothrow {
  * writeln(which([Path("/bin")], "l*"));
  * ---
  */
-AbsolutePath[] which(Path[] dirs, string name) {
+AbsolutePath[] which(Path[] dirs, string name) nothrow {
     import std.algorithm : map, filter, joiner, copy;
     import std.array : appender;
+    import std.exception : collectException;
     import std.file : dirEntries, SpanMode;
     import std.path : baseName, globMatch;
 
     auto res = appender!(AbsolutePath[])();
-    dirs.filter!(a => exists(a))
-        .map!(a => dirEntries(a, SpanMode.shallow))
-        .joiner
-        .map!(a => Path(a))
-        .filter!(a => isExecutable(a))
-        .filter!(a => globMatch(a.baseName, name))
-        .map!(a => AbsolutePath(a))
-        .copy(res);
+
+    foreach (dir; dirs.filter!(a => existsAnd!isDir(a))) {
+        try {
+            dirEntries(dir, SpanMode.shallow).map!(a => Path(a))
+                .filter!(a => isExecutable(a))
+                .filter!(a => globMatch(a.baseName, name))
+                .map!(a => AbsolutePath(a))
+                .copy(res);
+        } catch (Exception e) {
+            logger.trace(e.msg).collectException;
+        }
+    }
+
     return res.data;
 }
 

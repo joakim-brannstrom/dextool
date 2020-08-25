@@ -9,6 +9,8 @@ Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-
 */
 module my.xdg;
 
+import std.array : empty;
+
 import my.path;
 
 /** Returns the directory to use for program runtime data for the current
@@ -56,7 +58,6 @@ import my.path;
  * runtime memory and cannot necessarily be swapped out to disk.
  */
 Path xdgRuntimeDir(Path fallback = Path("/tmp")) @safe {
-    import std.array : empty;
     import std.process : environment;
 
     Path backup() @trusted {
@@ -112,5 +113,7 @@ unittest {
     import std.process : environment;
 
     auto xdg = xdgRuntimeDir;
-    //assert(xdg == environment.get("XDG_RUNTIME_DIR"));
+    auto hostEnv = environment.get("XDG_RUNTIME_DIR");
+    if (!hostEnv.empty)
+        assert(xdg == hostEnv);
 }

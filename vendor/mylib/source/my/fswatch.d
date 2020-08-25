@@ -46,13 +46,15 @@ import core.sys.linux.unistd : close, read;
 import core.sys.posix.poll : pollfd, poll, POLLIN, POLLNVAL;
 import core.thread : Thread;
 import core.time : dur, Duration;
-import std.array : appender;
+import logger = std.experimental.logger;
+import std.array : appender, empty;
 import std.conv : to;
 import std.file : DirEntry, isDir, dirEntries, rmdirRecurse, write, append,
     rename, remove, exists, SpanMode, mkdir, rmdir;
 import std.path : buildPath;
 import std.range : isInputRange;
 import std.string : toStringz, fromStringz;
+import std.exception : collectException;
 
 import sumtype;
 
@@ -164,12 +166,17 @@ auto fileWatch() {
 }
 
 /// Listens for create/modify/removal of files and directories.
-enum DefaultEvents = IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MODIFY | IN_MOVE_SELF
-    | IN_MOVED_FROM | IN_MOVED_TO | IN_ATTRIB | IN_EXCL_UNLINK | IN_CLOSE_WRITE;
+enum ContentEvents = IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MODIFY
+    | IN_MOVE_SELF | IN_MOVED_FROM | IN_MOVED_TO | IN_EXCL_UNLINK | IN_CLOSE_WRITE;
+
+/// Listen for events that change the metadata.
+enum MetadataEvents = IN_ACCESS | IN_ATTRIB | IN_OPEN | IN_CLOSE_NOWRITE | IN_EXCL_UNLINK;
 
 /** An instance of a FileWatcher
  */
 struct FileWatch {
+    import std.functional : toDelegate;
+
     private {
         int fd;
         ubyte[1024 * 4] eventBuffer; // 4kb buffer for events
@@ -207,7 +214,7 @@ struct FileWatch {
      *
      * Returns: true if the path was successfully added.
      */
-    bool watch(Path path, uint events = DefaultEvents) {
+    bool watch(Path path, uint events = ContentEvents) {
         const wd = inotify_add_watch(fd, path.toStringz, events);
         if (wd != -1) {
             const fc = fcntl(fd, F_SETFD, FD_CLOEXEC);
@@ -221,7 +228,7 @@ struct FileWatch {
     }
 
     ///
-    bool watch(string p, uint events = DefaultEvents) {
+    bool watch(string p, uint events = ContentEvents) {
         return watch(Path(p));
     }
 
@@ -238,30 +245,54 @@ struct FileWatch {
      *
      * Returns: paths that failed to be added.
      */
-    AbsolutePath[] watchRecurse(alias pred = allFiles)(Path root, uint events = DefaultEvents) {
+    AbsolutePath[] watchRecurse(Path root, uint events = ContentEvents,
+            bool delegate(string) pred = toDelegate(&allFiles)) {
         import std.algorithm : filter;
         import my.file : existsAnd;
+        import my.set;
 
-        auto app = appender!(AbsolutePath[])();
+        auto failed = appender!(AbsolutePath[])();
 
         if (!watch(root, events)) {
-            app.put(AbsolutePath(root));
+            failed.put(AbsolutePath(root));
         }
 
-        if (existsAnd!isDir(root)) {
-            foreach (p; dirEntries(root, SpanMode.depth).filter!(a => pred(a.name))) {
-                if (!watch(Path(p.name), events)) {
-                    app.put(AbsolutePath(p.name));
+        if (!existsAnd!isDir(root)) {
+            return failed.data;
+        }
+
+        auto dirs = [AbsolutePath(root)];
+        Set!AbsolutePath visited;
+        while (!dirs.empty) {
+            auto front = dirs[0];
+            dirs = dirs[1 .. $];
+            if (front in visited)
+                continue;
+            visited.add(front);
+
+            try {
+                foreach (p; dirEntries(front, SpanMode.shallow).filter!(a => pred(a.name))) {
+                    if (!watch(Path(p.name), events)) {
+                        failed.put(AbsolutePath(p.name));
+                    }
+                    if (existsAnd!isDir(Path(p.name))) {
+                        dirs ~= AbsolutePath(p.name);
+                    }
                 }
+            } catch (Exception e) {
+                () @trusted { logger.trace(e); }();
+                logger.trace(e.msg);
+                failed.put(AbsolutePath(front));
             }
         }
 
-        return app.data;
+        return failed.data;
     }
 
     ///
-    AbsolutePath[] watchRecurse(alias pred = allFiles)(string root, uint events = DefaultEvents) {
-        return watchRecurse!pred(Path(root), events);
+    AbsolutePath[] watchRecurse(string root, uint events = ContentEvents,
+            bool delegate(string) pred = toDelegate(&allFiles)) {
+        return watchRecurse(Path(root), events, pred);
     }
 
     /** The events that have occured since last query.
@@ -272,7 +303,7 @@ struct FileWatch {
      * Returns: the events that has occured to the watched paths.
      */
     FileChangeEvent[] getEvents(Duration timeout = Duration.zero) {
-        import std.algorithm : max;
+        import std.algorithm : min;
 
         FileChangeEvent[] events;
         if (!fd)
@@ -281,7 +312,7 @@ struct FileWatch {
         pollfd pfd;
         pfd.fd = fd;
         pfd.events = POLLIN;
-        const code = poll(&pfd, 1, cast(int) max(int.max, timeout.total!"msecs"));
+        const code = poll(&pfd, 1, cast(int) min(int.max, timeout.total!"msecs"));
 
         if (code < 0) {
             throw new Exception("Failed to poll events. Error code " ~ errno.to!string);
@@ -564,4 +595,203 @@ unittest {
             assert(x.path == AbsolutePath("test2"));
             return true;
         }));
+}
+
+struct MonitorResult {
+    enum Kind {
+        Access,
+        Attribute,
+        CloseWrite,
+        CloseNoWrite,
+        Create,
+        Delete,
+        DeleteSelf,
+        Modify,
+        MoveSelf,
+        Rename,
+        Open,
+    }
+
+    Kind kind;
+    AbsolutePath path;
+}
+
+/** Monitor root's for filesystem changes which create/remove/modify
+ * files/directories.
+ */
+struct Monitor {
+    import std.array : appender;
+    import std.file : isDir;
+    import std.utf : UTFException;
+    import my.filter : GlobFilter;
+    import my.fswatch;
+    import my.set;
+    import sumtype;
+
+    private {
+        Set!AbsolutePath roots;
+        FileWatch fw;
+        GlobFilter fileFilter;
+        uint events;
+
+        // roots that has been removed that may be re-added later on. the user
+        // expects them to trigger events.
+        Set!AbsolutePath monitorRoots;
+    }
+
+    /**
+     * Params:
+     *  roots = directories to recursively monitor
+     */
+    this(AbsolutePath[] roots, GlobFilter fileFilter, uint events = ContentEvents) {
+        this.roots = toSet(roots);
+        this.fileFilter = fileFilter;
+        this.events = events;
+
+        auto app = appender!(AbsolutePath[])();
+        fw = fileWatch();
+        foreach (r; roots) {
+            app.put(fw.watchRecurse(r, events, (a) {
+                    return isInteresting(fileFilter, a);
+                }));
+        }
+
+        logger.trace(!app.data.empty, "unable to watch ", app.data);
+    }
+
+    static bool isInteresting(GlobFilter fileFilter, string p) nothrow {
+        import my.file;
+
+        try {
+            const ap = AbsolutePath(p);
+
+            if (existsAnd!isDir(ap)) {
+                return true;
+            }
+            return fileFilter.match(ap);
+        } catch (Exception e) {
+            collectException(logger.trace(e.msg));
+        }
+
+        return false;
+    }
+
+    /** Wait up to `timeout` for an event to occur for the monitored `roots`.
+     *
+     * Params:
+     *  timeout = how long to wait for the event
+     */
+    MonitorResult[] wait(Duration timeout) {
+        import std.array : array;
+        import std.algorithm : canFind, startsWith, filter;
+
+        auto rval = appender!(MonitorResult[])();
+
+        {
+            auto rm = appender!(AbsolutePath[])();
+            foreach (a; monitorRoots.toRange.filter!(a => exists(a))) {
+                fw.watchRecurse(a, events, a => isInteresting(fileFilter, a));
+                rm.put(a);
+                rval.put(MonitorResult(MonitorResult.Kind.Create, a));
+            }
+            foreach (a; rm.data) {
+                monitorRoots.remove(a);
+            }
+        }
+
+        if (!rval.data.empty) {
+            // collect whatever events that happend to have queued up together
+            // with the artifically created.
+            timeout = Duration.zero;
+        }
+
+        try {
+            foreach (e; fw.getEvents(timeout)) {
+                e.match!((Event.Access x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.Access, x.path));
+                }, (Event.Attribute x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.Attribute, x.path));
+                }, (Event.CloseWrite x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.CloseWrite, x.path));
+                }, (Event.CloseNoWrite x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.CloseNoWrite, x.path));
+                }, (Event.Create x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.Create, x.path));
+                    fw.watchRecurse(x.path, events, a => isInteresting(fileFilter, a));
+                }, (Event.Modify x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.Modify, x.path));
+                }, (Event.MoveSelf x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.MoveSelf, x.path));
+                    fw.watchRecurse(x.path, events, a => isInteresting(fileFilter, a));
+
+                    if (x.path in roots) {
+                        monitorRoots.add(x.path);
+                    }
+                }, (Event.Delete x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.Delete, x.path));
+                }, (Event.DeleteSelf x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.DeleteSelf, x.path));
+
+                    if (x.path in roots) {
+                        monitorRoots.add(x.path);
+                    }
+                }, (Event.Rename x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.Rename, x.to));
+                }, (Event.Open x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.Open, x.path));
+                },);
+            }
+        } catch (Exception e) {
+            logger.trace(e.msg);
+        }
+
+        return rval.data.filter!(a => fileFilter.match(a.path)).array;
+    }
+
+    /** Collects events from the monitored `roots` over a period.
+     *
+     * Params:
+     *  collectTime = for how long to clear the queue
+     */
+    MonitorResult[] collect(Duration collectTime) {
+        import std.algorithm : max, min;
+        import std.datetime : Clock;
+
+        auto rval = appender!(MonitorResult[])();
+        const stopAt = Clock.currTime + collectTime;
+
+        do {
+            collectTime = max(stopAt - Clock.currTime, 1.dur!"msecs");
+            if (!monitorRoots.empty) {
+                // must use a hybrid approach of poll + inotify because if a
+                // root is added it will only be detected by polling.
+                collectTime = min(10.dur!"msecs", collectTime);
+            }
+
+            rval.put(wait(collectTime));
+        }
+        while (Clock.currTime < stopAt);
+
+        return rval.data;
+    }
+}
+
+@("shall re-apply monitoring for a file that is removed")
+unittest {
+    import my.filter : GlobFilter;
+    import my.test;
+
+    auto ta = makeTestArea("re-apply monitoring");
+    const testTxt = ta.inSandbox("test.txt").AbsolutePath;
+
+    write(testTxt, "abc");
+    auto fw = Monitor([testTxt], GlobFilter(["*"], null));
+    write(testTxt, "abcc");
+    assert(!fw.wait(Duration.zero).empty);
+
+    remove(testTxt);
+    assert(!fw.wait(Duration.zero).empty);
+
+    write(testTxt, "abcc");
+    assert(!fw.wait(Duration.zero).empty);
 }
