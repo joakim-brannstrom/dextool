@@ -6,27 +6,52 @@ to detect artificially injected faults.
 
 ## Features
 
-* 💉 Supports conventional mutation operators: [AOR, ROR, DCC, DCR, LCR, COR, SDL](https://github.com/joakim-brannstrom/dextool/blob/master/plugin/mutate/doc/design/mutations.md).
-* 📈 Provides multiple [report](#report) formats (Markdown, Compiler warnings, JSON, HTML).
+* 💉 Supports conventional mutation operators:
+    [AOR, ROR, DCC, DCR, LCR, COR, SDL](https://github.com/joakim-brannstrom/dextool/blob/master/plugin/mutate/doc/design/mutations.md).
+* 📈 Provides multiple [report](#report) formats (Markdown, Compiler warnings,
+  JSON, HTML).
 * 💪 Detects "useless" test cases that do not kill any mutants.
 * 💪 Detects "redundant" test cases that kill the same mutants.
 * 💪 Detects "redundant" test cases that do not uniquely kill any mutants.
-* 💪 Lists "near" test cases from which a new test can be derived to kill a surviving mutant of interest.
-* 🔄 Supports [change-based mutation testing](#change-based) for fast feedback in a pull request workflow.
-* 🐇 Can [continue](#incremental-mutation-test) from where a testing session was interrupted.
+* 💪 Lists "near" test cases from which a new test can be derived to kill a
+  surviving mutant of interest.
+* 🔄 Supports [change-based mutation testing](#change-based) for fast feedback
+  in a pull request workflow.
+* 🐇 Can [continue](#incremental-mutation-test) from where a testing session
+  was interrupted.
 * 🐇 Allows multiple instances to be [run in parallel](#parallel-run).
 * 🐇 Can reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
-* 🐇 Can automatically [rerun the mutations that previously survived](#re-test-alive) when new tests are added to the test suite.
+* 🐇 Can automatically [rerun the mutations that previously survived](#re-test-alive)
+    when new tests are added to the test suite.
 * 🐇 Does automatic handling of infinite loops (timeout).
-* 🐇 Detects that a file has been renamed and move the mutation testing result from the new filename.
+* 🐇 Detects that a file has been renamed and move the mutation testing result
+  from the new filename.
 * 🔨 Works with all C++ versions.
 * 🔨 Works with C++ templates.
 * 🔨 Integrates without modifications to the projects build system.
 * 🔨 Lets a user modify it by using a SQLite database as intermediary storage.
+* 🔨 Lets a user mark a mutant as [dont care](#mark-mutant).
 
 # Mutation Testing
 
-This section explains how to use Dextool Mutate to analyze a C++ project that uses the CMake build system.
+Mutation testing focus on determining the adequacy of a test suite. Code
+coverage determine this adequacy by if the test suite has executed the system
+under test. Mutation testing determine the adequacy by injecting syntactical
+faults (mutants) and executing the test suite. If the test suite "fail" it is
+interpreted as the syntactical fault (mutant) being found and killed by the
+test suite (good).
+
+The algorithm for mutation testing is thus:
+
+ * inject one mutant.
+ * execute the test suite.
+ * if the test suite **failed** record the mutant as **killed** otherwise
+   **alive**.
+
+## Apply Mutation Testing a cmake Project
+
+This section explains how to use Dextool Mutate to analyze a C++ project that
+uses the CMake build system.
 
 Note though that the Dextool work with any build system that is able to
 generate a JSON compilation database.  It is just that CMake conveniently has
@@ -104,6 +129,27 @@ dextool mutate test --mutant lcr
 
 For more examples [see here](examples).
 
+## Test Phase Execution Flow
+
+The test phase (dextool mutate test) use the configuration files content in the
+following way when executing:
+
+1. Upon start the configuration is checked for if `test_cmd_dir` is configured.
+   If yes then the directories are scanned recursively for executables. Any
+   executable found is assumed to be a test that should be executed. These are
+   added to `test_cmd`.
+
+For each mutant:
+2. Execute `build_cmd`. If `build_cmd` returns an exit code != 0 the mutant is
+   marked as `killedByCompiler`. It is **very** important that this script also
+   build the test suite if such is required for executing the test cases.
+3. Execute `test_cmd`. If any of the `test_cmd` return an exit code != 0 the
+   mutant is recorded as killed. If multiple test commands is specified they
+   will be executed in parallel.
+4. If the mutant is killed and either `analyze_cmd` or `analyze_using_builtin`
+   is configured the output from the executed `test_cmd` is passed on to these
+   to extract the specific test cases that killed the mutant.
+
 ## Custom Test Analyzer
 
 Dextool need some help to understand the output from the test suite.
@@ -119,7 +165,7 @@ test cases that failed when the mutant where injected. This is where the
 
 To be able to test a mutant again because the test suite is unstable when it is
 executed on the injected mutant it needs some help. This is signaled from the
-analyser by writing `unstable:` to stdout.
+analyzer by writing `unstable:` to stdout.
 
 The requirement on the script is that it should parse the files that contains
 the output from the test suite. These are passed as argument one and two to the
