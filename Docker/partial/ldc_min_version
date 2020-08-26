@@ -1,4 +1,4 @@
-ENV LDC_VERSION=1.16.0
+ENV LDC_VERSION=1.19.0
 
 # workaround because otherwise it failes for min version with an errour about
 # unbound variable because it thinks it is running on windows.
