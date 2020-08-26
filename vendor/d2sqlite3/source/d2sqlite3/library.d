@@ -61,13 +61,14 @@ SQLite initializes itself automatically on the first request execution, so this
 usually wouldn't be called. Use for instance before a call to config().
 +/
 void initialize() {
-    auto result = sqlite3_initialize();
-    enforce(result == SQLITE_OK, new SqliteException("Initialization: error %s".format(result)));
+    immutable result = sqlite3_initialize();
+    enforce(result == SQLITE_OK,
+            new SqliteException("Initialization: error %s".format(result), result));
 }
 /// Ditto
 void shutdown() {
-    auto result = sqlite3_shutdown();
-    enforce(result == SQLITE_OK, new SqliteException("Shutdown: error %s".format(result)));
+    immutable result = sqlite3_shutdown();
+    enforce(result == SQLITE_OK, new SqliteException("Shutdown: error %s".format(result), result));
 }
 
 /++
@@ -79,8 +80,9 @@ call to initialize and before execution of the first statement.
 See_Also: $(LINK http://www.sqlite.org/c3ref/config.html).
 +/
 void config(Args...)(int code, Args args) {
-    auto result = sqlite3_config(code, args);
-    enforce(result == SQLITE_OK, new SqliteException("Configuration: error %s".format(result)));
+    immutable result = sqlite3_config(code, args);
+    enforce(result == SQLITE_OK,
+            new SqliteException("Configuration: error %s".format(result), result));
 }
 
 /++

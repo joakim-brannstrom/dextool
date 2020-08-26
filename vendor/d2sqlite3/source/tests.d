@@ -6,8 +6,6 @@ import std.string : format;
 import std.typecons : Nullable;
 import std.conv : hexString;
 
-import std.stdio : writeln;
-
 unittest  // Test version of SQLite library
 {
     import std.string : startsWith;
@@ -21,12 +19,41 @@ unittest  // COV
     auto ts = threadSafe;
 }
 
-unittest  // Configuration
+unittest  // Configuration logging and db.close()
 {
+    static extern (C) void loggerCallback(void* arg, int code, const(char)* msg) nothrow {
+        ++*(cast(int*) arg);
+    }
+
+    int marker = 42;
+
     shutdown();
     config(SQLITE_CONFIG_MULTITHREAD);
-    config(SQLITE_CONFIG_LOG, function(void*, int, const(char)*) {}, null);
+    config(SQLITE_CONFIG_LOG, &loggerCallback, &marker);
     initialize();
+
+    {
+        auto db = Database(":memory:");
+        try {
+            db.run("DROP TABLE wtf");
+        } catch (Exception e) {
+        }
+        db.close();
+    }
+    assert(marker == 43);
+
+    shutdown();
+    config(SQLITE_CONFIG_LOG, null, null);
+    initialize();
+
+    {
+        auto db = Database(":memory:");
+        try {
+            db.run("DROP TABLE wtf");
+        } catch (Exception e) {
+        }
+    }
+    assert(marker == 43);
 }
 
 unittest  // Database.tableColumnMetadata()
@@ -280,12 +307,14 @@ unittest  // Callbacks
 
     auto db = Database(":memory:");
     db.setTraceCallback((string s) { wasTraced = true; });
+    db.execute("SELECT * FROM sqlite_master;");
+    assert(wasTraced);
     db.setProfileCallback((string s, ulong t) { wasProfiled = true; });
+    db.execute("SELECT * FROM sqlite_master;");
+    assert(wasProfiled);
+
     db.setProgressHandler(1, { hasProgressed = true; return 0; });
     db.execute("SELECT * FROM sqlite_master;");
-    // this seems to not be actived on ubuntu 19.04
-    //assert(wasTraced);
-    assert(wasProfiled);
     assert(hasProgressed);
 }
 
@@ -419,8 +448,9 @@ unittest  // Binding/peeking text values
     assert(results.front.peek!(string, PeekMode.copy)(0) == "I am a text.");
 
     import std.exception : assertThrown;
+    import std.variant : VariantException;
 
-    assertThrown!SqliteException(results.front[0].as!Blob);
+    assertThrown!VariantException(results.front[0].as!Blob);
 }
 
 unittest  // Binding/peeking blob values
@@ -447,7 +477,6 @@ unittest  // Struct injecting
         int i;
         double f;
         string t;
-        //private bool _notused;
     }
 
     auto db = Database(":memory:");
@@ -531,7 +560,7 @@ unittest  // Injecting dict
     auto db = Database(":memory:");
     db.execute("CREATE TABLE test (a TEXT, b TEXT, c TEXT)");
     auto statement = db.prepare("INSERT INTO test (c, b, a) VALUES (:c, :b, :a)");
-    statement.inject([":a" : "a", ":b" : "b", ":c" : "c"]);
+    statement.inject([":a": "a", ":b": "b", ":c": "c"]);
 
     auto results = db.execute("SELECT * FROM test");
     foreach (row; results) {
@@ -789,7 +818,7 @@ unittest  // ColumnData-compatible types
 
     alias AllCases = AliasSeq!(bool, true, int, int.max, float, float.epsilon,
             real, 42.0L, string, "おはよう！", const(ubyte)[], [0x00,
-            0xFF], string, "", Nullable!byte, 42);
+                0xFF], string, "", Nullable!byte, 42);
 
     void test(Cases...)() {
         auto cd = ColumnData(Cases[1]);
@@ -833,4 +862,14 @@ unittest  // UTF-8
         return true;
     });
     assert(ran);
+}
+
+unittest  // loadExtension failure test
+{
+    import std.algorithm : canFind;
+    import std.exception : collectExceptionMsg;
+
+    auto db = Database(":memory:");
+    auto msg = collectExceptionMsg(db.loadExtension("foobar"));
+    //assert(msg.canFind("(not authorized)"));
 }
