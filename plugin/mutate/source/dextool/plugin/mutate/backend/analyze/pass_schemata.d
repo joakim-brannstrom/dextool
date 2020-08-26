@@ -587,7 +587,16 @@ class BinaryOpVisitor : DepthFirstVisitor {
     void startVisit(T)(T n) {
         rootLoc = ast.location(n);
         root = rootLoc.interval;
+
+        if (root.begin >= root.end) {
+            // can happen for C macros
+            return;
+        }
+
         content = fio.makeInput(rootLoc.file).content;
+
+        if (content.empty)
+            return;
 
         foreach (mg; [EnumMembers!MutantGroup]) {
             schema[mg] = ExpressionChain(content[root.begin .. root.end]);
