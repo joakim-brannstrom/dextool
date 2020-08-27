@@ -159,6 +159,8 @@ struct TimeoutFsm {
 
     static void execute_(ref TimeoutFsm self, Database* db) @trusted {
         self.global.db = db;
+        // must always run the loop at least once.
+        self.global.stop = false;
 
         auto t = db.transaction;
         self.global.ctx = db.getMutantTimeoutCtx;
