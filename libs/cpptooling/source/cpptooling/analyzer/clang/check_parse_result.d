@@ -15,7 +15,7 @@ import clang.TranslationUnit : TranslationUnit;
  *
  * Returns: True if errors where found.
  */
-bool hasParseErrors(ref TranslationUnit tu) @safe {
+bool hasParseErrors(ref TranslationUnit tu) @trusted {
     import clang.c.Index : CXDiagnosticSeverity;
 
     if (!tu.isValid)
@@ -23,58 +23,51 @@ bool hasParseErrors(ref TranslationUnit tu) @safe {
 
     auto dia = tu.diagnostics;
 
-    auto rval = () @trusted {
-        foreach (diag; dia) {
-            auto severity = diag.severity;
+    foreach (diag; dia) {
+        auto severity = diag.severity;
 
-            final switch (severity) with (CXDiagnosticSeverity) {
-            case ignored:
-            case note:
-            case warning:
-                break;
-            case error:
-            case fatal:
-                return true;
-            }
+        final switch (severity) with (CXDiagnosticSeverity) {
+        case ignored:
+        case note:
+        case warning:
+            break;
+        case error:
+        case fatal:
+            return true;
         }
-        return false;
-    }();
-
-    return rval;
+    }
+    return false;
 }
 
 /** Log diagnostic error messages to std.logger.
  *
  * TODO Change to a template with a sink as parameter.
  */
-void logDiagnostic(ref TranslationUnit tu) @safe {
+void logDiagnostic(ref TranslationUnit tu) @trusted {
     import logger = std.experimental.logger;
-
     import clang.c.Index : CXDiagnosticSeverity;
 
     auto dia = tu.diagnostics;
 
-    () @trusted {
-        foreach (diag; dia) {
-            auto severity = diag.severity;
+    foreach (diag; dia) {
+        auto severity = diag.severity;
 
-            final switch (severity) with (CXDiagnosticSeverity) {
-            case ignored:
-                logger.info(diag.format);
-                break;
-            case note:
-                logger.info(diag.format);
-                break;
-            case warning:
-                logger.warning(diag.format);
-                break;
-            case error:
-                logger.error(diag.format);
-                break;
-            case fatal:
-                logger.error(diag.format);
-                break;
-            }
+        final switch (severity) with (CXDiagnosticSeverity) {
+        case ignored:
+            logger.info(diag.format);
+            break;
+        case note:
+            logger.info(diag.format);
+            break;
+        case warning:
+            logger.warning(diag.format);
+            break;
+        case error:
+            logger.error(diag.format);
+            break;
+        case fatal:
+            logger.error(diag.format);
+            break;
         }
-    }();
+    }
 }
