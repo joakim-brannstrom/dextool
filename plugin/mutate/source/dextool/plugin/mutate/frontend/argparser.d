@@ -135,7 +135,7 @@ struct ArgParser {
         app.put(null);
         app.put("# files and/or directories to look for compile_commands.json.");
         if (compileDb.dbs.length == 0)
-            app.put(`# search_paths = ["./compile_commands.json"]`);
+            app.put(`search_paths = ["./compile_commands.json"]`);
         else
             app.put(format("search_paths = %s", compileDb.rawDbs));
         app.put(null);
@@ -527,10 +527,11 @@ struct ArgParser {
     }
 }
 
-/// Update the config from the users input.
+/// Replace the config from the users input.
 void updateCompileDb(ref ConfigCompileDb db, string[] compile_dbs) {
     if (compile_dbs.length != 0)
         db.rawDbs = compile_dbs;
+
     db.dbs = db.rawDbs
         .filter!(a => a.length != 0)
         .map!(a => Path(a).AbsolutePath)
