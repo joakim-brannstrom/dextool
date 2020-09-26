@@ -131,7 +131,12 @@ do {
 
     // TODO: remove all key off in upgrade schemas.
     db.run("PRAGMA foreign_keys=OFF;");
-    upgrade(db);
+    try {
+        upgrade(db);
+    } catch (Exception e) {
+        logger.error("Unable to upgrade the database to the latest schema");
+        throw e;
+    }
     setPragmas(sqliteDb);
 
     return db;
@@ -494,13 +499,13 @@ long getSchemaVersion(ref Miniorm db) nothrow {
     return 0;
 }
 
-void upgrade(ref Miniorm db) nothrow {
+void upgrade(ref Miniorm db) {
     import d2sqlite3;
 
     immutable maxIndex = 5;
 
     alias upgradeFunc = void function(ref Miniorm db);
-    enum tbl = makeUpgradeTable;
+    auto tbl = makeUpgradeTable;
 
     bool hasUpdated;
 
@@ -580,7 +585,7 @@ void upgrade(ref Miniorm db) nothrow {
  * latest schema version.
  */
 void upgradeV0(ref Miniorm db) {
-    enum tbl = makeUpgradeTable;
+    auto tbl = makeUpgradeTable;
 
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl,
             MutationPointTbl, MutationTbl, TestCaseKilledTbl, AllTestCaseTbl,

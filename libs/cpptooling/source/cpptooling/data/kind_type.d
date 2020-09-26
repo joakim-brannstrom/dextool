@@ -184,40 +184,44 @@ private auto toCvPtrQ(T)(ref T app, const(TypeAttr)[] attrs) {
  *  - Don't encode the return type in the name (?)
  *  - Is it really a Decl-> declaration? Maybe more appropriate would be
  *    "merge", of type and attributes?
+ *
+ * trusted: shouldn't be needed but because of changes to dmd-2.094.0
  */
 auto toStringDecl(const TypeKind t, const TypeAttr ta, string id) @safe pure {
     import std.array : appender, Appender;
     import cpptooling.data;
 
-    static void oneArg(T)(ref Appender!string app, ref T fmt, ref const TypeAttr ta, DeclId id) {
-        fmt.toString(app, ta.isConst ? CvQ.const_ : CvQ(), id);
+    auto buf = appender!(char[])();
+    void txt(const(char)[] s) @safe pure {
+        buf.put(s);
     }
 
-    static void twoArg(T0, T1)(ref Appender!string app, ref T0 fmt,
-            ref const TypeAttr ta, DeclId id, T1 data1) {
-        fmt.toString(app, app, ta.isConst ? CvQ.const_ : CvQ(), data1, id);
+    void oneArg(T)(ref T fmt, ref const TypeAttr ta, DeclId id) {
+        fmt.toString(&txt, ta.isConst ? CvQ.const_ : CvQ(), id);
     }
 
-    auto txt = appender!string();
+    void twoArg(T0, T1)(ref T0 fmt, ref const TypeAttr ta, DeclId id, T1 data1) {
+        fmt.toString(&txt, &txt, ta.isConst ? CvQ.const_ : CvQ(), data1, id);
+    }
 
     // TODO sort them by alphabetic order
 
     final switch (t.info.kind) with (TypeKind.Info) {
     case Kind.primitive:
         auto info = cast(const TypeKind.PrimitiveInfo) t.info;
-        oneArg(txt, info.fmt, ta, DeclId(id));
+        oneArg(info.fmt, ta, DeclId(id));
         break;
     case Kind.record:
         auto info = cast(const TypeKind.RecordInfo) t.info;
-        oneArg(txt, info.fmt, ta, DeclId(id));
+        oneArg(info.fmt, ta, DeclId(id));
         break;
     case Kind.simple:
         auto info = cast(const TypeKind.SimpleInfo) t.info;
-        oneArg(txt, info.fmt, ta, DeclId(id));
+        oneArg(info.fmt, ta, DeclId(id));
         break;
     case Kind.typeRef:
         auto info = cast(const TypeKind.TypeRefInfo) t.info;
-        oneArg(txt, info.fmt, ta, DeclId(id));
+        oneArg(info.fmt, ta, DeclId(id));
         break;
     case Kind.array:
         auto info = cast(const TypeKind.ArrayInfo) t.info;
@@ -231,47 +235,47 @@ auto toStringDecl(const TypeKind t, const TypeAttr ta, string id) @safe pure {
             }
         }
 
-        info.fmt.toString(txt, txt, ta.isConst ? CvQ.const_ : CvQ(), DeclId(id), sz);
+        info.fmt.toString(&txt, &txt, ta.isConst ? CvQ.const_ : CvQ(), DeclId(id), sz);
         break;
     case Kind.func:
         auto info = cast(const TypeKind.FuncInfo) t.info;
-        info.fmt.toString(txt, txt, DeclId(id));
+        info.fmt.toString(&txt, &txt, DeclId(id));
         break;
     case Kind.funcSignature:
         auto info = cast(const TypeKind.FuncSignatureInfo) t.info;
-        info.fmt.toString(txt, txt);
+        info.fmt.toString(&txt, &txt);
         break;
     case Kind.funcPtr:
         auto ptrs = appender!(CvPtrQ[])();
         toCvPtrQ(ptrs, t.info.attrs);
 
         auto info = cast(const TypeKind.FuncPtrInfo) t.info;
-        twoArg(txt, info.fmt, ta, DeclId(id), ptrs.data);
+        twoArg(info.fmt, ta, DeclId(id), ptrs.data);
         break;
     case Kind.pointer:
         auto ptrs = appender!(CvPtrQ[])();
         toCvPtrQ(ptrs, t.info.attrs);
 
         auto info = cast(const TypeKind.PointerInfo) t.info;
-        twoArg(txt, info.fmt, ta, DeclId(id), ptrs.data);
+        twoArg(info.fmt, ta, DeclId(id), ptrs.data);
         break;
     case Kind.ctor:
         auto info = cast(const TypeKind.CtorInfo) t.info;
-        info.fmt.toString(txt, DeclId(id));
+        info.fmt.toString(&txt, DeclId(id));
         break;
     case Kind.dtor:
         auto info = cast(const TypeKind.DtorInfo) t.info;
-        info.fmt.toString(txt, DeclId(id));
+        info.fmt.toString(&txt, DeclId(id));
         break;
     case Kind.null_:
         debug {
             logger.error("Type is null. Identifier ", id);
         }
-        txt.put(id);
+        txt(id);
         break;
     }
 
-    return txt.data;
+    return buf.data.idup;
 }
 
 /// ditto
@@ -305,6 +309,16 @@ auto splitTypeId(ref const TypeKind t) @safe pure {
 
     TypeIdLR rval;
 
+    auto bufWl = appender!(char[])();
+    void wl(const(char)[] s) @safe pure {
+        bufWl.put(s);
+    }
+
+    auto bufWr = appender!(char[])();
+    void wr(const(char)[] s) @safe pure {
+        bufWr.put(s);
+    }
+
     final switch (t.info.kind) with (TypeKind.Info) {
     case Kind.primitive:
         auto info = cast(const TypeKind.PrimitiveInfo) t.info;
@@ -334,44 +348,34 @@ auto splitTypeId(ref const TypeKind t) @safe pure {
             }
         }
 
-        auto wl = appender!string();
-        auto wr = appender!string();
-        info.fmt.toString(wl, wr, CvQ(), DeclId(null), sz);
-        rval = TypeIdLR(Left(wl.data), Right(wr.data));
+        info.fmt.toString(&wl, &wr, CvQ(), DeclId(null), sz);
+        rval = TypeIdLR(Left(bufWl.data.idup), Right(bufWr.data.idup));
         break;
     case Kind.funcSignature:
         auto info = cast(const TypeKind.FuncSignatureInfo) t.info;
-        auto wl = appender!string();
-        auto wr = appender!string();
-        info.fmt.toString(wl, wr);
-        rval = TypeIdLR(Left(wl.data), Right(wr.data));
+        info.fmt.toString(&wl, &wr);
+        rval = TypeIdLR(Left(bufWl.data.idup), Right(bufWr.data.idup));
         break;
     case Kind.func:
         auto info = cast(const TypeKind.FuncInfo) t.info;
-        auto wl = appender!string();
-        auto wr = appender!string();
-        info.fmt.toString(wl, wr, DeclId(null));
-        rval = TypeIdLR(Left(wl.data), Right(wr.data));
+        info.fmt.toString(&wl, &wr, DeclId(null));
+        rval = TypeIdLR(Left(bufWl.data.idup), Right(bufWr.data.idup));
         break;
     case Kind.funcPtr:
         auto ptrs = appender!(CvPtrQ[])();
         toCvPtrQ(ptrs, t.info.attrs);
 
         auto info = cast(const TypeKind.FuncPtrInfo) t.info;
-        auto wl = appender!string();
-        auto wr = appender!string();
-        info.fmt.toString(wl, wr, CvQ(), ptrs.data, DeclId(null));
-        rval = TypeIdLR(Left(wl.data), Right(wr.data));
+        info.fmt.toString(&wl, &wr, CvQ(), ptrs.data, DeclId(null));
+        rval = TypeIdLR(Left(bufWl.data.idup), Right(bufWr.data.idup));
         break;
     case Kind.pointer:
         auto ptrs = appender!(CvPtrQ[])();
         toCvPtrQ(ptrs, t.info.attrs);
 
         auto info = cast(const TypeKind.PointerInfo) t.info;
-        auto wl = appender!string();
-        auto wr = appender!string();
-        info.fmt.toString(wl, wr, CvQ(), ptrs.data, DeclId(null));
-        rval = TypeIdLR(Left(wl.data), Right(wr.data));
+        info.fmt.toString(&wl, &wr, CvQ(), ptrs.data, DeclId(null));
+        rval = TypeIdLR(Left(bufWl.data.idup), Right(bufWr.data.idup));
         break;
     case Kind.ctor:
         // have no TypeId

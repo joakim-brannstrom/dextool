@@ -6,7 +6,7 @@
 	],
 	"description": "A sum type with pattern matching",
 	"copyright": "Copyright © 2018, Paul Backus",
-	"license": "MIT",
+	"license": "BSL-1.0",
 
 	"toolchainRequirements": {
 		"frontend": ">=2.088.0"
