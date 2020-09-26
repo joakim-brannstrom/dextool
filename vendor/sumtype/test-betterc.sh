@@ -1,2 +1,2 @@
 #!/bin/sh
-dmd -unittest -g -betterC -version=SumTypeTestBetterC -run src/sumtype.d
+dmd -unittest -g -betterC -I=src -i -run test_betterc.d
