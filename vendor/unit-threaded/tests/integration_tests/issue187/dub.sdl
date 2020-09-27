@@ -1,3 +1,3 @@
-name "issue121"
+name "issue187"
 targetType "executable"
 dependency "unit-threaded" path="../../.."
