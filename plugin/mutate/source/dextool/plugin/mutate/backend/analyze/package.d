@@ -677,7 +677,7 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
             ]);
     foreach (m; lostMutants) {
         typeof(tbl).Row r = [
-            m.mutationId.to!string, m.path, m.sloc.line.to!string,
+            m.mutationId.get.to!string, m.path, m.sloc.line.to!string,
             m.sloc.column.to!string, m.toStatus.to!string, m.rationale
         ];
         tbl.put(r);

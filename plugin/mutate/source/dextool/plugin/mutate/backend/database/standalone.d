@@ -656,7 +656,7 @@ struct Database {
             const MutationStatusId st_id, const Checksum cs,
             const Mutation.Status s, const Rationale r, string mutationTxt) @trusted {
         db.run(insertOrReplace!MarkedMutantTbl, MarkedMutantTbl(cs.c0, cs.c1,
-                st_id, id, sloc.line, sloc.column, file, s, Clock.currTime.toUTC, r, mutationTxt));
+                st_id, id.get, sloc.line, sloc.column, file, s, Clock.currTime.toUTC, r, mutationTxt));
     }
 
     void removeMarkedMutant(const Checksum cs) @trusted {

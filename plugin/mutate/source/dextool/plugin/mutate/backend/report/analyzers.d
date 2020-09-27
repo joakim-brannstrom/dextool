@@ -353,7 +353,7 @@ void reportTestCaseKillMap(WriterTextT, WriterT)(ref const MutationsMap mut_stat
                 row[3] = format("`%s`", window(v.mutation.mutation, windowSize));
             }
 
-            row[0] = mut.to!string;
+            row[0] = mut.get.to!string;
             tbl.put(row);
         }
 
@@ -372,7 +372,7 @@ void reportMutationTestCaseSuggestion(WriterT)(ref Database db,
 
     foreach (mut_id; tc_sugg) {
         MutTable tbl;
-        tbl.heading = [mut_id.to!string];
+        tbl.heading = [mut_id.get.to!string];
 
         try {
             auto suggestions = db.getSurroundingTestCases(mut_id);

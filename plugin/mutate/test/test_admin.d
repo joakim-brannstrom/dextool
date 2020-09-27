@@ -22,11 +22,6 @@ import dextool_test.utility;
 
 alias Status = Mutation.Status;
 alias Command = BuildCommandRunResult;
-const errorOrFailure = ["error", "Failure"];
-
-void commandNotFailed(Command cmd) {
-    testAnyOrder!SubStr(errorOrFailure).shouldNotBeIn(cmd.output);
-}
 
 class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
     override string programFile() {
@@ -141,9 +136,10 @@ unittest {
         .run;
 
     // assert
-    commandNotFailed(r);
+    testAnyOrder!SubStr(["error"]).shouldNotBeIn(r.output);
+
     testAnyOrder!SubStr([
-        to!string(12),
+        to!string(4),
         to!string(Status.killed),
         `"A good rationale"`
     ]).shouldBeIn(r.output);
@@ -175,10 +171,8 @@ unittest {
     auto db = createDatabase(testEnv);
     db.getMutation(MutationId(5000)).isNull.shouldBeTrue;
 
-    testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.output);
-    testAnyOrder!SubStr([
-            format!"Failure when marking mutant: %s"(to!string(5000))
-            ]).shouldBeIn(r.output);
+    testAnyOrder!SubStr(["error"]).shouldBeIn(r.output);
+    testAnyOrder!SubStr([format!"Mutant with ID %s do not exist"(5000)]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall mark same mutant twice")
@@ -193,21 +187,21 @@ unittest {
     // dfmt off
     auto firstRes = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(3)])
+        .addArg(["--id",        "3"])
         .addArg(["--to-status", to!string(Status.killedByCompiler)])
         .addArg(["--rationale", `"Backend claims mutant should not compile on target cpu"`])
         .run;
     auto secondRes = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(3)])
+        .addArg(["--id",        "3"])
         .addArg(["--to-status", to!string(Status.unknown)])
         .addArg(["--rationale", `"Backend was wrong, mutant is legit..."`])
         .run;
 
     // assert
-    commandNotFailed(secondRes);
+    testAnyOrder!SubStr(["error"]).shouldNotBeIn(secondRes.output);
     testAnyOrder!SubStr([
-        to!string(3),
+        "3",
         to!string(Status.unknown),
         `"Backend was wrong, mutant is legit..."`
     ]).shouldBeIn(secondRes.output);
@@ -227,19 +221,19 @@ unittest {
     // dfmt off
     makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(10)])
+        .addArg(["--id",        "10"])
         .addArg(["--to-status", to!string(Status.killed)])
         .addArg(["--rationale", `"This marking should not exist"`])
         .run;
     db.isMarked(MutationId(10)).shouldBeTrue;
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "removeMarkedMutant"])
-        .addArg(["--id",        to!string(10)])
+        .addArg(["--id",        "10"])
         .run;
     // dfmt on
 
     // assert
-    commandNotFailed(r);
+    testAnyOrder!SubStr(["error"]).shouldNotBeIn(r.output);
     db.isMarked(MutationId(10)).shouldBeFalse;
     (db.getMutationStatus(MutationId(10)) == Status.unknown).shouldBeTrue;
 
@@ -261,18 +255,16 @@ unittest {
     // dfmt off
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "removeMarkedMutant"])
-        .addArg(["--id",        to!string(MutationId(20))])
+        .addArg(["--id",        "20"])
         .run;
     // dfmt on
 
     // assert
     db.isMarked(MutationId(20)).shouldBeFalse;
 
-    testAnyOrder!SubStr(errorOrFailure).shouldBeIn(r.output);
-    testAnyOrder!SubStr(
-            [
-            format!"Failure when removing marked mutant (mutant %s is not marked)"(
-                to!string(MutationId(20)))
+    testAnyOrder!SubStr(["error"]).shouldBeIn(r.output);
+    testAnyOrder!SubStr([
+            "Failure when removing marked mutant (mutant 20 is not marked"
             ]).shouldBeIn(r.output);
 }
 

@@ -83,7 +83,7 @@ nothrow:
         return this;
     }
 
-    auto markMutantData(long v, string s, FilesysIO f) {
+    auto markMutantData(MutationId v, string s, FilesysIO f) {
         data.mutant_id = v;
         data.mutant_rationale = s;
         data.fio = f;
@@ -208,7 +208,7 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
 
         auto mut = db.getMutation(id);
         if (mut.isNull) {
-            logger.errorf("Failure when marking mutant: %s", id);
+            logger.errorf("Mutant with ID %s do not exist", id.get);
             return ExitStatusType.Errors;
         }
 
@@ -229,7 +229,7 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
 
         db.updateMutationStatus(st_id, status);
 
-        logger.infof(`Mutant %s marked with status %s and rationale %s`, id, status, rationale);
+        logger.infof(`Mutant %s marked with status %s and rationale %s`, id.get, status, rationale);
 
         trans.commit;
         return ExitStatusType.Ok;
@@ -247,7 +247,7 @@ ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothr
         // MutationStatusId used as check, removal of marking and updating status to unknown
         const st_id = db.getMutationStatusId(id);
         if (st_id.isNull) {
-            logger.errorf("Failure when removing marked mutant: %s", id);
+            logger.errorf("Mutant with ID %s do not exist", id.get);
             return ExitStatusType.Errors;
         }
 
@@ -256,7 +256,7 @@ ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothr
             db.updateMutationStatus(st_id.get, Mutation.Status.unknown);
             logger.infof("Removed marking for mutant %s.", id);
         } else {
-            logger.errorf("Failure when removing marked mutant (mutant %s is not marked)", id);
+            logger.errorf("Failure when removing marked mutant (mutant %s is not marked)", id.get);
         }
 
         trans.commit;
