@@ -133,7 +133,6 @@ struct Key {
 }
 
 @("Should be a component dependency from comp->comp_a via a c'tors parameter")
-@Values("", "*", "&")
 unittest {
     // Testing that even though comp is processed first and have a forward
     // declaration of a relation is still created to the definition of A
@@ -145,27 +144,28 @@ class A_ByCtor {
     A_ByCtor(A%s a);
 };";
 
-    // arrange
-    auto be = scoped!Backend();
-    be.ctx.vfs.open(new Blob(Uri("/comp/ctor.hpp"), format(comp_ctor, getValue!string)));
-    be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
-    auto tu0 = be.ctx.makeTranslationUnit("/comp/ctor.hpp", Snippet.includes);
-    auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
+    foreach (getValue; ["", "*", "&"]) {
+        // arrange
+        auto be = scoped!Backend();
+        be.ctx.vfs.open(new Blob(Uri("/comp/ctor.hpp"), format(comp_ctor, getValue)));
+        be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
+        auto tu0 = be.ctx.makeTranslationUnit("/comp/ctor.hpp", Snippet.includes);
+        auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
-    // act
-    actTwoFiles(tu0, tu1, be);
+        // act
+        actTwoFiles(tu0, tu1, be);
 
-    // assert
-    auto result = be.uml_component.relateToFlatArray;
+        // assert
+        auto result = be.uml_component.relateToFlatArray;
 
-    result.length.shouldEqual(1);
+        result.length.shouldEqual(1);
 
-    result[0].from.shouldEqual(USRType(Key.comp));
-    result[0].to.shouldEqual(USRType(Key.comp_a));
+        result[0].from.shouldEqual(USRType(Key.comp));
+        result[0].to.shouldEqual(USRType(Key.comp_a));
+    }
 }
 
 @("Should be a component dependency from comp->comp_a via a methods parameter")
-@Values("", "*", "&")
 unittest {
     enum comp_method = "
 class A;
@@ -174,26 +174,27 @@ class A_ByParam {
     void param(A%s a);
 };";
 
-    // arrange
-    auto be = scoped!Backend();
-    be.ctx.vfs.open(new Blob(Uri("/comp/a.hpp"), format(comp_method, getValue!string)));
-    be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
-    auto tu0 = be.ctx.makeTranslationUnit("/comp/a.hpp", Snippet.includes);
-    auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
+    foreach (getValue; ["", "*", "&"]) {
+        // arrange
+        auto be = scoped!Backend();
+        be.ctx.vfs.open(new Blob(Uri("/comp/a.hpp"), format(comp_method, getValue)));
+        be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
+        auto tu0 = be.ctx.makeTranslationUnit("/comp/a.hpp", Snippet.includes);
+        auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
-    // act
-    actTwoFiles(tu0, tu1, be);
+        // act
+        actTwoFiles(tu0, tu1, be);
 
-    // assert
-    auto result = be.uml_component.relateToFlatArray;
-    result.length.shouldEqual(1);
+        // assert
+        auto result = be.uml_component.relateToFlatArray;
+        result.length.shouldEqual(1);
 
-    result[0].from.shouldEqual(USRType(Key.comp));
-    result[0].to.shouldEqual(USRType(Key.comp_a));
+        result[0].from.shouldEqual(USRType(Key.comp));
+        result[0].to.shouldEqual(USRType(Key.comp_a));
+    }
 }
 
 @("Should be a component dependency from comp->comp_a via a functions parameter")
-@Values("", "*", "&")
 unittest {
     enum comp_func = "
 class A;
@@ -201,26 +202,27 @@ class A;
 void free_func(A%s a);
 ";
 
-    // arrange
-    auto be = scoped!Backend();
-    be.ctx.vfs.open(new Blob(Uri("/comp/fun.hpp"), format(comp_func, getValue!string)));
-    be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
-    auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
-    auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
+    foreach (getValue; ["", "*", "&"]) {
+        // arrange
+        auto be = scoped!Backend();
+        be.ctx.vfs.open(new Blob(Uri("/comp/fun.hpp"), format(comp_func, getValue)));
+        be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
+        auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
+        auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
-    // act
-    actTwoFiles(tu0, tu1, be);
+        // act
+        actTwoFiles(tu0, tu1, be);
 
-    // assert
-    auto result = be.uml_component.relateToFlatArray;
-    result.length.shouldEqual(1);
+        // assert
+        auto result = be.uml_component.relateToFlatArray;
+        result.length.shouldEqual(1);
 
-    result[0].from.shouldEqual(USRType(Key.comp));
-    result[0].to.shouldEqual(USRType(Key.comp_a));
+        result[0].from.shouldEqual(USRType(Key.comp));
+        result[0].to.shouldEqual(USRType(Key.comp_a));
+    }
 }
 
 @("Should be a component dependency from comp->comp_a via a class member")
-@Values("", "*", "&")
 unittest {
     enum comp_func = "
 %s
@@ -230,27 +232,28 @@ class A_ByMember {
     A%s a;
 };";
 
-    // arrange
-    auto be = scoped!Backend();
-    be.ctx.vfs.open(new Blob(Uri("/comp/fun.hpp"), format(comp_func,
-            getValue!string.length == 0 ? Snippet.include_comp_a : "", getValue!string)));
-    be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
-    auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
-    auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
+    foreach (getValue; ["", "*", "&"]) {
+        // arrange
+        auto be = scoped!Backend();
+        be.ctx.vfs.open(new Blob(Uri("/comp/fun.hpp"), format(comp_func,
+                getValue.length == 0 ? Snippet.include_comp_a : "", getValue)));
+        be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
+        auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
+        auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
 
-    // act
-    actTwoFiles(tu0, tu1, be);
+        // act
+        actTwoFiles(tu0, tu1, be);
 
-    // assert
-    auto result = be.uml_component.relateToFlatArray;
-    result.length.shouldEqual(1);
+        // assert
+        auto result = be.uml_component.relateToFlatArray;
+        result.length.shouldEqual(1);
 
-    result[0].from.shouldEqual(USRType(Key.comp));
-    result[0].to.shouldEqual(USRType(Key.comp_a));
+        result[0].from.shouldEqual(USRType(Key.comp));
+        result[0].to.shouldEqual(USRType(Key.comp_a));
+    }
 }
 
 @("Should be a component dependency from comp->comp_a via a free variable")
-@Values("instantiation", "pointer")
 unittest {
     enum comp_free_variable = "
 class A;
@@ -266,31 +269,33 @@ A a;
 
     string comp;
 
-    switch (getValue!string) {
-    case "instantiation":
-        comp = comp_global_instantiation;
-        break;
-    case "pointer":
-        comp = comp_free_variable;
-        break;
-    default:
-        true.shouldBeFalse;
+    foreach (getValue; ["instantiation", "pointer"]) {
+        switch (getValue) {
+        case "instantiation":
+            comp = comp_global_instantiation;
+            break;
+        case "pointer":
+            comp = comp_free_variable;
+            break;
+        default:
+            true.shouldBeFalse;
+        }
+
+        // arrange
+        auto be = scoped!Backend();
+        be.ctx.vfs.open(new Blob(Uri("/comp/fun.hpp"), comp));
+        be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
+        auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
+        auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
+
+        // act
+        actTwoFiles(tu0, tu1, be);
+
+        // assert
+        auto result = be.uml_component.relateToFlatArray;
+        result.length.shouldEqual(1);
+
+        result[0].from.shouldEqual(USRType(Key.comp));
+        result[0].to.shouldEqual(USRType(Key.comp_a));
     }
-
-    // arrange
-    auto be = scoped!Backend();
-    be.ctx.vfs.open(new Blob(Uri("/comp/fun.hpp"), comp));
-    be.ctx.vfs.open(new Blob(Uri("/comp_a/a.hpp"), Snippet.comp_a));
-    auto tu0 = be.ctx.makeTranslationUnit("/comp/fun.hpp", Snippet.includes);
-    auto tu1 = be.ctx.makeTranslationUnit("/comp_a/a.hpp", Snippet.includes);
-
-    // act
-    actTwoFiles(tu0, tu1, be);
-
-    // assert
-    auto result = be.uml_component.relateToFlatArray;
-    result.length.shouldEqual(1);
-
-    result[0].from.shouldEqual(USRType(Key.comp));
-    result[0].to.shouldEqual(USRType(Key.comp_a));
 }

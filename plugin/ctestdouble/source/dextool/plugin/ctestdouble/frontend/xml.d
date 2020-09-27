@@ -68,7 +68,7 @@ ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_fi
     return app;
 }
 
-auto parseRawConfig(T)(T xml) @trusted {
+XmlConfig parseRawConfig(T)(T xml) @trusted {
     import std.conv : to, ConvException;
     import std.xml;
 
@@ -148,7 +148,7 @@ unittest {
     auto p = parseRawConfig(xml);
 
     p.version_.dup.shouldEqual("test");
-    p.command.dup.shouldEqual([]);
+    p.command.payload.shouldEqual(string[].init);
     p.skipCompilerArgs.shouldEqual(2);
     p.filterClangFlags.shouldEqual([
             FilterClangFlag("foo"), FilterClangFlag("-foo"),

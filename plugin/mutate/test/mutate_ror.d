@@ -16,20 +16,21 @@ import unit_threaded;
 // dfmt off
 
 @(testId ~ "shall produce all ROR mutations")
-@Values("ror_primitive.cpp", "ror_overload.cpp")
 unittest {
+foreach (getValue; ["ror_primitive.cpp", "ror_overload.cpp"]) {
     mixin(envSetup(globalTestdir, No.setupEnv));
-    testEnv.outputSuffix(getValue!string);
+    testEnv.outputSuffix(getValue);
     testEnv.setupEnv;
 
     makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ getValue!string)
+        .addInputArg(testData ~ getValue)
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
         .addArg(["--mutant", "ror"])
         .run;
     verifyRor(r.output);
+}
 }
 
 void verifyRor(string[] txt) {

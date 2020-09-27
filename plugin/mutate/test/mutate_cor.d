@@ -15,20 +15,21 @@ import dextool_test.utility;
 // unproductive effective mutants. Hard to understand.
 @(ShouldFail)
 @("shall produce all COR mutations for primitive types")
-@Values("lcr_primitive.cpp", "lcr_overload.cpp", "lcr_in_ifstmt.cpp")
 unittest {
+foreach (getValue; ["lcr_primitive.cpp", "lcr_overload.cpp", "lcr_in_ifstmt.cpp"]) {
     mixin(envSetup(globalTestdir, No.setupEnv));
-    testEnv.outputSuffix(getValue!string);
+    testEnv.outputSuffix(getValue);
     testEnv.setupEnv;
 
     makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ getValue!string)
+        .addInputArg(testData ~ getValue)
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
         .addArg(["--mutant", "cor"])
         .run;
     verifyCor(r.output);
+}
 }
 
 void verifyCor(const(string)[] txt) {

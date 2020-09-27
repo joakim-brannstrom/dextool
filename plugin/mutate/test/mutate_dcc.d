@@ -65,14 +65,14 @@ unittest {
 }
 
 @(testId ~ "shall produce 2 predicate mutations for an expression of multiple clauses")
-@Values("dcc_dc_ifstmt3.cpp", "dcc_dc_stmt3.cpp")
 unittest {
+foreach (getValue; ["dcc_dc_ifstmt3.cpp", "dcc_dc_stmt3.cpp"]) {
     mixin(envSetup(globalTestdir, No.setupEnv));
-    testEnv.outputSuffix(getValue!string);
+    testEnv.outputSuffix(getValue);
     testEnv.setupEnv;
 
     makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ getValue!string)
+        .addInputArg(testData ~ getValue)
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
@@ -83,16 +83,17 @@ unittest {
         "from 'x == 0 || y == 0' to 'false'",
     ]).shouldBeIn(r.output);
 }
+}
 
 @(testId ~ "shall produce 6 clause mutations")
-@Values("dcc_cc_ifstmt1.cpp", "dcc_cc_stmt1.cpp")
 unittest {
+foreach (getValue; ["dcc_cc_ifstmt1.cpp", "dcc_cc_stmt1.cpp"]) {
     mixin(envSetup(globalTestdir, No.setupEnv));
-    testEnv.outputSuffix(getValue!string);
+    testEnv.outputSuffix(getValue);
     testEnv.setupEnv;
 
     makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ getValue!string)
+        .addInputArg(testData ~ getValue)
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
@@ -116,6 +117,7 @@ unittest {
     r.output.joiner.count("'x == 2'").shouldEqual(2);
     r.output.joiner.count("'y > 0'").shouldEqual(2);
     r.output.joiner.count("'x > 2'").shouldEqual(2);
+}
 }
 
 @(testId ~ "shall produce 4 switch bomb mutations")

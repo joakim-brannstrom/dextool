@@ -338,24 +338,25 @@ unittest {
 @(
         testId
         ~ "Generation of the ZeroGlobals implementation is controlled by the CLI flag --no-zeroglobals")
-@Values(["yes", ""], ["no", "--no-zeroglobals"])
 unittest {
+foreach (getValue; [["yes", ""], ["no", "--no-zeroglobals"]]) {
     mixin(envSetup(globalTestdir, No.setupEnv));
-    testEnv.outputSuffix(getValue!(string[])[0]);
+    testEnv.outputSuffix(getValue[0]);
     testEnv.setupEnv;
 
     makeDextool(testEnv)
         .addInputArg(testData ~ "stage_2/param_no_zeroglobals.h")
-        .addArg(getValue!(string[])[1])
+        .addArg(getValue[1])
         .run;
     makeCompare(testEnv)
-        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue!(string[])[0]).setExtension(".hpp.ref"), "test_double.hpp")
-        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue!(string[])[0]).setExtension(".cpp.ref"), "test_double.cpp")
+        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue[0]).setExtension(".hpp.ref"), "test_double.hpp")
+        .addCompare(testData ~ ("stage_2/param_no_zeroglobals_" ~ getValue[0]).setExtension(".cpp.ref"), "test_double.cpp")
         .run;
     makeCompile(testEnv, testData ~ "stage_2")
         .addDefine("TEST_INCLUDE")
         .run;
     makeCommand(testEnv, defaultBinary).run;
+}
 }
 
 @(testId ~ "Configuration data read from a file")
