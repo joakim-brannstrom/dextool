@@ -239,7 +239,7 @@ struct WeakRef(T) {
         }
     }
 
-    void opAssign(WeakRef other) @safe {
+    void opAssign(WeakRef other) @safe nothrow {
         swap(impl, other.impl);
     }
 
@@ -279,12 +279,12 @@ struct WeakRef(T) {
     size_t dtorcalled = 0;
     struct S {
         int x;
-        @safe ~this() nothrow {
+        @safe ~this() {
             if (x)
                 dtorcalled++;
         }
 
-        //@disable this(this);
+        @disable this(this);
     }
 
     {
@@ -310,12 +310,12 @@ struct WeakRef(T) {
         int x;
         WeakRef!(typeof(this)) other;
 
-        @safe ~this() nothrow {
+        @safe ~this() {
             if (x)
                 dtorcalled++;
         }
 
-        //@disable this(this);
+        @disable this(this);
     }
 
     {
