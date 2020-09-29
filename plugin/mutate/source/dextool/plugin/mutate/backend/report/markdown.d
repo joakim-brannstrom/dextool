@@ -206,7 +206,7 @@ struct Markdown(Writer, TraceWriter) {
                 format("`%s`", window(mut_txt.original, windowSize)),
                 format("`%s`", window(mut_txt.mutation, windowSize)),
                 format("%s %s:%s", r.file, r.sloc.line, r.sloc.column),
-                r.id.to!string,
+                r.id.get.to!string,
                 r.mutation.status.to!string,
             ];
             mut_tbl.put(r_);

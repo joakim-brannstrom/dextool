@@ -43,20 +43,21 @@ unittest {
 }
 
 @(testId ~ "shall derive the flags for parsing single_file.h via the #include in single_file_main.c in the compilation database")
-@(Values(["compile_db/dir1/single_file.h", "use_file"], ["compile_db/single_file.h", "fallback"]))
 unittest {
+foreach (getValue; [["compile_db/dir1/single_file.h", "use_file"], ["compile_db/single_file.h", "fallback"]]) {
     mixin(envSetup(globalTestdir, No.setupEnv));
-    testEnv.outputSuffix(getValue!(string[])[1]);
+    testEnv.outputSuffix(getValue[1]);
     testEnv.setupEnv;
 
     auto r = makeDextool(testEnv)
         .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
-        .addInputArg(testData ~ getValue!(string[])[0])
+        .addInputArg(testData ~ getValue[0])
         .run;
 
     r.output.sliceContains(`Analyzing all files in the compilation DB for one that has an '#include "single_file.h"'`).shouldBeTrue;
     // the file returned shall be the full path for the one searching for
     r.output.sliceContains("because it has an '#include' for '" ~ (testData ~ "compile_db/dir1/single_file.h").toString).shouldBeTrue;
+}
 }
 
 @(testId ~ "Should load compiler settings from the second compilation database")

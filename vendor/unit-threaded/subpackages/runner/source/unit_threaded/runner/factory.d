@@ -26,7 +26,7 @@ from!"unit_threaded.runner.testcase".TestCase[] createTestCases(
     foreach(const data; testData) {
         if(!isWantedTest(data, testsToRun)) continue;
         auto test = createTestCase(data);
-         if(test !is null) tests[test] = true; //can be null if abtract base class
+        if(test !is null) tests[test] = true; //can be null if abtract base class
     }
 
     return tests.keys.sort!((a, b) => a.getPath < b.getPath).array;
@@ -45,21 +45,14 @@ from!"unit_threaded.runner.testcase".TestCase createTestCase(
             BuiltinTestCase, FunctionTestCase, ShouldFailTestCase, FlakyTestCase;
         import std.conv: text;
 
-        TestCase testCase;
-
-        if(testData.isTestClass)
-            testCase = cast(TestCase) Object.factory(testData.name);
-         else
-            testCase = testData.builtin
-                ? new BuiltinTestCase(testData)
-                : new FunctionTestCase(testData);
+        TestCase testCase = testData.builtin
+            ? new BuiltinTestCase(testData)
+            : new FunctionTestCase(testData);
 
         version(unitThreadedLight) {}
         else
             assert(testCase !is null,
-                   text("Error creating test case with ",
-                        testData.isTestClass ? "test class data: " : "data: ",
-                        testData));
+                   text("Error creating test case with data: ", testData));
 
         if(testData.shouldFail) {
             testCase = new ShouldFailTestCase(testCase, testData.exceptionTypeInfo);
@@ -139,9 +132,4 @@ private bool isWantedNonTagTest(in from!"unit_threaded.runner.reflection".TestDa
     }
 
     return testsToRun.any!(a => matchesExactly(a) || matchesPackage(a));
-}
-
-
-unittest {
-    assert(false);
 }

@@ -13,7 +13,7 @@ import dextool.type : ExitStatusType;
 import application.cli_help;
 
 version (unittest) {
-    import unit_threaded : shouldEqual, Values, getValue;
+    import unit_threaded : shouldEqual;
 }
 
 private enum CLICategoryStatus {
@@ -75,10 +75,11 @@ version (unittest) {
     }
 
     @("Should flag that debug mode is to be activated")
-    @Values("-d", "--debug")
     unittest {
-        auto result = parseMainCLI(["dextool", getValue!string]);
-        result.confLog.shouldEqual(VerboseMode.trace);
+        foreach (getValue; ["-d", "--debug"]) {
+            auto result = parseMainCLI(["dextool", getValue]);
+            result.confLog.shouldEqual(VerboseMode.trace);
+        }
     }
 
     @("Should be the version category")
@@ -88,10 +89,11 @@ version (unittest) {
     }
 
     @("Should be the help category")
-    @Values("help", "-h", "--help")
     unittest {
-        auto result = parseMainCLI(["dextool", getValue!string]);
-        result.status.shouldEqual(CLICategoryStatus.Help);
+        foreach (getValue; ["help", "-h", "--help"]) {
+            auto result = parseMainCLI(["dextool", getValue]);
+            result.status.shouldEqual(CLICategoryStatus.Help);
+        }
     }
 }
 

@@ -313,66 +313,50 @@ final class ClassVisitor : Visitor {
 }
 
 @("Should be parameters and return type that are of primitive type")
-// dfmt off
-@Values("int",
-        "signed int",
-        "unsigned int",
-        "unsigned",
-        "char",
-        "signed char",
-        "unsigned char",
-        "short",
-        "signed short",
-        "unsigned short",
-        "long",
-        "signed long",
-        "unsigned long",
-        "long long",
-        "signed long long",
-        "unsigned long long",
-        "float",
-        "double",
-        "long double",
-        "wchar_t",
-        "bool",
-        )
-@Tags("slow") // execution time is >500ms
-// dfmt on
+@Tags("slow")  // execution time is >500ms
 unittest {
-    enum code = "%s fun(%s);";
+    foreach (getValue; [
+            "int", "signed int", "unsigned int", "unsigned", "char", "signed char",
+            "unsigned char", "short", "signed short", "unsigned short",
+            "long", "signed long", "unsigned long", "long long",
+            "signed long long", "unsigned long long", "float", "double",
+            "long double", "wchar_t", "bool"
+        ]) {
+        enum code = "%s fun(%s);";
 
-    // arrange
-    auto visitor = new TestVisitor;
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.vfs.open(new Blob(Uri("issue.hpp"), format(code, getValue!string, getValue!string)));
-    auto tu = ctx.makeTranslationUnit("issue.hpp");
+        // arrange
+        auto visitor = new TestVisitor;
+        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+        ctx.vfs.open(new Blob(Uri("issue.hpp"), format(code, getValue, getValue)));
+        auto tu = ctx.makeTranslationUnit("issue.hpp");
 
-    // act
-    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
-    ast.accept(visitor);
+        // act
+        auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+        ast.accept(visitor);
 
-    // assert
-    checkForCompilerErrors(tu).shouldBeFalse;
-    visitor.found.shouldBeTrue;
-    visitor.funcs[0].type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
-    (cast(string) visitor.funcs[0].name).shouldEqual("fun");
+        // assert
+        checkForCompilerErrors(tu).shouldBeFalse;
+        visitor.found.shouldBeTrue;
+        visitor.funcs[0].type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
+        (cast(string) visitor.funcs[0].name).shouldEqual("fun");
 
-    foreach (param; visitor.funcs[0].params) {
-        TypeKindAttr type;
-        // dfmt off
+        foreach (param; visitor.funcs[0].params) {
+            TypeKindAttr type;
+            // dfmt off
         param.visit!(
                      (TypeKindVariable v) => type = v.type,
                      (TypeKindAttr v) => type = v,
                      (VariadicType v) => type = type);
         // dfmt on
 
-        type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
-    }
+            type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
+        }
 
-    // do not try and verify the string representation of the type.
-    // It may be platform and compiler specific.
-    // For example is signed char -> char.
-    visitor.funcs[0].returnType.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
+        // do not try and verify the string representation of the type.
+        // It may be platform and compiler specific.
+        // For example is signed char -> char.
+        visitor.funcs[0].returnType.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
+    }
 }
 
 @("Should be the USR of the function declaration not the typedef signature")
@@ -588,21 +572,24 @@ class A_ByCtor { A_ByCtor(A a); };";
 }
 
 @("Should not crash on an anonymous type")
-@Values("struct A { union { int x; }; };", "struct A { struct { int x; }; };")
 unittest {
-    // arrange
-    auto visitor = new TestDeclVisitor;
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.vfs.open(new Blob(Uri("/issue.hpp"), getValue!string));
-    auto tu = ctx.makeTranslationUnit("/issue.hpp");
+    foreach (getValue; [
+            "struct A { union { int x; }; };", "struct A { struct { int x; }; };"
+        ]) {
+        // arrange
+        auto visitor = new TestDeclVisitor;
+        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+        ctx.vfs.open(new Blob(Uri("/issue.hpp"), getValue));
+        auto tu = ctx.makeTranslationUnit("/issue.hpp");
 
-    // act
-    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
-    ast.accept(visitor);
+        // act
+        auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+        ast.accept(visitor);
 
-    // assert
-    checkForCompilerErrors(tu).shouldBeFalse;
-    // didn't crash
+        // assert
+        checkForCompilerErrors(tu).shouldBeFalse;
+        // didn't crash
+    }
 }
 
 @("Should be a builtin with a function name")
@@ -724,7 +711,6 @@ void my_func(myString3 s);
 }
 
 @("shall derive the constness of the return type")
-@Values("int", "int*", "int&", "MyInt", "MyInt*", "MyInt&")
 unittest {
     immutable code = "
 typedef int MyInt;
@@ -734,24 +720,26 @@ class Class {
 };
 ";
 
-    // arrange
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    ctx.vfs.open(new Blob(Uri("/issue.hpp"), format(code, getValue!string)));
-    auto tu = ctx.makeTranslationUnit("/issue.hpp");
-    auto visitor = new ClassVisitor;
+    foreach (getValue; ["int", "int*", "int&", "MyInt", "MyInt*", "MyInt&"]) {
+        // arrange
+        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+        ctx.vfs.open(new Blob(Uri("/issue.hpp"), format(code, getValue)));
+        auto tu = ctx.makeTranslationUnit("/issue.hpp");
+        auto visitor = new ClassVisitor;
 
-    // act
-    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
-    ast.accept(visitor);
+        // act
+        auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+        ast.accept(visitor);
 
-    // assert
-    checkForCompilerErrors(tu).shouldBeFalse;
-    visitor.found.shouldBeTrue;
+        // assert
+        checkForCompilerErrors(tu).shouldBeFalse;
+        visitor.found.shouldBeTrue;
 
-    {
-        auto type2 = visitor.container.find!TypeKind(USRType("c:@S@Class@F@fun#"));
-        type2.length.shouldEqual(1);
-        type2.front.info.kind.shouldEqual(TypeKind.Info.Kind.func);
-        type2.front.info.returnAttr.isConst.shouldBeTrue;
+        {
+            auto type2 = visitor.container.find!TypeKind(USRType("c:@S@Class@F@fun#"));
+            type2.length.shouldEqual(1);
+            type2.front.info.kind.shouldEqual(TypeKind.Info.Kind.func);
+            type2.front.info.returnAttr.isConst.shouldBeTrue;
+        }
     }
 }

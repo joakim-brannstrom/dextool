@@ -57,54 +57,12 @@ import my.path;
  * purposes and should not place larger files in it, since it might reside in
  * runtime memory and cannot necessarily be swapped out to disk.
  */
-Path xdgRuntimeDir(Path fallback = Path("/tmp")) @safe {
+Path xdgRuntimeDir(AbsolutePath fallback = AbsolutePath("/tmp")) @safe {
     import std.process : environment;
-
-    Path backup() @trusted {
-        import core.stdc.stdio : perror;
-        import core.sys.posix.sys.stat : mkdir;
-        import core.sys.posix.sys.stat;
-        import core.sys.posix.unistd : getuid;
-        import std.file : exists;
-        import std.format : format;
-        import std.string : toStringz;
-
-        const base = fallback ~ format!"user_%s"(getuid);
-        string rval;
-
-        foreach (i; 0 .. 1000) {
-            // create
-            rval = format!"%s_%s"(base, i);
-            const cstr = rval.toStringz;
-
-            if (!exists(rval)) {
-                if (mkdir(cstr, S_IRWXU) != 0) {
-                    continue;
-                }
-            }
-
-            // validate
-            stat_t st;
-            stat(cstr, &st);
-            if (st.st_uid == getuid && (st.st_mode & S_IFDIR) != 0
-                    && ((st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) == S_IRWXU)) {
-                break;
-            }
-
-            // try again
-            rval = null;
-        }
-
-        if (rval.empty) {
-            perror(null);
-            throw new Exception("Unable to create XDG_RUNTIME_DIR " ~ rval);
-        }
-        return Path(rval);
-    }
 
     auto xdg = environment.get("XDG_RUNTIME_DIR").Path;
     if (xdg.empty)
-        xdg = backup;
+        xdg = makeXdgRuntimeDir(fallback);
     return xdg;
 }
 
@@ -116,4 +74,49 @@ unittest {
     auto hostEnv = environment.get("XDG_RUNTIME_DIR");
     if (!hostEnv.empty)
         assert(xdg == hostEnv);
+}
+
+AbsolutePath makeXdgRuntimeDir(AbsolutePath rootDir = AbsolutePath("/tmp")) @trusted {
+    import core.stdc.stdio : perror;
+    import core.sys.posix.sys.stat : mkdir;
+    import core.sys.posix.sys.stat;
+    import core.sys.posix.unistd : getuid;
+    import std.file : exists;
+    import std.format : format;
+    import std.string : toStringz;
+
+    const uid = getuid();
+
+    const base = rootDir ~ format!"user_%s"(uid);
+    string createdTmp;
+
+    foreach (i; 0 .. 1000) {
+        // create
+        createdTmp = format!"%s_%s"(base, i);
+        const cstr = createdTmp.toStringz;
+
+        if (!exists(createdTmp)) {
+            if (mkdir(cstr, S_IRWXU) != 0) {
+                createdTmp = null;
+                continue;
+            }
+        }
+
+        // validate
+        stat_t st;
+        stat(cstr, &st);
+        if (st.st_uid == uid && (st.st_mode & S_IFDIR) != 0
+                && ((st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) == S_IRWXU)) {
+            break;
+        }
+
+        // try again
+        createdTmp = null;
+    }
+
+    if (createdTmp.empty) {
+        perror(null);
+        throw new Exception("Unable to create XDG_RUNTIME_DIR " ~ createdTmp);
+    }
+    return Path(createdTmp).AbsolutePath;
 }

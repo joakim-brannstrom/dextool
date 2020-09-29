@@ -83,9 +83,9 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
                 logger.warning(e.msg);
             }
 
-            logger.infof("%s %s from '%s' to '%s' %s in %s:%s:%s", r.id, r.mutation.status,
-                    mut_txt.original, mut_txt.mutation, r.attrs, abs_path,
-                    r.sloc.line, r.sloc.column);
+            logger.infof("%s %s from '%s' to '%s' %s in %s:%s:%s", r.id.get,
+                    r.mutation.status, mut_txt.original, mut_txt.mutation,
+                    r.attrs, abs_path, r.sloc.line, r.sloc.column);
         }
 
         void updateMutationStat() {
@@ -145,7 +145,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
         void reportTestCase(TestCase[] testCases) {
             if (r.mutation.status != Mutation.Status.killed || testCases.empty)
                 return;
-            logger.infof("%s killed by [%(%s, %)]", r.id, testCases);
+            logger.infof("%s killed by [%(%s, %)]", r.id.get, testCases);
         }
 
         try {

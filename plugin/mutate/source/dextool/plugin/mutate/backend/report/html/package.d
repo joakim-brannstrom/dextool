@@ -756,20 +756,20 @@ struct Span {
 
     auto res = span.toRange.array;
     //logger.tracef("%(%s\n%)", res);
-    res[1].muts[0].id.shouldEqual(2);
+    res[1].muts[0].id.get.shouldEqual(2);
     res[2].muts.length.shouldEqual(0);
-    res[3].muts[0].id.shouldEqual(3);
-    res[4].muts[0].id.shouldEqual(3);
-    res[5].muts[0].id.shouldEqual(4);
-    res[6].muts[0].id.shouldEqual(4);
-    res[7].muts[0].id.shouldEqual(4);
+    res[3].muts[0].id.get.shouldEqual(3);
+    res[4].muts[0].id.get.shouldEqual(3);
+    res[5].muts[0].id.get.shouldEqual(4);
+    res[6].muts[0].id.get.shouldEqual(4);
+    res[7].muts[0].id.get.shouldEqual(4);
     res[8].muts.length.shouldEqual(0);
     res[9].muts.length.shouldEqual(2);
-    res[9].muts[0].id.shouldEqual(5);
-    res[9].muts[1].id.shouldEqual(6);
-    res[10].muts[0].id.shouldEqual(6);
+    res[9].muts[0].id.get.shouldEqual(5);
+    res[9].muts[1].id.get.shouldEqual(6);
+    res[10].muts[0].id.get.shouldEqual(6);
     res[11].muts.length.shouldEqual(0);
-    res[12].muts[0].id.shouldEqual(1);
+    res[12].muts[0].id.get.shouldEqual(1);
     res[13].muts.length.shouldEqual(0);
 }
 

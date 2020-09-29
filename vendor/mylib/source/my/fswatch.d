@@ -38,16 +38,16 @@ module my.fswatch;
 
 import core.sys.linux.errno : errno;
 import core.sys.linux.fcntl : fcntl, F_SETFD, FD_CLOEXEC;
-import core.sys.linux.sys.inotify : inotify_rm_watch, inotify_init1,
-    inotify_add_watch, inotify_event, IN_NONBLOCK, IN_ACCESS,
-    IN_MODIFY, IN_ATTRIB, IN_CLOSE_WRITE, IN_CLOSE_NOWRITE, IN_OPEN, IN_MOVED_FROM, IN_MOVED_TO, IN_CREATE,
-    IN_DELETE, IN_DELETE_SELF, IN_MOVE_SELF, IN_UNMOUNT, IN_IGNORED, IN_EXCL_UNLINK;
+import core.sys.linux.sys.inotify : inotify_rm_watch, inotify_init1, inotify_add_watch, inotify_event, IN_CLOEXEC,
+    IN_NONBLOCK, IN_ACCESS, IN_MODIFY, IN_ATTRIB, IN_CLOSE_WRITE,
+    IN_CLOSE_NOWRITE, IN_OPEN, IN_MOVED_FROM, IN_MOVED_TO,
+    IN_CREATE, IN_DELETE, IN_DELETE_SELF, IN_MOVE_SELF, IN_UNMOUNT, IN_IGNORED, IN_EXCL_UNLINK;
 import core.sys.linux.unistd : close, read;
 import core.sys.posix.poll : pollfd, poll, POLLIN, POLLNVAL;
 import core.thread : Thread;
 import core.time : dur, Duration;
 import logger = std.experimental.logger;
-import std.array : appender, empty;
+import std.array : appender, empty, array;
 import std.conv : to;
 import std.file : DirEntry, isDir, dirEntries, rmdirRecurse, write, append,
     rename, remove, exists, SpanMode, mkdir, rmdir;
@@ -59,13 +59,16 @@ import std.exception : collectException;
 import sumtype;
 
 import my.path : AbsolutePath, Path;
+import my.set;
 
 struct Event {
+    /// An overflow occured. Unknown what events actually triggered.
+    static struct Overflow {
+    }
+
     /// File was accessed (e.g., read(2), execve(2)).
     static struct Access {
         AbsolutePath path;
-        this(this) {
-        }
     }
 
     /** Metadata changed—for example, permissions (e.g., chmod(2)), timestamps
@@ -75,22 +78,16 @@ struct Event {
      */
     static struct Attribute {
         AbsolutePath path;
-        this(this) {
-        }
     }
 
     /// File opened for writing was closed.
     static struct CloseWrite {
         AbsolutePath path;
-        this(this) {
-        }
     }
 
     /// File or directory not opened for writing was closed.
     static struct CloseNoWrite {
         AbsolutePath path;
-        this(this) {
-        }
     }
 
     /** File/directory created in watched directory (e.g., open(2) O_CREAT,
@@ -98,15 +95,11 @@ struct Event {
      */
     static struct Create {
         AbsolutePath path;
-        this(this) {
-        }
     }
 
     /// File/directory deleted from watched directory.
     static struct Delete {
         AbsolutePath path;
-        this(this) {
-        }
     }
 
     /** Watched file/directory was itself deleted. (This event also occurs if
@@ -117,47 +110,37 @@ struct Event {
      */
     static struct DeleteSelf {
         AbsolutePath path;
-        this(this) {
-        }
     }
 
     /// File was modified (e.g., write(2), truncate(2)).
     static struct Modify {
         AbsolutePath path;
-        this(this) {
-        }
     }
 
     /// Watched file/directory was itself moved.
     static struct MoveSelf {
         AbsolutePath path;
-        this(this) {
-        }
     }
 
     /// Occurs when a file or folder inside a folder is renamed.
     static struct Rename {
         AbsolutePath from;
         AbsolutePath to;
-        this(this) {
-        }
     }
 
     /// File or directory was opened.
     static struct Open {
         AbsolutePath path;
-        this(this) {
-        }
     }
 }
 
 alias FileChangeEvent = SumType!(Event.Access, Event.Attribute, Event.CloseWrite,
         Event.CloseNoWrite, Event.Create, Event.Delete, Event.DeleteSelf,
-        Event.Modify, Event.MoveSelf, Event.Rename, Event.Open);
+        Event.Modify, Event.MoveSelf, Event.Rename, Event.Open, Event.Overflow);
 
 /// Construct a FileWatch.
 auto fileWatch() {
-    int fd = inotify_init1(IN_NONBLOCK);
+    int fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
     if (fd == -1) {
         throw new Exception(
                 "inotify_init1 returned invalid file descriptor. Error code " ~ errno.to!string);
@@ -178,6 +161,7 @@ struct FileWatch {
     import std.functional : toDelegate;
 
     private {
+        FdPoller poller;
         int fd;
         ubyte[1024 * 4] eventBuffer; // 4kb buffer for events
         struct FDInfo {
@@ -194,6 +178,7 @@ struct FileWatch {
 
     private this(int fd) {
         this.fd = fd;
+        poller.put(FdPoll(fd), [PollEvent.in_]);
     }
 
     ~this() {
@@ -249,7 +234,6 @@ struct FileWatch {
             bool delegate(string) pred = toDelegate(&allFiles)) {
         import std.algorithm : filter;
         import my.file : existsAnd;
-        import my.set;
 
         auto failed = appender!(AbsolutePath[])();
 
@@ -309,18 +293,19 @@ struct FileWatch {
         if (!fd)
             return events;
 
-        pollfd pfd;
-        pfd.fd = fd;
-        pfd.events = POLLIN;
-        const code = poll(&pfd, 1, cast(int) min(int.max, timeout.total!"msecs"));
+        auto res = poller.wait(timeout);
 
-        if (code < 0) {
-            throw new Exception("Failed to poll events. Error code " ~ errno.to!string);
-        } else if (code == 0) {
-            // timeout triggered
+        if (res.empty) {
             return events;
-        } else if ((pfd.revents & POLLNVAL) != 0) {
+        }
+
+        if (res[0].status[PollStatus.nval]) {
             throw new Exception("Failed to poll events. File descriptor not open " ~ fd.to!string);
+        }
+
+        if (!res[0].status[PollStatus.in_]) {
+            // no events to read
+            return events;
         }
 
         const receivedBytes = read(fd, eventBuffer.ptr, eventBuffer.length);
@@ -329,6 +314,9 @@ struct FileWatch {
         while (true) {
             auto info = cast(inotify_event*)(eventBuffer.ptr + i);
 
+            if (info.wd == -1) {
+                events ~= FileChangeEvent(Event.Overflow.init);
+            }
             if (info.wd !in directoryMap)
                 continue;
 
@@ -610,6 +598,7 @@ struct MonitorResult {
         MoveSelf,
         Rename,
         Open,
+        Overflow,
     }
 
     Kind kind;
@@ -625,8 +614,6 @@ struct Monitor {
     import std.utf : UTFException;
     import my.filter : GlobFilter;
     import my.fswatch;
-    import my.set;
-    import sumtype;
 
     private {
         Set!AbsolutePath roots;
@@ -707,7 +694,9 @@ struct Monitor {
 
         try {
             foreach (e; fw.getEvents(timeout)) {
-                e.match!((Event.Access x) {
+                e.match!((Event.Overflow x) {
+                    rval.put(MonitorResult(MonitorResult.Kind.Overflow));
+                }, (Event.Access x) {
                     rval.put(MonitorResult(MonitorResult.Kind.Access, x.path));
                 }, (Event.Attribute x) {
                     rval.put(MonitorResult(MonitorResult.Kind.Attribute, x.path));
@@ -794,4 +783,123 @@ unittest {
 
     write(testTxt, "abcc");
     assert(!fw.wait(Duration.zero).empty);
+}
+
+/** A file descriptor to poll.
+ */
+struct FdPoll {
+    int value;
+}
+
+/// Uses the linux poll syscall to wait for activity on the file descriptors.
+struct FdPoller {
+    import std.algorithm : min, filter;
+
+    private {
+        pollfd[] fds;
+        PollResult[] results;
+    }
+
+    void put(FdPoll fd, PollEvent[] evs) {
+        import core.sys.posix.poll;
+
+        pollfd pfd;
+        pfd.fd = fd.value;
+        foreach (e; evs) {
+            final switch (e) with (PollEvent) {
+            case in_:
+                pfd.events |= POLLIN;
+                break;
+            case out_:
+                pfd.events |= POLLOUT;
+                break;
+            }
+        }
+        fds ~= pfd;
+
+        // they must be the same length or else `wait` will fail.
+        results.length = fds.length;
+    }
+
+    void remove(FdPoll fd) {
+        fds = fds.filter!(a => a.fd != fd.value).array;
+
+        results.length = fds.length;
+    }
+
+    PollResult[] wait(Duration timeout = Duration.zero) {
+        import core.sys.posix.poll;
+        import std.bitmanip : BitArray;
+
+        const code = poll(&fds[0], fds.length, cast(int) min(int.max, timeout.total!"msecs"));
+
+        if (code < 0) {
+            import core.stdc.errno : errno, EINTR;
+
+            if (errno == EINTR) {
+                // poll just interrupted. try again.
+                return (PollResult[]).init;
+            }
+
+            throw new Exception("Failed to poll events. Error code " ~ errno.to!string);
+        } else if (code == 0) {
+            // timeout triggered
+            return (PollResult[]).init;
+        }
+
+        size_t idx;
+        foreach (a; fds.filter!(a => a.revents != 0)) {
+            PollResult res;
+            res.status = BitArray([
+                    (a.revents & POLLIN) != 0, (a.revents & POLLOUT) != 0,
+                    (a.revents & POLLPRI) != 0, (a.revents & POLLERR) != 0,
+                    (a.revents & POLLHUP) != 0, (a.revents & POLLNVAL) != 0,
+                    ]);
+            res.fd = FdPoll(a.fd);
+            results[idx] = res;
+            idx++;
+        }
+
+        return results[0 .. idx];
+    }
+}
+
+/// Type of event to poll for.
+enum PollEvent {
+    in_,
+    out_,
+}
+
+/// What each bit in `PollResult.status` represent.
+enum PollStatus {
+    // There is data to read.
+    in_,
+    // Writing  is  now  possible,  though a write larger that the available
+    // space in a socket or pipe will still block (unless O_NONBLOCK is set).
+    out_,
+    // There is some exceptional condition on the file descriptor.  Possibilities include:
+    // *  There is out-of-band data on a TCP socket (see tcp(7)).
+    // *  A pseudoterminal master in packet mode has seen a state change on the slave (see ioctl_tty(2)).
+    // *  A cgroup.events file has been modified (see cgroups(7)).
+    pri,
+    // Error condition (only returned in revents; ignored in events). This bit
+    // is also set for a file descriptor referring to the write end of a pipe
+    // when the read end has been closed.
+    error,
+    // Hang up (only returned in revents; ignored in events). Note that when
+    // reading from a channel such as a pipe or a stream socket, this event
+    // merely indicates that the peer closed its end of the channel.
+    // Subsequent reads from the channel will re‐ turn 0 (end of file) only
+    // after all outstanding data in the channel has been consumed.
+    hup,
+    /// Invalid request: fd not open (only returned in revents; ignored in events).
+    nval,
+}
+
+/// File descriptors that triggered.
+struct PollResult {
+    import std.bitmanip : BitArray;
+
+    BitArray status;
+    FdPoll fd;
 }

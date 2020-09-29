@@ -26,7 +26,7 @@ int x[3]
 module cpptooling.data.kind_type_format;
 
 version (unittest) {
-    import unit_threaded : shouldEqual, Values, getValue;
+    import unit_threaded : shouldEqual;
 }
 
 @safe struct Left {
@@ -323,59 +323,59 @@ version (unittest) {
 
 version (unittest) {
     @("A PtrFmt in its basic shapes")
-    @Values([PtrQ.Kind.ptr, PtrQ.Kind.ref_])
     unittest {
-        auto ptr = PtrFmt(TypeId("int"));
+        foreach (kind; [PtrQ.Kind.ptr, PtrQ.Kind.ref_]) {
+            auto ptr = PtrFmt(TypeId("int"));
 
-        auto kind = getValue!(PtrQ.Kind);
-        string kstr;
-        final switch (kind) {
-        case PtrQ.Kind.ref_:
-            kstr = "&";
-            break;
-        case PtrQ.Kind.ptr:
-            kstr = "*";
-            break;
-        }
+            string kstr;
+            final switch (kind) {
+            case PtrQ.Kind.ref_:
+                kstr = "&";
+                break;
+            case PtrQ.Kind.ptr:
+                kstr = "*";
+                break;
+            }
 
-        { // simplest
-            char[] buf;
-            ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
-                buf ~= s;
-            }, CvQ(), null, DeclId(null));
-            buf.shouldEqual("int");
-        }
+            { // simplest
+                char[] buf;
+                ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
+                    buf ~= s;
+                }, CvQ(), null, DeclId(null));
+                buf.shouldEqual("int");
+            }
 
-        { // simples ptr
-            char[] buf;
-            ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
-                buf ~= s;
-            }, CvQ(), [CvPtrQ(CvQ(), PtrQ(kind))], DeclId("x"));
-            buf.shouldEqual("int " ~ kstr ~ "x");
-        }
+            { // simples ptr
+                char[] buf;
+                ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
+                    buf ~= s;
+                }, CvQ(), [CvPtrQ(CvQ(), PtrQ(kind))], DeclId("x"));
+                buf.shouldEqual("int " ~ kstr ~ "x");
+            }
 
-        { // simples head const ptr
-            char[] buf;
-            ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
-                buf ~= s;
-            }, CvQ.const_, [CvPtrQ(CvQ.const_, PtrQ(kind))], DeclId("x"));
-            buf.shouldEqual("const int " ~ kstr ~ "const x");
-        }
+            { // simples head const ptr
+                char[] buf;
+                ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
+                    buf ~= s;
+                }, CvQ.const_, [CvPtrQ(CvQ.const_, PtrQ(kind))], DeclId("x"));
+                buf.shouldEqual("const int " ~ kstr ~ "const x");
+            }
 
-        { // ptr with varying cv-qualifier
-            char[] buf;
-            ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
-                buf ~= s;
-            }, CvQ.const_, [// dfmt off
+            { // ptr with varying cv-qualifier
+                char[] buf;
+                ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
+                    buf ~= s;
+                }, CvQ.const_, [// dfmt off
                      CvPtrQ(CvQ.const_, PtrQ(kind)),
                      CvPtrQ(CvQ(), PtrQ(kind)),
                      CvPtrQ(CvQ.const_, PtrQ(kind)),
                      CvPtrQ(CvQ(), PtrQ(kind)),
                      CvPtrQ(CvQ(), PtrQ(kind)),
                      // dfmt on
-                    ], DeclId("x"));
-            buf.shouldEqual("const int " ~ kstr ~ "const" ~ kstr ~ kstr ~ "const" ~ kstr ~ kstr
-                    ~ "x");
+                        ], DeclId("x"));
+                buf.shouldEqual("const int " ~ kstr ~ "const" ~ kstr ~ kstr
+                        ~ "const" ~ kstr ~ kstr ~ "x");
+            }
         }
     }
 }
@@ -414,59 +414,60 @@ version (unittest) {
 
 version (unittest) {
     @("A FuncPtrFmt")
-    @Values([PtrQ.Kind.ptr, PtrQ.Kind.ref_])
     unittest {
-        auto ptr = FuncPtrFmt(TypeIdLR(Left("void ("), Right(")(int)")));
+        foreach (kind; [PtrQ.Kind.ptr, PtrQ.Kind.ref_]) {
+            auto ptr = FuncPtrFmt(TypeIdLR(Left("void ("), Right(")(int)")));
 
-        auto kind = getValue!(PtrQ.Kind);
-        string kstr;
-        final switch (kind) {
-        case PtrQ.Kind.ref_:
-            kstr = "&";
-            break;
-        case PtrQ.Kind.ptr:
-            kstr = "*";
-            break;
-        }
+            string kstr;
+            final switch (kind) {
+            case PtrQ.Kind.ref_:
+                kstr = "&";
+                break;
+            case PtrQ.Kind.ptr:
+                kstr = "*";
+                break;
+            }
 
-        { // simplest
-            char[] buf;
-            ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
-                buf ~= s;
-            }, CvQ(), null, DeclId(null));
-            buf.shouldEqual("void ()(int)");
-        }
+            { // simplest
+                char[] buf;
+                ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
+                    buf ~= s;
+                }, CvQ(), null, DeclId(null));
+                buf.shouldEqual("void ()(int)");
+            }
 
-        { // simples ptr
-            char[] buf;
-            ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
-                buf ~= s;
-            }, CvQ(), [CvPtrQ(CvQ(), PtrQ(kind))], DeclId("x"));
-            buf.shouldEqual("void (" ~ kstr ~ "x)(int)");
-        }
+            { // simples ptr
+                char[] buf;
+                ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
+                    buf ~= s;
+                }, CvQ(), [CvPtrQ(CvQ(), PtrQ(kind))], DeclId("x"));
+                buf.shouldEqual("void (" ~ kstr ~ "x)(int)");
+            }
 
-        { // simples head const ptr
-            char[] buf;
-            ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
-                buf ~= s;
-            }, CvQ.const_, [CvPtrQ(CvQ.const_, PtrQ(kind))], DeclId("x"));
-            buf.shouldEqual("void (const" ~ kstr ~ "const x)(int)");
-        }
+            { // simples head const ptr
+                char[] buf;
+                ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
+                    buf ~= s;
+                }, CvQ.const_, [CvPtrQ(CvQ.const_, PtrQ(kind))], DeclId("x"));
+                buf.shouldEqual("void (const" ~ kstr ~ "const x)(int)");
+            }
 
-        { // ptr with varying cv-qualifier
-            char[] buf;
-            ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
-                buf ~= s;
-            }, CvQ.const_, [// dfmt off
+            { // ptr with varying cv-qualifier
+                char[] buf;
+                ptr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
+                    buf ~= s;
+                }, CvQ.const_, [// dfmt off
                      CvPtrQ(CvQ.const_, PtrQ(kind)),
                      CvPtrQ(CvQ(), PtrQ(kind)),
                      CvPtrQ(CvQ.const_, PtrQ(kind)),
                      CvPtrQ(CvQ(), PtrQ(kind)),
                      CvPtrQ(CvQ(), PtrQ(kind)),
                      // dfmt on
-                    ], DeclId("x"));
-            buf.shouldEqual(
-                    "void (const" ~ kstr ~ "const" ~ kstr ~ kstr ~ "const" ~ kstr ~ kstr ~ "x)(int)");
+                        ], DeclId("x"));
+                buf.shouldEqual(
+                        "void (const" ~ kstr ~ "const" ~ kstr ~ kstr ~ "const"
+                        ~ kstr ~ kstr ~ "x)(int)");
+            }
         }
     }
 }

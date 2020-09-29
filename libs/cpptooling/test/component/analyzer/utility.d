@@ -85,31 +85,7 @@ final class TestVisitor : Visitor {
 }
 
 @("Should ignore local variables")
-// dfmt off
-@Values("int",
-        "signed int",
-        "unsigned int",
-        "unsigned",
-        "char",
-        "signed char",
-        "unsigned char",
-        "short",
-        "signed short",
-        "unsigned short",
-        "long",
-        "signed long",
-        "unsigned long",
-        "long long",
-        "signed long long",
-        "unsigned long long",
-        "float",
-        "double",
-        "long double",
-        "wchar_t",
-        "bool",
-        )
-@Values(["",""], ["*", ""], ["&", " = d0"], ["*&", " = d1"])
-@Tags("slow") // serial runtime is 1 sec, 219 ms
+@Tags("slow")  // serial runtime is 1 sec, 219 ms
 // dfmt on
 unittest {
     immutable raw_code = "
@@ -171,20 +147,32 @@ unittest {
     };
 ";
 
-    // arrange
-    auto visitor = new TestVisitor;
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-    auto code = format(raw_code, getValue!string, getValue!(string[], 1)[0],
-            getValue!(string[], 1)[1]);
-    ctx.vfs.open(new Blob(Uri("issue.hpp"), code));
-    auto tu = ctx.makeTranslationUnit("issue.hpp");
+    foreach (getValueString; [
+            "int", "signed int", "unsigned int", "unsigned", "char", "signed char",
+            "unsigned char", "short", "signed short", "unsigned short",
+            "long", "signed long", "unsigned long", "long long",
+            "signed long long", "unsigned long long", "float", "double",
+            "long double", "wchar_t", "bool"
+        ]) {
+        foreach (getValueStringArray; [
+                ["", ""], ["*", ""], ["&", " = d0"], ["*&", " = d1"]
+            ]) {
+            // arrange
+            auto visitor = new TestVisitor;
+            auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+            auto code = format(raw_code, getValueString,
+                    getValueStringArray[0], getValueStringArray[1]);
+            ctx.vfs.open(new Blob(Uri("issue.hpp"), code));
+            auto tu = ctx.makeTranslationUnit("issue.hpp");
 
-    // act
-    auto ast = ClangAST!(typeof(visitor))(tu.cursor);
-    ast.accept(visitor);
+            // act
+            auto ast = ClangAST!(typeof(visitor))(tu.cursor);
+            ast.accept(visitor);
 
-    // assert
-    checkForCompilerErrors(tu).shouldBeFalse;
-    writeln(visitor.globalsFound);
-    visitor.globalsFound.length.shouldEqual(0);
+            // assert
+            checkForCompilerErrors(tu).shouldBeFalse;
+            writeln(visitor.globalsFound);
+            visitor.globalsFound.length.shouldEqual(0);
+        }
+    }
 }

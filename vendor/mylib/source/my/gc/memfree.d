@@ -9,7 +9,6 @@ it and then tell malloc to further free it back to the OS.
 module my.gc.memfree;
 
 import std.concurrency : send, spawn, receiveTimeout, Tid;
-import std.datetime : SysTime, Clock, dur;
 
 import my.gc.refc;
 
@@ -60,14 +59,12 @@ enum Msg {
 }
 
 void tick() nothrow {
-    import core.thread : Thread;
     import core.time : dur;
     import core.memory : GC;
 
     const tickInterval = 1.dur!"minutes";
 
     bool running = true;
-    SysTime next = Clock.currTime + tickInterval;
     while (running) {
         try {
             receiveTimeout(tickInterval, (Msg x) { running = false; });

@@ -16,8 +16,7 @@ import std.variant : Algebraic;
 import taggedalgebraic;
 
 public import cpptooling.data.symbol.types : USRType;
-public import cpptooling.data.kind_type : TypeKind, TypeAttr, TypeKindAttr,
-    TypeResult, toStringDecl;
+import cpptooling.data.kind_type : TypeKind, TypeAttr, TypeKindAttr, TypeResult, toStringDecl;
 
 static import cpptooling.data.class_classification;
 

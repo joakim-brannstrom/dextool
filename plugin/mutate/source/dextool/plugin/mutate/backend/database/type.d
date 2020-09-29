@@ -12,6 +12,7 @@ module dextool.plugin.mutate.backend.database.type;
 import core.time : Duration;
 import std.datetime : SysTime;
 
+import my.named_type;
 import sumtype;
 
 import dextool.type : AbsolutePath, Path;
@@ -25,10 +26,7 @@ alias MutantTimeoutCtx = MutantTimeoutCtxTbl;
 @safe:
 
 /// Primary key in the mutation table
-struct MutationId {
-    long value;
-    alias value this;
-}
+alias MutationId = NamedType!(long, Tag!"MutationId", 0, Comparable, Hashable, Printable);
 
 /// Primary key for mutation status
 struct MutationStatusId {
