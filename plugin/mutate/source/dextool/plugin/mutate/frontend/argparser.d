@@ -90,11 +90,11 @@ struct ArgParser {
         app.put("[workarea]");
         app.put(null);
         app.put("# base path (absolute or relative) to look for C/C++ files to mutate.");
-        app.put(`# root = "."`);
+        app.put(`root = "."`);
         app.put(null);
         app.put(
                 "# files and/or directories (relative to root) to be the **only** sources to mutate.");
-        app.put("# restrict = []");
+        app.put(`restrict = ["."]`);
         app.put(null);
 
         app.put("[analyze]");
