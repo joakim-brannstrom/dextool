@@ -348,6 +348,9 @@ struct TestDriver {
         Original[] original;
     }
 
+    static struct SchemataPruneUsed {
+    }
+
     static struct Done {
     }
 
@@ -392,9 +395,9 @@ struct TestDriver {
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
             NextMutant, MutationTest, HandleTestResult, CheckTimeout,
             Done, Error, UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant,
-            ParseStdin, FindTestCmds, ChooseMode, NextSchemata,
-            PreSchemata, SchemataTest, SchemataTestResult, SchemataRestore,
-            LoadSchematas, SanityCheckSchemata);
+            ParseStdin, FindTestCmds, ChooseMode, NextSchemata, PreSchemata,
+            SchemataTest, SchemataTestResult, SchemataRestore, LoadSchematas,
+            SanityCheckSchemata, SchemataPruneUsed);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData,
             ResetOldMutantData, SchemataRestoreData, PreSchemataData, NextSchemataData);
 
@@ -496,8 +499,8 @@ struct TestDriver {
                 (SchemataTestResult a) => fsm(SchemataRestore.init), (SchemataRestore a) {
             if (a.error)
                 return fsm(Error.init);
-            return fsm(CheckRuntime.init);
-        }, (NextMutant a) {
+            return fsm(SchemataPruneUsed.init);
+        }, (SchemataPruneUsed a) => fsm(CheckRuntime.init), (NextMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(CheckTimeout.init);
             return fsm(PreMutationTest.init);
@@ -1158,6 +1161,15 @@ nothrow:
             }
         }
         local.get!SchemataRestore.original = null;
+    }
+
+    void opCall(SchemataPruneUsed data) {
+        try {
+            const removed = global.data.db.pruneUsedSchemas;
+            logger.infof(removed != 0, "Removed %s schemas from the database", removed);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
     }
 
     void opCall(LoadSchematas data) {

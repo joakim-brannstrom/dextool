@@ -1803,6 +1803,38 @@ struct Database {
             stmt.get.reset;
         }
     }
+
+    /** Removes all schemas that either do not compile or have zero mutants.
+     *
+     * Returns: number of schemas removed.
+     */
+    long pruneUsedSchemas() @trusted {
+        auto remove = () {
+            auto remove = appender!(long[])();
+
+            immutable sqlInvalid = format!"SELECT id FROM %1$s"(invalidSchemataTable);
+            auto stmt = db.prepare(sqlInvalid);
+            foreach (a; stmt.get.execute) {
+                remove.put(a.peek!long(0));
+            }
+            return remove.data;
+        }();
+
+        immutable sql = format!"DELETE FROM %1$s WHERE id=:id"(schemataTable);
+        auto stmt = db.prepare(sql);
+        foreach (a; remove) {
+            stmt.get.bind(":id", a);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
+
+        return remove.length;
+    }
+
+    /// Compact the database by running a VACUUM operation
+    void vacuum() @trusted {
+        db.run("VACUUM");
+    }
 }
 
 private:

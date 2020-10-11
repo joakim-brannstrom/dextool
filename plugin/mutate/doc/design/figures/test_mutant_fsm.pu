@@ -55,7 +55,8 @@ SanityCheckSchemata --> SchemataTest : ok
 SchemataTest --> SchemataTest
 SchemataTest --> SchemataTestResult : done
 SchemataTestResult --> SchemataRestore
-SchemataRestore --> CheckRuntime
+SchemataRestore --> SchemataPruneUsed
+SchemataPruneUsed --> CheckRuntime
 
 NextMutant --> CheckTimeout : allTested
 NextMutant --> PreMutationTest
