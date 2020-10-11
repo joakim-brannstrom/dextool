@@ -1241,7 +1241,8 @@ nothrow:
         },);
 
         if (!successCompile) {
-            logger.info("Failed".color(Color.red)).collectException;
+            logger.info("Skipping schemata because it failed to compile".color(Color.yellow))
+                .collectException;
             spinSql!(() { global.data.db.markUsed(data.id); });
             local.get!NextSchemata.invalidSchematas++;
             return;
@@ -1269,7 +1270,8 @@ nothrow:
         if (data.passed) {
             logger.info("Ok".color(Color.green)).collectException;
         } else {
-            logger.info("Failed".color(Color.red)).collectException;
+            logger.info("Skipping saving the result of running the schemata because the test suite failed".color(
+                    Color.yellow)).collectException;
             spinSql!(() { global.data.db.markUsed(data.id); });
         }
     }
