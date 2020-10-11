@@ -1615,7 +1615,7 @@ struct Database {
             FROM %1$s t0
             WHERE
             t0.id NOT IN (SELECT id FROM %2$s)"(schemataTable,
-                invalidSchemataTable);
+                schemataUsedTable);
         auto stmt = db.prepare(sql);
         auto app = appender!(SchemataId[])();
         foreach (a; stmt.get.execute) {
@@ -1715,9 +1715,9 @@ struct Database {
         return app.data;
     }
 
-    /// Mark a schemata as invalid.
-    void markInvalid(const SchemataId id) @trusted {
-        immutable sql = format!"INSERT OR IGNORE INTO %1$s VALUES(:id)"(invalidSchemataTable);
+    /// Mark a schemata as used.
+    void markUsed(const SchemataId id) @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %1$s VALUES(:id)"(schemataUsedTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
         stmt.get.execute;
@@ -1830,8 +1830,8 @@ struct Database {
         auto remove = () {
             auto remove = appender!(long[])();
 
-            immutable sqlInvalid = format!"SELECT id FROM %1$s"(invalidSchemataTable);
-            auto stmt = db.prepare(sqlInvalid);
+            immutable sqlUsed = format!"SELECT id FROM %1$s"(schemataUsedTable);
+            auto stmt = db.prepare(sqlUsed);
             foreach (a; stmt.get.execute) {
                 remove.put(a.peek!long(0));
             }

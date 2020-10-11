@@ -55,8 +55,7 @@ SanityCheckSchemata --> SchemataTest : ok
 SchemataTest --> SchemataTest
 SchemataTest --> SchemataTestResult : done
 SchemataTestResult --> SchemataRestore
-SchemataRestore --> SchemataPruneUsed
-SchemataPruneUsed --> CheckRuntime
+SchemataRestore --> CheckRuntime
 
 NextMutant --> CheckTimeout : allTested
 NextMutant --> PreMutationTest
@@ -73,7 +72,8 @@ CheckTimeout --> UpdateTimeout
 ResetOldMutant --> UpdateTimeout
 ResetOldMutant --> Done : nr >= max
 
-Done --> Done
+Done --> SchemataPruneUsed
+SchemataPruneUsed --> Stop
 
-Error --> Error
+Error --> Stop
 @enduml
