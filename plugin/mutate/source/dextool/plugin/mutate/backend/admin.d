@@ -270,7 +270,7 @@ ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothr
 ExitStatusType compact(ref Database db) @trusted nothrow {
     try {
         logger.info("Running a SQL vacuum on the database");
-        db.run("VACUUM");
+        db.vacuum;
         return ExitStatusType.Ok;
     } catch (Exception e) {
         logger.error(e.msg).collectException;
