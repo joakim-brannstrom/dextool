@@ -78,11 +78,12 @@ immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable schemaVersionTable = "schema_version";
 immutable srcMetadataTable = "src_metadata";
 immutable schemataMutantTable = "schemata_mutant";
-immutable schemataWorkListTable = "schemata_worklist";
 immutable schemataTable = "schemata";
 immutable schemataFragmentTable = "schemata_fragment";
-immutable invalidSchemataTable = "invalid_schemata";
+immutable schemataUsedTable = "schemata_used";
 
+private immutable invalidSchemataTable = "invalid_schemata";
+private immutable schemataWorkListTable = "schemata_worklist";
 private immutable testCaseTableV1 = "test_case";
 
 /** Initialize or open an existing database.
@@ -451,9 +452,9 @@ struct SchemataTable {
     long version_;
 }
 
-@TableName(invalidSchemataTable)
+@TableName(schemataUsedTable)
 @TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
-struct InvalidSchemataTable {
+struct SchemataUsedTable {
     long id;
 }
 
@@ -592,7 +593,7 @@ void upgradeV0(ref Miniorm db) {
             MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl,
             MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl,
             NomutDataTbl, SchemataTable, SchemataFragmentTable,
-            SchemataMutantTable, InvalidSchemataTable));
+            SchemataMutantTable, SchemataUsedTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1034,21 +1035,32 @@ void upgradeV18(ref Miniorm db) {
 
 /// 2020-04-01
 void upgradeV19(ref Miniorm db) {
-    db.run(format!"DROP TABLE %s"(schemataWorkListTable));
-    db.run(format!"DROP TABLE %s"(schemataTable));
-    db.run(format!"DROP TABLE %s"(schemataMutantTable));
+    db.run("DROP TABLE " ~ schemataWorkListTable);
+    db.run("DROP TABLE " ~ schemataTable);
+    db.run("DROP TABLE " ~ schemataMutantTable);
+
+    @TableName(invalidSchemataTable)
+    @TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
+    struct InvalidSchemataTable {
+        long id;
+    }
 
     db.run(buildSchema!(SchemataTable, SchemataMutantTable, InvalidSchemataTable));
 }
 
 /// 2020-06-01
 void upgradeV20(ref Miniorm db) {
-    db.run(format!"DROP TABLE %s"(schemataMutantTable));
+    db.run("DROP TABLE " ~ schemataMutantTable);
     db.run(buildSchema!(SchemataMutantTable));
 }
 
+void upgradeV21(ref Miniorm db) {
+    db.run("DROP TABLE " ~ invalidSchemataTable);
+    db.run(buildSchema!(SchemataUsedTable));
+}
+
 void replaceTbl(ref Miniorm db, string src, string dst) {
-    db.run(format("DROP TABLE %s", dst));
+    db.run("DROP TABLE " ~ dst);
     db.run(format("ALTER TABLE %s RENAME TO %s", src, dst));
 }
 

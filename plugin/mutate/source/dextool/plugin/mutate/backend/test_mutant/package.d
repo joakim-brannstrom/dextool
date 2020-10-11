@@ -348,6 +348,9 @@ struct TestDriver {
         Original[] original;
     }
 
+    static struct SchemataPruneUsed {
+    }
+
     static struct Done {
     }
 
@@ -387,14 +390,17 @@ struct TestDriver {
     static struct LoadSchematas {
     }
 
+    static struct Stop {
+    }
+
     alias Fsm = my.fsm.Fsm!(None, Initialize, SanityCheck,
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
             NextMutant, MutationTest, HandleTestResult, CheckTimeout,
             Done, Error, UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant,
-            ParseStdin, FindTestCmds, ChooseMode, NextSchemata,
-            PreSchemata, SchemataTest, SchemataTestResult, SchemataRestore,
-            LoadSchematas, SanityCheckSchemata);
+            ParseStdin, FindTestCmds, ChooseMode, NextSchemata, PreSchemata,
+            SchemataTest, SchemataTestResult, SchemataRestore, LoadSchematas,
+            SanityCheckSchemata, SchemataPruneUsed, Stop);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData,
             ResetOldMutantData, SchemataRestoreData, PreSchemataData, NextSchemataData);
 
@@ -514,7 +520,9 @@ struct TestDriver {
             if (a.timeoutUnchanged)
                 return fsm(ResetOldMutant.init);
             return fsm(UpdateTimeout.init);
-        }, (Done a) => fsm(a), (Error a) => fsm(a),);
+        }, (SchemataPruneUsed a) => fsm(Stop.init),
+                (Done a) => fsm(SchemataPruneUsed.init),
+                (Error a) => fsm(Stop.init), (Stop a) => fsm(a));
 
         debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
@@ -546,16 +554,18 @@ nothrow:
         global.maxRuntime = Clock.currTime + global.data.conf.maxRuntime;
     }
 
+    void opCall(Stop data) {
+        isRunning_ = false;
+    }
+
     void opCall(Done data) {
         global.data.autoCleanup.cleanup;
         logger.info("Done!").collectException;
-        isRunning_ = false;
         isDone = true;
     }
 
     void opCall(Error data) {
         global.data.autoCleanup.cleanup;
-        isRunning_ = false;
     }
 
     void opCall(ref SanityCheck data) {
@@ -1060,6 +1070,10 @@ nothrow:
                     logger.infof("Use schema %s (%s left)", id, schematas.length).collectException;
                     data.hasSchema = true;
                 }
+            } else {
+                // mark the schema for removal because it isn't useful. it just
+                // takes up space in the database.
+                spinSql!(() { global.data.db.markUsed(id); });
             }
         }
 
@@ -1146,6 +1160,8 @@ nothrow:
             }
             trans.commit;
         });
+
+        spinSql!(() { global.data.db.markUsed(data.id); });
     }
 
     void opCall(ref SchemataRestore data) {
@@ -1158,6 +1174,21 @@ nothrow:
             }
         }
         local.get!SchemataRestore.original = null;
+    }
+
+    void opCall(SchemataPruneUsed data) {
+        try {
+            const removed = global.data.db.pruneUsedSchemas;
+
+            if (removed != 0) {
+                logger.infof("Removed %s schemas from the database", removed);
+                // vacuum the database because schemas take up a significant
+                // amount of space.
+                global.data.db.vacuum;
+            }
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
     }
 
     void opCall(LoadSchematas data) {
@@ -1211,7 +1242,7 @@ nothrow:
 
         if (!successCompile) {
             logger.info("Failed".color(Color.red)).collectException;
-            spinSql!(() { global.data.db.markInvalid(data.id); });
+            spinSql!(() { global.data.db.markUsed(data.id); });
             local.get!NextSchemata.invalidSchematas++;
             return;
         }
@@ -1239,7 +1270,7 @@ nothrow:
             logger.info("Ok".color(Color.green)).collectException;
         } else {
             logger.info("Failed".color(Color.red)).collectException;
-            spinSql!(() { global.data.db.markInvalid(data.id); });
+            spinSql!(() { global.data.db.markUsed(data.id); });
         }
     }
 }

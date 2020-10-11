@@ -3,16 +3,17 @@
 This file contains information useful to a developer of Dextool.
 
 # Setup
+
 Compared to a normal installation of Dextool a developer have additional needs
 such as compiling a full debug build (contracts activated) and compiling the
 tests.
 
+A quick and easy way to setup a development build is to run the script from
+`tools`.
+
 Example:
 ```sh
-mkdir build
-cd build
-# to run with coverage add -DTEST_WITH_COV=ON. Coverage is found in build/coverage
-cmake -Wdev -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=ON ..
+./tools/dev_setup.d
 ```
 
 This gives access to the make target _test_.
@@ -88,14 +89,17 @@ classes. But it must be within the same module.
  - See plugin/xyz/ut_main.d
 
 ## CI
+
 Continues Integration
 
 ## Component tests
+
 Functional tests of multiple D modules.
 
  - See source/test/component
 
 ## Integration tests
+
 Test the final binaries behavior from the users perspective. An example would be
 "golden file"-tests.
 
