@@ -38,6 +38,19 @@ version (unittest) {
 
 @safe:
 
+/// The result of running the test suite on one mutant.
+struct MutationTestResult {
+    import std.datetime : Duration;
+    import dextool.plugin.mutate.backend.database : MutationStatusId, MutationId;
+    import dextool.plugin.mutate.backend.type : Mutation, TestCase;
+
+    MutationId mutId;
+    MutationStatusId id;
+    Mutation.Status status;
+    Duration testTime;
+    TestCase[] testCases;
+}
+
 /** Analyze stdout/stderr output from a test suite for test cases that failed
  * (killed) a mutant, which test cases that exists and if any of them are
  * unstable.

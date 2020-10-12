@@ -32,17 +32,6 @@ import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
 
 @safe:
 
-struct MutationTestResult {
-    import std.datetime : Duration;
-    import dextool.plugin.mutate.backend.database : MutationStatusId;
-    import dextool.plugin.mutate.backend.type : TestCase;
-
-    MutationStatusId id;
-    Mutation.Status status;
-    Duration testTime;
-    TestCase[] testCases;
-}
-
 struct SchemataTestDriver {
     private {
         /// True as long as the schemata driver is running.
@@ -245,6 +234,7 @@ nothrow:
         auto res = runTester(*runner);
         data.result.testTime = sw.peek;
 
+        data.result.mutId = id;
         data.result.status = res.status;
         data.hasTestOutput = !res.output.empty;
         local.get!TestCaseAnalyze.output = res.output;
@@ -271,7 +261,7 @@ nothrow:
             });
 
             logger.infof(!data.result.testCases.empty, `%s killed by [%-(%s, %)]`,
-                    data.result.id, data.result.testCases.sort.map!"a.name").collectException;
+                    data.result.mutId, data.result.testCases.sort.map!"a.name").collectException;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }

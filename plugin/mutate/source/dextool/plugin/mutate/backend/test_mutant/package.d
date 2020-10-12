@@ -9,15 +9,13 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.test_mutant;
 
-import core.thread : Thread;
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
-import std.algorithm : sort, map, splitter, filter;
+import std.algorithm : map;
 import std.array : empty, array, appender;
 import std.datetime : SysTime, Clock;
 import std.exception : collectException;
 import std.format : format;
-import std.path : buildPath;
 import std.random : randomCover;
 import std.typecons : Nullable, Tuple, Yes;
 
@@ -29,14 +27,13 @@ import my.fsm : Fsm, next, act, get, TypeDataMap;
 static import my.fsm;
 
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
-    NextMutationEntry, spinSql, MutantTimeoutCtx, MutationId;
+    NextMutationEntry, spinSql;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
-import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
-import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
+import dextool.plugin.mutate.type : ShellCommand;
 import dextool.type : AbsolutePath, ExitStatusType, Path;
 
 @safe:
@@ -183,8 +180,7 @@ struct TestDriver {
     import std.datetime : SysTime;
     import std.typecons : Unique;
     import dextool.plugin.mutate.backend.database : Schemata, SchemataId, MutationStatusId;
-    import dextool.plugin.mutate.backend.test_mutant.source_mutant : MutationTestDriver,
-        MutationTestResult;
+    import dextool.plugin.mutate.backend.test_mutant.source_mutant : MutationTestDriver;
     import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
 
     /// Runs the test commands.
@@ -287,7 +283,7 @@ struct TestDriver {
 
     static struct MutationTest {
         bool mutationError;
-        MutationTestResult result;
+        MutationTestResult[] result;
     }
 
     static struct CheckTimeout {
@@ -322,15 +318,11 @@ struct TestDriver {
     }
 
     static struct SchemataTest {
-        import dextool.plugin.mutate.backend.test_mutant.schemata : MutationTestResult;
-
         SchemataId id;
         MutationTestResult[] result;
     }
 
     static struct SchemataTestResult {
-        import dextool.plugin.mutate.backend.test_mutant.schemata : MutationTestResult;
-
         SchemataId id;
         MutationTestResult[] result;
     }
@@ -380,7 +372,7 @@ struct TestDriver {
     }
 
     static struct HandleTestResult {
-        MutationTestResult result;
+        MutationTestResult[] result;
     }
 
     static struct CheckRuntime {
@@ -569,7 +561,7 @@ nothrow:
     }
 
     void opCall(ref SanityCheck data) {
-        // #SPC-sanity_check_db_vs_filesys
+        import std.path : buildPath;
         import colorlog : color, Color;
         import dextool.plugin.mutate.backend.utility : checksum, Checksum;
 
@@ -801,6 +793,7 @@ nothrow:
     }
 
     void opCall(PullRequest data) {
+        import std.algorithm : sort;
         import std.random : Mt19937_64;
         import dextool.plugin.mutate.backend.database : MutationStatusId;
         import dextool.plugin.mutate.backend.type : SourceLoc;
@@ -1002,38 +995,7 @@ nothrow:
     }
 
     void opCall(HandleTestResult data) {
-        void statusUpdate(MutationTestResult.StatusUpdate result) {
-            import dextool.plugin.mutate.backend.test_mutant.timeout : updateMutantStatus;
-
-            const cnt_action = () {
-                if (result.status == Mutation.Status.alive)
-                    return Database.CntAction.incr;
-                return Database.CntAction.reset;
-            }();
-
-            auto statusId = spinSql!(() {
-                return global.data.db.getMutationStatusId(result.id);
-            });
-            if (statusId.isNull)
-                return;
-
-            spinSql!(() @trusted {
-                auto t = global.data.db.transaction;
-                updateMutantStatus(*global.data.db, statusId.get,
-                    result.status, global.timeoutFsm.output.iter);
-                global.data.db.updateMutation(statusId.get, cnt_action);
-                global.data.db.updateMutation(statusId.get, result.testTime);
-                global.data.db.updateMutationTestCases(statusId.get, result.testCases);
-                t.commit;
-            });
-
-            logger.infof("%s %s (%s)", result.id, result.status, result.testTime).collectException;
-            logger.infof(!result.testCases.empty, `%s killed by [%-(%s, %)]`,
-                    result.id, result.testCases.sort.map!"a.name").collectException;
-        }
-
-        data.result.value.match!((MutationTestResult.NoResult a) {},
-                (MutationTestResult.StatusUpdate a) => statusUpdate(a));
+        saveTestResult(data.result);
     }
 
     void opCall(ref CheckRuntime data) {
@@ -1083,6 +1045,7 @@ nothrow:
     }
 
     void opCall(ref PreSchemata data) {
+        import std.algorithm : filter;
         import dextool.plugin.mutate.backend.database.type : SchemataFragment;
 
         auto schemata = local.get!PreSchemata.schemata;
@@ -1152,15 +1115,7 @@ nothrow:
     }
 
     void opCall(SchemataTestResult data) {
-        spinSql!(() @trusted {
-            auto trans = global.data.db.transaction;
-            foreach (m; data.result) {
-                global.data.db.updateMutation(m.id, m.status, m.testTime);
-                global.data.db.updateMutationTestCases(m.id, m.testCases);
-            }
-            trans.commit;
-        });
-
+        saveTestResult(data.result);
         spinSql!(() { global.data.db.markUsed(data.id); });
     }
 
@@ -1274,6 +1229,32 @@ nothrow:
                     Color.yellow)).collectException;
             spinSql!(() { global.data.db.markUsed(data.id); });
         }
+    }
+
+    void saveTestResult(MutationTestResult[] results) @safe nothrow {
+        void statusUpdate(MutationTestResult result) @safe {
+            import dextool.plugin.mutate.backend.test_mutant.timeout : updateMutantStatus;
+
+            const cnt_action = () {
+                if (result.status == Mutation.Status.alive)
+                    return Database.CntAction.incr;
+                return Database.CntAction.reset;
+            }();
+
+            updateMutantStatus(*global.data.db, result.id, result.status,
+                    global.timeoutFsm.output.iter);
+            global.data.db.updateMutation(result.id, cnt_action);
+            global.data.db.updateMutation(result.id, result.testTime);
+            global.data.db.updateMutationTestCases(result.id, result.testCases);
+        }
+
+        spinSql!(() @trusted {
+            auto t = global.data.db.transaction;
+            foreach (a; results) {
+                statusUpdate(a);
+            }
+            t.commit;
+        });
     }
 }
 
