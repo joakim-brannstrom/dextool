@@ -34,36 +34,6 @@ import dextool.type : AbsolutePath, Path;
 
 @safe:
 
-/// The result of testing a mutant.
-struct MutationTestResult {
-    import std.datetime : Duration;
-    import sumtype;
-    import proc : DrainElement;
-    import dextool.plugin.mutate.backend.database : MutationId;
-    import dextool.plugin.mutate.backend.type : TestCase;
-
-    static struct NoResult {
-    }
-
-    static struct StatusUpdate {
-        MutationId id;
-        Mutation.Status status;
-        Duration testTime;
-        TestCase[] testCases;
-    }
-
-    alias Value = SumType!(NoResult, StatusUpdate);
-    Value value;
-
-    void opAssign(MutationTestResult rhs) @trusted pure nothrow @nogc {
-        this.value = rhs.value;
-    }
-
-    void opAssign(StatusUpdate rhs) @trusted pure nothrow @nogc {
-        this.value = Value(rhs);
-    }
-}
-
 /** Drive the control flow when testing **a** mutant.
  */
 struct MutationTestDriver {
@@ -163,7 +133,7 @@ struct MutationTestDriver {
         bool stopBecauseError_;
     }
 
-    MutationTestResult result;
+    MutationTestResult[] result;
 
     this(Global global, TestMutantData l1, TestCaseAnalyzeData l2) {
         this.global = global;
@@ -288,7 +258,7 @@ nothrow:
             case ok:
                 data.next = true;
                 try {
-                    logger.infof("%s from '%s' to '%s' in %s:%s:%s", global.mutp.id,
+                    logger.infof("%s from '%s' to '%s' in %s:%s:%s", global.mutp.id.get,
                             cast(const(char)[]) mut_res.from, cast(const(char)[]) mut_res.to,
                             global.mut_file, global.mutp.sloc.line, global.mutp.sloc.column);
 
@@ -345,9 +315,24 @@ nothrow:
     }
 
     void opCall(StoreResult data) {
+        import std.algorithm : sort, map;
+        import miniorm : spinSql;
+
         global.sw.stop;
-        result = MutationTestResult.StatusUpdate(global.mutp.id,
-                global.mut_status, global.sw.peek, global.test_cases);
+
+        const statusId = spinSql!(() => global.db.getMutationStatusId(global.mutp.id));
+
+        if (!statusId.isNull) {
+            result = [
+                MutationTestResult(global.mutp.id, statusId.get,
+                        global.mut_status, global.sw.peek, global.test_cases)
+            ];
+        }
+
+        logger.infof("%s %s (%s)", global.mutp.id.get, global.mut_status,
+                global.sw.peek).collectException;
+        logger.infof(!global.test_cases.empty, `%s killed by [%-(%s, %)]`,
+                global.mutp.id.get, global.test_cases.sort.map!"a.name").collectException;
     }
 
     void opCall(ref RestoreCode data) {
