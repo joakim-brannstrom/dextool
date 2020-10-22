@@ -10,9 +10,12 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.report.html;
 
 import logger = std.experimental.logger;
+import std.algorithm : max, each, map, min, canFind, sort, filter, joiner;
+import std.array : Appender, appender, array, empty;
 import std.exception : collectException;
 import std.format : format;
 import std.stdio : File;
+import std.utf : toUTF8, byChar;
 
 import arsd.dom : Document, Element, require, Table, RawSource;
 
@@ -46,7 +49,6 @@ struct FileIndex {
 }
 
 @safe final class ReportHtml : FileReport, FilesReporter {
-    import std.array : Appender;
     import std.stdio : File, writefln, writeln;
     import std.xml : encode;
     import my.set;
@@ -134,10 +136,6 @@ struct FileIndex {
         // mutant span multiple lines. These null characters render badly in
         // the html report.
         static string cleanup(const(char)[] raw) @safe nothrow {
-            import std.algorithm : filter;
-            import std.array : array;
-            import std.utf : byChar;
-
             return raw.byChar.filter!(a => a != '\0').array.idup;
         }
 
@@ -147,8 +145,6 @@ struct FileIndex {
     }
 
     override void endFileEvent(ref Database db) @trusted {
-        import std.algorithm : max, each, map, min, canFind, sort, filter;
-        import std.array : appender, empty;
         import std.conv : to;
         import std.range : repeat, enumerate;
         import std.traits : EnumMembers;
@@ -170,8 +166,9 @@ struct FileIndex {
         line.addClass("loc");
 
         line.addChild("span", "1:").addClass("line_nr");
-        auto mut_data = "var g_muts_data = {};\n";
-        mut_data ~= "g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};\n";
+        auto mut_data = appender!(string[])();
+        mut_data.put("var g_muts_data = {};");
+        mut_data.put("g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};");
 
         // used to make sure that metadata about a mutant is only written onces
         // to the global arrays.
@@ -207,7 +204,7 @@ struct FileIndex {
                 if (auto v = meta.status.toVisible)
                     addClass(v);
                 if (s.muts.length != 0)
-                    addClass(format("%(mutid%s %)", s.muts.map!(a => a.id)));
+                    addClass(format("%(mutid%s %)", s.muts.map!(a => a.id.get)));
                 if (meta.onClick.length != 0)
                     setAttribute("onclick", meta.onClick);
             }
@@ -221,22 +218,22 @@ struct FileIndex {
                 with (d0.addChild("span", m.mutation)) {
                     addClass("mutant");
                     addClass(s.tok.toName);
-                    setAttribute("id", m.id.to!string);
+                    setAttribute("id", m.id.get.to!string);
                 }
-                d0.addChild("a").setAttribute("href", "#" ~ m.id.to!string);
+                d0.addChild("a").setAttribute("href", "#" ~ m.id.get.to!string);
 
                 auto testCases = ctx.getTestCaseInfo(m.id);
                 if (testCases.empty) {
-                    mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
-                            m.id, m.mut.kind.to!int, toUser(m.mut.kind)
+                    mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};",
+                            m.id.get, m.mut.kind.to!int, toUser(m.mut.kind)
                             .to!int, m.mut.status.to!ubyte, window(m.txt.original),
-                            window(m.txt.mutation), metadata.kindToString);
+                            window(m.txt.mutation), metadata.kindToString));
                 } else {
-                    mut_data ~= format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};\n",
-                            m.id, m.mut.kind.to!int, toUser(m.mut.kind)
+                    mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};",
+                            m.id.get, m.mut.kind.to!int, toUser(m.mut.kind)
                             .to!int, m.mut.status.to!ubyte,
                             testCases.map!(a => a.name), window(m.txt.original),
-                            window(m.txt.mutation), metadata.kindToString);
+                            window(m.txt.mutation), metadata.kindToString));
                 }
             }
             lastLoc = s.tok.locEnd;
@@ -273,7 +270,7 @@ struct FileIndex {
                         format("g_testcases_kills['%s'] = [%s];", tc.name, tc.killed)));
                 appendText("\n");
             }
-            appendChild(new RawSource(ctx.doc, mut_data));
+            appendChild(new RawSource(ctx.doc, mut_data.data.joiner("\n").toUTF8));
             appendText("\n");
         }
 
@@ -393,8 +390,6 @@ struct FileCtx {
     TestCaseInfo[] testCases;
 
     static FileCtx make(string title, FileId id, Blob raw, TestCaseInfo2[] tc_info) @trusted {
-        import std.algorithm : sort;
-        import std.array : array;
         import dextool.plugin.mutate.backend.report.html.js;
         import dextool.plugin.mutate.backend.report.html.tmpl;
 
@@ -592,8 +587,6 @@ struct Spanner {
     }
 
     string toString() @safe pure const {
-        import std.array : appender;
-
         auto buf = appender!string;
         this.toString(buf);
         return buf.data;
@@ -668,8 +661,6 @@ struct SpannerRange {
     }
 
     Span front() @safe pure nothrow {
-        import std.array : appender;
-
         assert(!empty, "Can't get front of an empty range");
         auto t = tokens.front;
         if (muts.empty)
@@ -697,9 +688,6 @@ struct SpannerRange {
     }
 
     private void dropMutants() @safe {
-        import std.algorithm : filter;
-        import std.array : array;
-
         if (tokens.empty)
             return;
 
@@ -717,8 +705,6 @@ struct Span {
     FileMutant[] muts;
 
     string toString() @safe pure const {
-        import std.array : appender;
-
         auto buf = appender!string;
         toString(buf);
         return buf.data;
@@ -735,7 +721,6 @@ struct Span {
 @("shall return a range grouping mutants by the tokens they overlap")
 @safe unittest {
     import std.algorithm;
-    import std.array : array;
     import std.conv;
     import std.range;
     import clang.c.Index : CXTokenKind;
@@ -854,12 +839,12 @@ struct MetaSpan {
         foreach (ref const m; muts) {
             status = pickColor(m, status);
             if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {
-                onClick = format(click_fmt2, m.id);
+                onClick = format(click_fmt2, m.id.get);
             }
         }
 
         if (onClick.length == 0 && muts.length != 0) {
-            onClick = format(click_fmt2, muts[0].id);
+            onClick = format(click_fmt2, muts[0].id.get);
         }
     }
 }

@@ -60,7 +60,7 @@ void toHtml(const MutantSample mut_sample, Element root) {
             auto r = tbl.appendRow();
             r.addChild("td").addChild("a", format("%s:%s", mut.file,
                     mut.sloc.line)).href = format("%s#%s", buildPath(htmlFileDir,
-                    pathToHtmlLink(mut.file)), mut.id);
+                    pathToHtmlLink(mut.file)), mut.id.get);
             r.addChild("td", mutst.added.isNull ? "unknown" : mutst.added.get.toString);
             r.addChild("td", mutst.updated.toString);
             r.addChild("td", format("%s times", mutst.testCnt));
@@ -79,7 +79,7 @@ void toHtml(const MutantSample mut_sample, Element root) {
             auto r = tbl.appendRow();
             r.addChild("td").addChild("a", format("%s:%s", mut.file,
                     mut.sloc.line)).href = format("%s#%s", buildPath(htmlFileDir,
-                    pathToHtmlLink(mut.file)), mut.id);
+                    pathToHtmlLink(mut.file)), mut.id.get);
             r.addChild("td", mutst.updated.toString);
         }
     }

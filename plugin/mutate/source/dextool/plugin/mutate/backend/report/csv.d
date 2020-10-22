@@ -77,7 +77,7 @@ final class ReportCSV : ReportEvent {
             auto desc = format(`'%s' to '%s'`, toField(mut_txt.original,
                     textualDescriptionLen), toField(mut_txt.mutation, textualDescriptionLen));
             auto loc = format("%s:%s:%s", r.file, r.sloc.line, r.sloc.column);
-            writer.writeCSV(r.id, r.mutation.kind.toUser, desc, loc, "");
+            writer.writeCSV(r.id.get, r.mutation.kind.toUser, desc, loc, "");
         }
 
         try {

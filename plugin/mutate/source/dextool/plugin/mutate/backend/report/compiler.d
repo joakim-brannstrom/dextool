@@ -78,7 +78,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportLevel;
                 .begin("%s: replace '%s' with '%s'", r.mutation.kind.toUser,
                        window(mut_txt.original, windowSize),
                        window(mut_txt.mutation, windowSize))
-                .note("status:%s id:%s", r.mutation.status, r.id);
+                .note("status:%s id:%s", r.mutation.status, r.id.get);
 
             if (mut_txt.original.length > windowSize)
                 b = b.note("replace '%s'", mut_txt.original);
