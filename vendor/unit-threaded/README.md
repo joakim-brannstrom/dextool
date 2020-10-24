@@ -3,24 +3,23 @@ unit-threaded
 
 | [![Build Status](https://travis-ci.org/atilaneves/unit-threaded.png?branch=master)](https://travis-ci.org/atilaneves/unit-threaded) |  [![Build Status](https://ci.appveyor.com/api/projects/status/github/atilaneves/unit-threaded?branch=master&svg=true)](https://ci.appveyor.com/project/atilaneves/unit-threaded) | [![Coverage](https://codecov.io/gh/atilaneves/unit-threaded/branch/master/graph/badge.svg)](https://codecov.io/gh/atilaneves/unit-threaded) |
 
-[My DConf2016 Lightning talk demonstrating unit-threaded](https://www.youtube.com/watch?v=vNPb4Mg6F6Y#t=6m50s).
+[My DConf2016 Lightning talk demonstrating unit-threaded](https://www.youtube.com/watch?v=yIH_0ew-maI#t=6m50s).
 
 Multi-threaded advanced unit test framework for [the D programming language](https://dlang.org/).
 
 Augments D's `unittest` blocks with:
 
 * Tests can be named and individually run
-* Custom assertions for better error reporting (e.g. `1.should == 2`)
+* Custom assertions for better error reporting (e.g. 1.should == 2)
 * Runs in threads by default
 * UDAs for customisation of tests
+* Value and type parameterized tests
 * Property based testing
 * Mocking
 
 
-## Quick start with dub
-
-Note: while getting started this way is easy, it also increases build
-times and may run into edge cases. See below for how to do it manually.
+Quick start with dub
+----------------------
 
 dub runs tests with `dub test`. Unfortunately, due to the nature of
 D's compile-time reflection, to use this library a test runner file
@@ -40,7 +39,7 @@ project, you can use a `unittest` configuration as exemplified in this
         {
             "name": "unittest",
             "targetType": "executable",
-            "preBuildCommands": ["$DUB run --compiler=$$DC unit-threaded -c gen_ut_main -- -f bin/ut.d -d $DUB"],
+            "preBuildCommands": ["dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"],
             "mainSourceFile": "bin/ut.d",
             "excludedSourceFiles": ["src/main.d"],
             "dependencies": {
@@ -62,7 +61,7 @@ configuration "unittest" {
     mainSourceFile "bin/ut.d"
     excludedSourceFiles "src/main.d"
     targetType "executable"
-    preBuildCommands "$DUB run --compiler=$$DC unit-threaded -c gen_ut_main -- -f bin/ut.d -d $DUB"
+    preBuildCommands "dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"
 }
 
 ```
@@ -72,33 +71,12 @@ configuration "unittest" {
 `excludedSourceFiles`, the "real" `main` can be versioned out:
 
 ```d
-version(unittest) {
-    import unit_threaded;
-    mixin runTestsMain!(
-        "module1",
-        "module2",
-        // ...
-    );
-} else {
+version(unittest) {}
+else {
     void main() {
         //...
     }
 }
-```
-
-### Manually listing the D modules with tests
-
-Alternatively to the above and the recommended way is to manually (unfortunately)
-list all the modules with tests in the unittest main function. There's a mixin
-for that:
-
-```d
-import unit_threaded;
-mixin runTestsMain!(
-    "mypkg.mymod0",
-    "mypkg.mymod1",
-    // ...
-);
 ```
 
 Your unittest blocks will now be run in threads and can be run individually.
@@ -119,7 +97,7 @@ the standard D runtime unittest runner and one that uses unit-threaded:
         {"name": "ut_default"},
         {
           "name": "unittest",
-          "preBuildCommands: ["$DUB run --compiler=$$DC unit-threaded -c gen_ut_main -- -f bin/ut.d -d $DUB"],
+          "preBuildCommands: ["dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"],
           "mainSourceFile": "bin/ut.d",
           ...
         }
@@ -163,7 +141,7 @@ Code speaks louder than words:
     4.should.not in [1, 2, 3];
 
     void funcThrows() { throw new Exception("oops"); }
-    funcThrows.shouldThrow;
+    funcThrows.should.throw_;
 
     // or with .be
     1.should.be == 1;
@@ -208,6 +186,65 @@ flaky. It is recommended to fix the test, but as a stopgap measure
 the `@Flaky` UDA can be used to rerun the test up to a default number
 of 10 times. This can be customized by passing it a number
 (e.g. `@Flaky(12)`);
+
+The `@UnitTest` and `@DontTest` attributes are explained below.
+
+There is support for parameterized tests. This means running the test
+code multiple times, either with different values or different types.
+At the moment this feature cannot be used with the built-in unittest
+blocks.
+
+For values and built-in unit tests, use the `@Values` UDA to supply
+test values and `getValue` with the appropriate type to retrive them:
+
+```d
+@Values(2, 4, 6)
+unittest {
+    assert(getValue!int % 0 == 2);
+}
+```
+
+This will run the test 3 times, and the reporting
+will consider it to be 3 separate tests.
+
+
+If more than one `@Values` UDA is used, then the test gets instantiated
+with the cartesian product of values, e.g.
+
+```d
+@Values(1, 2)
+@Values("foo", "bar")
+unittest {
+    getValue!(int, 0); // gets the integer value (1 or 2)
+    getValue!(string, 1); // gets the string value ("foo" or "bar")
+}
+```
+
+The test above is instantiated 4 times for each one of the possible
+combinations. This helps to reduce boilerplate and repeated tests.
+
+You can also declare a test function that takes parameters of the
+appropriate types and add UDAs with the values desired, e.g.
+
+```d
+@(2, 4, 6)
+void testEven(int i) {
+    (i % 0 == 2).shouldBeTrue;
+}
+```
+
+For a cartesian product, simply declare more parameters and add
+UDAs as appropriate.
+
+For types, use the `@Types` UDA on a template function with exactly
+one compile-time parameter:
+
+```d
+@Types!(int, byte)
+void testInit(T)() {
+    T.init.shouldEqual(0);
+}
+```
 
 The `@Name` UDA can be used instead of a plain string in order to name
 a `unittest` block.
@@ -403,11 +440,11 @@ the output of both example programs
 generated for them. The user can specify a name by decorating them
 with a string UDA or the included `@Name` UDA.
 
-The easiest way to run tests is by doing what the failing example code
-does: mixing in `runTestsMain()` in
-[`runner.d`](subpackages/runner/source/unit_threaded/runner/runner.d)
-with the modules containing the tests as compile-time arguments (as
-strings).
+The easiest way to run tests is by doing what the example code does:
+calling `runTests()` in [`runner.d`](unit_threaded/runner.d) with
+the modules containing the tests as compile-time arguments. This can
+be done as symbols or strings, and the two approaches are shown in
+the examples.
 
 There is no need to register tests. The registration is implicit
 and happens with:
@@ -417,12 +454,15 @@ and happens with:
 * Classes that derive from `TestCase` and override `test()`
 
 The modules to be reflected on must be specified when calling
-`runTests` or `runTestsMain`, but that's usually done as shown in the dub configuration
+`runTests`, but that's usually done as shown in the dub configuration
 above. Private functions are skipped. `TestCase` also has support for
 `setup()` and `shutdown()`, child classes need only override the
 appropriate functions(s).
 
-Tests can be hidden with the `@HiddenTest` attribute. This means
+Don't like the algorithm for registering tests? Not a problem. The
+attributes `@UnitTest` and `@DontTest` can be used to opt-in or
+opt-out. These are used in the examples.
+Tests can also be hidden with the `@HiddenTest` attribute. This means
 that particular test doesn't get run by default but can still be run
 by passing its name as a command-line argument. `HiddenTest` takes
 a compile-time string to list the reason why the test is hidden. This

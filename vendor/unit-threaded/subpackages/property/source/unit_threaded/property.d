@@ -20,13 +20,15 @@ class PropertyException : Exception
  */
 void check(alias F, int numFuncCalls = 100)
           (in uint seed = from!"std.random".unpredictableSeed,
-           string file = __FILE__,
-           size_t line = __LINE__)
+           in string file = __FILE__,
+           in size_t line = __LINE__)
+    @trusted
 {
+
     import unit_threaded.randomized.random: RndValueGen;
     import unit_threaded.exception: UnitTestException;
     import std.conv: text;
-    import std.traits: ReturnType, Parameters, isSomeString, isSafe;
+    import std.traits: ReturnType, Parameters, isSomeString;
     import std.array: join;
     import std.typecons: Flag, Yes, No;
     import std.random: Random;
@@ -34,82 +36,50 @@ void check(alias F, int numFuncCalls = 100)
     static assert(is(ReturnType!F == bool),
                   text("check only accepts functions that return bool, not ", ReturnType!F.stringof));
 
-    scope random = Random(seed);
-
-    // See https://github.com/atilaneves/unit-threaded/issues/187 for why
-    auto createGenerator(ref Random random) {
-        return RndValueGen!(Parameters!F)(&random);
-    }
-
-    // It might be that some projects don't use dip1000 and so
-    // createGenerator isn't safe
-    static if(isSafe!createGenerator)
-        scope gen = createGenerator(random);
-    else
-        scope gen = () @trusted { return createGenerator(random); }();
+    auto random = Random(seed);
+    auto gen = RndValueGen!(Parameters!F)(&random);
 
     auto input(Flag!"shrink" shrink = Yes.shrink) {
-
-        scope string[] ret;
-
+        string[] ret;
         static if(Parameters!F.length == 1 && canShrink!(Parameters!F[0])) {
             auto val = gen.values[0].value;
             auto shrunk = shrink ? val.shrink!F : val;
-            ret ~= shrunk.text.idup;
+            ret ~= shrunk.text;
             static if(isSomeString!(Parameters!F[0]))
                 ret[$-1] = `"` ~ ret[$-1] ~ `"`;
-        } else {
+        } else
             foreach(ref valueGen; gen.values) {
                 ret ~= valueGen.text;
             }
-        }
-
         return ret.join(", ");
     }
 
     foreach(i; 0 .. numFuncCalls) {
         bool pass;
 
-        safelyCatchThrowable!(
-            { gen.genValues; },
-            (Throwable t) @trusted { throw new PropertyException("Error generating values\n" ~ t.toString, file, line, t); }
-        );
+        try {
+            gen.genValues;
+        } catch(Throwable t) {
+            throw new PropertyException("Error generating values\n" ~ t.toString, file, line, t);
+        }
 
-        pass = safelyCatchThrowable!(
-            () => F(gen.values),
-            (Throwable t) @trusted {
-                throw new UnitTestException(
-                    text("Property threw. Seed: ", seed, ". Input: ", input(No.shrink), ". Message: ", t.msg),
-                    file,
-                    line,
-                    t,
-                    );
-            }
-        );
+        try {
+            pass = F(gen.values);
+        } catch(Throwable t) {
+            // trying to shrink when an exeption is thrown is too much of a bother code-wise
+            throw new UnitTestException(
+                text("Property threw. Seed: ", seed, ". Input: ", input(No.shrink), ". Message: ", t.msg),
+                file,
+                line,
+                t,
+            );
+        }
 
-        if(!pass)
+        if(!pass) {
             throw new UnitTestException(text("Property failed. Seed: ", seed, ". Input: ", input), file, line);
+        }
     }
 }
-
-
-private auto safelyCatchThrowable(alias Func, alias Handler, A...)(auto ref A args) {
-    import std.traits: isSafe, ReturnType;
-
-    ReturnType!Func impl() {
-        try
-            return Func(args);
-        catch(Throwable t)
-            Handler(t);
-        assert(0);
-    }
-
-    static if(isSafe!Func && isSafe!Handler)
-        return () @trusted { return impl; }();
-    else
-        return impl;
-}
-
 
 /**
    For values that unit-threaded doesn't know how to generate, test that the Predicate

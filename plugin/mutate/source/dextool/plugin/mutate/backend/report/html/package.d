@@ -250,7 +250,7 @@ struct FileIndex {
                     db.getDetectedTestCases.length)));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
-                    muts.data.map!(a => a.id))));
+                    muts.data.map!(a => a.id.get))));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
                     [EnumMembers!(Mutation.Status)])));

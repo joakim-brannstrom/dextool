@@ -90,10 +90,10 @@ private auto byOptionalKey(from!"std.json".JSONValue json, in string key, bool d
 //std.json has no conversion to bool
 private bool boolean(from!"std.json".JSONValue json) @trusted {
     import std.exception: enforce;
-    import std.json: JSONException, JSONType;
-    enforce!JSONException(json.type == JSONType.true_ || json.type == JSONType.false_,
+    import std.json: JSONException, JSON_TYPE;
+    enforce!JSONException(json.type == JSON_TYPE.TRUE || json.type == JSON_TYPE.FALSE,
                           "JSONValue is not a boolean");
-    return json.type == JSONType.true_;
+    return json.type == JSON_TYPE.TRUE;
 }
 
 private string getOptional(from!"std.json".JSONValue json, in string key) @trusted {
@@ -111,22 +111,19 @@ private string[] getOptionalList(from!"std.json".JSONValue json, in string key) 
 }
 
 
-DubInfo getDubInfo(in bool verbose, in string dubBinary) {
+DubInfo getDubInfo(in bool verbose) {
     import std.json: JSONException;
     import std.conv: text;
     import std.algorithm: joiner, map, copy;
-    import std.range: empty;
     import std.stdio: writeln;
     import std.exception: enforce;
-    import std.process: environment, pipeProcess, Redirect, wait;
+    import std.process: pipeProcess, Redirect, wait;
     import std.array: join, appender;
 
     if(verbose)
         writeln("Running dub describe");
 
-    const args =
-        [dubBinary, "describe", "-c", "unittest"] ~
-        ("DC" in environment ? ["--compiler", environment["DC"]] : null);
+    immutable args = ["dub", "describe", "-c", "unittest"];
     auto pipes = pipeProcess(args, Redirect.stdout | Redirect.stderr);
     scope(exit) wait(pipes.pid); // avoid zombies in all cases
     string stdoutStr;
@@ -163,7 +160,7 @@ void dubify(ref from!"unit_threaded.runtime.runtime".Options options) {
 
     if(!isDubProject) return;
 
-    auto dubInfo = getDubInfo(options.verbose, options.dubBinary);
+    auto dubInfo = getDubInfo(options.verbose);
     options.includes = dubInfo.packages.
         map!(a => a.importPaths.map!(b => buildPath(a.path, b)).array).
         reduce!((a, b) => a ~ b).array;

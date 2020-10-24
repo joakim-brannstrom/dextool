@@ -154,10 +154,6 @@ private:
             foreach(test; tests)
                 test.showChrono;
 
-        if(_options.quiet)
-            foreach(test; tests)
-                test.quiet;
-
         _stopWatch.start();
 
         if (_options.multiThreaded) {

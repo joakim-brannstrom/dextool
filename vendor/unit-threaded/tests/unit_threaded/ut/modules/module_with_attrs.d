@@ -16,6 +16,11 @@ void testOtherAttrs() {}
 @(1, 2, 3)
 void testValues(int i) { }
 
+@DontTest
+@("DontTestBlock")
+unittest {
+    assert(0);
+}
 
 @ShouldFail
 @("will fail")
