@@ -16,4 +16,3 @@ perf.data.old
 unit-threaded-test-unittest-only
 *.lst
 *.lib
-*-test-library

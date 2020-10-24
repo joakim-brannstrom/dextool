@@ -3,29 +3,30 @@ module tests.pass.normal;
 import unit_threaded;
 
 
-@("IntEqualTest")
-unittest {
-    1.shouldNotEqual(5);
-    5.shouldNotEqual(1);
-    3.shouldEqual(3);
-    2.shouldEqual(2);
+class IntEqualTest: TestCase {
+    override void test() {
+        1.shouldNotEqual(5);
+        5.shouldNotEqual(1);
+        3.shouldEqual(3);
+        2.shouldEqual(2);
+    }
 }
 
-@("DoubleEqualTest") unittest {
-    shouldNotEqual(1.0, 2.0);
-    (2.0).shouldEqual(2.0);
-    (2.0).shouldEqual(2.0);
+class DoubleEqualTest: TestCase {
+    override void test() {
+        shouldNotEqual(1.0, 2.0);
+        (2.0).shouldEqual(2.0);
+        (2.0).shouldEqual(2.0);
+    }
 }
 
-@("equal")
-unittest {
+void testEqual() {
     1.shouldEqual(1);
     shouldEqual(1.0, 1.0);
     "foo".shouldEqual("foo");
 }
 
-@("notEqual")
-unittest {
+void testNotEqual() {
     3.shouldNotEqual(4);
     shouldNotEqual(5.0, 6.0);
     "foo".shouldNotEqual("bar");
@@ -38,13 +39,11 @@ private class MyException: Exception {
     }
 }
 
-@("thrown")
-unittest {
+void testThrown() {
     throwFunc.shouldThrow!MyException;
 }
 
-@("notThrow")
-unittest {
+void testNotThrown() {
     nothrowFunc.shouldNotThrow;
 }
 
@@ -69,8 +68,7 @@ private class MyClass {
     }
 }
 
-@("equalClass")
-unittest {
+void testEqualClass() {
     const foo = new MyClass(2, 3.0);
     const bar = new MyClass(2, 3.0);
     const baz = new MyClass(3, 3.0);
@@ -89,8 +87,7 @@ private struct Pair {
     int i;
 }
 
-@("pairAA")
-unittest {
+void testPairAA() {
     auto map = [Pair("foo", 5): 105];
     [Pair("foo", 5): 105].shouldEqual(map);
     map.dup.shouldEqual(map);

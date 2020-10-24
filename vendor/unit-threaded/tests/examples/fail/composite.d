@@ -1,51 +1,65 @@
 module tests.fail.composite;
 
+import unit_threaded.testcase;
+import unit_threaded.should;
 import unit_threaded.should;
 import unit_threaded.attrs;
 
 
 @SingleThreaded
-unittest {
-    true.shouldBeTrue;
-    (2 + 3).shouldEqual(5);
+class Test1: TestCase {
+    override void test() {
+        true.shouldBeTrue;
+        (2 + 3).shouldEqual(5);
+    }
 }
 
 @SingleThreaded
-unittest {
-    true.shouldBeTrue;
-    (2 + 3).shouldEqual(5);
+class Test2: TestCase {
+    override void test() {
+        true.shouldBeTrue;
+        (2 + 3).shouldEqual(5);
+    }
 }
 
 @SingleThreaded
-unittest {
-    true.shouldBeTrue;
-    (2 + 3).shouldEqual(5);
+class Test3: TestCase {
+    override void test() {
+        true.shouldBeTrue;
+        (2 + 3).shouldEqual(5);
+    }
 }
 
 @SingleThreaded
-unittest {
-    true.shouldBeTrue;
-    shouldEqual(2 + 3, 5);
+class Test4: TestCase {
+    override void test() {
+        true.shouldBeTrue;
+        shouldEqual(2 + 3, 5);
+    }
 }
 
 @SingleThreaded
-unittest {
-    true.shouldBeTrue;
-    shouldEqual(2 + 3, 5);
+class Test5: TestCase {
+    override void test() {
+        true.shouldBeTrue;
+        shouldEqual(2 + 3, 5);
+    }
 }
 
 @SingleThreaded
-unittest {
-    true.shouldBeTrue;
-    shouldEqual(2 + 3, 5);
+class Test6: TestCase {
+    override void test() {
+        true.shouldBeTrue;
+        shouldEqual(2 + 3, 5);
+    }
 }
 
 @SingleThreaded
-unittest {
+void testFunction1() {
     true.shouldBeTrue;
 }
 
 @SingleThreaded
-unittest {
+void testFunction2() {
     shouldBeTrue(false);
 }

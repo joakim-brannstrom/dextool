@@ -23,20 +23,6 @@ version(Windows) {
     }
 
     char* mkdtempImpl(char* t) {
-        // mktemp can actually only return up to 26 unique names per
-        // the documentation at MSDN. To hack around this, I am just
-        // putting in some random letters at some YYYYYY defined below
-        // to make conflicts less likely.
-
-        import core.stdc.string : strstr;
-        import core.stdc.stdlib : rand;
-
-        char* where = strstr(t, "YYYYYY");
-        assert(where !is null);
-        while(*where == 'Y') {
-                *where++ = rand() % 26 + 'A';
-        }
-
         char* result = mktemp(t);
 
         if(result is null) return null;
@@ -97,10 +83,10 @@ struct Sandbox {
         import std.file: mkdirRecurse;
 
         () @trusted { mkdirRecurse(buildPath(testPath, fileName.dirName)); }();
-        File(buildPath(testPath, fileName), "wb").writeln(output);
+        File(buildPath(testPath, fileName), "w").writeln(output);
     }
 
-    /// Write a file to the sandbox
+    /// Write a file to the sanbox
     void writeFile(in string fileName, in string[] lines) const {
         import std.array;
         writeFile(fileName, lines.join("\n"));
@@ -251,10 +237,7 @@ private:
         import core.stdc.errno: errno;
 
         char[2048] template_;
-        // the YYYYYY is to give some randomness on systems
-        // where it is necessary to have more than 26 items
-        // harmless elsewhere; the name is random stuff anyway
-        copy(buildPath(sandboxesPath, "YYYYYYXXXXXX") ~ '\0', template_[]);
+        copy(buildPath(sandboxesPath, "XXXXXX") ~ '\0', template_[]);
 
         auto path = () @trusted { return mkdtemp(&template_[0]).to!string; }();
 

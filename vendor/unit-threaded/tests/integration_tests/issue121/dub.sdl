@@ -1,3 +1,9 @@
 name "issue121"
-targetType "executable"
-dependency "unit-threaded" path="../../.."
+
+configuration "default" {
+
+}
+
+configuration "unittest" {
+    dependency "unit-threaded" path="../../"
+}

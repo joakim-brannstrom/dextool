@@ -16,7 +16,6 @@ struct Options {
     uint seed;
     bool stackTraces;
     bool showChrono;
-    bool quiet;
 }
 
 /**
@@ -26,7 +25,7 @@ auto getOptions(string[] args) {
 
     import std.stdio: writeln;
     import std.random: unpredictableSeed;
-    import std.getopt: getopt, defaultGetoptPrinter;
+    import std.getopt: getopt;
 
     bool single;
     bool debugOutput;
@@ -37,24 +36,32 @@ auto getOptions(string[] args) {
     uint seed = unpredictableSeed;
     bool stackTraces;
     bool showChrono;
-    bool quiet;
 
-    auto helpInfo =
-        getopt(args,
-               "single|s", "Run in one thread", &single,
-               "debug|d", "Print debug output", &debugOutput,
-               "esccodes|e", "force ANSI escape codes even for !isatty", &forceEscCodes,
-               "list|l", "List available tests", &list,
-               "random|r", "Run tests in random order (in one thread)", &random,
-               "seed", "Set the seed for the random order execution", &seed,
-               "trace|t", "enable stack traces", &stackTraces,
-               "chrono|c", "Print execution time per test", &showChrono,
-               "q|quiet", "Only print information about failing tests", &quiet,
+    getopt(args,
+           "single|s", &single, //single-threaded
+           "debug|d", &debugOutput, //print debug output
+           "esccodes|e", &forceEscCodes,
+           "help|h", &help,
+           "list|l", &list,
+           "random|r", &random,
+           "seed", &seed,
+           "trace|t", &stackTraces,
+           "chrono|c", &showChrono,
         );
 
-    if(helpInfo.helpWanted) {
-        help = true;
-        defaultGetoptPrinter("Usage: <progname> <options> <tests>...", helpInfo.options);
+    if(help) {
+        writeln("Usage: <progname> <options> <tests>...\n",
+                  "Options: \n",
+                  "  -h/--help: help\n",
+                  "  -s/--single: single-threaded\n",
+                  "  -l/--list: list tests\n",
+                  "  -d/--debug: enable debug output\n",
+                  "  -e/--esccodes: force ANSI escape codes even for !isatty\n",
+                  "  -r/--random: run tests in random order\n",
+                  "  --seed: set the seed for the random order\n",
+                  "  -t/--trace: enable stack traces\n",
+                  "  -c/--chrono: print execution time per test",
+            );
     }
 
     if(random) {
@@ -67,5 +74,5 @@ auto getOptions(string[] args) {
 
     immutable exit =  help || list;
     return Options(!single, args[1..$], debugOutput, list, exit, forceEscCodes,
-                   random, seed, stackTraces, showChrono, quiet);
+                   random, seed, stackTraces, showChrono);
 }
