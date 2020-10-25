@@ -204,7 +204,7 @@ struct FileIndex {
                 if (auto v = meta.status.toVisible)
                     addClass(v);
                 if (s.muts.length != 0)
-                    addClass(format("%(mutid%s %)", s.muts.map!(a => a.id.get)));
+                    addClass(format("%(mutid%s %)", s.muts.map!(a => a.id)));
                 if (meta.onClick.length != 0)
                     setAttribute("onclick", meta.onClick);
             }
@@ -218,19 +218,19 @@ struct FileIndex {
                 with (d0.addChild("span", m.mutation)) {
                     addClass("mutant");
                     addClass(s.tok.toName);
-                    setAttribute("id", m.id.get.to!string);
+                    setAttribute("id", m.id.toString);
                 }
-                d0.addChild("a").setAttribute("href", "#" ~ m.id.get.to!string);
+                d0.addChild("a").setAttribute("href", "#" ~ m.id.toString);
 
                 auto testCases = ctx.getTestCaseInfo(m.id);
                 if (testCases.empty) {
                     mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};",
-                            m.id.get, m.mut.kind.to!int, toUser(m.mut.kind)
+                            m.id, m.mut.kind.to!int, toUser(m.mut.kind)
                             .to!int, m.mut.status.to!ubyte, window(m.txt.original),
                             window(m.txt.mutation), metadata.kindToString));
                 } else {
                     mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};",
-                            m.id.get, m.mut.kind.to!int, toUser(m.mut.kind)
+                            m.id, m.mut.kind.to!int, toUser(m.mut.kind)
                             .to!int, m.mut.status.to!ubyte,
                             testCases.map!(a => a.name), window(m.txt.original),
                             window(m.txt.mutation), metadata.kindToString));
@@ -250,7 +250,7 @@ struct FileIndex {
                     db.getDetectedTestCases.length)));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
-                    muts.data.map!(a => a.id.get))));
+                    muts.data.map!(a => a.id))));
             appendText("\n");
             addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
                     [EnumMembers!(Mutation.Status)])));
