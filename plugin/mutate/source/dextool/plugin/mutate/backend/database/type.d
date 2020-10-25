@@ -26,7 +26,7 @@ alias MutantTimeoutCtx = MutantTimeoutCtxTbl;
 @safe:
 
 /// Primary key in the mutation table
-alias MutationId = NamedType!(long, Tag!"MutationId", 0, Comparable, Hashable, Printable);
+alias MutationId = NamedType!(long, Tag!"MutationId", 0, Comparable, Hashable, ConvertStringable);
 
 /// Primary key for mutation status
 struct MutationStatusId {
