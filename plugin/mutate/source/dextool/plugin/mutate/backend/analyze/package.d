@@ -222,12 +222,14 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         // only saves mutation points to a file one time.
         {
             auto app = appender!(MutationPointEntry2[])();
+            bool isChanged;
             foreach (mp; result.mutationPoints
                     .map!(a => tuple!("data", "file")(a, fio.toAbsoluteRoot(a.file)))
                     .filter!(a => a.file !in savedFiles)) {
                 app.put(mp.data);
             }
             foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
+                isChanged = true;
                 logger.info("Saving ".color(Color.green), f);
                 const relp = fio.toRelativeRoot(f);
                 db.removeFile(relp);
@@ -236,22 +238,27 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                 savedFiles.add(f);
             }
             db.put(app.data, fio.getOutputDir);
-        }
 
-        foreach (s; result.schematas.enumerate) {
-            try {
-                auto mutants = result.schemataMutants[s.index].map!(
-                        a => db.getMutationStatusId(a.value))
-                    .filter!(a => !a.isNull)
-                    .map!(a => a.get)
-                    .array;
-                if (!mutants.empty && !s.value.empty) {
-                    const id = db.putSchemata(result.schemataChecksum[s.index], s.value, mutants);
-                    logger.trace(!id.isNull, "Saving schemata ", id.get.value);
+            // only save the schematas if mutation points where saved.  this
+            // ensure that only schematas for changed/new files are saved.
+            if (isChanged) {
+                foreach (s; result.schematas.enumerate) {
+                    try {
+                        auto mutants = result.schemataMutants[s.index].map!(
+                                a => db.getMutationStatusId(a.value))
+                            .filter!(a => !a.isNull)
+                            .map!(a => a.get)
+                            .array;
+                        if (!mutants.empty && !s.value.empty) {
+                            const id = db.putSchemata(result.schemataChecksum[s.index],
+                                    s.value, mutants);
+                            logger.trace(!id.isNull, "Saving schemata ", id.get.value);
+                        }
+                    } catch (Exception e) {
+                        logger.trace(e.msg);
+                        logger.warning("Unable to save schemata ", s.index).collectException;
+                    }
                 }
-            } catch (Exception e) {
-                logger.trace(e.msg);
-                logger.warning("Unable to save schemata ", s.index).collectException;
             }
         }
 
