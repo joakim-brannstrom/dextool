@@ -30,9 +30,11 @@ import dextool.plugin.mutate.backend.type : Language, Offset, Mutation, SourceLo
 @safe:
 
 /// Find mutants.
-MutantsResult toMutants(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc) @trusted {
-    auto visitor = scoped!MutantVisitor(ast, fio, vloc);
-    ast.accept(cast(MutantVisitor) visitor);
+MutantsResult toMutants(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc) @safe {
+    auto visitor = new MutantVisitor(ast, fio, vloc);
+    scope (exit)
+        visitor.dispose;
+    ast.accept(visitor);
     return visitor.result;
 }
 
@@ -332,6 +334,10 @@ class MutantVisitor : DepthFirstVisitor {
         foreach (ref l; ast.locs.byValue) {
             result.put(l.file);
         }
+    }
+
+    void dispose() {
+        ast.release;
     }
 
     override void visitPush(Node n) {
