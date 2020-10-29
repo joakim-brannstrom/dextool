@@ -46,9 +46,9 @@ immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
 /// Translate a mutation AST to a schemata.
 SchemataResult toSchemata(RefCounted!Ast ast, FilesysIO fio,
-        CodeMutantsResult cresult, long mutantsPerSchema) @trusted {
+        CodeMutantsResult cresult, long mutantsPerSchema) @safe {
     auto rval = new SchemataResult(fio, mutantsPerSchema);
-    auto index = scoped!CodeMutantIndex(cresult);
+    auto index = new CodeMutantIndex(cresult);
 
     final switch (ast.lang) {
     case Language.c:
@@ -56,8 +56,10 @@ SchemataResult toSchemata(RefCounted!Ast ast, FilesysIO fio,
     case Language.assumeCpp:
         goto case;
     case Language.cpp:
-        auto visitor = scoped!CppSchemataVisitor(ast, index, fio, rval);
-        ast.accept(cast(CppSchemataVisitor) visitor);
+        auto visitor = new CppSchemataVisitor(ast, index, fio, rval);
+        scope (exit)
+            visitor.dispose;
+        ast.accept(visitor);
         break;
     }
 
@@ -309,6 +311,10 @@ class CppSchemataVisitor : DepthFirstVisitor {
     private {
         Stack!(Node) nstack;
         uint depth;
+    }
+
+    void dispose() {
+        ast.release;
     }
 
     this(RefCounted!Ast ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result) {

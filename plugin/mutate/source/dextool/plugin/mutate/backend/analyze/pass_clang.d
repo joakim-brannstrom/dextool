@@ -43,13 +43,15 @@ alias accept = dextool.plugin.mutate.backend.analyze.extensions.accept;
 
 /** Translate a clang AST to a mutation AST.
  */
-RefCounted!(analyze.Ast) toMutateAst(const Cursor root, FilesysIO fio) @trusted {
+RefCounted!(analyze.Ast) toMutateAst(const Cursor root, FilesysIO fio) @safe {
     import cpptooling.analyzer.clang.ast : ClangAST;
 
-    auto svisitor = scoped!BaseVisitor(fio);
-    auto visitor = cast(BaseVisitor) svisitor;
+    auto visitor = new BaseVisitor(fio);
+    scope (exit)
+        visitor.dispose;
     auto ast = ClangAST!BaseVisitor(root);
     ast.accept(visitor);
+
     return visitor.ast;
 }
 
@@ -381,6 +383,13 @@ final class BaseVisitor : ExtendedVisitor {
     this(FilesysIO fio) nothrow {
         this.fio = fio;
         this.ast = analyze.Ast.init;
+    }
+
+    void dispose() {
+        nstack.free;
+        cstack.free;
+        lastDecr.free;
+        ast.release;
     }
 
     /// Returns: if the previous nodes is a CXCursorKind `k`.
