@@ -16,8 +16,9 @@ import std.path;
 import std.range : iota;
 import std.stdio : File, writeln, writefln;
 import std.typecons : Nullable, NullableRef, Tuple, tuple, Flag;
-
 import core.sys.posix.sys.types : uid_t;
+
+static import core.sys.posix.signal;
 
 @safe:
 
@@ -55,6 +56,13 @@ struct PidMap {
 
     auto pids() nothrow {
         return stat.byKey.array;
+    }
+
+    Stat getStat(RawPid p) nothrow {
+        if (auto v = p in stat) {
+            return *v;
+        }
+        return Stat.init;
     }
 
     Pid get(RawPid p) nothrow {
@@ -126,10 +134,12 @@ struct PidMap {
         }
         children.remove(p);
 
-        if (auto children_ = parent[p] in children) {
-            (*children_) = (*children_).filter!(a => a != p).array;
+        if (p in parent) {
+            if (auto children_ = parent[p] in children) {
+                (*children_) = (*children_).filter!(a => a != p).array;
+            }
+            parent.remove(p);
         }
-        parent.remove(p);
 
         return this;
     }
@@ -217,12 +227,10 @@ struct PidMap {
  *
  * TODO: remove @trusted when upgrading the minimum compiler >2.091.0
  */
-RawPid[] kill(PidMap pmap, Flag!"onlyCurrentUser" user) @trusted nothrow {
-    static import core.sys.posix.signal;
-
-    static void killMap(RawPid[] pids) @trusted nothrow {
+RawPid[] kill(PidMap pmap, Flag!"onlyCurrentUser" user, int signal = core.sys.posix.signal.SIGKILL) @trusted nothrow {
+    static void killMap(RawPid[] pids, int signal) @trusted nothrow {
         foreach (const c; pids) {
-            core.sys.posix.signal.kill(c, core.sys.posix.signal.SIGKILL);
+            core.sys.posix.signal.kill(c, signal);
         }
     }
 
@@ -233,7 +241,7 @@ RawPid[] kill(PidMap pmap, Flag!"onlyCurrentUser" user) @trusted nothrow {
         toKill = toKill[1 .. $];
 
         auto pids = f.pids;
-        killMap(pids);
+        killMap(pids, signal);
         rval.put(pids);
 
         pmap = () {
@@ -259,6 +267,73 @@ void reap(RawPid[] pids) @trusted nothrow {
     foreach (c; pids) {
         waitpid(c, null, WNOHANG);
     }
+}
+
+/// Pretty format `PidMap` as a tree
+string toTreeString(PidMap pmap) @safe {
+    import std.array : appender;
+
+    auto buf = appender!string;
+    toTreeString(pmap, buf);
+    return buf.data;
+}
+
+/// Pretty format `PidMap` as a tree
+void toTreeString(Writer)(PidMap pmap, ref Writer w) {
+    import std.format : formattedWrite;
+    import std.range : repeat;
+
+    immutable indentIncr = 2;
+
+    static string username(uid_t uid) @trusted {
+        import core.sys.posix.pwd;
+        import core.sys.posix.unistd;
+        import std.string : fromStringz;
+
+        const bufSize = () {
+            const v = sysconf(_SC_GETPW_R_SIZE_MAX);
+            if (v == -1)
+                return 16384;
+            return v;
+        }();
+        auto buf = new char[bufSize];
+        passwd pwd;
+        passwd* result;
+        auto s = getpwuid_r(uid, &pwd, buf.ptr, cast(ulong) bufSize, &result);
+
+        if (result is null) {
+            return null;
+        }
+        return pwd.pw_name.fromStringz.idup;
+    }
+
+    void printMap(PidMap pmap, RawPid root, uint indentNr) {
+        const indent = ' '.repeat(indentNr).array;
+        auto nextIndent = indentNr + indentIncr;
+
+        auto pname = pmap.getProc(root);
+        if (pname.empty) {
+            nextIndent = indentNr;
+        }
+        if (!pmap.empty && !pname.empty) {
+            const user = username(pmap.getStat(root).uid);
+            formattedWrite(w, "%s%s%s,%s\n", indent, root, user.empty ? null : "," ~ user, pname);
+        }
+
+        pmap.remove(root);
+        foreach (p; pmap.splitToSubMaps) {
+            printMap(p.map, p.root, nextIndent);
+        }
+    }
+
+    printMap(pmap, RawPid(0), 0);
+}
+
+@("shall pretty print the process tree")
+@safe unittest {
+    auto pmap = makePidMap;
+    updateProc(pmap);
+    writeln(toTreeString(pmap));
 }
 
 /// Split a `PidMap` so each map have one top pid as the `root`.
