@@ -8,55 +8,14 @@ module proc.channel;
 import logger = std.experimental.logger;
 import std.stdio : File;
 
-/** Pipes to use to communicate with a process.
- *
- * Can be used to directly communicate via stdin/stdout if so is desired.
- */
-struct Pipe {
-    FileReadChannel input;
-    FileWriteChannel output;
-
-    this(File input, File output) @safe {
-        this.input = FileReadChannel(input);
-        this.output = FileWriteChannel(output);
-    }
-
-    bool isOpen() @safe {
-        return input.isOpen;
-    }
-
-    /// If there is data to read.
-    bool hasPendingData() @safe {
-        return input.hasPendingData;
-    }
-
-    const(ubyte)[] read(const size_t s) return scope @safe {
-        return input.read(s);
-    }
-
-    ubyte[] read(ref ubyte[] buf) @safe {
-        return input.read(buf);
-    }
-
-    void write(scope const(ubyte)[] data) @safe {
-        output.write(data);
-    }
-
-    void flush() @safe {
-        output.flush;
-    }
-
-    void closeWrite() @safe {
-        output.closeWrite;
-    }
-}
-
 /** A read channel over a `File` object.
  */
 struct FileReadChannel {
+    File file;
+
     private {
-        File in_;
         enum State {
+            none,
             active,
             hup,
             eof
@@ -65,13 +24,14 @@ struct FileReadChannel {
         State st;
     }
 
-    this(File in_) @trusted {
-        this.in_ = in_;
+    this(File file) @trusted {
+        this.file = file;
+        this.st = State.active;
     }
 
     /// If the channel is open.
     bool isOpen() @safe {
-        return st != State.eof;
+        return st != State.eof && st != State.none;
     }
 
     /** If there is data to read, non blocking.
@@ -90,7 +50,7 @@ struct FileReadChannel {
         }
 
         pollfd[1] fds;
-        fds[0].fd = in_.fileno;
+        fds[0].fd = file.fileno;
         fds[0].events = POLLIN;
         auto ready = () @trusted { return poll(&fds[0], 1, 0); }();
 
@@ -144,22 +104,27 @@ struct FileReadChannel {
      * The data is written directly to buf.
      * The lengt of buf determines how much is read.
      *
-     * buf is not resized. Use the returned value.
+     * buf is not resized. Use the returned slice.
      */
-    ubyte[] read(ref ubyte[] buf) return scope @trusted {
+    ubyte[] read(ubyte[] buf) return scope @trusted {
         static import core.sys.posix.unistd;
 
         if (st == State.eof || buf.length == 0) {
             return null;
         }
 
-        const res = core.sys.posix.unistd.read(in_.fileno, &buf[0], buf.length);
+        const res = core.sys.posix.unistd.read(file.fileno, &buf[0], buf.length);
         if (res <= 0) {
             st = State.eof;
             return null;
         }
 
         return buf[0 .. res];
+    }
+
+    /// Flush the input.
+    void flush() @safe {
+        file.flush();
     }
 }
 
@@ -168,29 +133,46 @@ struct FileReadChannel {
  * Useful when e.g. communicating over pipes.
  */
 struct FileWriteChannel {
-    private File out_;
+    File file;
 
-    this(File out__) @safe {
-        out_ = out__;
+    this(File file) @safe {
+        this.file = file;
+    }
+
+    const(ubyte)[] write(const(char)[] data_) @trusted {
+        static import core.sys.posix.unistd;
+
+        auto data = cast(const(ubyte)[]) data_;
+
+        const res = core.sys.posix.unistd.write(file.fileno, &data[0], data.length);
+        if (res <= 0) {
+            return null;
+        }
+        return data[0 .. res];
     }
 
     /** Write data to the output channel.
      *
-     * Throws:
-     * ErrnoException if the file is not opened or if the call to fwrite fails.
+     * Returns: the data that was written
      */
-    void write(scope const(ubyte)[] data) @safe {
-        out_.rawWrite(data);
+    const(ubyte)[] write(scope const(ubyte)[] data) @trusted {
+        static import core.sys.posix.unistd;
+
+        const res = core.sys.posix.unistd.write(file.fileno, &data[0], data.length);
+        if (res <= 0) {
+            return null;
+        }
+        return data[0 .. res];
     }
 
     /// Flush the output.
     void flush() @safe {
-        out_.flush();
+        file.flush();
     }
 
     /// Close the write channel.
     void closeWrite() @safe {
-        out_.close;
+        file.close;
     }
 }
 

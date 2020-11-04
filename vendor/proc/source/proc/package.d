@@ -5,6 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module proc;
 
+import core.sys.posix.signal : SIGKILL;
 import core.thread : Thread;
 import core.time : dur, Duration;
 import logger = std.experimental.logger;
@@ -17,6 +18,7 @@ static import std.process;
 static import std.stdio;
 
 import my.gc.refc;
+import my.from_;
 
 public import proc.channel;
 public import proc.pid;
@@ -28,8 +30,8 @@ version (unittest) {
 /** Manage a process by reference counting so that it is terminated when the it
  * stops being used such as the instance going out of scope.
  */
-auto rcKill(T)(T p) {
-    return refCounted(ScopeKill!T(p));
+auto rcKill(T)(T p, int signal = SIGKILL) {
+    return refCounted(ScopeKill!T(p, signal));
 }
 
 // backward compatibility.
@@ -38,10 +40,13 @@ alias scopeKill = rcKill;
 struct ScopeKill(T) {
     T process;
     alias process this;
+
+    private int signal = SIGKILL;
     private bool hasProcess;
 
-    this(T process) @safe {
+    this(T process, int signal) @safe {
         this.process = process;
+        this.signal = signal;
         this.hasProcess = true;
     }
 
@@ -53,6 +58,7 @@ struct ScopeKill(T) {
 
 /// Async process wrapper for a std.process SpawnProcess
 struct SpawnProcess {
+    import core.sys.posix.signal : SIGKILL;
     import std.algorithm : among;
 
     private {
@@ -98,10 +104,12 @@ struct SpawnProcess {
         st = State.exitCode;
     }
 
-    /// Kill the process.
-    void kill() nothrow @trusted {
-        import core.sys.posix.signal : SIGKILL;
-
+    /** Send `signal` to the process.
+     *
+     * Param:
+     *  signal = a signal from `core.sys.posix.signal`
+     */
+    void kill(int signal = SIGKILL) nothrow @trusted {
         final switch (st) {
         case State.running:
             break;
@@ -112,7 +120,7 @@ struct SpawnProcess {
         }
 
         try {
-            std.process.kill(process, SIGKILL);
+            std.process.kill(process, signal);
         } catch (Exception e) {
         }
 
@@ -178,6 +186,7 @@ struct SpawnProcess {
 /// Async process that do not block on read from stdin/stderr.
 struct PipeProcess {
     import std.algorithm : among;
+    import core.sys.posix.signal : SIGKILL;
 
     private {
         enum State {
@@ -187,28 +196,51 @@ struct PipeProcess {
         }
 
         std.process.ProcessPipes process;
-        Pipe pipe_;
+        std.process.Pid pid;
+
         FileReadChannel stderr_;
+        FileReadChannel stdout_;
+        FileWriteChannel stdin_;
         int status_;
         State st;
-        RawPid pid;
     }
 
-    this(std.process.ProcessPipes process) @safe {
+    this(std.process.Pid pid, File stdin, File stdout, File stderr) @safe {
+        this.pid = pid;
+
+        this.stdin_ = FileWriteChannel(stdin);
+        this.stdout_ = FileReadChannel(stdout);
+        this.stderr_ = FileReadChannel(stderr);
+    }
+
+    this(std.process.ProcessPipes process, std.process.Redirect r) @safe {
         this.process = process;
-        this.pipe_ = Pipe(this.process.stdout, this.process.stdin);
-        this.stderr_ = FileReadChannel(this.process.stderr);
-        this.pid = process.pid.osHandle.RawPid;
+        this.pid = process.pid;
+
+        if (r & std.process.Redirect.stdin) {
+            stdin_ = FileWriteChannel(this.process.stdin);
+        }
+        if (r & std.process.Redirect.stdout) {
+            stdout_ = FileReadChannel(this.process.stdout);
+        }
+        if (r & std.process.Redirect.stderr) {
+            this.stderr_ = FileReadChannel(this.process.stderr);
+        }
     }
 
     /// Returns: The raw OS handle for the process ID.
     RawPid osHandle() nothrow @safe {
-        return this.pid;
+        return pid.osHandle.RawPid;
     }
 
-    /// Access to stdin and stdout.
-    ref Pipe pipe() return scope nothrow @safe {
-        return pipe_;
+    /// Access to stdout.
+    ref FileWriteChannel stdin() return scope nothrow @safe {
+        return stdin_;
+    }
+
+    /// Access to stdout.
+    ref FileReadChannel stdout() return scope nothrow @safe {
+        return stdout_;
     }
 
     /// Access stderr.
@@ -235,10 +267,12 @@ struct PipeProcess {
         st = State.exitCode;
     }
 
-    /// Kill the process.
-    void kill() nothrow @trusted {
-        import core.sys.posix.signal : SIGKILL;
-
+    /** Send `signal` to the process.
+     *
+     * Param:
+     *  signal = a signal from `core.sys.posix.signal`
+     */
+    void kill(int signal = SIGKILL) nothrow @trusted {
         final switch (st) {
         case State.running:
             break;
@@ -249,7 +283,7 @@ struct PipeProcess {
         }
 
         try {
-            std.process.kill(process.pid, SIGKILL);
+            std.process.kill(pid, signal);
         } catch (Exception e) {
         }
 
@@ -261,10 +295,10 @@ struct PipeProcess {
     int wait() @safe {
         final switch (st) {
         case State.running:
-            status_ = std.process.wait(process.pid);
+            status_ = std.process.wait(pid);
             break;
         case State.terminated:
-            status_ = std.process.wait(process.pid);
+            status_ = std.process.wait(pid);
             break;
         case State.exitCode:
             break;
@@ -280,14 +314,14 @@ struct PipeProcess {
     bool tryWait() @safe {
         final switch (st) {
         case State.running:
-            auto s = std.process.tryWait(process.pid);
+            auto s = std.process.tryWait(pid);
             if (s.terminated) {
                 st = State.exitCode;
                 status_ = s.status;
             }
             break;
         case State.terminated:
-            status_ = std.process.wait(process.pid);
+            status_ = std.process.wait(pid);
             st = State.exitCode;
             break;
         case State.exitCode:
@@ -353,20 +387,23 @@ PipeProcess pipeProcess(scope const(char[])[] args,
         std.process.Redirect redirect = std.process.Redirect.all,
         const string[string] env = null, std.process.Config config = std.process.Config.none,
         scope const(char)[] workDir = null) @safe {
-    return PipeProcess(std.process.pipeProcess(args, redirect, env, config, workDir));
+    return PipeProcess(std.process.pipeProcess(args, redirect, env, config, workDir), redirect);
 }
 
 PipeProcess pipeShell(scope const(char)[] command,
         std.process.Redirect redirect = std.process.Redirect.all,
         const string[string] env = null, std.process.Config config = std.process.Config.none,
         scope const(char)[] workDir = null, string shellPath = std.process.nativeShell) @safe {
-    return PipeProcess(std.process.pipeShell(command, redirect, env, config, workDir, shellPath));
+    return PipeProcess(std.process.pipeShell(command, redirect, env, config,
+            workDir, shellPath), redirect);
 }
 
 /** Moves the process to a separate process group and on exit kill it and all
  * its children.
  */
 @safe struct Sandbox(ProcessT) {
+    import core.sys.posix.signal : SIGKILL;
+
     private {
         ProcessT p;
         RawPid pid;
@@ -384,9 +421,15 @@ PipeProcess pipeShell(scope const(char)[] command,
         return pid;
     }
 
-    static if (__traits(hasMember, ProcessT, "pipe")) {
-        ref Pipe pipe() nothrow @safe {
-            return p.pipe;
+    static if (__traits(hasMember, ProcessT, "stdin")) {
+        ref FileWriteChannel stdin() nothrow @safe {
+            return p.stdin;
+        }
+    }
+
+    static if (__traits(hasMember, ProcessT, "stdout")) {
+        ref FileReadChannel stdout() nothrow @safe {
+            return p.stdout;
         }
     }
 
@@ -402,16 +445,21 @@ PipeProcess pipeShell(scope const(char)[] command,
         p.dispose;
     }
 
-    void kill() nothrow @safe {
+    /** Send `signal` to the process.
+     *
+     * Param:
+     *  signal = a signal from `core.sys.posix.signal`
+     */
+    void kill(int signal = SIGKILL) nothrow @safe {
         // must first retrieve the submap because after the process is killed
         // its children may have changed.
         auto pmap = makePidMap.getSubMap(pid);
 
-        p.kill;
+        p.kill(signal);
 
         // only kill and reap the children
         pmap.remove(pid);
-        proc.pid.kill(pmap, Yes.onlyCurrentUser).reap;
+        proc.pid.kill(pmap, Yes.onlyCurrentUser, signal).reap;
     }
 
     int wait() @safe {
@@ -463,9 +511,10 @@ sleep 10m
 /** dispose the process after the timeout.
  */
 @safe struct Timeout(ProcessT) {
+    import core.sys.posix.signal : SIGKILL;
+    import core.thread;
     import std.algorithm : among;
     import std.datetime : Clock, Duration;
-    import core.thread;
 
     private {
         enum Msg {
@@ -515,6 +564,7 @@ sleep 10m
         Msg[] msg;
         Reply reply_;
         RawPid pid;
+        int signal = SIGKILL;
 
         this(ProcessT* p, Duration timeout) {
             this.p = p;
@@ -561,16 +611,22 @@ sleep 10m
             return reply_;
         }
 
+        void setSignal(int signal) @trusted nothrow {
+            this.mtx.lock_nothrow();
+            scope (exit)
+                this.mtx.unlock_nothrow();
+            this.signal = signal;
+        }
+
         void kill() @trusted nothrow {
             this.mtx.lock_nothrow();
             scope (exit)
                 this.mtx.unlock_nothrow();
-            p.kill;
+            p.kill(signal);
         }
     }
 
     private static void checkProcess(RawPid p, Duration timeout, Background bg) nothrow {
-        import core.sys.posix.signal : SIGKILL;
         import std.algorithm : max, min;
         import std.variant : Variant;
         static import core.sys.posix.signal;
@@ -608,7 +664,7 @@ sleep 10m
 
         // may be children alive thus must ensure that the whole process tree
         // is killed if this is a sandbox with a timeout.
-        bg.kill;
+        bg.kill();
 
         if (!forceStop && Clock.currTime >= stopAt) {
             bg.setReply(Reply.killedByTimeout);
@@ -621,12 +677,22 @@ sleep 10m
         return rc.pid;
     }
 
-    ref Pipe pipe() nothrow @trusted {
-        return rc.p.pipe;
+    static if (__traits(hasMember, ProcessT, "stdin")) {
+        ref FileWriteChannel stdin() nothrow @safe {
+            return rc.p.stdin;
+        }
     }
 
-    ref FileReadChannel stderr() nothrow @trusted {
-        return rc.p.stderr;
+    static if (__traits(hasMember, ProcessT, "stdout")) {
+        ref FileReadChannel stdout() nothrow @safe {
+            return rc.p.stdout;
+        }
+    }
+
+    static if (__traits(hasMember, ProcessT, "stderr")) {
+        ref FileReadChannel stderr() nothrow @trusted {
+            return rc.p.stderr;
+        }
     }
 
     void dispose() @trusted {
@@ -638,8 +704,14 @@ sleep 10m
         rc.p.dispose;
     }
 
-    void kill() nothrow @trusted {
-        rc.background.kill;
+    /** Send `signal` to the process.
+     *
+     * Param:
+     *  signal = a signal from `core.sys.posix.signal`
+     */
+    void kill(int signal = SIGKILL) nothrow @trusted {
+        rc.background.setSignal(signal);
+        rc.background.kill();
     }
 
     int wait() @trusted {
@@ -754,14 +826,14 @@ struct DrainRange(ProcessT) {
         assert(!empty, "Can't pop front of an empty range");
 
         static bool isAnyPipeOpen(ref ProcessT p) {
-            return p.pipe.isOpen || p.stderr.isOpen;
+            return p.stdout.isOpen || p.stderr.isOpen;
         }
 
         DrainElement readData(ref ProcessT p) @safe {
             if (p.stderr.hasPendingData) {
                 return DrainElement(DrainElement.Type.stderr, p.stderr.read(buf));
-            } else if (p.pipe.hasPendingData) {
-                return DrainElement(DrainElement.Type.stdout, p.pipe.read(buf));
+            } else if (p.stdout.hasPendingData) {
+                return DrainElement(DrainElement.Type.stdout, p.stdout.read(buf));
             }
             return DrainElement.init;
         }
@@ -815,8 +887,8 @@ struct DrainRange(ProcessT) {
             }
             break;
         case State.lastStdout:
-            if (p.pipe.hasPendingData) {
-                front_ = DrainElement(DrainElement.Type.stdout, p.pipe.read(buf).dup);
+            if (p.stdout.hasPendingData) {
+                front_ = DrainElement(DrainElement.Type.stdout, p.stdout.read(buf).dup);
             } else {
                 st = State.lastStderr;
             }

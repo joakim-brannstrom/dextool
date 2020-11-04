@@ -197,8 +197,8 @@ struct BuildDextoolRun {
         try {
             auto p = pipeProcess(cmd).sandbox.scopeKill;
             if (!stdin_data.empty) {
-                p.pipe.write(cast(const(ubyte)[]) stdin_data);
-                p.pipe.closeWrite;
+                p.stdin.write(cast(const(ubyte)[]) stdin_data);
+                p.stdin.closeWrite;
             }
 
             foreach (e; p.process.drainByLineCopy) {
@@ -360,8 +360,8 @@ struct BuildCommandRun {
         try {
             auto p = pipeProcess(cmd).sandbox.scopeKill;
             if (!stdin_data.empty) {
-                p.pipe.write(cast(const(ubyte)[]) stdin_data);
-                p.pipe.closeWrite;
+                p.stdin.write(cast(const(ubyte)[]) stdin_data);
+                p.stdin.closeWrite;
             }
 
             foreach (e; p.process.drainByLineCopy()) {
