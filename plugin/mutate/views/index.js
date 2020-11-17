@@ -15,6 +15,13 @@ function table_onclick(e) {
     var sorted = Array.prototype.slice.call(tbody.children);
     var tbl_container = e.target.closest(".tbl_container");
     var arrows = tbl_container.getElementsByTagName("i");
+    var extractSortKey = function(str) {
+        var num = parseFloat(str);
+        if (isNaN(num)) {
+            return str;
+        }
+        return num;
+    }
     for (var i=0; i<arrows.length; i++) {
         arrows[i].classList.remove("up");
         arrows[i].classList.remove("down");
@@ -22,7 +29,7 @@ function table_onclick(e) {
     }
     if (col === g_lastCol) {
         sorted.sort( function(a,b) {
-            return a.children[col].innerText > b.children[col].innerText;
+            return extractSortKey(a.children[col].innerText) > extractSortKey(b.children[col].innerText);
         });
         var arrow = e.target.getElementsByTagName("i")[0];
         arrow.classList.remove("down");
@@ -30,7 +37,7 @@ function table_onclick(e) {
         g_lastCol = -1;
     } else {
         sorted.sort( function(a,b) {
-            return a.children[col].innerText < b.children[col].innerText;
+            return extractSortKey(a.children[col].innerText) < extractSortKey(b.children[col].innerText);
         });
         var arrow = e.target.getElementsByTagName("i")[0];
         arrow.classList.remove("right");
