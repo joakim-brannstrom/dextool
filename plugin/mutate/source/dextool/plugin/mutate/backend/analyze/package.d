@@ -252,7 +252,7 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                         if (!mutants.empty && !s.value.empty) {
                             const id = db.putSchemata(result.schemataChecksum[s.index],
                                     s.value, mutants);
-                            logger.trace(!id.isNull, "Saving schemata ", id.get.value);
+                            logger.trace(!id.isNull, "Saving schemata ", id.get);
                         }
                     } catch (Exception e) {
                         logger.trace(e.msg);
@@ -267,11 +267,11 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
             auto app = appender!(LineMetadata[])();
             foreach (md; result.metadata) {
                 // transform the ID from local to global.
-                const fid = getFileId(fio.toRelativeRoot(result.fileId[md.id]));
-                if (fid.isNull && !printed.contains(md.id)) {
-                    printed.add(md.id);
+                const fid = getFileId(fio.toRelativeRoot(result.fileId[md.id.get]));
+                if (fid.isNull && !printed.contains(md.id.get)) {
+                    printed.add(md.id.get);
                     logger.warningf("File with suppressed mutants (// NOMUT) not in the database: %s. Skipping...",
-                            result.fileId[md.id]).collectException;
+                            result.fileId[md.id.get]).collectException;
                 } else if (!fid.isNull) {
                     app.put(LineMetadata(fid.get, md.line, md.attr));
                 }
@@ -685,7 +685,7 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
     foreach (m; lostMutants) {
         typeof(tbl).Row r = [
             m.mutationId.get.to!string, m.path, m.sloc.line.to!string,
-            m.sloc.column.to!string, m.toStatus.to!string, m.rationale
+            m.sloc.column.to!string, m.toStatus.to!string, m.rationale.get
         ];
         tbl.put(r);
     }

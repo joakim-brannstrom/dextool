@@ -530,7 +530,7 @@ MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kin
     foreach (m; db.getMarkedMutants()) {
         typeof(st.tbl).Row r = [
             m.path, m.sloc.line.to!string, m.sloc.column.to!string,
-            m.mutText, statusToString(m.toStatus), m.rationale
+            m.mutText, statusToString(m.toStatus), m.rationale.get
         ];
         st.tbl.put(r);
     }

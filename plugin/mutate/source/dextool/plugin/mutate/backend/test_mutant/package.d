@@ -1171,7 +1171,7 @@ nothrow:
     void opCall(ref SanityCheckSchemata data) {
         import colorlog;
 
-        logger.infof("Compile schema %s", data.id).collectException;
+        logger.infof("Compile schema %s", data.id.get).collectException;
 
         if (global.data.conf.logSchemata) {
             const kinds = spinSql!(() {
