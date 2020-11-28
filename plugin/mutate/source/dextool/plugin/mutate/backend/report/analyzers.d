@@ -490,7 +490,12 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     });
     const killed = spinSql!(() { return db.killedSrcMutants(kinds, file); });
     const timeout = spinSql!(() { return db.timeoutSrcMutants(kinds, file); });
-    const untested = spinSql!(() { return db.unknownSrcMutants(kinds, file); });
+    const untested = spinSql!(() {
+        const wcnt = db.getWorklistCount;
+        if (wcnt == 0)
+            return db.unknownSrcMutants(kinds, file).count;
+        return wcnt;
+    });
     const killed_by_compiler = spinSql!(() {
         return db.killedByCompilerSrcMutants(kinds, file);
     });
@@ -501,7 +506,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.aliveNoMut = alive_nomut.count;
     st.killed = killed.count;
     st.timeout = timeout.count;
-    st.untested = untested.count;
+    st.untested = untested;
     st.total = total.count;
     st.killedByCompiler = killed_by_compiler.count;
 
@@ -509,7 +514,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.predictedDone = st.total > 0 ? (st.untested * (st.totalTime / st.total)) : 0.dur!"msecs";
     st.killedByCompilerTime = killed_by_compiler.time;
 
-    if (untested.count > 0) {
+    if (st.untested > 0) {
         st.estimate = reportEstimate(db, kinds);
     }
 

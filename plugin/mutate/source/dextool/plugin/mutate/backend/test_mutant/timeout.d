@@ -202,7 +202,8 @@ struct TimeoutFsm {
 
     private static void step(ref TimeoutFsm self, ref Database db) @safe {
         bool noUnknown() {
-            return db.unknownSrcMutants(self.global.kinds, null).count == 0;
+            return db.unknownSrcMutants(self.global.kinds, null).count == 0
+                && db.getWorklistCount == 0;
         }
 
         self.fsm.next!((Init a) {
@@ -240,7 +241,7 @@ struct TimeoutFsm {
     }
 
     void opCall(ResetWorkList) {
-        global.db.resetMutantTimeoutWorklist(Mutation.Status.unknown);
+        global.db.copyMutantTimeoutWorklist;
     }
 
     void opCall(UpdateCtx) {
@@ -256,10 +257,11 @@ struct TimeoutFsm {
     void opCall(ref Purge data) {
         global.db.reduceMutantTimeoutWorklist;
 
-        if (global.db.countMutantTimeoutWorklist == global.ctx.worklistCount)
+        if (global.db.countMutantTimeoutWorklist == global.ctx.worklistCount) {
             data.ev = Purge.Event.same;
-        else
+        } else {
             data.ev = Purge.Event.changed;
+        }
     }
 
     void opCall(Done) {

@@ -58,6 +58,47 @@ struct Database {
         return Database(initializeDB(db));
     }
 
+    /// Add all mutants with the specific status to the worklist.
+    void updateWorklist(const Mutation.Kind[] kinds, const Mutation.Status status) @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %s (id)
+            SELECT t1.id FROM %s t0, %s t1 WHERE t0.kind IN (%(%s,%)) AND
+            t0.st_id = t1.id AND
+            t1.status = :status"(mutantWorklistTable,
+                mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":status", cast(long) status);
+        stmt.get.execute;
+    }
+
+    /// Add a mutant to the worklist.
+    void addToWorklist(const MutationStatusId id) @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %1$s (id) (:id)"(mutantWorklistTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+        stmt.get.execute;
+    }
+
+    /// Remove a mutant from the worklist.
+    void removeFromWorklist(const MutationStatusId id) @trusted {
+        immutable sql = format!"DELETE FROM %1$s WHERE id = :id"(mutantWorklistTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+        stmt.get.execute;
+    }
+
+    void clearWorklist() @trusted {
+        immutable sql = format!"DELETE FROM %1$s"(mutantWorklistTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.execute;
+    }
+
+    long getWorklistCount() @trusted {
+        immutable sql = format!"SELECT count(*) FROM %1$s"(mutantWorklistTable);
+        auto stmt = db.prepare(sql);
+        auto res = stmt.get.execute;
+        return res.oneValue!long;
+    }
+
     /// If the file has already been analyzed.
     bool isAnalyzed(const Path p) @trusted {
         auto stmt = db.prepare("SELECT count(*) FROM files WHERE path=:path LIMIT 1");
@@ -1557,6 +1598,15 @@ struct Database {
         stmt.get.execute;
     }
 
+    /// Copy the timeout mutants to the worklist of mutants to test.
+    void copyMutantTimeoutWorklist() @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %1$s (id)
+            SELECT id FROM %2$s"(mutantWorklistTable,
+                mutantTimeoutWorklistTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.execute;
+    }
+
     /** Update the content of metadata tables with what has been added to the
      * raw table data.
      */
@@ -1651,42 +1701,38 @@ struct Database {
         return rval;
     }
 
-    /// Returns: number of mutants in a schemata with the specified kind and status.
-    long schemataMutantsWithStatus(const SchemataId id,
-            const Mutation.Kind[] kinds, const Mutation.Status status) @trusted {
+    /// Returns: number of mutants in a schemata that are marked for testing.
+    long schemataMutantsCount(const SchemataId id, const Mutation.Kind[] kinds) @trusted {
         const sql = format!"SELECT count(*)
-        FROM %s t1, %s t2, %s t3
+        FROM %s t1, %s t2, %s t3, %s t4
         WHERE
         t1.schem_id = :id AND
         t1.st_id = t2.id AND
-        t2.status = :status AND
         t3.st_id = t1.st_id AND
+        t2.id = t4.id AND
         t3.kind IN (%(%s,%))
         "(schemataMutantTable, mutationStatusTable,
-                mutationTable, kinds.map!(a => cast(int) a));
+                mutationTable, mutantWorklistTable, kinds.map!(a => cast(int) a));
 
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
-        stmt.get.bind(":status", cast(long) status);
+        stmt.get.bind(":id", id.get);
         return stmt.get.execute.oneValue!long;
     }
 
-    MutationStatusId[] getSchemataMutants(const SchemataId id,
-            const Mutation.Kind[] kinds, const Mutation.Status status) @trusted {
+    MutationStatusId[] getSchemataMutants(const SchemataId id, const Mutation.Kind[] kinds) @trusted {
         // TODO: DISTINCT should not be needed. Instead use e.g. a constraint on the table or something
         immutable sql = format!"SELECT DISTINCT t1.st_id
-            FROM %s t1, %s t2, %s t3
+            FROM %s t1, %s t2, %s t3, %s t4
             WHERE
             t1.schem_id = :id AND
             t1.st_id = t2.id AND
-            t2.status = :status AND
             t3.st_id = t1.st_id AND
+            t2.id = t4.id AND
             t3.kind IN (%(%s,%))
-            "(schemataMutantTable,
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+            "(schemataMutantTable, mutationStatusTable,
+                mutationTable, mutantWorklistTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
-        stmt.get.bind(":status", cast(long) status);
+        stmt.get.bind(":id", id.get);
 
         auto app = appender!(MutationStatusId[])();
         foreach (a; stmt.get.execute) {

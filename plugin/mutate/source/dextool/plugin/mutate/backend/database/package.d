@@ -74,14 +74,13 @@ struct Database {
                                t1.column,
                                t2.path,
                                t2.lang
-                               FROM %s t0,%s t1,%s t2,%s t3
+                               FROM %s t0,%s t1,%s t2,%s t3, %s t4
                                WHERE
                                t0.st_id = t3.id AND
-                               t3.status == 0 AND
+                               t3.id = t4.id AND
                                t0.mp_id == t1.id AND
-                               t1.file_id == t2.id AND
-                               t0.kind IN (%(%s,%)) %s LIMIT 1", mutationTable, mutationPointTable,
-                filesTable, mutationStatusTable, kinds.map!(a => cast(int) a), order);
+                               t1.file_id == t2.id %s LIMIT 1", mutationTable, mutationPointTable,
+                filesTable, mutationStatusTable, mutantWorklistTable, order);
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;
         if (res.empty) {
