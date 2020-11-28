@@ -139,6 +139,8 @@ final class ReportJson : FileReport, FilesReporter {
             s.object["totalTime"] = stat.totalTime.total!"seconds";
             s.object["killedByCompilerTime"] = stat.killedByCompilerTime.total!"seconds";
             s.object["predictedDone"] = (Clock.currTime + stat.predictedDone).toISOExtString;
+            s.object["estimateScore"] = stat.estimate.value.get;
+            s.object["estimateScoreError"] = stat.estimate.error.get;
 
             report["stat"] = s;
         }

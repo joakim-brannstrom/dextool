@@ -1196,7 +1196,7 @@ nothrow:
         },);
 
         if (!successCompile) {
-            logger.info("Skipping schemata because it failed to compile".color(Color.yellow))
+            logger.info("Skipping schema because it failed to compile".color(Color.yellow))
                 .collectException;
             spinSql!(() { global.data.db.markUsed(data.id); });
             local.get!NextSchemata.invalidSchematas++;

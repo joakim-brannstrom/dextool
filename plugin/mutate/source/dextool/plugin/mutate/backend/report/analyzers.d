@@ -21,6 +21,8 @@ import std.format : format;
 import std.range : take, retro, only;
 import std.typecons : Flag, Yes, No, Tuple, Nullable, tuple;
 
+import my.named_type;
+
 import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId, MarkedMutant;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult,
@@ -408,6 +410,7 @@ struct MutationStat {
     Duration totalTime;
     Duration killedByCompilerTime;
     Duration predictedDone;
+    EstimateScore estimate;
 
     /// Adjust the score with the alive mutants that are suppressed.
     double score() @safe pure nothrow const @nogc {
@@ -439,7 +442,7 @@ struct MutationStat {
         import std.range : put;
         import dextool.plugin.mutate.backend.utility;
 
-        immutable align_ = 12;
+        immutable align_ = 19;
 
         formattedWrite(w, "%-*s %s\n", align_, "Time spent:", totalTime);
         if (untested > 0 && predictedDone > 0.dur!"msecs") {
@@ -455,6 +458,11 @@ struct MutationStat {
 
         // mutation score and details
         formattedWrite(w, "%-*s %.3s\n", align_, "Score:", score);
+        if (untested > 0) {
+            formattedWrite(w, "%-*s %.3s (error:%.3s)\n", align_,
+                    "Estimated Score:", estimate.value.get, estimate.error.get);
+        }
+
         formattedWrite(w, "%-*s %s\n", align_, "Total:", total);
         if (untested > 0) {
             formattedWrite(w, "%-*s %s\n", align_, "Untested:", untested);
@@ -500,6 +508,10 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.totalTime = total.time;
     st.predictedDone = st.total > 0 ? (st.untested * (st.totalTime / st.total)) : 0.dur!"msecs";
     st.killedByCompilerTime = killed_by_compiler.time;
+
+    if (untested.count > 0) {
+        st.estimate = reportEstimate(db, kinds);
+    }
 
     return st;
 }
@@ -1082,4 +1094,62 @@ TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind
     return rval;
 }
 
-private:
+/// Estimate the mutation score.
+struct EstimateScore {
+    import my.signal_theory.kalman;
+
+    // 0.5 because then it starts in the middle of range possible values.
+    // 0.1 such that it is "slow to change". 10 samples to move it "alot".
+    private KalmanFilter kf = KalmanFilter(0.5, 0.5, 0.1);
+
+    /// Update the estimate with the status of a mutant.
+    void update(const Mutation.Status s) {
+        import std.algorithm : among;
+
+        if (s.among(Mutation.Status.unknown, Mutation.Status.killedByCompiler)) {
+            return;
+        }
+
+        const v = () {
+            final switch (s) with (Mutation.Status) {
+            case unknown:
+                goto case;
+            case killedByCompiler:
+                return 0.5; // shouldnt happen but...
+            case alive:
+                return 0.0;
+            case killed:
+                goto case;
+            case timeout:
+                return 1.0;
+            }
+        }();
+
+        kf.updateEstimate(v);
+    }
+
+    /// The estimated mutation score.
+    NamedType!(double, Tag!"EstimatedMutationScore", double.init, TagStringable) value() @safe pure nothrow const @nogc {
+        return typeof(return)(kf.currentEstimate);
+    }
+
+    /// The error in the estimate. The unit is the same as `estimate`.
+    NamedType!(double, Tag!"MutationScoreError", double.init, TagStringable) error() @safe pure nothrow const @nogc {
+        return typeof(return)(kf.estimateError);
+    }
+}
+
+EstimateScore reportEstimate(ref Database db, const Mutation.Kind[] kinds) @trusted nothrow {
+    EstimateScore rval;
+    try {
+        void fn(const Mutation.Status s) {
+            rval.update(s);
+            debug logger.trace(rval.kf).collectException;
+        }
+
+        db.iterateMutantStatus(kinds, &fn);
+    } catch (Exception e) {
+        logger.warning(e.msg).collectException;
+    }
+    return rval;
+}

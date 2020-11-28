@@ -22,8 +22,8 @@ import dextool.type;
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow, MutationId;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats, reportMarkedMutants,
-    reportStatistics, MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr;
+import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats, reportMarkedMutants, reportStatistics,
+    MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr, EstimateScore;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table, toSections;
 import dextool.plugin.mutate.backend.type : Mutation;
@@ -49,6 +49,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
     MutationsMap testCaseMutationKilled;
     MutationReprMap mutationReprMap;
     Appender!(MutationId[]) testCaseSuggestions;
+    EstimateScore estimate;
 
     this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
         this.kinds = kinds;
@@ -219,8 +220,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
 
     override void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln, writefln;
-        import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap,
-            reportTestCaseStats, reportMutationTestCaseSuggestion, reportDeadTestCases, toTable;
+        import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap, reportTestCaseStats,
+            reportMutationTestCaseSuggestion, reportDeadTestCases, reportEstimate, toTable;
 
         auto stdout_ = () @trusted { return stdout; }();
 
@@ -286,7 +287,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
 
         if (ReportSection.summary in sections) {
             logger.info("Summary");
-            writeln(reportStatistics(db, kinds).toString);
+            auto summary = reportStatistics(db, kinds);
+            writeln(summary.toString);
         }
 
         writeln;
