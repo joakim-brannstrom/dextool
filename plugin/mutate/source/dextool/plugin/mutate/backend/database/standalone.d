@@ -763,8 +763,7 @@ struct Database {
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.killed,
-            Mutation.Status.timeout, Mutation.Status.unknown
+            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
             ], true);
 
     alias unknownSrcMutants = countMutants!([Mutation.Status.unknown], true);
