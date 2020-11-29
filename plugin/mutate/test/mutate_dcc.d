@@ -172,7 +172,7 @@ unittest {
         .addArg(["test"])
         .addArg(["--mutant", "dcr"])
         .run;
-    testConsecutiveSparseOrder!SubStr([
+    testAnyOrder!SubStr([
         "from 'x == 0' to '1'",
         "from 'x == 0' to '0'",
     ]).shouldBeIn(r.output);

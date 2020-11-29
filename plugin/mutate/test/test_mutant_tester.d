@@ -634,7 +634,8 @@ exit 1
             .run;
         // dfmt on
 
-        testConsecutiveSparseOrder!SubStr(["Resetting alive mutants"]).shouldBeIn(r1.output);
+        testConsecutiveSparseOrder!SubStr(["Adding alive mutants to worklist"]).shouldBeIn(
+                r1.output);
     }
 }
 
