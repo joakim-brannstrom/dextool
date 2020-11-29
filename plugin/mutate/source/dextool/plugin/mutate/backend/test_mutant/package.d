@@ -1127,7 +1127,28 @@ nothrow:
 
     void opCall(SchemataTestResult data) {
         saveTestResult(data.result);
-        spinSql!(() { global.data.db.markUsed(data.id); });
+
+        // only remove schemas that are of no further use.
+        bool remove = true;
+        foreach (a; data.result) {
+            final switch (a.status) with (Mutation.Status) {
+            case unknown:
+                goto case;
+            case alive:
+                remove = false;
+                break;
+            case killed:
+                goto case;
+            case timeout:
+                goto case;
+            case killedByCompiler:
+                break;
+            }
+        }
+
+        if (remove) {
+            spinSql!(() { global.data.db.markUsed(data.id); });
+        }
     }
 
     void opCall(ref SchemataRestore data) {
