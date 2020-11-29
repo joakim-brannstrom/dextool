@@ -50,7 +50,7 @@ struct FileIndex {
 
 @safe final class ReportHtml : FileReport, FilesReporter {
     import std.stdio : File, writefln, writeln;
-    import std.xml : encode;
+    import undead.xml : encode;
     import my.set;
 
     const Mutation.Kind[] kinds;
