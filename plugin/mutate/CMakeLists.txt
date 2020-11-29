@@ -26,6 +26,7 @@ set(flags "
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
 -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source
 -I${CMAKE_SOURCE_DIR}/vendor/toml/src
+-I${CMAKE_SOURCE_DIR}/vendor/undead/src
 -J${CMAKE_CURRENT_LIST_DIR}/views
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources
 -version=SqliteEnableColumnMetadata
