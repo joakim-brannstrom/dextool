@@ -15,6 +15,8 @@ module dextool.plugin.mutate.backend.database;
 
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
+import std.algorithm : map;
+import std.exception : collectException;
 import std.format : format;
 
 public import miniorm : toSqliteDateTime, fromSqLiteDateTime, spinSql;
@@ -56,8 +58,6 @@ struct Database {
      *  kind = kind of mutation to retrieve.
      */
     NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds) @trusted {
-        import std.algorithm : map;
-        import std.exception : collectException;
         import dextool.plugin.mutate.backend.type;
 
         typeof(return) rval;
@@ -74,14 +74,13 @@ struct Database {
                                t1.column,
                                t2.path,
                                t2.lang
-                               FROM %s t0,%s t1,%s t2,%s t3
+                               FROM %s t0,%s t1,%s t2,%s t3, %s t4
                                WHERE
                                t0.st_id = t3.id AND
-                               t3.status == 0 AND
+                               t3.id = t4.id AND
                                t0.mp_id == t1.id AND
-                               t1.file_id == t2.id AND
-                               t0.kind IN (%(%s,%)) %s LIMIT 1", mutationTable, mutationPointTable,
-                filesTable, mutationStatusTable, kinds.map!(a => cast(int) a), order);
+                               t1.file_id == t2.id %s LIMIT 1", mutationTable, mutationPointTable,
+                filesTable, mutationStatusTable, mutantWorklistTable, order);
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;
         if (res.empty) {
@@ -103,8 +102,25 @@ struct Database {
         return rval;
     }
 
+    /// Iterate over the mutants of `kinds` in oldest->newest datum order.
+    void iterateMutantStatus(const Mutation.Kind[] kinds, void delegate(const Mutation.Status) dg) @trusted {
+        immutable sql = format("SELECT t1.status FROM %s t0, %s t1
+           WHERE
+           t0.st_id = t1.id AND
+           t0.kind IN (%(%s,%))
+           ORDER BY t1.update_ts",
+                mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        try {
+            foreach (ref r; stmt.get.execute) {
+                dg(r.peek!int(0).to!(Mutation.Status));
+            }
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+        }
+    }
+
     void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow) dg) @trusted {
-        import std.algorithm : map;
         import dextool.plugin.mutate.backend.utility : checksum;
 
         immutable all_mutants = format("SELECT

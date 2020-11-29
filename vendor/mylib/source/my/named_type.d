@@ -162,7 +162,7 @@ struct NamedType(T, TagT = Tag!(T.stringof), T init = T.init, TraitsT...)
     template ReplaceTrait(T) {
         static if (is(T == Arithmetic)) {
             alias ReplaceTrait = AliasSeq!(Incrementable, Decrementable, Addable,
-                    Subtractable, Modulable, Divisable, Multiplicable, TagStringable, Comparable);
+                    Subtractable, Modulable, Divisable, Multiplicable, Comparable);
         } else {
             alias ReplaceTrait = T;
         }
@@ -391,7 +391,6 @@ unittest {
     assert(y / x == A(2));
     assert(y * x == A(200));
     assert(x % y == A(10));
-    assert(x.toString == "x(10)");
 }
 
 @("shall implement a function that take a type that implement the Comparable trait")

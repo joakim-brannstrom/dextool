@@ -69,6 +69,7 @@ immutable killedTestCaseTable = "killed_test_case";
 immutable markedMutantTable = "marked_mutant";
 immutable mutantTimeoutCtxTable = "mutant_timeout_ctx";
 immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
+immutable mutantWorklistTable = "mutant_worklist";
 immutable mutationPointTable = "mutation_point";
 immutable mutationStatusTable = "mutation_status";
 immutable mutationTable = "mutation";
@@ -76,11 +77,11 @@ immutable nomutDataTable = "nomut_data";
 immutable nomutTable = "nomut";
 immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable schemaVersionTable = "schema_version";
-immutable srcMetadataTable = "src_metadata";
+immutable schemataFragmentTable = "schemata_fragment";
 immutable schemataMutantTable = "schemata_mutant";
 immutable schemataTable = "schemata";
-immutable schemataFragmentTable = "schemata_fragment";
 immutable schemataUsedTable = "schemata_used";
+immutable srcMetadataTable = "src_metadata";
 
 private immutable invalidSchemataTable = "invalid_schemata";
 private immutable schemataWorkListTable = "schemata_worklist";
@@ -358,6 +359,17 @@ struct MutationStatusTbl {
     long checksum1;
 }
 
+/** Mutants that should be tested.
+ */
+@TableName(mutantWorklistTable)
+@TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+struct MutantWorklistTbl {
+    long id;
+}
+
+/** Timeout mutants that are re-tested until none of them change status from
+ * timeout.
+ */
 @TableName(mutantTimeoutWorklistTable)
 @TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 struct MutantTimeoutWorklistTbl {
@@ -593,7 +605,7 @@ void upgradeV0(ref Miniorm db) {
             MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl,
             MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl,
             NomutDataTbl, SchemataTable, SchemataFragmentTable,
-            SchemataMutantTable, SchemataUsedTable));
+            SchemataMutantTable, SchemataUsedTable, MutantWorklistTbl));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1054,9 +1066,15 @@ void upgradeV20(ref Miniorm db) {
     db.run(buildSchema!(SchemataMutantTable));
 }
 
+/// 2020-11-28
 void upgradeV21(ref Miniorm db) {
     db.run("DROP TABLE " ~ invalidSchemataTable);
     db.run(buildSchema!(SchemataUsedTable));
+}
+
+/// 2020-11-28
+void upgradeV22(ref Miniorm db) {
+    db.run(buildSchema!(MutantWorklistTbl));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

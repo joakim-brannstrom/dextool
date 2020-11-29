@@ -634,7 +634,8 @@ exit 1
             .run;
         // dfmt on
 
-        testConsecutiveSparseOrder!SubStr(["Resetting alive mutants"]).shouldBeIn(r1.output);
+        testConsecutiveSparseOrder!SubStr(["Adding alive mutants to worklist"]).shouldBeIn(
+                r1.output);
     }
 }
 
@@ -771,7 +772,7 @@ class ShallRetrieveOldestMutant : DatabaseFixture {
         // arrange. moving all mutants except `expected` forward in time.
         const expected = 2;
         Thread.sleep(1.dur!"seconds");
-        foreach (const id; db.getAllMutationStatus.filter!(a => a != expected))
+        foreach (const id; db.getAllMutationStatus.filter!(a => a.get != expected))
             db.updateMutationStatus(id, Mutation.Status.killed, Yes.updateTs);
 
         // act
@@ -779,7 +780,7 @@ class ShallRetrieveOldestMutant : DatabaseFixture {
 
         // assert
         oldest.length.shouldEqual(1);
-        oldest[0].id.shouldEqual(expected);
+        oldest[0].id.get.shouldEqual(expected);
     }
 }
 

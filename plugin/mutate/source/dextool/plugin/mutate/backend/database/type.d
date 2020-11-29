@@ -29,34 +29,23 @@ alias MutantTimeoutCtx = MutantTimeoutCtxTbl;
 alias MutationId = NamedType!(long, Tag!"MutationId", 0, Comparable, Hashable, ConvertStringable);
 
 /// Primary key for mutation status
-struct MutationStatusId {
-    long value;
-    alias value this;
-}
+alias MutationStatusId = NamedType!(long, Tag!"MutationStatusId", long.init,
+        Comparable, Hashable, ConvertStringable);
 
 /// Primary key in the files table
-struct FileId {
-    long value;
-    alias value this;
-}
+alias FileId = NamedType!(long, Tag!"FileId", long.init, Comparable, Hashable, TagStringable);
 
 /// Primary key in the test_case table
-struct TestCaseId {
-    long value;
-    alias value this;
-}
+alias TestCaseId = NamedType!(long, Tag!"TestCaseId", long.init, Comparable,
+        Hashable, TagStringable);
 
 /// Primary key for mutation schematas.
-struct SchemataId {
-    long value;
-    alias value this;
-}
+alias SchemataId = NamedType!(long, Tag!"SchemataId", long.init, Comparable,
+        Hashable, TagStringable);
 
 /// Primary key for a schemata fragment.
-struct SchemataFragmentId {
-    long value;
-    alias value this;
-}
+alias SchemataFragmentId = NamedType!(long, Tag!"SchemataFragmentId",
+        long.init, Comparable, Hashable, TagStringable);
 
 struct MutationEntry {
     MutationId id;
@@ -251,10 +240,7 @@ struct MutantMetaData {
     }
 }
 
-struct Rationale {
-    string payload;
-    alias payload this;
-}
+alias Rationale = NamedType!(string, Tag!"Rationale", string.init, TagStringable);
 
 struct MarkedMutant {
     MutationStatusId statusId;

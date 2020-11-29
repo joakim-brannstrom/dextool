@@ -142,7 +142,7 @@ unittest {
     j["predictedDone"].str; // lazy for now and just checking it is a string
     j["score"].integer.shouldEqual(0);
     j["timeout"].integer.shouldEqual(0);
-    j["total"].integer.shouldEqual(6);
+    j["total"].integer.shouldEqual(0);
     j["totalTime"].integer.shouldEqual(0);
     j["untested"].integer.shouldEqual(6);
 }
@@ -231,18 +231,18 @@ class ShallReportTopTestCaseStats : ReportTestCaseStats {
             .run;
 
          testConsecutiveSparseOrder!SubStr([
-             "| Percentage | Count | TestCase |",
-             "|------------|-------|----------|",
-             "| 2     | tc_2     |",
-             "| 1     | tc_3     |",
-             "| 1     | tc_1     |",
+            "| Percentage | Count | TestCase |",
+            "|------------|-------|----------|",
+            "| 66.6667    | 2     | tc_2     |",
+            "| 33.3333    | 1     | tc_3     |",
+            "| 33.3333    | 1     | tc_1     |",
          ]).shouldBeIn(r.output);
 
         testConsecutiveSparseOrder!SubStr([
             "Test Case Statistics",
-            "0.1", "2", "tc_2",
-            "0.05", "1", "tc_3",
-            "0.05", "1", "tc_1",
+            "0.67", "2", "tc_2",
+            "0.33", "1", "tc_3",
+            "0.33", "1", "tc_1",
         ]).shouldBeIn(File((testEnv.outdir ~ "html/test_case_stat.html").toString).byLineCopy.array);
     }
 }
@@ -517,26 +517,26 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
             .run;
 
         // assert
-        testConsecutiveSparseOrder!SubStr([
-            "Score:       0.2",
-            "Total:       58",
-            "Untested:    32",
-            "Alive:       15",
-            "Killed:      11",
-            "Timeout:     0",
-            "Killed by compiler: 0",
-            "Suppressed (nomut): 5 (0.086",
+        testConsecutiveSparseOrder!Re([
+            "Score:.*0.52",
+            "Total:.*26",
+            "Untested:.*32",
+            "Alive:.*15",
+            "Killed:.*11",
+            "Timeout:.*0",
+            "Killed by compiler:.*0",
+            "Suppressed .nomut.:.*5 .0.19",
         ]).shouldBeIn(plain.output);
 
-        testConsecutiveSparseOrder!SubStr([
-            "Score:       0.2",
-            "Total:       58",
-            "Untested:    32",
-            "Alive:       15",
-            "Killed:      11",
-            "Timeout:     0",
-            "Killed by compiler: 0",
-            "Suppressed (nomut): 5 (0.086",
+        testConsecutiveSparseOrder!Re([
+            "Score:.*0.52",
+            "Total:.*26",
+            "Untested:.*32",
+            "Alive:.*15",
+            "Killed:.*11",
+            "Timeout:.*0",
+            "Killed by compiler:.*0",
+            "Suppressed .nomut.:.*5 .0.19",
         ]).shouldBeIn(markdown.output);
     }
 }
@@ -564,7 +564,7 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
         testConsecutiveSparseOrder!SubStr([
             "Mutation Score <b>",
             "Total",
-            "58",
+            "26",
             "Untested",
             "32",
             "Alive",
@@ -578,7 +578,7 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "NoMut",
             "5",
             "NoMut/total",
-            "0.086",
+            "0.192",
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "stats.html")).byLineCopy.array);
     }
 }
