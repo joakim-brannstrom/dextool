@@ -183,6 +183,7 @@ struct TestDriver {
     import dextool.plugin.mutate.backend.database : Schemata, SchemataId, MutationStatusId;
     import dextool.plugin.mutate.backend.test_mutant.source_mutant : MutationTestDriver;
     import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
+    import dextool.plugin.mutate.backend.report.analyzers : EstimateScore;
 
     /// Runs the test commands.
     TestRunner runner;
@@ -211,6 +212,9 @@ struct TestDriver {
 
         /// Test commands to execute.
         ShellCommand[] testCmds;
+
+        /// mutation score estimation
+        EstimateScore estimate;
     }
 
     static struct UpdateTimeoutData {
@@ -1246,6 +1250,8 @@ nothrow:
                 return Database.CntAction.reset;
             }();
 
+            global.estimate.update(result.status);
+
             updateMutantStatus(*global.data.db, result.id, result.status,
                     global.timeoutFsm.output.iter);
             global.data.db.updateMutation(result.id, cnt_action);
@@ -1263,7 +1269,8 @@ nothrow:
         });
 
         const left = spinSql!(() { return global.data.db.getWorklistCount; });
-        logger.infof("%s mutants left to test", left).collectException;
+        logger.infof("%s mutants left to test. Estimated mutation score %.3s (error %.3s)", left,
+                global.estimate.value.get, global.estimate.error.get).collectException;
     }
 }
 
