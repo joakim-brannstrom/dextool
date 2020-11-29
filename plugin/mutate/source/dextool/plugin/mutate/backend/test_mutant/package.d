@@ -1031,7 +1031,7 @@ nothrow:
                 return global.data.db.schemataMutantsCount(id, global.data.mutKind);
             });
 
-            logger.infof("Schema %s has %s mutants (threshold %s)", id,
+            logger.infof("Schema %s has %s mutants (threshold %s)", id.get,
                     mutants, threshold).collectException;
 
             if (mutants >= threshold) {
@@ -1040,7 +1040,8 @@ nothrow:
                 });
                 if (!schema.isNull) {
                     local.get!PreSchemata.schemata = schema;
-                    logger.infof("Use schema %s (%s left)", id, schematas.length).collectException;
+                    logger.infof("Use schema %s (%s left)", id.get,
+                            schematas.length).collectException;
                     data.hasSchema.get = true;
                 }
             } else {
