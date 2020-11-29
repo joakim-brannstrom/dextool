@@ -70,11 +70,8 @@ void overallStat(const MutationStat s, Element n) {
     auto comp_container = n.addChild("div").addClass("comp_container");
     auto heading = comp_container.addChild("h2").addClass("tbl_header");
 
-    comp_container.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score));
-    if (s.untested > 0) {
-        comp_container.addChild("p").appendHtml(format("Predicted Mutation Score <b>%.3s</b> (error %.3s)",
-                s.estimate.value.get, s.estimate.error.get));
-    }
+    comp_container.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b> (trend %.3s)",
+            s.score, s.estimate.value.get));
     comp_container.addChild("p", format("Time spent: %s", s.totalTime));
     heading.addChild("i").addClass("right");
     heading.appendText(" Summary");
@@ -95,6 +92,9 @@ void overallStat(const MutationStat s, Element n) {
         ]) {
         tbl.appendRow(d[0], d[1]);
     }
+
+    comp_container.addChild("p").appendHtml(
+            "<i>trend</i> is a prediction of how the mutation score will change over time.");
 
     if (s.aliveNoMut != 0) {
         tbl.appendRow("NoMut", s.aliveNoMut.to!string);

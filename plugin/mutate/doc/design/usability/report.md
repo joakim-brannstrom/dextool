@@ -1,6 +1,4 @@
-# REQ-report
-partof: REQ-plugin_mutate
-###
+# Report {id="req-report"}
 
 The plugin shall produce a report:
  * that is *easy* to integrate in other tools.
@@ -8,91 +6,116 @@ The plugin shall produce a report:
 
 The plugin shall use the *human readable report* as the default report.
 
-**Rationale**: This is based on the assumption that it is important to use defaults for the standalone scenario that make it easy for a human to interpret the results.
+**Rationale**: This is based on the assumption that it is important to use
+defaults for the standalone scenario that make it easy for a human to interpret
+the results.
 
-## Report Level
+### Report Level
 
 The supported report levels are:
  * summary
  * alive
  * all
 
-## Human Readable Report Content
+### Human Readable Report Content
 
 The report shall at least contain information regarding the mutants as absolute numbers and the mutation score.
 
-## Why Tool Integration?
+### Why Tool Integration?
 
 The reporting to the user is part of the *user interface* thus it should be as good as possible.
 The easier a tool is to use the higher is the likelihood that it will be used.
 
-By making it easy to integrate in other tools it will allow the user to use mutation testing in a *live* manner.
-Imagine the scenario if the live mutants are integrated in the IDE. The user can then make changes to the code, rerun the mutation testing and see the changes to the live mutations in the IDE. No context switching needed. Mutation testing is a click on a button.
+By making it easy to integrate in other tools it will allow the user to use
+mutation testing in a *live* manner.  Imagine the scenario if the live mutants
+are integrated in the IDE. The user can then make changes to the code, rerun
+the mutation testing and see the changes to the live mutations in the IDE. No
+context switching needed. Mutation testing is a click on a button.
 
 Another positive effect is that the time to inspect live mutants are reduced compared to reading an external report.
 
-## Why Human Readable Report
+### Why Human Readable Report
 
 The intention is to generate a report such that it is easy to publish in other content systems.
 
-## TODO
+### TODO
 
- * Develop a statistical model for how potentially how many bugs there are left in the program that has not been discovered by tests.
+ * Develop a statistical model for how potentially how many bugs there are left
+   in the program that has not been discovered by tests.
  * Should the checksum be used when reporting mutations?
    It is probably a bad idea to "stop" reporting because the source code is not always accessible.
    But the user should be informed that the content is different.
  * Separate the mutation time in compiling SUT+tests and executing tests.
 
-# SPC-report_for_human
-partof: REQ-report
-###
+## Report For Human {id="spc-report_for_human"}
+[partof](#req-report)
 
-The plugin shall produce a report in markdown format when commanded via the *CLI*.
+The plugin shall produce a report in markdown format when commanded via the
+*CLI*.
 
-## Why?
+### Why?
 
-Markdown is chosen because there exist many tools to convert it to other formats.
-It is also easy for a human to read in the raw form thus it can be used as the default *console* report.
+Markdown is chosen because there exist many tools to convert it to other
+formats. It is also easy for a human to read in the raw form thus it can be
+used as the default *console* report.
 
-### Git Diff like Report
+#### Git Diff like Report
 
-The user may want the output to be like `git diff`. But keep in mind that this is an *information leak* of the source code which may prohibit its usage when publishing to content systems so should be controllable by the user.
+The user may want the output to be like `git diff`. But keep in mind that this
+is an *information leak* of the source code which may prohibit its usage when
+publishing to content systems so should be controllable by the user.
 
 Decision: Not needed. The tool integration can be used for this.
 
-This decision has been partially reverted. It is a bit too limited to only show the mutation subtype that where performed at that mutation point. But after using the markdown report it was determined that the user do not understand the mutation subtypes. It is kind of unreasonable to expect them to memories them.
+This decision has been partially reverted. It is a bit too limited to only show
+the mutation subtype that where performed at that mutation point. But after
+using the markdown report it was determined that the user do not understand the
+mutation subtypes. It is kind of unreasonable to expect them to memories them.
 
-But the original reason for not implementing it is still valid. Thus a window of ~7 characters are used. For most mutations this is is actually not any more leak of information than it was before. For those mutations that remove source code or replaces large chunks a window that display at most 7 characters is used.
+But the original reason for not implementing it is still valid. Thus a window
+of ~7 characters are used. For most mutations this is is actually not any more
+leak of information than it was before. For those mutations that remove source
+code or replaces large chunks a window that display at most 7 characters is
+used.
 
-# SPC-report_for_human-cli
-partof: SPC-report_for_human
-###
+## Report For Human CLI {id="spc-report_for_human-cli"}
+[partof](#spc-report_for_human)
 
-The command line argument *--level* shall control the *report level* of the human readable report.
+The command line argument *--level* shall control the *report level* of the
+human readable report.
 
 The default *report level* shall be *summary*.
 
 The plugin shall support the *report levels* {summary, alive, full}.
 
-## Markdown Chapter Mutants
+### Markdown Chapter Mutants
 
-The report shall use the column order *from*, *to*, *file line:column*, *status*, *id*.
+The report shall use the column order *from*, *to*, *file line:column*,
+*status*, *id*.
 
-### Why?
+#### Why?
 
-A human read a page from left to right. The intent is to keep the most interesting part to the left side.
+A human read a page from left to right. The intent is to keep the most
+interesting part to the left side.
 
-Without any scientific evidence I (Joakim B) think that the interesting part is what the mutation is (from -> to).
-It gives a human a quick way of determining how severe the problem is, if it is an equivalent mutant etc.
-When you inspect the report this is probably the part you are looking for.
+Without any scientific evidence I (Joakim B) think that the interesting part is
+what the mutation is (from -> to). It gives a human a quick way of determining
+how severe the problem is, if it is an equivalent mutant etc.  When you inspect
+the report this is probably the part you are looking for.
 
-This is followed by the filename and line:column. When the report is used the reader must be able to find the file the mutation is performed in and where in the file.
+This is followed by the filename and line:column. When the report is used the
+reader must be able to find the file the mutation is performed in and where in
+the file.
 
-The *id* is slightly more interesting than the *status*. It is what uniquely identify a mutation which is used for other things such as marking a mutant as equivalent.
+The *id* is slightly more interesting than the *status*. It is what uniquely
+identify a mutation which is used for other things such as marking a mutant as
+equivalent.
 
-The least interesting is the status. I think that the normal report mode is *alive* which then mean that the status will be filled with "alive". A column which all have the same value is totally uninteresting.
+The least interesting is the status. I think that the normal report mode is
+*alive* which then mean that the status will be filled with "alive". A column
+which all have the same value is totally uninteresting.
 
-## Summary
+### Summary
 
 The report shall contain a summary of the mutation testing.
 
@@ -104,13 +127,17 @@ The summary shall contain the following information:
  * the time spent on testing alive/killed/timeout mutants in a human readable format (days/hours/minutes/seconds...)
  * the total time spent on mutation testing
 
-The plugin shall calculate a prediction as a date and absolute time for when the current running mutation is done when producing a report and there are any mutants left to test.
+The plugin shall calculate a prediction as a date and absolute time for when
+the current running mutation is done when producing a report and there are any
+mutants left to test.
 
-**Rationale**: The user is interested in when the mutation is finished because it can take a long time to go through all mutations. All the data to do a simple *mean* approximation is available.
+**Rationale**: The user is interested in when the mutation is finished because
+it can take a long time to go through all mutations. All the data to do a
+simple *mean* approximation is available.
 
 The summary shall contain mutation metrics of the time spent on mutation testing.
 
-## Alive
+### Alive
 
 The report shall contain the location of alive mutations.
 
@@ -125,9 +152,13 @@ The summary shall be the last section in the report.
 
 **Note**: See ## Summary for the specification of the content
 
-**Rationale**: This requirement is based on the assumption that the user is first interested in reading the summary of the mutation testing. By printing the summary last the user do not have to scroll in the console. This is though inverted if the user renders the markdown report as a webpage. Then the user probably want the summary at the top.
+**Rationale**: This requirement is based on the assumption that the user is
+first interested in reading the summary of the mutation testing. By printing
+the summary last the user do not have to scroll in the console. This is though
+inverted if the user renders the markdown report as a webpage. Then the user
+probably want the summary at the top.
 
-### Alive Statistics
+#### Alive Statistics
 
 The report shall contain the statistics of the alive mutations.
 
@@ -138,7 +169,7 @@ The statistics shall on the original -> mutation:
 
 The statistics shall be sorted by the count column.
 
-## Full
+### Full
 
 The report shall contain the location of all mutations.
 
@@ -148,9 +179,8 @@ The summary shall be the last section in the report.
 
 **Note**: See ## Summary for the specification of the content
 
-# TST-report_for_human
-partof: SPC-report_for_human
-###
+## TST-report_for_human
+[partof](#spc-report_for_human)
 
 *database content*
  * only untested mutants
@@ -161,11 +191,11 @@ partof: SPC-report_for_human
 
 *report level* = { summary, alive, all }
 
-Verify that the produced report contains the expected result when the input is a database with *database content* and *report level*.
+Verify that the produced report contains the expected result when the input is
+a database with *database content* and *report level*.
 
-# SPC-report_for_tool_ide_integration
-partof: REQ-report
-###
+## SPC-report_for_tool_ide_integration
+[partof](#req-report)
 
 The plugin shall report mutants as *gcc compiler warnings* when commanded via the *CLI*.
 
@@ -177,9 +207,10 @@ The plugin shall produce a *fixit hint* for each reported mutant.
 
 The plugin shall write the report to stderr.
 
-**Rationale**: The format of the messages are derived from how gcc output when using `-fdiagnostics-parseable-fixits`.
+**Rationale**: The format of the messages are derived from how gcc output when
+using `-fdiagnostics-parseable-fixits`.
 
-## GCC Compiler Warnings
+### GCC Compiler Warnings
 
 The format is:
 ```sh
@@ -188,7 +219,8 @@ file:line:column category: text
 
 Categories are error and warning.
 
-**Note**: There are more categories so update the list when they are found. As of this writing the others aren't important.
+**Note**: There are more categories so update the list when they are found. As
+of this writing the others aren't important.
 
 Example:
 ```cpp
@@ -207,19 +239,25 @@ foo.cpp:2:9: note: suggested alternative: argc
 fix-it:"foo.cpp":{2:9-2:14}:"argc"
 ```
 
-## Why?
+### Why?
 
-The assumption made by this requirement is that IDE's that are used have good integration with compilers. They can parse the output from compilers. By outputting the mutants in the same way the only integration of the mutation plugin needed is to add a compilation target in the IDE.
+The assumption made by this requirement is that IDE's that are used have good
+integration with compilers. They can parse the output from compilers. By
+outputting the mutants in the same way the only integration of the mutation
+plugin needed is to add a compilation target in the IDE.
 
-The fixit hint is intended to make it easy for a user to see how the mutant modified the source code. This is especially important for those cases where there are many mutations for the same line. Some IDE's such as Eclipse do not move the cursor to the column which makes it harder for the human to manually inspect the mutation.
+The fixit hint is intended to make it easy for a user to see how the mutant
+modified the source code. This is especially important for those cases where
+there are many mutations for the same line. Some IDE's such as Eclipse do not
+move the cursor to the column which makes it harder for the human to manually
+inspect the mutation.
 
-# SPC-report_for_tool_integration_format
-partof: REQ-report
-###
+## SPC-report_for_tool_integration_format
+[partof](#req-report)
 
 The plugin shall report mutants as a *json model* when commanded via the *CLI*.
 
-## JSON Model
+### JSON Model
 
 The structure of the json file should be an array of files with their mutations:
 ```json
@@ -247,52 +285,70 @@ Each mutant is:
 }
 ```
 
-# SPC-report_for_human_plain
-partof: REQ-report
+## SPC-report_for_human_plain
+[partof](#req-report)
 ###
 
 The plugin shall report mutants as *plain text* when commande via the *CLI*.
 
-## Plain Text
+### Plain Text
 
 This format is defined as:
 ```
 info: $ID $STATUS from '$FROM' to '$TO' in $ABSOLUTE_PATH:$LINE:$COLUMN
 ```
 
-The intention is that by providing the absolute path it becomes easier for the user to locate the file.
-By printing the full code both from and to it becomes easier to find it on the line.
-It becomes easier to understand.
+The intention is that by providing the absolute path it becomes easier for the
+user to locate the file.  By printing the full code both from and to it becomes
+easier to find it on the line. It becomes easier to understand.
 
-# SPC-report_as_csv
+## SPC-report_as_csv
 partof: REQ-report
 ###
 
-The plugin shall report mutants in the *CSV format* when commanded via the *CLI*.
+The plugin shall report mutants in the *CSV format* when commanded via the
+*CLI*.
 
-**Note**: The standard for *CSV format* is somewhat unclear. This plugin try to adher to what wikipedia states about the format.
+**Note**: The standard for *CSV format* is somewhat unclear. This plugin try to
+adher to what wikipedia states about the format.
 
-## Requirements for Rapid User Understanding
+### Requirements for Rapid User Understanding
 
-**Rationale**: The intention with the *textual description* field is to make it possible for the user to identify the mutant in the source code. This has been reported from the user as a problem when trying to understand the RORp and DCR mutants. As a side effect this may even make it possible for the user to classify a mutant by just looking at this field.
+**Rationale**: The intention with the *textual description* field is to make it
+possible for the user to identify the mutant in the source code. This has been
+reported from the user as a problem when trying to understand the RORp and DCR
+mutants. As a side effect this may even make it possible for the user to
+classify a mutant by just looking at this field.
 
 The plugin shall wrap each field in double quotes when printing a CSV line.
 
-**Rationale**: This makes it somewhat easier to implement. It also makes it possible to embedded newlines which is useful for the *textual description* field.
+**Rationale**: This makes it somewhat easier to implement. It also makes it
+possible to embedded newlines which is useful for the *textual description*
+field.
 
-The plugin shall limit the *textual description* field to 255 characters when printing a CSV line.
+The plugin shall limit the *textual description* field to 255 characters when
+printing a CSV line.
 
-**Rationale**: 255 characters is assumed to be *enough* for the user to clearly identify and *somewhat* understand the mutant. Users have reported that LibreOffice Calc do not handle long lines well because the scrolling becomes horizontally unresponsive. Thus the limiting is further motivated. It has been tried to use a limit of 512 characters but that was too much.
+**Rationale**: 255 characters is assumed to be *enough* for the user to clearly
+identify and *somewhat* understand the mutant. Users have reported that
+LibreOffice Calc do not handle long lines well because the scrolling becomes
+horizontally unresponsive. Thus the limiting is further motivated. It has been
+tried to use a limit of 512 characters but that was too much.
 
-The plugin shall remove double quotes from the *original* and *mutated* part of the *textual description* field when printing a CSV line.
+The plugin shall remove double quotes from the *original* and *mutated* part of
+the *textual description* field when printing a CSV line.
 
-**Rationale**: The problem with quotes are that they are somewhat more cumbersome to implement so by removing them the implementation is simpler. This shouldn't inhibit the readability.
+**Rationale**: The problem with quotes are that they are somewhat more
+cumbersome to implement so by removing them the implementation is simpler. This
+shouldn't inhibit the readability.
 
-## CSV
+### CSV
 
-The intent is to make it easy to import the mutant report in e.g. Excel for inspection.
+The intent is to make it easy to import the mutant report in e.g. Excel for
+inspection.
 
-A user will want to write comments to convey to other users his/her thoughts about the mutant.
+A user will want to write comments to convey to other users his/her thoughts
+about the mutant.
 
 The columns should be
 1. ID
@@ -302,7 +358,7 @@ The columns should be
 4. Filename line:column
 5. Comment
 
-## Format Specification
+### Format Specification
 
 This is copied from the phobos module `std.csv`.
 
@@ -310,7 +366,8 @@ This is copied from the phobos module `std.csv`.
  * A final record may end with a new line
  * A header may be provided as the first record in input
  * A record has fields separated by a comma (customizable)
- * A field containing new lines, commas, or double quotes should be enclosed in double quotes (customizable)
+ * A field containing new lines, commas, or double quotes should be enclosed in
+   double quotes (customizable)
  * Double quotes in a field are escaped with a double quote
  * Each record should contain the same number of fields
 
@@ -318,9 +375,8 @@ From wikipedia regarding the double quotes:
  * Each of the embedded double-quote characters must be represented by a pair of double-quote characters.
     * 1997,Ford,E350,"Super, ""luxurious"" truck"
 
-# TST-report_as_csv
-partof: SPC-report_as_csv
-###
+## TST-report_as_csv
+[partof](#spc-report_as_csv)
 
 As input to the program use a file that contains DCC/DCR mutations.
 
@@ -329,35 +385,39 @@ Verify that the report:
  * contains a report of mutations for each column
  * the last column, comment, shall be empty
 
-# REQ-report_mutation_score
-partof: REQ-report
-###
+## REQ-report_mutation_score
+[partof](#req-report)
 
-The plugin shall calculate the mutation score based on the number of unique source code mutations of the specified kind(s).
+The plugin shall calculate the mutation score based on the number of unique
+source code mutations of the specified kind(s).
 
 ## Rationale
 
 None of these assumptions are verified.
 
-This is based on the idea that a developer is more interested in the actual changes in the source code. The developer is less interested in the "academically" correct way of calculating mutations.
+This is based on the idea that a developer is more interested in the actual
+changes in the source code. The developer is less interested in the
+"academically" correct way of calculating mutations.
 
-A side effect of this is that a problem that can occur is that when combining multiple mutation operators it can result in duplications of source code changes. By doing it this way, on the source code changes, the score should be more "stable" and "truer".
+A side effect of this is that a problem that can occur is that when combining
+multiple mutation operators it can result in duplications of source code
+changes. By doing it this way, on the source code changes, the score should be
+more "stable" and "truer".
 
-# REQ-report_test_group
-partof: REQ-report
-###
+## REQ-report_test_group
+[partof](#req-report)
 
-The plugin shall construct a *test case group* from a regex when reading the configuration file.
+The plugin shall construct a *test case group* from a regex when reading the
+configuration file.
 
 The plugin shall report the *group mutation score* when reporting.
 
-TODO: improve the requirements. They are too few and badly written.
-What they try to say is that the user specify a regex in the configuration file.
-One regex == one test case group.
-A test case is part of a group if it matches the regex. Simple!
-Then this is reported to the user.
+TODO: improve the requirements. They are too few and badly written.  What they
+try to say is that the user specify a regex in the configuration file.  One
+regex == one test case group. A test case is part of a group if it matches the
+regex. Simple!  Then this is reported to the user.
 
-## Rationale
+### Rationale
 
 The user have a high level requirement that they want to get a quality metric
 for how well it is tested in the software. This could e.g. be a use case. Lets
@@ -383,7 +443,8 @@ mutants that where killed by a group test case.
 **Definition**: Test Case Group. Test cases that collectively verify the
 implementation of a use case.
 
-**Definition**: Group Kill. Mutants that has been killed by a test case that is part of a *test case group*.
+**Definition**: Group Kill. Mutants that has been killed by a test case that is
+part of a *test case group*.
 
 The Group Mutation Score is calculated as:
 
@@ -395,35 +456,44 @@ most of the time it can be further reasoned that there is a correlation between
 this *group mutation score* and the *test quality* of the test suite in
 relation to the use case.
 
-# REQ-report_short_term_view
-partof: REQ-report
-###
+## REQ-report_short_term_view
+[partof](#req-report)
 
-The plugin shall report the test cases that killed mutants in the *externally supplied diff* when generating the report.
+The plugin shall report the test cases that killed mutants in the *externally
+supplied diff* when generating the report.
 
 The plugin shall support the unified diff format.
 
-## Explanation: Externally Supplied Diff
+### Explanation: Externally Supplied Diff
 
-The user of the plugin construct a diff in one of the supported formats. The diff is given to the plugin when it generates the report.
+The user of the plugin construct a diff in one of the supported formats. The
+diff is given to the plugin when it generates the report.
 
-**Note**: The current design reads it from stdin to make it easy to integrate with git. Example `git diff HEAD~|dextool mutate report --style html --diff-from-stdin`.
+**Note**: The current design reads it from stdin to make it easy to integrate
+with git. Example `git diff HEAD~|dextool mutate report --style html
+--diff-from-stdin`.
 
-**Note**: May be advantageous to support reading from a separate file to ease the integration for a user.
+**Note**: May be advantageous to support reading from a separate file to ease
+the integration for a user.
 
 TODO: reformulate this chapter into a use case and/or design requirement.
 
-## Purpose
+### Purpose
 
-The purpose of the short term view is to show to an individual/few developers how mutation testing relate to *the developers* code changes.
-It is important that the view do not present too much information so the developer become overwhelmed and thus give up [@googleMutationTesting2018].
+The purpose of the short term view is to show to an individual/few developers
+how mutation testing relate to *the developers* code changes.  It is important
+that the view do not present too much information so the developer become
+overwhelmed and thus give up [@googleMutationTesting2018].
 
  * the developers have the changes fresh in memory.
- * a developer that has *changed* a part of a code *probably* feel like he/she owns it. A developer that feel that he/she own something are more likely to take action to improve the quality.
+ * a developer that has *changed* a part of a code *probably* feel like he/she
+   owns it. A developer that feel that he/she own something are more likely to
+   take action to improve the quality.
 
-## Cost Estimate
+### Cost Estimate
 
-It is useful information when trying to deduce how a code change (bugfix/new feature etc)
+It is useful information when trying to deduce how a code change (bugfix/new
+feature etc)
 
  * Affects requirements and thus which ones *may* be affected and need an update.
  * What manual tests *should* be performed because the change affects those.
@@ -432,64 +502,92 @@ It is useful information when trying to deduce how a code change (bugfix/new fea
    The user check the trace data (TC->"verification case specification"->"SW req."->"System req.").
    The tracing is used as input to the cost estimation for what formal documents are affected and to what magnitude.
 
-## Background
+### Background
 See [@googleMutationTesting2018]. The paper coin the term *productive mutant*.
 
-**Assumption 1**: A developer feels that they *own* a part of code if they recently made changes to that part.
+**Assumption 1**: A developer feels that they *own* a part of code if they
+recently made changes to that part.
 
-# REQ-report_long_term_view
-partof: REQ-report
-###
+## REQ-report_long_term_view
+[partof](#req-report)
 
 TODO: write requirements.
 
-## Background
+### Background
 
 See [@googleMutationTesting2018].
 
-This is an interpretation of the paper. This view focus on presenting information that a team can take action on.
+This is an interpretation of the paper. This view focus on presenting
+information that a team can take action on.
 
-**Assumption 1**: The team is responsible, collectively, for the long term maintenance of the SUT.
-Should the mutant be be suppressed? Fixed? Is this a potentially hidden bug?
+**Assumption 1**: The team is responsible, collectively, for the long term
+maintenance of the SUT.  Should the mutant be be suppressed? Fixed? Is this a
+potentially hidden bug?
 
-**Assumption 2**: The team feel that they own the *whole* code base. They feel *responsible*. This creates an incitement for the team to *act*.
+**Assumption 2**: The team feel that they own the *whole* code base. They feel
+*responsible*. This creates an incitement for the team to *act*.
 
-**Assumption 3**: There is a correlation between the mutants that has survived the longest in the system, over time, and where there are potential problems in the SUT.
-Problems such as hidden bugs, hard to maintain etc.
+**Assumption 3**: There is a correlation between the mutants that has survived
+the longest in the system, over time, and where there are potential problems in
+the SUT.  Problems such as hidden bugs, hard to maintain etc.
 
-## How
+### How
 
-Present the 10 mutants (configurable) that has survived the longest in the system.
+Present the 10 mutants (configurable) that has survived the longest in the
+system.
 
-With a link, time when they where discovered, how many times they have been tested when the last test where done etc.
+With a link, time when they where discovered, how many times they have been
+tested when the last test where done etc.
 
-# REQ-suppress_mutants
-partof: REQ-report
-###
+## REQ-suppress_mutants
+[partof](#req-report)
 
-The user wants to be able to disregard equivalent mutants and undesirable mutants when assessing test case quality.
+The user wants to be able to disregard equivalent mutants and undesirable
+mutants when assessing test case quality.
 
-**Rationale**: When going through the mutation report there are some that doesn't matter (logging) or others that are *more or less* equivalent mutants. The intention then is to let the user mark these mutants such that they do not count against the score.
+**Rationale**: When going through the mutation report there are some that
+doesn't matter (logging) or others that are *more or less* equivalent mutants.
+The intention then is to let the user mark these mutants such that they do not
+count against the score.
 
 The user wants to categories suppressed mutants when they are marked.
 
-**Note**: User feedback is that the categories should be case insensitive so a case "change" doesn't lead to the mutant being placed in a new category. Keep it simple and avoid common mistakes that can occur by forcing the sorting of suppressed mutants into categories to be case insensitive.
+**Note**: User feedback is that the categories should be case insensitive so a
+case "change" doesn't lead to the mutant being placed in a new category. Keep
+it simple and avoid common mistakes that can occur by forcing the sorting of
+suppressed mutants into categories to be case insensitive.
 
 The user wants to be able to add a comment to suppressed mutants.
 
-**Rationale**: The intention is to use these categories and comments when presenting a view of all suppressed mutants in the program to make it easier to inspect. It is to move the discussion from "Why is this mutant suppressed? I don't understand anything!" to "This mutant is of type A and has a comment explaining why it is ignored. The comment seems rationale when considering the category the mutant is part of.".
+**Rationale**: The intention is to use these categories and comments when
+presenting a view of all suppressed mutants in the program to make it easier to
+inspect. It is to move the discussion from "Why is this mutant suppressed? I
+don't understand anything!" to "This mutant is of type A and has a comment
+explaining why it is ignored. The comment seems rationale when considering the
+category the mutant is part of.".
 
-The user wants to add a description to the categories so it is possible to explain what it is, when it is prudent to use, restrictions on use etc. The user then expects this description to be part of the report of the suppressed mutants.
+The user wants to add a description to the categories so it is possible to
+explain what it is, when it is prudent to use, restrictions on use etc. The
+user then expects this description to be part of the report of the suppressed
+mutants.
 
-The user wants to be able to mark a mutant via an admin-command and provide a rationale for why the mutant was marked.
+The user wants to be able to mark a mutant via an admin-command and provide a
+rationale for why the mutant was marked.
 
-**Rationale**: The ability to mark mutants via a commando removes the need to modify code (inserting a comment) in order to suppress a mutant. This is useful for example inspected code that *should* not be modified. By providing a rationale, the user can specify exactly the reason and motivation behind the marking. It also allows the user to chose whether or not the mutant should be included in the final score.
+**Rationale**: The ability to mark mutants via a commando removes the need to
+modify code (inserting a comment) in order to suppress a mutant. This is useful
+for example inspected code that *should* not be modified. By providing a
+rationale, the user can specify exactly the reason and motivation behind the
+marking. It also allows the user to chose whether or not the mutant should be
+included in the final score.
 
-**Note**: This is a user-based requirement. Marking mutants manually is both tedious and unstable if the analyze phase is intended to be run again. However, this also gives the user the ability to mark mutants with any status. This could be dangerous in the long term, if the tool is promoting suppression.
+**Note**: This is a user-based requirement. Marking mutants manually is both
+tedious and unstable if the analyze phase is intended to be run again. However,
+this also gives the user the ability to mark mutants with any status. This
+could be dangerous in the long term, if the tool is promoting suppression.
 
-# SPC-report_suppress_mutants
-partof: REQ-suppress_mutants
-###
+## SPC-report_suppress_mutants
+[partof](#req-suppress_mutants)
 
 The plugin shall produce a HTML report of the suppressed mutants.
 
@@ -497,30 +595,38 @@ The plugin shall sort the suppress mutants in the HTML report by their category.
 
 The plugin shall use the alive color for suppressed mutants in the HTML view.
 
-**Note**: This requirement though conflicts with a usability feedback that it is not possible to *see* if a mutant is suppressed or not. As the user said:
+**Note**: This requirement though conflicts with a usability feedback that it
+    is not possible to *see* if a mutant is suppressed or not. As the user said:
  * "Did I put the NOMUT at the correct place?"
  * "Is dextool working correctly?"
 
-Thus for the requirement about the color in the HTML view an additional requirement is need:
+Thus for the requirement about the color in the HTML view an additional
+requirement is need:
 
 The plugin shall visualize a suppressed mutant with the "nomut" attribute.
 
-## Note
+### Note
 
-There is a psychology game to play with the user here when it comes to visualizing the mutants that are marked. We do not want to encourage the user to sprinkle suppressions all over the code base. If we look at the design of clang-tidy we can see that at the end of its report it prints how many warnings where suppressed. We want to do something like that too. Let the user be able to mark mutants but discourage the behavior. Some of the tools to use to avoid this is to have an offensive color for suppressed mutants. Another tool is how the statistics are presented and help texts.
+There is a psychology game to play with the user here when it comes to
+visualizing the mutants that are marked. We do not want to encourage the user
+to sprinkle suppressions all over the code base. If we look at the design of
+clang-tidy we can see that at the end of its report it prints how many warnings
+where suppressed. We want to do something like that too. Let the user be able
+to mark mutants but discourage the behavior. Some of the tools to use to avoid
+this is to have an offensive color for suppressed mutants. Another tool is how
+the statistics are presented and help texts.
 
-# SPC-count_suppressed_mutants
-partof: REQ-suppress_mutants
-###
+## SPC-count_suppressed_mutants
+[partof](#req-suppress_mutants)
 
 The plugin shall count alive, suppressed mutants as equivalent when calculating
 the mutation score.
 
-## Note
+### Note
 
 The formula for the mutation score is `killed / (total - equivalent)`.
 
-## Why?
+### Why?
 
 Previously the suppressed mutants where counted as killed. After discussing the
 matter we revised the decision. This is because a suppressed mutant is an
@@ -539,27 +645,33 @@ the formula for calculating the mutation score it is kind a solved because the
 score then reflects *only* those mutants that aren't debatable if they are good
 or bad.
 
-# REQ-overlap_between_test_cases
-partof: REQ-report
-###
+## REQ-overlap_between_test_cases
+[partof](#req-report)
 
-The user have a test suite divided in two parts, *high quality* (a) tests and *the rest* (b).
+The user have a test suite divided in two parts, *high quality* (a) tests and
+*the rest* (b).
 
-The user is wondering if there are any tests in (b) that are redundant because those aspects are already verified by (a). The test, in other words, do not contribute to the test effectiveness. It is just a maintenance burden that cost money.
+The user is wondering if there are any tests in (b) that are redundant because
+those aspects are already verified by (a). The test, in other words, do not
+contribute to the test effectiveness. It is just a maintenance burden that cost
+money.
 
-The user is wondering if there are tests in (b) that verify a unique aspect of the software and thus should be moved from (b) to (a).
+The user is wondering if there are tests in (b) that verify a unique aspect of
+the software and thus should be moved from (b) to (a).
 
-The user wants to be able to inspect the uniqueness and overlap between test cases at detail to discern how and if they could be changed to be of higher quality.
+The user wants to be able to inspect the uniqueness and overlap between test
+cases at detail to discern how and if they could be changed to be of higher
+quality.
 
-# SPC-report_minimal_set
-partof: REQ-overlap_between_test_cases
-###
+## SPC-report_minimal_set
+[partof](#req-overlap_between_test_cases)
 
-The plugin shall calculate a minimal set of test cases that produce the same mutation score as if all test cases where used.
+The plugin shall calculate a minimal set of test cases that produce the same
+mutation score as if all test cases where used.
 
 The plugin shall produce a HTML report with the sections minimal set and the rest.
 
-## Algorithm
+### Algorithm
 
 The data is:
 
@@ -581,21 +693,30 @@ The minimal set is calculated by as:
    $score_2 = score_2 \cap TC_1$
 4. if $|minset_1| = |minset_2|$ then the minimal set is $minset_1$. Exit. Otherwise repeat step 2-3.
 
-## Note
+### Note
 
-The algorithm is heuristic because it depend on in which order the test cases are chosen. A different order will most likely result in a different minimal set. It is important that the user of the tool understand this.
+The algorithm is heuristic because it depend on in which order the test cases
+are chosen. A different order will most likely result in a different minimal
+set. It is important that the user of the tool understand this.
 
-The calculated minimal set is further dependent on the mutation operators that are used. Another view of it is that the mutation operators are sample points in the software that the test suites *can* kill. If there are too few or missing samples it can lead to a shewed result. On the other hand this can be used as a technique by the tester to understand different aspects of the test suite. Such as how similar test cases that verify logical assumptions in the software are to each other by looking at the *LCR* and *DCR* mutation operators.
+The calculated minimal set is further dependent on the mutation operators that
+are used. Another view of it is that the mutation operators are sample points
+in the software that the test suites *can* kill. If there are too few or
+missing samples it can lead to a shewed result. On the other hand this can be
+used as a technique by the tester to understand different aspects of the test
+suite. Such as how similar test cases that verify logical assumptions in the
+software are to each other by looking at the *LCR* and *DCR* mutation
+operators.
 
-# SPC-report_test_case_similarity
-partof: REQ-overlap_between_test_cases
-###
+## SPC-report_test_case_similarity
+[partof](#req-overlap_between_test_cases)
 
 The plugin shall calculate the similarity between all test cases.
 
-The plugin shall produce a HTML report with a section for each TC displaying the top X test cases that it is similar to.
+The plugin shall produce a HTML report with a section for each TC displaying
+the top X test cases that it is similar to.
 
-## Algorithm
+### Algorithm
 
 The data is:
 
@@ -610,26 +731,37 @@ $|TCx \cap TCy| / |TCx|$
 
 The number of items in the intersection divided by the number of items in the left side.
 
-## Note
+### Note
 
 The algorithm used is a modified *jaccard similarity* metric. The desired property which lead to this choice where:
  * the result is in the range 0.0 to 1.0. The closer to 1.0 the more similar the test cases are to each other.
  * its intention is to compare sets with each other.
  * the metric is higher the more of a subset one side is to the other.
 
-The algorithm *jaccard similarity* metric where briefly used but discarded because it couldn't capture the subset similarity which is one of the key factors that the user asked for. The positive fact though of the *jaccard similarity* is that the metric is bidirectional. It doesn't matter in which order the sets are compared.
+The algorithm *jaccard similarity* metric where briefly used but discarded
+because it couldn't capture the subset similarity which is one of the key
+factors that the user asked for. The positive fact though of the *jaccard
+similarity* is that the metric is bidirectional. It doesn't matter in which
+order the sets are compared.
 
 The algorithm *gap weighted similarity* where briefly used but it had the following problems:
- * the result where in the range 0 to infinity. The higher the more similar. The values could end up in the range of millions. This mean it is harder for a user to interpret the result at a glance.
+ * the result where in the range 0 to infinity. The higher the more similar.
+   The values could end up in the range of millions. This mean it is harder for
+   a user to interpret the result at a glance.
  * it seems to be an algorithm more suited for comparing text than sets.
- * the data for a TC never contains duplicate mutants thus the *gap weighted similarity* which is affected by this is redundant. It just complicates the understanding of how the similarity should be interpreted.
- * the algorithm takes into account the similarity between the subsets but this, I think, isn't of interest. It complicates things. Without data that states that this is needed I can't see a motivation to introduce this complication.
+   the data for a TC never contains duplicate mutants thus the *gap weighted
+   similarity* which is affected by this is redundant. It just complicates the
+   understanding of how the similarity should be interpreted.
+ * the algorithm takes into account the similarity between the subsets but
+   this, I think, isn't of interest. It complicates things. Without data that
+   states that this is needed I can't see a motivation to introduce this
+   complication.
 
-# REQ-uc_formal_verification_surviving_mutant
-partof: REQ-plugin_mutate
-###
+## REQ-uc_formal_verification_surviving_mutant
+[partof](#req-plugin_mutate)
 
-A formal verification process will have a process for how to handle mutants that survive.
+A formal verification process will have a process for how to handle mutants
+that survive.
 
 An example of how that could look is as follow:
 
@@ -640,19 +772,22 @@ An example of how that could look is as follow:
     >  3. Change or add requirements and tests
     >  4. Analysis and justifications for e.g defensive programming which is untestable.
 
-For approach **2** and **3** the user needs to find out *how to kill a surviving mutant*.
+For approach **2** and **3** the user needs to find out *how to kill a
+surviving mutant*.
 
-# SPC-test_case_near_surviving_mutant
-partof: REQ-uc_formal_verification_surviving_mutant
-###
+## SPC-test_case_near_surviving_mutant
+[partof](#req-uc_formal_verification_surviving_mutant)
 
-The plugin shall present the test cases that killed mutants at each mutation point in the file view when generating a html report.
+The plugin shall present the test cases that killed mutants at each mutation
+point in the file view when generating a html report.
 
 ## Design
 
-Present the test cases that killed a mutant that is *near* the surviving mutant.
+Present the test cases that killed a mutant that is *near* the surviving
+mutant.
 
-When inspecting a surviving mutant in the html code view the user would like a convenient way to find test cases that killed a *near* mutant. For example if:
+When inspecting a surviving mutant in the html code view the user would like a
+convenient way to find test cases that killed a *near* mutant. For example if:
 
     > a || b -> false
 
@@ -660,27 +795,33 @@ was killed but
 
     > a || b -> true
 
-survived The user would like to know which test case(s) that killed the first mutation so that they can use it to assess the surviving mutant. One such assessment could be to extend one of the test suites that killed the first mutant so it kills the second mutant.
+survived The user would like to know which test case(s) that killed the first
+mutation so that they can use it to assess the surviving mutant. One such
+assessment could be to extend one of the test suites that killed the first
+mutant so it kills the second mutant.
 
-# REQ-uc_overview_of_mutation_score
-partof: REQ-plugin_mutate
-###
+## REQ-uc_overview_of_mutation_score
+[partof](#req-plugin_mutate)
 
-It is important for a user to be able to *quickly* assess the quality of the test suite to find what parts of an application needs more testing.
+It is important for a user to be able to *quickly* assess the quality of the
+test suite to find what parts of an application needs more testing.
 
-The layout of the source code is often times ordered in directories for each component. It would be helpful if the score that is presented to the user can be summaries in some way that it maps back to the source code layout.
+The layout of the source code is often times ordered in directories for each
+component. It would be helpful if the score that is presented to the user can
+be summaries in some way that it maps back to the source code layout.
 
-# SPC-tree_map_view_of_score
-partof: REQ-uc_overview_of_mutation_score
-###
+## SPC-tree_map_view_of_score
+[partof](#req-uc_overview_of_mutation_score)
 
-The plugin shall generate a tree map view of the mutation score starting from the top directory branching out to the individual files when generating a html report.
+The plugin shall generate a tree map view of the mutation score starting from
+the top directory branching out to the individual files when generating a html
+report.
 
-The tree map view shall navigate in the tree so the user can go further down or up at will.
+The tree map view shall navigate in the tree so the user can go further down or
+up at will.
 
-# REQ-uc_remove_redundant_tests
-partof: REQ-plugin_mutate
-###
+## REQ-uc_remove_redundant_tests
+[partof](#req-plugin_mutate)
 
 The user wants to be able to identify what mutants that a test case are alone
 of killing as to assert how *unique* the test case is.  This can for example be
@@ -692,9 +833,26 @@ this suspicion.
 By presenting a report of the test cases and what mutants they alone kill it
 becomes possible for the developer to look at this reports.
 
-# SPC-test_case_uniqeness_report
-partof: REQ-uc_remove_redundant_tests
-###
+## SPC-test_case_uniqeness_report
+[partof](#req-uc_remove_redundant_tests)
 
 The plugin shall produce a report that for each test case contains those
 mutants that only that test case kill when commanded.
+
+## Use Case: Trend {id="req-report-trend"}
+
+The user wants to see how the mutation score is trending for the test suite
+over time. Is it going up/down or just keeping steady? This information helps
+the user to determine what action, if any, to take. It is expected to e.g.
+clearly show that if new functionality is added but no tests then the trend is
+going down.
+
+### Trend Implementation {id="spc-report-trend"}
+[partof](#req-report-trend)
+
+A one dimensional kalman filter will produce a prediction and smooth out high
+frequency jitter (process variance of 0.01).
+
+By running the kalman filter on the mutants in the order that they are tested
+(oldest to latest) should give a predicted mutation score of where the test
+suite is heading.

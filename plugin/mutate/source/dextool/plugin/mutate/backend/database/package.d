@@ -102,13 +102,13 @@ struct Database {
         return rval;
     }
 
-    /// Iterate over the mutants of `kinds` in a random order.
+    /// Iterate over the mutants of `kinds` in oldest->newest datum order.
     void iterateMutantStatus(const Mutation.Kind[] kinds, void delegate(const Mutation.Status) dg) @trusted {
         immutable sql = format("SELECT t1.status FROM %s t0, %s t1
            WHERE
            t0.st_id = t1.id AND
            t0.kind IN (%(%s,%))
-           ORDER BY RANDOM()",
+           ORDER BY t1.update_ts",
                 mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         try {

@@ -458,10 +458,8 @@ struct MutationStat {
 
         // mutation score and details
         formattedWrite(w, "%-*s %.3s\n", align_, "Score:", score);
-        if (untested > 0) {
-            formattedWrite(w, "%-*s %.3s (error:%.3s)\n", align_,
-                    "Estimated Score:", estimate.value.get, estimate.error.get);
-        }
+        formattedWrite(w, "%-*s %.3s (error:%.3s)\n", align_, "Trend Score:",
+                estimate.value.get, estimate.error.get);
 
         formattedWrite(w, "%-*s %s\n", align_, "Total:", total);
         if (untested > 0) {
@@ -1104,8 +1102,10 @@ struct EstimateScore {
     import my.signal_theory.kalman;
 
     // 0.5 because then it starts in the middle of range possible values.
-    // 0.1 such that it is "slow to change". 10 samples to move it "alot".
-    private KalmanFilter kf = KalmanFilter(0.5, 0.5, 0.1);
+    // 0.01 such that the trend is "slowly" changing over the last 100 mutants.
+    // 0.001 is to "insensitive" for an on the fly analysis so it mostly just
+    //  end up being the current mutation score.
+    private KalmanFilter kf = KalmanFilter(0.5, 0.5, 0.01);
 
     /// Update the estimate with the status of a mutant.
     void update(const Mutation.Status s) {
@@ -1144,6 +1144,11 @@ struct EstimateScore {
     }
 }
 
+/** Estimate the mutation score by running a kalman filter over the mutants in
+ * the order they have been tested. It gives a rough estimate of where the test
+ * suites quality is going over time.
+ *
+ */
 EstimateScore reportEstimate(ref Database db, const Mutation.Kind[] kinds) @trusted nothrow {
     EstimateScore rval;
     try {
