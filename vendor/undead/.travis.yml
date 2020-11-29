@@ -1,0 +1,14 @@
+language: d
+
+os:
+  - linux
+  - osx
+
+d:
+  - dmd
+  - dmd-beta
+  - dmd-nightly
+  - ldc
+  - ldc-beta
+
+sudo: false

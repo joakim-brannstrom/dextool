@@ -14,6 +14,7 @@ include(dextool_miniorm.cmake)
 include(dextool_sumtype.cmake)
 include(dextool_taggedalgebraic.cmake)
 include(dextool_toml.cmake)
+include(dextool_undead.cmake)
 
 include(dextool_mylib.cmake)
 include(dextool_proc.cmake)

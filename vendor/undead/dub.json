@@ -1,0 +1,9 @@
+{
+    "name": "undead",
+    "description": "Obsolete Phobos modules, back from the dead",
+    "authors": ["various"],
+    "homepage": "https://github.com/dlang/undeaD",
+    "license": "BSL-1.0",
+    "targetType": "library",
+    "targetPath": "bin"
+}
