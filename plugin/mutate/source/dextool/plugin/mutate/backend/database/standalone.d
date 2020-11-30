@@ -72,7 +72,7 @@ struct Database {
 
     /// Add a mutant to the worklist.
     void addToWorklist(const MutationStatusId id) @trusted {
-        immutable sql = format!"INSERT OR IGNORE INTO %1$s (id) (:id)"(mutantWorklistTable);
+        immutable sql = format!"INSERT OR IGNORE INTO %1$s (id) VALUES(:id)"(mutantWorklistTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         stmt.get.execute;

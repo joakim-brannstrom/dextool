@@ -731,7 +731,7 @@ nothrow:
                 local.get!ResetOldMutant.maxReset - wcnt);
         });
 
-        logger.info("Adding %s old mutants to worklist", oldest.length).collectException;
+        logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
         foreach (const old; oldest) {
             logger.info("Last updated ", old.updated).collectException;
             spinSql!(() { global.data.db.addToWorklist(old.id); });
