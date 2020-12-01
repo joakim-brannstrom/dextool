@@ -108,6 +108,23 @@ class ShallDeleteAssignment : SdlFixture {
     }
 }
 
+class ShallDeleteSwitchCase : SdlFixture {
+    override string programFile() {
+        return "sdl_switch.cpp";
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        auto r = precondition(testEnv);
+        testAnyOrder!SubStr([`from 'w = 4' to ''`]).shouldBeIn(r.output);
+
+        testAnyOrder!SubStr([
+                `from 'int x = 2' to ''`, `from 'bool y = true' to ''`,
+                `from 'int w = 3' to ''`,
+                ]).shouldNotBeIn(r.output);
+    }
+}
+
 class ShallOnlyGenerateValidSdlSchemas : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_sdl.cpp").toString;
