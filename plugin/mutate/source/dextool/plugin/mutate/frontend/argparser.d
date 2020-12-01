@@ -398,6 +398,7 @@ struct ArgParser {
                 "dump-config", "dump the detailed configuration used", &dump_conf,
                 "init", "create an initial config to use", &init_conf,
                 "m|mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                "mutant-sub-kind", "kind of mutant " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Kind)]), &admin.subKind,
                 "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &admin.adminOp,
                 "test-case-regex", "regex to use when removing test cases", &admin.testCaseRegex,
                 "status", "change mutants with this state to the value specified by --to-status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantStatus,
