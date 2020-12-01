@@ -2,7 +2,7 @@
 /// @date 2020
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
-int fn(int x);
+int fn(int x) { return x; }
 
 int test_switch(int x) {
     switch (x) {
@@ -34,3 +34,5 @@ int test_switch(int x) {
 
     return x;
 }
+
+int main(int argc, char** argv) { return 0; }

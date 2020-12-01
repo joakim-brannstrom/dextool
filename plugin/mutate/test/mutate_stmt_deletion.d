@@ -108,20 +108,37 @@ class ShallDeleteAssignment : SdlFixture {
     }
 }
 
-class ShallDeleteSwitchCase : SdlFixture {
+class ShallDeleteSwitchCase : SchemataFixutre {
     override string programFile() {
-        return "sdl_switch.cpp";
+        return (testData ~ "sdl_switch.cpp").toString;
     }
 
     override void test() {
         mixin(EnvSetup(globalTestdir));
-        auto r = precondition(testEnv);
-        testAnyOrder!SubStr([`from 'w = 4' to ''`]).shouldBeIn(r.output);
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "sdl"]).addFlag("-std=c++11").run;
 
         testAnyOrder!SubStr([
-                `from 'int x = 2' to ''`, `from 'bool y = true' to ''`,
-                `from 'int w = 3' to ''`,
-                ]).shouldNotBeIn(r.output);
+                `from 'fn(2)' to ''`, `from 'fn(2);' to ''`, `from 'fn(3)' to ''`,
+                `from 'fn(4)' to ''`, `from 'fn(2)' to ''`, `from 'fn(3)' to ''`,
+                `from 'fn(4)' to ''`, `from 'x = 42' to ''`,
+                ]).shouldBeIn(r.output);
+
+        testConsecutiveSparseOrder!SubStr([
+                `from '{`, `fn(2);`, `fn(3);`, `fn(4);`, `break;`, `}' to ''`,
+                ]).shouldBeIn(r.output);
+
+        testConsecutiveSparseOrder!SubStr([
+                `from '`, `fn(2);`, `fn(3);`, `fn(4);`, `break;`, `' to ''`
+                ]).shouldBeIn(r.output);
+
+        testConsecutiveSparseOrder!SubStr([`from 'default:`, `x = 42' to ''`,]).shouldBeIn(
+                r.output);
+
+        testConsecutiveSparseOrder!SubStr([`from 'default:`, `x = 42;' to ''`,]).shouldBeIn(
+                r.output);
     }
 }
 
