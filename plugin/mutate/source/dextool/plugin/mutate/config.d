@@ -12,6 +12,8 @@ module dextool.plugin.mutate.config;
 import core.time : Duration, dur;
 import std.typecons : Nullable;
 
+import my.named_type;
+
 import dextool.plugin.mutate.type;
 import dextool.type : AbsolutePath, Path;
 public import dextool.plugin.mutate.backend : Mutation, TestGroup;
@@ -167,6 +169,7 @@ struct ConfigMutationTest {
 
     OldMutant onOldMutants;
     long oldMutantsNr;
+    NamedType!(double, Tag!"OldMutantPercentage", double.init, TagStringable) oldMutantPercentage = 0.0;
 
     /// Max time to run mutation testing.
     // note that Duration.max + Clock.currTime results in a negative time...

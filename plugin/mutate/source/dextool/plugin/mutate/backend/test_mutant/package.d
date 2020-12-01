@@ -257,6 +257,7 @@ struct TestDriver {
         /// Number of mutants that where reset.
         bool hasUpdatedWorklist;
         long maxReset;
+        NamedType!(double, Tag!"OldMutantPercentage", double.init, TagStringable) resetPercentage;
     }
 
     static struct Cleanup {
@@ -418,6 +419,7 @@ struct TestDriver {
         local.get!PullRequest.seed = global.data.conf.pullRequestSeed;
         local.get!NextPullRequestMutant.maxAlive = global.data.conf.maxAlive;
         local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
+        local.get!ResetOldMutant.resetPercentage = global.data.conf.oldMutantPercentage;
         this.global.testCmds = global.data.conf.mutationTester;
 
         this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
@@ -716,19 +718,43 @@ nothrow:
             return;
         }
         if (local.get!ResetOldMutant.hasUpdatedWorklist) {
+            data.doneTestingOldMutants = spinSql!(() {
+                return global.data.db.getWorklistCount;
+            }) == 0;
+            return;
+        }
+
+        if (spinSql!(() {
+                return global.data.db.unknownSrcMutants(global.data.mutKind).count;
+            }) != 0) {
+            // do NOT add extra work when there are still unknown mutants to
+            // test. They have a higher priority.
+            data.doneTestingOldMutants = true;
             return;
         }
 
         local.get!ResetOldMutant.hasUpdatedWorklist = true;
 
+        const long testCnt = () {
+            if (local.get!ResetOldMutant.resetPercentage.get == 0.0) {
+                return local.get!ResetOldMutant.maxReset;
+            }
+
+            const total = spinSql!(() {
+                return global.data.db.totalSrcMutants(global.data.mutKind).count;
+            });
+            const rval = cast(long)(1 + total * local.get!ResetOldMutant.resetPercentage.get);
+            return rval;
+        }();
+
         const wcnt = spinSql!(() { return global.data.db.getWorklistCount; });
-        if (wcnt > local.get!ResetOldMutant.maxReset) {
+
+        if (wcnt > testCnt) {
             return;
         }
 
         auto oldest = spinSql!(() {
-            return global.data.db.getOldestMutants(global.data.mutKind,
-                local.get!ResetOldMutant.maxReset - wcnt);
+            return global.data.db.getOldestMutants(global.data.mutKind, testCnt - wcnt);
         });
 
         logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
