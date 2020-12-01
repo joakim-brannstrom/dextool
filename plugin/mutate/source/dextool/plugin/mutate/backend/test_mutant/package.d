@@ -1070,10 +1070,6 @@ nothrow:
                             schematas.length).collectException;
                     data.hasSchema.get = true;
                 }
-            } else {
-                // mark the schema for removal because it isn't useful. it just
-                // takes up space in the database.
-                spinSql!(() { global.data.db.markUsed(id); });
             }
         }
 
