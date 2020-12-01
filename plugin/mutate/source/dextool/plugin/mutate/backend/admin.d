@@ -127,6 +127,8 @@ nothrow:
         case AdminOperation.resetMutantSubKind:
             return resetMutant(db,
                     data.kinds, data.status, data.to_status);
+        case AdminOperation.clearWorklist:
+            return clearWorklist(db);
         }
     }
 }
@@ -306,6 +308,17 @@ ExitStatusType stopTimeoutTest(ref Database db) @trusted nothrow {
         db.putMutantTimeoutCtx(ctx);
 
         t.commit;
+        return ExitStatusType.Ok;
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+    }
+    return ExitStatusType.Errors;
+}
+
+ExitStatusType clearWorklist(ref Database db) @trusted nothrow {
+    try {
+        logger.info("Clearing the mutant worklist");
+        db.clearWorklist;
         return ExitStatusType.Ok;
     } catch (Exception e) {
         logger.error(e.msg).collectException;
