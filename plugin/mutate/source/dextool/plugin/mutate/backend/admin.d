@@ -59,7 +59,13 @@ nothrow:
     auto mutations(MutationKind[] v) {
         import dextool.plugin.mutate.backend.utility;
 
-        data.kinds = toInternal(v);
+        return mutationsSubKind(toInternal(v));
+    }
+
+    auto mutationsSubKind(Mutation.Kind[] v) {
+        if (!v.empty) {
+            data.kinds = v;
+        }
         return this;
     }
 
@@ -118,6 +124,9 @@ nothrow:
             return compact(db);
         case AdminOperation.stopTimeoutTest:
             return stopTimeoutTest(db);
+        case AdminOperation.resetMutantSubKind:
+            return resetMutant(db,
+                    data.kinds, data.status, data.to_status);
         }
     }
 }
@@ -125,6 +134,7 @@ nothrow:
 ExitStatusType resetMutant(ref Database db, const Mutation.Kind[] kinds,
         Mutation.Status status, Mutation.Status to_status) @safe nothrow {
     try {
+        logger.infof("Resetting %s with status %s to %s", kinds, status, to_status);
         db.resetMutant(kinds, status, to_status);
     } catch (Exception e) {
         logger.error(e.msg).collectException;

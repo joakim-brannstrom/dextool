@@ -303,3 +303,12 @@ unittest {
 
     makeDextoolAdmin(testEnv).addArg(["--operation", "stopTimeoutTest"]).run;
 }
+
+@("shall successfully execute the admin operation resetMutantSubKind")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    makeDextoolAdmin(testEnv).addArg([
+            "--operation", "resetMutantSubKind", "--mutant-sub-kind", "stmtDel"
+            ]).run;
+}

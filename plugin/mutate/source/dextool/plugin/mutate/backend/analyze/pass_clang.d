@@ -689,7 +689,19 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const DefaultStmt v) {
         mixin(mixinNodeLog!());
-        visitCaseStmt(v);
+        auto branch = new analyze.Branch;
+        pushStack(branch, v);
+
+        incr;
+        scope (exit)
+            decr;
+        auto inside = new analyze.Block;
+        branch.inside = inside;
+        pushStack(inside, v);
+
+        v.accept(this);
+
+        branch.children = [inside];
     }
 
     override void visit(const ForStmt v) {
@@ -718,8 +730,10 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const SwitchStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.BranchBundle, v);
+        auto n = new analyze.BranchBundle;
+        pushStack(n, v);
         v.accept(this);
+        rewriteSwitch(ast, n);
     }
 
     override void visit(const IfStmt v) @trusted {
@@ -996,6 +1010,155 @@ final class EnumVisitor : ExtendedVisitor {
 
         return new analyze.DiscreteType(analyze.Range(l, u));
     }
+}
+
+/** Rewrite the structure of a switch statement from:
+ * BranchBundle
+ *  - Branch
+ *      - Block
+ *          - Node
+ *  - Node
+ *
+ * to:
+ * BranchBundle
+ *  - Branch
+ *      - Block
+ *          - Node
+ *          - Node
+ */
+void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
+    import std.array : appender;
+
+    //logger.trace("before rewrite:\n", ast.toString);
+
+    // flatten the case branches and their interior one level to handle e.g.
+    // case with fallthrough.
+    static analyze.Node[] flatten(analyze.Node[] nodes) @trusted {
+        auto app = appender!(analyze.Node[])();
+        foreach (n; nodes) {
+            app.put(n);
+            //logger.tracef("%s children %s", n.kind, n.children.map!(a => a.kind));
+            if (n.kind == analyze.Kind.Branch) {
+                // the expected case, one child with one block.
+                if (n.children.length == 1 && n.children[0].kind == analyze.Kind.Block) {
+                    //app.put(n.children);
+                    app.put(flatten(n.children[0].children));
+                    n.children[0].children = null;
+                    //n.children = null;
+                }
+            }
+        }
+        //import std.format;
+        //logger.info(app.data.map!(a => format("%s (%X)", a.kind, cast(void*) a)));
+        return app.data;
+    }
+
+    // change loc of parent end to be the last of its children last child, nested.
+    void adjustLoc(analyze.Node n) {
+        if (n.children.empty || n.kind != analyze.Kind.Branch) {
+            return;
+        }
+
+        static analyze.Node lastNode(ref analyze.Ast ast, analyze.Node curr, analyze.Node candidate) {
+            auto rval = candidate;
+            auto rvall = ast.location(candidate);
+            foreach (n; curr.children) {
+                auto c = lastNode(ast, n, rval);
+                auto l = ast.location(c);
+                if (l.interval.end > rvall.interval.end) {
+                    rval = c;
+                    rvall = l;
+                }
+            }
+
+            return rval;
+        }
+
+        auto branch = cast(analyze.Branch) n;
+        auto last = () {
+            auto loc = ast.location(branch.inside);
+            if (loc.interval.begin == loc.interval.end) {
+                // a fallthrough case branch
+                return branch.inside;
+            }
+            auto ln = lastNode(ast, n, n);
+            auto lnloc = ast.location(ln);
+            if (lnloc.interval.end < loc.interval.end) {
+                return branch.inside;
+            }
+            return ln;
+        }();
+        auto cloc = ast.location(last);
+
+        {
+            auto loc = ast.location(n);
+            loc.interval.end = cloc.interval.end;
+            loc.sloc.end = cloc.sloc.end;
+        }
+
+        {
+            auto loc = ast.location(n);
+            loc.interval.end = cloc.interval.end;
+            loc.sloc.end = cloc.sloc.end;
+        }
+
+        if (branch.children.length == 1 && branch.children[0].kind == analyze.Kind.Block) {
+            auto loc = ast.location(branch.children[0]);
+            loc.interval.end = cloc.interval.end;
+            loc.sloc.end = cloc.sloc.end;
+        }
+    }
+
+    // remove the expression nodes of the switch statement.
+    analyze.Node[] popUntilBranch(analyze.Node[] nodes) {
+        foreach (i; 0 .. nodes.length) {
+            if (nodes[i].kind == analyze.Kind.Branch) {
+                return nodes[i .. $];
+            }
+        }
+        return null;
+    }
+
+    auto nodes = popUntilBranch(root.children);
+    if (nodes is null) {
+        // the switch is in such a state that any mutation of it will
+        // result in unknown problems. just drop its content all together
+        // and thus blocking mutations of it.
+        root.children = null;
+        return;
+    }
+    nodes = flatten(nodes);
+
+    auto rootChildren = appender!(analyze.Node[])();
+    analyze.Node curr = nodes[0];
+    auto merge = appender!(analyze.Node[])();
+
+    void updateNode(analyze.Node n) {
+        if (curr.children.length == 1 && curr.children[0].kind == analyze.Kind.Block) {
+            curr.children[0].children = merge.data.dup;
+        } else {
+            curr.children = merge.data.dup;
+        }
+        merge.clear;
+
+        adjustLoc(curr);
+        rootChildren.put(curr);
+        curr = n;
+    }
+
+    foreach (n; nodes[1 .. $]) {
+        if (n.kind == analyze.Kind.Branch) {
+            updateNode(n);
+        } else {
+            merge.put(n);
+        }
+    }
+
+    if (!merge.data.empty) {
+        updateNode(curr);
+    }
+
+    root.children = rootChildren.data;
 }
 
 enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind.char16,

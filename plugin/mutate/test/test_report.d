@@ -454,36 +454,6 @@ class LinesWithNoMut : SimpleAnalyzeFixture {
     }
 }
 
-class ShallTagLinesWithNoMutAttr : LinesWithNoMut {
-    override void test() {
-        import sumtype;
-        import dextool.plugin.mutate.backend.database.type;
-
-        mixin(EnvSetup(globalTestdir));
-        precondition(testEnv);
-
-        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-
-        // assert
-        const file1 = dextool.type.Path(relativePath(programFile, workDir.toString));
-        const file2 = dextool.type.Path(relativePath(programFile.setExtension("hpp"), workDir.toString));
-        auto fid = db.getFileId(file1);
-        auto fid2 = db.getFileId(file2);
-        fid.isNull.shouldBeFalse;
-        fid2.isNull.shouldBeFalse;
-        foreach (line; [11,12,14,24,32]) {
-            auto m = db.getLineMetadata(fid.get, SourceLoc(line,0));
-            m.attr.match!((NoMetadata a) {shouldBeFalse(true);},
-                     (NoMut) {
-                         m.id.shouldEqual(fid);
-                         m.line.shouldEqual(line);
-            });
-        }
-        foreach (line; [8,9])
-            db.getLineMetadata(fid.get, SourceLoc(line,0)).isNoMut.shouldBeFalse;
-    }
-}
-
 class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
     override void test() {
         mixin(EnvSetup(globalTestdir));
@@ -518,25 +488,25 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!Re([
-            "Score:.*0.52",
+            "Score:.*0.64",
             "Total:.*26",
-            "Untested:.*32",
+            "Untested:.*38",
             "Alive:.*15",
             "Killed:.*11",
             "Timeout:.*0",
             "Killed by compiler:.*0",
-            "Suppressed .nomut.:.*5 .0.19",
+            "Suppressed .nomut.:.*9 .0.34",
         ]).shouldBeIn(plain.output);
 
         testConsecutiveSparseOrder!Re([
-            "Score:.*0.52",
+            "Score:.*0.64",
             "Total:.*26",
-            "Untested:.*32",
+            "Untested:.*38",
             "Alive:.*15",
             "Killed:.*11",
             "Timeout:.*0",
             "Killed by compiler:.*0",
-            "Suppressed .nomut.:.*5 .0.19",
+            "Suppressed .nomut.:.*9 .0.34",
         ]).shouldBeIn(markdown.output);
     }
 }
@@ -566,7 +536,7 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "Total",
             "26",
             "Untested",
-            "32",
+            "38",
             "Alive",
             "15",
             "Killed",
@@ -576,9 +546,9 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "Killed by compiler",
             "0",
             "NoMut",
-            "5",
+            "9",
             "NoMut/total",
-            "0.192",
+            "0.34",
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "stats.html")).byLineCopy.array);
     }
 }
@@ -641,15 +611,6 @@ class ShallReportHtmlNoMutSummary : LinesWithNoMut {
                 `<br`, `with comment`
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
                 "nomut.html")).byLineCopy.array);
-
-        // mutants should only be reported one time.
-        testConsecutiveSparseOrder!SubStr([
-                `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#28`,
-                `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#28`,
-                `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#29`,
-                `files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html#29`,
-                ]).shouldNotBeIn(File(buildPath(testEnv.outdir.toString,
-                "html", "nomut.html")).byLineCopy.array);
     }
 }
 

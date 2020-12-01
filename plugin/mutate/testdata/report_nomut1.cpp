@@ -8,8 +8,12 @@ const char* to_be_mutated(int var1_long_text, int var2_long_text) {
     if (var1_long_text > 5) /// NOMUT (not supported)
         return "false";     /** NOMUT (not supported) */
 
-    switch (var2_long_text) { // NOMUT (group1) with comment
-    case 2:                   /* NOMUT */
+    char* rval;
+    switch (var2_long_text) {
+    case 1:
+        rval = "apa"; // NOMUT (group1) with comment
+        break;
+    case 2: /* NOMUT */
         return "true";
     default: // NOMUT
         break;

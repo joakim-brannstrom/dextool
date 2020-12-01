@@ -211,6 +211,9 @@ struct ConfigAdmin {
     string testCaseRegex;
     long mutationId;
     string mutantRationale;
+
+    /// used to specify a kind of mutation
+    Mutation.Kind[] subKind;
 }
 
 struct ConfigWorkArea {
