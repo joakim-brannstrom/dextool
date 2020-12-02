@@ -197,6 +197,8 @@ struct ArgParser {
         app.put(null);
         app.put("# how many of the oldest mutants to do the above with");
         app.put("# oldest_mutants_nr = 10");
+        app.put("# how many of the oldest mutants to do the above with");
+        app.put("# oldest_mutants_percentage = 0.01");
         app.put(null);
         app.put(
                 "# number of threads to be used when running tests in parallel (default is the number of cores).");
@@ -741,6 +743,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     };
     callbacks["mutant_test.oldest_mutants_nr"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.oldMutantsNr = v.integer;
+    };
+    callbacks["mutant_test.oldest_mutants_percentage"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.oldMutantPercentage.get = v.floating;
     };
     callbacks["mutant_test.parallel_test"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.testPoolSize = cast(int) v.integer;

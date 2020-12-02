@@ -144,6 +144,8 @@ enum AdminOperation {
     stopTimeoutTest,
     /// Reset all mutants of a kind
     resetMutantSubKind,
+    /// reset the worklist of mutants to test
+    clearWorklist,
 }
 
 /// Builtin analyzers for testing frameworks that find failing test cases
