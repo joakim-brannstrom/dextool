@@ -198,7 +198,7 @@ struct ArgParser {
         app.put("# how many of the oldest mutants to do the above with");
         app.put("# oldest_mutants_nr = 10");
         app.put("# how many of the oldest mutants to do the above with");
-        app.put("# oldest_mutants_percentage = 0.01");
+        app.put("# oldest_mutants_percentage = 1.0");
         app.put(null);
         app.put(
                 "# number of threads to be used when running tests in parallel (default is the number of cores).");

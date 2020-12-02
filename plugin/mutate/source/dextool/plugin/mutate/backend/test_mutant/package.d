@@ -743,7 +743,8 @@ nothrow:
             const total = spinSql!(() {
                 return global.data.db.totalSrcMutants(global.data.mutKind).count;
             });
-            const rval = cast(long)(1 + total * local.get!ResetOldMutant.resetPercentage.get);
+            const rval = cast(long)(1 + total * local.get!ResetOldMutant.resetPercentage.get
+                    / 100.0);
             return rval;
         }();
 
