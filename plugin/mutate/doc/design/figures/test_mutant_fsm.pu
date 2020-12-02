@@ -38,7 +38,9 @@ CheckMutantsLeft --> MeasureTestSuite
 MeasureTestSuite --> Error : unreliable
 MeasureTestSuite --> LoadSchematas
 
-LoadSchematas --> UpdateTimeout
+LoadSchematas --> ResetOldMutant
+
+ResetOldMutant --> UpdateTimeout
 
 CheckRuntime --> UpdateTimeout
 CheckRuntime --> Done : runtime>max
@@ -66,11 +68,7 @@ MutationTest --> MutationTest
 
 HandleTestResult --> CheckRuntime
 
-CheckTimeout --> ResetOldMutant : unchanged
-CheckTimeout --> UpdateTimeout
-
-ResetOldMutant --> UpdateTimeout
-ResetOldMutant --> Done : nr >= max
+CheckTimeout --> Done : unchanged
 
 Done --> SchemataPruneUsed
 SchemataPruneUsed --> Stop
