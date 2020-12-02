@@ -250,12 +250,10 @@ struct TestDriver {
     }
 
     static struct ResetOldMutant {
-        bool doneTestingOldMutants;
     }
 
     static struct ResetOldMutantData {
         /// Number of mutants that where reset.
-        bool hasUpdatedWorklist;
         long maxReset;
         NamedType!(double, Tag!"OldMutantPercentage", double.init, TagStringable) resetPercentage;
     }
@@ -449,11 +447,8 @@ struct TestDriver {
             return fsm(PreCompileSut.init);
         }, (ParseStdin a) => fsm(PreCompileSut.init), (AnalyzeTestCmdForTestCase a) => fsm(
                 UpdateAndResetAliveMutants(a.foundTestCases)),
-                (UpdateAndResetAliveMutants a) => fsm(CheckMutantsLeft.init), (ResetOldMutant a) {
-            if (a.doneTestingOldMutants)
-                return fsm(Done.init);
-            return fsm(UpdateTimeout.init);
-        }, (Cleanup a) {
+                (UpdateAndResetAliveMutants a) => fsm(CheckMutantsLeft.init),
+                (ResetOldMutant a) => fsm(UpdateTimeout.init), (Cleanup a) {
             if (self.local.get!PullRequest.constraint.empty)
                 return fsm(NextSchemata.init);
             return fsm(NextPullRequestMutant.init);
@@ -479,7 +474,7 @@ struct TestDriver {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
             return fsm(LoadSchematas.init);
-        }, (LoadSchematas a) => fsm(UpdateTimeout.init), (NextPullRequestMutant a) {
+        }, (LoadSchematas a) => fsm(ResetOldMutant.init), (NextPullRequestMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(Done.init);
             return fsm(PreMutationTest.init);
@@ -517,7 +512,7 @@ struct TestDriver {
             return fsm(UpdateTimeout.init);
         }, (CheckTimeout a) {
             if (a.timeoutUnchanged)
-                return fsm(ResetOldMutant.init);
+                return fsm(Done.init);
             return fsm(UpdateTimeout.init);
         }, (SchemataPruneUsed a) => fsm(Stop.init),
                 (Done a) => fsm(SchemataPruneUsed.init),
@@ -706,34 +701,16 @@ nothrow:
         }
     }
 
-    void opCall(ref ResetOldMutant data) {
+    void opCall(ResetOldMutant data) {
         import dextool.plugin.mutate.backend.database.type;
 
         if (global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing) {
-            data.doneTestingOldMutants = true;
             return;
         }
-        if (Clock.currTime > global.maxRuntime) {
-            data.doneTestingOldMutants = true;
+        if (spinSql!(() { return global.data.db.getWorklistCount; }) != 0) {
+            // do not re-test any old mutants if there are still work to do in the worklist.
             return;
         }
-        if (local.get!ResetOldMutant.hasUpdatedWorklist) {
-            data.doneTestingOldMutants = spinSql!(() {
-                return global.data.db.getWorklistCount;
-            }) == 0;
-            return;
-        }
-
-        if (spinSql!(() {
-                return global.data.db.unknownSrcMutants(global.data.mutKind).count;
-            }) != 0) {
-            // do NOT add extra work when there are still unknown mutants to
-            // test. They have a higher priority.
-            data.doneTestingOldMutants = true;
-            return;
-        }
-
-        local.get!ResetOldMutant.hasUpdatedWorklist = true;
 
         const long testCnt = () {
             if (local.get!ResetOldMutant.resetPercentage.get == 0.0) {
@@ -748,14 +725,8 @@ nothrow:
             return rval;
         }();
 
-        const wcnt = spinSql!(() { return global.data.db.getWorklistCount; });
-
-        if (wcnt > testCnt) {
-            return;
-        }
-
         auto oldest = spinSql!(() {
-            return global.data.db.getOldestMutants(global.data.mutKind, testCnt - wcnt);
+            return global.data.db.getOldestMutants(global.data.mutKind, testCnt);
         });
 
         logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
