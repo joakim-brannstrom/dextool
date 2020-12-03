@@ -94,7 +94,7 @@ void overallStat(const MutationStat s, Element n) {
     }
 
     comp_container.addChild("p").appendHtml(
-            "<i>trend</i> is a prediction of how the mutation score will change over time.");
+            "<i>trend</i> is a prediction of how the mutation score will based on the latest code changes.");
 
     if (s.aliveNoMut != 0) {
         tbl.appendRow("NoMut", s.aliveNoMut.to!string);

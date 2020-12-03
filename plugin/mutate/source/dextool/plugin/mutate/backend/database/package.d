@@ -108,7 +108,7 @@ struct Database {
            WHERE
            t0.st_id = t1.id AND
            t0.kind IN (%(%s,%))
-           ORDER BY t1.update_ts",
+           ORDER BY t1.added_ts",
                 mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         try {
