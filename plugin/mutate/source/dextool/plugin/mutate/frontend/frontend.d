@@ -311,8 +311,8 @@ ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
 
     printFileAnalyzeHelp(conf);
 
-    return runAnalyzer(dacc.db, conf.analyze, conf.compiler, dacc.frange,
-            dacc.validateLoc, dacc.io);
+    return runAnalyzer(dacc.db, conf.data.mutation, conf.analyze,
+            conf.compiler, dacc.frange, dacc.validateLoc, dacc.io);
 }
 
 ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {

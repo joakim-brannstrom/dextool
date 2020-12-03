@@ -71,7 +71,7 @@ private:
 void runAllMutantReporter(ref Database db, const(MutationKind)[] kind, ref ReportGenerator genrep) {
     import dextool.plugin.mutate.backend.utility;
 
-    const auto kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
+    const kinds = dextool.plugin.mutate.backend.utility.toInternal(kind);
 
     // TODO remove this parameter. seems to be unnecessary.
     genrep.mutationKindEvent(kind);

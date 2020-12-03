@@ -33,6 +33,14 @@ version (unittest) {
 
 @safe:
 
+// by default use the recommended operators. These are a good default that test
+// those with relatively few equivalent mutants thus most that survive are
+// relevant.
+private immutable MutationKind[] defaultMutants = [
+    MutationKind.lcr, MutationKind.lcrb, MutationKind.sdl, MutationKind.uoi,
+    MutationKind.dcr
+];
+
 /// Extract and cleanup user input from the command line.
 struct ArgParser {
     import std.typecons : Nullable;
@@ -54,8 +62,7 @@ struct ArgParser {
     struct Data {
         AbsolutePath db;
         ExitStatusType exitStatus = ExitStatusType.Ok;
-        Mutation.Status to_status;
-        MutationKind[] mutation;
+        MutationKind[] mutation = defaultMutants;
         ToolMode toolMode;
         bool help;
         string[] inFiles;
@@ -95,6 +102,14 @@ struct ArgParser {
         app.put(
                 "# files and/or directories (relative to root) to be the **only** sources to mutate.");
         app.put(`restrict = ["."]`);
+        app.put(null);
+
+        app.put("[generic]");
+        app.put(null);
+        app.put("# default mutants to test if none is specified by --mutant");
+        app.put(
+                "# note that this affects the analyze phase thus the --mutant argument must be one of those specified here");
+        app.put(format("mutants = [%(%s, %)]", defaultMutants.map!(a => a.to!string)));
         app.put(null);
 
         app.put("[analyze]");
@@ -245,6 +260,9 @@ struct ArgParser {
         const out_help = "path used as the root for mutation/reporting of files (default: .)";
         const conf_help = "load configuration (default: .dextool_mutate.toml)";
 
+        // specified by command line. if set it overwride the one from the config.
+        MutationKind[] mutants;
+
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
         string db = data.db;
@@ -265,6 +283,7 @@ struct ArgParser {
                    "file-exclude", "exclude files in these directory tree from the analysis (default: none)", &exclude_files,
                    "force-save", "force the result from the analyze to be saved", &analyze.forceSaveAnalyze,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
+                   "m|mutant", "kind of mutation save in the database " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
                    "no-prune", "do not prune the database of files that aren't found during the analyze", &noPrune,
                    "out", out_help, &workArea.rawRoot,
                    "profile", "print performance profile for the analyzers that are part of the report", &analyze.profile,
@@ -321,7 +340,7 @@ struct ArgParser {
                    "log-schemata", "write the mutation schematas to a separate file", &mutationTest.logSchemata,
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
-                   "m|mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                   "m|mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
                    "only-schemata", "stop testing after the last schema has been executed", &mutationTest.stopAfterLastSchema,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &workArea.rawRoot,
@@ -366,7 +385,7 @@ struct ArgParser {
                    "diff-from-stdin", "report alive mutants in the areas indicated as changed in the diff", &report.unifiedDiff,
                    "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &report.reportLevel,
                    "logdir", "Directory to write log files to (default: .)", &logDir,
-                   "m|mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                   "m|mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
                    "out", out_help, &workArea.rawRoot,
                    "profile", "print performance profile for the analyzers that are part of the report", &report.profile,
                    "restrict", restrict_help, &workArea.rawRestrict,
@@ -399,7 +418,7 @@ struct ArgParser {
                 "db", db_help, &db,
                 "dump-config", "dump the detailed configuration used", &dump_conf,
                 "init", "create an initial config to use", &init_conf,
-                "m|mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &data.mutation,
+                "m|mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
                 "mutant-sub-kind", "kind of mutant " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Kind)]), &admin.subKind,
                 "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &admin.adminOp,
                 "test-case-regex", "regex to use when removing test cases", &admin.testCaseRegex,
@@ -478,13 +497,8 @@ struct ArgParser {
         analyze.exclude = analyze.rawExclude.map!(
                 a => AbsolutePath(buildPath(workArea.outputDirectory, a))).array;
 
-        if (data.mutation.empty) {
-            // by default use the recommended operators. These are a good
-            // default that test those with relatively few equivalent mutants
-            // thus most that survive are relevant.
-            with (MutationKind) {
-                data.mutation = [lcr, lcrb, sdl, uoi, dcr];
-            }
+        if (!mutants.empty) {
+            data.mutation = mutants;
         }
 
         compiler.extraFlags = compiler.extraFlags ~ args.find("--").drop(1).array();
@@ -659,6 +673,15 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         c.workArea.rawRestrict = v.array.map!(a => a.str).array;
     };
 
+    callbacks["generic.mutants"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.mutation = v.array.map!(a => a.str.to!MutationKind).array;
+        } catch (Exception e) {
+            logger.info("Available mutation kinds ", [EnumMembers!MutationKind]);
+            logger.error(e.msg);
+        }
+    };
+
     callbacks["database.db"] = (ref ArgParser c, ref TOMLValue v) {
         c.db = v.str.Path.AbsolutePath;
     };
@@ -722,6 +745,7 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         } catch (Exception e) {
             logger.info("Available alternatives: ",
                     [EnumMembers!(ConfigMutationTest.NewTestCases)]);
+            logger.error(e.msg);
         }
     };
     callbacks["mutant_test.detected_dropped_test_case"] = (ref ArgParser c, ref TOMLValue v) {
@@ -730,6 +754,7 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         } catch (Exception e) {
             logger.info("Available alternatives: ",
                     [EnumMembers!(ConfigMutationTest.RemovedTestCases)]);
+            logger.error(e.msg);
         }
     };
     callbacks["mutant_test.oldest_mutants"] = (ref ArgParser c, ref TOMLValue v) {
@@ -739,6 +764,7 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
             logger.info("Available alternatives: ", [
                     EnumMembers!(ConfigMutationTest.OldMutant)
                     ]);
+            logger.error(e.msg);
         }
     };
     callbacks["mutant_test.oldest_mutants_nr"] = (ref ArgParser c, ref TOMLValue v) {
@@ -781,6 +807,7 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         }
     }
 
+    iterSection(rval, "generic");
     iterSection(rval, "analyze");
     iterSection(rval, "workarea");
     iterSection(rval, "database");
@@ -954,6 +981,19 @@ build_cmd_timeout = "1 hours"
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.mutationTest.buildCmdTimeout.shouldEqual(1.dur!"hours");
+}
+
+@("shall parse the mutants to test")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[generic]
+mutants = ["lcr"]
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.data.mutation.shouldEqual([MutationKind.lcr]);
 }
 
 /// Minimal config to setup path to config file.

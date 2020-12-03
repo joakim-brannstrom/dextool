@@ -56,7 +56,6 @@ unittest {
         .run;
 }
 
-
 @(testId ~ "shall drop the undesired mutants when analyzing")
 unittest {
     mixin(EnvSetup(globalTestdir));
@@ -70,5 +69,30 @@ unittest {
         `trace:.*Dropping undesired mutant.*dccTrue`,
         `trace:.*Dropping undesired mutant.*dccFalse`,
         `trace:.*Dropping undesired mutant.*stmtDel`,
+    ]).shouldBeIn(r.output);
+}
+
+@(testId ~ "shall save specified mutants when analyzing")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    dextool_test.makeDextool(testEnv)
+        .setWorkdir(workDir)
+        .args(["mutate", "analyze"])
+        .addArg(["--mutant", "lcr"])
+        .addArg(["--profile"])
+        .addArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+        .addArg(["--fast-db-store"])
+        .addInputArg(testData ~ "all_kinds_of_abs_mutation_points.cpp")
+        .addArg(["--fast-db-store"])
+        .addFlag("-std=c++11")
+        .run;
+
+    auto r = makeDextoolReport(testEnv, testData ~ "all_kinds_of_abs_mutation_points.cpp")
+        .addPostArg(["--mutant", "abs"])
+        .run;
+
+    testConsecutiveSparseOrder!Re([
+        `Mutation operators: abs`,
+        `Total:\s*0`,
     ]).shouldBeIn(r.output);
 }
