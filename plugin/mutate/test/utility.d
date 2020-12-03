@@ -20,6 +20,7 @@ auto makeDextoolAnalyze(const ref TestEnv env) {
     return dextool_test.makeDextool(env)
         .setWorkdir(workDir)
         .args(["mutate", "analyze"])
+        .addArg(["--mutant", "all"])
         .addArg(["--profile"])
         .addArg(["--db", (env.outdir ~ defaultDb).toString])
         .addArg(["--fast-db-store"]);

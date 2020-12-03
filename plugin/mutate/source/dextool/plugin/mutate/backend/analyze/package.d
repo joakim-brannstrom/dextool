@@ -36,6 +36,8 @@ import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
 import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath,
     Checksum, getProfileResult, Profile;
+import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.type : MutationKind;
 import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
 import dextool.type : ExitStatusType, AbsolutePath, Path;
 
@@ -45,9 +47,11 @@ version (unittest) {
 
 /** Analyze the files in `frange` for mutations.
  */
-ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze, ConfigCompiler conf_compiler,
-        ParsedCompileCommandRange frange, ValidateLoc val_loc, FilesysIO fio) @trusted {
+ExitStatusType runAnalyzer(ref Database db, const MutationKind[] userKinds, ConfigAnalyze conf_analyze,
+        ConfigCompiler conf_compiler, ParsedCompileCommandRange frange,
+        ValidateLoc val_loc, FilesysIO fio) @trusted {
     import dextool.plugin.mutate.backend.diff_parser : diffFromStdin, Diff;
+    import dextool.plugin.mutate.backend.utility;
 
     auto fileFilter = () {
         try {
@@ -71,6 +75,7 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze, ConfigCo
             conf_analyze.prune, conf_analyze.fastDbStore,
             conf_analyze.poolSize, conf_analyze.forceSaveAnalyze);
 
+    auto kinds = toInternal(userKinds);
     int taskCnt;
     Set!AbsolutePath alreadyAnalyzed;
     // dfmt off
@@ -84,7 +89,7 @@ ExitStatusType runAnalyzer(ref Database db, ConfigAnalyze conf_analyze, ConfigCo
             .filter!(a => !isPathInsideAnyRoot(conf_analyze.exclude, a.cmd.absoluteFile))
             .filter!(a => fileFilter.shouldAnalyze(a.cmd.absoluteFile))) {
         try {
-            pool.put(task!analyzeActor(f, val_loc.dup, fio.dup, conf_compiler, conf_analyze, store));
+            pool.put(task!analyzeActor(kinds, f, val_loc.dup, fio.dup, conf_compiler, conf_analyze, store));
             taskCnt++;
         } catch (Exception e) {
             logger.trace(e);
@@ -157,12 +162,12 @@ struct StoreDoneMsg {
 }
 
 /// Start an analyze of a file
-void analyzeActor(ParsedCompileCommand fileToAnalyze, ValidateLoc vloc, FilesysIO fio,
-        ConfigCompiler compilerConf, ConfigAnalyze analyzeConf, Tid storeActor) @trusted nothrow {
+void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze, ValidateLoc vloc,
+        FilesysIO fio, ConfigCompiler compilerConf, ConfigAnalyze analyzeConf, Tid storeActor) @trusted nothrow {
     auto profile = Profile("analyze file " ~ fileToAnalyze.cmd.absoluteFile);
 
     try {
-        auto analyzer = Analyze(vloc, fio,
+        auto analyzer = Analyze(kinds, vloc, fio,
                 Analyze.Config(compilerConf.forceSystemIncludes, analyzeConf.mutantsPerSchema));
         analyzer.process(fileToAnalyze);
         send(storeActor, cast(immutable) analyzer.result);
@@ -425,9 +430,12 @@ struct Analyze {
         Result result;
 
         Config conf;
+
+        Mutation.Kind[] kinds;
     }
 
-    this(ValidateLoc val_loc, FilesysIO fio, Config conf) @trusted {
+    this(Mutation.Kind[] kinds, ValidateLoc val_loc, FilesysIO fio, Config conf) @trusted {
+        this.kinds = kinds;
         this.val_loc = val_loc;
         this.fio = fio;
         this.cache = new Cache;
@@ -486,7 +494,7 @@ struct Analyze {
         debug logger.trace(ast);
 
         auto codeMutants = () {
-            auto mutants = toMutants(ast, fio, val_loc);
+            auto mutants = toMutants(ast, fio, val_loc, kinds);
             debug logger.trace(mutants);
 
             debug logger.trace("filter mutants");

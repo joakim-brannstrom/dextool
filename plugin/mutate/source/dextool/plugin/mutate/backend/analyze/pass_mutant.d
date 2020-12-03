@@ -30,8 +30,8 @@ import dextool.plugin.mutate.backend.type : Language, Offset, Mutation, SourceLo
 @safe:
 
 /// Find mutants.
-MutantsResult toMutants(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc) @safe {
-    auto visitor = new MutantVisitor(ast, fio, vloc);
+MutantsResult toMutants(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) @safe {
+    auto visitor = new MutantVisitor(ast, fio, vloc, kinds);
     scope (exit)
         visitor.dispose;
     ast.accept(visitor);
@@ -102,12 +102,14 @@ class MutantsResult {
         Set!AbsolutePath existingFiles;
         FilesysIO fio;
         ValidateLoc vloc;
+        Set!(Mutation.Kind) kinds;
     }
 
-    this(const Language lang, FilesysIO fio, ValidateLoc vloc) {
+    this(const Language lang, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) {
         this.lang = lang;
         this.fio = fio;
         this.vloc = vloc;
+        this.kinds = toSet(kinds);
     }
 
     Tuple!(Mutation.Kind[], "kind", MutationPoint, "point")[] getMutationPoints(AbsolutePath file) @safe pure nothrow const {
@@ -146,6 +148,10 @@ class MutantsResult {
     }
 
     private void put(AbsolutePath p, MutationPoint mp, Mutation.Kind kind) @safe {
+        if (kind !in kinds) {
+            return;
+        }
+
         if (auto a = p in points) {
             if (auto b = mp in *a) {
                 (*b).add(kind);
@@ -325,9 +331,9 @@ class MutantVisitor : DepthFirstVisitor {
         Stack!(Node) nstack;
     }
 
-    this(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc) {
+    this(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) {
         this.ast = ast;
-        result = new MutantsResult(ast.lang, fio, vloc);
+        result = new MutantsResult(ast.lang, fio, vloc, kinds);
 
         // by adding the locations here the rest of the visitor do not have to
         // be concerned about adding files.
