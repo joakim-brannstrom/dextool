@@ -667,8 +667,10 @@ nothrow:
             case remove:
                 bool update;
                 foreach (id; global.data.db.setDetectedTestCases(data.foundTestCases)) {
-                    update = true;
-                    global.data.db.updateMutationStatus(id, Mutation.Status.unknown);
+                    if (!global.data.db.hasTestCases(id)) {
+                        update = true;
+                        global.data.db.updateMutationStatus(id, Mutation.Status.unknown);
+                    }
                 }
                 if (update) {
                     global.data.db.updateWorklist(global.data.mutKind, Mutation.Status.unknown);
