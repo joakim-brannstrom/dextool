@@ -74,7 +74,7 @@ final class ReportJson : FileReport, FilesReporter {
 
     override void fileMutantEvent(const ref FileMutantRow r) @trusted {
         auto appendMutant() {
-            JSONValue m = ["id" : r.id.to!long];
+            JSONValue m = ["id": r.id.to!long];
             m.object["kind"] = r.mutation.kind.to!string;
             m.object["status"] = r.mutation.status.to!string;
             m.object["line"] = r.sloc.line;
@@ -127,7 +127,7 @@ final class ReportJson : FileReport, FilesReporter {
 
         if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
-            JSONValue s = ["alive" : stat.alive];
+            JSONValue s = ["alive": stat.alive];
             s.object["aliveNoMut"] = stat.aliveNoMut;
             s.object["killed"] = stat.killed;
             s.object["timeout"] = stat.timeout;
@@ -141,13 +141,14 @@ final class ReportJson : FileReport, FilesReporter {
             s.object["predictedDone"] = (Clock.currTime + stat.predictedDone).toISOExtString;
             s.object["trendScore"] = stat.estimate.value.get;
             s.object["trendScoreError"] = stat.estimate.error.get;
+            s.object["worklist"] = stat.worklist;
 
             report["stat"] = s;
         }
 
         if (ReportSection.diff in sections) {
             auto r = reportDiff(db, kinds, diff, fio.getOutputDir);
-            JSONValue s = ["score" : r.score];
+            JSONValue s = ["score": r.score];
             report["diff"] = s;
         }
 

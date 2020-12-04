@@ -89,12 +89,15 @@ void overallStat(const MutationStat s, Element n) {
             tuple("Alive", s.alive), tuple("Killed", s.killed),
             tuple("Timeout", s.timeout),
             tuple("Killed by compiler", s.killedByCompiler),
+            tuple("Worklist", s.worklist),
         ]) {
         tbl.appendRow(d[0], d[1]);
     }
 
     comp_container.addChild("p").appendHtml(
             "<i>trend</i> is a prediction of how the mutation score will based on the latest code changes.");
+    comp_container.addChild("p").appendHtml(
+            "<i>worklist</i> is the number of mutants that are in the queue to be tested/retested.");
 
     if (s.aliveNoMut != 0) {
         tbl.appendRow("NoMut", s.aliveNoMut.to!string);
