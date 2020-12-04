@@ -54,6 +54,15 @@ If you want to forcefully re-test all alive mutants you can use this administrat
 dextool mutate admin --operation resetMutant --status alive --to-status unknown
 ```
 
+Note that each time you run `dextool mutate test` the worklist will be updated
+with those mutants that you have specified either via the configuration file or
+`--mutant`. If tried to run with `sdl` mutants but thought it took too long
+time and wants to only run `lcr` you need to clear the worklist:
+
+```sh
+dextool mutate admin --operation clearWorklist
+```
+
 ## Code Coverage
 
 The directory `build_cov` that the `setup.sh` script created is configured to generated coverage data when the test cases are executed.
