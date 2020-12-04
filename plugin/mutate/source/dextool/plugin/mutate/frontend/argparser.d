@@ -175,6 +175,9 @@ struct ArgParser {
         app.put(`# test_cmd_dir_flag = ["--gtest_filter", "-*foo"]`);
         app.put(null);
         app.put("# command(s) to test the program.");
+        app.put("# the arguments for test_cmd can be an array of multiple test commands");
+        app.put(`# 1. ["test1.sh", "test2.sh"]`);
+        app.put(`# 2. [["test1.sh", "-x"], "test2.sh"]`);
         app.put(`# test_cmd = ["./test.sh"]`);
         app.put(null);
         app.put(

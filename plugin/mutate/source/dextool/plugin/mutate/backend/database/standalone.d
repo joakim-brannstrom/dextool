@@ -1240,8 +1240,9 @@ struct Database {
             t0.id = t1.tc_id"(allTestCaseTable,
                 killedTestCaseTable, tmp_name);
         auto stmt = db.prepare(mut_st_id);
-        foreach (res; stmt.get.execute)
+        foreach (res; stmt.get.execute) {
             mut_status_ids.put(res.peek!long(0).MutationStatusId);
+        }
 
         immutable remove_old_sql = format!"DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)"(
                 allTestCaseTable, tmp_name);
@@ -1470,6 +1471,17 @@ struct Database {
             rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
 
         return rval.data;
+    }
+
+    /// Returns: if the mutant have any test cases recorded that killed it
+    bool hasTestCases(const MutationStatusId id) @trusted {
+        immutable sql = format!"SELECT count(*) FROM %s t0 WHERE t0.st_id = :id"(killedTestCaseTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+        foreach (a; stmt.get.execute) {
+            return a.peek!long(0) != 0;
+        }
+        return false;
     }
 
     /** Returns: number of test cases
