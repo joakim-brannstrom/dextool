@@ -406,6 +406,7 @@ struct MutationStat {
     long untested;
     long killedByCompiler;
     long total;
+    long worklist;
 
     Duration totalTime;
     Duration killedByCompilerTime;
@@ -469,6 +470,9 @@ struct MutationStat {
         formattedWrite(w, "%-*s %s\n", align_, "Killed:", killed);
         formattedWrite(w, "%-*s %s\n", align_, "Timeout:", timeout);
         formattedWrite(w, "%-*s %s\n", align_, "Killed by compiler:", killedByCompiler);
+        if (worklist > 0) {
+            formattedWrite(w, "%-*s %s\n", align_, "Worklist:", worklist);
+        }
 
         if (aliveNoMut != 0)
             formattedWrite(w, "%-*s %s (%.3s)\n", align_,
@@ -488,12 +492,8 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     });
     const killed = spinSql!(() { return db.killedSrcMutants(kinds, file); });
     const timeout = spinSql!(() { return db.timeoutSrcMutants(kinds, file); });
-    const untested = spinSql!(() {
-        const wcnt = db.getWorklistCount;
-        if (wcnt == 0)
-            return db.unknownSrcMutants(kinds, file).count;
-        return wcnt;
-    });
+    const untested = spinSql!(() { return db.unknownSrcMutants(kinds, file); });
+    const worklist = spinSql!(() { return db.getWorklistCount; });
     const killed_by_compiler = spinSql!(() {
         return db.killedByCompilerSrcMutants(kinds, file);
     });
@@ -504,9 +504,10 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.aliveNoMut = alive_nomut.count;
     st.killed = killed.count;
     st.timeout = timeout.count;
-    st.untested = untested;
+    st.untested = untested.count;
     st.total = total.count;
     st.killedByCompiler = killed_by_compiler.count;
+    st.worklist = worklist;
 
     st.totalTime = total.time;
     st.predictedDone = st.total > 0 ? (st.untested * (st.totalTime / st.total)) : 0.dur!"msecs";
