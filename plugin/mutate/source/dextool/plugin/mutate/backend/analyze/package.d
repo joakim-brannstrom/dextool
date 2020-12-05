@@ -25,6 +25,7 @@ import std.typecons;
 
 import colorlog;
 import my.set;
+import my.named_type;
 
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
     CompileCommandDB, ParsedCompileCommandRange, ParsedCompileCommand;
@@ -195,6 +196,9 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
     // A file is at most saved one time to the database.
     Set!AbsolutePath savedFiles;
 
+    // schematan for an old version where removed.
+    NamedType!(bool, Tag!"SchemataRemovedVersion", false) oldVersion;
+
     auto getFileId = nullableCache!(string, FileId, (string p) => db.getFileId(p.Path))(256,
             30.dur!"seconds");
     auto getFileDbChecksum = nullableCache!(string, Checksum,
@@ -244,9 +248,9 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
             }
             db.put(app.data, fio.getOutputDir);
 
-            // only save the schematas if mutation points where saved.  this
+            // only save the schematas if mutation points where saved. This
             // ensure that only schematas for changed/new files are saved.
-            if (isChanged) {
+            if (isChanged || oldVersion.get) {
                 foreach (s; result.schematas.enumerate) {
                     try {
                         auto mutants = result.schemataMutants[s.index].map!(
@@ -257,11 +261,11 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                         if (!mutants.empty && !s.value.empty) {
                             const id = db.putSchemata(result.schemataChecksum[s.index],
                                     s.value, mutants);
-                            logger.trace(!id.isNull, "Saving schemata ", id.get);
+                            logger.trace(!id.isNull, "Saving schema ", id.get);
                         }
                     } catch (Exception e) {
                         logger.trace(e.msg);
-                        logger.warning("Unable to save schemata ", s.index).collectException;
+                        logger.warning("Unable to save schema ", s.index).collectException;
                     }
                 }
             }
@@ -358,9 +362,14 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         logger.info("Removing metadata");
         db.clearMetadata;
 
+        if (prune) {
+            auto profile = Profile("prune old schemas");
+            logger.info("Prune database of schemata created by an old version");
+            oldVersion = db.pruneOldSchemas;
+        }
+
         recv();
 
-        // TODO: print what files has been updated.
         logger.info("Resetting timeout context");
         resetTimeoutContext(*db);
 
@@ -375,8 +384,8 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
                 db.removeOrphanedMutants;
             }
             {
-                auto profile = Profile("prune schematas");
-                logger.info("Prune schematas");
+                auto profile = Profile("prune schemas");
+                logger.info("Prune the database of unused schemas");
                 db.pruneSchemas;
             }
         }
@@ -390,6 +399,12 @@ void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShare
         logger.info("Ok".color(Color.green));
 
         fastDbOff();
+
+        if (oldVersion.get) {
+            auto profile = Profile("compact");
+            logger.info("Compacting the database");
+            db.vacuum;
+        }
     } catch (Exception e) {
         logger.error(e.msg).collectException;
         logger.error("Failed to save the result of the analyze to the database").collectException;

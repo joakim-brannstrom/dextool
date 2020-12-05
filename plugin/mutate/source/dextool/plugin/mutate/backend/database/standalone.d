@@ -32,6 +32,7 @@ import std.regex : Regex, matchFirst;
 import std.typecons : Nullable, Flag, No;
 
 import miniorm : toSqliteDateTime, fromSqLiteDateTime, Bind;
+import my.named_type;
 
 import dextool.type : AbsolutePath, Path, ExitStatusType;
 
@@ -1829,9 +1830,11 @@ struct Database {
         return typeof(return)(schemId.SchemataId);
     }
 
-    /// Prunes the database of schemas that are unusable.
-    void pruneSchemas() @trusted {
+    /// Prunes the database of schemas that where created by an older version.
+    NamedType!(bool, Tag!"SchemataRemovedVersion", false) pruneOldSchemas() @trusted {
         import dextool.utility : dextoolBinaryId;
+
+        typeof(return) removedVersion;
 
         auto remove = () {
             auto remove = appender!(long[])();
@@ -1844,7 +1847,29 @@ struct Database {
             auto stmt = db.prepare(sqlVersion);
             foreach (a; stmt.get.execute) {
                 remove.put(a.peek!long(0));
+                removedVersion.get = true;
             }
+
+            return remove.data;
+        }();
+
+        immutable sql = format!"DELETE FROM %1$s WHERE id=:id"(schemataTable);
+        auto stmt = db.prepare(sql);
+        foreach (a; remove) {
+            stmt.get.bind(":id", a);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
+
+        return removedVersion;
+    }
+
+    /// Prunes the database of schemas that are unusable.
+    void pruneSchemas() @trusted {
+        import dextool.utility : dextoolBinaryId;
+
+        auto remove = () {
+            auto remove = appender!(long[])();
 
             // remove those that have lost some fragments
             immutable sqlFragment = format!"SELECT t0.id
@@ -1855,7 +1880,7 @@ struct Database {
             t0.id = t1.id AND
             t0.fragments != t1.fragments
             "(schemataTable, schemataFragmentTable);
-            stmt = db.prepare(sqlFragment);
+            auto stmt = db.prepare(sqlFragment);
             foreach (a; stmt.get.execute) {
                 remove.put(a.peek!long(0));
             }
