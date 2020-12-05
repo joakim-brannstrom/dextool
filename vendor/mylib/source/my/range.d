@@ -7,9 +7,6 @@ Utility functions gathered from the D forum. Authors are unknown.
 */
 module my.range;
 
-/// use for structs with a present and value member.
-alias orElse = (a, b) => a.present ? a.value : b;
-
 /** alias for .then which is useful for range concatenation
  * Example:
 ---
