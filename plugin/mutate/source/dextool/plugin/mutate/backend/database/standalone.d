@@ -1475,7 +1475,8 @@ struct Database {
 
     /// Returns: if the mutant have any test cases recorded that killed it
     bool hasTestCases(const MutationStatusId id) @trusted {
-        immutable sql = format!"SELECT count(*) FROM %s t0 WHERE t0.st_id = :id"(killedTestCaseTable);
+        immutable sql = format!"SELECT count(*) FROM %s t0 WHERE t0.st_id = :id"(
+                killedTestCaseTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         foreach (a; stmt.get.execute) {
