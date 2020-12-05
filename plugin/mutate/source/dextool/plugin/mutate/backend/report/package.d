@@ -120,9 +120,8 @@ FilesReporter makeFilesReporter(ref Database db, const ConfigReport conf,
 
     final switch (conf.reportKind) {
     case ReportKind.plain:
-    case ReportKind.markdown:
+        goto case;
     case ReportKind.compiler:
-    case ReportKind.csv:
         return null;
     case ReportKind.json:
         return new ReportJson(kinds, conf, fio, diff);
@@ -144,9 +143,7 @@ FilesReporter makeFilesReporter(ref Database db, const ConfigReport conf,
 struct ReportGenerator {
     import std.algorithm : each;
     import dextool.plugin.mutate.backend.report.compiler;
-    import dextool.plugin.mutate.backend.report.csv;
     import dextool.plugin.mutate.backend.report.html;
-    import dextool.plugin.mutate.backend.report.markdown;
     import dextool.plugin.mutate.backend.report.plain;
 
     Database db;
@@ -164,17 +161,11 @@ struct ReportGenerator {
         case ReportKind.plain:
             listeners = [new ReportPlain(kinds, conf, fio)];
             break;
-        case ReportKind.markdown:
-            listeners = [new ReportMarkdown(kinds, conf, fio)];
-            break;
         case ReportKind.compiler:
             listeners = [new ReportCompiler(kinds, conf.reportLevel, fio)];
             break;
         case ReportKind.json:
             listeners = null;
-            break;
-        case ReportKind.csv:
-            listeners = [new ReportCSV(kinds, conf.reportLevel, fio)];
             break;
         case ReportKind.html:
             listeners = null;

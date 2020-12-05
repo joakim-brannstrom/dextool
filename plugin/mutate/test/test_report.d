@@ -35,13 +35,11 @@ unittest {
         .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
         .run;
     // Act
-    auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addArg(["--style", "markdown"])
-        .run;
+    auto r = makeDextoolReport(testEnv, testData.dirName).run;
 
     testConsecutiveSparseOrder!SubStr([
-        "# Mutation Operators lcr, lcrb, sdl, uoi, dcr",
-        "## Summary",
+        "Mutation operators: lcr, lcrb, sdl, uoi, dcr",
+        "Time spent:",
         "Score:",
         "Total:",
         "Untested:",
@@ -65,20 +63,15 @@ unittest {
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addPostArg(["--mutant", "all"])
         .addArg(["--level", "alive"])
-        .addArg(["--style", "markdown"])
         .run;
 
     testConsecutiveSparseOrder!SubStr([
-        "# Mutation Operators all",
-        "## Mutants",
-        "| From | To         | File Line:Column                                                          | ID | Status |",
-        "|------|------------|---------------------------------------------------------------------------|----|--------|",
-        "| `x`  | `fail_...` | build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp 6:9 | 1  | alive  |",
-        "## Alive Mutation Statistics",
+        "Mutation operators: all",
+        "alive from",
         "| Percentage | Count | From | To         |",
         "|------------|-------|------|------------|",
         "| 100        | 1     | `x`  | `fail_...` |",
-        "## Summary",
+        "Summary",
         "Time spent:",
         "Score:",
         "Total:",
@@ -145,29 +138,6 @@ unittest {
     j["total"].integer.shouldEqual(0);
     j["totalTime"].integer.shouldEqual(0);
     j["untested"].integer.shouldEqual(6);
-}
-
-@(testId ~ "shall report mutants in csv format")
-unittest {
-    //#TST-report_as_csv
-
-    auto input_src = testData ~ "report_as_csv.cpp";
-    mixin(EnvSetup(globalTestdir));
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(input_src)
-        .run;
-    auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addArg(["--style", "csv"])
-        .addArg(["--level", "all"])
-        .run;
-
-    testConsecutiveSparseOrder!SubStr([
-        `"ID","Kind","Description","Location","Comment"`,
-        `"dcr","'var1_long_text >5' to 'true'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"dcr","'var1_long_text >5' to 'false'","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:7:9",""`,
-        `"dcr","'case 2:`,
-        `        return true;' to ''","build/plugin/mutate/plugin_testdata/report_as_csv.cpp:11:5",""`,
-    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall report test cases that kill the same mutants (overlap)")
@@ -472,12 +442,6 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
             .addArg(["--style", "plain"])
             .run;
 
-        auto markdown = makeDextoolReport(testEnv, testData.dirName)
-            .addPostArg(["--mutant", "all"])
-            .addArg(["--section", "summary"])
-            .addArg(["--style", "markdown"])
-            .run;
-
         // TODO how to verify this? arsd.dom?
         makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
@@ -497,17 +461,6 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "Killed by compiler:.*0",
             "Suppressed .nomut.:.*9 .0.34",
         ]).shouldBeIn(plain.output);
-
-        testConsecutiveSparseOrder!Re([
-            "Score:.*0.64",
-            "Total:.*26",
-            "Untested:.*38",
-            "Alive:.*15",
-            "Killed:.*11",
-            "Timeout:.*0",
-            "Killed by compiler:.*0",
-            "Suppressed .nomut.:.*9 .0.34",
-        ]).shouldBeIn(markdown.output);
     }
 }
 
