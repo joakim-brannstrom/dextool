@@ -49,7 +49,9 @@ class ShallUseSchemataSanityCheck : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "aor", "--check-schemata"]).run;
+        auto r = runDextoolTest(testEnv).addPostArg([
+                "--mutant", "aor", "--check-schemata"
+                ]).run;
 
         // dfmt off
         testConsecutiveSparseOrder!SubStr([

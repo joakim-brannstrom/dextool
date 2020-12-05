@@ -74,7 +74,7 @@ final class ReportJson : FileReport, FilesReporter {
 
     override void fileMutantEvent(const ref FileMutantRow r) @trusted {
         auto appendMutant() {
-            JSONValue m = ["id": r.id.to!long];
+            JSONValue m = ["id" : r.id.to!long];
             m.object["kind"] = r.mutation.kind.to!string;
             m.object["status"] = r.mutation.status.to!string;
             m.object["line"] = r.sloc.line;
@@ -113,7 +113,7 @@ final class ReportJson : FileReport, FilesReporter {
             "filename": current_file.file,
             "checksum": format("%x", current_file.fileChecksum),
         ];
-        s["mutations"] = JSONValue(current_file_mutants), report["files"].array ~= s;
+        s["mutants"] = JSONValue(current_file_mutants), report["files"].array ~= s;
 
         current_file_mutants = null;
     }
@@ -122,12 +122,12 @@ final class ReportJson : FileReport, FilesReporter {
         import std.datetime : Clock;
         import std.path : buildPath;
         import std.stdio : File;
-        import dextool.plugin.mutate.backend.report.analyzers : reportStatistics, reportDiff;
-        import dextool.plugin.mutate.backend.report.analyzers : DiffReport, reportDiff;
+        import dextool.plugin.mutate.backend.report.analyzers : reportStatistics,
+            reportDiff, DiffReport;
 
         if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
-            JSONValue s = ["alive": stat.alive];
+            JSONValue s = ["alive" : stat.alive];
             s.object["aliveNoMut"] = stat.aliveNoMut;
             s.object["killed"] = stat.killed;
             s.object["timeout"] = stat.timeout;
@@ -148,7 +148,7 @@ final class ReportJson : FileReport, FilesReporter {
 
         if (ReportSection.diff in sections) {
             auto r = reportDiff(db, kinds, diff, fio.getOutputDir);
-            JSONValue s = ["score": r.score];
+            JSONValue s = ["score" : r.score];
             report["diff"] = s;
         }
 
