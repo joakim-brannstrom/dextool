@@ -13,7 +13,7 @@ import logger = std.experimental.logger;
 import std.datetime : Clock, dur;
 import std.format : format;
 
-import arsd.dom : Element, Table, RawSource;
+import arsd.dom : Document, Element, Table, RawSource;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : MutationScoreHistory,
@@ -34,22 +34,29 @@ string makeScoreHistory(ref Database db, ref const ConfigReport conf,
 
     auto doc = tmplBasicPage;
     doc.title(format("Mutation Score History %(%s %) %s", humanReadableKinds, Clock.currTime));
-    doc.mainBody.setAttribute("onload", "init()");
+    doc.mainBody.setAttribute("onload", "init();make_chart(g_data);");
 
-    auto s = doc.root.childElements("head")[0].addChild("script");
-    s.addChild(new RawSource(doc, js_index));
+    auto script = doc.root.childElements("head")[0].addChild("script");
+    script.addChild(new RawSource(doc, js_index));
+    script.addChild(new RawSource(doc, jsScoreHistory));
 
-    toHtml(reportMutationScoreHistory(db), doc.mainBody);
+    toHtml(reportMutationScoreHistory(db), doc, doc.mainBody, script);
+
+    script.addChild(new RawSource(doc, jsD3Mini));
+    script.appendText("\n");
 
     return doc.toPrettyString;
 }
 
 private:
 
-void toHtml(const MutationScoreHistory history, Element root) {
+void toHtml(const MutationScoreHistory history, Document doc, Element root, Element script) {
+    import std.array : appender;
     import std.conv : to;
-    import std.typecons : tuple;
     import std.datetime : DateTime, Date;
+    import std.json : JSONValue;
+    import std.range : retro;
+    import std.typecons : tuple;
 
     auto base = root.addChild("div").addClass("base");
 
@@ -57,11 +64,21 @@ void toHtml(const MutationScoreHistory history, Element root) {
     heading.addChild("i").addClass("right");
     heading.appendText(" History");
 
+    base.addChild("div").setAttribute("id", "chart");
+
     auto tbl = tmplDefaultTable(base.addChild("div").addClass("tbl_container"), [
             "Date", "Score"
             ]);
-    foreach (score; history.pretty) {
-        tbl.appendRow((cast(DateTime) score.timeStamp).date.toString,
-                format!"%.3s"(score.score.get));
+    auto app = appender!(JSONValue[])();
+    foreach (score; history.pretty.retro) {
+        const date = (cast(DateTime) score.timeStamp).date.toString;
+        tbl.appendRow(date, format!"%.3s"(score.score.get));
+
+        JSONValue v;
+        v["name"] = date;
+        v["value"] = score.score.get;
+        app.put(v);
     }
+
+    script.addChild(new RawSource(doc, format!"const g_data = %s;\n"(app.data)));
 }
