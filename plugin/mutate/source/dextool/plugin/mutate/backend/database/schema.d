@@ -82,6 +82,7 @@ immutable schemataMutantTable = "schemata_mutant";
 immutable schemataTable = "schemata";
 immutable schemataUsedTable = "schemata_used";
 immutable srcMetadataTable = "src_metadata";
+immutable runtimeHistoryTable = "test_cmd_runtime_history";
 
 private immutable invalidSchemataTable = "invalid_schemata";
 private immutable schemataWorkListTable = "schemata_worklist";
@@ -494,6 +495,23 @@ struct SchemataFragmentTable {
     uint offsetEnd;
 }
 
+/** The runtime of the test commands.
+ *
+ * By storing the data it reduces the need to run the test suite multiple times
+ * to get the minimum.
+ */
+@TableName(runtimeHistoryTable)
+struct RuntimeHistoryTable {
+    long id;
+
+    /// when the measurement was taken.
+    @ColumnName("time")
+    SysTime timeStamp;
+
+    @ColumnName("time_ms")
+    long timeMs;
+}
+
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
         db.run(delete_!VersionTbl);
@@ -603,9 +621,9 @@ void upgradeV0(ref Miniorm db) {
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl,
             MutationPointTbl, MutationTbl, TestCaseKilledTbl, AllTestCaseTbl,
             MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl,
-            MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl,
-            NomutDataTbl, SchemataTable, SchemataFragmentTable,
-            SchemataMutantTable, SchemataUsedTable, MutantWorklistTbl));
+            MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl, NomutDataTbl,
+            SchemataTable, SchemataFragmentTable, SchemataMutantTable,
+            SchemataUsedTable, MutantWorklistTbl, RuntimeHistoryTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1075,6 +1093,11 @@ void upgradeV21(ref Miniorm db) {
 /// 2020-11-28
 void upgradeV22(ref Miniorm db) {
     db.run(buildSchema!(MutantWorklistTbl));
+}
+
+/// 2020-12-06
+void upgradeV23(ref Miniorm db) {
+    db.run(buildSchema!(RuntimeHistoryTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

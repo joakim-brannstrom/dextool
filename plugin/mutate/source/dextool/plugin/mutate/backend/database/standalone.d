@@ -1936,6 +1936,28 @@ struct Database {
     void vacuum() @trusted {
         db.run("VACUUM");
     }
+
+    /// Returns: the stored runtimes in ascending order by their `timeStamp`.
+    TestCmdRuntime[] getTestCmdRuntimes() @trusted {
+        import std.algorithm : sort;
+
+        auto app = appender!(TestCmdRuntime[])();
+        foreach (r; db.run(select!RuntimeHistoryTable)) {
+            app.put(TestCmdRuntime(r.timeStamp, r.timeMs.dur!"msecs"));
+        }
+
+        return app.data.sort!((a, b) => a.timeStamp < b.timeStamp).array;
+    }
+
+    /// Drop all currently stored runtimes and replaces with `runtime`.
+    void setTestCmdRuntimes(const TestCmdRuntime[] runtimes) @trusted {
+        import std.range : enumerate;
+
+        db.run(format!"DELETE FROM %s"(runtimeHistoryTable));
+        db.run(insertOrReplace!RuntimeHistoryTable,
+                runtimes.enumerate.map!(a => RuntimeHistoryTable(a.index,
+                    a.value.timeStamp, a.value.runtime.total!"msecs")));
+    }
 }
 
 private:

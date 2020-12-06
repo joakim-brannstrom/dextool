@@ -276,3 +276,8 @@ struct Schemata {
     /// Sorted in the order they should be applied.
     SchemataFragment[] fragments;
 }
+
+struct TestCmdRuntime {
+    SysTime timeStamp;
+    Duration runtime;
+}
