@@ -52,7 +52,7 @@ nothrow:
     import dextool.plugin.mutate.type : MutationKind;
 
     private struct InternalData {
-        Mutation.Kind[] mut_kinds;
+        Mutation.Kind[] kinds;
         FilesysIO filesys_io;
         ConfigMutationTest config;
     }
@@ -69,7 +69,7 @@ nothrow:
 
         logger.infof("mutation operators: %(%s, %)", v).collectException;
 
-        data.mut_kinds = toInternal(v);
+        data.kinds = toInternal(v);
         return this;
     }
 
@@ -77,7 +77,7 @@ nothrow:
         // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
         auto db_ref = () @trusted { return &db; }();
 
-        auto driver_data = DriverData(db_ref, fio, data.mut_kinds, new AutoCleanup, data.config);
+        auto driver_data = DriverData(db_ref, fio, data.kinds, new AutoCleanup, data.config);
 
         try {
             auto test_driver = TestDriver(driver_data);
@@ -98,7 +98,7 @@ nothrow:
 struct DriverData {
     Database* db;
     FilesysIO filesysIO;
-    Mutation.Kind[] mutKind;
+    Mutation.Kind[] kinds;
     AutoCleanup autoCleanup;
     ConfigMutationTest conf;
 }
@@ -264,6 +264,9 @@ struct TestDriver {
         bool allMutantsTested;
     }
 
+    static struct SaveMutationScore {
+    }
+
     static struct ParseStdin {
     }
 
@@ -389,10 +392,10 @@ struct TestDriver {
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
-            UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant,
-            ParseStdin, FindTestCmds, ChooseMode, NextSchemata, PreSchemata,
-            SchemataTest, SchemataTestResult, SchemataRestore,
-            LoadSchematas, SanityCheckSchemata, SchemataPruneUsed, Stop);
+            UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant, ParseStdin,
+            FindTestCmds, ChooseMode, NextSchemata, PreSchemata, SchemataTest,
+            SchemataTestResult, SchemataRestore, LoadSchematas,
+            SanityCheckSchemata, SchemataPruneUsed, Stop, SaveMutationScore);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData,
             ResetOldMutantData, SchemataRestoreData, PreSchemataData, NextSchemataData);
 
@@ -407,7 +410,7 @@ struct TestDriver {
 
     this(DriverData data) {
         this.global = Global(data);
-        this.global.timeoutFsm = TimeoutFsm(data.mutKind);
+        this.global.timeoutFsm = TimeoutFsm(data.kinds);
         this.global.hardcodedTimeout = !global.data.conf.mutationTesterRuntime.isNull;
         local.get!PullRequest.constraint = global.data.conf.constraint;
         local.get!PullRequest.seed = global.data.conf.pullRequestSeed;
@@ -449,8 +452,11 @@ struct TestDriver {
                 return fsm(NextSchemata.init);
             return fsm(NextPullRequestMutant.init);
         }, (CheckMutantsLeft a) {
-            if (a.allMutantsTested
-                && self.global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
+            if (a.allMutantsTested)
+                return fsm(SaveMutationScore.init);
+            return fsm(MeasureTestSuite.init);
+        }, (SaveMutationScore a) {
+            if (self.global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
                 return fsm(Done.init);
             return fsm(MeasureTestSuite.init);
         }, (PreCompileSut a) {
@@ -543,7 +549,7 @@ nothrow:
         logger.info("Initializing worklist").collectException;
         global.maxRuntime = Clock.currTime + global.data.conf.maxRuntime;
         spinSql!(() {
-            global.data.db.updateWorklist(global.data.mutKind, Mutation.Status.unknown);
+            global.data.db.updateWorklist(global.data.kinds, Mutation.Status.unknown);
         });
     }
 
@@ -668,7 +674,7 @@ nothrow:
                     }
                 }
                 if (update) {
-                    global.data.db.updateWorklist(global.data.mutKind, Mutation.Status.unknown);
+                    global.data.db.updateWorklist(global.data.kinds, Mutation.Status.unknown);
                 }
                 break;
             }
@@ -693,7 +699,7 @@ nothrow:
                 && global.data.conf.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
             logger.info("Adding alive mutants to worklist").collectException;
             spinSql!(() {
-                global.data.db.updateWorklist(global.data.mutKind, Mutation.Status.alive);
+                global.data.db.updateWorklist(global.data.kinds, Mutation.Status.alive);
             });
         }
     }
@@ -715,7 +721,7 @@ nothrow:
             }
 
             const total = spinSql!(() {
-                return global.data.db.totalSrcMutants(global.data.mutKind).count;
+                return global.data.db.totalSrcMutants(global.data.kinds).count;
             });
             const rval = cast(long)(1 + total * local.get!ResetOldMutant.resetPercentage.get
                     / 100.0);
@@ -723,7 +729,7 @@ nothrow:
         }();
 
         auto oldest = spinSql!(() {
-            return global.data.db.getOldestMutants(global.data.mutKind, testCnt);
+            return global.data.db.getOldestMutants(global.data.kinds, testCnt);
         });
 
         logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
@@ -745,6 +751,23 @@ nothrow:
         if (global.timeoutFsm.output.done) {
             logger.info("All mutants are tested").collectException;
         }
+    }
+
+    void opCall(SaveMutationScore data) {
+        import dextool.plugin.mutate.backend.database.type : MutationScore;
+        import dextool.plugin.mutate.backend.report.analyzers : reportScore;
+
+        const score = reportScore(*global.data.db, global.data.kinds).score;
+
+        // 10000 mutation scores is only ~80kbyte. Should be enough entries
+        // without taking up unresonable amount of space.
+        spinSql!(() @trusted {
+            auto t = global.data.db.transaction;
+            global.data.db.putMutationScore(MutationScore(Clock.currTime,
+                typeof(MutationScore.score)(score)));
+            global.data.db.trimMutationScore(10000);
+            t.commit;
+        });
     }
 
     void opCall(ref PreCompileSut data) {
@@ -818,7 +841,7 @@ nothrow:
 
             foreach (l; kv.value) {
                 auto mutants = spinSql!(() {
-                    return global.data.db.getMutationsOnLine(global.data.mutKind,
+                    return global.data.db.getMutationsOnLine(global.data.kinds,
                         file_id.get, SourceLoc(l.value, 0));
                 });
 
@@ -975,7 +998,7 @@ nothrow:
                 continue;
             }
 
-            const info = spinSql!(() => global.data.db.getMutantsInfo(global.data.mutKind, [
+            const info = spinSql!(() => global.data.db.getMutantsInfo(global.data.kinds, [
                         id
                     ]));
             if (info.empty)
@@ -1000,7 +1023,7 @@ nothrow:
         global.nextMutant = MutationEntry.init;
 
         auto next = spinSql!(() {
-            return global.data.db.nextMutation(global.data.mutKind);
+            return global.data.db.nextMutation(global.data.kinds);
         });
 
         data.noUnknownMutantsLeft.get = next.st == NextMutationEntry.Status.done;
@@ -1032,7 +1055,7 @@ nothrow:
             const id = schematas[0];
             schematas = schematas[1 .. $];
             const mutants = spinSql!(() {
-                return global.data.db.schemataMutantsCount(id, global.data.mutKind);
+                return global.data.db.schemataMutantsCount(id, global.data.kinds);
             });
 
             logger.infof("Schema %s has %s mutants (threshold %s)", id.get,
@@ -1109,7 +1132,7 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         auto mutants = spinSql!(() {
-            return global.data.db.getSchemataMutants(data.id, global.data.mutKind);
+            return global.data.db.getSchemataMutants(data.id, global.data.kinds);
         });
 
         try {
@@ -1186,7 +1209,7 @@ nothrow:
         auto app = appender!(SchemataId[])();
         foreach (id; spinSql!(() { return global.data.db.getSchematas(); })) {
             if (spinSql!(() {
-                    return global.data.db.schemataMutantsCount(id, global.data.mutKind);
+                    return global.data.db.schemataMutantsCount(id, global.data.kinds);
                 }) >= schemataMutantsThreshold(global.data.conf.sanityCheckSchemata, 0, 0)) {
                 app.put(id);
             }

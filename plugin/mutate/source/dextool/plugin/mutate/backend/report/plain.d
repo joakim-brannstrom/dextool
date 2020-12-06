@@ -23,7 +23,8 @@ import dextool.plugin.mutate.backend.database : Database, IterateMutantRow, Muta
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats, reportMarkedMutants, reportStatistics,
-    MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr, EstimateScore;
+    MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr,
+    EstimateScore, MutationScoreHistory;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table, toSections;
 import dextool.plugin.mutate.backend.type : Mutation;
@@ -220,8 +221,9 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
 
     override void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln, writefln;
-        import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap, reportTestCaseStats,
-            reportMutationTestCaseSuggestion, reportDeadTestCases, reportEstimate, toTable;
+        import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap,
+            reportTestCaseStats, reportMutationTestCaseSuggestion,
+            reportDeadTestCases, reportEstimate, toTable, reportMutationScoreHistory;
 
         auto stdout_ = () @trusted { return stdout; }();
 
@@ -285,6 +287,12 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
             writeln(r.tbl);
         }
 
+        if (ReportSection.score_history in sections) {
+            logger.info("Mutation Score History");
+            auto r = reportMutationScoreHistory(db);
+            writeln(.toTable(r));
+        }
+
         if (ReportSection.summary in sections) {
             logger.info("Summary");
             auto summary = reportStatistics(db, kinds);
@@ -293,4 +301,19 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
 
         writeln;
     }
+}
+
+private:
+
+Table!2 toTable(MutationScoreHistory data) {
+    import std.conv : to;
+
+    Table!2 tbl;
+    tbl.heading = ["Date", "Score"];
+    foreach (a; data.pretty) {
+        typeof(tbl).Row row = [a.timeStamp.to!string, a.score.get.to!string];
+        tbl.put(row);
+    }
+
+    return tbl;
 }

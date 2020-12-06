@@ -32,8 +32,11 @@ UpdateTimeout --> Cleanup
 Cleanup --> NextSchemata
 Cleanup --> NextPullRequestMutant : hasConstraint
 
-CheckMutantsLeft --> Done : allTested && !resetOld
-CheckMutantsLeft --> MeasureTestSuite
+CheckMutantsLeft --> SaveMutationScore : allTested
+CheckMutantsLeft --> MeasureTestSuite : !allTested
+
+SaveMutationScore --> Done : !resetOld
+SaveMutationScore --> MeasureTestSuite : resetOld
 
 MeasureTestSuite --> Error : unreliable
 MeasureTestSuite --> LoadSchematas

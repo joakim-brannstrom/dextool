@@ -281,3 +281,8 @@ struct TestCmdRuntime {
     SysTime timeStamp;
     Duration runtime;
 }
+
+struct MutationScore {
+    SysTime timeStamp;
+    NamedType!(double, Tag!"MutationScore", double.init, TagStringable) score;
+}
