@@ -105,7 +105,7 @@ struct DriverData {
 
 struct MeasureTestDurationResult {
     bool ok;
-    Duration runtime;
+    Duration[] runtime;
 }
 
 /** Measure the time it takes to run the test command.
@@ -117,9 +117,10 @@ struct MeasureTestDurationResult {
  * to use for mutation testing.
  *
  * Params:
- *  cmd = test command to measure
+ *  runner = ?
+ *  samples = number of times to run the test suite
  */
-MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothrow {
+MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples) @safe nothrow {
     import std.algorithm : min;
     import std.datetime.stopwatch : StopWatch, AutoStart;
     import proc;
@@ -149,14 +150,14 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothro
         stdout.flush;
     }
 
-    auto runtime = Duration.max;
+    Duration[] runtimes;
     bool failed;
-    for (int i; i < 2 && !failed; ++i) {
+    for (int i; i < samples && !failed; ++i) {
         try {
             auto res = runTest;
             final switch (res.result.status) with (TestResult) {
             case Status.passed:
-                runtime = min(runtime, res.runtime);
+                runtimes ~= res.runtime;
                 break;
             case Status.failed:
                 goto case;
@@ -167,14 +168,14 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothro
                 print(res.result.output);
                 break;
             }
-            logger.infof("%s: Measured runtime %s (fastest %s)", i, res.runtime, runtime);
+            logger.infof("%s: Measured test command runtime %s", i, res.runtime);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
             failed = true;
         }
     }
 
-    return MeasureTestDurationResult(!failed, runtime);
+    return MeasureTestDurationResult(!failed, runtimes);
 }
 
 struct TestDriver {
@@ -849,6 +850,9 @@ nothrow:
     }
 
     void opCall(ref MeasureTestSuite data) {
+        import std.algorithm : max, minElement;
+        import dextool.plugin.mutate.backend.database.type : TestCmdRuntime;
+
         if (!global.data.conf.mutationTesterRuntime.isNull) {
             global.testSuiteRuntime = global.data.conf.mutationTesterRuntime.get;
             return;
@@ -856,6 +860,8 @@ nothrow:
 
         logger.infof("Measuring the runtime of the test command(s):\n%(%s\n%)",
                 global.testCmds).collectException;
+
+        auto measures = spinSql!(() => global.data.db.getTestCmdRuntimes);
 
         const tester = () {
             try {
@@ -868,7 +874,7 @@ nothrow:
                 runner.poolSize = 1;
                 scope (exit)
                     runner.poolSize = global.data.conf.testPoolSize;
-                return measureTestCommand(runner);
+                return measureTestCommand(runner, max(1, cast(int)(3 - measures.length)));
             } catch (Exception e) {
                 logger.error(e.msg).collectException;
                 return MeasureTestDurationResult(false);
@@ -876,12 +882,24 @@ nothrow:
         }();
 
         if (tester.ok) {
+            measures ~= tester.runtime.map!(a => TestCmdRuntime(Clock.currTime, a)).array;
+            if (measures.length > 3) {
+                measures = measures[1 .. $]; // drop the oldest
+            }
+            auto fastest = minElement!(a => a.runtime)(measures).runtime;
+
             // The sampling of the test suite become too unreliable when the timeout is <1s.
             // This is a quick and dirty fix.
             // A proper fix requires an update of the sampler in runTester.
-            auto t = tester.runtime < 1.dur!"seconds" ? 1.dur!"seconds" : tester.runtime;
+            auto t = fastest < 1.dur!"seconds" ? 1.dur!"seconds" : fastest;
             logger.info("Test command runtime: ", t).collectException;
             global.testSuiteRuntime = t;
+
+            spinSql!(() @trusted {
+                auto t = global.data.db.transaction;
+                global.data.db.setTestCmdRuntimes(measures);
+                t.commit;
+            });
         } else {
             data.unreliableTestSuite = true;
             logger.error("The test command is unreliable. It must return exit status '0' when no mutants are injected")
