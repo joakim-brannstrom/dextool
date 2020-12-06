@@ -60,8 +60,7 @@ SchemataTestResult --> SchemataRestore
 SchemataRestore --> CheckRuntime
 
 NextMutant --> CheckTimeout : allTested
-NextMutant --> PreMutationTest
-PreMutationTest --> MutationTest
+NextMutant --> MutationTest
 MutationTest --> HandleTestResult : next
 MutationTest --> Error : error
 MutationTest --> MutationTest

@@ -39,7 +39,6 @@ import dextool.type : AbsolutePath, Path;
 struct MutationTestDriver {
     import std.datetime.stopwatch : StopWatch;
     import std.typecons : Tuple;
-    import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
 
     static struct Global {
         FilesysIO fio;

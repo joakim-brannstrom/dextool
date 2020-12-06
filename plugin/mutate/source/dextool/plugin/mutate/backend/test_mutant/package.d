@@ -179,7 +179,6 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner) @safe nothro
 
 struct TestDriver {
     import std.datetime : SysTime;
-    import std.typecons : Unique;
     import dextool.plugin.mutate.backend.database : Schemata, SchemataId, MutationStatusId;
     import dextool.plugin.mutate.backend.test_mutant.source_mutant : MutationTestDriver;
     import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
@@ -193,7 +192,6 @@ struct TestDriver {
 
     static struct Global {
         DriverData data;
-        Unique!MutationTestDriver mut_driver;
 
         TimeoutFsm timeoutFsm;
 
@@ -280,9 +278,6 @@ struct TestDriver {
 
     static struct MeasureTestSuite {
         bool unreliableTestSuite;
-    }
-
-    static struct PreMutationTest {
     }
 
     static struct MutationTest {
@@ -391,12 +386,12 @@ struct TestDriver {
 
     alias Fsm = my.fsm.Fsm!(None, Initialize, SanityCheck,
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
-            Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, PreMutationTest,
-            NextMutant, MutationTest, HandleTestResult, CheckTimeout,
-            Done, Error, UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant,
+            Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
+            MutationTest, HandleTestResult, CheckTimeout, Done, Error,
+            UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant,
             ParseStdin, FindTestCmds, ChooseMode, NextSchemata, PreSchemata,
-            SchemataTest, SchemataTestResult, SchemataRestore, LoadSchematas,
-            SanityCheckSchemata, SchemataPruneUsed, Stop);
+            SchemataTest, SchemataTestResult, SchemataRestore,
+            LoadSchematas, SanityCheckSchemata, SchemataPruneUsed, Stop);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData,
             ResetOldMutantData, SchemataRestoreData, PreSchemataData, NextSchemataData);
 
@@ -477,7 +472,7 @@ struct TestDriver {
         }, (LoadSchematas a) => fsm(ResetOldMutant.init), (NextPullRequestMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(Done.init);
-            return fsm(PreMutationTest.init);
+            return fsm(MutationTest.init);
         }, (NextSchemata a) {
             if (a.hasSchema)
                 return fsm(PreSchemata.init);
@@ -500,9 +495,8 @@ struct TestDriver {
         }, (NextMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(CheckTimeout.init);
-            return fsm(PreMutationTest.init);
-        }, (PreMutationTest a) => fsm(MutationTest.init),
-                (UpdateTimeout a) => fsm(Cleanup.init), (MutationTest a) {
+            return fsm(MutationTest.init);
+        }, (UpdateTimeout a) => fsm(Cleanup.init), (MutationTest a) {
             if (a.mutationError)
                 return fsm(Error.init);
             return fsm(HandleTestResult(a.result));
@@ -895,38 +889,30 @@ nothrow:
         }
     }
 
-    void opCall(PreMutationTest) {
-        auto factory(DriverData d, MutationEntry mutp, TestRunner* runner) @safe nothrow {
-            import std.typecons : Unique;
-            import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
-
-            try {
-                auto global = MutationTestDriver.Global(d.filesysIO, d.db, mutp, runner);
-                return Unique!MutationTestDriver(new MutationTestDriver(global,
-                        MutationTestDriver.TestMutantData(!(d.conf.mutationTestCaseAnalyze.empty
-                        && d.conf.mutationTestCaseBuiltin.empty),
-                        d.conf.mutationCompile, d.conf.buildCmdTimeout),
-                        MutationTestDriver.TestCaseAnalyzeData(&testCaseAnalyzer)));
-            } catch (Exception e) {
-                logger.error(e.msg).collectException;
-            }
-            assert(0, "should not happen");
-        }
-
-        global.mut_driver = factory(global.data, global.nextMutant, () @trusted {
-            return &runner;
-        }());
-    }
-
     void opCall(ref MutationTest data) {
-        while (global.mut_driver.isRunning) {
-            global.mut_driver.execute();
-        }
+        auto p = () @trusted { return &runner; }();
 
-        if (global.mut_driver.stopBecauseError) {
+        try {
+            auto g = MutationTestDriver.Global(global.data.filesysIO,
+                    global.data.db, global.nextMutant, p);
+            auto driver = MutationTestDriver(g,
+                    MutationTestDriver.TestMutantData(!(global.data.conf.mutationTestCaseAnalyze.empty
+                        && global.data.conf.mutationTestCaseBuiltin.empty),
+                        global.data.conf.mutationCompile, global.data.conf.buildCmdTimeout),
+                    MutationTestDriver.TestCaseAnalyzeData(&testCaseAnalyzer));
+
+            while (driver.isRunning) {
+                driver.execute();
+            }
+
+            if (driver.stopBecauseError) {
+                data.mutationError = true;
+            } else {
+                data.result = driver.result;
+            }
+        } catch (Exception e) {
             data.mutationError = true;
-        } else {
-            data.result = global.mut_driver.result;
+            logger.error(e.msg).collectException;
         }
     }
 
