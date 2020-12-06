@@ -25,7 +25,7 @@ import proc : DrainElement;
 import dextool.plugin.mutate.backend.database : MutationId;
 import dextool.plugin.mutate.backend.interface_;
 import dextool.plugin.mutate.backend.test_mutant.common;
-import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport;
+import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
@@ -84,9 +84,9 @@ struct TestCaseAnalyzer {
     }
 
     Result analyze(DrainElement[] data, Flag!"allFound" allFound = No.allFound) {
-        import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
+        import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 
-        auto gather = new GatherTestCase;
+        GatherTestCase gather;
         // TODO: maybe destroy it too, to cleanup memory earlier? But it isn't
         // @safe
         //scope(exit) .destroy(gather);
@@ -124,7 +124,7 @@ struct TestCaseAnalyzer {
 /** Analyze the output from the test suite with one of the builtin analyzers.
  */
 void builtin(DrainElement[] output,
-        const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin, TestCaseReport app) @safe nothrow {
+        const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin, ref GatherTestCase app) @safe nothrow {
     import dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze;
     import dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
     import dextool.plugin.mutate.backend.test_mutant.makefile_post_analyze;
@@ -291,7 +291,7 @@ unittest {
  * Returns: True if it successfully analyzed the output
  */
 bool externalProgram(ShellCommand cmd, DrainElement[] output,
-        TestCaseReport report, AutoCleanup cleanup) @safe nothrow {
+        ref GatherTestCase report, AutoCleanup cleanup) @safe nothrow {
     import std.datetime : dur;
     import std.algorithm : copy;
     import std.ascii : newline;

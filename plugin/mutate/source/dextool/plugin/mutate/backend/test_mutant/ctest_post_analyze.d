@@ -15,7 +15,7 @@ import std.exception : collectException;
 import std.range : isInputRange, isOutputRange;
 import logger = std.experimental.logger;
 
-import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport, GatherTestCase;
+import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 import dextool.plugin.mutate.backend.type : TestCase;
 import dextool.type : AbsolutePath;
 
@@ -37,7 +37,7 @@ struct CtestParser {
         StateData data;
     }
 
-    void process(T)(T line, TestCaseReport report) {
+    void process(T)(T line, ref GatherTestCase report) {
         auto start_tc_match = matchFirst(line, re_start_tc);
         auto fail_tc_match = matchFirst(line, re_fail_tc);
 
@@ -67,7 +67,7 @@ version (unittest) {
 
 @("shall report the failed test cases")
 unittest {
-    auto app = new GatherTestCase;
+    GatherTestCase app;
     CtestParser parser;
     testData2.each!(a => parser.process(a, app));
 
@@ -80,7 +80,7 @@ unittest {
 
 @("shall report the found test cases")
 unittest {
-    auto app = new GatherTestCase;
+    GatherTestCase app;
     CtestParser parser;
     testData1.each!(a => parser.process(a, app));
 

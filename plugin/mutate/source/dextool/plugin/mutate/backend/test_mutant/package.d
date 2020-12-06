@@ -890,8 +890,6 @@ nothrow:
     }
 
     void opCall(ref MutationTest data) {
-        import dextool.plugin.mutate.backend.test_mutant.interface_ : GatherTestCase;
-
         auto p = () @trusted { return &runner; }();
 
         try {

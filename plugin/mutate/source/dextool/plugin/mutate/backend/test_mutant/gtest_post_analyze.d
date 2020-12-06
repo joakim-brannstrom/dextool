@@ -16,7 +16,7 @@ import std.array : empty;
 import std.exception : collectException;
 import std.range : isInputRange, isOutputRange;
 
-import dextool.plugin.mutate.backend.test_mutant.interface_ : TestCaseReport, GatherTestCase;
+import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 import dextool.plugin.mutate.backend.type : TestCase;
 import dextool.type : AbsolutePath;
 
@@ -59,7 +59,7 @@ struct GtestParser {
         return testCase;
     }
 
-    void process(T)(T line, TestCaseReport report) {
+    void process(T)(T line, ref GatherTestCase report) {
         auto run_block_match = matchAll(line, re_run_block);
         auto failed_block_match = matchAll(line, re_failed_block);
         auto delim_match = matchFirst(line, re_delim);
@@ -110,7 +110,7 @@ struct GtestParser {
         }
     }
 
-    void finalize(TestCaseReport report) @safe nothrow {
+    void finalize(ref GatherTestCase report) @safe nothrow {
         final switch (data.delim) {
         case DelimState.unknown:
             goto case;
@@ -164,7 +164,7 @@ version (unittest) {
 
 @("shall report the failed test case")
 unittest {
-    auto app = new GatherTestCase;
+    GatherTestCase app;
 
     GtestParser parser;
     testData1.each!(a => parser.process(a, app));
@@ -176,7 +176,7 @@ unittest {
 
 @("shall report the found test cases")
 unittest {
-    auto app = new GatherTestCase;
+    GatherTestCase app;
 
     GtestParser parser;
     testData3.each!(a => parser.process(a, app));
@@ -189,7 +189,7 @@ unittest {
 
 @("shall report the failed test cases")
 unittest {
-    auto app = new GatherTestCase;
+    GatherTestCase app;
 
     GtestParser parser;
     testData4.each!(a => parser.process(a, app));
@@ -202,7 +202,7 @@ unittest {
 
 @("shall report the failed test cases")
 unittest {
-    auto app = new GatherTestCase;
+    GatherTestCase app;
 
     GtestParser parser;
     testData5.each!(a => parser.process(a, app));
@@ -212,7 +212,7 @@ unittest {
 
 @("shall report the failed test cases even though there are junk in the output")
 unittest {
-    auto app = new GatherTestCase;
+    GatherTestCase app;
 
     GtestParser parser;
     testData2.each!(a => parser.process(a, app));
@@ -274,8 +274,7 @@ TestCase(`Unsigned/TypedTestP`),
 
 @("shall report the last test case before the crash (variant 1)")
 unittest {
-
-    auto app = new GatherTestCase;
+    GatherTestCase app;
 
     GtestParser parser;
     testData6.each!(a => parser.process(a, app));
@@ -291,8 +290,7 @@ unittest {
 
 @("shall report the last test case before the crash (variant 2)")
 unittest {
-
-    auto app = new GatherTestCase;
+    GatherTestCase app;
 
     GtestParser parser;
     testData7.each!(a => parser.process(a, app));

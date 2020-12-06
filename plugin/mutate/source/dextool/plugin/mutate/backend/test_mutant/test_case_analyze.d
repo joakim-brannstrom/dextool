@@ -1,31 +1,18 @@
 /**
-Copyright: Copyright (c) 2018, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2020, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
-
-This file contains the interface used for reporting test cases that are found.
 */
-module dextool.plugin.mutate.backend.test_mutant.interface_;
+module dextool.plugin.mutate.backend.test_mutant.test_case_analyze;
 
 import dextool.plugin.mutate.backend.type : TestCase;
 
-interface TestCaseReport {
-    /// A test case that failed.
-    void reportFailed(TestCase tc) @safe nothrow;
-
-    /// A test case that is found
-    void reportFound(TestCase tc) @safe nothrow;
-
-    /// One or more test cases are unstable.
-    void reportUnstable(TestCase tc) @safe nothrow;
-}
-
 /// A simple class to gather reported test cases.
-class GatherTestCase : TestCaseReport {
+struct GatherTestCase {
     import std.algorithm : map;
     import std.array : array;
     import my.set;
@@ -68,7 +55,7 @@ class GatherTestCase : TestCaseReport {
         return unstable.toArray;
     }
 
-    override void reportFailed(TestCase tc) @safe nothrow {
+    void reportFailed(TestCase tc) @safe nothrow {
         found.add(tc);
 
         if (auto v = tc in failed) {
@@ -79,11 +66,11 @@ class GatherTestCase : TestCaseReport {
     }
 
     /// A test case that is found
-    override void reportFound(TestCase tc) @safe nothrow {
+    void reportFound(TestCase tc) @safe nothrow {
         found.add(tc);
     }
 
-    override void reportUnstable(TestCase tc) @safe nothrow {
+    void reportUnstable(TestCase tc) @safe nothrow {
         found.add(tc);
         unstable.add(tc);
     }
