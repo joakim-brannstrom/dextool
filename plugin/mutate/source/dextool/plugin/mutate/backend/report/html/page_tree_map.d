@@ -4,12 +4,13 @@ import std.json : JSONValue;
 import arsd.dom : Document, Element, require, Table, RawSource;
 
 import dextool.plugin.mutate.backend.report.html : FileIndex;
+import dextool.plugin.mutate.backend.report.html.js;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage;
 
-/* 
-* A JSON-like object that is more easily manipulated than JSONValue.
-* Has operator overloads for "index", "index assign" and "in" allowing the children list to be private
-* and cleaner construction of the object. 
+/** A JSON-like object that is more easily manipulated than JSONValue.
+*
+* Has operator overloads for "index", "index assign" and "in" allowing the
+* children list to be private and cleaner construction of the object.
 */
 auto makeTreeMapPage(FileIndex[] files) {
     import std.format : format;
@@ -18,14 +19,13 @@ auto makeTreeMapPage(FileIndex[] files) {
     doc.mainBody.setAttribute("onload", "init()");
 
     auto s = doc.root.childElements("head")[0].addChild("script");
-    s.addChild(new RawSource(doc, import("d3.min.js")));
+    s.addChild(new RawSource(doc, jsD3Mini));
 
-    auto container = doc.mainBody.addChild("div");
-    container.setAttribute("id", "container");
+    doc.mainBody.addChild("div").setAttribute("id", "container");
 
     auto s2 = doc.mainBody.addChild("script");
     s2.addChild(new RawSource(doc, format("const g_indata = %s", makeTreeMapJSON(files))));
-    s2.addChild(new RawSource(doc, import("treemap.js")));
+    s2.addChild(new RawSource(doc, jsTreeMap));
 
     return doc.toPrettyString;
 }

@@ -112,10 +112,9 @@ unittest {
 unittest {
     import std.json;
 
-    auto input_src = testData ~ "report_tool_integration.cpp";
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
-        .addInputArg(input_src)
+        .addInputArg(testData ~ "report_tool_integration.cpp")
         .run;
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--mutant", "dcc"])
@@ -133,11 +132,52 @@ unittest {
     j["killedByCompilerTime"].integer.shouldEqual(0);
     j["nomutScore"].integer.shouldEqual(0);
     j["predictedDone"].str; // lazy for now and just checking it is a string
-    j["score"].integer.shouldEqual(0);
+    j["score"].integer.shouldEqual(1);
     j["timeout"].integer.shouldEqual(0);
     j["total"].integer.shouldEqual(0);
     j["totalTime"].integer.shouldEqual(0);
     j["untested"].integer.shouldEqual(6);
+}
+
+@(testId ~ "shall report the mutation score history")
+unittest {
+    import std.json;
+
+    mixin(EnvSetup(globalTestdir));
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
+        .run;
+
+    makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "lcr"]).run;
+    makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "lcr"]).run;
+    makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "lcr"]).run;
+
+    auto plain = makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--style", "plain"])
+        .addArg(["--section", "score_history"])
+        .run;
+
+    makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--style", "json"])
+        .addArg(["--section", "score_history"])
+        .addArg(["--logdir", testEnv.outdir.toString])
+        .run;
+
+    makeDextoolReport(testEnv, testData.dirName)
+        .addArg(["--style", "html"])
+        .addArg(["--section", "score_history"])
+        .addArg(["--logdir", testEnv.outdir.toString])
+        .run;
+
+    testConsecutiveSparseOrder!Re([
+        `| *Date *| *Score *|`,
+        "|-*|",
+        `|.*| *1 *|`
+    ]).shouldBeIn(plain.output);
+
+    auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
+    j["score_history"][0]["score"].integer.shouldEqual(1);
 }
 
 @(testId ~ "shall report test cases that kill the same mutants (overlap)")

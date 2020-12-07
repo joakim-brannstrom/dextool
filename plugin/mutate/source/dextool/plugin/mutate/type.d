@@ -108,7 +108,9 @@ enum ReportSection {
     /// report of the mutants that only the test case kill
     tc_unique,
     /// mutants manually marked by user
-    marked_mutants
+    marked_mutants,
+    /// mutation score history
+    score_history,
 }
 
 /// How to sort test cases when reporting them by their kill statistics.

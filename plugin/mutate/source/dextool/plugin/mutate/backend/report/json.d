@@ -10,9 +10,12 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.report.json;
 
 import logger = std.experimental.logger;
-import std.array : empty;
+import std.array : empty, appender;
 import std.exception : collectException;
+import std.json : JSONValue;
 import std.path : buildPath;
+
+import my.from_;
 
 import dextool.type;
 
@@ -123,7 +126,7 @@ final class ReportJson : FileReport, FilesReporter {
         import std.path : buildPath;
         import std.stdio : File;
         import dextool.plugin.mutate.backend.report.analyzers : reportStatistics,
-            reportDiff, DiffReport;
+            reportDiff, DiffReport, reportMutationScoreHistory;
 
         if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
@@ -152,9 +155,31 @@ final class ReportJson : FileReport, FilesReporter {
             report["diff"] = s;
         }
 
+        if (ReportSection.score_history in sections) {
+            report["score_history"] = toJson(reportMutationScoreHistory(db));
+        }
+
         File(buildPath(logDir, "report.json"), "w").write(report.toJSON(true));
     }
 
     override void endEvent(ref Database) {
     }
+}
+
+private:
+
+import dextool.plugin.mutate.backend.report.analyzers : MutationScoreHistory;
+
+JSONValue[] toJson(MutationScoreHistory data) {
+    import std.conv : to;
+
+    auto app = appender!(JSONValue[])();
+    foreach (a; data.raw) {
+        JSONValue s;
+        s["date"] = a.timeStamp.to!string;
+        s["score"] = a.score.get;
+        app.put(s);
+    }
+
+    return app.data;
 }

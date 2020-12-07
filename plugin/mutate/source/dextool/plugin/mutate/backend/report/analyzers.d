@@ -393,39 +393,96 @@ void reportMutationTestCaseSuggestion(WriterT)(ref Database db,
     }
 }
 
+/// Only the mutation score thus a subset of all statistics.
+struct MutationScore {
+    import core.time : Duration;
+
+    long alive;
+    long killed;
+    long timeout;
+    long total;
+    Duration totalTime;
+
+    // Nr of mutants that are alive but tagged with nomut.
+    long aliveNoMut;
+
+    double score() @safe pure nothrow const @nogc {
+        if (total > 0) {
+            return cast(double)(killed + timeout) / cast(double)(total - aliveNoMut);
+        }
+        return 1.0;
+    }
+}
+
+MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
+    auto profile = Profile("reportScore");
+
+    const alive = spinSql!(() { return db.aliveSrcMutants(kinds, file); });
+    const aliveNomut = spinSql!(() { return db.aliveNoMutSrcMutants(kinds, file); });
+    const killed = spinSql!(() { return db.killedSrcMutants(kinds, file); });
+    const timeout = spinSql!(() { return db.timeoutSrcMutants(kinds, file); });
+    const total = spinSql!(() { return db.totalSrcMutants(kinds, file); });
+
+    typeof(return) rval;
+    rval.alive = alive.count;
+    rval.killed = killed.count;
+    rval.timeout = timeout.count;
+    rval.total = total.count;
+    rval.aliveNoMut = aliveNomut.count;
+    rval.totalTime = total.time;
+
+    return rval;
+}
+
 /// Statistics for a group of mutants.
 struct MutationStat {
     import core.time : Duration;
     import std.range : isOutputRange;
 
-    long alive;
-    // Nr of mutants that are alive but tagged with nomut.
-    long aliveNoMut;
-    long killed;
-    long timeout;
     long untested;
     long killedByCompiler;
-    long total;
     long worklist;
 
-    Duration totalTime;
+    long alive() @safe pure nothrow const @nogc {
+        return scoreData.alive;
+    }
+
+    /// Nr of mutants that are alive but tagged with nomut.
+    long aliveNoMut() @safe pure nothrow const @nogc {
+        return scoreData.aliveNoMut;
+    }
+
+    long killed() @safe pure nothrow const @nogc {
+        return scoreData.killed;
+    }
+
+    long timeout() @safe pure nothrow const @nogc {
+        return scoreData.timeout;
+    }
+
+    long total() @safe pure nothrow const @nogc {
+        return scoreData.total;
+    }
+
+    Duration totalTime() @safe pure nothrow const @nogc {
+        return scoreData.totalTime;
+    }
+
+    MutationScore scoreData;
     Duration killedByCompilerTime;
     Duration predictedDone;
     EstimateScore estimate;
 
     /// Adjust the score with the alive mutants that are suppressed.
     double score() @safe pure nothrow const @nogc {
-        if (total > 0)
-            return cast(double)(killed + timeout) / cast(double)(total - aliveNoMut);
-        if (untested > 0)
-            return 0.0;
-        return 1.0;
+        return scoreData.score;
     }
 
     /// Suppressed mutants of the total mutants.
     double suppressedOfTotal() @safe pure nothrow const @nogc {
-        if (total > 0)
+        if (total > 0) {
             return (cast(double)(aliveNoMut) / cast(double) total);
+        }
         return 0.0;
     }
 
@@ -486,30 +543,18 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
 
     auto profile = Profile(ReportSection.summary);
 
-    const alive = spinSql!(() { return db.aliveSrcMutants(kinds, file); });
-    const alive_nomut = spinSql!(() {
-        return db.aliveNoMutSrcMutants(kinds, file);
-    });
-    const killed = spinSql!(() { return db.killedSrcMutants(kinds, file); });
-    const timeout = spinSql!(() { return db.timeoutSrcMutants(kinds, file); });
     const untested = spinSql!(() { return db.unknownSrcMutants(kinds, file); });
     const worklist = spinSql!(() { return db.getWorklistCount; });
     const killed_by_compiler = spinSql!(() {
         return db.killedByCompilerSrcMutants(kinds, file);
     });
-    const total = spinSql!(() { return db.totalSrcMutants(kinds, file); });
 
     MutationStat st;
-    st.alive = alive.count;
-    st.aliveNoMut = alive_nomut.count;
-    st.killed = killed.count;
-    st.timeout = timeout.count;
+    st.scoreData = reportScore(db, kinds, file);
     st.untested = untested.count;
-    st.total = total.count;
     st.killedByCompiler = killed_by_compiler.count;
     st.worklist = worklist;
 
-    st.totalTime = total.time;
     st.predictedDone = st.total > 0 ? (st.untested * (st.totalTime / st.total)) : 0.dur!"msecs";
     st.killedByCompilerTime = killed_by_compiler.time;
 
@@ -819,10 +864,10 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
     }
 
     // update the mutation stat for the test group
-    r.stats.alive = tc_stat.alive.length;
-    r.stats.killed = tc_stat.killed.length;
-    r.stats.timeout = tc_stat.timeout.length;
-    r.stats.total = tc_stat.total.length;
+    r.stats.scoreData.alive = tc_stat.alive.length;
+    r.stats.scoreData.killed = tc_stat.killed.length;
+    r.stats.scoreData.timeout = tc_stat.timeout.length;
+    r.stats.scoreData.total = tc_stat.total.length;
 
     // associate mutants with their file
     foreach (const m; db.getMutantsInfo(kinds, tc_stat.tcKilled.toArray)) {
@@ -1163,4 +1208,40 @@ EstimateScore reportEstimate(ref Database db, const Mutation.Kind[] kinds) @trus
         logger.warning(e.msg).collectException;
     }
     return rval;
+}
+
+/** History of how the mutation score have evolved over time.
+ *
+ * The history is ordered in ascending order by date.
+ */
+struct MutationScoreHistory {
+    import dextool.plugin.mutate.backend.database.type : MutationScore;
+
+    MutationScore[] raw;
+    /// only one score for each date.
+    MutationScore[] pretty;
+}
+
+MutationScoreHistory reportMutationScoreHistory(ref Database db) @safe {
+    import std.datetime : DateTime, Date;
+    import dextool.plugin.mutate.backend.database.type : MutationScore;
+
+    auto data = db.getMutationScoreHistory();
+    auto pretty = appender!(MutationScore[])();
+
+    if (data.length < 2) {
+        return MutationScoreHistory(data, data);
+    }
+
+    pretty.put(data[0]);
+    auto last = (cast(DateTime) data[0].timeStamp).date;
+    foreach (a; data[1 .. $]) {
+        auto curr = (cast(DateTime) a.timeStamp).date;
+        if (curr != last) {
+            last = curr;
+            pretty.put(a);
+        }
+    }
+
+    return MutationScoreHistory(data, pretty.data);
 }

@@ -1958,6 +1958,49 @@ struct Database {
                 runtimes.enumerate.map!(a => RuntimeHistoryTable(a.index,
                     a.value.timeStamp, a.value.runtime.total!"msecs")));
     }
+
+    /// Returns: the stored scores in ascending order by their `time`.
+    MutationScore[] getMutationScoreHistory() @trusted {
+        import std.algorithm : sort;
+
+        auto app = appender!(MutationScore[])();
+        foreach (r; db.run(select!MutationScoreHistoryTable)) {
+            app.put(MutationScore(r.timeStamp, typeof(MutationScore.score)(r.score)));
+        }
+
+        return app.data.sort!((a, b) => a.timeStamp < b.timeStamp).array;
+    }
+
+    /// Add a mutation score to the history table.
+    void putMutationScore(const MutationScore score) @trusted {
+        db.run(insert!MutationScoreHistoryTable, MutationScoreHistoryTable(0,
+                score.timeStamp, score.score.get));
+    }
+
+    /// Trim the mutation score history table to only contain the last `keep` scores.
+    void trimMutationScore(const long keep) @trusted {
+        auto stmt = db.prepare(format!"SELECT count(*) FROM %s"(mutationScoreHistoryTable));
+        const sz = stmt.get.execute.oneValue!long;
+
+        if (sz < keep) {
+            return;
+        }
+
+        auto ids = appender!(long[])();
+        stmt = db.prepare(format!"SELECT t0.id FROM t0 %s ORDER BY t0.time ASC LIMIT :limit"(
+                mutationScoreHistoryTable));
+        stmt.get.bind(":limit", sz - keep);
+        foreach (a; stmt.get.execute) {
+            ids.put(a.peek!long(0));
+        }
+
+        stmt = db.prepare(format!"DELETE FROM %s WHERE id = :id"(mutationScoreHistoryTable));
+        foreach (a; ids.data) {
+            stmt.get.bind(":id", a);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
+    }
 }
 
 private:

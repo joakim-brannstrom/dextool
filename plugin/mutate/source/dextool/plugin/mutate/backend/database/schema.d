@@ -83,6 +83,7 @@ immutable schemataTable = "schemata";
 immutable schemataUsedTable = "schemata_used";
 immutable srcMetadataTable = "src_metadata";
 immutable runtimeHistoryTable = "test_cmd_runtime_history";
+immutable mutationScoreHistoryTable = "mutation_score_history";
 
 private immutable invalidSchemataTable = "invalid_schemata";
 private immutable schemataWorkListTable = "schemata_worklist";
@@ -512,6 +513,17 @@ struct RuntimeHistoryTable {
     long timeMs;
 }
 
+@TableName(mutationScoreHistoryTable)
+struct MutationScoreHistoryTable {
+    long id;
+
+    /// when the measurement was taken.
+    @ColumnName("time")
+    SysTime timeStamp;
+
+    double score;
+}
+
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
         db.run(delete_!VersionTbl);
@@ -620,10 +632,12 @@ void upgradeV0(ref Miniorm db) {
 
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl,
             MutationPointTbl, MutationTbl, TestCaseKilledTbl, AllTestCaseTbl,
-            MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl,
-            MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl, NomutDataTbl,
-            SchemataTable, SchemataFragmentTable, SchemataMutantTable,
-            SchemataUsedTable, MutantWorklistTbl, RuntimeHistoryTable));
+            MutationStatusTbl, MutantTimeoutCtxTbl,
+            MutantTimeoutWorklistTbl, MarkedMutantTbl, SrcMetadataTable,
+            NomutTbl, NomutDataTbl, NomutDataTbl, SchemataTable,
+            SchemataFragmentTable,
+            SchemataMutantTable, SchemataUsedTable, MutantWorklistTbl,
+            RuntimeHistoryTable, MutationScoreHistoryTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1098,6 +1112,11 @@ void upgradeV22(ref Miniorm db) {
 /// 2020-12-06
 void upgradeV23(ref Miniorm db) {
     db.run(buildSchema!(RuntimeHistoryTable));
+}
+
+/// 2020-12-06
+void upgradeV24(ref Miniorm db) {
+    db.run(buildSchema!(MutationScoreHistoryTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

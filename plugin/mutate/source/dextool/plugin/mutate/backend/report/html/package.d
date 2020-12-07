@@ -102,12 +102,12 @@ struct FileIndex {
         import std.path : buildPath;
         import std.stdio : File;
         import dextool.plugin.mutate.backend.report.html.page_files;
-        import dextool.plugin.mutate.backend.report.analyzers : reportStatistics;
+        import dextool.plugin.mutate.backend.report.analyzers : reportScore;
 
         const original = fr.file.dup.pathToHtml;
         const report = (original ~ htmlExt).Path;
 
-        auto stat = reportStatistics(db, kinds, fr.file);
+        auto stat = reportScore(db, kinds, fr.file);
 
         files.put(FileIndex(report, fr.file, stat.alive,
                 stat.killed + stat.timeout + stat.aliveNoMut, stat.total, stat.aliveNoMut));
@@ -285,17 +285,20 @@ struct FileIndex {
     override void postProcessEvent(ref Database db) @trusted {
         import std.datetime : Clock;
         import std.path : buildPath, baseName;
+        import dextool.plugin.mutate.backend.report.html.page_dead_test_case;
         import dextool.plugin.mutate.backend.report.html.page_diff;
         import dextool.plugin.mutate.backend.report.html.page_long_term_view;
         import dextool.plugin.mutate.backend.report.html.page_minimal_set;
         import dextool.plugin.mutate.backend.report.html.page_nomut;
         import dextool.plugin.mutate.backend.report.html.page_stats;
+        import dextool.plugin.mutate.backend.report.html.page_test_case_full_overlap;
         import dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_case_stat;
         import dextool.plugin.mutate.backend.report.html.page_test_case_unique;
         import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
         import dextool.plugin.mutate.backend.report.html.page_tree_map;
+        import dextool.plugin.mutate.backend.report.html.page_score_history;
 
         auto index = tmplBasicPage;
         index.title = format("Mutation Testing Report %(%s %) %s",
@@ -346,6 +349,19 @@ struct FileIndex {
         if (ReportSection.tc_unique in sections) {
             addSubPage(() => makeTestCaseUnique(db, conf, humanReadableKinds,
                     kinds), "test_case_unique", "Test Case Uniqueness");
+        }
+        if (ReportSection.tc_killed_no_mutants in sections) {
+            addSubPage(() => makeDeadTestCase(db, conf, humanReadableKinds, kinds),
+                    "killed_no_mutants_test_cases", "Killed No Mutants Test Cases");
+        }
+        if (ReportSection.tc_full_overlap in sections
+                || ReportSection.tc_full_overlap_with_mutation_id in sections) {
+            addSubPage(() => makeFullOverlapTestCase(db, conf, humanReadableKinds,
+                    kinds), "full_overlap_test_cases", "Full Overlap Test Cases");
+        }
+        if (ReportSection.score_history in sections) {
+            addSubPage(() => makeScoreHistory(db, conf, humanReadableKinds,
+                    kinds), "score_history", "Mutation Score History");
         }
 
         files.data.toIndex(index.mainBody, htmlFileDir);
