@@ -1003,7 +1003,7 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
 
         testConsecutiveSparseOrder!Re([
                 `.*Using random seed 42`,
-                `.*Test sequence \[7, 3, 6, 5, 20, 13, 1, 18, 14, 19, 12, 16, 17, 8, 9, 11, 15, 10, 2, 4\]`,
+                `.*Test sequence \[7, 13, 15, 14, 18, 10, 21, 1, 6, 4, 2, 20, 16, 9, 17, 12, 3, 5, 19, 8, 11\]`,
                 ]).shouldBeIn(r.output);
         // dfmt on
     }

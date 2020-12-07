@@ -118,27 +118,14 @@ class ShallDeleteSwitchCase : SchemataFixutre {
         precondition(testEnv);
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "sdl"]).addFlag("-std=c++11").run;
+        auto r = runDextoolTest(testEnv).addPostArg([
+                "--mutant", "sdl", "--mutant", "dcr"
+                ]).addFlag("-std=c++11").run;
 
         testAnyOrder!SubStr([
-                `from 'fn(2)' to ''`, `from 'fn(2);' to ''`, `from 'fn(3)' to ''`,
-                `from 'fn(4)' to ''`, `from 'fn(2)' to ''`, `from 'fn(3)' to ''`,
-                `from 'fn(4)' to ''`, `from 'x = 42' to ''`,
+                `from 'fn(2);' to ''`, `from 'fn(3)' to ''`, `from 'fn(4)' to ''`,
+                `from 'rval = 0;' to ''`, `from 'rval = 1;' to ''`,
                 ]).shouldBeIn(r.output);
-
-        testConsecutiveSparseOrder!SubStr([
-                `from '{`, `fn(2);`, `fn(3);`, `fn(4);`, `break;`, `}' to ''`,
-                ]).shouldBeIn(r.output);
-
-        testConsecutiveSparseOrder!SubStr([
-                `from '`, `fn(2);`, `fn(3);`, `fn(4);`, `break;`, `' to ''`
-                ]).shouldBeIn(r.output);
-
-        testConsecutiveSparseOrder!SubStr([`from 'default:`, `x = 42' to ''`,]).shouldBeIn(
-                r.output);
-
-        testConsecutiveSparseOrder!SubStr([`from 'default:`, `x = 42;' to ''`,]).shouldBeIn(
-                r.output);
     }
 }
 
