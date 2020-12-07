@@ -35,4 +35,25 @@ int test_switch(int x) {
     return x;
 }
 
+namespace MyEnum {
+enum Enum { passed, failed };
+}
+
+int test_switch2(MyEnum::Enum x) {
+    int rval = 0;
+
+    switch (x) {
+    case MyEnum::Enum::passed:
+        rval = 0;
+        break;
+    case MyEnum::Enum::failed:
+        rval = 1;
+        break;
+    default:
+        break;
+    }
+
+    return rval;
+}
+
 int main(int argc, char** argv) { return 0; }

@@ -699,6 +699,19 @@ final class BaseVisitor : ExtendedVisitor {
         branch.inside = inside;
         pushStack(inside, v);
 
+        {
+            incr;
+            scope (exit)
+                decr;
+
+            auto invalid = new analyze.Invalid;
+            invalid.blacklist = true;
+            auto loc = v.cursor.toLocation;
+            inside.children ~= invalid;
+            ast.put(invalid, loc);
+            pushStack(invalid, loc, v.cursor.kind);
+        }
+
         v.accept(this);
 
         branch.children = [inside];
@@ -946,11 +959,34 @@ final class BaseVisitor : ExtendedVisitor {
         incr;
         scope (exit)
             decr;
+
         auto inner = new analyze.Block;
         ast.put(inner, res.get.insideBranch);
         branch.children ~= inner;
         branch.inside = inner;
         pushStack(inner, res.get.insideBranch, v.cursor.kind);
+
+        // block schemata mutants of whole case branches. The generated code
+        // behave semantically different from a source code mutation. Add a
+        // blacklisted invalid node to block schematan.
+        // I have been unable to construct a test case that repeat the bug in
+        // llvm-9. It occured in llvm-8.
+        if (res.get.branch.interval.begin < res.get.insideBranch.interval.begin) {
+            incr;
+            scope (exit)
+                decr;
+
+            auto invalid = new analyze.Invalid;
+            invalid.blacklist = true;
+            auto loc = new analyze.Location(res.get.branch.file,
+                    analyze.Interval(res.get.branch.interval.begin,
+                        res.get.insideBranch.interval.begin),
+                    analyze.SourceLocRange(res.get.branch.sloc.begin,
+                        res.get.insideBranch.sloc.begin));
+            inner.children ~= invalid;
+            ast.put(invalid, loc);
+            pushStack(invalid, loc, v.cursor.kind);
+        }
 
         dispatch(res.get.inner, this);
     }
@@ -1040,11 +1076,19 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
             //logger.tracef("%s children %s", n.kind, n.children.map!(a => a.kind));
             if (n.kind == analyze.Kind.Branch) {
                 // the expected case, one child with one block.
+                // for a nested
                 if (n.children.length == 1 && n.children[0].kind == analyze.Kind.Block) {
-                    //app.put(n.children);
                     app.put(flatten(n.children[0].children));
                     n.children[0].children = null;
-                    //n.children = null;
+                } else if (n.children.length > 1 && n.children[0].kind == analyze.Kind.Block) {
+                    app.put(n.children[0].children);
+                    app.put(n.children[1 .. $]);
+
+                    n.children[0].children = null;
+                    n.children = n.children[0 .. 1];
+                } else {
+                    app.put(n.children);
+                    n.children = null;
                 }
             }
         }
@@ -1134,7 +1178,10 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
     auto merge = appender!(analyze.Node[])();
 
     void updateNode(analyze.Node n) {
-        if (curr.children.length == 1 && curr.children[0].kind == analyze.Kind.Block) {
+        //() @trusted {
+        //logger.tracef("%s %X", n.kind, cast(const(void)*) n);
+        //}();
+        if (curr.children.length >= 1 && curr.children[0].kind == analyze.Kind.Block) {
             curr.children[0].children = merge.data.dup;
         } else {
             curr.children = merge.data.dup;

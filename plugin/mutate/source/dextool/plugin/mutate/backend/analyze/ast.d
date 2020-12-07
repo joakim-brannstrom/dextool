@@ -308,6 +308,7 @@ alias Nodes = AliasSeq!(
     Constructor,
     Expr,
     Function,
+    Invalid,
     Loop,
     Node,
     OpAdd,
@@ -354,6 +355,7 @@ enum Kind {
     Constructor,
     Expr,
     Function,
+    Invalid,
     Loop,
     Node,
     OpAdd,
@@ -449,6 +451,11 @@ class DepthFirstVisitor : Visitor {
 }
 
 class TranslationUnit : Node {
+    mixin NodeKind;
+}
+
+/// A node that is invalid to mutate. Use as a blocker.
+class Invalid : Node {
     mixin NodeKind;
 }
 

@@ -337,8 +337,12 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     alias visit = DepthFirstVisitor.visit;
 
-    override void visit(Branch n) {
-        if (n.inside !is null) {
+    override void visit(Branch n) @trusted {
+        auto invalidAnalyze = scoped!InvalidVisitor(ast);
+        invalidAnalyze.startVisit(n);
+
+        // block schematan of this node if it contains an Invalid node.
+        if (n.inside !is null && !invalidAnalyze.hasInvalid) {
             visitBlock!BlockChain(n, MutantGroup.dcr, dcrMutationsAll);
             visitBlock!BlockChain(n.inside, MutantGroup.dcc, dccMutationsAll);
         }
@@ -960,4 +964,25 @@ auto contentOrNull(uint begin, uint end, const(ubyte)[] content) {
     if (begin >= end)
         return null;
     return content[begin .. end];
+}
+
+/// Analyze the AST to see if it contains an Invalid node.
+class InvalidVisitor : DepthFirstVisitor {
+    RefCounted!Ast ast;
+    bool hasInvalid;
+
+    this(RefCounted!Ast ast) {
+        this.ast = ast;
+    }
+
+    /// The node to start analysis from.
+    void startVisit(Node n) {
+        visit(n);
+    }
+
+    alias visit = DepthFirstVisitor.visit;
+
+    override void visit(Invalid n) {
+        hasInvalid = true;
+    }
 }
