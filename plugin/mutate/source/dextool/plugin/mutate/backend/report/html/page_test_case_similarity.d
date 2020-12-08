@@ -32,7 +32,7 @@ auto makeTestCaseSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
     auto doc = tmplBasicPage;
     doc.title(format("Test Case Similarity Analyse %(%s %) %s",
             humanReadableKinds, Clock.currTime));
-    doc.mainBody.setAttribute("onload", "init()");
+    doc.mainBody.setAttribute("onload", "init();make_graph(g_data);");
 
     auto script = doc.root.childElements("head")[0].addChild("script");
     script.addChild(new RawSource(doc, jsTableOnClick));
@@ -40,13 +40,16 @@ auto makeTestCaseSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
 
     toHtml(db, doc, reportTestCaseSimilarityAnalyse(db, kinds, 5), doc.mainBody, script);
 
+    script.addChild(new RawSource(doc, jsD3Mini));
+    script.appendText("\n");
 
     return doc.toPrettyString;
 }
 
 private:
 
-void toHtml(ref Database db, Document doc, TestCaseSimilarityAnalyse result, Element root, Element script) {
+void toHtml(ref Database db, Document doc, TestCaseSimilarityAnalyse result,
+        Element root, Element script) {
     import std.algorithm : sort, map;
     import std.array : array, appender;
     import std.conv : to;
@@ -63,6 +66,8 @@ void toHtml(ref Database db, Document doc, TestCaseSimilarityAnalyse result, Ele
         p.addChild("b", "Note");
         p.appendText(": The analysis is based on the mutants that the test cases kill; thus, it is dependent on the mutation operators that are used when generating the report.");
     }
+
+    root.addChild("div").setAttribute("id", "chart");
 
     auto getPath = nullableCache!(MutationId, string, (MutationId id) {
         auto path = spinSql!(() => db.getPath(id)).get;
@@ -84,7 +89,13 @@ void toHtml(ref Database db, Document doc, TestCaseSimilarityAnalyse result, Ele
         setAttribute("type", "button");
         setAttribute("id", "collapse_all");
     }
+
+    auto tcNames = appender!(string[])();
+    auto links = appender!(Link[])();
+
     foreach (const tc; test_cases) {
+        tcNames.put(tc.name);
+
         // Containers allows for hiding a table by clicking the corresponding header.
         // Defaults to hiding tables.
         auto comp_container = root.addChild("div").addClass("comp_container");
@@ -98,6 +109,8 @@ void toHtml(ref Database db, Document doc, TestCaseSimilarityAnalyse result, Ele
                 "Test Case", "Similarity", "Difference", "Intersection"
                 ]);
         foreach (const d; result.similarities[tc]) {
+            links.put(Link(tc.name, d.testCase.name, d.similarity));
+
             auto r = tbl.appendRow();
             r.addChild("td", d.testCase.name);
             r.addChild("td", format("%#.3s", d.similarity));
@@ -115,4 +128,32 @@ void toHtml(ref Database db, Document doc, TestCaseSimilarityAnalyse result, Ele
             }
         }
     }
+
+    long group = 1;
+    JSONValue toNode(string name) {
+        JSONValue j;
+        j["id"] = name;
+        j["group"] = group++;
+        return j;
+    }
+
+    JSONValue toLink(Link l) {
+        JSONValue j;
+        j["source"] = l.src;
+        j["target"] = l.dst;
+        j["value"] = 1.0 + (1.0 - l.similarity);
+        return j;
+    }
+
+    JSONValue data;
+    data["nodes"] = tcNames.data.map!(a => toNode(a)).array;
+    data["links"] = links.data.map!(a => toLink(a)).array;
+
+    script.addChild(new RawSource(doc, format!"const g_data = %s;\n"(data)));
+}
+
+struct Link {
+    string src;
+    string dst;
+    double similarity;
 }
