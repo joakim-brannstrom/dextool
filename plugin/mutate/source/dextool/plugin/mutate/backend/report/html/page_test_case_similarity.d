@@ -28,47 +28,47 @@ import dextool.plugin.mutate.type : MutationKind;
 
 auto makeTestCaseSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
+
     auto doc = tmplBasicPage;
-
-    auto s = doc.root.childElements("head")[0].addChild("script");
-    s.addChild(new RawSource(doc, js_similarity));
-
     doc.title(format("Test Case Similarity Analyse %(%s %) %s",
             humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");
-    doc.mainBody.addChild("p", "This is the similarity between test cases.");
-    {
-        auto p = doc.mainBody.addChild("p");
-        p.addChild("b", "Note");
-        p.appendText(": The analysis is based on the mutants that the test cases kill; thus, it is dependent on the mutation operators that are used when generating the report.");
-    }
 
-    toHtml(db, reportTestCaseSimilarityAnalyse(db, kinds, 5), doc.mainBody);
+    auto script = doc.root.childElements("head")[0].addChild("script");
+    script.addChild(new RawSource(doc, jsTableOnClick));
+
+    toHtml(db, doc, reportTestCaseSimilarityAnalyse(db, kinds, 5), doc.mainBody, script);
 
     return doc.toPrettyString;
 }
 
 private:
 
-void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
+void toHtml(ref Database db, Document doc, TestCaseSimilarityAnalyse result,
+        Element root, Element script) {
     import std.algorithm : sort, map;
-    import std.array : array;
+    import std.array : array, appender;
     import std.conv : to;
+    import std.json : JSONValue;
     import std.path : buildPath;
     import dextool.cachetools;
     import dextool.plugin.mutate.backend.database : spinSql, MutationId;
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
     import dextool.type : Path;
 
+    root.addChild("p", "This is the similarity between test cases.");
+    {
+        auto p = root.addChild("p");
+        p.addChild("b", "Note");
+        p.appendText(": The analysis is based on the mutants that the test cases kill; thus, it is dependent on the mutation operators that are used when generating the report.");
+    }
+
     auto getPath = nullableCache!(MutationId, string, (MutationId id) {
         auto path = spinSql!(() => db.getPath(id)).get;
         return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
     })(0, 30.dur!"seconds");
 
-    //const distances = result.distances.length;
     const test_cases = result.similarities.byKey.array.sort!((a, b) => a < b).array;
-
-    //auto mat = tmplDefaultMatrixTable(root, test_cases.map!(a => a.name.idup).array);
 
     root.addChild("p", "The intersection column is the mutants that are killed by both the test case in the heading and in the column Test Case.")
         .appendText(
