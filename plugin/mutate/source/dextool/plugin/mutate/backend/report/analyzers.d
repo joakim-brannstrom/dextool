@@ -35,7 +35,13 @@ import dextool.plugin.mutate.backend.utility : Profile;
 import dextool.plugin.mutate.type : ReportKillSortOrder, ReportLevel, ReportSection;
 import dextool.type;
 
+static import dextool.plugin.mutate.backend.database.type;
+
 public import dextool.plugin.mutate.backend.report.utility : Table;
+
+version (unittest) {
+    import unit_threaded.assertions;
+}
 
 @safe:
 
@@ -1223,25 +1229,55 @@ struct MutationScoreHistory {
 }
 
 MutationScoreHistory reportMutationScoreHistory(ref Database db) @safe {
-    import std.datetime : DateTime, Date;
+    return reportMutationScoreHistory(db.getMutationScoreHistory);
+}
+
+private MutationScoreHistory reportMutationScoreHistory(
+        dextool.plugin.mutate.backend.database.type.MutationScore[] data) {
+    import std.datetime : DateTime, Date, SysTime;
     import dextool.plugin.mutate.backend.database.type : MutationScore;
 
-    auto data = db.getMutationScoreHistory();
     auto pretty = appender!(MutationScore[])();
 
     if (data.length < 2) {
         return MutationScoreHistory(data, data);
     }
 
-    pretty.put(data[0]);
     auto last = (cast(DateTime) data[0].timeStamp).date;
+    double acc = data[0].score.get;
+    double nr = 1;
     foreach (a; data[1 .. $]) {
         auto curr = (cast(DateTime) a.timeStamp).date;
-        if (curr != last) {
+        if (curr == last) {
+            acc += a.score.get;
+            nr++;
+        } else {
+            pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr)));
             last = curr;
-            pretty.put(a);
+            acc = a.score.get;
+            nr = 1;
         }
     }
+    pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr)));
 
     return MutationScoreHistory(data, pretty.data);
+}
+
+@("shall calculate the mean of the mutation scores")
+unittest {
+    import core.time : days;
+    import std.datetime : DateTime, SysTime;
+    import dextool.plugin.mutate.backend.database.type : MutationScore;
+
+    auto data = appender!(MutationScore[])();
+    auto d = DateTime(2000, 6, 1, 10, 30, 0);
+
+    data.put(MutationScore(SysTime(d), typeof(MutationScore.score)(10.0)));
+    data.put(MutationScore(SysTime(d), typeof(MutationScore.score)(5.0)));
+    data.put(MutationScore(SysTime(d + 1.days), typeof(MutationScore.score)(5.0)));
+
+    auto res = reportMutationScoreHistory(data.data);
+
+    res.pretty[0].score.get.shouldEqual(7.5);
+    res.pretty[1].score.get.shouldEqual(5.0);
 }
