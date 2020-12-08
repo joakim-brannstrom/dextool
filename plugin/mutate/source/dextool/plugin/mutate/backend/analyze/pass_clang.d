@@ -414,12 +414,12 @@ final class BaseVisitor : ExtendedVisitor {
         n.blacklist = n.blacklist || blacklist.inside(l);
         nstack.put(n, indent);
         cstack.put(cKind, indent);
+        ast.put(n, l);
     }
 
     /// Returns: true if it is OK to modify the cursor
     private void pushStack(AstT, ClangT)(AstT n, ClangT c) @trusted {
         auto loc = c.cursor.toLocation;
-        ast.put(n, loc);
         nstack.back.children ~= n;
         pushStack(n, loc, c.kind);
     }
@@ -433,7 +433,6 @@ final class BaseVisitor : ExtendedVisitor {
 
         ast.root = new analyze.TranslationUnit;
         auto loc = v.cursor.toLocation;
-        ast.put(ast.root, loc);
         pushStack(ast.root, loc, v.cursor.kind);
 
         // it is most often invalid
@@ -669,7 +668,6 @@ final class BaseVisitor : ExtendedVisitor {
                     }
 
                     auto n = new analyze.Block;
-                    ast.put(n, loc);
                     nstack.back.children ~= n;
                     pushStack(n, loc, v.cursor.kind);
                 } else {
@@ -684,24 +682,73 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const CaseStmt v) {
         mixin(mixinNodeLog!());
-        visitCaseStmt(v);
+
+        if (isDirectParent(CXCursorKind.caseStmt)) {
+            // the previous case statement was a fallthrough.
+            rewriteCaseToFallthrough(ast, nstack[$ - 2].data);
+        }
+
+        auto res = caseStmtCursor(v);
+        if (res.isNull) {
+            pushStack(new analyze.Block, v);
+            v.accept(this);
+            return;
+        }
+
+        auto branch = new analyze.Branch;
+        nstack.back.children ~= branch;
+        pushStack(branch, res.get.branch, v.cursor.kind);
+
+        // create a node depth that diverge from the clang AST wherein the
+        // inside of a case stmt is modelled as a block.
+        incr;
+        scope (exit)
+            decr;
+
+        auto inner = new analyze.Block;
+        branch.children ~= inner;
+        branch.inside = inner;
+        pushStack(inner, res.get.insideBranch, v.cursor.kind);
+
+        dispatch(res.get.inner, this);
     }
 
     override void visit(const DefaultStmt v) {
         mixin(mixinNodeLog!());
+
+        if (isDirectParent(CXCursorKind.caseStmt)) {
+            // the previous case statement was a fallthrough.
+            rewriteCaseToFallthrough(ast, nstack[$ - 2].data);
+        }
+
         auto branch = new analyze.Branch;
         pushStack(branch, v);
 
         incr;
         scope (exit)
             decr;
+
+        auto loc = () {
+            auto loc = ast.location(branch);
+            auto l = new analyze.Location(loc.file, loc.interval, loc.sloc);
+
+            const default_ = "default:";
+            if ((l.interval.end - l.interval.begin) < default_.length) {
+                return l;
+            }
+            l.interval.begin += default_.length;
+            l.sloc.begin.column += default_.length;
+            return l;
+        }();
+
         auto inside = new analyze.Block;
         branch.inside = inside;
-        pushStack(inside, v);
-
-        v.accept(this);
+        branch.children ~= inside;
+        pushStack(inside, loc, v.cursor.kind);
 
         branch.children = [inside];
+
+        v.accept(this);
     }
 
     override void visit(const ForStmt v) {
@@ -909,7 +956,6 @@ final class BaseVisitor : ExtendedVisitor {
     private void visitFunc(T)(ref const T v) @trusted {
         auto loc = v.cursor.toLocation;
         auto n = new analyze.Function;
-        ast.put(n, loc);
         nstack.back.children ~= n;
         pushStack(n, loc, v.cursor.kind);
 
@@ -926,34 +972,6 @@ final class BaseVisitor : ExtendedVisitor {
         }
 
         v.accept(this);
-    }
-
-    private void visitCaseStmt(T)(ref const T v) @trusted {
-        auto res = caseStmtCursor(v);
-        if (res.isNull) {
-            pushStack(new analyze.Block, v);
-            v.accept(this);
-            return;
-        }
-
-        auto branch = new analyze.Branch;
-        ast.put(branch, res.get.branch);
-        nstack.back.children ~= branch;
-        pushStack(branch, res.get.branch, v.cursor.kind);
-
-        // create a node depth that diverge from the clang AST wherein the
-        // inside of a case stmt is modelled as a block.
-        incr;
-        scope (exit)
-            decr;
-
-        auto inner = new analyze.Block;
-        ast.put(inner, res.get.insideBranch);
-        branch.children ~= inner;
-        branch.inside = inner;
-        pushStack(inner, res.get.insideBranch, v.cursor.kind);
-
-        dispatch(res.get.inner, this);
     }
 }
 
@@ -1011,6 +1029,30 @@ final class EnumVisitor : ExtendedVisitor {
 
         return new analyze.DiscreteType(analyze.Range(l, u));
     }
+}
+
+/** Rewrite the node to correctly represent a case statement as a fallthrough.
+ *
+ * - Branch
+ *      - Block
+ *
+ * to a Branch which only covers the `case X:` and an empty block
+ */
+void rewriteCaseToFallthrough(ref analyze.Ast ast, analyze.Node node) {
+    if (node.kind != analyze.Kind.Branch) {
+        return;
+    }
+
+    auto branch = cast(analyze.Branch) node;
+
+    auto loc = ast.location(branch);
+    auto iloc = ast.location(branch.inside);
+
+    loc.interval.end = iloc.interval.begin;
+    loc.sloc.end = iloc.sloc.begin;
+
+    iloc.interval.end = iloc.interval.begin;
+    iloc.sloc.end = iloc.sloc.begin;
 }
 
 /** Rewrite the structure of a switch statement from:
