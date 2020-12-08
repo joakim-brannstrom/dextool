@@ -636,7 +636,7 @@ class MutantVisitor : DepthFirstVisitor {
             // removing the whole branch because then e.g. a switch-block would
             // jump to the default branch. It becomes "more" predictable what
             // happens compared to "falling through to the next case".
-            put(ast.location(n), dcrMutations(n.kind), n.blacklist);
+            put(ast.location(n.inside), dcrMutations(n.kind), n.inside.blacklist);
 
             put(ast.location(n.inside), dccMutations(n.kind), n.inside.blacklist);
         }
