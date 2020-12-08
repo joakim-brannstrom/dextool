@@ -699,19 +699,6 @@ final class BaseVisitor : ExtendedVisitor {
         branch.inside = inside;
         pushStack(inside, v);
 
-        {
-            incr;
-            scope (exit)
-                decr;
-
-            auto invalid = new analyze.Invalid;
-            invalid.blacklist = true;
-            auto loc = v.cursor.toLocation;
-            inside.children ~= invalid;
-            ast.put(invalid, loc);
-            pushStack(invalid, loc, v.cursor.kind);
-        }
-
         v.accept(this);
 
         branch.children = [inside];
@@ -965,28 +952,6 @@ final class BaseVisitor : ExtendedVisitor {
         branch.children ~= inner;
         branch.inside = inner;
         pushStack(inner, res.get.insideBranch, v.cursor.kind);
-
-        // block schemata mutants of whole case branches. The generated code
-        // behave semantically different from a source code mutation. Add a
-        // blacklisted invalid node to block schematan.
-        // I have been unable to construct a test case that repeat the bug in
-        // llvm-9. It occured in llvm-8.
-        if (res.get.branch.interval.begin < res.get.insideBranch.interval.begin) {
-            incr;
-            scope (exit)
-                decr;
-
-            auto invalid = new analyze.Invalid;
-            invalid.blacklist = true;
-            auto loc = new analyze.Location(res.get.branch.file,
-                    analyze.Interval(res.get.branch.interval.begin,
-                        res.get.insideBranch.interval.begin),
-                    analyze.SourceLocRange(res.get.branch.sloc.begin,
-                        res.get.insideBranch.sloc.begin));
-            inner.children ~= invalid;
-            ast.put(invalid, loc);
-            pushStack(invalid, loc, v.cursor.kind);
-        }
 
         dispatch(res.get.inner, this);
     }

@@ -138,7 +138,7 @@ unittest {
     ]).shouldBeIn(r.output);
 }
 
-@(testId ~ "shall produce 4 switch deletion mutations")
+@(testId ~ "shall produce 3 switch deletion mutations (fallthrough ignored)")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
@@ -149,16 +149,9 @@ unittest {
         .addArg(["--mutant", "dcr"])
         .run;
     testConsecutiveSparseOrder!SubStr([
-        "from 'case 0:",
-        "return -1 ;' to ''",
-
-        "from 'case 1:",
-        "return 1;' to ''",
-
-        "from 'case 3:",
-        "break;' to ''",
-
-        "from 'case 4:' to ''",
+        "from 'return -1 ;' to ''",
+        "from 'return 1;' to ''",
+        "from 'break;' to ''",
     ]).shouldBeIn(r.output);
 }
 
