@@ -30,12 +30,36 @@ import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table,
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
+import dextool.plugin.mutate.backend.utility : Profile;
 
 @safe:
 
+void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf, FilesysIO fio) {
+    import dextool.plugin.mutate.backend.utility;
+
+    const kinds = dextool.plugin.mutate.backend.utility.toInternal(userKinds);
+
+    auto a = new ReportPlain(kinds, conf, fio);
+
+    a.mutationKindEvent(userKinds);
+
+    {
+        auto profile = Profile("iterate mutants for report");
+        void iter(const ref IterateMutantRow row) {
+            a.locationEvent(db, row);
+        }
+
+        db.iterateMutants(kinds, &iter);
+    }
+
+    auto profile = Profile("post process report");
+    a.locationStatEvent;
+    a.statEvent(db);
+}
+
 /** Report mutations in a format easily readable by a human.
  */
-@safe final class ReportPlain : ReportEvent {
+@safe final class ReportPlain {
     import std.array : Appender;
     import dextool.plugin.mutate.backend.utility;
     import my.set;
@@ -64,16 +88,13 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
             this.sections.add(a);
     }
 
-    override void mutationKindEvent(const MutationKind[] kind_) {
+    void mutationKindEvent(const MutationKind[] kind_) {
         import std.stdio : writefln;
 
         writefln("Mutation operators: %(%s, %)", kind_);
     }
 
-    override void locationStartEvent(ref Database db) @safe {
-    }
-
-    override void locationEvent(ref Database db, const ref IterateMutantRow r) @trusted {
+    void locationEvent(ref Database db, const ref IterateMutantRow r) @trusted {
         void report() {
             MakeMutationTextResult mut_txt;
             AbsolutePath abs_path;
@@ -187,10 +208,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
         }
     }
 
-    override void locationEndEvent() {
-    }
-
-    override void locationStatEvent() {
+    void locationStatEvent() {
         import std.stdio : writeln;
 
         if (ReportSection.tc_map in sections && testCaseMutationKilled.length != 0) {
@@ -219,7 +237,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
         }
     }
 
-    override void statEvent(ref Database db) {
+    void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln, writefln;
         import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap,
             reportTestCaseStats, reportMutationTestCaseSuggestion,

@@ -22,12 +22,37 @@ import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.type : MutationKind, ReportLevel;
+import dextool.plugin.mutate.config : ConfigReport;
+import dextool.plugin.mutate.backend.utility : Profile;
+
+@safe:
+
+void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf, FilesysIO fio) {
+    import dextool.plugin.mutate.backend.utility;
+
+    const kinds = dextool.plugin.mutate.backend.utility.toInternal(userKinds);
+
+    auto a = new ReportCompiler(kinds, conf.reportLevel, fio);
+
+    a.mutationKindEvent(userKinds);
+
+    {
+        auto profile = Profile("iterate mutants for report");
+        void iter(const ref IterateMutantRow row) {
+            a.locationEvent(db, row);
+        }
+
+        db.iterateMutants(kinds, &iter);
+    }
+
+    auto profile = Profile("post process report");
+}
 
 /** Report mutations as gcc would do for compilation warnings with fixit hints.
  *
  * #SPC-report_for_tool_integration
  */
-@safe final class ReportCompiler : ReportEvent {
+final class ReportCompiler {
     import std.algorithm : each;
     import std.conv : to;
     import std.format : format;
@@ -39,13 +64,13 @@ import dextool.plugin.mutate.type : MutationKind, ReportLevel;
 
     CompilerConsole!SimpleWriter compiler;
 
-    this(Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
+    this(const Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
         this.kinds = kinds;
         this.report_level = report_level;
         this.fio = fio;
     }
 
-    override void mutationKindEvent(const MutationKind[]) {
+    void mutationKindEvent(const MutationKind[]) {
         compiler = CompilerConsole!SimpleWriter(delegate(const(char)[] s) @trusted {
             import std.stdio : stderr, write;
 
@@ -53,10 +78,7 @@ import dextool.plugin.mutate.type : MutationKind, ReportLevel;
         });
     }
 
-    override void locationStartEvent(ref Database db) {
-    }
-
-    override void locationEvent(ref Database db, const ref IterateMutantRow r) @trusted {
+    void locationEvent(ref Database db, const ref IterateMutantRow r) @trusted {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
         void report() {
@@ -107,15 +129,6 @@ import dextool.plugin.mutate.type : MutationKind, ReportLevel;
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
-    }
-
-    override void locationEndEvent() {
-    }
-
-    override void locationStatEvent() {
-    }
-
-    override void statEvent(ref Database db) {
     }
 }
 

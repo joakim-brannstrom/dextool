@@ -18,6 +18,7 @@ import std.stdio : File;
 import std.utf : toUTF8, byChar;
 
 import arsd.dom : Document, Element, require, Table, RawSource;
+import my.set;
 
 import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
@@ -37,6 +38,36 @@ version (unittest) {
     import unit_threaded : shouldEqual;
 }
 
+@safe:
+
+void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf,
+        FilesysIO fio, ref Diff diff) {
+    import dextool.plugin.mutate.backend.utility;
+    import dextool.plugin.mutate.backend.database : FileMutantRow;
+
+    const kinds = dextool.plugin.mutate.backend.utility.toInternal(userKinds);
+
+    auto fps = new ReportHtml(kinds, conf, fio, diff);
+
+    fps.mutationKindEvent(userKinds);
+
+    foreach (f; db.getDetailedFiles) {
+        auto profile = Profile("generate report for " ~ f.file);
+
+        fps.getFileReportEvent(db, f);
+
+        void fn(const ref FileMutantRow row) {
+            fps.fileMutantEvent(row);
+        }
+
+        db.iterateFileMutants(kinds, f.file, &fn);
+        generateFile(db, fps.ctx);
+    }
+
+    auto profile = Profile("post process report");
+    fps.postProcessEvent(db);
+}
+
 struct FileIndex {
     Path path;
     string display;
@@ -48,10 +79,9 @@ struct FileIndex {
     long aliveNoMut;
 }
 
-@safe final class ReportHtml : FileReport, FilesReporter {
+@safe final class ReportHtml {
     import std.stdio : File, writefln, writeln;
     import undead.xml : encode;
-    import my.set;
 
     const Mutation.Kind[] kinds;
     const ConfigReport conf;
@@ -90,7 +120,7 @@ struct FileIndex {
                 : conf.reportSection.dup).toSet;
     }
 
-    override void mutationKindEvent(const MutationKind[] k) {
+    void mutationKindEvent(const MutationKind[] k) {
         import std.file : mkdirRecurse;
 
         humanReadableKinds = k.dup;
@@ -98,7 +128,7 @@ struct FileIndex {
         mkdirRecurse(this.logFilesDir);
     }
 
-    override FileReport getFileReportEvent(ref Database db, const ref FileRow fr) {
+    void getFileReportEvent(ref Database db, const ref FileRow fr) {
         import std.path : buildPath;
         import std.stdio : File;
         import dextool.plugin.mutate.backend.report.html.page_files;
@@ -122,11 +152,9 @@ struct FileIndex {
         ctx.processFile = fr.file;
         ctx.out_ = File(out_path, "w");
         ctx.span = Spanner(tokenize(fio.getOutputDir, fr.file));
-
-        return this;
     }
 
-    override void fileMutantEvent(const ref FileMutantRow fr) {
+    void fileMutantEvent(const ref FileMutantRow fr) {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
         // TODO unnecessary to create the mutation text here.
@@ -144,145 +172,7 @@ struct FileIndex {
                 cleanup(txt.original), cleanup(txt.mutation), fr.mutation));
     }
 
-    override void endFileEvent(ref Database db) @trusted {
-        import std.conv : to;
-        import std.range : repeat, enumerate;
-        import std.traits : EnumMembers;
-        import dextool.plugin.mutate.type : MutationKind;
-        import dextool.plugin.mutate.backend.database.type : MutantMetaData;
-        import dextool.plugin.mutate.backend.report.utility : window;
-        import dextool.plugin.mutate.backend.mutation_type : toUser;
-
-        static struct MData {
-            MutationId id;
-            FileMutant.Text txt;
-            Mutation mut;
-            MutantMetaData metaData;
-        }
-
-        auto root = ctx.doc.mainBody;
-        auto lines = root.addChild("table").setAttribute("id", "locs");
-        auto line = lines.addChild("tr").addChild("td").setAttribute("id", "loc-1");
-        line.addClass("loc");
-
-        line.addChild("span", "1:").addClass("line_nr");
-        auto mut_data = appender!(string[])();
-        mut_data.put("var g_muts_data = {};");
-        mut_data.put("g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};");
-
-        // used to make sure that metadata about a mutant is only written onces
-        // to the global arrays.
-        Set!MutationId ids;
-        auto muts = appender!(MData[])();
-
-        // this is the last location. It is used to calculate the num of
-        // newlines, detect when a line changes etc.
-        auto lastLoc = SourceLoc(1, 1);
-
-        foreach (const s; ctx.span.toRange) {
-            if (s.tok.loc.line > lastLoc.line) {
-                lastLoc.column = 1;
-            }
-            auto meta = MetaSpan(s.muts);
-
-            foreach (const i; 0 .. max(0, s.tok.loc.line - lastLoc.line)) {
-                with (line = lines.addChild("tr").addChild("td")) {
-                    setAttribute("id", format("%s-%s", "loc", lastLoc.line + i + 1));
-                    addClass("loc");
-                    addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
-                }
-                // force a newline in the generated html to improve readability
-                lines.appendText("\n");
-            }
-
-            const spaces = max(0, s.tok.loc.column - lastLoc.column);
-            line.addChild(new RawSource(ctx.doc, format("%-(%s%)", "&nbsp;".repeat(spaces))));
-            auto d0 = line.addChild("div").setAttribute("style", "display: inline;");
-            with (d0.addChild("span", s.tok.spelling)) {
-                addClass("original");
-                addClass(s.tok.toName);
-                if (auto v = meta.status.toVisible)
-                    addClass(v);
-                if (s.muts.length != 0)
-                    addClass(format("%(mutid%s %)", s.muts.map!(a => a.id)));
-                if (meta.onClick.length != 0)
-                    setAttribute("onclick", meta.onClick);
-            }
-
-            foreach (m; s.muts.filter!(m => !ids.contains(m.id))) {
-                ids.add(m.id);
-
-                const metadata = db.getMutantationMetaData(m.id);
-
-                muts.put(MData(m.id, m.txt, m.mut, metadata));
-                with (d0.addChild("span", m.mutation)) {
-                    addClass("mutant");
-                    addClass(s.tok.toName);
-                    setAttribute("id", m.id.toString);
-                }
-                d0.addChild("a").setAttribute("href", "#" ~ m.id.toString);
-
-                auto testCases = ctx.getTestCaseInfo(m.id);
-                if (testCases.empty) {
-                    mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};",
-                            m.id, m.mut.kind.to!int, toUser(m.mut.kind)
-                            .to!int, m.mut.status.to!ubyte, window(m.txt.original),
-                            window(m.txt.mutation), metadata.kindToString));
-                } else {
-                    mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};",
-                            m.id, m.mut.kind.to!int, toUser(m.mut.kind)
-                            .to!int, m.mut.status.to!ubyte,
-                            testCases.map!(a => a.name), window(m.txt.original),
-                            window(m.txt.mutation), metadata.kindToString));
-                }
-            }
-            lastLoc = s.tok.locEnd;
-        }
-
-        // make sure there is a newline before the script start to improve
-        // readability of the html document source.
-        root.appendText("\n");
-
-        with (root.addChild("script")) {
-            // force a newline in the generated html to improve readability
-            appendText("\n");
-            addChild(new RawSource(ctx.doc, format("const MAX_NUM_TESTCASES = %s;",
-                    db.getDetectedTestCases.length)));
-            appendText("\n");
-            addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
-                    muts.data.map!(a => a.id))));
-            appendText("\n");
-            addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
-                    [EnumMembers!(Mutation.Status)])));
-            appendText("\n");
-            addChild(new RawSource(ctx.doc, format("const g_mut_kind_map = [%('%s',%)'];",
-                    [EnumMembers!(Mutation.Kind)])));
-            appendText("\n");
-            addChild(new RawSource(ctx.doc, format("const g_mut_kindGroup_map = [%('%s',%)'];",
-                    [EnumMembers!(MutationKind)])));
-            appendText("\n");
-
-            // Creates a list of number of kills per testcase.
-            appendChild(new RawSource(ctx.doc, "var g_testcases_kills = {}"));
-            appendText("\n");
-            foreach (tc; ctx.testCases) {
-                appendChild(new RawSource(ctx.doc,
-                        format("g_testcases_kills['%s'] = [%s];", tc.name, tc.killed)));
-                appendText("\n");
-            }
-            appendChild(new RawSource(ctx.doc, mut_data.data.joiner("\n").toUTF8));
-            appendText("\n");
-        }
-
-        try {
-            ctx.out_.write(ctx.doc.toString);
-        } catch (Exception e) {
-            logger.error(e.msg).collectException;
-            logger.error("Unable to generate a HTML report for ", ctx.processFile).collectException;
-        }
-    }
-
-    override void postProcessEvent(ref Database db) @trusted {
+    void postProcessEvent(ref Database db) @trusted {
         import std.datetime : Clock;
         import std.path : buildPath, baseName;
         import dextool.plugin.mutate.backend.report.html.page_dead_test_case;
@@ -366,9 +256,6 @@ struct FileIndex {
 
         files.data.toIndex(index.mainBody, htmlFileDir);
         File(buildPath(logDir, "index" ~ htmlExt), "w").write(index.toPrettyString);
-    }
-
-    override void endEvent(ref Database) {
     }
 }
 
@@ -902,4 +789,141 @@ string toHover(MetaSpan.StatusColor s) {
     if (s == MetaSpan.StatusColor.none)
         return null;
     return format("hover_%s", s);
+}
+
+void generateFile(ref Database db, ref FileCtx ctx) @trusted {
+    import std.conv : to;
+    import std.range : repeat, enumerate;
+    import std.traits : EnumMembers;
+    import dextool.plugin.mutate.type : MutationKind;
+    import dextool.plugin.mutate.backend.database.type : MutantMetaData;
+    import dextool.plugin.mutate.backend.report.utility : window;
+    import dextool.plugin.mutate.backend.mutation_type : toUser;
+
+    static struct MData {
+        MutationId id;
+        FileMutant.Text txt;
+        Mutation mut;
+        MutantMetaData metaData;
+    }
+
+    auto root = ctx.doc.mainBody;
+    auto lines = root.addChild("table").setAttribute("id", "locs");
+    auto line = lines.addChild("tr").addChild("td").setAttribute("id", "loc-1");
+    line.addClass("loc");
+
+    line.addChild("span", "1:").addClass("line_nr");
+    auto mut_data = appender!(string[])();
+    mut_data.put("var g_muts_data = {};");
+    mut_data.put("g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};");
+
+    // used to make sure that metadata about a mutant is only written onces
+    // to the global arrays.
+    Set!MutationId ids;
+    auto muts = appender!(MData[])();
+
+    // this is the last location. It is used to calculate the num of
+    // newlines, detect when a line changes etc.
+    auto lastLoc = SourceLoc(1, 1);
+
+    foreach (const s; ctx.span.toRange) {
+        if (s.tok.loc.line > lastLoc.line) {
+            lastLoc.column = 1;
+        }
+        auto meta = MetaSpan(s.muts);
+
+        foreach (const i; 0 .. max(0, s.tok.loc.line - lastLoc.line)) {
+            with (line = lines.addChild("tr").addChild("td")) {
+                setAttribute("id", format("%s-%s", "loc", lastLoc.line + i + 1));
+                addClass("loc");
+                addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
+            }
+            // force a newline in the generated html to improve readability
+            lines.appendText("\n");
+        }
+
+        const spaces = max(0, s.tok.loc.column - lastLoc.column);
+        line.addChild(new RawSource(ctx.doc, format("%-(%s%)", "&nbsp;".repeat(spaces))));
+        auto d0 = line.addChild("div").setAttribute("style", "display: inline;");
+        with (d0.addChild("span", s.tok.spelling)) {
+            addClass("original");
+            addClass(s.tok.toName);
+            if (auto v = meta.status.toVisible)
+                addClass(v);
+            if (s.muts.length != 0)
+                addClass(format("%(mutid%s %)", s.muts.map!(a => a.id)));
+            if (meta.onClick.length != 0)
+                setAttribute("onclick", meta.onClick);
+        }
+
+        foreach (m; s.muts.filter!(m => !ids.contains(m.id))) {
+            ids.add(m.id);
+
+            const metadata = db.getMutantationMetaData(m.id);
+
+            muts.put(MData(m.id, m.txt, m.mut, metadata));
+            with (d0.addChild("span", m.mutation)) {
+                addClass("mutant");
+                addClass(s.tok.toName);
+                setAttribute("id", m.id.toString);
+            }
+            d0.addChild("a").setAttribute("href", "#" ~ m.id.toString);
+
+            auto testCases = ctx.getTestCaseInfo(m.id);
+            if (testCases.empty) {
+                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};",
+                        m.id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
+                        m.mut.status.to!ubyte, window(m.txt.original),
+                        window(m.txt.mutation), metadata.kindToString));
+            } else {
+                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};",
+                        m.id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
+                        m.mut.status.to!ubyte, testCases.map!(a => a.name),
+                        window(m.txt.original), window(m.txt.mutation), metadata.kindToString));
+            }
+        }
+        lastLoc = s.tok.locEnd;
+    }
+
+    // make sure there is a newline before the script start to improve
+    // readability of the html document source.
+    root.appendText("\n");
+
+    with (root.addChild("script")) {
+        // force a newline in the generated html to improve readability
+        appendText("\n");
+        addChild(new RawSource(ctx.doc, format("const MAX_NUM_TESTCASES = %s;",
+                db.getDetectedTestCases.length)));
+        appendText("\n");
+        addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
+                muts.data.map!(a => a.id))));
+        appendText("\n");
+        addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
+                [EnumMembers!(Mutation.Status)])));
+        appendText("\n");
+        addChild(new RawSource(ctx.doc, format("const g_mut_kind_map = [%('%s',%)'];",
+                [EnumMembers!(Mutation.Kind)])));
+        appendText("\n");
+        addChild(new RawSource(ctx.doc, format("const g_mut_kindGroup_map = [%('%s',%)'];",
+                [EnumMembers!(MutationKind)])));
+        appendText("\n");
+
+        // Creates a list of number of kills per testcase.
+        appendChild(new RawSource(ctx.doc, "var g_testcases_kills = {}"));
+        appendText("\n");
+        foreach (tc; ctx.testCases) {
+            appendChild(new RawSource(ctx.doc,
+                    format("g_testcases_kills['%s'] = [%s];", tc.name, tc.killed)));
+            appendText("\n");
+        }
+        appendChild(new RawSource(ctx.doc, mut_data.data.joiner("\n").toUTF8));
+        appendText("\n");
+    }
+
+    try {
+        ctx.out_.write(ctx.doc.toString);
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+        logger.error("Unable to generate a HTML report for ", ctx.processFile).collectException;
+    }
 }
