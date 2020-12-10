@@ -537,9 +537,10 @@ struct MutationStat {
             formattedWrite(w, "%-*s %s\n", align_, "Worklist:", worklist);
         }
 
-        if (aliveNoMut != 0)
+        if (aliveNoMut > 0) {
             formattedWrite(w, "%-*s %s (%.3s)\n", align_,
                     "Suppressed (nomut):", aliveNoMut, suppressedOfTotal);
+        }
     }
 }
 
@@ -561,7 +562,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.killedByCompiler = killed_by_compiler.count;
     st.worklist = worklist;
 
-    st.predictedDone = st.total > 0 ? (st.untested * (st.totalTime / st.total)) : 0.dur!"msecs";
+    st.predictedDone = st.total > 0 ? (st.worklist * (st.totalTime / st.total)) : 0.dur!"msecs";
     st.killedByCompilerTime = killed_by_compiler.time;
 
     if (st.untested > 0) {
