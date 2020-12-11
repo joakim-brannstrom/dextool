@@ -30,7 +30,7 @@ auto makeTestGroupSimilarityAnalyse(ref Database db, ref const ConfigReport conf
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
     auto doc = tmplBasicPage;
     auto s = doc.root.childElements("head")[0].addChild("script");
-    s.addChild(new RawSource(doc, js_similarity));
+    s.addChild(new RawSource(doc, jsTableOnClick));
     doc.title(format("Test Group Similarity Analyse %(%s %) %s",
             humanReadableKinds, Clock.currTime));
     doc.mainBody.addChild("p",

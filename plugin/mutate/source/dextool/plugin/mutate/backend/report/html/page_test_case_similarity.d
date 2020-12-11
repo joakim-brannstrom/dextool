@@ -28,47 +28,53 @@ import dextool.plugin.mutate.type : MutationKind;
 
 auto makeTestCaseSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
+
     auto doc = tmplBasicPage;
-
-    auto s = doc.root.childElements("head")[0].addChild("script");
-    s.addChild(new RawSource(doc, js_similarity));
-
     doc.title(format("Test Case Similarity Analyse %(%s %) %s",
             humanReadableKinds, Clock.currTime));
-    doc.mainBody.setAttribute("onload", "init()");
-    doc.mainBody.addChild("p", "This is the similarity between test cases.");
-    {
-        auto p = doc.mainBody.addChild("p");
-        p.addChild("b", "Note");
-        p.appendText(": The analysis is based on the mutants that the test cases kill; thus, it is dependent on the mutation operators that are used when generating the report.");
-    }
+    doc.mainBody.setAttribute("onload", "init();make_graph(g_data);");
 
-    toHtml(db, reportTestCaseSimilarityAnalyse(db, kinds, 5), doc.mainBody);
+    auto script = doc.root.childElements("head")[0].addChild("script");
+    script.addChild(new RawSource(doc, jsTableOnClick));
+    script.addChild(new RawSource(doc, jsSimilarity));
+
+    toHtml(db, doc, reportTestCaseSimilarityAnalyse(db, kinds, 5), doc.mainBody, script);
+
+    script.addChild(new RawSource(doc, jsD3Mini));
+    script.appendText("\n");
 
     return doc.toPrettyString;
 }
 
 private:
 
-void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
+void toHtml(ref Database db, Document doc, TestCaseSimilarityAnalyse result,
+        Element root, Element script) {
     import std.algorithm : sort, map;
-    import std.array : array;
+    import std.array : array, appender;
     import std.conv : to;
+    import std.json : JSONValue;
     import std.path : buildPath;
     import dextool.cachetools;
     import dextool.plugin.mutate.backend.database : spinSql, MutationId;
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
     import dextool.type : Path;
 
+    root.addChild("p", "This is the similarity between test cases.");
+    {
+        auto p = root.addChild("p");
+        p.addChild("b", "Note");
+        p.appendText(": The analysis is based on the mutants that the test cases kill; thus, it is dependent on the mutation operators that are used when generating the report.");
+    }
+
+    root.addChild("div").setAttribute("id", "chart");
+
     auto getPath = nullableCache!(MutationId, string, (MutationId id) {
         auto path = spinSql!(() => db.getPath(id)).get;
         return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
     })(0, 30.dur!"seconds");
 
-    //const distances = result.distances.length;
     const test_cases = result.similarities.byKey.array.sort!((a, b) => a < b).array;
-
-    //auto mat = tmplDefaultMatrixTable(root, test_cases.map!(a => a.name.idup).array);
 
     root.addChild("p", "The intersection column is the mutants that are killed by both the test case in the heading and in the column Test Case.")
         .appendText(
@@ -83,7 +89,13 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
         setAttribute("type", "button");
         setAttribute("id", "collapse_all");
     }
+
+    auto tcNames = appender!(string[])();
+    auto links = appender!(Link[])();
+
     foreach (const tc; test_cases) {
+        tcNames.put(tc.name);
+
         // Containers allows for hiding a table by clicking the corresponding header.
         // Defaults to hiding tables.
         auto comp_container = root.addChild("div").addClass("comp_container");
@@ -97,6 +109,8 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
                 "Test Case", "Similarity", "Difference", "Intersection"
                 ]);
         foreach (const d; result.similarities[tc]) {
+            links.put(Link(tc.name, d.testCase.name, d.similarity));
+
             auto r = tbl.appendRow();
             r.addChild("td", d.testCase.name);
             r.addChild("td", format("%#.3s", d.similarity));
@@ -114,4 +128,32 @@ void toHtml(ref Database db, TestCaseSimilarityAnalyse result, Element root) {
             }
         }
     }
+
+    long group = 1;
+    JSONValue toNode(string name) {
+        JSONValue j;
+        j["id"] = name;
+        j["group"] = group++;
+        return j;
+    }
+
+    JSONValue toLink(Link l) {
+        JSONValue j;
+        j["source"] = l.src;
+        j["target"] = l.dst;
+        j["value"] = 1.0 + (1.0 - l.similarity);
+        return j;
+    }
+
+    JSONValue data;
+    data["nodes"] = tcNames.data.map!(a => toNode(a)).array;
+    data["links"] = links.data.map!(a => toLink(a)).array;
+
+    script.addChild(new RawSource(doc, format!"const g_data = %s;\n"(data)));
+}
+
+struct Link {
+    string src;
+    string dst;
+    double similarity;
 }

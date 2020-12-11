@@ -19,7 +19,7 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : TestCaseUniqueness,
     reportTestCaseUniqueness;
 import dextool.plugin.mutate.backend.report.html.constants : htmlFileDir;
-import dextool.plugin.mutate.backend.report.html.js : js_similarity;
+import dextool.plugin.mutate.backend.report.html.js : jsTableOnClick;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
@@ -30,7 +30,7 @@ auto makeTestCaseUnique(ref Database db, ref const ConfigReport conf,
     auto doc = tmplBasicPage;
 
     auto s = doc.root.childElements("head")[0].addChild("script");
-    s.addChild(new RawSource(doc, js_similarity));
+    s.addChild(new RawSource(doc, jsTableOnClick));
 
     doc.title(format("Test Case Uniqueness %(%s %) %s", humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");
