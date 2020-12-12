@@ -18,7 +18,7 @@ import arsd.dom : Element, Table, RawSource;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : MutationStat, reportStatistics;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.js;
+import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;

@@ -4,8 +4,8 @@ import std.json : JSONValue;
 import arsd.dom : Document, Element, require, Table, RawSource;
 
 import dextool.plugin.mutate.backend.report.html : FileIndex;
-import dextool.plugin.mutate.backend.report.html.js;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage;
+import dextool.plugin.mutate.backend.resource;
 
 /** A JSON-like object that is more easily manipulated than JSONValue.
 *

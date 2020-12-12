@@ -31,8 +31,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, Repor
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.js;
 import dextool.plugin.mutate.backend.report.html.tmpl;
+import dextool.plugin.mutate.backend.resource;
 
 version (unittest) {
     import unit_threaded : shouldEqual;
@@ -194,7 +194,7 @@ struct FileIndex {
         index.title = format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime);
         auto s = index.root.childElements("head")[0].addChild("script");
-        s.addChild(new RawSource(index, js_index));
+        s.addChild(new RawSource(index, jsIndex));
 
         void addSubPage(Fn)(Fn fn, string name, string link_txt) {
             import std.functional : unaryFun;
@@ -293,7 +293,6 @@ struct FileCtx {
     TestCaseInfo[] testCases;
 
     static FileCtx make(string title, FileId id, Blob raw, TestCaseInfo2[] tc_info) @trusted {
-        import dextool.plugin.mutate.backend.report.html.js;
         import dextool.plugin.mutate.backend.report.html.tmpl;
 
         auto r = FileCtx.init;
@@ -305,7 +304,7 @@ struct FileCtx {
         s.addChild(new RawSource(r.doc, tmplIndexStyle));
 
         s = r.doc.root.childElements("head")[0].addChild("script");
-        s.addChild(new RawSource(r.doc, js_source));
+        s.addChild(new RawSource(r.doc, jsSource));
 
         r.doc.mainBody.appendHtml(tmplIndexBody);
 
