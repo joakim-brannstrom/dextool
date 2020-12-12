@@ -1,13 +1,13 @@
-FROM ubuntu:eoan
+FROM ubuntu:focal
 MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
 
 RUN apt-get update && \
-    apt-get -y --no-install-recommends install \
+    DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" --no-install-recommends install \
         ca-certificates \
         git \
         sqlite3 libsqlite3-dev \
         make cmake ninja-build \
-        llvm-8 llvm-8-dev clang-8 libclang-8-dev
+        llvm-10 llvm-10-dev clang-10 libclang-10-dev
 
 RUN apt-get -y --no-install-recommends install \
         gcc g++ \
