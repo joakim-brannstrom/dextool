@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html.js;
 
-immutable js_similarity = import("similarity.js");
+immutable jsTableOnClick = import("table_on_click.js");
 
 immutable js_index = import("index.js");
 

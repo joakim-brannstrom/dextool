@@ -31,7 +31,7 @@ auto makeMinimalSetAnalyse(ref Database db, ref const ConfigReport conf,
     auto doc = tmplBasicPage;
 
     auto s = doc.root.childElements("head")[0].addChild("script");
-    s.addChild(new RawSource(doc, js_similarity));
+    s.addChild(new RawSource(doc, jsTableOnClick));
 
     doc.title(format("Minimal Set Analyse %(%s %) %s", humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");

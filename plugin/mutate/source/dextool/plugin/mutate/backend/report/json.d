@@ -31,12 +31,39 @@ import dextool.plugin.mutate.type : MutationKind, ReportSection;
 
 @safe:
 
+void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf,
+        FilesysIO fio, ref Diff diff) {
+    import dextool.plugin.mutate.backend.utility;
+    import dextool.plugin.mutate.backend.database : FileMutantRow;
+
+    const kinds = dextool.plugin.mutate.backend.utility.toInternal(userKinds);
+
+    auto fps = new ReportJson(kinds, conf, fio, diff);
+
+    fps.mutationKindEvent(userKinds);
+
+    foreach (f; db.getDetailedFiles) {
+        auto profile = Profile("generate report for " ~ f.file);
+
+        fps.getFileReportEvent(db, f);
+
+        void fn(const ref FileMutantRow row) {
+            fps.fileMutantEvent(row);
+        }
+
+        db.iterateFileMutants(kinds, f.file, &fn);
+    }
+
+    auto profile = Profile("post process report");
+    fps.postProcessEvent(db);
+}
+
 /**
  * Expects locations to be grouped by file.
  *
  * TODO this is ugly. Use a JSON serializer instead.
  */
-final class ReportJson : FileReport, FilesReporter {
+final class ReportJson {
     import std.array : array;
     import std.algorithm : map, joiner;
     import std.conv : to;
@@ -66,16 +93,15 @@ final class ReportJson : FileReport, FilesReporter {
                 : conf.reportSection.dup).toSet;
     }
 
-    override void mutationKindEvent(const MutationKind[] kinds) {
+    void mutationKindEvent(const MutationKind[] kinds) {
         report = ["types": kinds.map!(a => a.to!string).array, "files": []];
     }
 
-    override FileReport getFileReportEvent(ref Database db, const ref FileRow fr) @trusted {
+    void getFileReportEvent(ref Database db, const ref FileRow fr) @trusted {
         current_file = fr;
-        return this;
     }
 
-    override void fileMutantEvent(const ref FileMutantRow r) @trusted {
+    void fileMutantEvent(const ref FileMutantRow r) @trusted {
         auto appendMutant() {
             JSONValue m = ["id" : r.id.to!long];
             m.object["kind"] = r.mutation.kind.to!string;
@@ -106,7 +132,7 @@ final class ReportJson : FileReport, FilesReporter {
         }
     }
 
-    override void endFileEvent(ref Database db) @trusted {
+    void endFileEvent() @trusted {
         if (current_file_mutants.empty) {
             return;
         }
@@ -121,7 +147,7 @@ final class ReportJson : FileReport, FilesReporter {
         current_file_mutants = null;
     }
 
-    override void postProcessEvent(ref Database db) @trusted {
+    void postProcessEvent(ref Database db) @trusted {
         import std.datetime : Clock;
         import std.path : buildPath;
         import std.stdio : File;
@@ -160,9 +186,6 @@ final class ReportJson : FileReport, FilesReporter {
         }
 
         File(buildPath(logDir, "report.json"), "w").write(report.toJSON(true));
-    }
-
-    override void endEvent(ref Database) {
     }
 }
 
