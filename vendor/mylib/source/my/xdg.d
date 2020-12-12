@@ -9,7 +9,10 @@ Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-
 */
 module my.xdg;
 
-import std.array : empty;
+import std.algorithm : map, splitter;
+import std.array : empty, array;
+import std.file : exists;
+import std.process : environment;
 
 import my.path;
 
@@ -119,4 +122,26 @@ AbsolutePath makeXdgRuntimeDir(AbsolutePath rootDir = AbsolutePath("/tmp")) @tru
         throw new Exception("Unable to create XDG_RUNTIME_DIR " ~ createdTmp);
     }
     return Path(createdTmp).AbsolutePath;
+}
+
+@safe:
+
+/// The XDG standard directory for data files.
+AbsolutePath xdgDataHome() {
+    return AbsolutePath(environment.get("XDG_DATA_HOME", "~/.local/share"));
+}
+
+/// The XDG standard directory for config files.
+AbsolutePath xdgConfigHome() {
+    return AbsolutePath(environment.get("XDG_CONFIG_HOME", "~/.config"));
+}
+
+/// The prefered search order for data files.
+AbsolutePath[] xdgDataDirs() {
+    return environment.get("XDG_DATA_DIRS").splitter(':').map!(a => AbsolutePath(a)).array;
+}
+
+/// The prefered search order for config files.
+AbsolutePath[] xdgConfigDirs() {
+    return environment.get("XDG_CONFIG_DIRS").splitter(':').map!(a => AbsolutePath(a)).array;
 }
