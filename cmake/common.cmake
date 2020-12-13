@@ -34,10 +34,17 @@ endfunction()
 # Copy/link the target to the binary directory.
 # Useful to collect all the binaries in one directory for testing purpose.
 function(collect_binary_in_root name)
+    create_link(${name} ${CMAKE_CURRENT_BINARY_DIR}/${name} ${CMAKE_BINARY_DIR}/${name})
+endfunction()
+
+#=============================================================================#
+# [PUBLIC]
+# create a link.
+function(create_link target src dst)
     add_custom_command(
-        TARGET ${name}
+        TARGET ${target}
         POST_BUILD
-        COMMAND ${CMAKE_BINARY_DIR}/symlink ${CMAKE_CURRENT_BINARY_DIR}/${name} ${CMAKE_BINARY_DIR}/${name}
+        COMMAND ${CMAKE_BINARY_DIR}/symlink ${src} ${dst}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
 endfunction()

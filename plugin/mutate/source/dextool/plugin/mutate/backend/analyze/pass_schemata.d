@@ -175,8 +175,9 @@ enum MutantGroup {
 }
 
 auto defaultHeader(Path f) {
-    enum code = import("schemata_header.c");
-    return SchemataFragment(f, Offset(0, 0), cast(const(ubyte)[]) code);
+    import dextool.plugin.mutate.backend.resource : schemataHeader;
+
+    return SchemataFragment(f, Offset(0, 0), cast(const(ubyte)[]) schemataHeader);
 }
 
 struct SchematasRange {

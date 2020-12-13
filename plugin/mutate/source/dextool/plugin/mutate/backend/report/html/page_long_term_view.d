@@ -17,7 +17,7 @@ import arsd.dom : Document, Element, require, Table, RawSource;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : MutantSample, reportSelectedAliveMutants;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.js;
+import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
@@ -30,7 +30,7 @@ auto makeLongTermView(ref Database db, ref const ConfigReport conf,
 
     auto doc = tmplBasicPage;
     auto s = doc.root.childElements("head")[0].addChild("script");
-    s.addChild(new RawSource(doc, js_index));
+    s.addChild(new RawSource(doc, jsIndex));
     doc.mainBody.setAttribute("onload", "init()");
     doc.title(format("Long Term View %(%s %) %s", humanReadableKinds, Clock.currTime));
 

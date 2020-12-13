@@ -19,7 +19,7 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : TestCaseUniqueness,
     reportTestCaseUniqueness;
 import dextool.plugin.mutate.backend.report.html.constants : htmlFileDir;
-import dextool.plugin.mutate.backend.report.html.js : jsTableOnClick;
+import dextool.plugin.mutate.backend.resource : jsTableOnClick;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;

@@ -27,7 +27,6 @@ set(flags "
 -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source
 -I${CMAKE_SOURCE_DIR}/vendor/toml/src
 -I${CMAKE_SOURCE_DIR}/vendor/undead/src
--J${CMAKE_CURRENT_LIST_DIR}/views
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources
 -version=SqliteEnableColumnMetadata
 -version=SqliteEnableUnlockNotify
@@ -43,8 +42,13 @@ build_d_executable(
 )
 
 collect_binary_in_root(${EXE_NAME})
+create_link(${EXE_NAME} ${CMAKE_CURRENT_LIST_DIR}/data ${CMAKE_BINARY_DIR}/data/mutate)
+create_link(${EXE_NAME} ${CMAKE_CURRENT_LIST_DIR}/data ${CMAKE_CURRENT_BINARY_DIR}/data/mutate)
 
 install(TARGETS ${EXE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+
+file(GLOB_RECURSE DATA_FILES ${CMAKE_CURRENT_LIST_DIR}/data/*)
+install(FILES ${DATA_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/data/mutate)
 
 list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/standard.d)
 
@@ -69,5 +73,5 @@ compile_d_integration_test(${EXE_NAME} "${TEST_SRC_FILES};${SUT_REUSED_FILES}" "
 # c/c++ code
 
 add_executable(test_schemata_c_header ${CMAKE_CURRENT_LIST_DIR}/test/test_schemata_c_header.cpp)
-target_include_directories(test_schemata_c_header PRIVATE ${CMAKE_CURRENT_LIST_DIR}/views)
+target_include_directories(test_schemata_c_header PRIVATE ${CMAKE_CURRENT_LIST_DIR}/data)
 add_unittest_to_check(test_schemata_c_header)

@@ -13,10 +13,6 @@ import arsd.dom : Document, Element, require, Table;
 
 @safe:
 
-immutable tmplIndexStyle = import("source.css");
-
-immutable tmplIndexBody = import("source.html");
-
 Document tmplBasicPage() @trusted {
     auto doc = new Document(`<html lang="en">
 <head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"></head>
@@ -29,13 +25,13 @@ Document tmplBasicPage() @trusted {
 
 /// Add the CSS style after the head element.
 void tmplDefaultCss(Document doc) @trusted {
+    import dextool.plugin.mutate.backend.resource : tmplDefaultCss;
+
     auto s = doc.root.childElements("head")[0].addChild("style");
-    s.appendText(import("default.css"));
+    s.appendText(tmplDefaultCss);
 }
 
 Table tmplDefaultTable(Element n, string[] header) @trusted {
-    import std.algorithm : map;
-    import std.array : array;
     import std.range : enumerate;
     import std.format : format;
     import dextool.plugin.mutate.backend.report.html.constants;
@@ -58,8 +54,6 @@ Table tmplDefaultTable(Element n, string[] header) @trusted {
 }
 
 Table tmplDefaultMatrixTable(Element n, string[] header) @trusted {
-    import std.algorithm : map;
-    import std.array : array;
     import dextool.plugin.mutate.backend.report.html.constants;
 
     auto tbl = n.addChild("table").require!Table;

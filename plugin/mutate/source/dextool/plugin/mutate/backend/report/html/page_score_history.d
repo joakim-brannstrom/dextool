@@ -19,7 +19,7 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : MutationScoreHistory,
     reportMutationScoreHistory;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.js;
+import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
@@ -37,7 +37,7 @@ string makeScoreHistory(ref Database db, ref const ConfigReport conf,
     doc.mainBody.setAttribute("onload", "init();make_chart(g_data);");
 
     auto script = doc.root.childElements("head")[0].addChild("script");
-    script.addChild(new RawSource(doc, js_index));
+    script.addChild(new RawSource(doc, jsIndex));
     script.addChild(new RawSource(doc, jsScoreHistory));
 
     toHtml(reportMutationScoreHistory(db), doc, doc.mainBody, script);

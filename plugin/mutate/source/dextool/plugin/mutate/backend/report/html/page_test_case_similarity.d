@@ -19,7 +19,7 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : TestCaseSimilarityAnalyse,
     reportTestCaseSimilarityAnalyse;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.js;
+import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     tmplDefaultTable, tmplDefaultMatrixTable;
 import dextool.plugin.mutate.backend.type : Mutation;
