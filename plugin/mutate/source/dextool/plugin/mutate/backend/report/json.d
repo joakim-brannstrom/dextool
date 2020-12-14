@@ -103,7 +103,7 @@ final class ReportJson {
 
     void fileMutantEvent(const ref FileMutantRow r) @trusted {
         auto appendMutant() {
-            JSONValue m = ["id": r.id.to!long];
+            JSONValue m = ["mutation_id": r.id.to!long];
             m.object["kind"] = r.mutation.kind.to!string;
             m.object["status"] = r.mutation.status.to!string;
             m.object["line"] = r.sloc.line;
@@ -151,8 +151,9 @@ final class ReportJson {
         import std.datetime : Clock;
         import std.path : buildPath;
         import std.stdio : File;
-        import dextool.plugin.mutate.backend.report.analyzers : reportStatistics,
-            reportDiff, DiffReport, reportMutationScoreHistory, reportDeadTestCases;
+        import dextool.plugin.mutate.backend.report.analyzers : reportStatistics, reportDiff, DiffReport,
+            reportMutationScoreHistory, reportDeadTestCases,
+            reportTestCaseStats, reportTestCaseUniqueness;
 
         if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
@@ -190,6 +191,26 @@ final class ReportJson {
             report["killed_no_mutants_ratio"] = r.ratio;
             report["killed_no_mutants_total"] = r.total;
             report["killed_no_mutants"] = r.testCases.map!(a => a.name).array;
+        }
+
+        if (ReportSection.tc_stat in sections) {
+            auto r = reportTestCaseStats(db, kinds);
+            report["test_case_stat"] = r.testCases.byValue.map!((a) {
+                JSONValue v = ["ratio": a.ratio];
+                v["name"] = a.tc.name;
+                v["killed"] = a.info.killedMutants;
+                return v;
+            }).array;
+        }
+
+        if (ReportSection.tc_unique in sections) {
+            auto r = reportTestCaseUniqueness(db, kinds);
+            report["test_case_unique"] = r.uniqueKills.byKeyValue.map!((a) {
+                JSONValue v = ["name": a.key.name];
+                v["mutation_id"] = a.value.map!(a => a.get).array;
+                return v;
+            }).array;
+            report["test_case_no_unique"] = r.noUniqueKills.map!(a => a.name).array;
         }
 
         File(buildPath(logDir, "report.json"), "w").write(report.toJSON(true));
