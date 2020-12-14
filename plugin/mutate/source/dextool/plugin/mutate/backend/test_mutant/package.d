@@ -385,6 +385,11 @@ struct TestDriver {
     static struct LoadSchematas {
     }
 
+    static struct OverloadCheck {
+        bool halt;
+        bool sleep;
+    }
+
     static struct Stop {
     }
 
@@ -395,7 +400,7 @@ struct TestDriver {
             UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant, ParseStdin,
             FindTestCmds, ChooseMode, NextSchemata, PreSchemata, SchemataTest,
             SchemataTestResult, SchemataRestore, LoadSchematas,
-            SanityCheckSchemata, SchemataPruneUsed, Stop, SaveMutationScore);
+            SanityCheckSchemata, SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData,
             ResetOldMutantData, SchemataRestoreData, PreSchemataData, NextSchemataData);
 
@@ -503,7 +508,13 @@ struct TestDriver {
             if (a.noUnknownMutantsLeft)
                 return fsm(CheckTimeout.init);
             return fsm(MutationTest.init);
-        }, (UpdateTimeout a) => fsm(Cleanup.init), (MutationTest a) {
+        }, (UpdateTimeout a) => fsm(Cleanup.init), (OverloadCheck a) {
+            if (a.halt)
+                return fsm(Done.init);
+            if (a.sleep)
+                return fsm(CheckRuntime.init);
+            return fsm(Cleanup.init);
+        }, (MutationTest a) {
             if (a.mutationError)
                 return fsm(Error.init);
             return fsm(HandleTestResult(a.result));
@@ -605,6 +616,32 @@ nothrow:
             }
         } else {
             logger.info("Ok".color(Color.green)).collectException;
+        }
+    }
+
+    void opCall(ref OverloadCheck data) {
+        auto load15 = () @trusted {
+            double[3] load;
+            getloadavg(&load[0], 3);
+            return load[2];
+        }();
+
+        const isOverloaded = load15 > global.data.conf.loadThreshold.get;
+
+        final switch (global.data.conf.loadBehavior) with (ConfigMutationTest.LoadBehavior) {
+        case nothing:
+            break;
+        case slowdown:
+            data.sleep = isOverloaded;
+            if (isOverloaded) {
+                import core.thread : Thread;
+
+                () @trusted { Thread.sleep(1.dur!"seconds"); }();
+            }
+            break;
+        case halt:
+            data.halt = isOverloaded;
+            break;
         }
     }
 
@@ -1387,3 +1424,22 @@ void warnIfConflictingTestCaseIdentifiers(TestCase[] found_tcs) @safe nothrow {
         }
     }
 }
+
+private:
+
+/**
+DESCRIPTION
+
+     The getloadavg() function returns the number of processes in the system
+     run queue averaged over various periods of time.  Up to nelem samples are
+     retrieved and assigned to successive elements of loadavg[].  The system
+     imposes a maximum of 3 samples, representing averages over the last 1, 5,
+     and 15 minutes, respectively.
+
+
+DIAGNOSTICS
+
+     If the load average was unobtainable, -1 is returned; otherwise, the num-
+     ber of samples actually retrieved is returned.
+ */
+extern (C) int getloadavg(double* loadavg, int nelem) nothrow;

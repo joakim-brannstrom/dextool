@@ -204,6 +204,17 @@ struct ConfigMutationTest {
 
     /// Stop mutation testing after the last schemata has been executed
     bool stopAfterLastSchema;
+
+    enum LoadBehavior {
+        nothing,
+        /// Slow the testing until the load goes below the threshold
+        slowdown,
+        /// Stop mutation testing if the 15min load average reach this number.
+        halt,
+    }
+
+    LoadBehavior loadBehavior;
+    NamedType!(double, Tag!"LoadThreshold", double.init, TagStringable) loadThreshold;
 }
 
 /// Settings for the administration mode

@@ -340,6 +340,8 @@ struct ArgParser {
                    "db", db_help, &db,
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &mutationTest.unifiedDiffFromStdin,
                    "dry-run", "do not write data to the filesystem", &mutationTest.dryRun,
+                   "load-behavior", "how to behave when the threshold is hit " ~ format("[%(%s|%)]", [EnumMembers!(ConfigMutationTest.LoadBehavior)]), &mutationTest.loadBehavior,
+                   "load-threshold", "the 15min loadavg threshold ", mutationTest.loadThreshold.getPtr,
                    "log-schemata", "write the mutation schematas to a separate file", &mutationTest.logSchemata,
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
