@@ -50,21 +50,19 @@ AbsolutePath[] configSearch(string programName) {
 @("shall return the default locations to search for config resources")
 unittest {
     auto a = configSearch("caleb");
-    assert(a.length >= 4);
+    assert(a.length >= 3);
     assert(a[0].baseName == "caleb");
     assert(a[1].baseName == "config");
     assert(a[2].baseName == "config");
-    assert(a[3].baseName == "config");
 }
 
 @("shall return the default locations to search for data resources")
 unittest {
     auto a = dataSearch("caleb");
-    assert(a.length >= 4);
+    assert(a.length >= 3);
     assert(a[0].baseName == "caleb");
     assert(a[1].baseName == "data");
     assert(a[2].baseName == "data");
-    assert(a[3].baseName == "data");
 }
 
 /** Look for `lookFor` in `searchIn` by checking if the file exists at
