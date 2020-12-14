@@ -27,7 +27,11 @@ AnalyzeTestCmdForTestCase --> UpdateAndResetAliveMutants
 
 UpdateAndResetAliveMutants --> CheckMutantsLeft
 
-UpdateTimeout --> Cleanup
+UpdateTimeout --> OverloadCheck
+
+OverloadCheck --> CheckRuntime : sleep
+OverloadCheck --> Done : halt
+OverloadCheck --> Cleanup : ok
 
 Cleanup --> NextSchemata
 Cleanup --> NextPullRequestMutant : hasConstraint
