@@ -222,6 +222,7 @@ unittest {
 
 class ShallReportTopTestCaseStats : ReportTestCaseStats {
     override void test() {
+        import std.json;
         import dextool.plugin.mutate.backend.type : TestCase;
 
         mixin(EnvSetup(globalTestdir));
@@ -240,6 +241,13 @@ class ShallReportTopTestCaseStats : ReportTestCaseStats {
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
 
+         makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--section", "tc_stat"])
+            .addArg(["--style", "json"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
          testConsecutiveSparseOrder!SubStr([
             "| Percentage | Count | TestCase |",
             "|------------|-------|----------|",
@@ -254,6 +262,11 @@ class ShallReportTopTestCaseStats : ReportTestCaseStats {
             "0.33", "1", "tc_3",
             "0.33", "1", "tc_1",
         ]).shouldBeIn(File((testEnv.outdir ~ "html/test_case_stat.html").toString).byLineCopy.array);
+
+        auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
+        j["test_case_stat"]["tc_1"]["killed"].integer.shouldEqual(1);
+        j["test_case_stat"]["tc_2"]["killed"].integer.shouldEqual(2);
+        j["test_case_stat"]["tc_3"]["killed"].integer.shouldEqual(1);
     }
 }
 
@@ -662,6 +675,8 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
 
 class ShallReportTestCaseUniqueness : LinesWithNoMut {
     override void test() {
+        import std.json;
+
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
@@ -700,11 +715,20 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
 
+        makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--section", "tc_unique"])
+            .addArg(["--style", "json"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
         // Assert
         testConsecutiveSparseOrder!SubStr([
                 `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
                 `<table class="overlap_tbl">`, `<td>tc_2</td>`, `<td>tc_3</td>`,
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
                 "test_case_unique.html")).byLineCopy.array);
+
+        auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
+        j["test_case_no_unique"].array.length.shouldEqual(3);
     }
 }

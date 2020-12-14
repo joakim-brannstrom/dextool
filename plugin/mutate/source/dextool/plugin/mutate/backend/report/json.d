@@ -195,22 +195,30 @@ final class ReportJson {
 
         if (ReportSection.tc_stat in sections) {
             auto r = reportTestCaseStats(db, kinds);
-            report["test_case_stat"] = r.testCases.byValue.map!((a) {
+            JSONValue s;
+            foreach (a; r.testCases.byValue) {
                 JSONValue v = ["ratio": a.ratio];
-                v["name"] = a.tc.name;
                 v["killed"] = a.info.killedMutants;
-                return v;
-            }).array;
+                s[a.tc.name] = v;
+            }
+
+            if (!r.testCases.empty) {
+                report["test_case_stat"] = s;
+            }
         }
 
         if (ReportSection.tc_unique in sections) {
             auto r = reportTestCaseUniqueness(db, kinds);
-            report["test_case_unique"] = r.uniqueKills.byKeyValue.map!((a) {
-                JSONValue v = ["name": a.key.name];
-                v["mutation_id"] = a.value.map!(a => a.get).array;
-                return v;
-            }).array;
-            report["test_case_no_unique"] = r.noUniqueKills.map!(a => a.name).array;
+            JSONValue s;
+            foreach (a; r.uniqueKills.byKeyValue) {
+                s[a.key.name] = a.value.map!((a => a.get)).array;
+            }
+            if (!r.uniqueKills.empty) {
+                report["test_case_unique"] = s;
+            }
+            if (!r.noUniqueKills.empty) {
+                report["test_case_no_unique"] = r.noUniqueKills.map!(a => a.name).array;
+            }
         }
 
         File(buildPath(logDir, "report.json"), "w").write(report.toJSON(true));
