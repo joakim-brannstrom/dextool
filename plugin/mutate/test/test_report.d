@@ -126,16 +126,16 @@ unittest {
 
     auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["stat"];
     j["alive"].integer.shouldEqual(0);
-    j["aliveNoMut"].integer.shouldEqual(0);
+    j["alive_nomut"].integer.shouldEqual(0);
     j["killed"].integer.shouldEqual(0);
-    j["killedByCompiler"].integer.shouldEqual(0);
-    j["killedByCompilerTime"].integer.shouldEqual(0);
-    j["nomutScore"].integer.shouldEqual(0);
-    j["predictedDone"].str; // lazy for now and just checking it is a string
+    j["killed_by_compiler"].integer.shouldEqual(0);
+    j["killed_by_compiler_time"].integer.shouldEqual(0);
+    j["nomut_score"].integer.shouldEqual(0);
+    j["predicted_done"].str; // lazy for now and just checking it is a string
     j["score"].integer.shouldEqual(1);
     j["timeout"].integer.shouldEqual(0);
     j["total"].integer.shouldEqual(0);
-    j["totalTime"].integer.shouldEqual(0);
+    j["total_time"].integer.shouldEqual(0);
     j["untested"].integer.shouldBeGreaterThan(1);
 }
 
