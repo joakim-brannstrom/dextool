@@ -129,13 +129,13 @@ unittest {
     j["alive_nomut"].integer.shouldEqual(0);
     j["killed"].integer.shouldEqual(0);
     j["killed_by_compiler"].integer.shouldEqual(0);
-    j["killed_by_compiler_time"].integer.shouldEqual(0);
+    j["killed_by_compiler_time_s"].integer.shouldEqual(0);
     j["nomut_score"].integer.shouldEqual(0);
     j["predicted_done"].str; // lazy for now and just checking it is a string
     j["score"].integer.shouldEqual(1);
     j["timeout"].integer.shouldEqual(0);
     j["total"].integer.shouldEqual(0);
-    j["total_time"].integer.shouldEqual(0);
+    j["total_time_s"].integer.shouldEqual(0);
     j["untested"].integer.shouldBeGreaterThan(1);
 }
 
