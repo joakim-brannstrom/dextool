@@ -103,7 +103,7 @@ final class ReportJson {
 
     void fileMutantEvent(const ref FileMutantRow r) @trusted {
         auto appendMutant() {
-            JSONValue m = ["id" : r.id.to!long];
+            JSONValue m = ["id": r.id.to!long];
             m.object["kind"] = r.mutation.kind.to!string;
             m.object["status"] = r.mutation.status.to!string;
             m.object["line"] = r.sloc.line;
@@ -152,24 +152,24 @@ final class ReportJson {
         import std.path : buildPath;
         import std.stdio : File;
         import dextool.plugin.mutate.backend.report.analyzers : reportStatistics,
-            reportDiff, DiffReport, reportMutationScoreHistory;
+            reportDiff, DiffReport, reportMutationScoreHistory, reportDeadTestCases;
 
         if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
-            JSONValue s = ["alive" : stat.alive];
-            s.object["aliveNoMut"] = stat.aliveNoMut;
+            JSONValue s = ["alive": stat.alive];
+            s.object["alive_nomut"] = stat.aliveNoMut;
             s.object["killed"] = stat.killed;
             s.object["timeout"] = stat.timeout;
             s.object["untested"] = stat.untested;
-            s.object["killedByCompiler"] = stat.killedByCompiler;
+            s.object["killed_by_compiler"] = stat.killedByCompiler;
             s.object["total"] = stat.total;
             s.object["score"] = stat.score;
-            s.object["nomutScore"] = stat.suppressedOfTotal;
-            s.object["totalTime"] = stat.totalTime.total!"seconds";
-            s.object["killedByCompilerTime"] = stat.killedByCompilerTime.total!"seconds";
-            s.object["predictedDone"] = (Clock.currTime + stat.predictedDone).toISOExtString;
-            s.object["trendScore"] = stat.estimate.value.get;
-            s.object["trendScoreError"] = stat.estimate.error.get;
+            s.object["nomut_score"] = stat.suppressedOfTotal;
+            s.object["total_time"] = stat.totalTime.total!"seconds";
+            s.object["killed_by_compiler_time"] = stat.killedByCompilerTime.total!"seconds";
+            s.object["predicted_done"] = (Clock.currTime + stat.predictedDone).toISOExtString;
+            s.object["trend_score"] = stat.estimate.value.get;
+            s.object["trend_score_error"] = stat.estimate.error.get;
             s.object["worklist"] = stat.worklist;
 
             report["stat"] = s;
@@ -177,12 +177,19 @@ final class ReportJson {
 
         if (ReportSection.diff in sections) {
             auto r = reportDiff(db, kinds, diff, fio.getOutputDir);
-            JSONValue s = ["score" : r.score];
+            JSONValue s = ["score": r.score];
             report["diff"] = s;
         }
 
         if (ReportSection.score_history in sections) {
             report["score_history"] = toJson(reportMutationScoreHistory(db));
+        }
+
+        if (ReportSection.tc_killed_no_mutants in sections) {
+            auto r = reportDeadTestCases(db);
+            report["killed_no_mutants_ratio"] = r.ratio;
+            report["killed_no_mutants_total"] = r.total;
+            report["killed_no_mutants"] = r.testCases.map!(a => a.name).array;
         }
 
         File(buildPath(logDir, "report.json"), "w").write(report.toJSON(true));
