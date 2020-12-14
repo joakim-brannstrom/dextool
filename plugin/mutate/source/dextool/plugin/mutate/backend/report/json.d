@@ -188,9 +188,11 @@ final class ReportJson {
 
         if (ReportSection.tc_killed_no_mutants in sections) {
             auto r = reportDeadTestCases(db);
-            report["killed_no_mutants_ratio"] = r.ratio;
-            report["killed_no_mutants_total"] = r.total;
-            report["killed_no_mutants"] = r.testCases.map!(a => a.name).array;
+            JSONValue s;
+            s["ratio"] = r.ratio;
+            s["number"] = r.testCases.length;
+            s["test_cases"] = r.testCases.map!(a => a.name).array;
+            report["killed_no_mutants"] = s;
         }
 
         if (ReportSection.tc_stat in sections) {
