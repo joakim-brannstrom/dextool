@@ -75,7 +75,7 @@ struct TestCaseStat {
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
 
     struct Info {
-        double ratio;
+        double ratio = 0.0;
         TestCase tc;
         TestCaseInfo info;
         alias info this;
@@ -170,7 +170,7 @@ class TestCaseSimilarityAnalyse {
 
     static struct Similarity {
         TestCase testCase;
-        double similarity;
+        double similarity = 0.0;
         /// Mutants that are similare between `testCase` and the parent.
         MutationId[] intersection;
         /// Unique mutants that are NOT verified by `testCase`.
@@ -184,7 +184,7 @@ class TestCaseSimilarityAnalyse {
 private struct Similarity {
     /// The quota |A intersect B| / |A|. Thus it is how similare A is to B. If
     /// B ever fully encloses A then the score is 1.0.
-    double similarity;
+    double similarity = 0.0;
     MutationId[] intersection;
     MutationId[] difference;
 }
@@ -270,7 +270,7 @@ struct TestCaseDeadStat {
     import std.range : isOutputRange;
 
     /// The ratio of dead TC of the total.
-    double ratio;
+    double ratio = 0.0;
     TestCase[] testCases;
     long total;
 
@@ -601,7 +601,7 @@ struct TestCaseOverlapStat {
 
     long overlap;
     long total;
-    double ratio;
+    double ratio = 0.0;
 
     // map between test cases and the mutants they have killed.
     TestCaseId[][Murmur3] tc_mut;
@@ -733,7 +733,7 @@ class TestGroupSimilarity {
         /// The test group that the `key` is compared to.
         TestGroup comparedTo;
         /// How similare the `key` is to `comparedTo`.
-        double similarity;
+        double similarity = 0.0;
         /// Mutants that are similare between `testCase` and the parent.
         MutationId[] intersection;
         /// Unique mutants that are NOT verified by `testCase`.
@@ -946,7 +946,7 @@ class DiffReport {
     import dextool.plugin.mutate.backend.diff_parser : Diff;
 
     /// The mutation score.
-    double score;
+    double score = 0.0;
 
     /// The raw diff for a file
     Diff.Line[][FileId] rawDiff;
@@ -1187,12 +1187,12 @@ struct EstimateScore {
     }
 
     /// The estimated mutation score.
-    NamedType!(double, Tag!"EstimatedMutationScore", double.init, TagStringable) value() @safe pure nothrow const @nogc {
+    NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value() @safe pure nothrow const @nogc {
         return typeof(return)(kf.currentEstimate);
     }
 
     /// The error in the estimate. The unit is the same as `estimate`.
-    NamedType!(double, Tag!"MutationScoreError", double.init, TagStringable) error() @safe pure nothrow const @nogc {
+    NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error() @safe pure nothrow const @nogc {
         return typeof(return)(kf.estimateError);
     }
 }
