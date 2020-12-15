@@ -115,10 +115,6 @@ do {
         auto pragmas = [
             // required for foreign keys with cascade to work
             "PRAGMA foreign_keys=ON;",
-            // use optimal number of worker threads. Should improve performance
-            // a bit without having an adverse effect.
-            // This should probably be user configurable.
-            format!"PRAGMA threads = %s;"(totalCPUs),
         ];
         // dfmt on
 
