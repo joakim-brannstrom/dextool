@@ -1199,7 +1199,7 @@ version (D_BetterC) {} else
 }
 
 // Types with copy constructors
-@safe unittest {
+version(none) {@safe unittest {
 	static struct S
 	{
 		int n;
@@ -1233,6 +1233,7 @@ version (D_BetterC) {} else
 
 	Outer x;
 	Outer y = x;
+}
 }
 
 // Types with disabled opEquals
