@@ -508,7 +508,7 @@ struct TestDriver {
             if (a.noUnknownMutantsLeft)
                 return fsm(CheckTimeout.init);
             return fsm(MutationTest.init);
-        }, (UpdateTimeout a) => fsm(Cleanup.init), (OverloadCheck a) {
+        }, (UpdateTimeout a) => fsm(OverloadCheck.init), (OverloadCheck a) {
             if (a.halt)
                 return fsm(Done.init);
             if (a.sleep)
@@ -620,26 +620,41 @@ nothrow:
     }
 
     void opCall(ref OverloadCheck data) {
-        auto load15 = () @trusted {
+        if (global.data.conf.loadBehavior == ConfigMutationTest.LoadBehavior.nothing) {
+            return;
+        }
+
+        const load15 = () @trusted {
             double[3] load;
-            getloadavg(&load[0], 3);
-            return load[2];
+            const nr = getloadavg(&load[0], 3);
+            if (nr <= 0 || nr > load.length) {
+                return 0.0;
+            }
+            return load[nr - 1];
         }();
 
         const isOverloaded = load15 > global.data.conf.loadThreshold.get;
+
+        if (isOverloaded) {
+            logger.infof("Detected overload (%s > %s).", load15,
+                         global.data.conf.loadThreshold.get).collectException;
+        }
 
         final switch (global.data.conf.loadBehavior) with (ConfigMutationTest.LoadBehavior) {
         case nothing:
             break;
         case slowdown:
+            const sleepFor = 30.dur!"seconds";
             data.sleep = isOverloaded;
             if (isOverloaded) {
+                logger.infof("Sleeping %s", sleepFor).collectException;
                 import core.thread : Thread;
 
-                () @trusted { Thread.sleep(1.dur!"seconds"); }();
+                () @trusted { Thread.sleep(sleepFor); }();
             }
             break;
         case halt:
+            logger.warning("Halting").collectException;
             data.halt = isOverloaded;
             break;
         }
