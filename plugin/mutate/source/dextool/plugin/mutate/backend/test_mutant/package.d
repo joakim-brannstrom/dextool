@@ -637,7 +637,7 @@ nothrow:
 
         if (isOverloaded) {
             logger.infof("Detected overload (%s > %s).", load15,
-                         global.data.conf.loadThreshold.get).collectException;
+                    global.data.conf.loadThreshold.get).collectException;
         }
 
         final switch (global.data.conf.loadBehavior) with (ConfigMutationTest.LoadBehavior) {
@@ -654,7 +654,7 @@ nothrow:
             }
             break;
         case halt:
-            logger.warning("Halting").collectException;
+            logger.warning(isOverloaded, "Halting").collectException;
             data.halt = isOverloaded;
             break;
         }
