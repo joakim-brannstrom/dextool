@@ -925,7 +925,7 @@ nothrow:
     }
 
     void opCall(ref MeasureTestSuite data) {
-        import std.algorithm : max, minElement;
+        import std.algorithm : max, sum;
         import dextool.plugin.mutate.backend.database.type : TestCmdRuntime;
 
         if (!global.data.conf.mutationTesterRuntime.isNull) {
@@ -961,12 +961,13 @@ nothrow:
             if (measures.length > 3) {
                 measures = measures[1 .. $]; // drop the oldest
             }
-            auto fastest = minElement!(a => a.runtime)(measures).runtime;
+
+            auto mean = sum(measures.map!(a => a.runtime), Duration.zero) / measures.length;
 
             // The sampling of the test suite become too unreliable when the timeout is <1s.
             // This is a quick and dirty fix.
             // A proper fix requires an update of the sampler in runTester.
-            auto t = fastest < 1.dur!"seconds" ? 1.dur!"seconds" : fastest;
+            auto t = mean < 1.dur!"seconds" ? 1.dur!"seconds" : mean;
             logger.info("Test command runtime: ", t).collectException;
             global.testSuiteRuntime = t;
 
