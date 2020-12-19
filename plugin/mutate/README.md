@@ -4,6 +4,8 @@ Dextool's plugin for mutation testing of C/C++ projects. It can help you design
 new tests and evaluate the quality of existing tests by measuring their ability
 to detect artificially injected faults.
 
+Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
+
 ## Overview
 
  * See [config options](README_config.md) for detailed explanations of the configuration options.
