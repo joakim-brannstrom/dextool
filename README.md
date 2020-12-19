@@ -51,7 +51,7 @@ cd dextool
 mkdir build
 cd build
 cmake -DCMAKE_INSTALL_PREFIX=/path/to/where/to/install/dextool/binaries ..
-make install -j2
+make install
 ```
 
 Done! Have fun.
@@ -61,7 +61,9 @@ Don't be shy to report any issue that you find.
 
 #### component_tests Fail
 
-The most common reason for why `component_tests` fail is that clang++ try to use the latest GCC that is installed, but the c++ standard library is not installed for that compiler.
+The most common reason for why `component_tests` fail is that clang++ try to
+use the latest GCC that is installed, but the c++ standard library is not
+installed for that compiler.
 
 Try to compile the following code with clang++:
 ```c++
@@ -95,7 +97,9 @@ sudo apt install libstdc++-XYZ-dev
 
 #### Mismatch Clang and LLVM
 
-To build dextool, the dev packages are required. Dextool is optimistic and assume that the latest and greatest version of llvm+libclang should be used. But this also requires that the dev packages are installed.
+To build dextool, the dev packages are required. Dextool is optimistic and
+assume that the latest and greatest version of llvm+libclang should be used.
+But this also requires that the dev packages are installed.
 
 If you get this error:
 ```sh
@@ -103,11 +107,14 @@ libclang_interop.hpp:13:10: fatal error: clang/Analysis/CFG.h: No such file or d
  #include <clang/Analysis/CFG.h>
 ```
 
-It means that you need to install `llvm-x.y-dev` and `libclang-x.y-dev` for the version that Dextool detected.
+It means that you need to install `llvm-x.y-dev` and `libclang-x.y-dev` for the
+version that Dextool detected.
 
 #### SQLite link or missing
 
-The sqlite3 library source code with a CMake build file in the vendor's directory. It is intended for those old OSs that have too old versions of SQLite.
+The sqlite3 library source code with a CMake build file in the vendor's
+directory. It is intended for those old OSs that have too old versions of
+SQLite.
 
 To use it do something like this.
 ```sh
@@ -132,5 +139,6 @@ cmake .. -DD_COMPILER=/foo/bar/dmd/2.088/linux64/bin/dmd
 See the usage examples in respective plugin directory.
 
 # Credit
+
 Jacob Carlborg for his excellent DStep. It was used as a huge inspiration for
 this code base. Without DStep, Dextool wouldn't exist.
