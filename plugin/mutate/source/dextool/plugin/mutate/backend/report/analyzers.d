@@ -565,7 +565,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.predictedDone = st.total > 0 ? (st.worklist * (st.totalTime / st.total)) : 0.dur!"msecs";
     st.killedByCompilerTime = killed_by_compiler.time;
 
-    if (st.untested > 0) {
+    if (st.total > 0) {
         st.estimate = reportEstimate(db, kinds);
     }
 
