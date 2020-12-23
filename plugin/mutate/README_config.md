@@ -219,7 +219,9 @@ compilation targets or environments.
 ```sh
 --in
 ```
-Specific input file to parse. By default, all files in the compilation database will be analyzed.
+Specific input file to parse. By default, all files in the compilation database
+will be analyzed. This is normally only needed for toy examples and dextool
+mutates own internal tests.
 
 ```sh
 --restrict
@@ -230,6 +232,44 @@ outside a specific directory tree. This option together with a generated
 compilation-database specified with *--compile-db* lets *Mutate* iterate over
 every file in the project, and compares their paths to the *restricted area*.
 
+```sh
+--fast-db-store
+```
+This de-activates sqlites safety against corrupting a database when it is being
+written to. It can speed up the time it takes to save mutants to by 10-100x but
+if it is ever interrupted during this process the database will be corrupted.
+This is a good option to use on a CI server which keeps backups of the database
+but not when using dextool manually, in the console.
+
+```sh
+--force-save
+```
+Normally only changed files are saved to the database. This forces all files to
+be saved irregardless if they have changed or not. This may be needed if
+`#include`s significantly changes your code base.
+
+```sh
+--no-prune
+```
+The default mode is to remove files and orphaned mutants when they are
+detected. This inactivates this by always not running a cleanup phase. This
+could be used in combination with `--diff-from-stdin` because only a couple of
+files are in the diff. By using `--no-prune` the files that are not changed
+will be kept in the database.
+
+```sh
+--schemata-mutants
+```
+Control how many mutants that a schemata at most should contain. The more
+mutants a schemata contains the higher is the likelihood that it will fail to
+compile.
+
+```sh
+--threads
+```
+The number of threads to use when analyzing the program. By default as many
+threads as there are cores available are used.
+
 ## Generate
 
 Generate-mode for the plugin.
@@ -239,7 +279,7 @@ Generate-mode for the plugin.
 ```
 Mutate the source code as mutant ID
 
-## Report
+## Report <a name="report"></a>
 
 Report-mode for the plugin. Is used to generate a result-report at any given
 moment (before, after or during mutation testing execution). Can also be used

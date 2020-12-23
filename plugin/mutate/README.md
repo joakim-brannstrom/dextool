@@ -8,11 +8,19 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
 
 ## Overview
 
- * See [config options](README_config.md) for detailed explanations of the configuration options.
- * See [continues integration](README_ci.md) contains a guide for how to integrate dextool mutate.
+ * See [config options](README_config.md) for detailed explanations of the
+   configuration options.
+ * See [continues integration](README_ci.md) contains a guide for how to
+   integrate dextool mutate.
  * See [parallel](README_parallel.md) for how to run multiple workers in parallel.
  * See [embedded systems](README_embedded.md) for configuration and guides for
    using dextool mutate for embedded systems.
+ * See [mutation operators](doc/design/mutations.md) for the in depth details
+   of the mutants that dextool generate.
+ * See [cmake tutorial](README_tutorial_cmake.md) for how to apply mutation
+   testing to a cmake project.
+
+Note: the build instructions is in the root `README.md` of this repo.
 
 ## Features
 
@@ -44,12 +52,19 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
 
 # Mutation Testing
 
-Mutation testing focus on determining the adequacy of a test suite. Code
-coverage determine this adequacy by if the test suite has executed the system
-under test. Mutation testing determine the adequacy by injecting syntactical
-faults (mutants) and executing the test suite. If the test suite "fail" it is
-interpreted as the syntactical fault (mutant) being found and killed by the
-test suite (good).
+Mutation testing is a software testing technique and an active research area.
+It was first proposed in 1971 by Richard Lipton. The technique can be described
+as a process in which the "tests are tested" in order to determine the adequacy
+of the test suite. Code coverage determine the adequacy of the test suite by
+executed the system under test and measuring how much this execution covered of
+the total program. Mutation testing determine the adequacy by injecting
+syntactical faults (mutants) and executing the test suite. If the test suite
+"fail" it is interpreted as the syntactical fault (mutant) being found and
+killed by the test suite (good).
+
+Mutation testing requires a test to verify the output in order to kill a
+mutant. A test suite that kill a mutant thus *detected* the semantic change and
+by killing the mutant reject the behavior change.
 
 The algorithm for mutation testing is thus:
 
@@ -58,91 +73,65 @@ The algorithm for mutation testing is thus:
  * if the test suite **failed** record the mutant as **killed** otherwise
    **alive**.
 
-## Apply Mutation Testing a cmake Project
+The type of mutant that is injected follow a *schema* which in the literature
+is called a "mutant operator". The mutation operators focus on different
+semantical changes such as logical, control flow, data flow, *math*, boundary
+etc.
 
-This section explains how to use Dextool Mutate to analyze a C++ project that
-uses the CMake build system.
+The recommended operators to use try to affect the logic and data flow:
 
-Note though that the Dextool work with any build system that is able to
-generate a JSON compilation database.  It is just that CMake conveniently has
-builtin support to generate those.  For other build systems there exists the
-excellent [BEAR](https://github.com/rizsotto/Bear) tool that can spy on the
-build process to generate such a database.
+ * lcr/lcrb. Changes all `&&` and `||`.
+ * sdl. Deletes block of code. Strongly affects the data flow such as
+   assignments and calls.
+ * dcr. Replaes logic with `true` and `false`. Strongly affects the control
+   flow.
+ * uoi. Deletes negation `!`.
 
-The [Google Test project](https://github.com/google/googletest) is used as an example.
+Optional that are good candidates are:
 
-Obtain the project you want to analyze:
-```sh
-git clone https://github.com/google/googletest.git
-cd googletest
-```
+ * rorp. Changes the relational operators such as `<` to its close relative
+   `<=`. Strongly affects the boundaries how values are used and indexing.
+ * aor. Mutates math operations such as `+`.
 
-Generate a JSON compilation database for the project:
-```sh
-mkdir build
-pushd build
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
-make
-popd
-```
+/---------------------------\    /-----------------------------------------------------\
+| Setup config files and    |    | /----------\ /---------\  /------------\            |
+| create executable scripts |--->| | build.sh | | test.sh |  | analyze.sh |            |
+\---------------------------/    | \----------/ \---------/  \------------/            |
+       ||                        \----^------------^-------------^-Executable scripts--/
+       \/                             |            |             |
+/-------------------------------------------------------------------------------------------\
+| Dextool Mutate                      |            |             |                          |
+|                                     |            |             |                          |
+| /---------\                         |            |             |                          |
+| | Analyze |    /-------------------------------------------------------------------\      |
+| \---------/    | Loop for every mutant           |             |                   |      |
+|     ||         |                    |            |             |                   |      |
+|     \/     /---------------\   /---------\   /---------\   /---------\   /-------------\  |
+| /------\   | Insert mutant |   | Compile |   | Execute |   | Analyze |   | Mark mutant |  |
+| | Test |-->| in code       |-->| Project |-->| tests   |-->| test    |-->| in DB       |  |
+| \------/   \---------------/   \---------/   \---------/   | result  |   \-------------/  |
+|     ||         | ^                 ^             ^         \---------/         ||  |      |
+|     ||         \-|-----------------|-------------|------------^----------------||--/      |
+|     ||           |                 |             |            |                \/         |
+|     \/           \--------------------------------------------------------------------------->/--------------\
+| /----------                                                                               |   | Database for |
+| | Report |                                                                                |   | mutants.     |
+| \--------/                                                                                -   \--------------/
+|                                                                                           |
+\-------------------------------------------------------------------------------------------/
+Figure: Over view of Dextool Mutate operational phases.
 
-Create a configuration file:
-```sh
-dextool mutate admin --init
-```
-
-Open the config file and change the following fields:
-```toml
-[workarea]
-restrict = ["googlemock/include", "googlemock/src", "googletest/include", "googletest/src"]
-[compiler]
-extra_flags = [ "-D_POSIX_PATH_MAX=1024" ]
-[compile_commands]
-search_paths = ["./build/compile_commands.json"]
-[mutant_test]
-test_cmd = "./test.sh"
-#test_cmd_dir = ["./build/test"]
-build_cmd = "./build.sh"
-analyze_using_builtin = ["gtest"]
-```
-
-Generate a database of all mutation points:
-```sh
-dextool mutate analyze
-```
-
-Create a file `build.sh` that will build the subject under test when invoked:
-```sh
-#!/bin/bash
-set -e
-cd build
-make -j$(nproc)
-```
-
-Create a file `test.sh` that will run the entire test suite when invoked:
-```sh
-#!/bin/bash
-set -e
-cd build
-ctest --output-on-failure
-```
-
-Make the files executable so they can be used by dextool:
-```sh
-chmod 755 build.sh test.sh
-```
-
-Run the mutation testing on the LCR mutants:
-```sh
-dextool mutate test --mutant lcr
-```
-
-For more examples [see here](examples).
+The mutation testing plugin, Dextool Mutate, functions in such a way that the
+user provides a configuration-file where scripts, settings, and different paths
+are specified. The picture above shows the flow for the plugin, where the test
+part of mutation testing, is depicted in a more detailed manner. As shown in
+the image, the plugin is divided into different parts (executable commandos) -
+analyze, test and report.
 
 ## Test Phase Execution Flow
 
-The test phase (dextool mutate test) use the configuration files content in the
-following way when executing:
+The test phase use the configuration files content in the following way when
+executing:
 
 1. Upon start the configuration is checked for if `test_cmd_dir` is configured.
    If yes then the directories are scanned recursively for executables. Any
@@ -160,53 +149,21 @@ For each mutant:
 4. If the mutant is killed and either `analyze_cmd` or `analyze_using_builtin`
    is configured the output from the executed `test_cmd` is passed on to these
    to extract the specific test cases that killed the mutant.
+5. Save the result in the database. The result consist of the status
+   (killed/alive), which test cases that failed (killed the mutant) and
+   execution time.
 
 ## Report <a name="report"></a>
-To see the result of the mutation testing and thus specifically those that
-survived it is recommended to user the preconfigured `--level alive` parameter.
-It prints a summary and the mutants that survived.
+
+The report phase contains a multitude of simple reporters together with more
+complex analysis of the test cases. A report is composted of `section`s,  see
+[report](README_config.md#report) for details.
+
+A basic report with a file list, statistics and some simple test case
+analysises is:
 
 ```sh
-dextool mutate report --level alive --mutant lcr
-```
-
-But it is possible to in more detail control what sections are printed for the `--plain` printer.
-Lets say we want to print the test case statistics, the summary and the killed mutants.
-```sh
-dextool mutate report --section tc_stat --section summary --section killed --section tc_killed_no_mutants --mutant lcr
-```
-
-See `--section` for a specification of the supported sections.
-
-## Re-test Alive Mutants <a name="re-test-alive"></a>
-
-Lets say that we want to re-test the mutants that survived because new tests
-have been added to the test suite. To speed up the mutation testing run we
-don't want to test all mutants but just those that are currently marked as
-alive.
-
-This is achieved by changing the configuration file from doNothing to
-resetAlive:
-```toml
-detected_new_test_case = "resetAlive"
-```
-
-It is recommended to also active the detection of dropped test cases and
-re-execution of old mutants to further improve the quality of the mutation
-score.
-
-This retest all mutants that a test case that is removed killed.
-```toml
-detected_dropped_test_case = "remove"
-```
-
-This option re-test old mutants to see if anything has changed regarding the
-test suite. Because dextool mutate can't "see" if a test case implementation
-has changed and thus need to re-execute it the only way that is left is to
-re-execute the mutants. Balance the number of mutants to test against how many
-that exists.
-```toml
-oldest_mutants_nr = 10
+dextool mutate report --style html --section summary --section tc_stat --section tc_killed_no_mutants --section tc_unique --section score_history
 ```
 
 ## Mark a Mutant as Dont Care <a name="mark-mutant"></a>
@@ -264,17 +221,3 @@ Administration interface:
    that is marked will be affected.
  * Con: loses its mark when the source code file is changed. Requires that the
    marking is re-applied manually.
-
-# Code Coverage
-
-It may be interesting to compare mutation testing results with code coverage.
-To measure code coverage for the Google Test project, build it with:
-```sh
-cmake -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_C_FLAGS="-fprofile-arcs -ftest-coverage" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-arcs -ftest-coverage" -Dgtest_build_tests=ON -Dgmock_build_tests=ON ..
-```
-
-To generate a HTML coverage report:
-```sh
-lcov -c --gcov-tool /usr/bin/gcov -d . --output-file app.info
-genhtml app.info -o html
-```
