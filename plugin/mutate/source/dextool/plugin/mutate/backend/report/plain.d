@@ -26,10 +26,10 @@ import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeSta
     MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr,
     EstimateScore, MutationScoreHistory;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
-import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table, toSections;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportSection;
 import dextool.plugin.mutate.backend.utility : Profile;
 
 @safe:
@@ -80,12 +80,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
         this.kinds = kinds;
         this.fio = fio;
         this.conf = conf;
-
-        ReportSection[] tmp_sec = conf.reportSection.length == 0
-            ? conf.reportLevel.toSections : conf.reportSection.dup;
-
-        foreach (a; tmp_sec)
-            this.sections.add(a);
+        this.sections = conf.reportSection.toSet;
     }
 
     void mutationKindEvent(const MutationKind[] kind_) {

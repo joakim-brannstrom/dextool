@@ -388,7 +388,6 @@ struct ArgParser {
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "diff-from-stdin", "report alive mutants in the areas indicated as changed in the diff", &report.unifiedDiff,
-                   "level", "the report level of the mutation data " ~ format("[%(%s|%)]", [EnumMembers!ReportLevel]), &report.reportLevel,
                    "logdir", "Directory to write log files to (default: .)", &logDir,
                    "m|mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
                    "out", out_help, &workArea.rawRoot,
@@ -401,13 +400,9 @@ struct ArgParser {
                    );
             // dfmt on
 
-            if (report.reportSection.length != 0 && report.reportLevel != ReportLevel.summary) {
-                logger.error("Combining --section and --level is not supported");
-                help_info.helpWanted = true;
-            }
-
-            if (logDir.empty)
+            if (logDir.empty) {
                 logDir = ".";
+            }
             report.logDir = logDir.Path.AbsolutePath;
 
             updateCompileDb(compileDb, compile_dbs);

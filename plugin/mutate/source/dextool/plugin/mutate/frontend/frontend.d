@@ -18,8 +18,7 @@ import dextool.compilation_db;
 import dextool.type : Path, AbsolutePath, ExitStatusType;
 
 import dextool.plugin.mutate.frontend.argparser;
-import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind,
-    ReportLevel, AdminOperation;
+import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind, AdminOperation;
 import dextool.plugin.mutate.config;
 
 @safe:

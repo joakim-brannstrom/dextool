@@ -21,7 +21,7 @@ import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, Language, TestGroup;
 import dextool.plugin.mutate.type : ReportKillSortOrder;
-import dextool.plugin.mutate.type : ReportLevel, ReportSection;
+import dextool.plugin.mutate.type : ReportSection;
 import dextool.type;
 
 // 5 because it covers all the operators and true/false
@@ -44,26 +44,6 @@ string window(T)(T a, size_t maxlen = windowSize) {
     } catch (Exception e) {
         return invalidUtf8;
     }
-}
-
-ReportSection[] toSections(const ReportLevel l) @safe {
-    ReportSection[] secs;
-    final switch (l) with (ReportSection) {
-    case ReportLevel.summary:
-        secs = [summary];
-        break;
-    case ReportLevel.alive:
-        secs = [summary, mut_stat, tc_killed_no_mutants, tc_full_overlap, alive];
-        break;
-    case ReportLevel.all:
-        secs = [
-            summary, mut_stat, all_mut, tc_killed, tc_killed_no_mutants,
-            tc_full_overlap
-        ];
-        break;
-    }
-
-    return secs;
 }
 
 string toInternal(ubyte[] data) @safe nothrow {
