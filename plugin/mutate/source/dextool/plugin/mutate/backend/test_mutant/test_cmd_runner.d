@@ -186,7 +186,7 @@ struct TestRunner {
                 processDone(t, rval, output);
                 .destroy(t);
             }
-            () @trusted { Thread.sleep(20.dur!"msecs"); }();
+            () @trusted { Thread.sleep(1.dur!"msecs"); }();
         }
 
         rval.output = output.data;
