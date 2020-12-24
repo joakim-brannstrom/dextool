@@ -62,7 +62,9 @@ unittest {
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addPostArg(["--mutant", "all"])
-        .addArg(["--level", "alive"])
+        .addArg(["--section", "alive"])
+        .addArg(["--section", "mut_stat"])
+        .addArg(["--section", "summary"])
         .run;
 
     testConsecutiveSparseOrder!SubStr([
@@ -92,7 +94,7 @@ unittest {
     auto r = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--mutant", "ror"])
         .addArg(["--style", "compiler"])
-        .addArg(["--level", "all"])
+        .addArg(["--section", "all_mut"])
         .run;
 
     testConsecutiveSparseOrder!SubStr([

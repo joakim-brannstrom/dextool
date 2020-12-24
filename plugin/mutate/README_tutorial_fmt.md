@@ -45,6 +45,7 @@ analyze_using_builtin = ["gtest"]
 # applicable for this tutorial but for your project they should be activated.
 detected_new_test_case = "resetAlive"
 detected_dropped_test_case = "remove"
+oldest_mutants = "test"
 oldest_mutants_percentage = 1.0
 ```
 

@@ -24,7 +24,7 @@ import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
-import dextool.plugin.mutate.backend.report.utility : window, windowSize, toSections;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
@@ -89,8 +89,7 @@ final class ReportJson {
         this.logDir = conf.logDir;
         this.diff = diff;
 
-        sections = (conf.reportSection.length == 0 ? conf.reportLevel.toSections
-                : conf.reportSection.dup).toSet;
+        sections = conf.reportSection.toSet;
     }
 
     void mutationKindEvent(const MutationKind[] kinds) {
@@ -103,7 +102,7 @@ final class ReportJson {
 
     void fileMutantEvent(const ref FileMutantRow r) @trusted {
         auto appendMutant() {
-            JSONValue m = ["mutation_id": r.id.to!long];
+            JSONValue m = ["mutation_id" : r.id.to!long];
             m.object["kind"] = r.mutation.kind.to!string;
             m.object["status"] = r.mutation.status.to!string;
             m.object["line"] = r.sloc.line;
@@ -157,7 +156,7 @@ final class ReportJson {
 
         if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
-            JSONValue s = ["alive": stat.alive];
+            JSONValue s = ["alive" : stat.alive];
             s.object["alive_nomut"] = stat.aliveNoMut;
             s.object["killed"] = stat.killed;
             s.object["timeout"] = stat.timeout;
@@ -178,7 +177,7 @@ final class ReportJson {
 
         if (ReportSection.diff in sections) {
             auto r = reportDiff(db, kinds, diff, fio.getOutputDir);
-            JSONValue s = ["score": r.score];
+            JSONValue s = ["score" : r.score];
             report["diff"] = s;
         }
 
@@ -199,7 +198,7 @@ final class ReportJson {
             auto r = reportTestCaseStats(db, kinds);
             JSONValue s;
             foreach (a; r.testCases.byValue) {
-                JSONValue v = ["ratio": a.ratio];
+                JSONValue v = ["ratio" : a.ratio];
                 v["killed"] = a.info.killedMutants;
                 s[a.tc.name] = v;
             }

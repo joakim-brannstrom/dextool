@@ -55,16 +55,6 @@ enum ReportKind {
     html,
 }
 
-/// The level of reporting
-enum ReportLevel {
-    /// Report a summary of the mutation statistics
-    summary,
-    /// Report alive mutants
-    alive,
-    /// Report all mutants
-    all
-}
-
 /// Sections to include in the report
 enum ReportSection {
     /// alive mutants

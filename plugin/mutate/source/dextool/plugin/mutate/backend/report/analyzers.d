@@ -32,7 +32,7 @@ import dextool.plugin.mutate.backend.report.utility : window, windowSize,
     statusToString, kindToString;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, TestGroup;
 import dextool.plugin.mutate.backend.utility : Profile;
-import dextool.plugin.mutate.type : ReportKillSortOrder, ReportLevel, ReportSection;
+import dextool.plugin.mutate.type : ReportKillSortOrder, ReportSection;
 import dextool.type;
 
 static import dextool.plugin.mutate.backend.database.type;

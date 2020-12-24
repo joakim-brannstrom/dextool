@@ -104,9 +104,9 @@ struct FileReadChannel {
      * The data is written directly to buf.
      * The lengt of buf determines how much is read.
      *
-     * buf is not resized. Use the returned slice.
+     * buf is not resized. Use the returned value.
      */
-    ubyte[] read(ubyte[] buf) return scope @trusted {
+    ubyte[] read(ref ubyte[] buf) return scope @trusted {
         static import core.sys.posix.unistd;
 
         if (st == State.eof || buf.length == 0) {

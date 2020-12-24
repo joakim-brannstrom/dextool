@@ -24,10 +24,9 @@ import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
-import dextool.plugin.mutate.backend.report.utility : toSections;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc, Token;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportLevel, ReportSection;
+import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportSection;
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.report.html.constants;
@@ -116,8 +115,7 @@ struct FileIndex {
         this.logFilesDir = buildPath(this.logDir, htmlFileDir).Path.AbsolutePath;
         this.diff = diff;
 
-        sections = (conf.reportSection.length == 0 ? conf.reportLevel.toSections
-                : conf.reportSection.dup).toSet;
+        sections = conf.reportSection.toSet;
     }
 
     void mutationKindEvent(const MutationKind[] k) {

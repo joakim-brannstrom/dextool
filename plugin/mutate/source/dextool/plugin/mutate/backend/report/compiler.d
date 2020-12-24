@@ -21,7 +21,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize;
 import dextool.plugin.mutate.backend.type : Mutation;
-import dextool.plugin.mutate.type : MutationKind, ReportLevel;
+import dextool.plugin.mutate.type : MutationKind, ReportSection;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.backend.utility : Profile;
 
@@ -32,7 +32,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 
     const kinds = dextool.plugin.mutate.backend.utility.toInternal(userKinds);
 
-    auto a = new ReportCompiler(kinds, conf.reportLevel, fio);
+    auto a = new ReportCompiler(kinds, conf.reportSection, fio);
 
     a.mutationKindEvent(userKinds);
 
@@ -57,17 +57,18 @@ final class ReportCompiler {
     import std.conv : to;
     import std.format : format;
     import dextool.plugin.mutate.backend.utility;
+    import my.set;
 
     const Mutation.Kind[] kinds;
-    const ReportLevel report_level;
+    Set!ReportSection sections;
     FilesysIO fio;
 
     CompilerConsole!SimpleWriter compiler;
 
-    this(const Mutation.Kind[] kinds, ReportLevel report_level, FilesysIO fio) {
+    this(const Mutation.Kind[] kinds, const ReportSection[] sections, FilesysIO fio) {
         this.kinds = kinds;
-        this.report_level = report_level;
         this.fio = fio;
+        this.sections = sections.toSet;
     }
 
     void mutationKindEvent(const MutationKind[]) {
@@ -112,19 +113,9 @@ final class ReportCompiler {
         }
 
         try {
-            // summary is the default and according to the specification of the
-            // default for tool integration alive mutations shall be printed.
-            final switch (report_level) {
-            case ReportLevel.summary:
-                break;
-            case ReportLevel.alive:
-                if (r.mutation.status == Mutation.Status.alive) {
-                    report();
-                }
-                break;
-            case ReportLevel.all:
+            if (r.mutation.status == Mutation.Status.alive
+                    && ReportSection.alive in sections || ReportSection.all_mut in sections) {
                 report();
-                break;
             }
         } catch (Exception e) {
             logger.trace(e.msg).collectException;

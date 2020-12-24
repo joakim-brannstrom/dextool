@@ -41,8 +41,7 @@ enum ToolMode {
 /// Config of the report.
 struct ConfigReport {
     ReportKind reportKind;
-    ReportLevel reportLevel;
-    ReportSection[] reportSection;
+    ReportSection[] reportSection = [ReportSection.summary];
 
     /// Directory to write logs to when writing to the filesystem.
     AbsolutePath logDir;
