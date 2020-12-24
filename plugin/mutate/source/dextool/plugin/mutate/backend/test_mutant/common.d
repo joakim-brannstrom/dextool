@@ -420,7 +420,12 @@ CompileResult compile(ShellCommand cmd, Duration timeout, bool printToStdout = f
     import std.stdio : write;
 
     try {
-        auto p = pipeProcess(cmd.value).sandbox.timeout(timeout).rcKill;
+        auto p = () {
+            if (cmd.value.length == 1) {
+                return pipeShell(cmd.value[0]).sandbox.timeout(timeout).rcKill;
+            }
+            return pipeProcess(cmd.value).sandbox.timeout(timeout).rcKill;
+        }();
         foreach (a; p.process.drain) {
             if (!a.empty && printToStdout) {
                 write(a.byUTF8);
