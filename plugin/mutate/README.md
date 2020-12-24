@@ -93,6 +93,7 @@ Optional that are good candidates are:
    `<=`. Strongly affects the boundaries how values are used and indexing.
  * aor. Mutates math operations such as `+`.
 
+```
 /---------------------------\    /-----------------------------------------------------\
 | Setup config files and    |    | /----------\ /---------\  /------------\            |
 | create executable scripts |--->| | build.sh | | test.sh |  | analyze.sh |            |
@@ -119,6 +120,7 @@ Optional that are good candidates are:
 | \--------/                                                                                -   \--------------/
 |                                                                                           |
 \-------------------------------------------------------------------------------------------/
+```
 Figure: Over view of Dextool Mutate operational phases.
 
 The mutation testing plugin, Dextool Mutate, functions in such a way that the
