@@ -174,7 +174,7 @@ struct BuildDextoolRun {
             cmd ~= args_.dup;
             cmd ~= post_args;
             if (workdir_.length != 0)
-                cmd ~= ["--out=", workdir_];
+                cmd ~= ["--out", workdir_];
 
             if (arg_debug) {
                 cmd ~= "--debug";
