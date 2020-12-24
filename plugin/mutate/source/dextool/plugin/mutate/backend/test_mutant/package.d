@@ -828,25 +828,10 @@ nothrow:
         import proc;
 
         logger.info("Checking the build command").collectException;
-        try {
-            auto output = appender!(DrainElement[])();
-            auto p = pipeProcess(global.data.conf.mutationCompile.value).sandbox.drain(output)
-                .scopeKill;
-            if (p.wait == 0) {
-                logger.info("Ok".color(Color.green));
-                return;
-            }
-
-            logger.error("Build commman failed");
-            foreach (l; output.data) {
-                write(l.byUTF8);
-            }
-        } catch (Exception e) {
-            // unable to for example execute the compiler
-            logger.error(e.msg).collectException;
-        }
-
-        data.compilationError = true;
+        compile(global.data.conf.mutationCompile, global.data.conf.buildCmdTimeout, true).match!(
+                (Mutation.Status a) { data.compilationError = true; }, (bool success) {
+            data.compilationError = !success;
+        });
     }
 
     void opCall(FindTestCmds data) {
@@ -1300,7 +1285,7 @@ nothrow:
                 global.data.conf.buildCmdTimeout, global.data.conf.logSchemata).match!(
                 (Mutation.Status a) {}, (bool success) {
             successCompile = success;
-        },);
+        });
 
         if (!successCompile) {
             logger.info("Skipping schema because it failed to compile".color(Color.yellow))
