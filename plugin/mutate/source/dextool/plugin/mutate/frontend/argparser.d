@@ -90,6 +90,7 @@ struct ArgParser {
         import std.ascii : newline;
         import std.conv : to;
         import std.format : format;
+        import std.parallelism : totalCPUs;
         import std.utf : toUTF8;
 
         auto app = appender!(string[])();
@@ -164,7 +165,7 @@ struct ArgParser {
         app.put("[mutant_test]");
         app.put(null);
         app.put("# command to build the program **and** test suite.");
-        app.put(`build_cmd = ["./build.sh"]`);
+        app.put(format!`build_cmd = ["cd build && make -j%s"]`(totalCPUs));
         app.put(null);
         app.put("# at least one of test_cmd_dir (recommended) or test_cmd needs to be specified.");
         app.put(null);
@@ -199,28 +200,31 @@ struct ArgParser {
         app.put(format("# order = %(%s|%)", [EnumMembers!MutationOrder].map!(a => a.to!string)));
         app.put(null);
         app.put("# how to behave when new test cases are found");
-        app.put(format("# detected_new_test_case = %(%s|%)",
-                [EnumMembers!(ConfigMutationTest.NewTestCases)].map!(a => a.to!string)));
+        app.put(format("# available options are %s",
+                [EnumMembers!(ConfigMutationTest.NewTestCases)]));
+        app.put(`detected_new_test_case = "resetAlive"`);
         app.put(null);
         app.put("# how to behave when test cases are detected as having been removed");
         app.put("# should the test and the gathered statistics be removed too?");
-        app.put(format("# detected_dropped_test_case = %(%s|%)",
-                [EnumMembers!(ConfigMutationTest.RemovedTestCases)].map!(a => a.to!string)));
+        app.put(format("# available options are %s",
+                [EnumMembers!(ConfigMutationTest.RemovedTestCases)]));
+        app.put(`detected_dropped_test_case = "remove"`);
         app.put(null);
         app.put("# how the oldest mutants should be treated.");
         app.put("# It is recommended to test them again.");
         app.put("# Because you may have changed the test suite so mutants that where previously killed by the test suite now survive.");
-        app.put(format("# oldest_mutants = %(%s|%)",
-                [EnumMembers!(ConfigMutationTest.OldMutant)].map!(a => a.to!string)));
+        app.put(format!"# available options are %s"(
+                [EnumMembers!(ConfigMutationTest.OldMutant)]));
+        app.put(`oldest_mutants = "test"`);
         app.put(null);
         app.put("# how many of the oldest mutants to do the above with");
         app.put("# oldest_mutants_nr = 10");
         app.put("# how many of the oldest mutants to do the above with");
-        app.put("# oldest_mutants_percentage = 1.0");
+        app.put("oldest_mutants_percentage = 1.0");
         app.put(null);
         app.put(
                 "# number of threads to be used when running tests in parallel (default is the number of cores).");
-        app.put("# parallel_test = 1");
+        app.put(format!"# parallel_test = %s"(totalCPUs));
         app.put(null);
         app.put("# stop executing tests as soon as a test command fails.");
         app.put(
@@ -238,7 +242,11 @@ struct ArgParser {
         app.put("[report]");
         app.put(null);
         app.put("# default style to use");
-        app.put(format("# style = %(%s|%)", [EnumMembers!ReportKind].map!(a => a.to!string)));
+        app.put(format("# style = %(%s|%)", [EnumMembers!ReportKind]));
+        app.put(null);
+        app.put("# default report sections when no --section is specified");
+        app.put(format!"# available options are %s"([EnumMembers!ReportSection]));
+        app.put(format!"sections = %s"(report.reportSection));
         app.put(null);
 
         app.put("[test_group]");
@@ -382,6 +390,7 @@ struct ArgParser {
             string logDir;
 
             data.toolMode = ToolMode.report;
+            ReportSection[] sections;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "compile-db", "Retrieve compilation parameters from the file", &compile_dbs,
@@ -393,7 +402,7 @@ struct ArgParser {
                    "out", out_help, &workArea.rawRoot,
                    "profile", "print performance profile for the analyzers that are part of the report", &report.profile,
                    "restrict", restrict_help, &workArea.rawRestrict,
-                   "section", "sections to include in the report " ~ format("[%(%s|%)]", [EnumMembers!ReportSection]), &report.reportSection,
+                   "section", "sections to include in the report " ~ format("[%-(%s|%)]", [EnumMembers!ReportSection]), &sections,
                    "section-tc_stat-num", "number of test cases to report", &report.tcKillSortNum,
                    "section-tc_stat-sort", "sort order when reporting test case kill stat " ~ format("[%(%s|%)]", [EnumMembers!ReportKillSortOrder]), &report.tcKillSortOrder,
                    "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &report.reportKind,
@@ -404,6 +413,9 @@ struct ArgParser {
                 logDir = ".";
             }
             report.logDir = logDir.Path.AbsolutePath;
+            if (!sections.empty) {
+                report.reportSection = sections;
+            }
 
             updateCompileDb(compileDb, compile_dbs);
         }
@@ -789,6 +801,16 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
         c.report.reportKind = v.str.to!ReportKind;
     };
+    callbacks["report.sections"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.report.reportSection = v.array.map!(a => a.str.to!ReportSection).array;
+        } catch (Exception e) {
+            logger.info("Available mutation kinds ", [
+                    EnumMembers!ReportSection
+                    ]);
+            logger.error(e.msg);
+        }
+    };
 
     void iterSection(ref ArgParser c, string sectionName) {
         if (auto section = sectionName in doc) {
@@ -994,6 +1016,21 @@ mutants = ["lcr"]
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.data.mutation.shouldEqual([MutationKind.lcr]);
+}
+
+@("shall parse the report sections")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[report]
+sections = ["all_mut", "summary"]
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.report.reportSection.shouldEqual([
+            ReportSection.all_mut, ReportSection.summary
+            ]);
 }
 
 /// Minimal config to setup path to config file.
