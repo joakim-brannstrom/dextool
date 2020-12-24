@@ -110,6 +110,8 @@ struct ArgParser {
         app.put("# default mutants to test if none is specified by --mutant");
         app.put(
                 "# note that this affects the analyze phase thus the --mutant argument must be one of those specified here");
+        app.put(format!"# available options are: [%(%s, %)]"(
+                [EnumMembers!MutationKind].map!(a => a.to!string)));
         app.put(format("mutants = [%(%s, %)]", defaultMutants.map!(a => a.to!string)));
         app.put(null);
 
@@ -119,19 +121,19 @@ struct ArgParser {
         app.put("# exclude = []");
         app.put(null);
         app.put("# number of threads to be used for analysis (default is the number of cores).");
-        app.put("# threads = 1");
+        app.put(format!"# threads = %s"(totalCPUs));
         app.put(null);
         app.put("# remove files from the database that are no longer found during analysis.");
-        app.put(`# prune = true`);
+        app.put(`prune = true`);
         app.put(null);
         app.put("# maximum number of mutants per schema (zero means no limit).");
-        app.put("# mutants_per_schema = 100");
+        app.put(format!"# mutants_per_schema = %s"(analyze.mutantsPerSchema));
         app.put(null);
 
         app.put("[database]");
         app.put(null);
         app.put("# path (absolute or relative) where mutation statistics will be stored.");
-        app.put(`# db = "dextool_mutate.sqlite3"`);
+        app.put(`db = "dextool_mutate.sqlite3"`);
         app.put(null);
 
         app.put("[compiler]");
@@ -140,7 +142,7 @@ struct ArgParser {
         app.put(format(`# extra_flags = [%(%s, %)]`, compiler.extraFlags));
         app.put(null);
         app.put("# force system includes to use -I instead of -isystem");
-        app.put("# force_system_includes = true");
+        app.put(format!"# force_system_includes = %s"(compiler.forceSystemIncludes));
         app.put(null);
         app.put("# system include paths to use instead of the ones in compile_commands.json");
         app.put(format(`# use_compiler_system_includes = "%s"`, compiler.useCompilerSystemIncludes.length == 0
@@ -173,7 +175,7 @@ struct ArgParser {
         app.put(`test_cmd_dir = ["./build/test"]`);
         app.put(null);
         app.put(`# flags to add to all executables found in test_cmd_dir.`);
-        app.put(`# test_cmd_dir_flag = ["--gtest_filter", "-*foo"]`);
+        app.put(`# test_cmd_dir_flag = ["--gtest_filter", "-foo*"]`);
         app.put(null);
         app.put("# command(s) to test the program.");
         app.put("# the arguments for test_cmd can be an array of multiple test commands");
@@ -197,24 +199,24 @@ struct ArgParser {
                 [EnumMembers!TestCaseAnalyzeBuiltin].map!(a => a.to!string)));
         app.put(null);
         app.put("# determine in what order mutations are chosen");
-        app.put(format("# order = %(%s|%)", [EnumMembers!MutationOrder].map!(a => a.to!string)));
+        app.put(format("# order = %(%s %)", [EnumMembers!MutationOrder].map!(a => a.to!string)));
         app.put(null);
         app.put("# how to behave when new test cases are found");
-        app.put(format("# available options are %s",
-                [EnumMembers!(ConfigMutationTest.NewTestCases)]));
+        app.put(format("# available options are: %(%s %)",
+                [EnumMembers!(ConfigMutationTest.NewTestCases)].map!(a => a.to!string)));
         app.put(`detected_new_test_case = "resetAlive"`);
         app.put(null);
         app.put("# how to behave when test cases are detected as having been removed");
         app.put("# should the test and the gathered statistics be removed too?");
-        app.put(format("# available options are %s",
-                [EnumMembers!(ConfigMutationTest.RemovedTestCases)]));
+        app.put(format("# available options are: %(%s %)",
+                [EnumMembers!(ConfigMutationTest.RemovedTestCases)].map!(a => a.to!string)));
         app.put(`detected_dropped_test_case = "remove"`);
         app.put(null);
         app.put("# how the oldest mutants should be treated.");
         app.put("# It is recommended to test them again.");
         app.put("# Because you may have changed the test suite so mutants that where previously killed by the test suite now survive.");
-        app.put(format!"# available options are %s"(
-                [EnumMembers!(ConfigMutationTest.OldMutant)]));
+        app.put(format!"# available options are: %(%s %)"(
+                [EnumMembers!(ConfigMutationTest.OldMutant)].map!(a => a.to!string)));
         app.put(`oldest_mutants = "test"`);
         app.put(null);
         app.put("# how many of the oldest mutants to do the above with");
@@ -242,11 +244,14 @@ struct ArgParser {
         app.put("[report]");
         app.put(null);
         app.put("# default style to use");
-        app.put(format("# style = %(%s|%)", [EnumMembers!ReportKind]));
+        app.put(format("# available options are: %(%s %)",
+                [EnumMembers!ReportKind].map!(a => a.to!string)));
+        app.put(format(`style = "%s"`, report.reportKind));
         app.put(null);
         app.put("# default report sections when no --section is specified");
-        app.put(format!"# available options are %s"([EnumMembers!ReportSection]));
-        app.put(format!"sections = %s"(report.reportSection));
+        app.put(format!"# available options are: [%(%s, %)]"(
+                [EnumMembers!ReportSection].map!(a => a.to!string)));
+        app.put(format!"sections = [%(%s, %)]"(report.reportSection.map!(a => a.to!string)));
         app.put(null);
 
         app.put("[test_group]");
