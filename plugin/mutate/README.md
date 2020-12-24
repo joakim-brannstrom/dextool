@@ -17,8 +17,8 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
    using dextool mutate for embedded systems.
  * See [mutation operators](doc/design/mutations.md) for the in depth details
    of the mutants that dextool generate.
- * See [cmake tutorial](README_tutorial_cmake.md) for how to apply mutation
-   testing to a cmake project.
+ * See [apply mutation testing](README_tutorial.md) for how to apply mutation
+   testing on a project.
 
 Note: the build instructions is in the root `README.md` of this repo.
 
