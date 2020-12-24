@@ -126,10 +126,9 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * record the exit code when running tests. let segfaults not affect the timout test algorithm.
+ * checksum all files under the test directory and save it together with a timestamp. Then we can show to the user how "out of sync" the tests are with the mutation report.
  * merge all schemas with only 1-2 mutants to "one" schema
- * document early stop and schemata
- * write a tutorial/guide for integrating dextool in a pull request workflow
- * add a threshold for the max number of mutants that a schema contains. Less mutants mean it is a higher probability that it actually compiles.
  * present the first mutant that survived in a pull request as a diff. It should be "good enough" because the user is working on the pieace of code thus it should be able to "fast" understand what the mutant means.
  * because mutation testing is a specialization of fuzzy testing it should be possible to integrate similare techniques as is used in AFL such as the coverage instrumentation. The least we can do with this is getting the path coverage of a SUT. Could it also be used to "guide" us in what mutants to prioritize?
  * build a dependency for a file that is mutated such that it is only re-analyzed if that file or any of its dependencies has changed. Use the includeVisitor to find the dependencies.
