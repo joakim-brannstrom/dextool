@@ -18,11 +18,10 @@ TEST   := $(MAKEFILE_DIR)/test/test_triangle.c
 #
 # Mutation testing parameters
 #
-MUTATION_DB     := test_triangle.mut.db
+MUTATION_DB := dextool_mutate.sqlite3
 MUTATION_REPORT := html
 
-DEXTOOL ?= $(MAKEFILE_DIR)/../../../../build/dextool
-MFLAGS  := --db $(MUTATION_DB)
+DEXTOOL     ?= dextool
 
 #
 # Make targets
@@ -37,20 +36,13 @@ test: test_triangle
 	./test_triangle
 
 report: $(MUTATION_DB)
-	$(DEXTOOL) mutate report $(MFLAGS) \
+	$(DEXTOOL) mutate report \
 			--section summary \
-			--section alive \
-			--section killed \
 			--style html
 
 $(MUTATION_DB): $(SOURCE) $(TEST)
-	$(DEXTOOL) mutate analyze $(MFLAGS) \
-			--in $(SOURCE) \
-			-- $(CFLAGS)
-	$(DEXTOOL) mutate test $(MFLAGS) \
-			--build-cmd "/usr/bin/make -f $(MAKEFILE_PATH) test_triangle" \
-			--test-cmd  "/usr/bin/make -f $(MAKEFILE_PATH) test" \
-			--test-timeout 1000
+	$(DEXTOOL) mutate analyze --in $(SOURCE) --fast-db-store
+	$(DEXTOOL) mutate test
 
 clean:
 	rm -rf \
