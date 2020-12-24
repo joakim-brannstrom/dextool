@@ -19,6 +19,8 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
    of the mutants that dextool generate.
  * See [apply mutation testing](README_tutorial.md) for how to apply mutation
    testing on a project.
+ * See [fmt tutorial](README_tutorial_fmt.md) for a practical example of
+   running mutation testing.
 
 Note: the build instructions is in the root `README.md` of this repo.
 
