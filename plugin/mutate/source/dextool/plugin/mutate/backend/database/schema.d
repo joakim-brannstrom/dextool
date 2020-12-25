@@ -332,7 +332,8 @@ struct AllTestCaseTbl {
  * "cooperate".
  * TODO: change the checksum to being NOT NULL in the future. Can't for now
  * when migrating to schema version 5->6.
- * time = ms spent on verifying the mutant
+ * compile_time_ms = time it took to compile the program for the mutant
+ * test_time_ms = time it took to run the test suite
  * timestamp = is when the status where last updated. Seconds at UTC+0.
  * added_ts = when the mutant where added to the system. UTC+0.
  * test_cnt = nr of times the mutant has been tested without being killed.
@@ -345,8 +346,11 @@ struct MutationStatusTbl {
     @ColumnName("exit_code")
     int exitCode;
 
-    @ColumnParam("")
-    long time;
+    @ColumnName("compile_time_ms")
+    long compileTimeMs;
+
+    @ColumnName("test_time_ms")
+    long testTimeMs;
 
     @ColumnName("test_cnt")
     long testCnt;
@@ -1175,6 +1179,32 @@ void upgradeV25(ref Miniorm db) {
     import std.traits : EnumMembers;
     import dextool.plugin.mutate.backend.type : Mutation;
 
+    @TableName(mutationStatusTable)
+    @TableConstraint("checksum UNIQUE (checksum0, checksum1)")
+    struct MutationStatusTbl {
+        long id;
+        long status;
+        @ColumnName("exit_code")
+        int exitCode;
+
+        @ColumnParam("")
+        long time;
+
+        @ColumnName("test_cnt")
+        long testCnt;
+
+        @ColumnParam("")
+        @ColumnName("update_ts")
+        SysTime updated;
+
+        @ColumnParam("")
+        @ColumnName("added_ts")
+        SysTime added;
+
+        long checksum0;
+        long checksum1;
+    }
+
     immutable newTbl = "new_" ~ mutationStatusTable;
     db.run(buildSchema!MutationStatusTbl("new_"));
 
@@ -1215,6 +1245,24 @@ void upgradeV27(ref Miniorm db) {
         SELECT t.id, t.name
         FROM %s t", newTbl, allTestCaseTable));
     replaceTbl(db, newTbl, allTestCaseTable);
+}
+
+/// 2020-12-25
+void upgradeV28(ref Miniorm db) {
+    import dextool.plugin.mutate.backend.type : Mutation;
+
+    immutable newTbl = "new_" ~ mutationStatusTable;
+    db.run(buildSchema!MutationStatusTbl("new_"));
+
+    db.run(format("INSERT INTO %s (id,status,exit_code,compile_time_ms,test_time_ms,test_cnt,update_ts,added_ts,checksum0,checksum1)
+        SELECT t.id,t.status,t.exit_code,0,t.time,t.test_cnt,t.update_ts,t.added_ts,t.checksum0,t.checksum1
+        FROM %s t WHERE t.time NOT NULL", newTbl, mutationStatusTable));
+
+    db.run(format("INSERT INTO %s (id,status,exit_code,compile_time_ms,test_time_ms,test_cnt,update_ts,added_ts,checksum0,checksum1)
+        SELECT t.id,t.status,t.exit_code,0,0,t.test_cnt,t.update_ts,t.added_ts,t.checksum0,t.checksum1
+        FROM %s t WHERE t.time IS NULL", newTbl, mutationStatusTable));
+
+    replaceTbl(db, newTbl, mutationStatusTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
