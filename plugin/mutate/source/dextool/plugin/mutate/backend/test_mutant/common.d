@@ -437,6 +437,7 @@ CompileResult compile(ShellCommand cmd, Duration timeout, bool printToStdout = f
         }
     } catch (Exception e) {
         logger.warning("Unknown error when executing the build command").collectException;
+        logger.warning(cmd.value).collectException;
         logger.warning(e.msg).collectException;
         return CompileResult(Mutation.Status.unknown);
     }

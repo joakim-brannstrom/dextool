@@ -165,15 +165,6 @@ struct ShellCommand {
 
     string[] value;
 
-    /// Split a user string by the whitespace to create an command+argument.
-    static ShellCommand fromString(string cmd) {
-        import std.uni : isWhite;
-        import std.array : split;
-
-        string[] args = cmd.split!isWhite;
-        return ShellCommand(args);
-    }
-
     bool empty() @safe pure nothrow const @nogc {
         return value.length == 0;
     }
