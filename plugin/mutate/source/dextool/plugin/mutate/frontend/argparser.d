@@ -376,13 +376,14 @@ struct ArgParser {
             if (maxAlive > 0)
                 mutationTest.maxAlive = maxAlive;
             if (mutationTester.length != 0)
-                mutationTest.mutationTester = mutationTester.map!(a => ShellCommand.fromString(a))
-                    .array;
+                mutationTest.mutationTester = mutationTester.map!(a => ShellCommand([
+                            a
+                        ])).array;
             if (mutationCompile.length != 0)
-                mutationTest.mutationCompile = ShellCommand.fromString(mutationCompile);
+                mutationTest.mutationCompile = ShellCommand([mutationCompile]);
             if (mutationTestCaseAnalyze.length != 0)
                 mutationTest.mutationTestCaseAnalyze = mutationTestCaseAnalyze.map!(
-                        a => ShellCommand.fromString(a)).array;
+                        a => ShellCommand([a])).array;
             if (mutationTesterRuntime != 0)
                 mutationTest.mutationTesterRuntime = mutationTesterRuntime.dur!"msecs";
             if (!maxRuntime.empty)
@@ -649,7 +650,7 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
 
     static ShellCommand toShellCommand(ref TOMLValue v, string errorMsg) {
         if (v.type == TOML_TYPE.STRING) {
-            return ShellCommand.fromString(v.str);
+            return ShellCommand([v.str]);
         } else if (v.type == TOML_TYPE.ARRAY) {
             return ShellCommand(v.array.map!(a => a.str).array);
         }
@@ -661,7 +662,7 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         import std.format : format;
 
         if (v.type == TOML_TYPE.STRING) {
-            return [ShellCommand.fromString(v.str)];
+            return [ShellCommand([v.str])];
         } else if (v.type == TOML_TYPE.ARRAY) {
             return v.array.map!(a => toShellCommand(a,
                     format!"%s: failed to parse as an array"(errorMsg))).array;
