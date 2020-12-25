@@ -1060,8 +1060,8 @@ struct Database {
         }
 
         enum insert_cmut_sql = format("INSERT OR IGNORE INTO %s
-            (status,test_cnt,update_ts,added_ts,checksum0,checksum1)
-            VALUES(:st,0,:update_ts,:added_ts,:c0,:c1)",
+            (status,exit_code,test_cnt,update_ts,added_ts,checksum0,checksum1)
+            VALUES(:st,0,0,:update_ts,:added_ts,:c0,:c1)",
                     mutationStatusTable);
         auto cmut_stmt = db.prepare(insert_cmut_sql);
         const ts = Clock.currTime.toUTC.toSqliteDateTime;

@@ -342,6 +342,8 @@ struct AllTestCaseTbl {
 struct MutationStatusTbl {
     long id;
     long status;
+    @ColumnName("exit_code")
+    int exitCode;
 
     @ColumnParam("")
     long time;
@@ -868,6 +870,30 @@ void upgradeV8(ref Miniorm db) {
 
 /// 2018-11-10
 void upgradeV9(ref Miniorm db) {
+    @TableName(mutationStatusTable)
+    @TableConstraint("checksum UNIQUE (checksum0, checksum1)")
+    struct MutationStatusTbl {
+        long id;
+        long status;
+
+        @ColumnParam("")
+        long time;
+
+        @ColumnName("test_cnt")
+        long testCnt;
+
+        @ColumnParam("")
+        @ColumnName("update_ts")
+        SysTime updated;
+
+        @ColumnParam("")
+        @ColumnName("added_ts")
+        SysTime added;
+
+        long checksum0;
+        long checksum1;
+    }
+
     immutable new_tbl = "new_" ~ mutationStatusTable;
     db.run(buildSchema!MutationStatusTbl("new_"));
     db.run(format("INSERT INTO %s (id,status,time,test_cnt,update_ts,checksum0,checksum1)
@@ -1117,6 +1143,29 @@ void upgradeV23(ref Miniorm db) {
 /// 2020-12-06
 void upgradeV24(ref Miniorm db) {
     db.run(buildSchema!(MutationScoreHistoryTable));
+}
+
+void upgradeV25(ref Miniorm db) {
+    import std.traits : EnumMembers;
+    import dextool.plugin.mutate.backend.type : Mutation;
+
+    immutable new_tbl = "new_" ~ mutationStatusTable;
+    db.run(buildSchema!MutationStatusTbl("new_"));
+
+    auto stmt = db.prepare(format(
+            "INSERT INTO %s (id,status,exit_code,time,test_cnt,update_ts,added_ts,checksum0,checksum1)
+        SELECT t.id,t.status,:ecode,t.time,t.test_cnt,t.update_ts,t.added_ts,t.checksum0,t.checksum1
+        FROM %s t WHERE t.status = :status",
+            new_tbl, mutationStatusTable));
+
+    foreach (st; [EnumMembers!(Mutation.Status)]) {
+        stmt.get.bind(":ecode", (st == Mutation.Status.killed) ? 1 : 0);
+        stmt.get.bind(":status", cast(long) st);
+        stmt.get.execute;
+        stmt.get.reset;
+    }
+
+    replaceTbl(db, new_tbl, mutationStatusTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
