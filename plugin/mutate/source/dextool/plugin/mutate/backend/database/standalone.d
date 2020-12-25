@@ -21,7 +21,7 @@ module dextool.plugin.mutate.backend.database.standalone;
 
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
-import std.algorithm : copy, map, joiner;
+import std.algorithm : copy, map, joiner, filter;
 import std.array : Appender, appender, array, empty;
 import std.conv : to;
 import std.datetime : SysTime, Clock;
@@ -1203,7 +1203,7 @@ struct Database {
                     allTestCaseTable, allTestCaseTable);
         auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
 
-        enum add_new_sql = format!"INSERT INTO %s (st_id, tc_id, location) SELECT :st_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc"(
+        enum add_new_sql = format!"INSERT OR IGNORE INTO %s (st_id, tc_id, location) SELECT :st_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc"(
                     killedTestCaseTable, allTestCaseTable);
         auto stmt_insert = db.prepare(add_new_sql);
         foreach (const tc; tcs) {
@@ -1234,7 +1234,7 @@ struct Database {
         if (tcs.length == 0)
             return null;
 
-        auto mut_status_ids = appender!(MutationStatusId[])();
+        auto ids = appender!(MutationStatusId[])();
 
         immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
         internalAddDetectedTestCases(tcs, tmp_name);
@@ -1247,7 +1247,7 @@ struct Database {
                 killedTestCaseTable, tmp_name);
         auto stmt = db.prepare(mut_st_id);
         foreach (res; stmt.get.execute) {
-            mut_status_ids.put(res.peek!long(0).MutationStatusId);
+            ids.put(res.peek!long(0).MutationStatusId);
         }
 
         immutable remove_old_sql = format!"DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)"(
@@ -1256,7 +1256,7 @@ struct Database {
 
         db.run(format!"DROP TABLE %s"(tmp_name));
 
-        return mut_status_ids.data;
+        return ids.data;
     }
 
     /** Add test cases to those that have been detected.
@@ -1277,9 +1277,9 @@ struct Database {
         db.run(format!"CREATE TEMP TABLE %s (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"(
                 tmp_tbl));
 
-        immutable add_tc_sql = format!"INSERT INTO %s (name) VALUES(:name)"(tmp_tbl);
+        immutable add_tc_sql = format!"INSERT OR IGNORE INTO %s (name) VALUES(:name)"(tmp_tbl);
         auto insert_s = db.prepare(add_tc_sql);
-        foreach (tc; tcs) {
+        foreach (tc; tcs.filter!(a => !a.name.empty)) {
             insert_s.get.bind(":name", tc.name);
             insert_s.get.execute;
             insert_s.get.reset;
@@ -1369,7 +1369,7 @@ struct Database {
             t0.name = :name AND
             t0.id = t1.tc_id AND
             t1.st_id = t2.id AND
-            t2.id = t3.st_id AND
+            t1.st_id = t3.st_id AND
             t3.kind IN (%(%s,%))", allTestCaseTable,
                 killedTestCaseTable, mutationStatusTable, mutationTable,
                 kinds.map!(a => cast(int) a));
@@ -1377,8 +1377,9 @@ struct Database {
         stmt.get.bind(":name", tc.name);
 
         typeof(return) rval;
-        foreach (a; stmt.get.execute)
+        foreach (a; stmt.get.execute) {
             rval = TestCaseInfo(a.peek!long(0).dur!"msecs", a.peek!long(1));
+        }
         return rval;
     }
 

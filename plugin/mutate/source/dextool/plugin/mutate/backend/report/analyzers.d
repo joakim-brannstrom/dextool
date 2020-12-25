@@ -146,11 +146,14 @@ TestCaseStat reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds) @
         return TestCaseStat.init;
 
     alias TcInfo = Tuple!(TestCase, "tc", TestCaseInfo, "info");
+    alias TcInfo2 = Tuple!(TestCase, "tc", Nullable!TestCaseInfo, "info");
     TestCaseStat rval;
 
-    foreach (v; spinSql!(() { return db.getDetectedTestCases; }).map!(a => TcInfo(a, spinSql!(() {
+    foreach (v; spinSql!(() { return db.getDetectedTestCases; }).map!(a => TcInfo2(a, spinSql!(() {
                 return db.getTestCaseInfo(a, kinds);
-            })))) {
+            })))
+            .filter!(a => !a.info.isNull)
+            .map!(a => TcInfo(a.tc, a.info.get))) {
         try {
             const ratio = cast(double) v.info.killedMutants / cast(double) total;
             rval.testCases[v.tc] = TestCaseStat.Info(ratio, v.tc, v.info);
