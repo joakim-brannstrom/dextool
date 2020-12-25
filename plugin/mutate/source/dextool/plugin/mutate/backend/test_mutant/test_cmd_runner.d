@@ -13,6 +13,8 @@ manually specified or automatically detected.
 module dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 
 import logger = std.experimental.logger;
+import core.sync.condition;
+import core.sync.mutex;
 import std.algorithm : filter, map, joiner;
 import std.array : appender, Appender, empty, array;
 import std.datetime : Duration, dur, Clock;
@@ -37,7 +39,8 @@ version (unittest) {
 
 struct TestRunner {
     private {
-        alias TestTask = Task!(spawnRunTest, string[], Duration, string[string], Signal);
+        alias TestTask = Task!(spawnRunTest, string[], Duration,
+                string[string], Signal, Mutex, Condition);
         TaskPool pool;
         Duration timeout_;
 
@@ -180,8 +183,10 @@ struct TestRunner {
                     commands.take(reorderWhen).map!(a => format("%s:%.2f", a.cmd, a.kills)));
         }
 
+        auto mtx = new Mutex;
+        auto condDone = new Condition(mtx);
         earlyStopSignal.reset;
-        TestTask*[] tasks = startTests(timeout, env_);
+        TestTask*[] tasks = startTests(timeout, env_, mtx, condDone);
         TestResult rval;
         auto output = appender!(DrainElement[])();
         while (!tasks.empty) {
@@ -189,22 +194,22 @@ struct TestRunner {
             if (t !is null) {
                 processDone(t, rval, output);
                 .destroy(t);
+            } else {
+                synchronized (mtx) {
+                    () @trusted { condDone.wait(10.dur!"msecs"); }();
+                }
             }
-            // TODO: remove this sleep. it adds a static overhead which may be
-            // significant if there are may test binaries. e.g. 200 binaries
-            // add on at least 200ms
-            () @trusted { Thread.sleep(1.dur!"msecs"); }();
         }
 
         rval.output = output.data;
         return rval;
     }
 
-    private auto startTests(Duration timeout, string[string] env) @trusted {
+    private auto startTests(Duration timeout, string[string] env, Mutex mtx, Condition condDone) @trusted {
         auto tasks = appender!(TestTask*[])();
 
         foreach (c; commands) {
-            auto t = task!spawnRunTest(c.cmd.value, timeout, env, earlyStopSignal);
+            auto t = task!spawnRunTest(c.cmd.value, timeout, env, earlyStopSignal, mtx, condDone);
             tasks.put(t);
             pool.put(t);
         }
@@ -258,9 +263,20 @@ string[] findExecutables(AbsolutePath root) @trusted {
     return app.data;
 }
 
-RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signal earlyStop) @trusted nothrow {
+RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env,
+        Signal earlyStop, Mutex mtx, Condition condDone) @trusted nothrow {
     import std.algorithm : copy;
     static import std.process;
+
+    scope (exit)
+        () nothrow{
+        try {
+            synchronized (mtx) {
+                condDone.notify;
+            }
+        } catch (Exception e) {
+        }
+    }();
 
     RunResult rval;
     rval.cmd = cmd;

@@ -88,9 +88,6 @@ struct TestCaseAnalyzer {
         import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 
         GatherTestCase gather;
-        // TODO: maybe destroy it too, to cleanup memory earlier? But it isn't
-        // @safe
-        //scope(exit) .destroy(gather);
 
         // the post processer must succeeed for the data to be stored. It is
         // considered a major error that may corrupt existing data if it fails.
