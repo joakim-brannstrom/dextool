@@ -17,7 +17,7 @@ import std.format : formattedWrite;
 import std.meta : AliasSeq;
 import std.typecons : Nullable, scoped;
 
-import automem : vector, Vector;
+import my.container.vector : vector, Vector;
 import my.gc.refc : RefCounted;
 
 import clang.Cursor : Cursor;
@@ -386,9 +386,6 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     void dispose() {
-        nstack.free;
-        cstack.free;
-        lastDecr.free;
         ast.release;
     }
 

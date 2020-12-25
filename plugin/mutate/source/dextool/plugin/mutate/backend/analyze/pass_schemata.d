@@ -20,7 +20,7 @@ import std.range : ElementType, only;
 import std.traits : EnumMembers;
 import std.typecons : tuple, Tuple, scoped;
 
-import automem : vector, Vector;
+import my.container.vector : vector, Vector;
 import my.gc.refc : RefCounted;
 import my.set;
 
