@@ -27,7 +27,7 @@ import dextool.plugin.mutate.backend.interface_;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
-import dextool.plugin.mutate.backend.type : Mutation, TestCase;
+import dextool.plugin.mutate.backend.type : Mutation, TestCase, ExitStatus;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
 import dextool.type : AbsolutePath, Path;
@@ -42,13 +42,14 @@ version (unittest) {
 struct MutationTestResult {
     import std.datetime : Duration;
     import dextool.plugin.mutate.backend.database : MutationStatusId, MutationId;
-    import dextool.plugin.mutate.backend.type : Mutation, TestCase;
+    import dextool.plugin.mutate.backend.type : Mutation, TestCase, ExitStatus;
 
     MutationId mutId;
     MutationStatusId id;
     Mutation.Status status;
     Duration testTime;
     TestCase[] testCases;
+    ExitStatus exitStatus;
 }
 
 /** Analyze stdout/stderr output from a test suite for test cases that failed
@@ -443,6 +444,12 @@ CompileResult compile(ShellCommand cmd, Duration timeout, bool printToStdout = f
     return CompileResult(true);
 }
 
+struct TestResult {
+    Mutation.Status status;
+    DrainElement[] output;
+    ExitStatus exitStatus;
+}
+
 /** Run the test suite to verify a mutation.
  *
  * Params:
@@ -453,20 +460,17 @@ CompileResult compile(ShellCommand cmd, Duration timeout, bool printToStdout = f
  *
  * Returns: the result of testing the mutant.
  */
-auto runTester(ref TestRunner runner) nothrow {
+TestResult runTester(ref TestRunner runner) nothrow {
     import proc;
 
-    struct Rval {
-        Mutation.Status status;
-        DrainElement[] output;
-    }
-
-    Rval rval;
+    TestResult rval;
     try {
         auto res = runner.run;
         rval.output = res.output;
+        rval.exitStatus = res.exitStatus;
 
-        final switch (res.status) with (TestResult.Status) {
+        final switch (res.status) with (
+            dextool.plugin.mutate.backend.test_mutant.test_cmd_runner.TestResult.Status) {
         case passed:
             rval.status = Mutation.Status.alive;
             break;

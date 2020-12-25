@@ -111,6 +111,7 @@ struct MetadataNoMutEntry {
 struct MutantInfo {
     MutationId id;
     Mutation.Status status;
+    ExitStatus ecode;
     Mutation.Kind kind;
     SourceLoc sloc;
 }
@@ -144,6 +145,7 @@ struct MutationStatus {
     MutantTestCount testCnt;
     SysTime updated;
     Nullable!SysTime added;
+    ExitStatus exitStatus;
 }
 
 /// Metadata about a line in a file.

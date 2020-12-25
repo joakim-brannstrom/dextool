@@ -30,7 +30,7 @@ import my.from_;
 import my.fsm;
 
 import dextool.plugin.mutate.backend.database : Database, MutantTimeoutCtx, MutationStatusId;
-import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.type : Mutation, ExitStatus;
 
 @safe:
 
@@ -69,7 +69,7 @@ std_.datetime.Duration calculateTimeout(const long iter, std_.datetime.Duration 
  *  usedIter = the `iter` value that was used to test the mutant
  */
 void updateMutantStatus(ref Database db, const MutationStatusId id,
-        const Mutation.Status st, const long usedIter) @trusted {
+        const Mutation.Status st, const ExitStatus ecode, const long usedIter) @trusted {
     import std.typecons : Yes;
 
     const ctx = db.getMutantTimeoutCtx;
@@ -78,11 +78,11 @@ void updateMutantStatus(ref Database db, const MutationStatusId id,
     case init_:
         if (st == Mutation.Status.timeout)
             db.putMutantInTimeoutWorklist(id);
-        db.updateMutationStatus(id, st, Yes.updateTs);
+        db.updateMutationStatus(id, st, ecode, Yes.updateTs);
         break;
     case running:
         if (usedIter == ctx.iter) {
-            db.updateMutationStatus(id, st, Yes.updateTs);
+            db.updateMutationStatus(id, st, ecode, Yes.updateTs);
         }
         break;
     case done:

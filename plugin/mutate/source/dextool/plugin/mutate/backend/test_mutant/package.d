@@ -31,8 +31,9 @@ import dextool.plugin.mutate.backend.database : Database, MutationEntry,
     NextMutationEntry, spinSql;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
-import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
-import dextool.plugin.mutate.backend.type : Mutation, TestCase;
+import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner,
+    findExecutables, TestRunResult = TestResult;
+import dextool.plugin.mutate.backend.type : Mutation, TestCase, ExitStatus;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : ShellCommand;
 import dextool.type : AbsolutePath, ExitStatusType, Path;
@@ -131,7 +132,7 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
     }
 
     static struct Rval {
-        TestResult result;
+        TestRunResult result;
         Duration runtime;
     }
 
@@ -155,7 +156,7 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
     for (int i; i < samples && !failed; ++i) {
         try {
             auto res = runTest;
-            final switch (res.result.status) with (TestResult) {
+            final switch (res.result.status) with (TestRunResult) {
             case Status.passed:
                 runtimes ~= res.runtime;
                 break;
@@ -719,10 +720,13 @@ nothrow:
                 break;
             case remove:
                 bool update;
+                // change all mutants which, if a test case is removed, no
+                // longer has a test case that kills it to unknown status
                 foreach (id; global.data.db.setDetectedTestCases(data.foundTestCases)) {
                     if (!global.data.db.hasTestCases(id)) {
                         update = true;
-                        global.data.db.updateMutationStatus(id, Mutation.Status.unknown);
+                        global.data.db.updateMutationStatus(id,
+                                Mutation.Status.unknown, ExitStatus(0));
                     }
                 }
                 if (update) {
@@ -1305,7 +1309,7 @@ nothrow:
         try {
             logger.info("Sanity check of the generated schemata");
             auto res = runner.run;
-            data.passed = res.status == TestResult.Status.passed;
+            data.passed = res.status == TestRunResult.Status.passed;
             if (!data.passed) {
                 local.get!NextSchemata.invalidSchematas++;
                 debug logger.tracef("%(%s%)", res.output.map!(a => a.byUTF8));
@@ -1336,7 +1340,7 @@ nothrow:
             global.estimate.update(result.status);
 
             updateMutantStatus(*global.data.db, result.id, result.status,
-                    global.timeoutFsm.output.iter);
+                    result.exitStatus, global.timeoutFsm.output.iter);
             global.data.db.updateMutation(result.id, cnt_action);
             global.data.db.updateMutation(result.id, result.testTime);
             global.data.db.updateMutationTestCases(result.id, result.testCases);

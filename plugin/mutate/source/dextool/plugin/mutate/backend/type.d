@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.type;
 
 import my.hash : Checksum128;
+import my.named_type;
 public import dextool.plugin.mutate.backend.database.type : MutantAttr, MutantMetaData;
 
 @safe:
@@ -411,3 +412,5 @@ struct Token {
 
     auto tok = Token(CXTokenKind.comment, Offset(1, 2), SourceLoc(1, 2), SourceLoc(1, 2), "smurf");
 }
+
+alias ExitStatus = NamedType!(int, Tag!"ExitStatus", int.init, TagStringable);

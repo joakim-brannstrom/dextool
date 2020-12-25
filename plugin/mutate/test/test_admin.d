@@ -14,7 +14,7 @@ import std.traits : EnumMembers;
 
 import dextool.plugin.mutate.backend.database.standalone;
 import dextool.plugin.mutate.backend.database.type : MutationId, Rationale;
-import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.type : Mutation, ExitStatus;
 static import dextool.type;
 
 import dextool_test.fixtures;
@@ -43,21 +43,16 @@ class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
         // tc3: [1,12]
-        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [
-                tc1, tc2, tc3
-                ]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [
-                tc1
-                ]);
-        db.updateMutation(MutationId(8), Mutation.Status.killed, 5.dur!"msecs", [
-                tc1, tc2
-                ]);
-        db.updateMutation(MutationId(12), Mutation.Status.killed, 5.dur!"msecs", [
-                tc1, tc2, tc3
-                ]);
-        db.updateMutation(MutationId(15), Mutation.Status.killed, 5.dur!"msecs", [
-                tc1, tc2
-                ]);
+        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0),
+                5.dur!"msecs", [tc1, tc2, tc3]);
+        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0),
+                5.dur!"msecs", [tc1]);
+        db.updateMutation(MutationId(8), Mutation.Status.killed, ExitStatus(0),
+                5.dur!"msecs", [tc1, tc2]);
+        db.updateMutation(MutationId(12), Mutation.Status.killed,
+                ExitStatus(0), 5.dur!"msecs", [tc1, tc2, tc3]);
+        db.updateMutation(MutationId(15), Mutation.Status.killed,
+                ExitStatus(0), 5.dur!"msecs", [tc1, tc2]);
 
         db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
             .get.killedMutants.shouldBeGreaterThan(1);
@@ -88,18 +83,14 @@ class ShallRemoveTestCase : SimpleAnalyzeFixture {
         const tc2 = TestCase("tc_2");
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
-        db.updateMutation(MutationId(1), Mutation.Status.killed, 5.dur!"msecs", [
-                tc1, tc2
-                ]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, 5.dur!"msecs", [
-                tc1
-                ]);
-        db.updateMutation(MutationId(8), Mutation.Status.killed, 5.dur!"msecs", [
-                tc1, tc2
-                ]);
-        db.updateMutation(MutationId(15), Mutation.Status.killed, 5.dur!"msecs", [
-                tc1, tc2
-                ]);
+        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0),
+                5.dur!"msecs", [tc1, tc2]);
+        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0),
+                5.dur!"msecs", [tc1]);
+        db.updateMutation(MutationId(8), Mutation.Status.killed, ExitStatus(0),
+                5.dur!"msecs", [tc1, tc2]);
+        db.updateMutation(MutationId(15), Mutation.Status.killed,
+                ExitStatus(0), 5.dur!"msecs", [tc1, tc2]);
 
         db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
             .get.killedMutants.shouldBeGreaterThan(1);

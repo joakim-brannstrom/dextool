@@ -26,7 +26,7 @@ static import my.fsm;
 import dextool.plugin.mutate.backend.database : MutationStatusId, Database, spinSql;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
 import dextool.plugin.mutate.backend.test_mutant.common;
-import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
+import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, Checksum;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
 
@@ -236,11 +236,12 @@ nothrow:
 
         data.result.mutId = id;
         data.result.status = res.status;
+        data.result.exitStatus = res.exitStatus;
         data.hasTestOutput = !res.output.empty;
         local.get!TestCaseAnalyze.output = res.output;
 
-        logger.infof("%s %s (%s)", data.inject.injectId, data.result.status,
-                data.result.testTime).collectException;
+        logger.infof("%s %s:%s (%s)", data.inject.injectId, data.result.status,
+                data.result.exitStatus.get, data.result.testTime).collectException;
     }
 
     void opCall(ref TestCaseAnalyze data) {

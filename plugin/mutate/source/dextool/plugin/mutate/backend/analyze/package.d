@@ -667,6 +667,7 @@ bool isPathInsideAnyRoot(AbsolutePath[] roots, AbsolutePath f) @safe {
  */
 void updateMarkedMutants(ref Database db) {
     import dextool.plugin.mutate.backend.database.type : MutationStatusId;
+    import dextool.plugin.mutate.backend.type : ExitStatus;
 
     void update(MarkedMutant m) {
         const stId = db.getMutationStatusId(m.statusChecksum);
@@ -678,7 +679,7 @@ void updateMarkedMutants(ref Database db) {
         db.removeMarkedMutant(m.statusChecksum);
         db.markMutant(mutId.get, m.path, m.sloc, stId.get, m.statusChecksum,
                 m.toStatus, m.rationale, m.mutText);
-        db.updateMutationStatus(stId.get, m.toStatus);
+        db.updateMutationStatus(stId.get, m.toStatus, ExitStatus(0));
     }
 
     // find those marked mutants that have a checksum that is different from
