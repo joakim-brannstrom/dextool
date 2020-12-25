@@ -18,10 +18,10 @@ enum Direction {
 
 struct Stack(T) {
     import std.typecons : Tuple;
-    import automem;
+    import my.container.vector;
 
     alias Element = Tuple!(T, "data", uint, "depth");
-    Vector!(Element) stack;
+    Vector!Element stack;
 
     alias stack this;
 
@@ -53,7 +53,7 @@ struct Stack(T) {
     }
 
     T back() {
-        return stack[$ - 1].data;
+        return stack.back.data;
     }
 
     bool empty() @safe pure nothrow const @nogc {
