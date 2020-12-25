@@ -296,6 +296,7 @@ struct MutationTbl {
 @TableName(killedTestCaseTable)
 @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 @TableForeignKey("tc_id", KeyRef("all_test_case(id)"), KeyParam("ON DELETE CASCADE"))
+@TableConstraint("unique_ UNIQUE (st_id, tc_id)")
 struct TestCaseKilledTbl {
     long id;
 
@@ -317,10 +318,9 @@ struct TestCaseKilledTbl {
  * TODO: name should be the primary key. on a conflict a counter should be updated.
  */
 @TableName(allTestCaseTable)
+@TableConstraint("unique_ UNIQUE (name)")
 struct AllTestCaseTbl {
     long id;
-
-    @ColumnParam("")
     string name;
 }
 
@@ -646,6 +646,14 @@ void upgradeV0(ref Miniorm db) {
 
 /// 2018-04-08
 void upgradeV1(ref Miniorm db) {
+    @TableName(allTestCaseTable)
+    struct AllTestCaseTbl {
+        long id;
+
+        @ColumnParam("")
+        string name;
+    }
+
     @TableName(testCaseTableV1)
     @TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
     static struct TestCaseKilledTblV1 {
@@ -659,7 +667,7 @@ void upgradeV1(ref Miniorm db) {
         string testCase;
     }
 
-    db.run(buildSchema!TestCaseKilledTblV1);
+    db.run(buildSchema!(TestCaseKilledTblV1, AllTestCaseTbl));
 }
 
 /// 2018-04-22
@@ -676,12 +684,12 @@ void upgradeV2(ref Miniorm db) {
         Language lang;
     }
 
-    immutable new_tbl = "new_" ~ filesTable;
+    immutable newTbl = "new_" ~ filesTable;
 
     db.run(buildSchema!FilesTbl("new_"));
     db.run(format("INSERT INTO %s (id,path,checksum0,checksum1) SELECT * FROM %s",
-            new_tbl, filesTable));
-    db.replaceTbl(new_tbl, filesTable);
+            newTbl, filesTable));
+    db.replaceTbl(newTbl, filesTable);
 }
 
 /// 2018-09-01
@@ -730,7 +738,7 @@ void upgradeV4(ref Miniorm db) {
         string location;
     }
 
-    immutable new_tbl = "new_" ~ killedTestCaseTable;
+    immutable newTbl = "new_" ~ killedTestCaseTable;
 
     db.run(buildSchema!TestCaseKilledTblV3("new_"));
 
@@ -755,9 +763,9 @@ void upgradeV4(ref Miniorm db) {
     // This do NOT WORK. The result is that that this upgrade is broken because
     // it drops all maps between killed_test_case and mutation.
     //db.run(format("INSERT INTO %s (id,mut_id,tc_id,location) SELECT t1.id,t1.mut_id,t2.id,t1.location FROM %s t1 INNER JOIN %s t2 ON t1.name = t2.name",
-    //        new_tbl, killedTestCaseTable, allTestCaseTable));
+    //        newTbl, killedTestCaseTable, allTestCaseTable));
 
-    db.replaceTbl(new_tbl, killedTestCaseTable);
+    db.replaceTbl(newTbl, killedTestCaseTable);
 }
 
 /** 2018-09-30
@@ -842,7 +850,24 @@ void upgradeV6(ref Miniorm db) {
 
 /// 2018-10-15
 void upgradeV7(ref Miniorm db) {
-    immutable new_tbl = "new_" ~ killedTestCaseTable;
+    @TableName(killedTestCaseTable)
+    @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableForeignKey("tc_id", KeyRef("all_test_case(id)"), KeyParam("ON DELETE CASCADE"))
+    struct TestCaseKilledTbl {
+        long id;
+
+        @ColumnName("st_id")
+        long mutationStatusId;
+        @ColumnName("tc_id")
+        long testCaseId;
+
+        // location is a filesystem location or other suitable helper for a user to
+        // locate the test.
+        @ColumnParam("")
+        string location;
+    }
+
+    immutable newTbl = "new_" ~ killedTestCaseTable;
 
     db.run(buildSchema!TestCaseKilledTbl("new_"));
 
@@ -850,22 +875,22 @@ void upgradeV7(ref Miniorm db) {
         SELECT t0.id,t1.st_id,t0.tc_id,t0.location
         FROM %s t0, %s t1
         WHERE
-        t0.mut_id = t1.id", new_tbl,
+        t0.mut_id = t1.id", newTbl,
             killedTestCaseTable, mutationTable));
 
-    db.replaceTbl(new_tbl, killedTestCaseTable);
+    db.replaceTbl(newTbl, killedTestCaseTable);
 }
 
 /// 2018-10-20
 void upgradeV8(ref Miniorm db) {
-    immutable new_tbl = "new_" ~ mutationPointTable;
+    immutable newTbl = "new_" ~ mutationPointTable;
     db.run(buildSchema!MutationPointTbl("new_"));
     db.run(format("INSERT INTO %s (id,file_id,offset_begin,offset_end,line,column)
         SELECT t0.id,t0.file_id,t0.offset_begin,t0.offset_end,t0.line,t0.column
         FROM %s t0",
-            new_tbl, mutationPointTable));
+            newTbl, mutationPointTable));
 
-    db.replaceTbl(new_tbl, mutationPointTable);
+    db.replaceTbl(newTbl, mutationPointTable);
 }
 
 /// 2018-11-10
@@ -894,14 +919,14 @@ void upgradeV9(ref Miniorm db) {
         long checksum1;
     }
 
-    immutable new_tbl = "new_" ~ mutationStatusTable;
+    immutable newTbl = "new_" ~ mutationStatusTable;
     db.run(buildSchema!MutationStatusTbl("new_"));
     db.run(format("INSERT INTO %s (id,status,time,test_cnt,update_ts,checksum0,checksum1)
         SELECT t0.id,t0.status,t0.time,0,t0.timestamp,t0.checksum0,t0.checksum1
         FROM %s t0",
-            new_tbl, mutationStatusTable));
+            newTbl, mutationStatusTable));
 
-    replaceTbl(db, new_tbl, mutationStatusTable);
+    replaceTbl(db, newTbl, mutationStatusTable);
 }
 
 /// 2018-11-25
@@ -953,11 +978,11 @@ void upgradeV10(ref Miniorm db) {
 
 /// 2019-04-06
 void upgradeV11(ref Miniorm db) {
-    immutable new_tbl = "new_" ~ rawSrcMetadataTable;
+    immutable newTbl = "new_" ~ rawSrcMetadataTable;
     db.run(buildSchema!RawSrcMetadata("new_"));
-    db.run(format!"INSERT INTO %s (id,file_id,line,nomut) SELECT t.id,t.file_id,t.line,t.nomut FROM %s t"(new_tbl,
+    db.run(format!"INSERT INTO %s (id,file_id,line,nomut) SELECT t.id,t.file_id,t.line,t.nomut FROM %s t"(newTbl,
             rawSrcMetadataTable));
-    replaceTbl(db, new_tbl, rawSrcMetadataTable);
+    replaceTbl(db, newTbl, rawSrcMetadataTable);
 
     db.run(format("DROP VIEW %s", srcMetadataTable)).collectException;
 
@@ -1145,18 +1170,19 @@ void upgradeV24(ref Miniorm db) {
     db.run(buildSchema!(MutationScoreHistoryTable));
 }
 
+/// 2020-12-25
 void upgradeV25(ref Miniorm db) {
     import std.traits : EnumMembers;
     import dextool.plugin.mutate.backend.type : Mutation;
 
-    immutable new_tbl = "new_" ~ mutationStatusTable;
+    immutable newTbl = "new_" ~ mutationStatusTable;
     db.run(buildSchema!MutationStatusTbl("new_"));
 
     auto stmt = db.prepare(format(
             "INSERT INTO %s (id,status,exit_code,time,test_cnt,update_ts,added_ts,checksum0,checksum1)
         SELECT t.id,t.status,:ecode,t.time,t.test_cnt,t.update_ts,t.added_ts,t.checksum0,t.checksum1
         FROM %s t WHERE t.status = :status",
-            new_tbl, mutationStatusTable));
+            newTbl, mutationStatusTable));
 
     foreach (st; [EnumMembers!(Mutation.Status)]) {
         stmt.get.bind(":ecode", (st == Mutation.Status.killed) ? 1 : 0);
@@ -1165,7 +1191,30 @@ void upgradeV25(ref Miniorm db) {
         stmt.get.reset;
     }
 
-    replaceTbl(db, new_tbl, mutationStatusTable);
+    replaceTbl(db, newTbl, mutationStatusTable);
+}
+
+/// 2020-12-25
+void upgradeV26(ref Miniorm db) {
+    immutable newTbl = "new_" ~ killedTestCaseTable;
+    db.run(buildSchema!TestCaseKilledTbl("new_"));
+
+    db.run(format("INSERT OR IGNORE INTO %s (id, st_id, tc_id, location)
+        SELECT t.id, t.st_id, t.tc_id, t.location
+        FROM %s t",
+            newTbl, killedTestCaseTable));
+    replaceTbl(db, newTbl, killedTestCaseTable);
+}
+
+/// 2020-12-25
+void upgradeV27(ref Miniorm db) {
+    immutable newTbl = "new_" ~ allTestCaseTable;
+    db.run(buildSchema!AllTestCaseTbl("new_"));
+
+    db.run(format("INSERT OR IGNORE INTO %s (id, name)
+        SELECT t.id, t.name
+        FROM %s t", newTbl, allTestCaseTable));
+    replaceTbl(db, newTbl, allTestCaseTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
