@@ -231,7 +231,7 @@ struct Database {
      *  tcs = test cases that killed the mutant
      *  counter = how to act with the counter
      */
-    void updateMutation(const MutationId id, const Mutation.Status st,
+    void updateMutation(const MutationId id, const Mutation.Status st, const ExitStatus ecode,
             const Duration d, const(TestCase)[] tcs, CntAction counter = CntAction.incr) @trusted {
         enum sql = "UPDATE %s SET
             status=:st,time=:time,update_ts=:update_ts,%s
@@ -268,7 +268,7 @@ struct Database {
      *  counter = how to act with the counter
      */
     void updateMutation(const MutationStatusId id, const Mutation.Status st,
-            const Duration d, CntAction counter = CntAction.incr) @trusted {
+            const ExitStatus ecode, const Duration d, CntAction counter = CntAction.incr) @trusted {
         enum sql = "UPDATE %s SET
             status=:st,time=:time,update_ts=:update_ts,%s
             WHERE
@@ -331,7 +331,7 @@ struct Database {
      *  update_ts = if the update timestamp should be updated.
      */
     void updateMutationStatus(const MutationStatusId id, const Mutation.Status st,
-            Flag!"updateTs" update_ts = No.updateTs) @trusted {
+            const ExitStatus ecode, Flag!"updateTs" update_ts = No.updateTs) @trusted {
 
         auto stmt = () {
             if (update_ts) {
@@ -360,6 +360,7 @@ struct Database {
         return app.data;
     }
 
+    // TODO: change to my.optional
     Nullable!(Mutation.Status) getMutationStatus(const MutationStatusId id) @trusted {
         enum sql = format!"SELECT status FROM %s WHERE id=:id"(mutationStatusTable);
         auto stmt = db.prepare(sql);
@@ -426,7 +427,8 @@ struct Database {
         return rval;
     }
 
-    //TODO: this is a bit inefficient. it should use a callback iterator
+    // TODO: fix spelling error
+    // TODO: this is a bit inefficient. it should use a callback iterator
     MutantMetaData[] getMutantationMetaData(const Mutation.Kind[] kinds, const Mutation
             .Status status) @trusted {
         const sql = format!"SELECT DISTINCT t.mut_id, t.tag, t.comment
@@ -472,7 +474,7 @@ struct Database {
 
     /// Returns: the mutants that are connected to the mutation statuses.
     MutantInfo[] getMutantsInfo(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
-        const get_mutid_sql = format("SELECT t0.id,t2.status,t0.kind,t1.line,t1.column
+        const get_mutid_sql = format("SELECT t0.id,t2.status,t2.exit_code,t0.kind,t1.line,t1.column
             FROM %s t0,%s t1, %s t2
             WHERE
             t0.st_id IN (%(%s,%)) AND
@@ -484,10 +486,12 @@ struct Database {
         auto stmt = db.prepare(get_mutid_sql);
 
         auto app = appender!(MutantInfo[])();
-        foreach (res; stmt.get.execute)
+        foreach (res; stmt.get.execute) {
             app.put(MutantInfo(MutationId(res.peek!long(0)), res.peek!long(1)
-                    .to!(Mutation.Status), res.peek!long(2).to!(Mutation.Kind),
-                    SourceLoc(res.peek!uint(3), res.peek!uint(4))));
+                    .to!(Mutation.Status), res.peek!int(2).ExitStatus,
+                    res.peek!long(3).to!(Mutation.Kind),
+                    SourceLoc(res.peek!uint(4), res.peek!uint(5))));
+        }
 
         return app.data;
     }
@@ -549,6 +553,7 @@ struct Database {
         return rval;
     }
 
+    // TODO: maybe this need to return the exit code too?
     // Returns: the status of the mutant
     Nullable!(Mutation.Status) getMutationStatus(const MutationId id) @trusted {
         auto s = format!"SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)"(

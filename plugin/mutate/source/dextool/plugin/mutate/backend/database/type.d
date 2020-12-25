@@ -111,6 +111,7 @@ struct MetadataNoMutEntry {
 struct MutantInfo {
     MutationId id;
     Mutation.Status status;
+    ExitStatus ecode;
     Mutation.Kind kind;
     SourceLoc sloc;
 }
@@ -144,6 +145,7 @@ struct MutationStatus {
     MutantTestCount testCnt;
     SysTime updated;
     Nullable!SysTime added;
+    ExitStatus exitStatus;
 }
 
 /// Metadata about a line in a file.
@@ -286,5 +288,3 @@ struct MutationScore {
     SysTime timeStamp;
     NamedType!(double, Tag!"MutationScore", 0.0, TagStringable) score;
 }
-
-alias ExitCode = NamedType!(int, Tag!"TestSuiteExitCode", int.init, TagStringable);

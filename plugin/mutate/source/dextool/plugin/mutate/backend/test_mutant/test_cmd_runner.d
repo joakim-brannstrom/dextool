@@ -27,6 +27,7 @@ import proc;
 import my.path : AbsolutePath, Path;
 
 import dextool.plugin.mutate.type : ShellCommand;
+import dextool.plugin.mutate.backend.type : ExitStatus;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -131,12 +132,15 @@ struct TestRunner {
 
         void processDone(TestTask* t, ref TestResult result, ref Appender!(DrainElement[]) output) {
             auto res = t.yieldForce;
+
+            result.exitStatus = mergeExitStatus(result.exitStatus, res.exitStatus);
+
             final switch (res.status) {
             case RunResult.Status.normal:
-                if (result.status == TestResult.Status.passed && res.exitStatus != 0) {
+                if (result.status == TestResult.Status.passed && res.exitStatus.get != 0) {
                     result.status = TestResult.Status.failed;
                 }
-                if (res.exitStatus != 0) {
+                if (res.exitStatus.get != 0) {
                     incrCmdKills(res.cmd);
                 }
                 output.put(res.output);
@@ -186,6 +190,9 @@ struct TestRunner {
                 processDone(t, rval, output);
                 .destroy(t);
             }
+            // TODO: remove this sleep. it adds a static overhead which may be
+            // significant if there are may test binaries. e.g. 200 binaries
+            // add on at least 200ms
             () @trusted { Thread.sleep(1.dur!"msecs"); }();
         }
 
@@ -229,6 +236,7 @@ struct TestResult {
     }
 
     Status status;
+    ExitStatus exitStatus;
 
     /// Output from all the test binaries and command.
     DrainElement[] output;
@@ -281,14 +289,14 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env, Signa
             rval.status = RunResult.Status.timeout;
         }
 
-        rval.exitStatus = p.wait;
+        rval.exitStatus = p.wait.ExitStatus;
         rval.output = output.data;
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
         rval.status = RunResult.Status.error;
     }
 
-    if (rval.exitStatus != 0) {
+    if (rval.exitStatus.get != 0) {
         earlyStop.activate;
         debug logger.tracef("Early stop triggered by %s (%s)", rval.cmd,
                 Clock.currTime).collectException;
@@ -314,7 +322,7 @@ struct RunResult {
 
     Status status;
     ///
-    int exitStatus;
+    ExitStatus exitStatus;
     ///
     DrainElement[] output;
 }
@@ -428,4 +436,20 @@ class Signal {
     void reset() @safe nothrow @nogc {
         atomicStore(state, 0);
     }
+}
+
+/// Merge the new exit code with the old one keeping the dominant.
+ExitStatus mergeExitStatus(ExitStatus old, ExitStatus new_) {
+    import std.algorithm : max, min;
+
+    if (old.get == 0)
+        return new_;
+
+    if (old.get < 0) {
+        return min(old.get, new_.get).ExitStatus;
+    }
+
+    // a value 128+n is a value from the OS which is pretty bad such as a segmentation fault.
+    // those <128 are user created.
+    return max(old.get, new_.get).ExitStatus;
 }

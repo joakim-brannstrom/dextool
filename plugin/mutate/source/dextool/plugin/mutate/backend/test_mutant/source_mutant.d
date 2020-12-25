@@ -26,7 +26,7 @@ static import my.fsm;
 import dextool.plugin.mutate.backend.database : Database, MutationEntry;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
 import dextool.plugin.mutate.backend.test_mutant.common;
-import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
+import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : ShellCommand;
@@ -51,16 +51,16 @@ struct MutationTestDriver {
         TestRunner* runner;
 
         /// File to mutate.
-        AbsolutePath mut_file;
+        AbsolutePath mutateFile;
 
         /// The original file.
         Blob original;
 
         /// The result of running the test cases.
-        Mutation.Status mut_status;
+        TestResult testResult;
 
         /// Test cases that killed the mutant.
-        TestCase[] test_cases;
+        TestCase[] testCases;
 
         /// How long it took to do the mutation testing.
         StopWatch sw;
@@ -96,7 +96,6 @@ struct MutationTestDriver {
 
     static struct TestCaseAnalyzeData {
         TestCaseAnalyzer* testCaseAnalyzer;
-        DrainElement[] output;
     }
 
     static struct TestCaseAnalyze {
@@ -150,7 +149,7 @@ struct MutationTestDriver {
                 return fsm(NoResultRestoreCode.init);
             return fsm(a);
         }, (TestMutant a) {
-            if (self.global.mut_status == Mutation.Status.killed
+            if (self.global.testResult.status == Mutation.Status.killed
                 && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && a.hasTestOutput) {
                 return fsm(TestCaseAnalyze.init);
             }
@@ -223,18 +222,18 @@ nothrow:
             GenerateMutantResult, GenerateMutantStatus;
 
         try {
-            global.mut_file = AbsolutePath(buildPath(global.fio.getOutputDir, global.mutp.file));
-            global.original = global.fio.makeInput(global.mut_file);
+            global.mutateFile = AbsolutePath(buildPath(global.fio.getOutputDir, global.mutp.file));
+            global.original = global.fio.makeInput(global.mutateFile);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
-            logger.warning("Unable to read ", global.mut_file).collectException;
+            logger.warning("Unable to read ", global.mutateFile).collectException;
             data.filesysError = true;
             return;
         }
 
         // mutate
         try {
-            auto fout = global.fio.makeOutput(global.mut_file);
+            auto fout = global.fio.makeOutput(global.mutateFile);
             auto mut_res = generateMutant(*global.db, global.mutp, global.original, fout);
 
             final switch (mut_res.status) with (GenerateMutantStatus) {
@@ -259,7 +258,7 @@ nothrow:
                 try {
                     logger.infof("%s from '%s' to '%s' in %s:%s:%s", global.mutp.id.get,
                             cast(const(char)[]) mut_res.from, cast(const(char)[]) mut_res.to,
-                            global.mut_file, global.mutp.sloc.line, global.mutp.sloc.column);
+                            global.mutateFile, global.mutp.sloc.line, global.mutp.sloc.column);
 
                 } catch (Exception e) {
                     logger.warning("Mutation ID", e.msg);
@@ -273,33 +272,27 @@ nothrow:
     }
 
     void opCall(ref TestMutant data) {
-        global.mut_status = Mutation.Status.unknown;
-
         bool successCompile;
         compile(local.get!TestMutant.buildCmd, local.get!TestMutant.buildCmdTimeout).match!(
-                (Mutation.Status a) { global.mut_status = a; }, (bool success) {
+                (Mutation.Status a) { global.testResult.status = a; }, (bool success) {
             successCompile = success;
         },);
 
         if (!successCompile)
             return;
 
-        auto res = runTester(*global.runner);
-        global.mut_status = res.status;
-        data.hasTestOutput = !res.output.empty;
-        local.get!TestCaseAnalyze.output = res.output;
+        global.testResult = runTester(*global.runner);
+        data.hasTestOutput = !global.testResult.output.empty;
     }
 
     void opCall(ref TestCaseAnalyze data) {
-        global.test_cases = null;
-
         try {
             auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(
-                    local.get!TestCaseAnalyze.output);
-            local.get!TestCaseAnalyze.output = null;
+                    global.testResult.output);
+            global.testResult.output = null;
 
             analyze.match!((TestCaseAnalyzer.Success a) {
-                global.test_cases = a.failed;
+                global.testCases = a.failed;
             }, (TestCaseAnalyzer.Unstable a) {
                 logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
                 logger.info(
@@ -317,27 +310,27 @@ nothrow:
         import std.algorithm : sort, map;
         import miniorm : spinSql;
 
-        global.sw.stop;
-
         const statusId = spinSql!(() => global.db.getMutationStatusId(global.mutp.id));
+
+        global.sw.stop;
 
         if (!statusId.isNull) {
             result = [
-                MutationTestResult(global.mutp.id, statusId.get,
-                        global.mut_status, global.sw.peek, global.test_cases)
+                MutationTestResult(global.mutp.id, statusId.get, global.testResult.status,
+                        global.sw.peek, global.testCases, global.testResult.exitStatus)
             ];
         }
 
-        logger.infof("%s %s (%s)", global.mutp.id.get, global.mut_status,
-                global.sw.peek).collectException;
-        logger.infof(!global.test_cases.empty, `%s killed by [%-(%s, %)]`,
-                global.mutp.id.get, global.test_cases.sort.map!"a.name").collectException;
+        logger.infof("%s %s:%s (%s)", global.mutp.id.get, global.testResult.status,
+                global.testResult.exitStatus.get, global.sw.peek).collectException;
+        logger.infof(!global.testCases.empty, `%s killed by [%-(%s, %)]`,
+                global.mutp.id.get, global.testCases.sort.map!"a.name").collectException;
     }
 
     void opCall(ref RestoreCode data) {
         // restore the original file.
         try {
-            global.fio.makeOutput(global.mut_file).write(global.original.content);
+            global.fio.makeOutput(global.mutateFile).write(global.original.content);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
             // fatal error because being unable to restore a file prohibit

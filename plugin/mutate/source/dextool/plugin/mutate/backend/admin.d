@@ -21,7 +21,7 @@ import dextool.type;
 
 import dextool.plugin.mutate.type : MutationKind, AdminOperation;
 import dextool.plugin.mutate.backend.database : Database, MutationId;
-import dextool.plugin.mutate.backend.type : Mutation, Offset;
+import dextool.plugin.mutate.backend.type : Mutation, Offset, ExitStatus;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
@@ -239,7 +239,7 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
         db.markMutant(id, mut.get.file, mut.get.sloc, st_id, checksum, status,
                 Rationale(rationale), txt);
 
-        db.updateMutationStatus(st_id, status);
+        db.updateMutationStatus(st_id, status, ExitStatus(0));
 
         logger.infof(`Mutant %s marked with status %s and rationale %s`, id.get, status, rationale);
 
@@ -265,7 +265,7 @@ ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothr
 
         if (db.isMarked(id)) {
             db.removeMarkedMutant(st_id.get);
-            db.updateMutationStatus(st_id.get, Mutation.Status.unknown);
+            db.updateMutationStatus(st_id.get, Mutation.Status.unknown, ExitStatus(0));
             logger.infof("Removed marking for mutant %s.", id);
         } else {
             logger.errorf("Failure when removing marked mutant (mutant %s is not marked)", id.get);

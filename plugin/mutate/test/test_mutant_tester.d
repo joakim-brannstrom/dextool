@@ -734,7 +734,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
         mixin(EnvSetup(globalTestdir));
         auto db = precondition(testEnv);
 
-        db.updateMutation(MutationId(1), Mutation.Status.killed,
+        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0),
                 5.dur!"msecs", [TestCase("tc_1")]);
 
         // verify pre-condition that test cases exist in the DB
@@ -773,7 +773,7 @@ class ShallRetrieveOldestMutant : DatabaseFixture {
         const expected = 2;
         Thread.sleep(1.dur!"seconds");
         foreach (const id; db.getAllMutationStatus.filter!(a => a.get != expected))
-            db.updateMutationStatus(id, Mutation.Status.killed, Yes.updateTs);
+            db.updateMutationStatus(id, Mutation.Status.killed, ExitStatus(0), Yes.updateTs);
 
         // act
         const oldest = db.getOldestMutants([EnumMembers!(Mutation.Kind)], 1);
@@ -797,9 +797,10 @@ class ShallUpdateMutationCounter : DatabaseFixture {
         const mst_id = db.getMutationStatusId(mid).get;
 
         // act. should be the highest count not oldest
-        db.updateMutation(MutationId(10), Mutation.Status.killed, 1.dur!"seconds", null);
-        db.updateMutation(mid, Mutation.Status.killed, 1.dur!"seconds", null);
-        db.updateMutation(mid, Mutation.Status.killed, 1.dur!"seconds", null);
+        db.updateMutation(MutationId(10), Mutation.Status.killed,
+                ExitStatus(0), 1.dur!"seconds", null);
+        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0), 1.dur!"seconds", null);
+        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0), 1.dur!"seconds", null);
 
         // assert
         auto hardest = db.getHardestToKillMutant([EnumMembers!(Mutation.Kind)],
@@ -822,13 +823,14 @@ class ShallResetMutationCounter : DatabaseFixture {
         // arrange
         const mid = MutationId(2);
         const mst_id = db.getMutationStatusId(mid).get;
-        db.updateMutation(MutationId(10), Mutation.Status.killed, 1.dur!"seconds", null);
-        db.updateMutation(mid, Mutation.Status.killed, 1.dur!"seconds", null);
-        db.updateMutation(mid, Mutation.Status.killed, 1.dur!"seconds", null);
+        db.updateMutation(MutationId(10), Mutation.Status.killed,
+                ExitStatus(0), 1.dur!"seconds", null);
+        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0), 1.dur!"seconds", null);
+        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0), 1.dur!"seconds", null);
 
         // act
-        db.updateMutation(mid, Mutation.Status.killed, 1.dur!"seconds", null,
-                Database.CntAction.reset);
+        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
+                1.dur!"seconds", null, Database.CntAction.reset);
 
         // assert
         auto hardest = db.getHardestToKillMutant([EnumMembers!(Mutation.Kind)],
