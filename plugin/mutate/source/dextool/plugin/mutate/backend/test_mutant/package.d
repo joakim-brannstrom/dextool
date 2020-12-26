@@ -49,7 +49,6 @@ private:
 
 struct BuildTestMutant {
 @safe:
-nothrow:
 
     import dextool.plugin.mutate.type : MutationKind;
 
@@ -61,12 +60,12 @@ nothrow:
 
     private InternalData data;
 
-    auto config(ConfigMutationTest c) {
+    auto config(ConfigMutationTest c) nothrow {
         data.config = c;
         return this;
     }
 
-    auto mutations(MutationKind[] v) {
+    auto mutations(MutationKind[] v) nothrow {
         import dextool.plugin.mutate.backend.utility : toInternal;
 
         logger.infof("mutation operators: %(%s, %)", v).collectException;
@@ -75,25 +74,34 @@ nothrow:
         return this;
     }
 
-    ExitStatusType run(ref Database db, FilesysIO fio) nothrow {
-        // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
-        auto db_ref = () @trusted { return &db; }();
-
-        auto driver_data = DriverData(db_ref, fio, data.kinds, new AutoCleanup, data.config);
-
+    ExitStatusType run(const AbsolutePath dbPath, FilesysIO fio) @trusted {
         try {
-            auto test_driver = TestDriver(driver_data);
-
-            while (test_driver.isRunning) {
-                test_driver.execute;
-            }
-
-            return test_driver.status;
+            auto db = Database.make(dbPath);
+            return internalRun(db, fio);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
         }
 
         return ExitStatusType.Errors;
+    }
+
+    private ExitStatusType internalRun(ref Database db, FilesysIO fio) {
+        // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
+        auto db_ref = () @trusted { return &db; }();
+
+        auto cleanup = new AutoCleanup;
+        scope (exit)
+            cleanup.cleanup;
+
+        auto driver_data = DriverData(db_ref, fio, data.kinds, cleanup, data.config);
+
+        auto test_driver = TestDriver(driver_data);
+
+        while (test_driver.isRunning) {
+            test_driver.execute;
+        }
+
+        return test_driver.status;
     }
 }
 
@@ -1069,7 +1077,7 @@ nothrow:
         global.nextMutant = MutationEntry.init;
 
         auto next = spinSql!(() {
-            return global.data.db.nextMutation(global.data.kinds);
+            return global.data.db.nextMutation(global.data.kinds, global.data.conf.mutationOrder);
         });
 
         data.noUnknownMutantsLeft.get = next.st == NextMutationEntry.Status.done;

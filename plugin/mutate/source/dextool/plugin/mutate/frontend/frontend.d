@@ -17,9 +17,10 @@ import std.path : buildPath;
 import dextool.compilation_db;
 import dextool.type : Path, AbsolutePath, ExitStatusType;
 
+import dextool.plugin.mutate.backend : Database;
+import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.frontend.argparser;
 import dextool.plugin.mutate.type : MutationOrder, ReportKind, MutationKind, AdminOperation;
-import dextool.plugin.mutate.config;
 
 @safe:
 
@@ -76,9 +77,7 @@ struct DataAccess {
 
     import dextool.compilation_db : limitOrAllRange, parse, prependFlags, addCompiler, replaceCompiler,
         addSystemIncludes, fileRange, fromArgCompileDb, ParsedCompileCommandRange, Compiler;
-    import dextool.plugin.mutate.backend : Database;
 
-    Database db;
     FrontendIO io;
     FrontendValidateLoc validateLoc;
 
@@ -114,8 +113,7 @@ struct DataAccess {
         auto fe_validate = new FrontendValidateLoc(conf.workArea.restrictDir,
                 conf.workArea.outputDirectory);
 
-        return DataAccess(Database.make(conf.db, conf.mutationTest.mutationOrder),
-                fe_io, fe_validate, conf.compileDb, conf.compiler, conf.data.inFiles);
+        return DataAccess(fe_io, fe_validate, conf.compileDb, conf.compiler, conf.data.inFiles);
     }
 }
 
@@ -310,7 +308,7 @@ ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
 
     printFileAnalyzeHelp(conf);
 
-    return runAnalyzer(dacc.db, conf.data.mutation, conf.analyze,
+    return runAnalyzer(conf.db, conf.data.mutation, conf.analyze,
             conf.compiler, dacc.frange, dacc.validateLoc, dacc.io);
 }
 
@@ -318,7 +316,7 @@ ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : runGenerateMutant;
     import dextool.plugin.mutate.backend.database.type : MutationId;
 
-    return runGenerateMutant(dacc.db, conf.data.mutation,
+    return runGenerateMutant(conf.db, conf.data.mutation,
             MutationId(conf.generate.mutationId), dacc.io, dacc.validateLoc);
 }
 
@@ -326,13 +324,13 @@ ExitStatusType modeTestMutants(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : makeTestMutant;
 
     return makeTestMutant.config(conf.mutationTest)
-        .mutations(conf.data.mutation).run(dacc.db, dacc.io);
+        .mutations(conf.data.mutation).run(conf.db, dacc.io);
 }
 
 ExitStatusType modeReport(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : runReport;
 
-    return runReport(dacc.db, conf.data.mutation, conf.report, dacc.io);
+    return runReport(conf.db, conf.data.mutation, conf.report, dacc.io);
 }
 
 ExitStatusType modeAdmin(ref ArgParser conf, ref DataAccess dacc) {
@@ -343,5 +341,5 @@ ExitStatusType modeAdmin(ref ArgParser conf, ref DataAccess dacc) {
         .mutationsSubKind(conf.admin.subKind).fromStatus(conf.admin.mutantStatus)
         .toStatus(conf.admin.mutantToStatus).testCaseRegex(conf.admin.testCaseRegex).markMutantData(NamedType!(long,
                 Tag!"MutationId", 0, Comparable, Hashable, ConvertStringable)(conf.admin.mutationId),
-                conf.admin.mutantRationale, dacc.io).run(dacc.db);
+                conf.admin.mutantRationale, dacc.io).database(conf.db).run;
 }

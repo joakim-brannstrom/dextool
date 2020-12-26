@@ -35,17 +35,15 @@ struct Database {
     import std.conv : to;
     import std.exception : collectException;
     import std.typecons : Nullable;
+    import dextool.plugin.mutate.backend.database.standalone : SDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
     import dextool.plugin.mutate.type : MutationOrder;
-    import dextool.plugin.mutate.backend.database.standalone : SDatabase = Database;
 
     SDatabase db;
     alias db this;
 
-    private MutationOrder mut_order;
-
-    static auto make(AbsolutePath db, MutationOrder mut_order) @safe {
-        return Database(SDatabase.make(db), mut_order);
+    static auto make(AbsolutePath db) @safe {
+        return Database(SDatabase.make(db));
     }
 
     /** Get the next mutation point + 1 mutant for it that has status unknown.
@@ -57,12 +55,13 @@ struct Database {
      * Params:
      *  kind = kind of mutation to retrieve.
      */
-    NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds) @trusted {
+    NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds,
+            const MutationOrder userOrder = MutationOrder.random) @trusted {
         import dextool.plugin.mutate.backend.type;
 
         typeof(return) rval;
 
-        auto order = mut_order == MutationOrder.random ? "ORDER BY RANDOM()" : "";
+        const order = userOrder == MutationOrder.random ? "ORDER BY RANDOM()" : "";
 
         immutable sql = format("SELECT
                                t0.id,
