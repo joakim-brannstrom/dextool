@@ -38,6 +38,7 @@ import dextool.type;
 static import dextool.plugin.mutate.backend.database.type;
 
 public import dextool.plugin.mutate.backend.report.utility : Table;
+public import dextool.plugin.mutate.backend.type : MutantTimeProfile;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -410,7 +411,7 @@ struct MutationScore {
     long killed;
     long timeout;
     long total;
-    Duration totalTime;
+    MutantTimeProfile totalTime;
 
     // Nr of mutants that are alive but tagged with nomut.
     long aliveNoMut;
@@ -473,12 +474,12 @@ struct MutationStat {
         return scoreData.total;
     }
 
-    Duration totalTime() @safe pure nothrow const @nogc {
+    MutantTimeProfile totalTime() @safe pure nothrow const @nogc {
         return scoreData.totalTime;
     }
 
     MutationScore scoreData;
-    Duration killedByCompilerTime;
+    MutantTimeProfile killedByCompilerTime;
     Duration predictedDone;
     EstimateScore estimate;
 
@@ -555,18 +556,19 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
 
     const untested = spinSql!(() { return db.unknownSrcMutants(kinds, file); });
     const worklist = spinSql!(() { return db.getWorklistCount; });
-    const killed_by_compiler = spinSql!(() {
+    const killedByCompiler = spinSql!(() {
         return db.killedByCompilerSrcMutants(kinds, file);
     });
 
     MutationStat st;
     st.scoreData = reportScore(db, kinds, file);
     st.untested = untested.count;
-    st.killedByCompiler = killed_by_compiler.count;
+    st.killedByCompiler = killedByCompiler.count;
     st.worklist = worklist;
 
-    st.predictedDone = st.total > 0 ? (st.worklist * (st.totalTime / st.total)) : 0.dur!"msecs";
-    st.killedByCompilerTime = killed_by_compiler.time;
+    st.predictedDone = st.total > 0 ? (st.worklist * (st.totalTime.sum / st.total)) : 0
+        .dur!"msecs";
+    st.killedByCompilerTime = killedByCompiler.time;
 
     if (st.total > 0) {
         st.estimate = reportEstimate(db, kinds);

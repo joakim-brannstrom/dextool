@@ -18,12 +18,13 @@ import sumtype;
 import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.type;
 
-import dextool.plugin.mutate.backend.database.schema : MarkedMutantTbl;
 public import dextool.plugin.mutate.backend.database.schema : MutantTimeoutCtxTbl;
-
-alias MutantTimeoutCtx = MutantTimeoutCtxTbl;
+public import dextool.plugin.mutate.backend.type : MutantTimeProfile;
 
 @safe:
+
+/// The context (state) of how the testing of the timeout mutants are going.
+alias MutantTimeoutCtx = MutantTimeoutCtxTbl;
 
 /// Primary key in the mutation table
 alias MutationId = NamedType!(long, Tag!"MutationId", 0, Comparable, Hashable, ConvertStringable);
@@ -52,7 +53,7 @@ struct MutationEntry {
     Path file;
     SourceLoc sloc;
     MutationPoint mp;
-    Duration timeSpentMutating;
+    MutantTimeProfile profile;
     Language lang;
 }
 
@@ -98,8 +99,9 @@ struct MutationPointEntry2 {
 struct MutationReportEntry {
     ///
     long count;
+
     /// Test time spent on the mutants.
-    Duration time;
+    MutantTimeProfile time;
 }
 
 /// Mutants that are tagged with nomut of a specific kind(s).
@@ -118,7 +120,8 @@ struct MutantInfo {
 
 struct TestCaseInfo {
     /// The sum on the execution time of killing the mutants.
-    Duration time;
+    MutantTimeProfile time;
+
     ///
     long killedMutants;
 }
@@ -246,6 +249,7 @@ alias Rationale = NamedType!(string, Tag!"Rationale", string.init, TagStringable
 
 struct MarkedMutant {
     MutationStatusId statusId;
+
     /// Checksum of the marked mutant.
     Checksum statusChecksum;
 
@@ -281,10 +285,13 @@ struct Schemata {
 
 struct TestCmdRuntime {
     SysTime timeStamp;
+
+    /// The execution time of the test suite.
     Duration runtime;
 }
 
 struct MutationScore {
     SysTime timeStamp;
+
     NamedType!(double, Tag!"MutationScore", 0.0, TagStringable) score;
 }

@@ -232,9 +232,9 @@ struct Database {
      *  counter = how to act with the counter
      */
     void updateMutation(const MutationId id, const Mutation.Status st, const ExitStatus ecode,
-            const Duration d, const(TestCase)[] tcs, CntAction counter = CntAction.incr) @trusted {
+            const MutantTimeProfile p, const(TestCase)[] tcs, CntAction counter = CntAction.incr) @trusted {
         enum sql = "UPDATE %s SET
-            status=:st,time=:time,update_ts=:update_ts,%s
+            status=:st,compile_time_ms=:compile,test_time_ms=:test,update_ts=:update_ts,%s
             WHERE
             id IN (SELECT st_id FROM %s WHERE id = :id)";
 
@@ -249,9 +249,10 @@ struct Database {
             }
         }();
 
-        stmt.get.bind(":st", st.to!long);
-        stmt.get.bind(":id", id.to!long);
-        stmt.get.bind(":time", d.total!"msecs");
+        stmt.get.bind(":st", cast(long) st);
+        stmt.get.bind(":id", id.get);
+        stmt.get.bind(":compile", p.compile.total!"msecs");
+        stmt.get.bind(":test", p.test.total!"msecs");
         stmt.get.bind(":update_ts", Clock.currTime.toUTC.toSqliteDateTime);
         stmt.get.execute;
 
@@ -268,9 +269,9 @@ struct Database {
      *  counter = how to act with the counter
      */
     void updateMutation(const MutationStatusId id, const Mutation.Status st,
-            const ExitStatus ecode, const Duration d, CntAction counter = CntAction.incr) @trusted {
+            const ExitStatus ecode, const MutantTimeProfile p, CntAction counter = CntAction.incr) @trusted {
         enum sql = "UPDATE %s SET
-            status=:st,time=:time,update_ts=:update_ts,%s
+            status=:st,compile_time_ms=:compile,test_time_ms=:test,update_ts=:update_ts,%s
             WHERE
             id = :id";
 
@@ -286,7 +287,8 @@ struct Database {
 
         stmt.get.bind(":id", id.get);
         stmt.get.bind(":st", cast(long) st);
-        stmt.get.bind(":time", d.total!"msecs");
+        stmt.get.bind(":compile", p.compile.total!"msecs");
+        stmt.get.bind(":test", p.test.total!"msecs");
         stmt.get.bind(":update_ts", Clock.currTime.toUTC.toSqliteDateTime);
         stmt.get.execute;
     }
@@ -315,11 +317,13 @@ struct Database {
     }
 
     /// Update the time used to test the mutant.
-    void updateMutation(const MutationStatusId id, const Duration testTime) @trusted {
-        enum sql = format!"UPDATE %s SET time=:time WHERE id = :id"(mutationStatusTable);
+    void updateMutation(const MutationStatusId id, const MutantTimeProfile p) @trusted {
+        enum sql = format!"UPDATE %s SET compile_time_ms=:compile,test_time_ms=:test WHERE id = :id"(
+                    mutationStatusTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
-        stmt.get.bind(":time", testTime.total!"msecs");
+        stmt.get.bind(":compile", p.compile.total!"msecs");
+        stmt.get.bind(":test", p.test.total!"msecs");
         stmt.get.execute;
     }
 
@@ -381,7 +385,8 @@ struct Database {
         enum get_mut_sql = format("SELECT
             t0.id,
             t0.kind,
-            t3.time,
+            t3.compile_time_ms,
+            t3.test_time_ms,
             t1.offset_begin,
             t1.offset_end,
             t1.line,
@@ -406,14 +411,15 @@ struct Database {
 
         auto v = res.front;
 
-        auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
+        auto mp = MutationPoint(Offset(v.peek!uint(4), v.peek!uint(5)));
         mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
         auto pkey = MutationId(v.peek!long(0));
-        auto file = Path(v.peek!string(7));
-        auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
-        auto lang = v.peek!long(8).to!Language;
+        auto file = Path(v.peek!string(8));
+        auto sloc = SourceLoc(v.peek!uint(6), v.peek!uint(7));
+        auto lang = v.peek!long(9).to!Language;
 
-        rval = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
+        rval = MutationEntry(pkey, file, sloc, mp,
+                MutantTimeProfile(v.peek!long(2).dur!"msecs", v.peek!long(3).dur!"msecs"), lang);
 
         return rval;
     }
@@ -789,9 +795,9 @@ struct Database {
             const Mutation.Kind[] kinds, string file = null) @trusted {
         static if (distinct) {
             auto qq = "
-                SELECT count(*),sum(time)
+                SELECT count(*),sum(compile_time_ms),sum(test_time_ms)
                 FROM (
-                SELECT count(*),sum(t1.time) time
+                SELECT count(*),sum(t1.compile_time_ms) compile_time_ms,sum(t1.test_time_ms) test_time_ms
                 FROM %s t0, %s t1%s
                 WHERE
                 %s
@@ -801,7 +807,7 @@ struct Database {
                 GROUP BY t1.id)";
         } else {
             auto qq = "
-                SELECT count(*),sum(t1.time) time
+                SELECT count(*),sum(t1.compile_time_ms) compile_time_ms,sum(t1.test_time_ms) test_time_ms
                 FROM %s t0, %s t1%s
                 WHERE
                 %s
@@ -823,9 +829,11 @@ struct Database {
         if (file.length != 0)
             stmt.get.bind(":path", file);
         auto res = stmt.get.execute;
-        if (!res.empty)
+        if (!res.empty) {
             rval = MutationReportEntry(res.front.peek!long(0),
-                    res.front.peek!long(1).dur!"msecs");
+                    MutantTimeProfile(res.front.peek!long(1).dur!"msecs",
+                        res.front.peek!long(2).dur!"msecs"));
+        }
         return rval;
     }
 
@@ -1065,8 +1073,8 @@ struct Database {
         }
 
         enum insert_cmut_sql = format("INSERT OR IGNORE INTO %s
-            (status,exit_code,test_cnt,update_ts,added_ts,checksum0,checksum1)
-            VALUES(:st,0,0,:update_ts,:added_ts,:c0,:c1)",
+            (status,exit_code,compile_time_ms,test_time_ms,test_cnt,update_ts,added_ts,checksum0,checksum1)
+            VALUES(:st,0,0,0,0,:update_ts,:added_ts,:c0,:c1)",
                     mutationStatusTable);
         auto cmut_stmt = db.prepare(insert_cmut_sql);
         const ts = Clock.currTime.toUTC.toSqliteDateTime;
@@ -1363,7 +1371,7 @@ struct Database {
 
     /// Returns: stats about the test case.
     Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc, const Mutation.Kind[] kinds) @trusted {
-        const sql = format("SELECT sum(t2.time),count(t1.st_id)
+        const sql = format("SELECT sum(t2.compile_time_ms),sum(t2.test_time_ms),count(t1.st_id)
             FROM %s t0, %s t1, %s t2, %s t3
             WHERE
             t0.name = :name AND
@@ -1378,7 +1386,8 @@ struct Database {
 
         typeof(return) rval;
         foreach (a; stmt.get.execute) {
-            rval = TestCaseInfo(a.peek!long(0).dur!"msecs", a.peek!long(1));
+            rval = TestCaseInfo(MutantTimeProfile(a.peek!long(0).dur!"msecs",
+                    a.peek!long(1).dur!"msecs"), a.peek!long(2));
         }
         return rval;
     }

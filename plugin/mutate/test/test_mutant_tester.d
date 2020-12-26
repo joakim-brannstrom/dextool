@@ -6,7 +6,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dextool_test.test_mutant_tester;
 
 import core.thread : Thread;
-import core.time : dur;
+import core.time : dur, Duration;
 import std.algorithm : filter;
 import std.file : readText;
 import std.stdio : File;
@@ -735,7 +735,9 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
         auto db = precondition(testEnv);
 
         db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0),
-                5.dur!"msecs", [TestCase("tc_1")]);
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
+                    TestCase("tc_1")
+                ]);
 
         // verify pre-condition that test cases exist in the DB
         // dfmt off
@@ -798,9 +800,11 @@ class ShallUpdateMutationCounter : DatabaseFixture {
 
         // act. should be the highest count not oldest
         db.updateMutation(MutationId(10), Mutation.Status.killed,
-                ExitStatus(0), 1.dur!"seconds", null);
-        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0), 1.dur!"seconds", null);
-        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0), 1.dur!"seconds", null);
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
+        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
+        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
 
         // assert
         auto hardest = db.getHardestToKillMutant([EnumMembers!(Mutation.Kind)],
@@ -824,13 +828,15 @@ class ShallResetMutationCounter : DatabaseFixture {
         const mid = MutationId(2);
         const mst_id = db.getMutationStatusId(mid).get;
         db.updateMutation(MutationId(10), Mutation.Status.killed,
-                ExitStatus(0), 1.dur!"seconds", null);
-        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0), 1.dur!"seconds", null);
-        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0), 1.dur!"seconds", null);
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
+        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
+        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
 
         // act
         db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
-                1.dur!"seconds", null, Database.CntAction.reset);
+                MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null, Database.CntAction.reset);
 
         // assert
         auto hardest = db.getHardestToKillMutant([EnumMembers!(Mutation.Kind)],

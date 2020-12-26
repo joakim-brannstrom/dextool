@@ -9,7 +9,7 @@ TODO the full test specification is not implemented.
 */
 module dextool_test.test_report;
 
-import core.time : dur;
+import core.time : dur, Duration;
 import std.array : array;
 import std.conv : to;
 import std.file : copy, exists, readText;
@@ -57,7 +57,7 @@ unittest {
         .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
         .run;
     auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-    db.updateMutation(MutationId(1), Mutation.Status.alive, ExitStatus(0), 5.dur!"msecs", null);
+    db.updateMutation(MutationId(1), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
@@ -137,7 +137,8 @@ unittest {
     j["score"].integer.shouldEqual(1);
     j["timeout"].integer.shouldEqual(0);
     j["total"].integer.shouldEqual(0);
-    j["total_time_s"].integer.shouldEqual(0);
+    j["total_compile_time_s"].integer.shouldEqual(0);
+    j["total_test_time_s"].integer.shouldEqual(0);
     j["untested"].integer.shouldBeGreaterThan(1);
 }
 
@@ -195,10 +196,10 @@ unittest {
     auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
     db.setDetectedTestCases([TestCase("tc_4")]);
-    db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
-    db.updateMutation(MutationId(2), Mutation.Status.killed, ExitStatus(0), 10.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3")]);
+    db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [TestCase("tc_1"), TestCase("tc_2")]);
+    db.updateMutation(MutationId(2), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), [TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3")]);
     // make tc_3 unique
-    db.updateMutation(MutationId(4), Mutation.Status.alive, ExitStatus(0), 10.dur!"msecs", [TestCase("tc_3")]);
+    db.updateMutation(MutationId(4), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), [TestCase("tc_3")]);
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
@@ -307,9 +308,9 @@ class ReportTestCaseStats : unit_threaded.TestCase {
         //
         // By setting mutant 4 to killed it automatically propagate to mutant 5
         // because they are the same source code change.
-        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
-        db.updateMutation(MutationId(4), Mutation.Status.killed, ExitStatus(0), 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
-        db.updateMutation(MutationId(7), Mutation.Status.alive, ExitStatus(0), 10.dur!"msecs", null);
+        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [TestCase("tc_1"), TestCase("tc_2")]);
+        db.updateMutation(MutationId(4), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), [TestCase("tc_2"), TestCase("tc_3")]);
+        db.updateMutation(MutationId(7), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), null);
         return db;
     }
 }
@@ -352,8 +353,8 @@ class ShallReportTestCasesThatHasKilledZeroMutants : SimpleAnalyzeFixture {
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
         db.setDetectedTestCases([TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3"), TestCase("tc_4")]);
-        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [TestCase("tc_1"), TestCase("tc_2")]);
-        db.updateMutation(MutationId(2), Mutation.Status.killed, ExitStatus(0), 10.dur!"msecs", [TestCase("tc_2"), TestCase("tc_3")]);
+        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [TestCase("tc_1"), TestCase("tc_2")]);
+        db.updateMutation(MutationId(2), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), [TestCase("tc_2"), TestCase("tc_3")]);
 
         // Act
         auto r = makeDextoolReport(testEnv, testData.dirName)
@@ -434,10 +435,10 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
         fid.isNull.shouldBeFalse;
         auto mutants = db.getMutationsOnLine([EnumMembers!(Mutation.Kind)], fid.get, SourceLoc(6,0));
         foreach (id; mutants[0 .. $/3]) {
-            db.updateMutation(id, Mutation.Status.alive, ExitStatus(0), 5.dur!"msecs");
+            db.updateMutation(id, Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"));
         }
         foreach (id; mutants[$/3 .. $]) {
-            db.updateMutation(id, Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs");
+            db.updateMutation(id, Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"));
         }
 
         auto r = makeDextoolReport(testEnv, testData.dirName)
@@ -487,9 +488,9 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
         foreach (i; 0 .. 15)
-            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", null);
+            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
         foreach (i; 15 .. 30)
-            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), 5.dur!"msecs", null);
+            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
 
         auto plain = makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
@@ -527,9 +528,9 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
         foreach (i; 0 .. 15)
-            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", null);
+            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
         foreach (i; 15 .. 30)
-            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), 5.dur!"msecs", null);
+            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
 
         makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
@@ -569,9 +570,9 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
         foreach (i; 0 .. 15)
-            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", null);
+            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
         foreach (i; 15 .. 30)
-            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), 5.dur!"msecs", null);
+            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
 
         makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
@@ -601,9 +602,9 @@ class ShallReportHtmlNoMutSummary : LinesWithNoMut {
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
         foreach (i; 0 .. 15)
-            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", null);
+            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
         foreach (i; 15 .. 30)
-            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), 5.dur!"msecs", null);
+            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
 
         makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
@@ -638,11 +639,11 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
         // tc3: [1,12]
-        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [tc1]);
-        db.updateMutation(MutationId(8), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [tc1, tc2]);
-        db.updateMutation(MutationId(12), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(15), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [tc1, tc2]);
+        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
+        db.updateMutation(MutationId(8), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
+        db.updateMutation(MutationId(12), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.updateMutation(MutationId(15), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
 
         // Act
         makeDextoolReport(testEnv, testData.dirName)
@@ -683,11 +684,11 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
         // tc3: [1,12]
-        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [tc1]);
-        db.updateMutation(MutationId(8), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [tc1, tc2]);
-        db.updateMutation(MutationId(12), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(15), Mutation.Status.killed, ExitStatus(0), 5.dur!"msecs", [tc1, tc2]);
+        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
+        db.updateMutation(MutationId(8), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
+        db.updateMutation(MutationId(12), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.updateMutation(MutationId(15), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
 
         // Act
         makeDextoolReport(testEnv, testData.dirName)

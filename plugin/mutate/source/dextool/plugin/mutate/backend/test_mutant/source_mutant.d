@@ -63,7 +63,8 @@ struct MutationTestDriver {
         TestCase[] testCases;
 
         /// How long it took to do the mutation testing.
-        StopWatch sw;
+        StopWatch swCompile;
+        StopWatch swTest;
     }
 
     static struct None {
@@ -195,7 +196,7 @@ nothrow:
     }
 
     void opCall(Initialize data) {
-        global.sw.start;
+        global.swCompile.start;
     }
 
     void opCall(Done data) {
@@ -278,10 +279,14 @@ nothrow:
             successCompile = success;
         },);
 
+        global.swCompile.stop;
+        global.swTest.start;
+
         if (!successCompile)
             return;
 
         global.testResult = runTester(*global.runner);
+
         data.hasTestOutput = !global.testResult.output.empty;
     }
 
@@ -312,17 +317,18 @@ nothrow:
 
         const statusId = spinSql!(() => global.db.getMutationStatusId(global.mutp.id));
 
-        global.sw.stop;
+        global.swTest.stop;
+        auto profile = MutantTimeProfile(global.swCompile.peek, global.swTest.peek);
 
         if (!statusId.isNull) {
             result = [
                 MutationTestResult(global.mutp.id, statusId.get, global.testResult.status,
-                        global.sw.peek, global.testCases, global.testResult.exitStatus)
+                        profile, global.testCases, global.testResult.exitStatus)
             ];
         }
 
         logger.infof("%s %s:%s (%s)", global.mutp.id.get, global.testResult.status,
-                global.testResult.exitStatus.get, global.sw.peek).collectException;
+                global.testResult.exitStatus.get, profile).collectException;
         logger.infof(!global.testCases.empty, `%s killed by [%-(%s, %)]`,
                 global.mutp.id.get, global.testCases.sort.map!"a.name").collectException;
     }
