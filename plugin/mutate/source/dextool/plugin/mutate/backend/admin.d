@@ -35,7 +35,6 @@ import std.regex : regex, Regex;
 
 struct BuildAdmin {
 @safe:
-nothrow:
     private struct InternalData {
         bool errorInData;
 
@@ -47,39 +46,45 @@ nothrow:
         MutationId mutant_id;
         string mutant_rationale;
         FilesysIO fio;
+        AbsolutePath dbPath;
     }
 
     private InternalData data;
 
-    auto operation(AdminOperation v) {
+    auto database(AbsolutePath v) nothrow {
+        data.dbPath = v;
+        return this;
+    }
+
+    auto operation(AdminOperation v) nothrow {
         data.admin_op = v;
         return this;
     }
 
-    auto mutations(MutationKind[] v) {
+    auto mutations(MutationKind[] v) nothrow {
         import dextool.plugin.mutate.backend.utility;
 
         return mutationsSubKind(toInternal(v));
     }
 
-    auto mutationsSubKind(Mutation.Kind[] v) {
+    auto mutationsSubKind(Mutation.Kind[] v) nothrow {
         if (!v.empty) {
             data.kinds = v;
         }
         return this;
     }
 
-    auto fromStatus(Mutation.Status v) {
+    auto fromStatus(Mutation.Status v) nothrow {
         data.status = v;
         return this;
     }
 
-    auto toStatus(Mutation.Status v) {
+    auto toStatus(Mutation.Status v) nothrow {
         data.to_status = v;
         return this;
     }
 
-    auto testCaseRegex(string v) {
+    auto testCaseRegex(string v) nothrow {
         try {
             data.test_case_regex = regex(v);
         } catch (Exception e) {
@@ -89,19 +94,24 @@ nothrow:
         return this;
     }
 
-    auto markMutantData(MutationId v, string s, FilesysIO f) {
+    auto markMutantData(MutationId v, string s, FilesysIO f) nothrow {
         data.mutant_id = v;
         data.mutant_rationale = s;
         data.fio = f;
         return this;
     }
 
-    ExitStatusType run(ref Database db) {
+    ExitStatusType run() @trusted {
         if (data.errorInData) {
             logger.error("Invalid parameters").collectException;
             return ExitStatusType.Errors;
         }
 
+        auto db = Database.make(data.dbPath);
+        return internalRun(db);
+    }
+
+    private ExitStatusType internalRun(ref Database db) {
         final switch (data.admin_op) {
         case AdminOperation.none:
             logger.error("No admin operation specified").collectException;

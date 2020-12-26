@@ -35,49 +35,41 @@ enum GenerateMutantStatus {
     ok
 }
 
-ExitStatusType runGenerateMutant(ref Database db, MutationKind[] kind,
-        MutationId user_mutation, FilesysIO fio, ValidateLoc val_loc) @safe nothrow {
+ExitStatusType runGenerateMutant(const AbsolutePath dbPath, MutationKind[] kind,
+        MutationId user_mutation, FilesysIO fio, ValidateLoc val_loc) @trusted nothrow {
     import dextool.plugin.mutate.backend.utility : toInternal;
 
-    Nullable!MutationEntry mutp;
-    mutp = spinSql!(() { return db.getMutation(user_mutation); });
+    ExitStatusType helper(ref Database db) @safe {
+        Nullable!MutationEntry mutp;
+        mutp = spinSql!(() { return db.getMutation(user_mutation); });
 
-    if (mutp.isNull) {
-        logger.error("No such mutation id: ", user_mutation).collectException;
-        return ExitStatusType.Errors;
-    }
+        if (mutp.isNull) {
+            logger.error("No such mutation id: ", user_mutation).collectException;
+            return ExitStatusType.Errors;
+        }
 
-    AbsolutePath mut_file;
-    try {
-        mut_file = AbsolutePath(buildPath(fio.getOutputDir, mutp.get.file));
-    } catch (Exception e) {
-        logger.error(e.msg).collectException;
-        return ExitStatusType.Errors;
-    }
+        auto mut_file = AbsolutePath(buildPath(fio.getOutputDir, mutp.get.file));
 
-    Blob content;
-    try {
-        content = fio.makeInput(mut_file);
-    } catch (Exception e) {
-        collectException(logger.error(e.msg));
-        return ExitStatusType.Errors;
-    }
+        Blob content = fio.makeInput(mut_file);
 
-    ExitStatusType exit_st;
-    try {
         auto ofile = makeOutputFilename(val_loc, fio, mut_file);
         auto fout = fio.makeOutput(ofile);
         auto res = generateMutant(db, mutp.get, content, fout);
         if (res.status == GenerateMutantStatus.ok) {
             logger.infof("%s Mutate from '%s' to '%s' in %s", mutp.get.id,
                     cast(const(char)[]) res.from, cast(const(char)[]) res.to, ofile);
-            exit_st = ExitStatusType.Ok;
         }
-    } catch (Exception e) {
-        collectException(logger.error(e.msg));
+        return ExitStatusType.Ok;
     }
 
-    return exit_st;
+    try {
+        auto db = Database.make(dbPath);
+        return helper(db);
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+    }
+
+    return ExitStatusType.Errors;
 }
 
 private AbsolutePath makeOutputFilename(ValidateLoc val_loc, FilesysIO fio, AbsolutePath file) @safe {

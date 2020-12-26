@@ -25,18 +25,15 @@ import dextool.plugin.mutate.backend.utility : getProfileResult, Profile;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind;
 
-ExitStatusType runReport(ref Database db, const MutationKind[] kind,
+ExitStatusType runReport(const AbsolutePath dbPath, const MutationKind[] kind,
         const ConfigReport conf, FilesysIO fio) @trusted nothrow {
 
-    Diff diff;
-    try {
-        if (conf.unifiedDiff)
+    ExitStatusType helper(ref Database db) {
+        Diff diff;
+        if (conf.unifiedDiff) {
             diff = diffFromStdin;
-    } catch (Exception e) {
-        logger.warning(e.msg).collectException;
-    }
+        }
 
-    try {
         final switch (conf.reportKind) with (ReportKind) {
         case plain:
             import dextool.plugin.mutate.backend.report.plain : report;
@@ -59,20 +56,24 @@ ExitStatusType runReport(ref Database db, const MutationKind[] kind,
             report(db, kind, conf, fio, diff);
             break;
         }
-    } catch (Exception e) {
-        () @trusted { logger.trace(e).collectException; }();
-        logger.error(e.msg).collectException;
-        return ExitStatusType.Errors;
+
+        if (conf.profile)
+            try {
+                import std.stdio : writeln;
+
+                writeln(getProfileResult.toString);
+            } catch (Exception e) {
+                logger.warning("Unable to print the profile data: ", e.msg).collectException;
+            }
+        return ExitStatusType.Ok;
     }
 
-    if (conf.profile)
-        try {
-            import std.stdio : writeln;
+    try {
+        auto db = Database.make(dbPath);
+        return helper(db);
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+    }
 
-            writeln(getProfileResult.toString);
-        } catch (Exception e) {
-            logger.warning("Unable to print the profile data: ", e.msg).collectException;
-        }
-
-    return ExitStatusType.Ok;
+    return ExitStatusType.Errors;
 }

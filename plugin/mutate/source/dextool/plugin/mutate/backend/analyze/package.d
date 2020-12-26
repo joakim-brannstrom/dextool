@@ -48,7 +48,7 @@ version (unittest) {
 
 /** Analyze the files in `frange` for mutations.
  */
-ExitStatusType runAnalyzer(ref Database db, const MutationKind[] userKinds, ConfigAnalyze conf_analyze,
+ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userKinds, ConfigAnalyze conf_analyze,
         ConfigCompiler conf_compiler, ParsedCompileCommandRange frange,
         ValidateLoc val_loc, FilesysIO fio) @trusted {
     import dextool.plugin.mutate.backend.diff_parser : diffFromStdin, Diff;
@@ -72,9 +72,8 @@ ExitStatusType runAnalyzer(ref Database db, const MutationKind[] userKinds, Conf
     }();
 
     // will only be used by one thread at a time.
-    auto store = spawn(&storeActor, cast(shared)&db, cast(shared) fio.dup,
-            conf_analyze.prune, conf_analyze.fastDbStore,
-            conf_analyze.poolSize, conf_analyze.forceSaveAnalyze);
+    auto store = spawn(&storeActor, dbPath, cast(shared) fio.dup, conf_analyze.prune,
+            conf_analyze.fastDbStore, conf_analyze.poolSize, conf_analyze.forceSaveAnalyze);
 
     auto kinds = toInternal(userKinds);
     int taskCnt;
@@ -184,237 +183,246 @@ void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze, Val
 }
 
 /// Store the result of the analyze.
-void storeActor(scope shared Database* dbShared, scope shared FilesysIO fioShared,
+void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         const bool prune, const bool fastDbStore, const long poolSize, const bool forceSave) @trusted nothrow {
     import cachetools : CacheLRU;
     import dextool.cachetools : nullableCache;
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
 
-    Database* db = cast(Database*) dbShared;
-    FilesysIO fio = cast(FilesysIO) fioShared;
+    void helper(ref FilesysIO fio, ref Database db) nothrow {
+        // A file is at most saved one time to the database.
+        Set!AbsolutePath savedFiles;
 
-    // A file is at most saved one time to the database.
-    Set!AbsolutePath savedFiles;
+        // schematan for an old version where removed.
+        NamedType!(bool, Tag!"SchemataRemovedVersion", false) oldVersion;
 
-    // schematan for an old version where removed.
-    NamedType!(bool, Tag!"SchemataRemovedVersion", false) oldVersion;
+        auto getFileId = nullableCache!(string, FileId, (string p) => db.getFileId(p.Path))(256,
+                30.dur!"seconds");
+        auto getFileDbChecksum = nullableCache!(string, Checksum,
+                (string p) => db.getFileChecksum(p.Path))(256, 30.dur!"seconds");
+        auto getFileFsChecksum = nullableCache!(string, Checksum, (string p) {
+            return checksum(fio.makeInput(AbsolutePath(Path(p))).content[]);
+        })(256, 30.dur!"seconds");
 
-    auto getFileId = nullableCache!(string, FileId, (string p) => db.getFileId(p.Path))(256,
-            30.dur!"seconds");
-    auto getFileDbChecksum = nullableCache!(string, Checksum,
-            (string p) => db.getFileChecksum(p.Path))(256, 30.dur!"seconds");
-    auto getFileFsChecksum = nullableCache!(string, Checksum, (string p) {
-        return checksum(fio.makeInput(AbsolutePath(Path(p))).content[]);
-    })(256, 30.dur!"seconds");
+        static struct Files {
+            Checksum[Path] value;
 
-    static struct Files {
-        Checksum[Path] value;
-
-        this(ref Database db) {
-            foreach (a; db.getDetailedFiles) {
-                value[a.file] = a.fileChecksum;
+            this(ref Database db) {
+                foreach (a; db.getDetailedFiles) {
+                    value[a.file] = a.fileChecksum;
+                }
             }
         }
-    }
 
-    void save(immutable Analyze.Result result) {
-        // mark files that have an unchanged checksum as "already saved"
-        foreach (f; result.idFile
-                .byKey
-                .filter!(a => a !in savedFiles)
-                .filter!(a => getFileDbChecksum(fio.toRelativeRoot(a)) == getFileFsChecksum(a)
-                    && !forceSave)) {
-            logger.info("Unchanged ".color(Color.yellow), f);
-            savedFiles.add(f);
-        }
-
-        // only saves mutation points to a file one time.
-        {
-            auto app = appender!(MutationPointEntry2[])();
-            bool isChanged;
-            foreach (mp; result.mutationPoints
-                    .map!(a => tuple!("data", "file")(a, fio.toAbsoluteRoot(a.file)))
-                    .filter!(a => a.file !in savedFiles)) {
-                app.put(mp.data);
-            }
-            foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
-                isChanged = true;
-                logger.info("Saving ".color(Color.green), f);
-                const relp = fio.toRelativeRoot(f);
-                db.removeFile(relp);
-                const info = result.infoId[result.idFile[f]];
-                db.put(relp, info.checksum, info.language);
+        void save(immutable Analyze.Result result) {
+            // mark files that have an unchanged checksum as "already saved"
+            foreach (f; result.idFile
+                    .byKey
+                    .filter!(a => a !in savedFiles)
+                    .filter!(a => getFileDbChecksum(fio.toRelativeRoot(a)) == getFileFsChecksum(a)
+                        && !forceSave)) {
+                logger.info("Unchanged ".color(Color.yellow), f);
                 savedFiles.add(f);
             }
-            db.put(app.data, fio.getOutputDir);
 
-            // only save the schematas if mutation points where saved. This
-            // ensure that only schematas for changed/new files are saved.
-            if (isChanged || oldVersion.get) {
-                foreach (s; result.schematas.enumerate) {
-                    try {
-                        auto mutants = result.schemataMutants[s.index].map!(
-                                a => db.getMutationStatusId(a.value))
-                            .filter!(a => !a.isNull)
-                            .map!(a => a.get)
-                            .array;
-                        if (!mutants.empty && !s.value.empty) {
-                            const id = db.putSchemata(result.schemataChecksum[s.index],
-                                    s.value, mutants);
-                            logger.trace(!id.isNull, "Saving schema ", id.get);
+            // only saves mutation points to a file one time.
+            {
+                auto app = appender!(MutationPointEntry2[])();
+                bool isChanged;
+                foreach (mp; result.mutationPoints
+                        .map!(a => tuple!("data", "file")(a, fio.toAbsoluteRoot(a.file)))
+                        .filter!(a => a.file !in savedFiles)) {
+                    app.put(mp.data);
+                }
+                foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
+                    isChanged = true;
+                    logger.info("Saving ".color(Color.green), f);
+                    const relp = fio.toRelativeRoot(f);
+                    db.removeFile(relp);
+                    const info = result.infoId[result.idFile[f]];
+                    db.put(relp, info.checksum, info.language);
+                    savedFiles.add(f);
+                }
+                db.put(app.data, fio.getOutputDir);
+
+                // only save the schematas if mutation points where saved. This
+                // ensure that only schematas for changed/new files are saved.
+                if (isChanged || oldVersion.get) {
+                    foreach (s; result.schematas.enumerate) {
+                        try {
+                            auto mutants = result.schemataMutants[s.index].map!(
+                                    a => db.getMutationStatusId(a.value))
+                                .filter!(a => !a.isNull)
+                                .map!(a => a.get)
+                                .array;
+                            if (!mutants.empty && !s.value.empty) {
+                                const id = db.putSchemata(result.schemataChecksum[s.index],
+                                        s.value, mutants);
+                                logger.trace(!id.isNull, "Saving schema ", id.get);
+                            }
+                        } catch (Exception e) {
+                            logger.trace(e.msg);
+                            logger.warning("Unable to save schema ", s.index).collectException;
                         }
-                    } catch (Exception e) {
-                        logger.trace(e.msg);
-                        logger.warning("Unable to save schema ", s.index).collectException;
                     }
                 }
             }
+
+            {
+                Set!long printed;
+                auto app = appender!(LineMetadata[])();
+                foreach (md; result.metadata) {
+                    // transform the ID from local to global.
+                    const fid = getFileId(fio.toRelativeRoot(result.fileId[md.id.get]));
+                    if (fid.isNull && !printed.contains(md.id.get)) {
+                        printed.add(md.id.get);
+                        logger.warningf("File with suppressed mutants (// NOMUT) not in the database: %s. Skipping...",
+                                result.fileId[md.id.get]).collectException;
+                    } else if (!fid.isNull) {
+                        app.put(LineMetadata(fid.get, md.line, md.attr));
+                    }
+                }
+                db.put(app.data);
+            }
         }
 
-        {
-            Set!long printed;
-            auto app = appender!(LineMetadata[])();
-            foreach (md; result.metadata) {
-                // transform the ID from local to global.
-                const fid = getFileId(fio.toRelativeRoot(result.fileId[md.id.get]));
-                if (fid.isNull && !printed.contains(md.id.get)) {
-                    printed.add(md.id.get);
-                    logger.warningf("File with suppressed mutants (// NOMUT) not in the database: %s. Skipping...",
-                            result.fileId[md.id.get]).collectException;
-                } else if (!fid.isNull) {
-                    app.put(LineMetadata(fid.get, md.line, md.attr));
+        // listen for results from workers until the expected number is processed.
+        void recv() {
+            auto profile = Profile("updating files");
+            logger.info("Updating files");
+
+            int resultCnt;
+            Nullable!int maxResults;
+            bool running = true;
+
+            while (running) {
+                try {
+                    receive((AnalyzeCntMsg a) { maxResults = a.value; }, (immutable Analyze.Result a) {
+                        resultCnt++;
+                        save(a);
+                    },);
+                } catch (Exception e) {
+                    logger.trace(e).collectException;
+                    logger.warning(e.msg).collectException;
+                }
+
+                if (!maxResults.isNull && resultCnt >= maxResults.get) {
+                    running = false;
                 }
             }
-            db.put(app.data);
         }
-    }
 
-    // listen for results from workers until the expected number is processed.
-    void recv() {
-        auto profile = Profile("updating files");
-        logger.info("Updating files");
+        void pruneFiles() {
+            import std.path : buildPath;
 
-        int resultCnt;
-        Nullable!int maxResults;
-        bool running = true;
+            auto profile = Profile("prune files");
 
-        while (running) {
-            try {
-                receive((AnalyzeCntMsg a) { maxResults = a.value; }, (immutable Analyze.Result a) {
-                    resultCnt++;
-                    save(a);
-                },);
-            } catch (Exception e) {
-                logger.trace(e).collectException;
-                logger.warning(e.msg).collectException;
-            }
+            logger.info("Pruning the database of dropped files");
+            auto files = db.getFiles.map!(a => fio.toAbsoluteRoot(a)).toSet;
 
-            if (!maxResults.isNull && resultCnt >= maxResults.get) {
-                running = false;
+            foreach (f; files.setDifference(savedFiles).toRange) {
+                logger.info("Removing ".color(Color.red), f);
+                db.removeFile(fio.toRelativeRoot(f));
             }
         }
-    }
 
-    void pruneFiles() {
-        import std.path : buildPath;
-
-        auto profile = Profile("prune files");
-
-        logger.info("Pruning the database of dropped files");
-        auto files = db.getFiles.map!(a => fio.toAbsoluteRoot(a)).toSet;
-
-        foreach (f; files.setDifference(savedFiles).toRange) {
-            logger.info("Removing ".color(Color.red), f);
-            db.removeFile(fio.toRelativeRoot(f));
+        void fastDbOn() {
+            if (!fastDbStore)
+                return;
+            logger.info(
+                    "Turning OFF sqlite3 synchronization protection to improve the write performance");
+            logger.warning(
+                    "Do NOT interrupt dextool in any way because it may corrupt the database");
+            db.run("PRAGMA synchronous = OFF");
+            db.run("PRAGMA journal_mode = MEMORY");
         }
-    }
 
-    void fastDbOn() {
-        if (!fastDbStore)
-            return;
-        logger.info(
-                "Turning OFF sqlite3 synchronization protection to improve the write performance");
-        logger.warning("Do NOT interrupt dextool in any way because it may corrupt the database");
-        db.run("PRAGMA synchronous = OFF");
-        db.run("PRAGMA journal_mode = MEMORY");
-    }
+        void fastDbOff() {
+            if (!fastDbStore)
+                return;
+            db.run("PRAGMA synchronous = ON");
+            db.run("PRAGMA journal_mode = DELETE");
+        }
 
-    void fastDbOff() {
-        if (!fastDbStore)
-            return;
-        db.run("PRAGMA synchronous = ON");
-        db.run("PRAGMA journal_mode = DELETE");
+        try {
+            import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
+
+            // by making the mailbox size follow the number of workers the overall
+            // behavior will slow down if saving to the database is too slow. This
+            // avoids excessive or even fatal memory usage.
+            setMaxMailboxSize(thisTid, poolSize + 2, OnCrowding.block);
+
+            fastDbOn();
+
+            auto trans = db.transaction;
+
+            // TODO: only remove those files that are modified.
+            logger.info("Removing metadata");
+            db.clearMetadata;
+
+            if (prune) {
+                auto profile = Profile("prune old schemas");
+                logger.info("Prune database of schemata created by an old version");
+                oldVersion = db.pruneOldSchemas;
+            }
+
+            recv();
+
+            logger.info("Resetting timeout context");
+            resetTimeoutContext(db);
+
+            logger.info("Updating metadata");
+            db.updateMetadata;
+
+            if (prune) {
+                pruneFiles();
+                {
+                    auto profile = Profile("remove orphaned mutants");
+                    logger.info("Removing orphaned mutants");
+                    db.removeOrphanedMutants;
+                }
+                {
+                    auto profile = Profile("prune schemas");
+                    logger.info("Prune the database of unused schemas");
+                    db.pruneSchemas;
+                }
+            }
+
+            logger.info("Updating manually marked mutants");
+            updateMarkedMutants(db);
+            printLostMarkings(db.getLostMarkings);
+
+            logger.info("Committing changes");
+            trans.commit;
+            logger.info("Ok".color(Color.green));
+
+            fastDbOff();
+
+            if (oldVersion.get) {
+                auto profile = Profile("compact");
+                logger.info("Compacting the database");
+                db.vacuum;
+            }
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            logger.error("Failed to save the result of the analyze to the database")
+                .collectException;
+        }
+
+        try {
+            send(ownerTid, StoreDoneMsg.init);
+        } catch (Exception e) {
+            logger.errorf("Fatal error. Unable to send %s to the main thread",
+                    StoreDoneMsg.init).collectException;
+        }
     }
 
     try {
-        import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
-
-        // by making the mailbox size follow the number of workers the overall
-        // behavior will slow down if saving to the database is too slow. This
-        // avoids excessive or even fatal memory usage.
-        setMaxMailboxSize(thisTid, poolSize + 2, OnCrowding.block);
-
-        fastDbOn();
-
-        auto trans = db.transaction;
-
-        // TODO: only remove those files that are modified.
-        logger.info("Removing metadata");
-        db.clearMetadata;
-
-        if (prune) {
-            auto profile = Profile("prune old schemas");
-            logger.info("Prune database of schemata created by an old version");
-            oldVersion = db.pruneOldSchemas;
-        }
-
-        recv();
-
-        logger.info("Resetting timeout context");
-        resetTimeoutContext(*db);
-
-        logger.info("Updating metadata");
-        db.updateMetadata;
-
-        if (prune) {
-            pruneFiles();
-            {
-                auto profile = Profile("remove orphaned mutants");
-                logger.info("Removing orphaned mutants");
-                db.removeOrphanedMutants;
-            }
-            {
-                auto profile = Profile("prune schemas");
-                logger.info("Prune the database of unused schemas");
-                db.pruneSchemas;
-            }
-        }
-
-        logger.info("Updating manually marked mutants");
-        updateMarkedMutants(*db);
-        printLostMarkings(db.getLostMarkings);
-
-        logger.info("Committing changes");
-        trans.commit;
-        logger.info("Ok".color(Color.green));
-
-        fastDbOff();
-
-        if (oldVersion.get) {
-            auto profile = Profile("compact");
-            logger.info("Compacting the database");
-            db.vacuum;
-        }
+        FilesysIO fio = cast(FilesysIO) fioShared;
+        auto db = Database.make(dbPath);
+        helper(fio, db);
     } catch (Exception e) {
         logger.error(e.msg).collectException;
-        logger.error("Failed to save the result of the analyze to the database").collectException;
-    }
-
-    try {
-        send(ownerTid, StoreDoneMsg.init);
-    } catch (Exception e) {
-        logger.errorf("Fatal error. Unable to send %s to the main thread",
-                StoreDoneMsg.init).collectException;
     }
 }
 
