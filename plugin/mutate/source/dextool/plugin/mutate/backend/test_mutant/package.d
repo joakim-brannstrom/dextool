@@ -14,6 +14,7 @@ import logger = std.experimental.logger;
 import std.algorithm : map;
 import std.array : empty, array, appender;
 import std.datetime : SysTime, Clock;
+import std.datetime.stopwatch : StopWatch, AutoStart;
 import std.exception : collectException;
 import std.format : format;
 import std.random : randomCover;
@@ -123,7 +124,6 @@ struct MeasureTestDurationResult {
  */
 MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples) @safe nothrow {
     import std.algorithm : min;
-    import std.datetime.stopwatch : StopWatch, AutoStart;
     import proc;
 
     if (runner.empty) {
@@ -321,6 +321,10 @@ struct TestDriver {
         bool passed;
     }
 
+    static struct SchemataTestData {
+        Duration compileTime;
+    }
+
     static struct SchemataTest {
         SchemataId id;
         MutationTestResult[] result;
@@ -402,14 +406,14 @@ struct TestDriver {
             FindTestCmds, ChooseMode, NextSchemata, PreSchemata, SchemataTest,
             SchemataTestResult, SchemataRestore, LoadSchematas,
             SanityCheckSchemata, SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck);
-    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData,
-            ResetOldMutantData, SchemataRestoreData, PreSchemataData, NextSchemataData);
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData, ResetOldMutantData,
+            SchemataRestoreData, PreSchemataData, NextSchemataData, SchemataTestData);
 
     private {
         Fsm fsm;
         Global global;
-        TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant,
-                PullRequest, ResetOldMutant, SchemataRestore, PreSchemata, NextSchemata) local;
+        TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant, PullRequest,
+                ResetOldMutant, SchemataRestore, PreSchemata, NextSchemata, SchemataTest) local;
         bool isRunning_ = true;
         bool isDone = false;
     }
@@ -1125,6 +1129,11 @@ nothrow:
         import std.algorithm : filter;
         import dextool.plugin.mutate.backend.database.type : SchemataFragment;
 
+        auto sw = StopWatch(AutoStart.yes);
+        // also accumulate all the time spent on failing to compile schematan.
+        scope (exit)
+            local.get!SchemataTest.compileTime = local.get!SchemataTest.compileTime + sw.peek;
+
         auto schemata = local.get!PreSchemata.schemata;
         data.id = schemata.id;
         local.get!PreSchemata = PreSchemataData.init;
@@ -1173,13 +1182,18 @@ nothrow:
     void opCall(ref SchemataTest data) {
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
+        // add the database access as "compile time"
+        auto sw = StopWatch(AutoStart.yes);
+
         auto mutants = spinSql!(() {
             return global.data.db.getSchemataMutants(data.id, global.data.kinds);
         });
 
         try {
-            auto driver = SchemataTestDriver(global.data.filesysIO, &runner,
-                    global.data.db, &testCaseAnalyzer, mutants);
+            auto driver = SchemataTestDriver(global.data.filesysIO, &runner, global.data.db,
+                    &testCaseAnalyzer, mutants, local.get!SchemataTest.compileTime + sw.peek);
+            local.get!SchemataTest.compileTime = Duration.zero;
+
             while (driver.isRunning) {
                 driver.execute;
             }
@@ -1267,6 +1281,11 @@ nothrow:
     void opCall(ref SanityCheckSchemata data) {
         import colorlog;
 
+        auto sw = StopWatch(AutoStart.yes);
+        // also accumulate all the time spent on failing to compile schematan.
+        scope (exit)
+            local.get!SchemataTest.compileTime = local.get!SchemataTest.compileTime + sw.peek;
+
         logger.infof("Compile schema %s", data.id.get).collectException;
 
         if (global.data.conf.logSchemata) {
@@ -1342,7 +1361,7 @@ nothrow:
             updateMutantStatus(*global.data.db, result.id, result.status,
                     result.exitStatus, global.timeoutFsm.output.iter);
             global.data.db.updateMutation(result.id, cnt_action);
-            global.data.db.updateMutation(result.id, result.testTime);
+            global.data.db.updateMutation(result.id, result.profile);
             global.data.db.updateMutationTestCases(result.id, result.testCases);
             global.data.db.removeFromWorklist(result.id);
         }

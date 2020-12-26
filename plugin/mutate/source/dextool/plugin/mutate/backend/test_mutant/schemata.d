@@ -46,6 +46,9 @@ struct SchemataTestDriver {
 
         /// Result of testing the mutants.
         MutationTestResult[] result_;
+
+        /// Time it took to compile the schemata.
+        Duration compileTime;
     }
 
     static struct None {
@@ -111,13 +114,14 @@ struct SchemataTestDriver {
     }
 
     this(FilesysIO fio, TestRunner* runner, Database* db,
-            TestCaseAnalyzer* testCaseAnalyzer, MutationStatusId[] mutants) {
+            TestCaseAnalyzer* testCaseAnalyzer, MutationStatusId[] mutants, Duration compileTime) {
         this.fio = fio;
         this.runner = runner;
         this.db = db;
         this.local.get!Initialize.mutants = mutants;
         this.local.get!TestCaseAnalyze.testCaseAnalyzer = testCaseAnalyzer;
         this.local.get!TestMutant.hasTestCaseOutputAnalyzer = !testCaseAnalyzer.empty;
+        this.compileTime = compileTime;
     }
 
     static void execute_(ref SchemataTestDriver self) @trusted {
@@ -200,6 +204,8 @@ nothrow:
             checksumToId;
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
+        auto sw = StopWatch(AutoStart.yes);
+
         data.result.id = data.inject.statusId;
 
         auto id = spinSql!(() { return db.getMutationId(data.inject.statusId); });
@@ -230,9 +236,10 @@ nothrow:
         scope (exit)
             runner.env.remove(schemataMutantEnvKey);
 
-        auto sw = StopWatch(AutoStart.yes);
         auto res = runTester(*runner);
-        data.result.testTime = sw.peek;
+        data.result.profile = MutantTimeProfile(compileTime, sw.peek);
+        // the first tested mutant also get the compile time of the schema.
+        compileTime = Duration.zero;
 
         data.result.mutId = id;
         data.result.status = res.status;
@@ -241,7 +248,7 @@ nothrow:
         local.get!TestCaseAnalyze.output = res.output;
 
         logger.infof("%s %s:%s (%s)", data.inject.injectId, data.result.status,
-                data.result.exitStatus.get, data.result.testTime).collectException;
+                data.result.exitStatus.get, data.result.profile).collectException;
     }
 
     void opCall(ref TestCaseAnalyze data) {

@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.type;
 
+import core.time : Duration;
+
 import my.hash : Checksum128;
 import my.named_type;
 public import dextool.plugin.mutate.backend.database.type : MutantAttr, MutantMetaData;
@@ -414,3 +416,38 @@ struct Token {
 }
 
 alias ExitStatus = NamedType!(int, Tag!"ExitStatus", int.init, TagStringable);
+
+/// Profile of what a mutant spent time on to collect a status.
+struct MutantTimeProfile {
+    /// Time it took to compile the mutant.
+    Duration compile;
+
+    /// Time it took to execute the test suite.
+    Duration test;
+
+    this(Duration compile, Duration test) @safe pure nothrow @nogc {
+        this.compile = compile;
+        this.test = test;
+    }
+
+    /// Returns: the sum of all the profile times.
+    Duration sum() @safe pure nothrow const @nogc {
+        return compile + test;
+    }
+
+    import std.range : isOutputRange;
+
+    string toString() @safe pure const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        import std.format : formattedWrite;
+
+        formattedWrite(w, "total:%s compile:%s test:%s", sum, compile, test);
+    }
+}

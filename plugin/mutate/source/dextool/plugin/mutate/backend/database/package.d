@@ -67,7 +67,8 @@ struct Database {
         immutable sql = format("SELECT
                                t0.id,
                                t0.kind,
-                               t3.time,
+                               t3.compile_time_ms,
+                               t3.test_time_ms,
                                t1.offset_begin,
                                t1.offset_end,
                                t1.line,
@@ -90,14 +91,15 @@ struct Database {
 
         auto v = res.front;
 
-        auto mp = MutationPoint(Offset(v.peek!uint(3), v.peek!uint(4)));
+        auto mp = MutationPoint(Offset(v.peek!uint(4), v.peek!uint(5)));
         mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
         auto pkey = MutationId(v.peek!long(0));
-        auto file = Path(v.peek!string(7));
-        auto sloc = SourceLoc(v.peek!uint(5), v.peek!uint(6));
-        auto lang = v.peek!long(8).to!Language;
+        auto file = Path(v.peek!string(8));
+        auto sloc = SourceLoc(v.peek!uint(6), v.peek!uint(7));
+        auto lang = v.peek!long(9).to!Language;
 
-        rval.entry = MutationEntry(pkey, file, sloc, mp, v.peek!long(2).dur!"msecs", lang);
+        rval.entry = MutationEntry(pkey, file, sloc, mp,
+                MutantTimeProfile(v.peek!long(2).dur!"msecs", v.peek!long(3).dur!"msecs"), lang);
 
         return rval;
     }
@@ -127,7 +129,6 @@ struct Database {
             t0.id,
             t3.status,
             t0.kind,
-            t3.time,
             t1.offset_begin,
             t1.offset_end,
             t1.line,
@@ -156,16 +157,17 @@ struct Database {
                 d.id = MutationId(r.peek!long(0));
                 d.mutation = Mutation(r.peek!int(2).to!(Mutation.Kind),
                         r.peek!int(1).to!(Mutation.Status));
-                auto offset = Offset(r.peek!uint(4), r.peek!uint(5));
+                auto offset = Offset(r.peek!uint(3), r.peek!uint(4));
                 d.mutationPoint = MutationPoint(offset, null);
-                d.file = r.peek!string(10).Path;
-                d.fileChecksum = checksum(r.peek!long(11), r.peek!long(12));
-                d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
-                d.slocEnd = SourceLoc(r.peek!uint(8), r.peek!uint(9));
-                d.lang = r.peek!long(13).to!Language;
+                d.file = r.peek!string(9).Path;
+                d.fileChecksum = checksum(r.peek!long(10), r.peek!long(11));
+                d.sloc = SourceLoc(r.peek!uint(5), r.peek!uint(6));
+                d.slocEnd = SourceLoc(r.peek!uint(7), r.peek!uint(8));
+                d.lang = r.peek!long(12).to!Language;
 
-                if (r.peek!long(14) != 0)
+                if (r.peek!long(13) != 0) {
                     d.attrs = MutantMetaData(d.id, MutantAttr(NoMut.init));
+                }
                 dg(d);
             }
         } catch (Exception e) {

@@ -80,8 +80,8 @@ void toHtml(MinimalTestSet min_set, Element root) {
             auto r = tbl.appendRow();
             r.addChild("td", tc.name);
             r.addChild("td", min_set.testCaseTime[tc.name].killedMutants.to!string);
-            r.addChild("td", min_set.testCaseTime[tc.name].time.to!string);
-            sum += min_set.testCaseTime[tc.name].time;
+            r.addChild("td", min_set.testCaseTime[tc.name].time.sum.to!string);
+            sum += min_set.testCaseTime[tc.name].time.sum;
         }
         tbl_container.addChild("p", format("Total test time: %s", sum));
     }
@@ -105,8 +105,8 @@ void toHtml(MinimalTestSet min_set, Element root) {
             auto r = tbl.appendRow();
             r.addChild("td", tc.name);
             r.addChild("td", min_set.testCaseTime[tc.name].killedMutants.to!string);
-            r.addChild("td", min_set.testCaseTime[tc.name].time.to!string);
-            sum += min_set.testCaseTime[tc.name].time;
+            r.addChild("td", min_set.testCaseTime[tc.name].time.sum.to!string);
+            sum += min_set.testCaseTime[tc.name].time.sum;
         }
         tbl_container.addChild("p", format("Total test time: %s", sum));
     }

@@ -24,13 +24,14 @@ import proc : DrainElement;
 
 import dextool.plugin.mutate.backend.database : MutationId;
 import dextool.plugin.mutate.backend.interface_;
-import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
-import dextool.plugin.mutate.backend.type : Mutation, TestCase, ExitStatus;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
 import dextool.type : AbsolutePath, Path;
+
+public import dextool.plugin.mutate.backend.type : Mutation, TestCase,
+    ExitStatus, MutantTimeProfile;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -47,7 +48,7 @@ struct MutationTestResult {
     MutationId mutId;
     MutationStatusId id;
     Mutation.Status status;
-    Duration testTime;
+    MutantTimeProfile profile;
     TestCase[] testCases;
     ExitStatus exitStatus;
 }
