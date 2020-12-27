@@ -39,7 +39,7 @@ The file should be pretty self explaining.
 Open the config file and change the following fields:
 ```toml
 [workarea]
-restrict = ["googlemock/include", "googlemock/src", "googletest/include", "googletest/src"]
+include = ["googlemock/include/*", "googlemock/src/*", "googletest/include/*", "googletest/src/*"]
 
 [compiler]
 extra_flags = [ "-D_POSIX_PATH_MAX=1024" ]

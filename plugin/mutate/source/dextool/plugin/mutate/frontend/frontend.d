@@ -14,6 +14,8 @@ import std.array : empty, array;
 import std.exception : collectException;
 import std.path : buildPath;
 
+import my.filter : GlobFilter;
+
 import dextool.compilation_db;
 import dextool.type : Path, AbsolutePath, ExitStatusType;
 
@@ -108,12 +110,11 @@ struct DataAccess {
     }
 
     static auto make(ref ArgParser conf) @trusted {
-        auto fe_io = new FrontendIO(conf.workArea.restrictDir,
-                conf.workArea.outputDirectory, conf.mutationTest.dryRun);
-        auto fe_validate = new FrontendValidateLoc(conf.workArea.restrictDir,
+        auto io = new FrontendIO(conf.workArea.outputDirectory, conf.mutationTest.dryRun);
+        auto validate = new FrontendValidateLoc(conf.workArea.mutantMatcher,
                 conf.workArea.outputDirectory);
 
-        return DataAccess(fe_io, fe_validate, conf.compileDb, conf.compiler, conf.data.inFiles);
+        return DataAccess(io, validate, conf.compileDb, conf.compiler, conf.data.inFiles);
     }
 }
 
@@ -134,19 +135,17 @@ final class FrontendIO : FilesysIO {
 
     BlobVfs vfs;
 
-    private AbsolutePath[] restrict_dir;
     private AbsolutePath output_dir;
     private bool dry_run;
 
-    this(AbsolutePath[] restrict_dir, AbsolutePath output_dir, bool dry_run) {
-        this.restrict_dir = restrict_dir;
+    this(AbsolutePath output_dir, bool dry_run) {
         this.output_dir = output_dir;
         this.dry_run = dry_run;
         this.vfs = new BlobVfs;
     }
 
     override FilesysIO dup() {
-        return new FrontendIO(restrict_dir, output_dir, dry_run);
+        return new FrontendIO(output_dir, dry_run);
     }
 
     override File getDevNull() {
@@ -209,23 +208,23 @@ private:
         import std.format : format;
         import std.string : startsWith;
 
-        if (!dry_run && !p.toString.startsWith((cast(string) root))) {
+        if (!dry_run && !p.toString.startsWith(root.toString)) {
             throw new Exception(format("Path '%s' escaping output directory (--out) '%s'", p, root));
         }
     }
 }
 
 final class FrontendValidateLoc : ValidateLoc {
-    private AbsolutePath[] restrict_dir;
+    private GlobFilter mutantMatcher;
     private AbsolutePath output_dir;
 
-    this(AbsolutePath[] restrict_dir, AbsolutePath output_dir) {
-        this.restrict_dir = restrict_dir;
+    this(GlobFilter matcher, AbsolutePath output_dir) {
+        this.mutantMatcher = matcher;
         this.output_dir = output_dir;
     }
 
     override ValidateLoc dup() {
-        return new FrontendValidateLoc(restrict_dir, output_dir);
+        return new FrontendValidateLoc(mutantMatcher, output_dir);
     }
 
     override AbsolutePath getOutputDir() nothrow {
@@ -233,21 +232,14 @@ final class FrontendValidateLoc : ValidateLoc {
     }
 
     override bool shouldAnalyze(AbsolutePath p) {
-        return this.shouldAnalyze(cast(string) p);
+        return shouldAnalyze(p.toString);
     }
 
     /// Returns: if a file should be analyzed for mutants.
     override bool shouldAnalyze(const string p) {
-        import std.algorithm : any;
-        import std.string : startsWith;
-
-        if (restrict_dir.empty)
-            return true;
-
         auto realp = p.Path.AbsolutePath;
-
-        bool res = any!(a => realp.toString.startsWith(a.toString))(restrict_dir);
-        logger.tracef(!res, "Path '%s' do not match any of [%(%s, %)]", realp, restrict_dir);
+        bool res = mutantMatcher.match(realp.toString);
+        logger.tracef(!res, "Path '%s' do not match the glob patterns", realp);
         return res;
     }
 
