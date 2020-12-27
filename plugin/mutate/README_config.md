@@ -76,13 +76,22 @@ Mutants to operate on.
  - *uoi* : Unary Operator Insertion.
 
 ```sh
---restrict
+--include
+--exclude
 ```
-Restrict analysis to files in this directory tree (default: .). This option can
-be used to make sure that mutations are not generated for specific files
-outside a specific directory tree. This option together with a generated
-compilation-database specified with *--compile-db* lets *Mutate* iterate over
-every file in the project, and compares their paths to the *restricted area*.
+Only files that match at least one of the include glob patterns and none of the
+exclude will be mutated (written to during the test phase). Default is "*" for
+include and none for exclude.  All patterns are adjusted to be relative to root
+(default: .). This option is mostly used by e.g. header only libraries because
+dextool need to analyze the test case source code to *see* how the library is
+instantiated but the test code should not be mutated. Another use case is when
+the root contains source code that shouldn't be mutated then these options make
+it possible to specify what inside the root should be mutated.
+
+```sh
+# only mutate files under include but exclude test
+dextool mutate analyze --include "include/*" --exclude "test/*"
+```
 
 ```sh
 --compile-db
@@ -224,13 +233,21 @@ will be analyzed. This is normally only needed for toy examples and dextool
 mutates own internal tests.
 
 ```sh
---restrict
+--file-include
+--file-exclude
 ```
-Restrict analysis to files in this directory tree (default: .). This option can
-be used to make sure that mutations are not generated for specific files
-outside a specific directory tree. This option together with a generated
-compilation-database specified with *--compile-db* lets *Mutate* iterate over
-every file in the project, and compares their paths to the *restricted area*.
+Only the files that match at least one of the glob include patterns and none of
+the exclude will be analyzed. Default is "*" for include and none for exclude.
+All patterns are adjusted to be relative to root (default: .).  This option is
+good to use to restrict the analysis to only those files that are relevant
+because analyzing "redundant" files will take an unnecessary amount of time.
+The files that are matched are those in the `compile_commands.json` via
+`--compile-db`.
+
+```sh
+# to analyze all files under include and src but exclude tests
+dextool mutate analyze --file-include "include/*" --file-include "src/*" --file-exclude "src/test/*"
+```
 
 ```sh
 --fast-db-store

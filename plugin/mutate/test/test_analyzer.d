@@ -5,7 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.test_analyzer;
 
-import std.path : relativePath;
+import std.path : relativePath, buildPath;
 
 import dextool.plugin.mutate.backend.database.standalone;
 import dextool.plugin.mutate.backend.database.type;
@@ -34,7 +34,8 @@ unittest {
     makeDextoolAnalyze(testEnv)
         .addInputArg(programFile1)
         .addInputArg(programFile2)
-        .addPostArg(["--file-exclude", (testData ~ "analyze/exclude").toString])
+        .addPostArg(["--file-include", buildPath(testData.toString, "analyze/*")])
+        .addPostArg(["--file-exclude", buildPath(testData.toString, "analyze/exclude/*")])
         .run;
 
     // assert

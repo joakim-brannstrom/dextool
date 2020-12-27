@@ -86,7 +86,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             .filter!(a => a.cmd.absoluteFile !in alreadyAnalyzed)
             .tee!(a => alreadyAnalyzed.add(a.cmd.absoluteFile))
             .cache
-            .filter!(a => !isPathInsideAnyRoot(conf_analyze.exclude, a.cmd.absoluteFile))
+            .filter!(a => conf_analyze.fileMatcher.match(a.cmd.absoluteFile.toString))
             .filter!(a => fileFilter.shouldAnalyze(a.cmd.absoluteFile))) {
         try {
             pool.put(task!analyzeActor(kinds, f, val_loc.dup, fio.dup, conf_compiler, conf_analyze, store));
@@ -126,6 +126,12 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
  * file that this approach skip headers because they do not exist in
  * `compile_commands.json`. It means that e.g. "foo.hpp" would match `true` if
  * `foo.cpp` is in `compile_commands.json`.
+ *
+ * TODO: this may create problems for header only libraries because only the
+ * unittest would include the header which mean that for this to work the
+ * unittest would have to reside in the same directory as the header file.
+ * Which they normally never do. This then lead to a diff of a header only lib
+ * lead to "no files analyzed".
  */
 struct FileFilter {
     import std.path : stripExtension;

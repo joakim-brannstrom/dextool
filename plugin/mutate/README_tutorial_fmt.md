@@ -26,7 +26,7 @@ following configuration parameters to this:
 
 ```toml
 # we only want to mutate the source code in these two directories
-restrict = ["src", "include"]
+include = ["src/*", "include/*"]
 
 # this is where we will configure cmake to both build the lib and generate the
 # compile_commands.json
