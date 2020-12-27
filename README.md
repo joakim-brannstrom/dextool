@@ -1,4 +1,4 @@
-# dextool [![Build Status](https://dev.azure.com/wikodes/wikodes/_apis/build/status/joakim-brannstrom.dextool?branchName=master)](https://dev.azure.com/wikodes/wikodes/_build/latest?definitionId=1&branchName=master) [![codecov](https://codecov.io/gh/joakim-brannstrom/dextool/branch/master/graph/badge.svg)](https://codecov.io/gh/joakim-brannstrom/dextool)
+# dextool [![Build Status](https://dev.azure.com/wikodes/wikodes/_apis/build/status/joakim-brannstrom.dextool?branchName=master)](https://dev.azure.com/wikodes/wikodes/_build/latest?definitionId=1&branchName=master)
 
 **Dextool** is a framework for writing plugins using libclang. The main focus
 is tools for testing and static analysis.
