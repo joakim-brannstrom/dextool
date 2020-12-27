@@ -20,6 +20,8 @@ import std.exception : collectException;
 import std.path : buildPath;
 import std.traits : EnumMembers;
 
+import my.filter : GlobFilter;
+
 import toml : TOMLDocument;
 
 public import dextool.plugin.mutate.backend : Mutation;
@@ -117,8 +119,10 @@ struct ArgParser {
 
         app.put("[analyze]");
         app.put(null);
-        app.put("# files and/or directories (relative to root) to be excluded from analysis.");
-        app.put("# exclude = []");
+        app.put(
+                "# glob filter which include/exclude matched files (relative to root) from analysis.");
+        app.put(`include = ["*"]`);
+        app.put("exclude = []");
         app.put(null);
         app.put("# number of threads to be used for analysis (default is the number of cores).");
         app.put(format!"# threads = %s"(totalCPUs));
@@ -284,19 +288,21 @@ struct ArgParser {
         string db = data.db;
 
         void analyzerG(string[] args) {
-            string[] compile_dbs;
-            string[] exclude_files;
             bool noPrune;
+            string[] compileDbs;
+            string[] rawExclude;
+            string[] rawInclude;
 
             data.toolMode = ToolMode.analyzer;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile-db", "Retrieve compilation parameters from the file", &compile_dbs,
+                   "compile-db", "Retrieve compilation parameters from the file", &compileDbs,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &analyze.unifiedDiffFromStdin,
                    "fast-db-store", "improve the write speed of the analyze result (may corrupt the database)", &analyze.fastDbStore,
-                   "file-exclude", "exclude files in these directory tree from the analysis (default: none)", &exclude_files,
+                   "file-exclude", "glob filter which exclude matched files (relative to root) from analysis", &rawExclude,
+                   "file-include", "glob filter which include matched files (relative to root) for analysis (default: *)", &rawInclude,
                    "force-save", "force the result from the analyze to be saved", &analyze.forceSaveAnalyze,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "m|mutant", "kind of mutation save in the database " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
@@ -310,9 +316,14 @@ struct ArgParser {
             // dfmt on
 
             analyze.prune = !noPrune;
-            updateCompileDb(compileDb, compile_dbs);
-            if (!exclude_files.empty)
-                analyze.rawExclude = exclude_files;
+            updateCompileDb(compileDb, compileDbs);
+
+            if (!rawInclude.empty) {
+                analyze.rawInclude = rawInclude;
+            }
+            if (!rawExclude.empty) {
+                analyze.rawExclude = rawExclude;
+            }
         }
 
         void generateMutantG(string[] args) {
@@ -392,14 +403,14 @@ struct ArgParser {
         }
 
         void reportG(string[] args) {
-            string[] compile_dbs;
+            string[] compileDbs;
             string logDir;
 
             data.toolMode = ToolMode.report;
             ReportSection[] sections;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
-                   "compile-db", "Retrieve compilation parameters from the file", &compile_dbs,
+                   "compile-db", "Retrieve compilation parameters from the file", &compileDbs,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "diff-from-stdin", "report alive mutants in the areas indicated as changed in the diff", &report.unifiedDiff,
@@ -423,7 +434,7 @@ struct ArgParser {
                 report.reportSection = sections;
             }
 
-            updateCompileDb(compileDb, compile_dbs);
+            updateCompileDb(compileDb, compileDbs);
         }
 
         void adminG(string[] args) {
@@ -512,8 +523,9 @@ struct ArgParser {
         workArea.restrictDir = workArea.rawRestrict.map!(
                 a => AbsolutePath(buildPath(workArea.outputDirectory, a))).array;
 
-        analyze.exclude = analyze.rawExclude.map!(
-                a => AbsolutePath(buildPath(workArea.outputDirectory, a))).array;
+        analyze.fileMatcher = GlobFilter(analyze.rawInclude.map!(a => buildPath(
+                workArea.outputDirectory, a)).array,
+                analyze.rawExclude.map!(a => buildPath(workArea.outputDirectory, a)).array);
 
         if (!mutants.empty) {
             data.mutation = mutants;
@@ -563,9 +575,9 @@ struct ArgParser {
 }
 
 /// Replace the config from the users input.
-void updateCompileDb(ref ConfigCompileDb db, string[] compile_dbs) {
-    if (compile_dbs.length != 0)
-        db.rawDbs = compile_dbs;
+void updateCompileDb(ref ConfigCompileDb db, string[] compileDbs) {
+    if (compileDbs.length != 0)
+        db.rawDbs = compileDbs;
 
     db.dbs = db.rawDbs
         .filter!(a => a.length != 0)
@@ -579,9 +591,9 @@ void updateCompileDb(ref ConfigCompileDb db, string[] compile_dbs) {
  * It must be enough information that the user can adjust `--out` and `--restrict`.
  */
 void printFileAnalyzeHelp(ref ArgParser ap) @safe {
-    static void printPath(string user, AbsolutePath real_path) {
-        logger.info("  User input: ", user);
-        logger.info("  Real path: ", real_path);
+    static void printPath(string user, string real_) {
+        logger.info("  User: ", user);
+        logger.info("  Real: ", real_);
     }
 
     logger.infof("Reading compilation database:\n%-(%s\n%)", ap.compileDb.dbs);
@@ -589,7 +601,7 @@ void printFileAnalyzeHelp(ref ArgParser ap) @safe {
     logger.info(
             "Analyze and mutation of files will only be done on those inside this directory root");
     printPath(ap.workArea.rawRoot, ap.workArea.outputDirectory);
-    logger.info(ap.workArea.rawRestrict.length != 0,
+    logger.info(!ap.workArea.rawRestrict.empty,
             "Restricting mutation to files in the following directory tree(s)");
 
     assert(ap.workArea.rawRestrict.length == ap.workArea.restrictDir.length);
@@ -599,10 +611,16 @@ void printFileAnalyzeHelp(ref ArgParser ap) @safe {
         printPath(ap.workArea.rawRestrict[idx], ap.workArea.restrictDir[idx]);
     }
 
-    logger.info(!ap.analyze.exclude.empty,
-            "Excluding files inside the following directory tree(s) from analysis");
-    foreach (idx; 0 .. ap.analyze.exclude.length) {
-        printPath(ap.analyze.rawExclude[idx], ap.analyze.exclude[idx]);
+    logger.info(!ap.analyze.fileMatcher.include.empty,
+            "Including only files matching the following glob patterns for analysis");
+    foreach (idx; 0 .. ap.analyze.rawInclude.length) {
+        printPath(ap.analyze.rawInclude[idx], ap.analyze.fileMatcher.include[idx]);
+    }
+
+    logger.info(!ap.analyze.rawExclude.empty,
+            "Excluding files matching the following glob patterns from analysis");
+    foreach (idx; 0 .. ap.analyze.rawExclude.length) {
+        printPath(ap.analyze.rawExclude[idx], ap.analyze.fileMatcher.exclude[idx]);
     }
 }
 
@@ -671,6 +689,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         return ShellCommand[].init;
     }
 
+    callbacks["analyze.include"] = (ref ArgParser c, ref TOMLValue v) {
+        c.analyze.rawInclude = v.array.map!(a => a.str).array;
+    };
     callbacks["analyze.exclude"] = (ref ArgParser c, ref TOMLValue v) {
         c.analyze.rawExclude = v.array.map!(a => a.str).array;
     };

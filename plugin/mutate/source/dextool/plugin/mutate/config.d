@@ -13,6 +13,7 @@ import core.time : Duration, dur;
 import std.typecons : Nullable;
 
 import my.named_type;
+import my.filter : GlobFilter;
 
 import dextool.plugin.mutate.type;
 import dextool.type : AbsolutePath, Path;
@@ -78,9 +79,11 @@ struct ConfigCompileDb {
 struct ConfigAnalyze {
     /// User input of excludes before they are adjusted to relative root
     string[] rawExclude;
+    string[] rawInclude = ["*"];
 
+    /// The constructed glob filter which based on rawExclude and rawRestrict.
     /// Exclude any files that are in these directory trees from the analysis.
-    AbsolutePath[] exclude;
+    GlobFilter fileMatcher;
 
     /// The size of the thread pool which affects how many files are analyzed in parallel.
     int poolSize;
@@ -198,7 +201,7 @@ struct ConfigMutationTest {
     /// Sanity check a schemata before it is used.
     bool sanityCheckSchemata;
 
-    /// If the schematas should additionall be written to a separate file for offline inspection.
+    /// If the schematas should be written to a separate file for offline inspection.
     bool logSchemata;
 
     /// Stop mutation testing after the last schemata has been executed

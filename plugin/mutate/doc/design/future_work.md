@@ -126,6 +126,7 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * use file checksum to NOT analyze redundant files. note though that this requires a dependency tree so headers are re-analyzed even though the root is unchanged.
  * add prioritization based on the size of a mutant with a cut-off like max(10, offset.end - offset.begin).
  * checksum all files under the test directory and save it together with a timestamp. Then we can show to the user how "out of sync" the tests are with the mutation report.
  * merge all schemas with only 1-2 mutants to "one" schema
