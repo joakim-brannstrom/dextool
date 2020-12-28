@@ -3,32 +3,50 @@
 # base path (absolute or relative) to look for C/C++ files to mutate.
 root = "."
 
-# files and/or directories (relative to root) to be the **only** sources to mutate.
-restrict = [ "src" ]
+# only those files that fully match the glob filter will be mutated.
+# glob filter are relative to root.
+include = ["src/*"]
+exclude = []
 
 [generic]
 
 # default mutants to test if none is specified by --mutant
 # note that this affects the analyze phase thus the --mutant argument must be one of those specified here
-mutants = ["lcr", "lcrb", "sdl", "uoi", "dcr"]
+# available options are: ["all", "ror", "rorp", "lcr", "aor", "uoi", "abs", "sdl", "dcc", "dcr", "lcrb"]
+# **FOR THE READER**
+# the recommended is ["lcr", "lcrb", "sdl", "uoi", "dcr"]
+# but the config only uses lcr/lcrb so **you** will quickly will get to test
+# the test and report phase.
+mutants = ["lcr", "lcrb"]
 
 [analyze]
 
-# files and/or directories (relative to root) to be excluded from analysis.
-exclude = [ "deps", "test"]
+# glob filter which include/exclude matched files (relative to root) from analysis.
+# include = ["*"]
+exclude = [ "deps/*", "test/*"]
 
 # number of threads to be used for analysis (default is the number of cores).
 # threads = 1
 
 # remove files from the database that are no longer found during analysis.
-# prune = true
+prune = true
 
 # maximum number of mutants per schema (zero means no limit).
 # mutants_per_schema = 100
 
+# checksum the files in this directories and warn if a mutation status is older
+# than the newest file. The path can be a file or a directory. Directories
+# are traveresed. All paths are relative to root.
+test_paths = ["test"]
+
+# glob filter which include/exclude matched test files (relative to root) from analysis.
+# test_include = ["*/*.ext"]
+# test_exclude = []
+
 [database]
-# path to where to store the sqlite3 database
-# db = "dextool_mutate.sqlite3"
+
+# path (absolute or relative) where mutation statistics will be stored.
+db = "dextool_mutate.sqlite3"
 
 [compiler]
 
@@ -36,7 +54,7 @@ exclude = [ "deps", "test"]
 # extra_flags = []
 
 # force system includes to use -I instead of -isystem
-# force_system_includes = true
+# force_system_includes = false
 
 # system include paths to use instead of the ones in compile_commands.json
 # use_compiler_system_includes = "/path/to/c++"
@@ -55,7 +73,7 @@ search_paths = ["./build/compile_commands.json"]
 [mutant_test]
 
 # command to build the program **and** test suite.
-build_cmd = ["./build.sh"]
+build_cmd = ["cd build && make -j $(nproc) rl_test"]
 
 # at least one of test_cmd_dir (recommended) or test_cmd needs to be specified.
 
@@ -63,7 +81,7 @@ build_cmd = ["./build.sh"]
 # test_cmd_dir = ["./build/test"]
 
 # flags to add to all executables found in test_cmd_dir.
-# test_cmd_dir_flag = ["--gtest_filter", "-*foo"]
+# test_cmd_dir_flag = ["--gtest_filter", "-foo*"]
 
 # command(s) to test the program.
 # the arguments for test_cmd can be an array of multiple test commands
@@ -84,24 +102,27 @@ test_cmd = "./build/rl_test"
 analyze_using_builtin = ["gtest"]
 
 # determine in what order mutations are chosen
-# order = "random"|"consecutive"
+# order = "random" "consecutive"
 
 # how to behave when new test cases are found
+# available options are: "doNothing" "resetAlive"
 detected_new_test_case = "resetAlive"
 
 # how to behave when test cases are detected as having been removed
 # should the test and the gathered statistics be removed too?
+# available options are: "doNothing" "remove"
 detected_dropped_test_case = "remove"
 
 # how the oldest mutants should be treated.
 # It is recommended to test them again.
 # Because you may have changed the test suite so mutants that where previously killed by the test suite now survive.
+# available options are: "nothing" "test"
 oldest_mutants = "test"
 
 # how many of the oldest mutants to do the above with
 # oldest_mutants_nr = 10
 # how many of the oldest mutants to do the above with
-oldest_mutants_percentage = 1.0
+oldest_mutants_percentage = 50.0
 
 # number of threads to be used when running tests in parallel (default is the number of cores).
 # parallel_test = 1
@@ -118,10 +139,17 @@ use_schemata = true
 check_schemata = true
 
 [report]
+
 # default style to use
-# style = "plain"|"markdown"|"compiler"|"json"|"csv"|"html"
+# available options are: "plain" "compiler" "json" "html"
+style = "plain"
+
+# default report sections when no --section is specified
+# available options are: ["alive", "killed", "all_mut", "summary", "mut_stat", "tc_killed", "tc_stat", "tc_map", "tc_suggestion", "tc_killed_no_mutants", "tc_full_overlap", "tc_full_overlap_with_mutation_id", "tc_groups", "tc_min_set", "tc_similarity", "tc_groups_similarity", "treemap", "mut_recommend_kill", "diff", "tc_unique", "marked_mutants", "score_history"]
+sections = ["summary"]
 
 [test_group]
+
 # subgroups with a description and pattern. Example:
 # [test_group.uc1]
 # description = "use case 1"
