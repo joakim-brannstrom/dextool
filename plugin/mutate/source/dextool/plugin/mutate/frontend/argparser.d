@@ -204,7 +204,9 @@ struct ArgParser {
                 [EnumMembers!TestCaseAnalyzeBuiltin].map!(a => a.to!string)));
         app.put(null);
         app.put("# determine in what order mutations are chosen");
-        app.put(format("# order = %(%s %)", [EnumMembers!MutationOrder].map!(a => a.to!string)));
+        app.put(format("# available options are: %(%s %)",
+                [EnumMembers!MutationOrder].map!(a => a.to!string)));
+        app.put(format(`# order = "%s"`, MutationOrder.random));
         app.put(null);
         app.put("# how to behave when new test cases are found");
         app.put(format("# available options are: %(%s %)",
