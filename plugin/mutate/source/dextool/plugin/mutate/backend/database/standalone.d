@@ -621,7 +621,7 @@ struct Database {
                     t0.update_ts IS NOT NULL AND
                     t1.st_id = t0.id AND
                     t1.kind IN (%(%s,%))
-                    ORDER BY t0.update_ts ASC LIMIT :limit",
+                    ORDER BY datetime(t0.update_ts) ASC LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
