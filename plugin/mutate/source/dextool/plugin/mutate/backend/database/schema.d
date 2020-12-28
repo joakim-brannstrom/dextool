@@ -71,19 +71,20 @@ immutable mutantTimeoutCtxTable = "mutant_timeout_ctx";
 immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
 immutable mutantWorklistTable = "mutant_worklist";
 immutable mutationPointTable = "mutation_point";
+immutable mutationScoreHistoryTable = "mutation_score_history";
 immutable mutationStatusTable = "mutation_status";
 immutable mutationTable = "mutation";
 immutable nomutDataTable = "nomut_data";
 immutable nomutTable = "nomut";
 immutable rawSrcMetadataTable = "raw_src_metadata";
+immutable runtimeHistoryTable = "test_cmd_runtime_history";
 immutable schemaVersionTable = "schema_version";
 immutable schemataFragmentTable = "schemata_fragment";
 immutable schemataMutantTable = "schemata_mutant";
 immutable schemataTable = "schemata";
 immutable schemataUsedTable = "schemata_used";
 immutable srcMetadataTable = "src_metadata";
-immutable runtimeHistoryTable = "test_cmd_runtime_history";
-immutable mutationScoreHistoryTable = "mutation_score_history";
+immutable testFilesTable = "test_files";
 
 private immutable invalidSchemataTable = "invalid_schemata";
 private immutable schemataWorkListTable = "schemata_worklist";
@@ -235,8 +236,6 @@ struct VersionTbl {
     long version_;
 }
 
-/// checksum is 128bit. Using a integer to better represent and search for them
-/// in queries.
 @TableName(filesTable)
 @TableConstraint("unique_ UNIQUE (path)")
 struct FilesTbl {
@@ -245,9 +244,26 @@ struct FilesTbl {
     @ColumnParam("")
     string path;
 
+    /// checksum is 128bit.
     long checksum0;
     long checksum1;
     Language lang;
+}
+
+@TableName(testFilesTable)
+@TableConstraint("unique_ UNIQUE (path)")
+struct TestFilesTable {
+    long id;
+
+    string path;
+
+    /// checksum is 128bit.
+    long checksum0;
+    long checksum1;
+
+    /// Last time a change to the test file where detected.
+    @ColumnName("timestamp")
+    SysTime timeStamp;
 }
 
 /// there shall never exist two mutations points for the same file+offset.
@@ -334,7 +350,7 @@ struct AllTestCaseTbl {
  * when migrating to schema version 5->6.
  * compile_time_ms = time it took to compile the program for the mutant
  * test_time_ms = time it took to run the test suite
- * timestamp = is when the status where last updated. Seconds at UTC+0.
+ * updated_ts = is when the status where last updated. Seconds at UTC+0.
  * added_ts = when the mutant where added to the system. UTC+0.
  * test_cnt = nr of times the mutant has been tested without being killed.
  */
@@ -566,6 +582,8 @@ void upgrade(ref Miniorm db) {
             version_ = getSchemaVersion(db);
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
+            // try again
+            continue;
         }
 
         if (version_ >= tbl.latestSchemaVersion) {
@@ -617,6 +635,7 @@ void upgrade(ref Miniorm db) {
             int i;
             db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, mutationPointTable));
             db.run(format!"CREATE INDEX i%s ON %s(path)"(i++, filesTable));
+            db.run(format!"CREATE INDEX i%s ON %s(path)"(i++, testFilesTable));
 
             // improve getTestCaseMutantKills by 10x
             db.run(format!"CREATE INDEX i%s ON %s(tc_id,st_id)"(i++, killedTestCaseTable));
@@ -638,12 +657,12 @@ void upgradeV0(ref Miniorm db) {
 
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl,
             MutationPointTbl, MutationTbl, TestCaseKilledTbl, AllTestCaseTbl,
-            MutationStatusTbl, MutantTimeoutCtxTbl,
-            MutantTimeoutWorklistTbl, MarkedMutantTbl, SrcMetadataTable,
-            NomutTbl, NomutDataTbl, NomutDataTbl, SchemataTable,
-            SchemataFragmentTable,
-            SchemataMutantTable, SchemataUsedTable, MutantWorklistTbl,
-            RuntimeHistoryTable, MutationScoreHistoryTable));
+            MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl,
+            MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl,
+            NomutDataTbl, SchemataTable, SchemataFragmentTable,
+            SchemataMutantTable,
+            SchemataUsedTable, MutantWorklistTbl, RuntimeHistoryTable,
+            MutationScoreHistoryTable, TestFilesTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1263,6 +1282,11 @@ void upgradeV28(ref Miniorm db) {
         FROM %s t WHERE t.time IS NULL", newTbl, mutationStatusTable));
 
     replaceTbl(db, newTbl, mutationStatusTable);
+}
+
+/// 2020-12-27
+void upgradeV29(ref Miniorm db) {
+    db.run(buildSchema!(TestFilesTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
