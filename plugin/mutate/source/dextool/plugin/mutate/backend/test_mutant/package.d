@@ -23,13 +23,14 @@ import std.typecons : Nullable, Tuple, Yes;
 import blob_model : Blob;
 import my.fsm : Fsm, next, act, get, TypeDataMap;
 import my.named_type;
+import my.optional;
 import my.set;
 import proc : DrainElement;
 import sumtype;
 static import my.fsm;
 
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
-    NextMutationEntry, spinSql;
+    NextMutationEntry, spinSql, TestFile;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner,
@@ -775,12 +776,32 @@ nothrow:
     void opCall(ResetOldMutant data) {
         import dextool.plugin.mutate.backend.database.type;
 
+        void printStatus(T0, T1)(T0 oldestMutant, T1 oldestTest) {
+            logger.info("Tests last changed ", oldestTest).collectException;
+            if (!oldestMutant.empty) {
+                logger.info("The oldest mutant is ", oldestMutant[0].updated).collectException;
+            }
+        }
+
         if (global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing) {
             return;
         }
         if (spinSql!(() { return global.data.db.getWorklistCount; }) != 0) {
             // do not re-test any old mutants if there are still work to do in the worklist.
             return;
+        }
+
+        const oldestMutant = spinSql!(() => global.data.db.getOldestMutants(global.data.kinds, 1));
+        const oldestTest = spinSql!(() => global.data.db.getOldestTestFile).orElse(
+                TestFile.init).timeStamp;
+        if (!oldestMutant.empty && oldestMutant[0].updated > oldestTest) {
+            // only re-test old mutants if the tests has changed.
+            logger.info("Mutation status is up to date with the test cases").collectException;
+            printStatus(oldestMutant, oldestTest);
+            return;
+        } else {
+            logger.info("Mutation status and test cases are out of sync").collectException;
+            printStatus(oldestMutant, oldestTest);
         }
 
         const long testCnt = () {

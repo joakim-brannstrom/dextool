@@ -134,6 +134,16 @@ struct ArgParser {
         app.put("# maximum number of mutants per schema (zero means no limit).");
         app.put(format!"# mutants_per_schema = %s"(analyze.mutantsPerSchema));
         app.put(null);
+        app.put("# checksum the files in this directories and warn if a mutation status is older");
+        app.put("# than the newest file. The path can be a file or a directory. Directories");
+        app.put("# are traveresed. All paths are relative to root.");
+        app.put(`# test_paths = ["test/suite1", "test/mytest.cpp"]`);
+        app.put(null);
+        app.put(
+                "# glob filter which include/exclude matched test files (relative to root) from analysis.");
+        app.put(`# test_include = ["*/*.ext"]`);
+        app.put("# test_exclude = []");
+        app.put(null);
 
         app.put("[database]");
         app.put(null);
@@ -514,21 +524,28 @@ struct ArgParser {
         if (workArea.rawRoot.empty) {
             workArea.rawRoot = ".";
         }
-        workArea.outputDirectory = workArea.rawRoot.Path.AbsolutePath;
+        workArea.root = workArea.rawRoot.Path.AbsolutePath;
 
         if (workArea.rawInclude.empty) {
             workArea.rawInclude = ["*"];
         }
-        workArea.mutantMatcher = GlobFilter(workArea.rawInclude.map!(a => buildPath(
-                workArea.outputDirectory, a)).array,
-                workArea.rawExclude.map!(a => buildPath(workArea.outputDirectory, a)).array,);
+        workArea.mutantMatcher = GlobFilter(workArea.rawInclude.map!(a => buildPath(workArea.root,
+                a)).array, workArea.rawExclude.map!(a => buildPath(workArea.root, a)).array,);
 
         if (analyze.rawInclude.empty) {
             analyze.rawInclude = ["*"];
         }
-        analyze.fileMatcher = GlobFilter(analyze.rawInclude.map!(a => buildPath(
-                workArea.outputDirectory, a)).array,
-                analyze.rawExclude.map!(a => buildPath(workArea.outputDirectory, a)).array);
+        analyze.fileMatcher = GlobFilter(analyze.rawInclude.map!(a => buildPath(workArea.root,
+                a)).array, analyze.rawExclude.map!(a => buildPath(workArea.root, a)).array);
+
+        analyze.testPaths = analyze.rawTestPaths.map!(
+                a => AbsolutePath(buildPath(workArea.root, a))).array;
+        if (analyze.rawTestInclude.empty) {
+            analyze.rawTestInclude = ["*"];
+        }
+        analyze.testFileMatcher = GlobFilter(analyze.rawTestInclude.map!(
+                a => buildPath(workArea.root, a)).array,
+                analyze.rawTestExclude.map!(a => buildPath(workArea.root, a)).array);
 
         if (!mutants.empty) {
             data.mutation = mutants;
@@ -603,7 +620,7 @@ void printFileAnalyzeHelp(ref ArgParser ap) @safe {
 
     logger.info(
             "Analyze and mutation of files will only be done on those inside this directory root");
-    printPath(ap.workArea.rawRoot, ap.workArea.outputDirectory);
+    printPath(ap.workArea.rawRoot, ap.workArea.root);
 
     logger.info(!ap.workArea.rawInclude.empty,
             "Only mutating files matching any of the following glob patterns:");
@@ -708,6 +725,19 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     };
     callbacks["analyze.mutants_per_schema"] = (ref ArgParser c, ref TOMLValue v) {
         c.analyze.mutantsPerSchema = cast(int) v.integer;
+    };
+    callbacks["analyze.test_paths"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.analyze.rawTestPaths = v.array.map!(a => a.str).array;
+        } catch (Exception e) {
+            logger.error(e.msg);
+        }
+    };
+    callbacks["analyze.test_include"] = (ref ArgParser c, ref TOMLValue v) {
+        c.analyze.rawTestInclude = v.array.map!(a => a.str).array;
+    };
+    callbacks["analyze.test_exclude"] = (ref ArgParser c, ref TOMLValue v) {
+        c.analyze.rawTestExclude = v.array.map!(a => a.str).array;
     };
 
     callbacks["workarea.root"] = (ref ArgParser c, ref TOMLValue v) {

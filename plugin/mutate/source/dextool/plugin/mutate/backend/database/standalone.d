@@ -33,6 +33,7 @@ import std.typecons : Nullable, Flag, No;
 
 import miniorm : toSqliteDateTime, fromSqLiteDateTime, Bind;
 import my.named_type;
+import my.optional;
 
 import dextool.type : AbsolutePath, Path, ExitStatusType;
 
@@ -213,6 +214,82 @@ struct Database {
         }
 
         return app.data;
+    }
+
+    Nullable!Checksum getFileChecksum(const Path p) @trusted {
+        immutable sql = format!"SELECT checksum0,checksum1 FROM %s WHERE path=:path"(filesTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":path", p.toString);
+        auto res = stmt.get.execute;
+
+        typeof(return) rval;
+        if (!res.empty) {
+            rval = Checksum(res.front.peek!long(0), res.front.peek!long(1));
+        }
+
+        return rval;
+    }
+
+    void put(const Path p, Checksum cs, const Language lang) @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang)
+            VALUES (:path, :checksum0, :checksum1, :lang)"(
+                filesTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":path", p.toString);
+        stmt.get.bind(":checksum0", cast(long) cs.c0);
+        stmt.get.bind(":checksum1", cast(long) cs.c1);
+        stmt.get.bind(":lang", cast(long) lang);
+        stmt.get.execute;
+    }
+
+    void put(const TestFile tfile) @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, timestamp)
+            VALUES (:path, :checksum0, :checksum1, :timestamp)"(
+                testFilesTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":path", tfile.file.get.toString);
+        stmt.get.bind(":checksum0", cast(long) tfile.checksum.get.c0);
+        stmt.get.bind(":checksum1", cast(long) tfile.checksum.get.c1);
+        stmt.get.bind(":timestamp", tfile.timeStamp.toSqliteDateTime);
+        stmt.get.execute;
+    }
+
+    TestFile[] getTestFiles() @trusted {
+        immutable sql = format!"SELECT path,checksum0,checksum1,timestamp FROM %s"(testFilesTable);
+        auto stmt = db.prepare(sql);
+        auto res = stmt.get.execute;
+
+        auto app = appender!(TestFile[]);
+        foreach (ref r; res) {
+            app.put(TestFile(TestFilePath(Path(r.peek!string(0))),
+                    TestFileChecksum(Checksum(r.peek!long(1), r.peek!long(2))),
+                    r.peek!string(3).fromSqLiteDateTime));
+        }
+
+        return app.data;
+    }
+
+    /// Returns: the oldest test file, if it exists.
+    Optional!TestFile getOldestTestFile() @trusted {
+        auto stmt = db.prepare(format!"SELECT path,checksum0,checksum1,timestamp
+            FROM %s ORDER BY datetime(timestamp) ASC LIMIT 1"(
+                testFilesTable));
+        auto res = stmt.get.execute;
+
+        foreach (ref r; res) {
+            return some(TestFile(TestFilePath(Path(r.peek!string(0))),
+                    TestFileChecksum(Checksum(r.peek!long(1), r.peek!long(2))),
+                    r.peek!string(3).fromSqLiteDateTime));
+        }
+
+        return none!TestFile;
+    }
+
+    /// Remove the file with all mutations that are coupled to it.
+    void removeFile(const TestFilePath p) @trusted {
+        auto stmt = db.prepare(format!"DELETE FROM %s WHERE path=:path"(testFilesTable));
+        stmt.get.bind(":path", p.get.toString);
+        stmt.get.execute;
     }
 
     enum CntAction {
@@ -987,32 +1064,6 @@ struct Database {
             break;
         }
         return rval;
-    }
-
-    Nullable!Checksum getFileChecksum(const Path p) @trusted {
-        immutable sql = format!"SELECT checksum0,checksum1 FROM %s WHERE path=:path"(filesTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":path", cast(string) p);
-        auto res = stmt.get.execute;
-
-        typeof(return) rval;
-        if (!res.empty) {
-            rval = Checksum(res.front.peek!long(0), res.front.peek!long(1));
-        }
-
-        return rval;
-    }
-
-    void put(const Path p, Checksum cs, const Language lang) @trusted {
-        immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang)
-            VALUES (:path, :checksum0, :checksum1, :lang)"(
-                filesTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":path", cast(string) p);
-        stmt.get.bind(":checksum0", cast(long) cs.c0);
-        stmt.get.bind(":checksum1", cast(long) cs.c1);
-        stmt.get.bind(":lang", cast(long) lang);
-        stmt.get.execute;
     }
 
     /// Remove all metadata.
