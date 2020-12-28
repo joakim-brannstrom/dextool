@@ -187,7 +187,7 @@ struct Database {
     Nullable!Path getFile(const FileId id) @trusted {
         enum sql = format("SELECT path FROM %s WHERE id = :id", filesTable);
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
+        stmt.get.bind(":id", id.get);
 
         typeof(return) rval;
         foreach (r; stmt.get.execute)
@@ -198,13 +198,13 @@ struct Database {
     /// Remove the file with all mutations that are coupled to it.
     void removeFile(const Path p) @trusted {
         auto stmt = db.prepare(format!"DELETE FROM %s WHERE path=:path"(filesTable));
-        stmt.get.bind(":path", cast(string) p);
+        stmt.get.bind(":path", p.toString);
         stmt.get.execute;
     }
 
     /// Returns: All files in the database as relative paths.
     Path[] getFiles() @trusted {
-        auto stmt = db.prepare(format!"SELECT path from %s"(filesTable));
+        auto stmt = db.prepare(format!"SELECT path FROM %s"(filesTable));
         auto res = stmt.get.execute;
 
         auto app = appender!(Path[]);
