@@ -786,6 +786,74 @@ class ShallRetrieveOldestMutant : DatabaseFixture {
     }
 }
 
+class ShallRetestOldestMutant : SimpleFixture {
+    override void test() {
+        import std.file : copy;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        immutable conf = (testEnv.outdir ~ ".dextool_mutate.toml").toString;
+        immutable test = (testEnv.outdir ~ "test.test.cpp").toString;
+
+        copy((testData ~ "config/test_old_mutants.toml").toString, conf);
+        File(test, "w").write("foo");
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode)
+            .setWorkdir(testEnv.outdir.toString).addPostArg(["-c", conf]).run;
+
+        // dfmt off
+        auto r0 = dextool_test.makeDextool(testEnv)
+            .setWorkdir(testEnv.outdir.toString)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg("--dry-run")
+            .addPostArg(["-c", conf])
+            .addPostArg(["--test-cmd", testScript])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .run;
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode)
+            .setWorkdir(testEnv.outdir.toString)
+            .addPostArg(["-c", conf])
+            .run;
+
+        auto r1 = dextool_test.makeDextool(testEnv)
+            .setWorkdir(testEnv.outdir.toString)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg("--dry-run")
+            .addPostArg(["-c", conf])
+            .addPostArg(["--test-cmd", testScript])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .run;
+
+        File(test, "w").write("bar");
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode)
+            .setWorkdir(testEnv.outdir.toString)
+            .addPostArg(["-c", conf])
+            .run;
+
+        auto r2 = dextool_test.makeDextool(testEnv)
+            .setWorkdir(testEnv.outdir.toString)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg("--dry-run")
+            .addPostArg(["-c", conf])
+            .addPostArg(["--test-cmd", testScript])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .run;
+        // dfmt on
+
+        testConsecutiveSparseOrder!SubStr(
+                ["info: Mutation status is up to date with the test cases"]).shouldBeIn(r1.output);
+        testConsecutiveSparseOrder!SubStr([
+                "info: Mutation status and test cases are out of sync"
+                ]).shouldBeIn(r2.output);
+    }
+}
+
 class ShallUpdateMutationCounter : DatabaseFixture {
     override void test() {
         import dextool.plugin.mutate.backend.database.type;
