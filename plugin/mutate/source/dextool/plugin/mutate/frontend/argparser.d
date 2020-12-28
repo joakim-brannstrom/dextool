@@ -853,11 +853,14 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         if (auto section = sectionName in doc) {
             // specific configuration from section members
             foreach (k, v; *section) {
-                if (auto cb = (sectionName ~ "." ~ k) in callbacks) {
+                const key = sectionName ~ "." ~ k;
+                if (auto cb = key in callbacks) {
                     try {
                         (*cb)(c, v);
                     } catch (Exception e) {
                         logger.error(e.msg).collectException;
+                        logger.error("section ", key).collectException;
+                        logger.error("value ", v).collectException;
                     }
                 } else {
                     logger.infof("Unknown key '%s' in configuration section '%s'", k, sectionName);
