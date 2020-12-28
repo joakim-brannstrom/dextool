@@ -105,6 +105,18 @@ struct ConfigAnalyze {
 
     /// Number of mutants to at most put in a schema (soft limit)
     long mutantsPerSchema = 100;
+
+    /// User file/directories containing tests to checksum and timestamp
+    string[] rawTestPaths;
+    AbsolutePath[] testPaths;
+
+    /// User input of excludes before they are adjusted to relative root
+    string[] rawTestExclude;
+    /// User input of includes before they are adjusted to relative root
+    string[] rawTestInclude;
+
+    /// The constructed glob filter which based on rawExclude and rawRestrict.
+    GlobFilter testFileMatcher;
 }
 
 /// Settings for the compiler
@@ -236,6 +248,8 @@ struct ConfigWorkArea {
     /// User input root.
     string rawRoot;
 
+    AbsolutePath root;
+
     /// User input of excludes before they are adjusted to relative root
     string[] rawExclude;
     /// User input of includes before they are adjusted to relative root
@@ -244,8 +258,6 @@ struct ConfigWorkArea {
     /// The constructed glob filter which based on rawExclude and rawRestrict.
     /// Only mutants whose location match will be generated.
     GlobFilter mutantMatcher;
-
-    AbsolutePath outputDirectory;
 }
 
 /// Configuration of the generate mode.

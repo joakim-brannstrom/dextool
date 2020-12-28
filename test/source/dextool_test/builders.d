@@ -11,7 +11,7 @@ module dextool_test.builders;
 
 import core.time : dur;
 import logger = std.experimental.logger;
-import std.algorithm : map, joiner;
+import std.algorithm : map, joiner, filter;
 import std.array : array, Appender, appender, empty;
 import std.datetime.stopwatch : StopWatch, AutoStart, Duration, dur;
 import std.path : buildPath;
@@ -201,7 +201,7 @@ struct BuildDextoolRun {
                 p.stdin.closeWrite;
             }
 
-            foreach (e; p.process.drainByLineCopy) {
+            foreach (e; p.process.drainByLineCopy.filter!(a => !a.empty)) {
                 log.writeln(e);
                 output.put(e);
             }
@@ -364,7 +364,7 @@ struct BuildCommandRun {
                 p.stdin.closeWrite;
             }
 
-            foreach (e; p.process.drainByLineCopy()) {
+            foreach (e; p.process.drainByLineCopy().filter!(a => !a.empty)) {
                 log.writeln(e);
                 output.put(e);
             }

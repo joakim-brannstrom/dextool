@@ -17,21 +17,23 @@ import logger = std.experimental.logger;
 import std.algorithm : map, filter, joiner, cache;
 import std.array : array, appender, empty;
 import std.concurrency;
-import std.datetime : dur;
+import std.datetime : dur, Duration;
 import std.exception : collectException;
 import std.parallelism;
 import std.range : tee, enumerate;
 import std.typecons;
 
 import colorlog;
-import my.set;
+import my.filter : GlobFilter;
 import my.named_type;
+import my.set;
 
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
     CompileCommandDB, ParsedCompileCommandRange, ParsedCompileCommand;
 import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
 import dextool.plugin.mutate.backend.database : Database, LineMetadata, MutationPointEntry2;
-import dextool.plugin.mutate.backend.database.type : MarkedMutant;
+import dextool.plugin.mutate.backend.database.type : MarkedMutant, TestFile,
+    TestFilePath, TestFileChecksum;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
@@ -97,6 +99,14 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
         }
     }
     // dfmt on
+
+    try {
+        pool.put(task!testPathActor(conf_analyze.testPaths,
+                conf_analyze.testFileMatcher, fio.dup, store));
+    } catch (Exception e) {
+        logger.trace(e);
+        logger.warning(e.msg);
+    }
 
     // inform the store actor of how many analyse results it should *try* to
     // save.
@@ -164,6 +174,7 @@ struct AnalyzeCntMsg {
     int value;
 }
 
+/// The main thread is waiting for storeActor to send this message.
 struct StoreDoneMsg {
 }
 
@@ -179,11 +190,65 @@ void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze, Val
         send(storeActor, cast(immutable) analyzer.result);
         return;
     } catch (Exception e) {
+        logger.error(e.msg).collectException;
     }
 
     // send a dummy result
     try {
         send(storeActor, cast(immutable) new Analyze.Result);
+    } catch (Exception e) {
+    }
+}
+
+class TestFileResult {
+    Duration time;
+    TestFile[Checksum] files;
+}
+
+void testPathActor(const AbsolutePath[] userPaths, GlobFilter matcher, FilesysIO fio, Tid storeActor) @trusted nothrow {
+    import std.datetime : Clock;
+    import std.datetime.stopwatch : StopWatch, AutoStart;
+    import std.file : isDir, isFile, dirEntries, SpanMode;
+    import my.container.vector;
+
+    auto sw = StopWatch(AutoStart.yes);
+
+    TestFile makeTestFile(const AbsolutePath file) {
+        auto cs = checksum(fio.makeInput(file).content[]);
+        return TestFile(TestFilePath(fio.toRelativeRoot(file)),
+                TestFileChecksum(cs), Clock.currTime);
+    }
+
+    auto paths = vector(userPaths.dup);
+
+    auto tfiles = new TestFileResult;
+    scope (exit)
+        tfiles.time = sw.peek;
+
+    while (!paths.empty) {
+        try {
+            if (isDir(paths.front)) {
+                logger.trace("  Test directory ", paths.front);
+                foreach (a; dirEntries(paths.front, SpanMode.shallow).map!(
+                        a => AbsolutePath(a.name))) {
+                    paths.put(a);
+                }
+            } else if (isFile(paths.front) && matcher.match(paths.front)) {
+                logger.trace("  Test saved ", paths.front);
+                auto t = makeTestFile(paths.front);
+                tfiles.files[t.checksum.get] = t;
+            }
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+
+        paths.popFront;
+    }
+
+    logger.infof("Found %s test files", tfiles.files.length).collectException;
+
+    try {
+        send(storeActor, cast(immutable) tfiles);
     } catch (Exception e) {
     }
 }
@@ -195,7 +260,20 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
     import dextool.cachetools : nullableCache;
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
 
-    void helper(ref FilesysIO fio, ref Database db) nothrow {
+    // The conditions that the storeActor is waiting for receiving the results
+    // from the workers.
+    static struct RecvWaiter {
+        int analyzeFileWaitCnt = int.max;
+        int analyzeFileCnt;
+
+        bool isTestFilesDone;
+
+        bool isWaiting() {
+            return analyzeFileCnt < analyzeFileWaitCnt || !isTestFilesDone;
+        }
+    }
+
+    void helper(FilesysIO fio, ref Database db) nothrow {
         // A file is at most saved one time to the database.
         Set!AbsolutePath savedFiles;
 
@@ -292,28 +370,46 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
             }
         }
 
+        void saveTestResult(immutable TestFileResult result) {
+            Set!Checksum old;
+
+            foreach (a; db.getTestFiles) {
+                old.add(a.checksum.get);
+                if (a.checksum.get !in result.files) {
+                    logger.info("Removed test file ", a.file.get.toString);
+                    db.removeFile(a.file);
+                }
+            }
+
+            foreach (a; result.files.byValue.filter!(a => a.checksum.get !in old)) {
+                logger.info("Saving test file ", a.file.get.toString);
+                db.put(a);
+            }
+        }
+
         // listen for results from workers until the expected number is processed.
         void recv() {
             auto profile = Profile("updating files");
             logger.info("Updating files");
+            RecvWaiter waiter;
 
-            int resultCnt;
-            Nullable!int maxResults;
-            bool running = true;
-
-            while (running) {
+            while (waiter.isWaiting) {
                 try {
-                    receive((AnalyzeCntMsg a) { maxResults = a.value; }, (immutable Analyze.Result a) {
-                        resultCnt++;
+                    receive((AnalyzeCntMsg a) {
+                        waiter.analyzeFileWaitCnt = a.value;
+                    }, (immutable Analyze.Result a) {
+                        waiter.analyzeFileCnt++;
                         save(a);
-                    },);
+                        logger.infof("Analyzed files %s/%s",
+                            waiter.analyzeFileCnt, waiter.analyzeFileWaitCnt);
+                    }, (immutable TestFileResult a) {
+                        waiter.isTestFilesDone = true;
+                        saveTestResult(a);
+                        logger.info("Done analyzing test files in ", a.time);
+                    });
                 } catch (Exception e) {
                     logger.trace(e).collectException;
                     logger.warning(e.msg).collectException;
-                }
-
-                if (!maxResults.isNull && resultCnt >= maxResults.get) {
-                    running = false;
                 }
             }
         }

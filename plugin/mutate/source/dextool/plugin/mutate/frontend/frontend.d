@@ -110,9 +110,8 @@ struct DataAccess {
     }
 
     static auto make(ref ArgParser conf) @trusted {
-        auto io = new FrontendIO(conf.workArea.outputDirectory, conf.mutationTest.dryRun);
-        auto validate = new FrontendValidateLoc(conf.workArea.mutantMatcher,
-                conf.workArea.outputDirectory);
+        auto io = new FrontendIO(conf.workArea.root, conf.mutationTest.dryRun);
+        auto validate = new FrontendValidateLoc(conf.workArea.mutantMatcher, conf.workArea.root);
 
         return DataAccess(io, validate, conf.compileDb, conf.compiler, conf.data.inFiles);
     }

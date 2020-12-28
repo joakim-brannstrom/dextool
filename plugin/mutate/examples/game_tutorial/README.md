@@ -38,15 +38,14 @@ dextool mutate analyze
 
 To run the mutation testing:
 ```sh
-# minimal that we need to run is LCR
-dextool mutate test --mutant lcr --mutant lcrb
-# the curious minded is recommended to also run these
-dextool mutate test --mutant sdl --mutant dcr
+# minimal that we need to run is LCR.
+# Change in the configuration .dextool_mutate.toml if you want to test more, which you should!
+dextool mutate test
 ```
 
 To generate a report:
 ```sh
-dextool mutate report --style html --section tc_similarity --section tc_min_set --section tc_full_overlap_with_mutation_id --section tc_killed_no_mutants --section tc_full_overlap --mutant lcr --mutant lcrb
+dextool mutate report --style html --section tc_similarity --section tc_min_set --section tc_full_overlap_with_mutation_id --section tc_killed_no_mutants --section tc_full_overlap
 ```
 
 If you want to forcefully re-test all alive mutants you can use this administration interface:

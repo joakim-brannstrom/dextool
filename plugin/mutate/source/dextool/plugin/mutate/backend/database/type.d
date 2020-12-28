@@ -36,6 +36,10 @@ alias MutationStatusId = NamedType!(long, Tag!"MutationStatusId", long.init,
 /// Primary key in the files table
 alias FileId = NamedType!(long, Tag!"FileId", long.init, Comparable, Hashable, TagStringable);
 
+/// Primary key in the test files table
+alias TestFileId = NamedType!(long, Tag!"TestFileId", long.init, Comparable,
+        Hashable, TagStringable);
+
 /// Primary key in the test_case table
 alias TestCaseId = NamedType!(long, Tag!"TestCaseId", long.init, Comparable,
         Hashable, TagStringable);
@@ -294,4 +298,18 @@ struct MutationScore {
     SysTime timeStamp;
 
     NamedType!(double, Tag!"MutationScore", 0.0, TagStringable) score;
+}
+
+alias TestFilePath = NamedType!(Path, Tag!"TestFilePath", Path.init, Hashable, TagStringable);
+alias TestFileChecksum = NamedType!(Checksum, Tag!"TestFileChecksum",
+        Checksum.init, TagStringable, Hashable);
+
+struct TestFile {
+    TestFilePath file;
+
+    /// Checksum of the content.
+    TestFileChecksum checksum;
+
+    /// Last time the file was changed.
+    SysTime timeStamp;
 }

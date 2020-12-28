@@ -288,7 +288,7 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env,
     }
 
     try {
-        auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).scopeKill;
+        auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).rcKill;
         auto output = appender!(DrainElement[])();
         foreach (a; p.process.drain) {
             if (!a.empty) {
@@ -308,6 +308,7 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env,
         rval.exitStatus = p.wait.ExitStatus;
         rval.output = output.data;
     } catch (Exception e) {
+        logger.warning(cmd).collectException;
         logger.warning(e.msg).collectException;
         rval.status = RunResult.Status.error;
     }

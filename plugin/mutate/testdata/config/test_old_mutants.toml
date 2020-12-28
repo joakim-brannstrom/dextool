@@ -1,34 +1,12 @@
-[workarea]
-root = "."
-restrict = []
-
-[database]
-db = "dextool_mutate.sqlite3"
-
-[compiler]
-extra_flags = []
-
-[compile_commands]
-search_paths = ["./compile_commands.json"]
-filter = ["-Werror", "-c", "-o", "-m", "-nodevicelib", "-Waddr-space-convert", "-non-static", "-Bstatic", "-Bdynamic", "-Xbind-lazy", "-Xbind-now", "-f", "-static", "-shared", "-rdynamic", "-s", "-l", "-L", "-z", "-u", "-T", "-Xlinker", "-l", "-MT", "-MF", "-MD", "-MQ", "-MMD", "-MP", "-MG", "-E", "-cc1", "-S", "-M", "-MM", "-###"]
-skip_compiler_args = 1
+[analyze]
+test_paths = ["."]
+test_include = ["*.test.cpp"]
+test_exclude = []
+mutants = ["dcr"]
 
 [mutant_test]
-test_cmd = "test.sh"
-test_cmd_timeout = 1000
-build_cmd = "compile.sh"
-analyze_cmd = "foo.sh"
-analyze_using_builtin = ["gtest", "ctest", "makefile"]
+test_cmd_timeout = "10 seconds"
+build_cmd = ["/bin/sh", "-c", "true"]
 order = "random"
-detected_new_test_case = "resetAlive"
-detected_dropped_test_case = "remove"
-old_mutants = "reset"
-old_mutants_nr = 10
-
-[report]
-style = "plain"
-
-[test_group]
-[test_group.uc1]
-description = "use case 1"
-pattern = "g1.*"
+oldest_mutants = "test"
+oldest_mutants_nr = 10
