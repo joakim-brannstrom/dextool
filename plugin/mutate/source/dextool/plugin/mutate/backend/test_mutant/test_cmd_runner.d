@@ -308,6 +308,7 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env,
         rval.exitStatus = p.wait.ExitStatus;
         rval.output = output.data;
     } catch (Exception e) {
+        logger.warning(cmd).collectException;
         logger.warning(e.msg).collectException;
         rval.status = RunResult.Status.error;
     }
