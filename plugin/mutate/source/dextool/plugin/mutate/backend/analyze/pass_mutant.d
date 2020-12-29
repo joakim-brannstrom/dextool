@@ -168,6 +168,7 @@ class MutantsResult {
 
         auto w = appender!string();
 
+        put(w, "MutantsResult\n");
         formattedWrite(w, "Files:\n");
         foreach (f; files) {
             formattedWrite!"%s %s\n"(w, f.path, f.cs);
@@ -331,6 +332,8 @@ class MutantVisitor : DepthFirstVisitor {
         Stack!(Node) nstack;
     }
 
+    alias visit = DepthFirstVisitor.visit;
+
     this(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) {
         this.ast = ast;
         result = new MutantsResult(ast.lang, fio, vloc, kinds);
@@ -397,8 +400,6 @@ class MutantVisitor : DepthFirstVisitor {
             result.put(loc.file, MutantsResult.MutationPoint(loc.interval, loc.sloc), kind);
         }
     }
-
-    alias visit = DepthFirstVisitor.visit;
 
     override void visit(Expr n) {
         auto loc = ast.location(n);

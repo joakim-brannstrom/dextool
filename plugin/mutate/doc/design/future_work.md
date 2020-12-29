@@ -126,6 +126,8 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * move injecting of schemata header to runtime so it isn't stored in the
+   database multiple times.
  * integrate coverage with embedded systems.
     * one way is to make it possible for a user to write to create a coverage
       map themself. this could be by e.g. exporting a json of what each byte

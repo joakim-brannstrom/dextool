@@ -19,7 +19,7 @@ import std.path : buildPath;
 
 import sumtype;
 import proc : DrainElement;
-import my.fsm : Fsm, next, act, get, TypeDataMap;
+import my.fsm : next, act, get, TypeDataMap;
 
 static import my.fsm;
 
@@ -170,7 +170,7 @@ struct MutationTestDriver {
                 (NoResultRestoreCode a) => fsm(NoResult.init), (NoResult a) => fsm(a),);
 
         debug logger.trace("state: ", self.fsm.logNext);
-        self.fsm.act!(self);
+        self.fsm.act!self;
     }
 
 nothrow:

@@ -50,14 +50,14 @@ auto makeDextool(const ref TestEnv env) {
     // dfmt on
 }
 
-auto makeDextoolReport(const ref TestEnv env, Path test_data) {
+auto makeDextoolReport(const ref TestEnv env, Path testData) {
     // dfmt off
     return dextool_test.makeDextool(env)
         .setWorkdir(workDir)
         .args(["mutate", "report"])
         .addPostArg(["--profile"])
         .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
-        .addPostArg(["--out", test_data.toString]);
+        .addPostArg(["--out", testData.toString]);
     // dfmt on
 }
 

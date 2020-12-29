@@ -117,6 +117,9 @@ struct ArgParser {
                 [EnumMembers!MutationKind].map!(a => a.to!string)));
         app.put(format("mutants = [%(%s, %)]", defaultMutants.map!(a => a.to!string)));
         app.put(null);
+        app.put("# Use coverage to reduce the tested mutants");
+        app.put("use_coverage = true");
+        app.put(null);
 
         app.put("[analyze]");
         app.put(null);
@@ -375,6 +378,7 @@ struct ArgParser {
                    "include", include_help, &workArea.rawInclude,
                    "load-behavior", "how to behave when the threshold is hit " ~ format("[%(%s|%)]", [EnumMembers!(ConfigMutationTest.LoadBehavior)]), &mutationTest.loadBehavior,
                    "load-threshold", "the 15min loadavg threshold ", mutationTest.loadThreshold.getPtr,
+                   "log-coverage", "write the instrumented coverage files to a separate file", mutationTest.logCoverage.getPtr,
                    "log-schemata", "write the mutation schematas to a separate file", &mutationTest.logSchemata,
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
@@ -761,6 +765,10 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
             logger.info("Available mutation kinds ", [EnumMembers!MutationKind]);
             logger.error(e.msg);
         }
+    };
+    callbacks["generic.use_coverage"] = (ref ArgParser c, ref TOMLValue v) {
+        c.analyze.saveCoverage.get = v == true;
+        c.mutationTest.useCoverage.get = v == true;
     };
 
     callbacks["database.db"] = (ref ArgParser c, ref TOMLValue v) {

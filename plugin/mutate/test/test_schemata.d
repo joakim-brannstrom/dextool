@@ -68,6 +68,10 @@ class ShallUseSchemataSanityCheck : SchemataFixutre {
 }
 
 class ShallRunUoiSchema : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "simple_schemata.cpp").toString;
+    }
+
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);

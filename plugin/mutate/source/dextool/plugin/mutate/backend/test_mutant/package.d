@@ -407,6 +407,13 @@ struct TestDriver {
     static struct Stop {
     }
 
+    static struct Coverage {
+        bool propagate;
+    }
+
+    static struct PropagateCoverage {
+    }
+
     alias Fsm = my.fsm.Fsm!(None, Initialize, SanityCheck,
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
@@ -414,7 +421,8 @@ struct TestDriver {
             UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant, ParseStdin,
             FindTestCmds, ChooseMode, NextSchemata, PreSchemata, SchemataTest,
             SchemataTestResult, SchemataRestore, LoadSchematas,
-            SanityCheckSchemata, SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck);
+            SanityCheckSchemata, SchemataPruneUsed, Stop, SaveMutationScore,
+            OverloadCheck, Coverage, PropagateCoverage);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData, ResetOldMutantData,
             SchemataRestoreData, PreSchemataData, NextSchemataData, SchemataTestData);
 
@@ -494,8 +502,15 @@ struct TestDriver {
         }, (PullRequest a) => fsm(CheckMutantsLeft.init), (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
+            if (self.global.data.conf.useCoverage)
+                return fsm(Coverage.init);
             return fsm(LoadSchematas.init);
-        }, (LoadSchematas a) => fsm(ResetOldMutant.init), (NextPullRequestMutant a) {
+        }, (Coverage a) {
+            if (a.propagate)
+                return fsm(PropagateCoverage.init);
+            return fsm(LoadSchematas.init);
+        }, (PropagateCoverage a) => LoadSchematas.init,
+                (LoadSchematas a) => fsm(ResetOldMutant.init), (NextPullRequestMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(Done.init);
             return fsm(MutationTest.init);
@@ -769,6 +784,9 @@ nothrow:
             logger.info("Adding alive mutants to worklist").collectException;
             spinSql!(() {
                 global.data.db.updateWorklist(global.data.kinds, Mutation.Status.alive);
+                // if these mutants are covered by the tests then they will be
+                // removed from the worklist in PropagateCoverage.
+                global.data.db.updateWorklist(global.data.kinds, Mutation.Status.noCoverage);
             });
         }
     }
@@ -1160,6 +1178,7 @@ nothrow:
 
     void opCall(ref PreSchemata data) {
         import std.algorithm : filter;
+        import std.path : extension, stripExtension;
         import dextool.plugin.mutate.backend.database.type : SchemataFragment;
 
         auto sw = StopWatch(AutoStart.yes);
@@ -1201,8 +1220,10 @@ nothrow:
                 global.data.filesysIO.makeOutput(absf).write(s);
 
                 if (global.data.conf.logSchemata) {
-                    global.data.filesysIO.makeOutput(AbsolutePath(format!"%s.%s.schema"(absf,
-                            schemata.id).Path)).write(s);
+                    const ext = absf.toString.extension;
+                    global.data.filesysIO.makeOutput(AbsolutePath(
+                            format!"%s.%s.schema%s"(absf.toString.stripExtension,
+                            schemata.id, ext).Path)).write(s);
                 }
             }
         } catch (Exception e) {
@@ -1245,6 +1266,8 @@ nothrow:
         foreach (a; data.result) {
             final switch (a.status) with (Mutation.Status) {
             case unknown:
+                goto case;
+            case noCoverage:
                 goto case;
             case alive:
                 remove = false;
@@ -1325,6 +1348,7 @@ nothrow:
             const kinds = spinSql!(() {
                 return global.data.db.getSchemataKinds(data.id);
             });
+
             if (!local.get!SchemataRestore.original.empty) {
                 auto p = local.get!SchemataRestore.original[$ - 1].path;
                 try {
@@ -1377,6 +1401,53 @@ nothrow:
                     Color.yellow)).collectException;
             spinSql!(() { global.data.db.markUsed(data.id); });
         }
+    }
+
+    void opCall(ref Coverage data) {
+        import dextool.plugin.mutate.backend.test_mutant.coverage;
+
+        auto tracked = spinSql!(() => global.data.db.getLatestTimeStampOfTestOrSut).orElse(
+                SysTime.init);
+        auto covTimeStamp = spinSql!(() => global.data.db.getCoverageTimeStamp).orElse(
+                SysTime.init);
+
+        if (tracked < covTimeStamp) {
+            logger.info("Coverage information is up to date").collectException;
+            return;
+        } else {
+            logger.infof("Coverage is out of date with SUT/tests (%s < %s)",
+                    covTimeStamp, tracked).collectException;
+        }
+
+        try {
+            auto driver = CoverageDriver(global.data.filesysIO, global.data.db, &runner,
+                    global.data.conf.mutationCompile, global.data.conf.buildCmdTimeout,
+                    global.data.conf.logCoverage.get);
+            while (driver.isRunning) {
+                driver.execute;
+            }
+            data.propagate = true;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    void opCall(PropagateCoverage data) {
+        void propagate() @trusted {
+            auto trans = global.data.db.transaction;
+
+            auto noCov = global.data.db.getNotCoveredMutants;
+            foreach (id; noCov) {
+                global.data.db.updateMutationStatus(id, Mutation.Status.noCoverage, ExitStatus(0));
+                global.data.db.removeFromWorklist(id);
+            }
+
+            trans.commit;
+            logger.infof("Marked %s mutants as alive because they where not covered by tests",
+                    noCov.length);
+        }
+
+        spinSql!(() => propagate);
     }
 
     void saveTestResult(MutationTestResult[] results) @safe nothrow {

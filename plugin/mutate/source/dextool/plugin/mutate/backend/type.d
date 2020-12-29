@@ -208,6 +208,8 @@ struct Mutation {
         killedByCompiler,
         /// the mutant resulted in the test suite/sut reaching the timeout threshold
         timeout,
+        /// not covered by the tests
+        noCoverage,
     }
 
     Kind kind;

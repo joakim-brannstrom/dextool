@@ -313,3 +313,10 @@ struct TestFile {
     /// Last time the file was changed.
     SysTime timeStamp;
 }
+
+alias CoverageRegionId = NamedType!(long, Tag!"CoverageRegionId", long.init,
+        Comparable, Hashable, ConvertStringable);
+struct CovRegion {
+    CoverageRegionId id;
+    Offset region;
+}

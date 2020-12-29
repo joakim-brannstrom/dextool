@@ -23,6 +23,7 @@ int main(string[] args) {
                           "dextool_test.test_admin",
                           "dextool_test.test_analyzer",
                           "dextool_test.test_config",
+                          "dextool_test.test_coverage",
                           "dextool_test.test_d2sqlite3_cleanup_bug",
                           "dextool_test.test_mutant_tester",
                           "dextool_test.test_report",

@@ -83,6 +83,9 @@ immutable schemataFragmentTable = "schemata_fragment";
 immutable schemataMutantTable = "schemata_mutant";
 immutable schemataTable = "schemata";
 immutable schemataUsedTable = "schemata_used";
+immutable srcCovInfoTable = "src_cov_info";
+immutable srcCovTable = "src_cov_instr";
+immutable srcCovTimeStampTable = "src_cov_timestamp";
 immutable srcMetadataTable = "src_metadata";
 immutable testFilesTable = "test_files";
 
@@ -548,6 +551,45 @@ struct MutationScoreHistoryTable {
     double score;
 }
 
+/** All functions that has been discovered in the source code.
+ * The `offset_begin` is where instrumentation points can be injected.
+ */
+@TableName(srcCovTable)
+@TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+@TableConstraint("file_offset UNIQUE (file_id, begin, end)")
+struct CoverageCodeRegionTable {
+    long id;
+
+    @ColumnName("file_id")
+    long fileId;
+
+    /// the region in the files, in bytes.
+    uint begin;
+    uint end;
+}
+
+/** Each coverage region that has a valid status has an entry in this table.
+ * It do mean that there can be region that do not exist in this table. That
+ * mean that something went wrong when gathering the data.
+ */
+@TableName(srcCovInfoTable)
+@TableForeignKey("id", KeyRef("src_cov_info(id)"), KeyParam("ON DELETE CASCADE"))
+struct CoverageInfoTable {
+    long id;
+
+    /// True if the region has been visited.
+    bool status;
+}
+
+/// When the coverage information was gathered.
+@TableName(srcCovTimeStampTable)
+struct CoverageTimeTtampTable {
+    long id;
+
+    @ColumnName("timestamp")
+    SysTime timeStamp;
+}
+
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
         db.run(delete_!VersionTbl);
@@ -664,7 +706,8 @@ void upgradeV0(ref Miniorm db) {
             NomutDataTbl, SchemataTable, SchemataFragmentTable,
             SchemataMutantTable,
             SchemataUsedTable, MutantWorklistTbl, RuntimeHistoryTable,
-            MutationScoreHistoryTable, TestFilesTable));
+            MutationScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
+            CoverageInfoTable, CoverageTimeTtampTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1318,6 +1361,11 @@ void upgradeV30(ref Miniorm db) {
     stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
     stmt.get.execute;
     db.replaceTbl(newFilesTbl, filesTable);
+}
+
+/// 2020-12-29
+void upgradeV31(ref Miniorm db) {
+    db.run(buildSchema!(CoverageCodeRegionTable, CoverageInfoTable, CoverageTimeTtampTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

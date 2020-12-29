@@ -134,7 +134,7 @@ unittest {
     j["killed_by_compiler_time_s"].integer.shouldEqual(0);
     j["nomut_score"].integer.shouldEqual(0);
     j["predicted_done"].str; // lazy for now and just checking it is a string
-    j["score"].integer.shouldEqual(1);
+    j["score"].integer.shouldEqual(0);
     j["timeout"].integer.shouldEqual(0);
     j["total"].integer.shouldEqual(0);
     j["total_compile_time_s"].integer.shouldEqual(0);
@@ -180,7 +180,7 @@ unittest {
     ]).shouldBeIn(plain.output);
 
     auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
-    j["score_history"][0]["score"].integer.shouldEqual(1);
+    j["score_history"][0]["score"].integer.shouldEqual(0);
 }
 
 @(testId ~ "shall report test cases that kill the same mutants (overlap)")
