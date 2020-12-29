@@ -230,15 +230,30 @@ struct Database {
         return rval;
     }
 
+    /// Returns: the timestamp of the newest file that was added.
+    Optional!SysTime getNewestFile() @trusted {
+        auto stmt = db.prepare(format!"SELECT timestamp
+            FROM %s ORDER BY datetime(timestamp) DESC LIMIT 1"(
+                filesTable));
+        auto res = stmt.get.execute;
+
+        foreach (ref r; res) {
+            return some(r.peek!string(0).fromSqLiteDateTime);
+        }
+
+        return none!SysTime;
+    }
+
     void put(const Path p, Checksum cs, const Language lang) @trusted {
-        immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang)
-            VALUES (:path, :checksum0, :checksum1, :lang)"(
+        immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang, timestamp)
+            VALUES (:path, :checksum0, :checksum1, :lang, :time)"(
                 filesTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", p.toString);
         stmt.get.bind(":checksum0", cast(long) cs.c0);
         stmt.get.bind(":checksum1", cast(long) cs.c1);
         stmt.get.bind(":lang", cast(long) lang);
+        stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
         stmt.get.execute;
     }
 
@@ -270,9 +285,9 @@ struct Database {
     }
 
     /// Returns: the oldest test file, if it exists.
-    Optional!TestFile getOldestTestFile() @trusted {
+    Optional!TestFile getNewestTestFile() @trusted {
         auto stmt = db.prepare(format!"SELECT path,checksum0,checksum1,timestamp
-            FROM %s ORDER BY datetime(timestamp) ASC LIMIT 1"(
+            FROM %s ORDER BY datetime(timestamp) DESC LIMIT 1"(
                 testFilesTable));
         auto res = stmt.get.execute;
 
@@ -330,7 +345,7 @@ struct Database {
         stmt.get.bind(":id", id.get);
         stmt.get.bind(":compile", p.compile.total!"msecs");
         stmt.get.bind(":test", p.test.total!"msecs");
-        stmt.get.bind(":update_ts", Clock.currTime.toUTC.toSqliteDateTime);
+        stmt.get.bind(":update_ts", Clock.currTime.toSqliteDateTime);
         stmt.get.execute;
 
         updateMutationTestCases(id, tcs);
@@ -366,7 +381,7 @@ struct Database {
         stmt.get.bind(":st", cast(long) st);
         stmt.get.bind(":compile", p.compile.total!"msecs");
         stmt.get.bind(":test", p.test.total!"msecs");
-        stmt.get.bind(":update_ts", Clock.currTime.toUTC.toSqliteDateTime);
+        stmt.get.bind(":update_ts", Clock.currTime.toSqliteDateTime);
         stmt.get.execute;
     }
 
@@ -416,7 +431,7 @@ struct Database {
 
         auto stmt = () {
             if (update_ts) {
-                const ts = Clock.currTime.toUTC.toSqliteDateTime;
+                const ts = Clock.currTime.toSqliteDateTime;
                 auto s = db.prepare(format!"UPDATE %s SET status=:st,update_ts=:update_ts WHERE id=:id"(
                         mutationStatusTable));
                 s.get.bind(":update_ts", ts);
@@ -1128,7 +1143,7 @@ struct Database {
             VALUES(:st,0,0,0,0,:update_ts,:added_ts,:c0,:c1)",
                     mutationStatusTable);
         auto cmut_stmt = db.prepare(insert_cmut_sql);
-        const ts = Clock.currTime.toUTC.toSqliteDateTime;
+        const ts = Clock.currTime.toSqliteDateTime;
         cmut_stmt.get.bind(":st", Mutation.Status.unknown);
         cmut_stmt.get.bind(":update_ts", ts);
         cmut_stmt.get.bind(":added_ts", ts);

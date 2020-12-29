@@ -846,10 +846,11 @@ class ShallRetestOldestMutant : SimpleFixture {
             .run;
         // dfmt on
 
-        testConsecutiveSparseOrder!SubStr(
-                ["info: Mutation status is up to date with the test cases"]).shouldBeIn(r1.output);
         testConsecutiveSparseOrder!SubStr([
-                "info: Mutation status and test cases are out of sync"
+                "info: Mutation status is up to date"
+                ]).shouldBeIn(r1.output);
+        testConsecutiveSparseOrder!SubStr([
+                "info: Mutation status is out of sync"
                 ]).shouldBeIn(r2.output);
     }
 }

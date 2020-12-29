@@ -126,6 +126,9 @@ partof: REQ-future_work
 This is a simple TODO.
 New items are added at the top
 
+ * add an option to let the file path, relative, be part of the checksum.
+ * add an option to let the compilation flags be part of the checksum.
+ * embed the configuration in the database to make it easier to share, review and archive. "how was it actually tested".
  * use file checksum to NOT analyze redundant files. note though that this requires a dependency tree so headers are re-analyzed even though the root is unchanged.
  * add prioritization based on the size of a mutant with a cut-off like max(10, offset.end - offset.begin).
  * checksum all files under the test directory and save it together with a timestamp. Then we can show to the user how "out of sync" the tests are with the mutation report.

@@ -776,8 +776,10 @@ nothrow:
     void opCall(ResetOldMutant data) {
         import dextool.plugin.mutate.backend.database.type;
 
-        void printStatus(T0, T1)(T0 oldestMutant, T1 oldestTest) {
-            logger.info("Tests last changed ", oldestTest).collectException;
+        void printStatus(T0)(T0 oldestMutant, SysTime newestTest, SysTime newestFile) {
+            logger.info("Tests last changed ", newestTest).collectException;
+            logger.info("Source code last changed ", newestFile).collectException;
+
             if (!oldestMutant.empty) {
                 logger.info("The oldest mutant is ", oldestMutant[0].updated).collectException;
             }
@@ -792,16 +794,18 @@ nothrow:
         }
 
         const oldestMutant = spinSql!(() => global.data.db.getOldestMutants(global.data.kinds, 1));
-        const oldestTest = spinSql!(() => global.data.db.getOldestTestFile).orElse(
+        const newestTest = spinSql!(() => global.data.db.getNewestTestFile).orElse(
                 TestFile.init).timeStamp;
-        if (!oldestMutant.empty && oldestMutant[0].updated > oldestTest) {
-            // only re-test old mutants if the tests has changed.
-            logger.info("Mutation status is up to date with the test cases").collectException;
-            printStatus(oldestMutant, oldestTest);
+        const newestFile = spinSql!(() => global.data.db.getNewestFile).orElse(SysTime.init);
+        if (!oldestMutant.empty && oldestMutant[0].updated > newestTest
+                && oldestMutant[0].updated > newestFile) {
+            // only re-test old mutants if needed.
+            logger.info("Mutation status is up to date").collectException;
+            printStatus(oldestMutant, newestTest, newestFile);
             return;
         } else {
-            logger.info("Mutation status and test cases are out of sync").collectException;
-            printStatus(oldestMutant, oldestTest);
+            logger.info("Mutation status is out of sync").collectException;
+            printStatus(oldestMutant, newestTest, newestFile);
         }
 
         const long testCnt = () {

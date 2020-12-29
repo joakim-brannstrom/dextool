@@ -241,13 +241,15 @@ struct VersionTbl {
 struct FilesTbl {
     long id;
 
-    @ColumnParam("")
     string path;
 
     /// checksum is 128bit.
     long checksum0;
     long checksum1;
     Language lang;
+
+    @ColumnName("timestamp")
+    SysTime timeStamp;
 }
 
 @TableName(testFilesTable)
@@ -799,6 +801,20 @@ void upgradeV4(ref Miniorm db) {
  * When removing this function also remove the status field in mutation_v2_tbl.
  */
 void upgradeV5(ref Miniorm db) {
+    @TableName(filesTable)
+    @TableConstraint("unique_ UNIQUE (path)")
+    struct FilesTbl {
+        long id;
+
+        @ColumnParam("")
+        string path;
+
+        /// checksum is 128bit.
+        long checksum0;
+        long checksum1;
+        Language lang;
+    }
+
     @TableName(mutationTable)
     @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
     @TableForeignKey("st_id", KeyRef("mutation_status(id)"))
@@ -836,11 +852,11 @@ void upgradeV5(ref Miniorm db) {
     db.run(format("DROP TABLE %s", mutationTable));
     db.run(buildSchema!MutationTbl);
 
-    immutable new_files_tbl = "new_" ~ filesTable;
+    immutable newFilesTbl = "new_" ~ filesTable;
     db.run(buildSchema!FilesTbl("new_"));
     db.run(format("INSERT OR IGNORE INTO %s (id,path,checksum0,checksum1,lang) SELECT * FROM %s",
-            new_files_tbl, filesTable));
-    db.replaceTbl(new_files_tbl, filesTable);
+            newFilesTbl, filesTable));
+    db.replaceTbl(newFilesTbl, filesTable);
 }
 
 /// 2018-10-11
@@ -1287,6 +1303,21 @@ void upgradeV28(ref Miniorm db) {
 /// 2020-12-27
 void upgradeV29(ref Miniorm db) {
     db.run(buildSchema!(TestFilesTable));
+}
+
+/// 2020-12-29
+void upgradeV30(ref Miniorm db) {
+    import std.datetime : Clock;
+    import miniorm : toSqliteDateTime;
+
+    immutable newFilesTbl = "new_" ~ filesTable;
+    db.run(buildSchema!FilesTbl("new_"));
+    auto stmt = db.prepare(format("INSERT OR IGNORE INTO %s (id,path,checksum0,checksum1,lang,timestamp)
+                  SELECT id,path,checksum0,checksum1,lang,:time FROM %s",
+            newFilesTbl, filesTable));
+    stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
+    stmt.get.execute;
+    db.replaceTbl(newFilesTbl, filesTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
