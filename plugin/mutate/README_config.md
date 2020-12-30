@@ -645,3 +645,17 @@ anything has changed in the test suite. The re-test, if activated, of old
 mutants will only be done if there is nothing else to be done.
 
 `parallel_test`: How many test binaries to run in parallel.
+
+# Resources
+
+The runtime resources that are installed together with the tool such as the
+header that is injected for schemata can be overridden. Dextool mutate searches
+the following directories, in this order, for the resources:
+
+ * `$XDG_RUNTIME_DIR`/.local/share/dextool/data/mutate
+ * `which dextool`/data/mutate
+ * `dirname $(which dextool)`/data/mutate
+ * `$XDG_DATA_DIRS`/dextool/data/mutate
+
+A user that wants to change the injected schemata header would for example add
+the `schemata_header.c` to `$XDG_RUNTIME_DIR/.local/share/dextool/data/mutate`
