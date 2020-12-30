@@ -31,18 +31,28 @@ private AbsolutePath[Path] resolveCache;
 
 /// Search order is the users home directory, beside the binary followed by XDG data dir.
 AbsolutePath[] dataSearch(string programName) {
-    AbsolutePath[] rval = only(only(xdgDataHome ~ programName, Path(buildPath(thisExePath.dirName,
-            "data")), Path(buildPath(thisExePath.dirName.dirName, "data"))).map!(a => AbsolutePath(a))
-            .array, xdgDataDirs.map!(a => AbsolutePath(a ~ "data")).array).joiner.array;
+    // dfmt off
+    AbsolutePath[] rval = only(only(xdgDataHome ~ programName,
+                                    Path(buildPath(thisExePath.dirName, "data")),
+                                    Path(buildPath(thisExePath.dirName.dirName, "data"))
+                                    ).map!(a => AbsolutePath(a)).array,
+                               xdgDataDirs.map!(a => AbsolutePath(buildPath(a, programName, "data"))).array
+                               ).joiner.array;
+    // dfmt on
 
     return rval;
 }
 
 /// Search order is the users home directory, beside the binary followed by XDG config dir.
 AbsolutePath[] configSearch(string programName) {
-    AbsolutePath[] rval = only(only(xdgDataHome ~ programName, Path(buildPath(thisExePath.dirName,
-            "config")), Path(buildPath(thisExePath.dirName.dirName, "config"))).map!(a => AbsolutePath(a))
-            .array, xdgDataDirs.map!(a => AbsolutePath(a ~ "config")).array).joiner.array;
+    // dfmt off
+    AbsolutePath[] rval = only(only(xdgDataHome ~ programName,
+                                    Path(buildPath(thisExePath.dirName, "config")),
+                                    Path(buildPath(thisExePath.dirName.dirName, "config"))
+                                    ).map!(a => AbsolutePath(a)).array,
+                               xdgDataDirs.map!(a => AbsolutePath(buildPath(a, programName, "config"))).array
+                               ).joiner.array;
+    // dfmt on
 
     return rval;
 }
