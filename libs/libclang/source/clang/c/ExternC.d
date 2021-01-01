@@ -1,4 +1,4 @@
-/*===-- clang-c/Platform.h - C Index platform decls   -------------*- C -*-===*\
+/*===- clang-c/ExternC.h - Wrapper for 'extern "C"' ---------------*- C -*-===*\
 |*                                                                            *|
 |* Part of the LLVM Project, under the Apache License v2.0 with LLVM          *|
 |* Exceptions.                                                                *|
@@ -7,38 +7,16 @@
 |*                                                                            *|
 |*===----------------------------------------------------------------------===*|
 |*                                                                            *|
-|* This header provides platform specific macros (dllimport, deprecated, ...) *|
+|* This file defines an 'extern "C"' wrapper.                                 *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 
-#ifndef LLVM_CLANG_C_PLATFORM_H
-#define LLVM_CLANG_C_PLATFORM_H
+module clang.c.ExternC;
 
-#include "clang-c/ExternC.h"
+extern (C):
 
-LLVM_CLANG_C_EXTERN_C_BEGIN
+//enum LLVM_CLANG_C_STRICT_PROTOTYPES_END = _Pragma("clang diagnostic pop");
 
-/* MSVC DLL import/export. */
-#ifdef _MSC_VER
-  #ifdef _CINDEX_LIB_
-    #define CINDEX_LINKAGE __declspec(dllexport)
-  #else
-    #define CINDEX_LINKAGE __declspec(dllimport)
-  #endif
-#else
-  #define CINDEX_LINKAGE
-#endif
+//enum LLVM_CLANG_C_EXTERN_C_BEGIN = LLVM_CLANG_C_STRICT_PROTOTYPES_BEGIN;
+//enum LLVM_CLANG_C_EXTERN_C_END = LLVM_CLANG_C_STRICT_PROTOTYPES_END;
 
-#ifdef __GNUC__
-  #define CINDEX_DEPRECATED __attribute__((deprecated))
-#else
-  #ifdef _MSC_VER
-    #define CINDEX_DEPRECATED __declspec(deprecated)
-  #else
-    #define CINDEX_DEPRECATED
-  #endif
-#endif
-
-LLVM_CLANG_C_EXTERN_C_END
-
-#endif
