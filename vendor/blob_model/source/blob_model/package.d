@@ -375,7 +375,7 @@ BlobEdit merge(const Blob blob, Edit[] edits_) @safe pure nothrow {
     foreach (const e; edits_.sort!((a, b) => a.interval < b.interval)
             .filter!(a => !a.interval.append_)) {
         // add the original content until this point.
-        if (e.interval.start > cur && cur < end) {
+        if (e.interval.start >= cur && cur < end) {
             auto ni = Interval(cur, min(e.interval.start, end));
             app.put(blob.content[ni.start .. ni.end]);
         }
