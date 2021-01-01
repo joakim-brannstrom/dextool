@@ -18,7 +18,10 @@ subPackage "../../vendor/colorlog"
 dependency "devtool:dsrcgen" version="*"
 subPackage "../../libs/dsrcgen"
 
-lflags "-L/usr/lib/llvm-8/lib"
+dependency "devtool:my" version="*"
+subPackage "../../vendor/mylib"
+
+lflags "-L/usr/lib/llvm-10/lib"
 libs  ":libclang.so.1"
 
 configuration "tok" {
