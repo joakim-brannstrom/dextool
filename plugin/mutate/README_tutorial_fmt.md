@@ -28,6 +28,10 @@ following configuration parameters to this:
 # we only want to mutate the source code in these two directories
 include = ["src/*", "include/*"]
 
+# we want to track the tests such that the oldest mutants, coverage information
+# etc is automatically updated when the tests are changed.
+test_paths = ["test"]
+
 # this is where we will configure cmake to both build the lib and generate the
 # compile_commands.json
 search_paths = ["./build/compile_commands.json"]

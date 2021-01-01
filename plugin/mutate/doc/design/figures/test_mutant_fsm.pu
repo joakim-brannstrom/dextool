@@ -56,7 +56,7 @@ ResetOldMutant --> UpdateTimeout
 CheckRuntime --> UpdateTimeout
 CheckRuntime --> Done : runtime>max
 
-NextPullRequestMutant --> PreMutationTest
+NextPullRequestMutant --> MutationTest
 NextPullRequestMutant --> Done : allTested
 
 NextSchemata --> PreSchemata : hasSchema

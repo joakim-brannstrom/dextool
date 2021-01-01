@@ -46,7 +46,9 @@ Note: the build instructions is in the root `README.md` of this repo.
 * 🐇 Does automatic handling of infinite loops (timeout).
 * 🐇 Detects that a file has been renamed and move the mutation testing result
   from the new filename.
-* 🔨 Works with all C++ versions.
+* 🐇 Uses coverage information to only test mutants in functions/methods
+  covered by the test suite.
+* 🔨 Works with all C/C++ versions.
 * 🔨 Works with C++ templates.
 * 🔨 Integrates without modifications to the projects build system.
 * 🔨 Lets a user modify it by using a SQLite database as intermediary storage.
