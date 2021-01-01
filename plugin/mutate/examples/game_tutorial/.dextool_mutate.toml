@@ -19,6 +19,9 @@ exclude = []
 # the test and report phase.
 mutants = ["lcr", "lcrb"]
 
+# Use coverage to reduce the tested mutants
+use_coverage = true
+
 [analyze]
 
 # glob filter which include/exclude matched files (relative to root) from analysis.

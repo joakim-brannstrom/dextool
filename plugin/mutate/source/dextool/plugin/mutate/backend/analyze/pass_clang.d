@@ -17,6 +17,7 @@ import std.format : formattedWrite;
 import std.meta : AliasSeq;
 import std.typecons : Nullable, scoped;
 
+import blob_model : Blob;
 import my.container.vector : vector, Vector;
 import my.gc.refc : RefCounted;
 
@@ -637,7 +638,18 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     override void visit(const CompoundStmt v) {
+        import std.algorithm : min;
+
         mixin(mixinNodeLog!());
+
+        static uint findBraketOffset(Blob file, const uint begin, const uint end, const ubyte letter) {
+            for (uint i = begin; i < end; ++i) {
+                if (file.content[i] == letter) {
+                    return i;
+                }
+            }
+            return begin;
+        }
 
         if (isDirectParent(CXCursorKind.switchStmt)) {
             // the CompoundStmt statement {} directly inside a switch statement
@@ -648,28 +660,29 @@ final class BaseVisitor : ExtendedVisitor {
         } else
             try {
                 auto loc = v.cursor.toLocation;
-                auto fin = fio.makeInput(loc.file);
+                auto file = fio.makeInput(loc.file);
+                const maxEnd = file.content.length;
 
+                // The block that can be modified is the inside of it thus the
                 // a CompoundStmt that represent a "{..}" can for example be the
                 // body of a function or the block that a try statement encompase.
-                // The block that can be modified is the inside of it thus the
-                // location has to be the inside. If this modification to isn't
                 // done then a SDL can't be generated that delete the inside of
                 // e.g. void functions.
-                if (fin.content[loc.interval.begin .. loc.interval.begin + 1] == cast(
-                        const(ubyte)[]) "{") {
-                    const begin = loc.interval.begin + 1;
-                    const end = loc.interval.end - 1;
-                    if (begin < end) {
-                        loc.interval = Interval(begin, end);
-                    }
 
-                    auto n = new analyze.Block;
-                    nstack.back.children ~= n;
-                    pushStack(n, loc, v.cursor.kind);
-                } else {
-                    pushStack(new analyze.Block, v);
-                }
+                auto end = min(findBraketOffset(file, loc.interval.end == 0
+                        ? loc.interval.end : loc.interval.end - 1, cast(uint) maxEnd,
+                        cast(ubyte) '}'), maxEnd);
+                auto begin = findBraketOffset(file, loc.interval.begin, end, cast(ubyte) '{');
+
+                if (begin < end)
+                    begin = begin + 1;
+
+                // TODO: need to adjust sloc too
+                loc.interval = Interval(begin, end);
+
+                auto n = new analyze.Block;
+                nstack.back.children ~= n;
+                pushStack(n, loc, v.cursor.kind);
             } catch (Exception e) {
                 logger.trace(e.msg).collectException;
             }
@@ -951,6 +964,10 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitFunc(T)(ref const T v) @trusted {
+        if (isConstExpr(v.cursor)) {
+            return;
+        }
+
         auto loc = v.cursor.toLocation;
         auto n = new analyze.Function;
         nstack.back.children ~= n;
@@ -1356,6 +1373,31 @@ uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind) @trusted {
     }
 
     return sr.end;
+}
+
+/** Check if a function has the constexpr keyword.
+ *
+ * The implementation opt for higher precision than efficiency which is why it
+ * looks at the tokens. That should eliminate such factors as "whitespace".
+ */
+bool isConstExpr(const Cursor c) @trusted {
+    bool helper(T)(ref T toks) {
+        foreach (ref t; toks.filter!(a => a.kind.among(CXTokenKind.keyword,
+                CXTokenKind.identifier))) {
+            if (t.spelling == "constexpr") {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    auto toks = c.tokens;
+    if (toks.empty) {
+        // unknown assuming true. this happens when a constexpr is prefixed by
+        // a macro.
+        return true;
+    }
+    return helper(toks);
 }
 
 /** Create an index of all macros that then can be queried to see if a Cursor

@@ -53,7 +53,6 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "all_kinds_of_abs_mutation_points.cpp")
-        .addArg(["--fast-db-store"])
         .run;
 }
 
@@ -62,14 +61,14 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto r = makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "undesired_mutants.cpp")
-        .addArg(["--fast-db-store"])
+        .addPostArg(["--mutant", "all"])
         .addFlag("-std=c++11")
         .run;
 
     testConsecutiveSparseOrder!Re([
         `trace:.*Dropping undesired mutant.*dccTrue`,
         `trace:.*Dropping undesired mutant.*dccFalse`,
-        `trace:.*Dropping undesired mutant.*stmtDel`,
+        `trace:.*Dropping undesired mutant.*dccTrue`,
     ]).shouldBeIn(r.output);
 }
 

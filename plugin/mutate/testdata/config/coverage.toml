@@ -1,0 +1,6 @@
+[generic]
+mutants = ["lcr", "lcrb", "sdl", "uoi", "dcr"]
+use_coverage = true
+
+[mutant_test]
+test_cmd_timeout = "10 seconds"

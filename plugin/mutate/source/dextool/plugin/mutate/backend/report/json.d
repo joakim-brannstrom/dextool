@@ -52,6 +52,8 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
         }
 
         db.iterateFileMutants(kinds, f.file, &fn);
+
+        fps.endFileEvent;
     }
 
     auto profile = Profile("post process report");
@@ -65,7 +67,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
  */
 final class ReportJson {
     import std.array : array;
-    import std.algorithm : map, joiner;
+    import std.algorithm : map, joiner, among;
     import std.conv : to;
     import std.format : format;
     import std.json;
@@ -124,7 +126,7 @@ final class ReportJson {
         }
 
         if (sections.contains(ReportSection.all_mut) || sections.contains(ReportSection.alive)
-                && r.mutation.status == Mutation.Status.alive
+                && r.mutation.status.among(Mutation.Status.alive, Mutation.Status.noCoverage)
                 || sections.contains(ReportSection.killed)
                 && r.mutation.status == Mutation.Status.killed) {
             appendMutant;
@@ -157,6 +159,7 @@ final class ReportJson {
         if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
             JSONValue s = ["alive" : stat.alive];
+            s.object["no_coverage"] = stat.noCoverage;
             s.object["alive_nomut"] = stat.aliveNoMut;
             s.object["killed"] = stat.killed;
             s.object["timeout"] = stat.timeout;

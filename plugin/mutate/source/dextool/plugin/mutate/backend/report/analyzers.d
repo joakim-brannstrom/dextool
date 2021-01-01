@@ -411,6 +411,7 @@ struct MutationScore {
     long killed;
     long timeout;
     long total;
+    long noCoverage;
     MutantTimeProfile totalTime;
 
     // Nr of mutants that are alive but tagged with nomut.
@@ -420,7 +421,7 @@ struct MutationScore {
         if (total > 0) {
             return cast(double)(killed + timeout) / cast(double)(total - aliveNoMut);
         }
-        return 1.0;
+        return 0.0;
     }
 }
 
@@ -428,6 +429,7 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     auto profile = Profile("reportScore");
 
     const alive = spinSql!(() { return db.aliveSrcMutants(kinds, file); });
+    const noCov = spinSql!(() { return db.noCovSrcMutants(kinds, file); });
     const aliveNomut = spinSql!(() { return db.aliveNoMutSrcMutants(kinds, file); });
     const killed = spinSql!(() { return db.killedSrcMutants(kinds, file); });
     const timeout = spinSql!(() { return db.timeoutSrcMutants(kinds, file); });
@@ -439,6 +441,7 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     rval.timeout = timeout.count;
     rval.total = total.count;
     rval.aliveNoMut = aliveNomut.count;
+    rval.noCoverage = noCov.count;
     rval.totalTime = total.time;
 
     return rval;
@@ -455,6 +458,10 @@ struct MutationStat {
 
     long alive() @safe pure nothrow const @nogc {
         return scoreData.alive;
+    }
+
+    long noCoverage() @safe pure nothrow const @nogc {
+        return scoreData.noCoverage;
     }
 
     /// Nr of mutants that are alive but tagged with nomut.
@@ -533,7 +540,7 @@ struct MutationStat {
         if (untested > 0) {
             formattedWrite(w, "%-*s %s\n", align_, "Untested:", untested);
         }
-        formattedWrite(w, "%-*s %s\n", align_, "Alive:", alive);
+        formattedWrite(w, "%-*s %s\n", align_, "Alive:", alive + noCoverage);
         formattedWrite(w, "%-*s %s\n", align_, "Killed:", killed);
         formattedWrite(w, "%-*s %s\n", align_, "Timeout:", timeout);
         formattedWrite(w, "%-*s %s\n", align_, "Killed by compiler:", killedByCompiler);
@@ -1179,6 +1186,8 @@ struct EstimateScore {
                 goto case;
             case killedByCompiler:
                 return 0.5; // shouldnt happen but...
+            case noCoverage:
+                goto case;
             case alive:
                 return 0.0;
             case killed:

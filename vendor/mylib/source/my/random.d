@@ -5,6 +5,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module my.random;
 
+@safe:
+
 /// Returns: a random string of `length` letters.
 string randomId(int length) {
     import std.ascii : letters;

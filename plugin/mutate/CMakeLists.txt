@@ -75,3 +75,7 @@ compile_d_integration_test(${EXE_NAME} "${TEST_SRC_FILES};${SUT_REUSED_FILES}" "
 add_executable(test_schemata_c_header ${CMAKE_CURRENT_LIST_DIR}/test/test_schemata_c_header.cpp)
 target_include_directories(test_schemata_c_header PRIVATE ${CMAKE_CURRENT_LIST_DIR}/data)
 add_unittest_to_check(test_schemata_c_header)
+
+add_executable(test_covmap ${CMAKE_CURRENT_LIST_DIR}/test/test_covmap.cpp)
+target_include_directories(test_covmap PRIVATE ${CMAKE_CURRENT_LIST_DIR}/data)
+add_unittest_to_check(test_covmap)

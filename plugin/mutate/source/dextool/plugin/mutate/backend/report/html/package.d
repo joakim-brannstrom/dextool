@@ -753,6 +753,8 @@ struct MetaSpan {
 MetaSpan.StatusColor pickColor(const FileMutant m,
         MetaSpan.StatusColor status = MetaSpan.StatusColor.none) {
     final switch (m.mut.status) {
+    case Mutation.Status.noCoverage:
+        goto case;
     case Mutation.Status.alive:
         status = MetaSpan.StatusColor.alive;
         break;

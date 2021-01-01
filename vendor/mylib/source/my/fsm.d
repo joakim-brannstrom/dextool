@@ -35,9 +35,24 @@ struct Fsm(StateTT...) {
 /// Transition to the next state.
 template next(handlers...) {
     void next(Self)(auto ref Self self) if (is(Self : Fsm!StateT, StateT...)) {
+        import std.meta : staticMap;
+        import std.traits : Parameters, ReturnType;
         static import sumtype;
 
-        auto nextSt = sumtype.match!handlers(self.state);
+        template CoerceReturn(alias Matcher) {
+            alias P = Parameters!Matcher;
+            static if (is(ReturnType!Matcher == Self.StateT)) {
+                alias CoerceReturn = Matcher;
+            } else {
+                static Self.StateT CoerceReturn(P[0] a) {
+                    return Self.StateT(Matcher(a));
+                }
+            }
+        }
+
+        alias Handlers = staticMap!(CoerceReturn, handlers);
+
+        auto nextSt = sumtype.match!Handlers(self.state);
         debug self.logNext = format!"%s -> %s"(self.state, nextSt);
 
         self.state = nextSt;
@@ -80,12 +95,39 @@ unittest {
             if (a.x > 3)
                 return fsm(C(true));
             return fsm(a);
-        }, (C a) { running = false; return fsm(a); });
+        }, (C a) { running = false; return a; });
 
         fsm.act!((A a) {}, (ref B a) { a.x++; }, (C a) {});
     }
 
     assert(global.x == 1);
+}
+
+@("shall use a struct to provide the state callbacks")
+unittest {
+    static struct A {
+    }
+
+    static struct B {
+    }
+
+    static struct Foo {
+        Fsm!(A, B) fsm;
+        bool running = true;
+
+        void opCall(A a) {
+        }
+
+        void opCall(B b) {
+            running = false;
+        }
+    }
+
+    Foo foo;
+    while (foo.running) {
+        foo.fsm.next!((A a) => B.init, (B a) => a);
+        foo.fsm.act!foo;
+    }
 }
 
 /** Hold a mapping between a Type and data.

@@ -35,8 +35,8 @@ void test_id_read() {
     msg("Setting env to " << 42);
     set_env_mutid(42);
 
-    msg("Let init_dextool_mutid read from env");
-    init_dextool_mutid();
+    msg("Let dextool_init_mutid read from env");
+    dextool_init_mutid();
 
     msg("global variable gDEXTOOL_MUTID is " << gDEXTOOL_MUTID);
     assert(gDEXTOOL_MUTID == 42);
@@ -48,7 +48,7 @@ void test_read_largest() {
     msg("Setting the env to the largest possible value");
     set_env_mutid(4294967295);
 
-    init_dextool_mutid();
+    dextool_init_mutid();
 
     msg("global variable gDEXTOOL_MUTID is " << gDEXTOOL_MUTID);
     assert(gDEXTOOL_MUTID == 4294967295);

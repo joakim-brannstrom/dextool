@@ -2337,6 +2337,8 @@ body {
     case oclIntelSubgroupAVCImeSingleRefStreamin:
 
     case oclIntelSubgroupAVCImeDualRefStreamin:
+
+    case extVector:
         break;
     }
 

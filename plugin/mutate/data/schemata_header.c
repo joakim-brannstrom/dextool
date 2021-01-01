@@ -4,7 +4,7 @@
 
 static unsigned int gDEXTOOL_MUTID;
 
-__attribute__((constructor)) static void init_dextool_mutid(void) {
+__attribute__((constructor)) static void dextool_init_mutid(void) {
     gDEXTOOL_MUTID = 0;
     const char* c = getenv("DEXTOOL_MUTID");
     if (c == NULL)

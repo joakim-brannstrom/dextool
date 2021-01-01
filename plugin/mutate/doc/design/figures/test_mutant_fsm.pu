@@ -43,7 +43,11 @@ SaveMutationScore --> Done : !resetOld
 SaveMutationScore --> MeasureTestSuite : resetOld
 
 MeasureTestSuite --> Error : unreliable
-MeasureTestSuite --> LoadSchematas
+MeasureTestSuite --> Coverage : useCov
+MeasureTestSuite --> LoadSchematas : !useCov
+
+Coverage --> PropagateCov
+PropagateCov --> LoadSchematas
 
 LoadSchematas --> ResetOldMutant
 
@@ -52,7 +56,7 @@ ResetOldMutant --> UpdateTimeout
 CheckRuntime --> UpdateTimeout
 CheckRuntime --> Done : runtime>max
 
-NextPullRequestMutant --> PreMutationTest
+NextPullRequestMutant --> MutationTest
 NextPullRequestMutant --> Done : allTested
 
 NextSchemata --> PreSchemata : hasSchema

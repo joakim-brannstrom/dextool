@@ -39,7 +39,7 @@ import dextool.type : AbsolutePath, Path, ExitStatusType;
 
 import dextool.plugin.mutate.backend.database.schema;
 import dextool.plugin.mutate.backend.database.type;
-import dextool.plugin.mutate.backend.type : Language, Checksum;
+import dextool.plugin.mutate.backend.type : Language, Checksum, Offset;
 
 /** Database wrapper with minimal dependencies.
  */
@@ -194,6 +194,16 @@ struct Database {
         foreach (r; stmt.get.execute)
             rval = Path(r.peek!string(0));
         return rval;
+    }
+
+    Optional!Language getFileIdLanguage(const FileId id) @trusted {
+        immutable sql = format!"SELECT lang FROM %s WHERE id = :id"(filesTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+
+        foreach (r; stmt.get.execute)
+            return some(r.peek!ubyte(0).to!Language);
+        return none!Language;
     }
 
     /// Remove the file with all mutations that are coupled to it.
@@ -673,8 +683,7 @@ struct Database {
                     t1.kind IN (%(%s,%)) AND
                     t1.mp_id = t2.id AND
                     t2.file_id = :fid AND
-                    (:line BETWEEN t2.line AND t2.line_end)
-                    ",
+                    (:line BETWEEN t2.line AND t2.line_end)",
                 mutationStatusTable, mutationTable, mutationPointTable,
                 kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
@@ -864,10 +873,12 @@ struct Database {
     alias aliveSrcMutants = countMutants!([Mutation.Status.alive], true);
     alias killedSrcMutants = countMutants!([Mutation.Status.killed], true);
     alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout], true);
+    alias noCovSrcMutants = countMutants!([Mutation.Status.noCoverage], true);
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
+            Mutation.Status.alive, Mutation.Status.killed,
+            Mutation.Status.timeout, Mutation.Status.noCoverage
             ], true);
 
     alias unknownSrcMutants = countMutants!([Mutation.Status.unknown], true);
@@ -2081,6 +2092,106 @@ struct Database {
             stmt.get.execute;
             stmt.get.reset;
         }
+    }
+
+    /// Add coverage regions.
+    void putCoverageMap(const FileId id, const Offset[] region) @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %1$s (file_id, begin, end)
+            VALUES(:fid, :begin, :end)"(srcCovTable);
+        auto stmt = db.prepare(sql);
+
+        foreach (a; region) {
+            stmt.get.bind(":fid", id.get);
+            stmt.get.bind(":begin", a.begin);
+            stmt.get.bind(":end", a.end);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
+    }
+
+    CovRegion[][FileId] getCoverageMap() @trusted {
+        immutable sql = format!"SELECT file_id,begin,end,id FROM %s"(srcCovTable);
+        auto stmt = db.prepare(sql);
+
+        typeof(return) rval;
+        foreach (ref r; stmt.get.execute) {
+            auto region = CovRegion(r.peek!long(3).CoverageRegionId,
+                    Offset(r.peek!uint(1), r.peek!uint(2)));
+            if (auto v = FileId(r.peek!long(0)) in rval) {
+                *v ~= region;
+            } else {
+                rval[FileId(r.peek!long(0))] = [region];
+            }
+        }
+
+        return rval;
+    }
+
+    void clearCoverageMap(const FileId id) @trusted {
+        immutable sql = format!"DELETE FROM %1$s WHERE file_id = :id"(srcCovTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+        stmt.get.execute;
+    }
+
+    void putCoverageInfo(const CoverageRegionId regionId, bool status) {
+        immutable sql = format!"INSERT OR REPLACE INTO %1$s (id, status) VALUES(:id, :status)"(
+                srcCovInfoTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", regionId.get);
+        stmt.get.bind(":status", status);
+        stmt.get.execute;
+    }
+
+    Optional!SysTime getCoverageTimeStamp() @trusted {
+        immutable sql = format!"SELECT timeStamp FROM %s"(srcCovTimeStampTable);
+        auto stmt = db.prepare(sql);
+
+        foreach (ref r; stmt.get.execute) {
+            return some(r.peek!string(0).fromSqLiteDateTime);
+        }
+        return none!SysTime;
+    }
+
+    /// Set the timestamp to the current UTC time.
+    void updateCoverageTimeStamp() @trusted {
+        immutable sql = format!"INSERT OR REPLACE INTO %s (id, timestamp) VALUES(0, :time)"(
+                srcCovTimeStampTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
+        stmt.get.execute;
+    }
+
+    /// Returns: the latest/newest timestamp of the tracked SUT or test files.
+    Optional!SysTime getLatestTimeStampOfTestOrSut() @trusted {
+        import std.algorithm : max;
+
+        auto test = getNewestTestFile;
+        auto sut = getNewestFile;
+
+        if (!(test.hasValue || sut.hasValue))
+            return none!SysTime;
+
+        return some(max(test.orElse(TestFile.init).timeStamp, sut.orElse(SysTime.init)));
+    }
+
+    MutationStatusId[] getNotCoveredMutants() @trusted {
+        immutable sql = format!"SELECT DISTINCT t3.st_id FROM %1$s t0, %2$s t1, %3$s t2, %4$s t3
+            WHERE t0.status = 0 AND
+            t0.id = t1.id AND
+            t1.file_id = t2.file_id AND
+            (t2.offset_begin BETWEEN t1.begin AND t1.end) AND
+            (t2.offset_end BETWEEN t1.begin AND t1.end) AND
+            t2.id = t3.mp_id"(srcCovInfoTable,
+                srcCovTable, mutationPointTable, mutationTable);
+
+        auto app = appender!(MutationStatusId[])();
+        auto stmt = db.prepare(sql);
+        foreach (ref r; stmt.get.execute) {
+            app.put(MutationStatusId(r.peek!long(0)));
+        }
+
+        return app.data;
     }
 }
 

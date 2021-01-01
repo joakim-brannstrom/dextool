@@ -52,7 +52,7 @@ version (unittest) {
  */
 ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userKinds, ConfigAnalyze conf_analyze,
         ConfigCompiler conf_compiler, ParsedCompileCommandRange frange,
-        ValidateLoc val_loc, FilesysIO fio) @trusted {
+        ValidateLoc valLoc, FilesysIO fio) @trusted {
     import dextool.plugin.mutate.backend.diff_parser : diffFromStdin, Diff;
     import dextool.plugin.mutate.backend.utility;
 
@@ -91,7 +91,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             .filter!(a => conf_analyze.fileMatcher.match(a.cmd.absoluteFile.toString))
             .filter!(a => fileFilter.shouldAnalyze(a.cmd.absoluteFile))) {
         try {
-            pool.put(task!analyzeActor(kinds, f, val_loc.dup, fio.dup, conf_compiler, conf_analyze, store));
+            pool.put(task!analyzeActor(kinds, f, valLoc.dup, fio.dup, conf_compiler, conf_analyze, store));
             taskCnt++;
         } catch (Exception e) {
             logger.trace(e);
@@ -184,8 +184,8 @@ void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze, Val
     auto profile = Profile("analyze file " ~ fileToAnalyze.cmd.absoluteFile);
 
     try {
-        auto analyzer = Analyze(kinds, vloc, fio,
-                Analyze.Config(compilerConf.forceSystemIncludes, analyzeConf.mutantsPerSchema));
+        auto analyzer = Analyze(kinds, vloc, fio, Analyze.Config(compilerConf.forceSystemIncludes,
+                analyzeConf.mutantsPerSchema, analyzeConf.saveCoverage.get));
         analyzer.process(fileToAnalyze);
         send(storeActor, cast(immutable) analyzer.result);
         return;
@@ -329,18 +329,29 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 }
                 db.put(app.data, fio.getOutputDir);
 
+                if (isChanged || oldVersion.get) {
+                    foreach (a; result.coverage.byKeyValue) {
+                        const fid = getFileId(fio.toRelativeRoot(result.fileId[a.key]));
+                        if (!fid.isNull) {
+                            db.clearCoverageMap(fid.get);
+                            db.putCoverageMap(fid.get, a.value);
+                        }
+                    }
+                }
+
                 // only save the schematas if mutation points where saved. This
                 // ensure that only schematas for changed/new files are saved.
                 if (isChanged || oldVersion.get) {
                     foreach (s; result.schematas.enumerate) {
+                        const localId = Analyze.Result.LocalSchemaId(s.index);
                         try {
-                            auto mutants = result.schemataMutants[s.index].map!(
+                            auto mutants = result.schemataMutants[localId].map!(
                                     a => db.getMutationStatusId(a.value))
                                 .filter!(a => !a.isNull)
                                 .map!(a => a.get)
                                 .array;
                             if (!mutants.empty && !s.value.empty) {
-                                const id = db.putSchemata(result.schemataChecksum[s.index],
+                                const id = db.putSchemata(result.schemataChecksum[localId],
                                         s.value, mutants);
                                 logger.trace(!id.isNull, "Saving schema ", id.get);
                             }
@@ -356,12 +367,13 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 Set!long printed;
                 auto app = appender!(LineMetadata[])();
                 foreach (md; result.metadata) {
+                    const localId = Analyze.Result.LocalFileId(md.id.get);
                     // transform the ID from local to global.
-                    const fid = getFileId(fio.toRelativeRoot(result.fileId[md.id.get]));
+                    const fid = getFileId(fio.toRelativeRoot(result.fileId[localId]));
                     if (fid.isNull && !printed.contains(md.id.get)) {
                         printed.add(md.id.get);
                         logger.warningf("File with suppressed mutants (// NOMUT) not in the database: %s. Skipping...",
-                                result.fileId[md.id.get]).collectException;
+                                result.fileId[localId]).collectException;
                     } else if (!fid.isNull) {
                         app.put(LineMetadata(fid.get, md.line, md.attr));
                     }
@@ -539,6 +551,7 @@ struct Analyze {
     static struct Config {
         bool forceSystemIncludes;
         long mutantsPerSchema;
+        bool saveCoverage;
     }
 
     private {
@@ -546,7 +559,7 @@ struct Analyze {
 
         Regex!char re_nomut;
 
-        ValidateLoc val_loc;
+        ValidateLoc valLoc;
         FilesysIO fio;
         bool forceSystemIncludes;
 
@@ -559,9 +572,9 @@ struct Analyze {
         Mutation.Kind[] kinds;
     }
 
-    this(Mutation.Kind[] kinds, ValidateLoc val_loc, FilesysIO fio, Config conf) @trusted {
+    this(Mutation.Kind[] kinds, ValidateLoc valLoc, FilesysIO fio, Config conf) @trusted {
         this.kinds = kinds;
-        this.val_loc = val_loc;
+        this.valLoc = valLoc;
         this.fio = fio;
         this.cache = new Cache;
         this.re_nomut = regex(raw_re_nomut);
@@ -602,6 +615,7 @@ struct Analyze {
     void analyzeForMutants(ParsedCompileCommand in_file,
             Exists!AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
         import dextool.plugin.mutate.backend.analyze.pass_clang;
+        import dextool.plugin.mutate.backend.analyze.pass_coverage;
         import dextool.plugin.mutate.backend.analyze.pass_filter;
         import dextool.plugin.mutate.backend.analyze.pass_mutant;
         import dextool.plugin.mutate.backend.analyze.pass_schemata;
@@ -619,7 +633,7 @@ struct Analyze {
         debug logger.trace(ast);
 
         auto codeMutants = () {
-            auto mutants = toMutants(ast, fio, val_loc, kinds);
+            auto mutants = toMutants(ast, fio, valLoc, kinds);
             debug logger.trace(mutants);
 
             debug logger.trace("filter mutants");
@@ -632,11 +646,10 @@ struct Analyze {
 
         {
             auto schemas = toSchemata(ast, fio, codeMutants, conf.mutantsPerSchema);
-            ast.release;
-
             debug logger.trace(schemas);
+
             foreach (f; schemas.getSchematas.filter!(a => !(a.fragments.empty || a.mutants.empty))) {
-                const id = result.schematas.length;
+                const id = Result.LocalSchemaId(result.schematas.length);
                 result.schematas ~= f.fragments;
                 result.schemataMutants[id] = f.mutants.map!(a => a.id).array;
                 result.schemataChecksum[id] = f.checksum;
@@ -647,10 +660,21 @@ struct Analyze {
                 a => a.value.map!(b => MutationPointEntry2(fio.toRelativeRoot(a.key),
                 b.offset, b.sloc.begin, b.sloc.end, b.mutants))).joiner.array;
         foreach (f; codeMutants.points.byKey) {
-            const id = result.idFile.length;
+            const id = Result.LocalFileId(result.idFile.length);
             result.idFile[f] = id;
             result.fileId[id] = f;
             result.infoId[id] = Result.FileInfo(codeMutants.csFiles[f], codeMutants.lang);
+        }
+
+        if (conf.saveCoverage) {
+            auto cov = toCoverage(ast, fio, valLoc);
+            debug logger.trace(cov);
+
+            foreach (a; cov.points.byKeyValue) {
+                if (auto id = a.key in result.idFile) {
+                    result.coverage[*id] = a.value;
+                }
+            }
         }
     }
 
@@ -663,25 +687,33 @@ struct Analyze {
         import clang.c.Index : CXTokenKind;
         import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
 
-        const fid = result.idFile.require(file, result.fileId.length).FileId;
+        if (auto localId = file in result.idFile) {
+            const fid = FileId(localId.get);
 
-        auto mdata = appender!(LineMetadata[])();
-        foreach (t; cache.getTokens(AbsolutePath(file), tstream)
-                .filter!(a => a.kind == CXTokenKind.comment)) {
-            auto m = matchFirst(t.spelling, re_nomut);
-            if (m.whichPattern == 0)
-                continue;
+            auto mdata = appender!(LineMetadata[])();
+            foreach (t; cache.getTokens(AbsolutePath(file), tstream)
+                    .filter!(a => a.kind == CXTokenKind.comment)) {
+                auto m = matchFirst(t.spelling, re_nomut);
+                if (m.whichPattern == 0)
+                    continue;
 
-            mdata.put(LineMetadata(fid, t.loc.line, LineAttr(NoMut(m["tag"], m["comment"]))));
-            logger.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
+                mdata.put(LineMetadata(fid, t.loc.line, LineAttr(NoMut(m["tag"], m["comment"]))));
+                logger.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
+            }
+
+            result.metadata ~= mdata.data;
         }
-
-        result.metadata ~= mdata.data;
     }
 
     static class Result {
-        import dextool.plugin.mutate.backend.type : Language, CodeChecksum, SchemataChecksum;
+        import dextool.plugin.mutate.backend.analyze.ast : Interval;
         import dextool.plugin.mutate.backend.database.type : SchemataFragment;
+        import dextool.plugin.mutate.backend.type : Language, CodeChecksum, SchemataChecksum;
+
+        alias LocalFileId = NamedType!(long, Tag!"LocalFileId", long.init,
+                TagStringable, Hashable);
+        alias LocalSchemaId = NamedType!(long, Tag!"LocalSchemaId", long.init,
+                TagStringable, Hashable);
 
         MutationPointEntry2[] mutationPoints;
 
@@ -691,11 +723,11 @@ struct Analyze {
         }
 
         /// The key is the ID from idFile.
-        FileInfo[ulong] infoId;
+        FileInfo[LocalFileId] infoId;
 
         /// The IDs is unique for *this* analyze, not globally.
-        long[AbsolutePath] idFile;
-        AbsolutePath[long] fileId;
+        LocalFileId[AbsolutePath] idFile;
+        AbsolutePath[LocalFileId] fileId;
 
         // The FileID used in the metadata is local to this analysis. It has to
         // be remapped when added to the database.
@@ -704,9 +736,12 @@ struct Analyze {
         /// Mutant schematas that has been generated.
         SchemataFragment[][] schematas;
         /// the mutants that are associated with a schemata.
-        CodeChecksum[][long] schemataMutants;
+        CodeChecksum[][LocalSchemaId] schemataMutants;
         /// checksum for the schemata
-        SchemataChecksum[long] schemataChecksum;
+        SchemataChecksum[LocalSchemaId] schemataChecksum;
+
+        /// Coverage intervals that can be instrumented.
+        Interval[][LocalFileId] coverage;
     }
 }
 

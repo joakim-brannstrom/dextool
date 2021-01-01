@@ -76,3 +76,7 @@ string tmplDefaultCss() {
 string schemataHeader() {
     return readData("schemata_header.c");
 }
+
+string coverageMmapHdr() {
+    return readData("coverage_mmap.c");
+}

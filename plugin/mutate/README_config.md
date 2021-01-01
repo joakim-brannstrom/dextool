@@ -542,13 +542,16 @@ Configuration of the directories that dextool is allowed to change files in.
  * the test phase will only mutate files that is inside the root.
  * the report will make all paths relative to the root.
 
-`restrict`: A project may contain want to further restrict what
-directories/files should be mutated inside the root. It could for example be so
-that the src and test is inside the same root. To discover all available
-mutants, C++ templates, the analyser must analyze test cases because templates
-are instantiated there. But it is obviously so that the tests should not be
-mutated. By configuring this option to `restrict=["src"]` it means that only
-the mutants inside `{root}/src` are saved in the database.
+`include`: See below.
+
+`exclude`: A project may want to further restrict what directories/files should
+be mutated inside the root. It could for example be so that the src and test is
+inside the same root. To discover all available mutants, C++ templates, the
+analyser must analyze test cases because templates are instantiated there. But
+it is obviously so that the tests should not be mutated. By configuring this
+option to `include=["src/*"]` it means that only the mutants inside
+`{root}/src` are saved in the database. This can be combinded with `exclude` to
+remove e.g. files inside `src` for this example.
 
 ```toml
 [generic]
@@ -556,6 +559,16 @@ the mutants inside `{root}/src` are saved in the database.
 Generic options that affect all phases that. The most important to configure
 here is the mutation operators to use (`mutants`). It affects what mutants are
 saved in the database, which ones are mutated and reported.
+
+`use_coverage`: An additional pass will be executed when either the program or
+the tests changes. This pass instrument the source code to see which functions
+are covered by the tests. Any mutants that is in a function that is not covered
+will be marked as alive. It is because for the test suite to even have a chance
+of killing a mutant it must execute the function/method the mutant reside in.
+This option can greately speed up the testing of all mutants.
+
+It is strongly recommended to also track the test files such that the coverage
+is automatically updated when the tests are changed.
 
 ```toml
 [database]
@@ -645,3 +658,17 @@ anything has changed in the test suite. The re-test, if activated, of old
 mutants will only be done if there is nothing else to be done.
 
 `parallel_test`: How many test binaries to run in parallel.
+
+# Resources
+
+The runtime resources that are installed together with the tool such as the
+header that is injected for schemata can be overridden. Dextool mutate searches
+the following directories, in this order, for the resources:
+
+ * `$XDG_RUNTIME_DIR`/.local/share/dextool/data/mutate
+ * `which dextool`/data/mutate
+ * `dirname $(which dextool)`/data/mutate
+ * `$XDG_DATA_DIRS`/dextool/data/mutate
+
+A user that wants to change the injected schemata header would for example add
+the `schemata_header.c` to `$XDG_RUNTIME_DIR/.local/share/dextool/data/mutate`

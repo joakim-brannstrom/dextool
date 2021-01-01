@@ -117,6 +117,9 @@ struct ConfigAnalyze {
 
     /// The constructed glob filter which based on rawExclude and rawRestrict.
     GlobFilter testFileMatcher;
+
+    /// If coverage maps should be generated and saved.
+    NamedType!(bool, Tag!"SaveCoverage", bool.init, TagStringable) saveCoverage;
 }
 
 /// Settings for the compiler
@@ -229,6 +232,12 @@ struct ConfigMutationTest {
 
     LoadBehavior loadBehavior;
     NamedType!(double, Tag!"LoadThreshold", double.init, TagStringable) loadThreshold;
+
+    /// If coverage data should be gathered and saved.
+    NamedType!(bool, Tag!"UseCoverage", bool.init, TagStringable) useCoverage;
+
+    /// If the generated coverage files should be saved.
+    NamedType!(bool, Tag!"LogCoverage", bool.init, TagStringable) logCoverage;
 }
 
 /// Settings for the administration mode

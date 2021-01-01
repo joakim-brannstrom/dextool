@@ -147,3 +147,37 @@ set -e
         // dfmt on
     }
 }
+
+class CoverageFixutre : SimpleFixture {
+    override string programFile() {
+        return (testData ~ "simple_coverage.cpp").toString;
+    }
+
+    override string scriptBuild() {
+        return "#!/bin/bash
+set -e
+g++ -std=c++11 %s -o %s
+";
+    }
+
+    override string scriptTest() {
+        return format("#!/bin/bash
+set -e
+%s
+", programBin);
+    }
+
+    auto runDextoolTest(ref TestEnv testEnv) {
+        // dfmt off
+        return dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["-c", (testData ~ "config/coverage.toml").toString])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
+            .addPostArg(["--log-coverage"]);
+        // dfmt on
+    }
+}
