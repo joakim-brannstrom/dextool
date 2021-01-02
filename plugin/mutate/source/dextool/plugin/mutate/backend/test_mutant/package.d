@@ -190,7 +190,7 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
 
 struct TestDriver {
     import std.datetime : SysTime;
-    import dextool.plugin.mutate.backend.database : Schemata, SchemataId, MutationStatusId;
+    import dextool.plugin.mutate.backend.database : SchemataId, MutationStatusId;
     import dextool.plugin.mutate.backend.test_mutant.source_mutant : MutationTestDriver;
     import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
     import dextool.plugin.mutate.backend.report.analyzers : EstimateScore;
@@ -311,50 +311,22 @@ struct TestDriver {
 
     static struct NextSchemata {
         NamedType!(bool, Tag!"HasSchema", bool.init, TagStringable, ImplicitConvertable) hasSchema;
+        SchemataId schemataId;
+
         /// stop mutation testing because the last schema has been used and the
         /// user has configured that the testing should stop now.
         NamedType!(bool, Tag!"StopTesting", bool.init, TagStringable, ImplicitConvertable) stop;
     }
 
-    static struct PreSchemataData {
-        Schemata schemata;
-    }
-
-    static struct PreSchemata {
-        bool error;
-        SchemataId id;
-    }
-
-    static struct SanityCheckSchemata {
-        SchemataId id;
-        bool passed;
-    }
-
-    static struct SchemataTestData {
-        Duration compileTime;
-    }
-
     static struct SchemataTest {
         SchemataId id;
         MutationTestResult[] result;
+        bool fatalError;
     }
 
     static struct SchemataTestResult {
         SchemataId id;
         MutationTestResult[] result;
-    }
-
-    static struct SchemataRestore {
-        bool error;
-    }
-
-    static struct SchemataRestoreData {
-        static struct Original {
-            AbsolutePath path;
-            Blob original;
-        }
-
-        Original[] original;
     }
 
     static struct SchemataPruneUsed {
@@ -418,19 +390,18 @@ struct TestDriver {
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
-            UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant, ParseStdin,
-            FindTestCmds, ChooseMode, NextSchemata, PreSchemata, SchemataTest,
-            SchemataTestResult, SchemataRestore, LoadSchematas,
-            SanityCheckSchemata, SchemataPruneUsed, Stop, SaveMutationScore,
-            OverloadCheck, Coverage, PropagateCoverage);
-    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData, PullRequestData, ResetOldMutantData,
-            SchemataRestoreData, PreSchemataData, NextSchemataData, SchemataTestData);
+            UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant,
+            ParseStdin, FindTestCmds, ChooseMode, NextSchemata, SchemataTest,
+            SchemataTestResult, LoadSchematas, SchemataPruneUsed, Stop,
+            SaveMutationScore, OverloadCheck, Coverage, PropagateCoverage);
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData,
+            PullRequestData, ResetOldMutantData, NextSchemataData);
 
     private {
         Fsm fsm;
         Global global;
-        TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant, PullRequest,
-                ResetOldMutant, SchemataRestore, PreSchemata, NextSchemata, SchemataTest) local;
+        TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant,
+                PullRequest, ResetOldMutant, NextSchemata) local;
         bool isRunning_ = true;
         bool isDone = false;
     }
@@ -516,24 +487,15 @@ struct TestDriver {
             return fsm(MutationTest.init);
         }, (NextSchemata a) {
             if (a.hasSchema)
-                return fsm(PreSchemata.init);
+                return fsm(SchemataTest(a.schemataId));
             if (a.stop)
                 return fsm(Done.init);
             return fsm(NextMutant.init);
-        }, (PreSchemata a) {
-            if (a.error)
+        }, (SchemataTest a) {
+            if (a.fatalError)
                 return fsm(Error.init);
-            return fsm(SanityCheckSchemata(a.id));
-        }, (SanityCheckSchemata a) {
-            if (a.passed)
-                return fsm(SchemataTest(a.id));
-            return fsm(SchemataRestore.init);
-        }, (SchemataTest a) { return fsm(SchemataTestResult(a.id, a.result)); },
-                (SchemataTestResult a) => fsm(SchemataRestore.init), (SchemataRestore a) {
-            if (a.error)
-                return fsm(Error.init);
-            return fsm(CheckRuntime.init);
-        }, (NextMutant a) {
+            return fsm(SchemataTestResult(a.id, a.result));
+        }, (SchemataTestResult a) => CheckRuntime.init, (NextMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(CheckTimeout.init);
             return fsm(MutationTest.init);
@@ -1149,6 +1111,7 @@ nothrow:
                 local.get!NextSchemata.invalidSchematas, local.get!NextSchemata.totalSchematas);
 
         while (!schematas.empty && !data.hasSchema) {
+            // TODO: replace with my.collection.vector
             const id = schematas[0];
             schematas = schematas[1 .. $];
             const mutants = spinSql!(() {
@@ -1159,15 +1122,10 @@ nothrow:
                     mutants, threshold).collectException;
 
             if (mutants >= threshold) {
-                auto schema = spinSql!(() {
-                    return global.data.db.getSchemata(id);
-                });
-                if (!schema.isNull) {
-                    local.get!PreSchemata.schemata = schema;
-                    logger.infof("Use schema %s (%s left)", id.get,
-                            schematas.length).collectException;
-                    data.hasSchema.get = true;
-                }
+                data.hasSchema.get = true;
+                data.schemataId = id;
+                logger.infof("Use schema %s (%s/%s)", id.get, schematas.length + 1,
+                        local.get!NextSchemata.totalSchematas).collectException;
             }
         }
 
@@ -1176,82 +1134,28 @@ nothrow:
         data.stop.get = !data.hasSchema && global.data.conf.stopAfterLastSchema;
     }
 
-    void opCall(ref PreSchemata data) {
-        import std.algorithm : filter;
-        import std.path : extension, stripExtension;
-        import dextool.plugin.mutate.backend.database.type : SchemataFragment;
-
-        auto sw = StopWatch(AutoStart.yes);
-        // also accumulate all the time spent on failing to compile schematan.
-        scope (exit)
-            local.get!SchemataTest.compileTime = local.get!SchemataTest.compileTime + sw.peek;
-
-        auto schemata = local.get!PreSchemata.schemata;
-        data.id = schemata.id;
-        local.get!PreSchemata = PreSchemataData.init;
-
-        Blob makeSchemata(Blob original, SchemataFragment[] fragments) {
-            import blob_model;
-
-            Edit[] edits;
-            foreach (a; fragments) {
-                edits ~= new Edit(Interval(a.offset.begin, a.offset.end), a.text);
-            }
-            auto m = merge(original, edits);
-            return change(new Blob(original.uri, original.content), m.edits);
-        }
-
-        SchemataFragment[] fragments(Path p) {
-            return schemata.fragments.filter!(a => a.file == p).array;
-        }
-
-        SchemataRestoreData.Original[] orgs;
-        try {
-            logger.info("Injecting the schemata in:");
-            auto files = schemata.fragments.map!(a => a.file).toSet;
-            foreach (f; files.toRange) {
-                const absf = global.data.filesysIO.toAbsoluteRoot(f);
-                logger.info(absf);
-
-                orgs ~= SchemataRestoreData.Original(absf, global.data.filesysIO.makeInput(absf));
-
-                // writing the schemata.
-                auto s = makeSchemata(orgs[$ - 1].original, fragments(f));
-                global.data.filesysIO.makeOutput(absf).write(s);
-
-                if (global.data.conf.logSchemata) {
-                    const ext = absf.toString.extension;
-                    global.data.filesysIO.makeOutput(AbsolutePath(
-                            format!"%s.%s.schema%s"(absf.toString.stripExtension,
-                            schemata.id, ext).Path)).write(s);
-                }
-            }
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-            data.error = true;
-        }
-        local.get!SchemataRestore.original = orgs;
-    }
-
     void opCall(ref SchemataTest data) {
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
-        // add the database access as "compile time"
-        auto sw = StopWatch(AutoStart.yes);
-
-        auto mutants = spinSql!(() {
-            return global.data.db.getSchemataMutants(data.id, global.data.kinds);
-        });
-
         try {
-            auto driver = SchemataTestDriver(global.data.filesysIO, &runner, global.data.db,
-                    &testCaseAnalyzer, mutants, local.get!SchemataTest.compileTime + sw.peek);
-            local.get!SchemataTest.compileTime = Duration.zero;
+            auto driver = SchemataTestDriver(global.data.filesysIO, &runner,
+                    global.data.db, &testCaseAnalyzer, data.id, global.data.kinds,
+                    global.data.conf.mutationCompile,
+                    global.data.conf.buildCmdTimeout, global.data.conf.logSchemata);
 
             while (driver.isRunning) {
                 driver.execute;
             }
-            data.result = driver.result;
+
+            data.fatalError = driver.hasFatalError;
+
+            if (!driver.hasFatalError) {
+                data.result = driver.result;
+            }
+
+            if (data.result.empty) {
+                local.get!NextSchemata.invalidSchematas++;
+            }
         } catch (Exception e) {
             logger.info(e.msg).collectException;
             logger.warning("Failed executing schemata ", data.id).collectException;
@@ -1284,18 +1188,6 @@ nothrow:
         if (remove) {
             spinSql!(() { global.data.db.markUsed(data.id); });
         }
-    }
-
-    void opCall(ref SchemataRestore data) {
-        foreach (o; local.get!SchemataRestore.original) {
-            try {
-                global.data.filesysIO.makeOutput(o.path).write(o.original.content);
-            } catch (Exception e) {
-                logger.error(e.msg).collectException;
-                data.error = true;
-            }
-        }
-        local.get!SchemataRestore.original = null;
     }
 
     void opCall(SchemataPruneUsed data) {
@@ -1332,75 +1224,6 @@ nothrow:
         // dextool use the same schema
         local.get!NextSchemata.schematas = app.data.randomCover.array;
         local.get!NextSchemata.totalSchematas = app.data.length;
-    }
-
-    void opCall(ref SanityCheckSchemata data) {
-        import colorlog;
-
-        auto sw = StopWatch(AutoStart.yes);
-        // also accumulate all the time spent on failing to compile schematan.
-        scope (exit)
-            local.get!SchemataTest.compileTime = local.get!SchemataTest.compileTime + sw.peek;
-
-        logger.infof("Compile schema %s", data.id.get).collectException;
-
-        if (global.data.conf.logSchemata) {
-            const kinds = spinSql!(() {
-                return global.data.db.getSchemataKinds(data.id);
-            });
-
-            if (!local.get!SchemataRestore.original.empty) {
-                auto p = local.get!SchemataRestore.original[$ - 1].path;
-                try {
-                    global.data.filesysIO.makeOutput(AbsolutePath(format!"%s.%s.kinds.schema"(p,
-                            data.id).Path)).write(format("%s", kinds));
-                } catch (Exception e) {
-                    logger.warning(e.msg).collectException;
-                }
-            }
-        }
-
-        bool successCompile;
-        compile(global.data.conf.mutationCompile,
-                global.data.conf.buildCmdTimeout, global.data.conf.logSchemata).match!(
-                (Mutation.Status a) {}, (bool success) {
-            successCompile = success;
-        });
-
-        if (!successCompile) {
-            logger.info("Skipping schema because it failed to compile".color(Color.yellow))
-                .collectException;
-            spinSql!(() { global.data.db.markUsed(data.id); });
-            local.get!NextSchemata.invalidSchematas++;
-            return;
-        }
-
-        logger.info("Ok".color(Color.green)).collectException;
-
-        if (!global.data.conf.sanityCheckSchemata) {
-            data.passed = true;
-            return;
-        }
-
-        try {
-            logger.info("Sanity check of the generated schemata");
-            auto res = runner.run;
-            data.passed = res.status == TestRunResult.Status.passed;
-            if (!data.passed) {
-                local.get!NextSchemata.invalidSchematas++;
-                debug logger.tracef("%(%s%)", res.output.map!(a => a.byUTF8));
-            }
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
-
-        if (data.passed) {
-            logger.info("Ok".color(Color.green)).collectException;
-        } else {
-            logger.info("Skipping saving the result of running the schemata because the test suite failed".color(
-                    Color.yellow)).collectException;
-            spinSql!(() { global.data.db.markUsed(data.id); });
-        }
     }
 
     void opCall(ref Coverage data) {

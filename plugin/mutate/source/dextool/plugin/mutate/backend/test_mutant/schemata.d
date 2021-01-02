@@ -10,23 +10,27 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.test_mutant.schemata;
 
 import logger = std.experimental.logger;
-import std.algorithm : sort, map;
-import std.array : empty;
+import std.algorithm : sort, map, filter;
+import std.array : empty, array;
 import std.conv : to;
 import std.datetime : Duration;
+import std.datetime.stopwatch : StopWatch, AutoStart;
 import std.exception : collectException;
+import std.format : format;
 import std.typecons : Tuple;
 
 import proc : DrainElement;
 import sumtype;
 
 import my.fsm : Fsm, next, act, get, TypeDataMap;
+import my.path;
+import my.set;
 static import my.fsm;
 
-import dextool.plugin.mutate.backend.database : MutationStatusId, Database, spinSql;
+import dextool.plugin.mutate.backend.database : MutationStatusId, Database, spinSql, SchemataId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
 import dextool.plugin.mutate.backend.test_mutant.common;
-import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner;
+import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, Checksum;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
 
@@ -36,6 +40,8 @@ struct SchemataTestDriver {
     private {
         /// True as long as the schemata driver is running.
         bool isRunning_ = true;
+        bool isSuccessResult_ = true;
+        bool hasFatalError_;
 
         FilesysIO fio;
 
@@ -44,24 +50,51 @@ struct SchemataTestDriver {
         /// Runs the test commands.
         TestRunner* runner;
 
+        Mutation.Kind[] kinds;
+
+        SchemataId schemataId;
+
         /// Result of testing the mutants.
         MutationTestResult[] result_;
 
         /// Time it took to compile the schemata.
         Duration compileTime;
+        StopWatch swCompile;
+
+        static struct Original {
+            AbsolutePath path;
+            Blob original;
+        }
+
+        Original[] original;
+
+        // Write the instrumented source code to .cov.<ext> for separate
+        // inspection.
+        const bool log;
+
+        ShellCommand buildCmd;
+        Duration buildCmdTimeout;
     }
 
     static struct None {
     }
 
-    static struct InitializeData {
-        MutationStatusId[] mutants;
-    }
-
     static struct Initialize {
     }
 
+    static struct InjectSchema {
+        bool error;
+    }
+
+    static struct Compile {
+        bool error;
+    }
+
     static struct Done {
+    }
+
+    static struct Restore {
+        bool error;
     }
 
     static struct NextMutantData {
@@ -104,31 +137,43 @@ struct SchemataTestDriver {
     }
 
     alias Fsm = my.fsm.Fsm!(None, Initialize, Done, NextMutant, TestMutant,
-            TestCaseAnalyze, StoreResult);
-    alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData,
-            NextMutantData, InitializeData);
+            TestCaseAnalyze, StoreResult, InjectSchema, Compile, Restore);
+    alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData, NextMutantData);
 
     private {
         Fsm fsm;
-        TypeDataMap!(LocalStateDataT, TestMutant, TestCaseAnalyze, NextMutant, Initialize) local;
+        TypeDataMap!(LocalStateDataT, TestMutant, TestCaseAnalyze, NextMutant) local;
     }
 
-    this(FilesysIO fio, TestRunner* runner, Database* db,
-            TestCaseAnalyzer* testCaseAnalyzer, MutationStatusId[] mutants, Duration compileTime) {
+    this(FilesysIO fio, TestRunner* runner, Database* db, TestCaseAnalyzer* testCaseAnalyzer,
+            SchemataId id, Mutation.Kind[] kinds, ShellCommand buildCmd,
+            Duration buildCmdTimeout, bool log) {
         this.fio = fio;
         this.runner = runner;
         this.db = db;
-        this.local.get!Initialize.mutants = mutants;
+        this.schemataId = id;
+        this.kinds = kinds;
+        this.buildCmd = buildCmd;
+        this.buildCmdTimeout = buildCmdTimeout;
+        this.log = log;
+
         this.local.get!TestCaseAnalyze.testCaseAnalyzer = testCaseAnalyzer;
         this.local.get!TestMutant.hasTestCaseOutputAnalyzer = !testCaseAnalyzer.empty;
-        this.compileTime = compileTime;
     }
 
     static void execute_(ref SchemataTestDriver self) @trusted {
         self.fsm.next!((None a) => fsm(Initialize.init),
-                (Initialize a) => fsm(NextMutant.init), (NextMutant a) {
+                (Initialize a) => InjectSchema.init, (InjectSchema a) {
+            if (a.error)
+                return fsm(Restore.init);
+            return fsm(Compile.init);
+        }, (Compile a) {
+            if (a.error)
+                return fsm(Restore.init);
+            return fsm(NextMutant.init);
+        }, (NextMutant a) {
             if (a.done)
-                return fsm(Done.init);
+                return fsm(Restore.init);
             return fsm(TestMutant(a.inject));
         }, (TestMutant a) {
             if (a.mutantIdError)
@@ -142,7 +187,7 @@ struct SchemataTestDriver {
             if (a.unstableTests)
                 return fsm(NextMutant.init);
             return fsm(StoreResult(a.result));
-        }, (StoreResult a) => fsm(NextMutant.init), (Done a) => fsm(a));
+        }, (StoreResult a) => fsm(NextMutant.init), (Restore a) => Done.init, (Done a) => a);
 
         debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
@@ -162,6 +207,14 @@ nothrow:
         }
     }
 
+    bool isSuccessResult() {
+        return isSuccessResult_;
+    }
+
+    bool hasFatalError() {
+        return hasFatalError_;
+    }
+
     bool isRunning() {
         return isRunning_;
     }
@@ -170,11 +223,10 @@ nothrow:
     }
 
     void opCall(Initialize data) {
-        scope (exit)
-            local.get!Initialize.mutants = null;
+        swCompile = StopWatch(AutoStart.yes);
 
         InjectIdBuilder builder;
-        foreach (mutant; local.get!Initialize.mutants) {
+        foreach (mutant; spinSql!(() => db.getSchemataMutants(schemataId, kinds))) {
             auto cs = spinSql!(() { return db.getChecksum(mutant); });
             if (!cs.isNull) {
                 builder.put(mutant, cs.get);
@@ -187,6 +239,104 @@ nothrow:
 
     void opCall(Done data) {
         isRunning_ = false;
+        isSuccessResult_ = isSuccessResult_ && !hasFatalError_;
+    }
+
+    void opCall(ref InjectSchema data) {
+        import std.path : extension, stripExtension;
+        import dextool.plugin.mutate.backend.database.type : SchemataFragment;
+
+        auto schemata = spinSql!(() => db.getSchemata(schemataId)).get;
+
+        Blob makeSchemata(Blob original, SchemataFragment[] fragments) {
+            import blob_model;
+
+            Edit[] edits;
+            foreach (a; fragments) {
+                edits ~= new Edit(Interval(a.offset.begin, a.offset.end), a.text);
+            }
+            auto m = merge(original, edits);
+            return change(new Blob(original.uri, original.content), m.edits);
+        }
+
+        SchemataFragment[] fragments(Path p) {
+            return schemata.fragments.filter!(a => a.file == p).array;
+        }
+
+        try {
+            logger.info("Injecting the schemata in:");
+            auto files = schemata.fragments.map!(a => a.file).toSet;
+            foreach (f; files.toRange) {
+                const absf = fio.toAbsoluteRoot(f);
+                logger.info(absf);
+
+                original ~= Original(absf, fio.makeInput(absf));
+
+                // writing the schemata.
+                auto s = makeSchemata(original[$ - 1].original, fragments(f));
+                fio.makeOutput(absf).write(s);
+
+                if (log) {
+                    const ext = absf.toString.extension;
+                    fio.makeOutput(AbsolutePath(format!"%s.%s.schema%s"(absf.toString.stripExtension,
+                            schemata.id, ext).Path)).write(s);
+                }
+            }
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            data.error = true;
+        }
+    }
+
+    void opCall(ref Compile data) {
+        import colorlog;
+        import dextool.plugin.mutate.backend.test_mutant.common : compile;
+
+        logger.infof("Compile schema %s", schemataId.get).collectException;
+
+        if (log && !original.empty) {
+            auto p = original[$ - 1].path;
+            try {
+                fio.makeOutput(AbsolutePath(format!"%s.%s.kinds.schema"(p,
+                        schemataId).Path)).write(format("%s", kinds));
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+            }
+        }
+
+        scope (exit)
+            isSuccessResult_ = data.error;
+
+        compile(buildCmd, buildCmdTimeout, log).match!((Mutation.Status a) {
+            data.error = true;
+        }, (bool success) { data.error = !success; });
+
+        if (data.error) {
+            logger.info("Skipping schema because it failed to compile".color(Color.yellow))
+                .collectException;
+            spinSql!(() { db.markUsed(schemataId); });
+            return;
+        }
+
+        logger.info("Ok".color(Color.green)).collectException;
+
+        try {
+            logger.info("Sanity check of the generated schemata");
+            auto res = runner.run;
+            data.error = res.status != TestResult.Status.passed;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+
+        if (data.error) {
+            logger.info("Skipping the schemata because the test suite failed".color(Color.yellow))
+                .collectException;
+            spinSql!(() { db.markUsed(schemataId); });
+        } else {
+            logger.info("Ok".color(Color.green)).collectException;
+        }
+
+        compileTime = swCompile.peek;
     }
 
     void opCall(ref NextMutant data) {
@@ -277,6 +427,18 @@ nothrow:
 
     void opCall(StoreResult data) {
         result_ ~= data.result;
+    }
+
+    void opCall(Restore data) {
+        foreach (o; original) {
+            try {
+                fio.makeOutput(o.path).write(o.original.content);
+            } catch (Exception e) {
+                logger.error(e.msg).collectException;
+                data.error = true;
+                hasFatalError_ = true;
+            }
+        }
     }
 }
 
