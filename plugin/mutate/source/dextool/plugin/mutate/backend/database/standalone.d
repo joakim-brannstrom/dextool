@@ -207,12 +207,15 @@ struct Database {
     }
 
     /// Returns: a random file that is tagged as a root.
-    Optional!FileId getRandomRootFile() @trusted {
-        immutable sql = format!"SELECT id FROM %s WHERE root=1 ORDER BY random LIMIT 1"(filesTable);
+    FileId[] getRootFiles() @trusted {
+        immutable sql = format!"SELECT id FROM %s WHERE root=1"(filesTable);
+
+        auto app = appender!(FileId[])();
         auto stmt = db.prepare(sql);
-        foreach (ref r; stmt.get.execute)
-            return some(r.peek!long(0).FileId);
-        return none!FileId;
+        foreach (ref r; stmt.get.execute) {
+            app.put(r.peek!long(0).FileId);
+        }
+        return app.data;
     }
 
     /// Remove the file with all mutations that are coupled to it.
@@ -2135,6 +2138,14 @@ struct Database {
         }
 
         return rval;
+    }
+
+    long getCoverageMapCount() @trusted {
+        immutable sql = format!"SELECT count(*) FROM %s"(srcCovTable);
+        auto stmt = db.prepare(sql);
+        foreach (ref r; stmt.get.execute)
+            return r.peek!long(0);
+        return 0;
     }
 
     void clearCoverageMap(const FileId id) @trusted {

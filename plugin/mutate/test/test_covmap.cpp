@@ -65,11 +65,11 @@ void test_write() {
     int fd = setup_covmap_file(dummy);
 
     msg("Let init run");
-    dextool_init_covmap();
+    dextool_init_covmap__();
     assert(gDEXTOOL_COVMAP != 0);
 
     msg("Use instrument function");
-    dextool_cov(1);
+    dextool_cov__(1);
 
     dextool_deinit_covmap();
 }
@@ -84,13 +84,13 @@ void test_read_write() {
     int fd = setup_covmap_file(dummy);
 
     msg("Let init run");
-    dextool_init_covmap();
+    dextool_init_covmap__();
     assert(gDEXTOOL_COVMAP != 0);
 
     msg("Use instrument function");
-    dextool_cov(1);
-    dextool_cov(3);
-    dextool_cov(5);
+    dextool_cov__(1);
+    dextool_cov__(3);
+    dextool_cov__(5);
 
     dextool_deinit_covmap();
 

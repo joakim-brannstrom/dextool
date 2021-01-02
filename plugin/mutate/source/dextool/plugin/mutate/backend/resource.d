@@ -77,6 +77,10 @@ string schemataHeader() {
     return readData("schemata_header.c");
 }
 
-string coverageMmapHdr() {
+string coverageMapHdr() {
+    return readData("coverage_mmap.h");
+}
+
+string coverageMapImpl() {
     return readData("coverage_mmap.c");
 }

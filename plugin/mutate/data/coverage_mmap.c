@@ -11,7 +11,7 @@
 static char* gDEXTOOL_COVMAP;
 static int gDEXTOOL_COVMAP_FD;
 
-__attribute__((constructor)) static void dextool_init_covmap(void) {
+__attribute__((constructor, weak)) void dextool_init_covmap__(void) {
     gDEXTOOL_COVMAP = 0;
     const char* cov_map_file = getenv("DEXTOOL_COVMAP");
     if (cov_map_file == NULL)
@@ -22,7 +22,7 @@ __attribute__((constructor)) static void dextool_init_covmap(void) {
     struct stat sb;
     if (fstat(fd, &sb) == -1)
         return;
-    char* addr = (char*) mmap(NULL, sb.st_size, PROT_WRITE, MAP_SHARED, fd, 0);
+    char* addr = (char*)mmap(NULL, sb.st_size, PROT_WRITE, MAP_SHARED, fd, 0);
     if (addr == MAP_FAILED)
         return;
     gDEXTOOL_COVMAP = addr;
@@ -30,7 +30,7 @@ __attribute__((constructor)) static void dextool_init_covmap(void) {
     *(gDEXTOOL_COVMAP) = 1; // successfully initialized
 }
 
-static void dextool_cov(unsigned int x) {
+__attribute__((weak)) void dextool_cov__(unsigned int x) {
     if (gDEXTOOL_COVMAP == NULL)
         return;
     *(gDEXTOOL_COVMAP + x) = 1;
