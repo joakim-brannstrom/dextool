@@ -86,14 +86,14 @@ struct SafeOutput {
     private AbsolutePath fname;
     private FilesysIO fsys;
     private Appender!(ubyte[]) buf;
-    private bool is_open;
+    private bool isOpen;
 
     @disable this(this);
 
     this(AbsolutePath fname, FilesysIO fsys) {
         this.fname = fname;
         this.fsys = fsys;
-        this.is_open = true;
+        this.isOpen = true;
     }
 
     ~this() {
@@ -114,10 +114,10 @@ struct SafeOutput {
     }
 
     void close() {
-        if (is_open) {
+        if (isOpen) {
             fsys.putFile(fname, buf.data);
             buf.clear;
         }
-        is_open = false;
+        isOpen = false;
     }
 }

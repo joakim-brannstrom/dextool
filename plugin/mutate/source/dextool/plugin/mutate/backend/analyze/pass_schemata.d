@@ -22,7 +22,9 @@ import std.typecons : tuple, Tuple, scoped;
 
 import my.container.vector : vector, Vector;
 import my.gc.refc : RefCounted;
+import my.optional;
 import my.set;
+import sumtype;
 
 import dextool.type : AbsolutePath, Path;
 
@@ -39,8 +41,8 @@ import dextool.plugin.mutate.backend.analyze.ast;
 import dextool.plugin.mutate.backend.analyze.pass_mutant : CodeMutantsResult;
 
 // constant defined by the schemata that test_mutant uses too
-/// The global variable that a mutant reads to see if it should activate.
-immutable schemataMutantIdentifier = "gDEXTOOL_MUTID";
+/// The function that a mutant reads to see if it should activate.
+immutable schemataMutantIdentifier = "dextool_get_mutid__()";
 /// The environment variable that is read to set the current active mutant.
 immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
@@ -164,20 +166,10 @@ enum MutantGroup {
     ror,
     lcr,
     lcrb,
-    // the operator mutants that replace the whole expression. The schema have
-    // a high probability of working because it isn't dependent on the
-    // operators being implemented for lhs/rhs
-    opExpr,
     dcc,
     dcr,
     uoi,
     sdl,
-}
-
-auto defaultHeader(Path f) {
-    import dextool.plugin.mutate.backend.resource : schemataHeader;
-
-    return SchemataFragment(f, Offset(0, 0), cast(const(ubyte)[]) schemataHeader);
 }
 
 struct SchematasRange {
@@ -185,66 +177,24 @@ struct SchematasRange {
             SchemataChecksum, "checksum");
 
     private {
-        FilesysIO fio;
         ET[] values;
     }
 
-    this(FilesysIO fio, SchemataResult.Schemata[MutantGroup][AbsolutePath] raw,
+    this(scope FilesysIO fio, SchemataResult.Schemata[MutantGroup][AbsolutePath] raw,
             long mutantsPerSchema) {
-        this.fio = fio;
-
-        // TODO: maybe accumulate the fragments for more files? that would make
-        // it possible to easily create a large schemata.
         auto values_ = appender!(ET[])();
-
-        SchemataResult.Fragment[] makeSchema(SchemataResult.Fragment[] fragments, Path relp) {
-            // overlapping mutants is not supported "yet" thus make sure no
-            // fragment overlap with another fragment.
-            Index!int index;
-            auto spillOver = appender!(SchemataResult.Fragment[])();
-
-            auto app = appender!(SchemataFragment[])();
-
-            app.put(defaultHeader(relp));
-
-            Set!CodeMutant mutants;
-            foreach (a; fragments) {
-                // conservative to only allow up to <user defined> mutants per
-                // schemata but it reduces the chance that one failing schemata
-                // is "fatal", loosing too many muntats.
-                if (index.inside(0, a.offset) || mutants.length >= mutantsPerSchema) {
-                    spillOver.put(a);
-                    continue;
-                }
-
-                // if any of the mutants in the schema has already been added
-                // then the new fragment is also overlapping
-                if (any!(a => a in mutants)(a.mutants)) {
-                    spillOver.put(a);
-                    continue;
-                }
-
-                app.put(SchemataFragment(relp, a.offset, a.text));
-                mutants.add(a.mutants);
-                index.put(0, a.offset);
-            }
-
-            ET v;
-            v.fragments = app.data;
-
-            v.mutants = mutants.toArray;
-            v.checksum = toSchemataChecksum(v.mutants);
-            values_.put(v);
-
-            return spillOver.data;
-        }
+        auto builder = SchemataBuilder(mutantsPerSchema);
 
         foreach (group; raw.byKeyValue) {
-            auto relp = fio.toRelativeRoot(group.key);
+            auto file = fio.toRelativeRoot(group.key);
             foreach (a; group.value.byValue) {
-                auto spillOver = makeSchema(a.fragments, relp);
+                builder.make(a.fragments, file).match!((Some!ET a) => values_.put(a.value), (None a) {
+                });
+                auto spillOver = builder.spillOver;
                 while (!spillOver.empty) {
-                    spillOver = makeSchema(spillOver, relp);
+                    builder.make(spillOver, file)
+                        .match!((Some!ET a) => values_.put(a.value), (None a) {});
+                    spillOver = builder.spillOver;
                 }
             }
         }
@@ -752,41 +702,34 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         foreach (const mutant; lhsMutants) {
             // dfmt off
-            schema[MutantGroup.opExpr]
-                .put(mutant.id.c0,
-                    schema[group].put(mutant.id.c0,
-                        left,
-                        makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
-                        content[offsLhs.end .. locExpr.interval.end],
-                        right));
+            schema[group].put(mutant.id.c0,
+                left,
+                makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
+                content[offsLhs.end .. locExpr.interval.end],
+                right);
             // dfmt on
         }
 
         foreach (const mutant; rhsMutants) {
             // dfmt off
-            schema[MutantGroup.opExpr]
-                .put(mutant.id.c0,
-                    schema[group].put(mutant.id.c0,
-                        left,
-                        content[locExpr.interval.begin .. offsRhs.begin],
-                        makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
-                        right));
+            schema[group].put(mutant.id.c0,
+                left,
+                content[locExpr.interval.begin .. offsRhs.begin],
+                makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
+                right);
             // dfmt on
         }
 
         foreach (const mutant; exprMutants) {
             // dfmt off
-            schema[MutantGroup.opExpr]
-                .put(mutant.id.c0,
-                    schema[group].put(mutant.id.c0,
-                        left,
-                        makeMutation(mutant.mut.kind, ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
-                        right));
+            schema[group].put(mutant.id.c0,
+                left,
+                makeMutation(mutant.mut.kind, ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
+                right);
             // dfmt on
         }
 
         mutants[group].add(opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants);
-        mutants[MutantGroup.opExpr].add(exprMutants);
     }
 }
 
@@ -961,4 +904,53 @@ auto contentOrNull(uint begin, uint end, const(ubyte)[] content) {
     if (begin >= end)
         return null;
     return content[begin .. end];
+}
+
+// Build schematan from the individual fragments for a individual file.
+struct SchemataBuilder {
+    alias ET = SchematasRange.ET;
+    long mutantsPerSchema;
+    SchemataResult.Fragment[] spillOver;
+
+    Optional!ET make(SchemataResult.Fragment[] fragments, Path file) {
+        // overlapping mutants is not supported "yet" thus make sure no
+        // fragment overlap with another fragment.
+        Index!int index;
+        auto spillOver = appender!(SchemataResult.Fragment[])();
+
+        auto app = appender!(SchemataFragment[])();
+
+        Set!CodeMutant mutants;
+        foreach (a; fragments) {
+            // conservative to only allow up to <user defined> mutants per
+            // schemata but it reduces the chance that one failing schemata
+            // is "fatal", loosing too many muntats.
+            if (index.inside(0, a.offset) || mutants.length >= mutantsPerSchema) {
+                spillOver.put(a);
+                continue;
+            }
+
+            // if any of the mutants in the schema has already been added
+            // then the new fragment is also overlapping
+            if (any!(a => a in mutants)(a.mutants)) {
+                spillOver.put(a);
+                continue;
+            }
+
+            app.put(SchemataFragment(file, a.offset, a.text));
+            mutants.add(a.mutants);
+            index.put(0, a.offset);
+        }
+
+        this.spillOver = spillOver.data;
+
+        if (mutants.empty)
+            return none!ET;
+
+        ET v;
+        v.fragments = app.data;
+        v.mutants = mutants.toArray;
+        v.checksum = toSchemataChecksum(v.mutants);
+        return some(v);
+    }
 }

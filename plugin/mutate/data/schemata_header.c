@@ -4,7 +4,7 @@
 
 static unsigned int gDEXTOOL_MUTID;
 
-__attribute__((constructor)) static void dextool_init_mutid(void) {
+__attribute__((constructor, weak)) void dextool_init_mutid(void) {
     gDEXTOOL_MUTID = 0;
     const char* c = getenv("DEXTOOL_MUTID");
     if (c == NULL)
@@ -18,5 +18,7 @@ __attribute__((constructor)) static void dextool_init_mutid(void) {
         gDEXTOOL_MUTID = gDEXTOOL_MUTID * 10u + n;
     }
 }
+
+__attribute__((weak)) unsigned int dextool_get_mutid__(void) { return gDEXTOOL_MUTID; }
 
 #endif /* DEXTOOL_MUTANT_SCHEMATA_INCL_GUARD */

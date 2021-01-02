@@ -1,0 +1,6 @@
+#ifndef DEXTOOL_MUTANT_SCHEMATA_HDR_INCL_GUARD
+#define DEXTOOL_MUTANT_SCHEMATA_HDR_INCL_GUARD
+
+extern unsigned int dextool_get_mutid__(void);
+
+#endif /* DEXTOOL_MUTANT_SCHEMATA_HDR_INCL_GUARD */

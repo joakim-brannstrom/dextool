@@ -11,7 +11,7 @@ module dextool.plugin.mutate.backend.test_mutant.schemata;
 
 import logger = std.experimental.logger;
 import std.algorithm : sort, map, filter;
-import std.array : empty, array;
+import std.array : empty, array, appender;
 import std.conv : to;
 import std.datetime : Duration;
 import std.datetime.stopwatch : StopWatch, AutoStart;
@@ -21,14 +21,16 @@ import std.typecons : Tuple;
 
 import proc : DrainElement;
 import sumtype;
+import blob_model;
 
 import my.fsm : Fsm, next, act, get, TypeDataMap;
 import my.path;
 import my.set;
 static import my.fsm;
 
-import dextool.plugin.mutate.backend.database : MutationStatusId, Database, spinSql, SchemataId;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
+import dextool.plugin.mutate.backend.database : MutationStatusId, Database,
+    spinSql, SchemataId, Schemata;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, Checksum;
@@ -40,7 +42,6 @@ struct SchemataTestDriver {
     private {
         /// True as long as the schemata driver is running.
         bool isRunning_ = true;
-        bool isSuccessResult_ = true;
         bool hasFatalError_;
 
         FilesysIO fio;
@@ -61,25 +62,30 @@ struct SchemataTestDriver {
         Duration compileTime;
         StopWatch swCompile;
 
-        static struct Original {
-            AbsolutePath path;
-            Blob original;
-        }
-
-        Original[] original;
-
         // Write the instrumented source code to .cov.<ext> for separate
         // inspection.
         const bool log;
 
         ShellCommand buildCmd;
         Duration buildCmdTimeout;
+
+        /// The full schemata that is used..
+        Schemata schemata;
+
+        AbsolutePath[] modifiedFiles;
+
+        Set!AbsolutePath roots;
     }
 
     static struct None {
     }
 
     static struct Initialize {
+        bool error;
+    }
+
+    static struct InitializeRoots {
+        bool hasRoot;
     }
 
     static struct InjectSchema {
@@ -136,8 +142,8 @@ struct SchemataTestDriver {
         MutationTestResult result;
     }
 
-    alias Fsm = my.fsm.Fsm!(None, Initialize, Done, NextMutant, TestMutant,
-            TestCaseAnalyze, StoreResult, InjectSchema, Compile, Restore);
+    alias Fsm = my.fsm.Fsm!(None, Initialize, InitializeRoots, Done, NextMutant,
+            TestMutant, TestCaseAnalyze, StoreResult, InjectSchema, Compile, Restore);
     alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData, NextMutantData);
 
     private {
@@ -162,8 +168,15 @@ struct SchemataTestDriver {
     }
 
     static void execute_(ref SchemataTestDriver self) @trusted {
-        self.fsm.next!((None a) => fsm(Initialize.init),
-                (Initialize a) => InjectSchema.init, (InjectSchema a) {
+        self.fsm.next!((None a) => fsm(Initialize.init), (Initialize a) {
+            if (a.error)
+                return fsm(Done.init);
+            return fsm(InitializeRoots.init);
+        }, (InitializeRoots a) {
+            if (a.hasRoot)
+                return fsm(InjectSchema.init);
+            return fsm(Done.init);
+        }, (InjectSchema a) {
             if (a.error)
                 return fsm(Restore.init);
             return fsm(Compile.init);
@@ -207,10 +220,6 @@ nothrow:
         }
     }
 
-    bool isSuccessResult() {
-        return isSuccessResult_;
-    }
-
     bool hasFatalError() {
         return hasFatalError_;
     }
@@ -222,7 +231,7 @@ nothrow:
     void opCall(None data) {
     }
 
-    void opCall(Initialize data) {
+    void opCall(ref Initialize data) {
         swCompile = StopWatch(AutoStart.yes);
 
         InjectIdBuilder builder;
@@ -235,27 +244,71 @@ nothrow:
         debug logger.trace(builder).collectException;
 
         local.get!NextMutant.mutants = builder.finalize;
+
+        schemata = spinSql!(() => db.getSchemata(schemataId)).get;
+
+        try {
+            modifiedFiles = schemata.fragments.map!(a => fio.toAbsoluteRoot(a.file))
+                .toSet.toRange.array;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            hasFatalError_ = true;
+            data.error = true;
+        }
+    }
+
+    void opCall(ref InitializeRoots data) {
+        auto allRoots = () {
+            AbsolutePath[] tmp;
+            try {
+                tmp = spinSql!(() => db.getRootFiles).map!(a => db.getFile(a).get)
+                    .map!(a => fio.toAbsoluteRoot(a))
+                    .array;
+                if (tmp.empty) {
+                    // no root found. Inject the runtime in all files and "hope for
+                    // the best". it will be less efficient but the weak symbol
+                    // should still mean that it link correctly.
+                    tmp = modifiedFiles;
+                }
+            } catch (Exception e) {
+                logger.error(e.msg).collectException;
+            }
+            return tmp;
+        }();
+
+        auto mods = modifiedFiles.toSet;
+        foreach (r; allRoots) {
+            if (r !in mods) {
+                modifiedFiles ~= r;
+            }
+            roots.add(r);
+        }
+
+        data.hasRoot = !roots.empty;
+
+        if (roots.empty) {
+            logger.warning("No root file found to inject the schemata runtime in").collectException;
+        }
     }
 
     void opCall(Done data) {
         isRunning_ = false;
-        isSuccessResult_ = isSuccessResult_ && !hasFatalError_;
     }
 
     void opCall(ref InjectSchema data) {
         import std.path : extension, stripExtension;
         import dextool.plugin.mutate.backend.database.type : SchemataFragment;
 
-        auto schemata = spinSql!(() => db.getSchemata(schemataId)).get;
+        scope (exit)
+            schemata = Schemata.init; // release the memory back to the GC
 
-        Blob makeSchemata(Blob original, SchemataFragment[] fragments) {
-            import blob_model;
-
-            Edit[] edits;
+        Blob makeSchemata(Blob original, SchemataFragment[] fragments, Edit extra) {
+            auto edits = appender!(Edit[])();
+            edits.put(extra);
             foreach (a; fragments) {
                 edits ~= new Edit(Interval(a.offset.begin, a.offset.end), a.text);
             }
-            auto m = merge(original, edits);
+            auto m = merge(original, edits.data);
             return change(new Blob(original.uri, original.content), m.edits);
         }
 
@@ -265,21 +318,28 @@ nothrow:
 
         try {
             logger.info("Injecting the schemata in:");
-            auto files = schemata.fragments.map!(a => a.file).toSet;
-            foreach (f; files.toRange) {
-                const absf = fio.toAbsoluteRoot(f);
-                logger.info(absf);
+            foreach (f; modifiedFiles) {
+                auto extra = () {
+                    if (f in roots) {
+                        logger.info("Injecting schemata runtime in ", f);
+                        return makeRootImpl;
+                    }
+                    return makeHdr;
+                }();
 
-                original ~= Original(absf, fio.makeInput(absf));
+                logger.info(f);
 
                 // writing the schemata.
-                auto s = makeSchemata(original[$ - 1].original, fragments(f));
-                fio.makeOutput(absf).write(s);
+                auto s = makeSchemata(fio.makeInput(f), fragments(fio.toRelativeRoot(f)), extra);
+                fio.makeOutput(f).write(s);
 
                 if (log) {
-                    const ext = absf.toString.extension;
-                    fio.makeOutput(AbsolutePath(format!"%s.%s.schema%s"(absf.toString.stripExtension,
-                            schemata.id, ext).Path)).write(s);
+                    const ext = f.toString.extension;
+                    fio.makeOutput(AbsolutePath(format!"%s.%s.schema%s"(f.toString.stripExtension,
+                            schemataId.get, ext).Path)).write(s);
+
+                    fio.makeOutput(AbsolutePath(format!"%s.%s.kinds.txt"(f,
+                            schemataId.get).Path)).write(format("%s", kinds));
                 }
             }
         } catch (Exception e) {
@@ -293,19 +353,6 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.common : compile;
 
         logger.infof("Compile schema %s", schemataId.get).collectException;
-
-        if (log && !original.empty) {
-            auto p = original[$ - 1].path;
-            try {
-                fio.makeOutput(AbsolutePath(format!"%s.%s.kinds.schema"(p,
-                        schemataId).Path)).write(format("%s", kinds));
-            } catch (Exception e) {
-                logger.warning(e.msg).collectException;
-            }
-        }
-
-        scope (exit)
-            isSuccessResult_ = data.error;
 
         compile(buildCmd, buildCmdTimeout, log).match!((Mutation.Status a) {
             data.error = true;
@@ -372,8 +419,7 @@ nothrow:
 
         try {
             const file = fio.toAbsoluteRoot(entry.file);
-            auto original = fio.makeInput(file);
-            auto txt = makeMutationText(original, entry.mp.offset,
+            auto txt = makeMutationText(fio.makeInput(file), entry.mp.offset,
                     entry.mp.mutations[0].kind, entry.lang);
             debug logger.trace(entry);
             logger.infof("%s from '%s' to '%s' in %s:%s:%s", data.inject.injectId,
@@ -430,14 +476,12 @@ nothrow:
     }
 
     void opCall(Restore data) {
-        foreach (o; original) {
-            try {
-                fio.makeOutput(o.path).write(o.original.content);
-            } catch (Exception e) {
-                logger.error(e.msg).collectException;
-                data.error = true;
-                hasFatalError_ = true;
-            }
+        try {
+            restoreFiles(modifiedFiles, fio);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            data.error = true;
+            hasFatalError_ = true;
         }
     }
 }
@@ -453,8 +497,6 @@ nothrow:
  * schemas are generated and how the database is setup.
  */
 struct InjectIdBuilder {
-    import my.set;
-
     private {
         alias InjectId = InjectIdResult.InjectId;
 
@@ -514,4 +556,16 @@ unittest {
     assert(r.front.statusId == MutationStatusId(2));
     r.popFront;
     assert(r.empty);
+}
+
+Edit makeRootImpl() {
+    import dextool.plugin.mutate.backend.resource : schemataImpl;
+
+    return new Edit(Interval(0, 0), cast(const(ubyte)[]) schemataImpl);
+}
+
+Edit makeHdr() {
+    import dextool.plugin.mutate.backend.resource : schemataHeader;
+
+    return new Edit(Interval(0, 0), cast(const(ubyte)[]) schemataHeader);
 }
