@@ -253,6 +253,9 @@ struct FilesTbl {
 
     @ColumnName("timestamp")
     SysTime timeStamp;
+
+    /// True if the file is a root.
+    bool root;
 }
 
 @TableName(testFilesTable)
@@ -1353,6 +1356,22 @@ void upgradeV30(ref Miniorm db) {
     import std.datetime : Clock;
     import miniorm : toSqliteDateTime;
 
+    @TableName(filesTable)
+    @TableConstraint("unique_ UNIQUE (path)")
+    struct FilesTbl {
+        long id;
+
+        string path;
+
+        /// checksum is 128bit.
+        long checksum0;
+        long checksum1;
+        Language lang;
+
+        @ColumnName("timestamp")
+        SysTime timeStamp;
+    }
+
     immutable newFilesTbl = "new_" ~ filesTable;
     db.run(buildSchema!FilesTbl("new_"));
     auto stmt = db.prepare(format("INSERT OR IGNORE INTO %s (id,path,checksum0,checksum1,lang,timestamp)
@@ -1366,6 +1385,16 @@ void upgradeV30(ref Miniorm db) {
 /// 2020-12-29
 void upgradeV31(ref Miniorm db) {
     db.run(buildSchema!(CoverageCodeRegionTable, CoverageInfoTable, CoverageTimeTtampTable));
+}
+
+/// 2021-01-02
+void upgradeV32(ref Miniorm db) {
+    immutable newFilesTbl = "new_" ~ filesTable;
+    db.run(buildSchema!FilesTbl("new_"));
+    db.run(format("INSERT OR IGNORE INTO %s (id,path,checksum0,checksum1,lang,timestamp,root)
+                  SELECT id,path,checksum0,checksum1,lang,timestamp,0 FROM %s",
+            newFilesTbl, filesTable));
+    db.replaceTbl(newFilesTbl, filesTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
