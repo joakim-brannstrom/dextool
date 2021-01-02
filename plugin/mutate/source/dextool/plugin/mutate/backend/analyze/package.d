@@ -298,7 +298,9 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
             }
         }
 
-        void save(immutable Analyze.Result result) {
+        void save(immutable Analyze.Result result_) {
+            auto result = cast() result_;
+
             // mark files that have an unchanged checksum as "already saved"
             foreach (f; result.idFile
                     .byKey
@@ -324,7 +326,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     const relp = fio.toRelativeRoot(f);
                     db.removeFile(relp);
                     const info = result.infoId[result.idFile[f]];
-                    db.put(relp, info.checksum, info.language);
+                    db.put(relp, info.checksum, info.language, f in result.isRoot);
                     savedFiles.add(f);
                 }
                 db.put(app.data, fio.getOutputDir);
@@ -629,6 +631,8 @@ struct Analyze {
             return;
         }
 
+        result.isRoot.add(checked_in_file);
+
         auto ast = toMutateAst(tu.cursor, fio);
         debug logger.trace(ast);
 
@@ -721,6 +725,8 @@ struct Analyze {
             Checksum checksum;
             Language language;
         }
+
+        Set!AbsolutePath isRoot;
 
         /// The key is the ID from idFile.
         FileInfo[LocalFileId] infoId;

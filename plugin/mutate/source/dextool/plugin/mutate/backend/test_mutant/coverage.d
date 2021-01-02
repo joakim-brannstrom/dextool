@@ -13,6 +13,7 @@ import std.exception : collectException;
 import std.stdio : File;
 import std.typecons : tuple, Tuple;
 
+import blob_model;
 import miniorm;
 import my.fsm : next, act;
 import my.optional;
@@ -22,7 +23,7 @@ import sumtype;
 
 static import my.fsm;
 
-import dextool.plugin.mutate.backend.database : CovRegion, CoverageRegionId;
+import dextool.plugin.mutate.backend.database : CovRegion, CoverageRegionId, FileId;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
@@ -32,12 +33,14 @@ import dextool.plugin.mutate.type : ShellCommand;
 @safe:
 
 struct CoverageDriver {
-    import blob_model;
-
     static struct None {
     }
 
     static struct Initialize {
+    }
+
+    static struct InitializeRoots {
+        bool hasRoot;
     }
 
     static struct SaveOriginal {
@@ -67,8 +70,8 @@ struct CoverageDriver {
     static struct Done {
     }
 
-    alias Fsm = my.fsm.Fsm!(None, Initialize, SaveOriginal, Instrument,
-            Compile, Run, SaveToDb, Restore, Done);
+    alias Fsm = my.fsm.Fsm!(None, Initialize, InitializeRoots, SaveOriginal,
+            Instrument, Compile, Run, SaveToDb, Restore, Done);
 
     private {
         Fsm fsm;
@@ -99,6 +102,9 @@ struct CoverageDriver {
         // a map of incrementing numbers from 0 which map to the global, unique
         // ID of the region.
         CoverageRegionId[long] localId;
+
+        // the files to inject the code that setup the coverage map.
+        Set!AbsolutePath roots;
     }
 
     this(FilesysIO fio, Database* db, TestRunner* runner, ShellCommand buildCmd,
@@ -114,8 +120,11 @@ struct CoverageDriver {
 
     static void execute_(ref CoverageDriver self) @trusted {
         self.fsm.next!((None a) => Initialize.init,
-                (Initialize a) => SaveOriginal.init, (SaveOriginal a) => Instrument.init,
-                (Instrument a) => Compile.init, (Compile a) {
+                (Initialize a) => InitializeRoots.init, (InitializeRoots a) {
+            if (a.hasRoot)
+                return fsm(SaveOriginal.init);
+            return fsm(Done.init);
+        }, (SaveOriginal a) => Instrument.init, (Instrument a) => Compile.init, (Compile a) {
             if (a.error)
                 return fsm(Restore.init);
             return fsm(Run.init);
@@ -169,6 +178,42 @@ nothrow:
         logger.tracef("%s files to instrument", regions.length).collectException;
     }
 
+    void opCall(ref InitializeRoots data) {
+        auto rootIds = () {
+            auto tmp = spinSql!(() => db.getRootFiles);
+            if (tmp.empty) {
+                // no root found, inject instead in all instrumented files and
+                // "hope for the best".
+                tmp = spinSql!(() => db.getCoverageMap).byKey.array;
+            }
+            return tmp;
+        }();
+
+        foreach (id; rootIds) {
+            try {
+                auto p = fio.toAbsoluteRoot(spinSql!(() => db.getFile(id)).get);
+                if (p !in regions) {
+                    // add a dummy such that the instrumentation state do not need
+                    // a special case for if no root is being instrumented.
+                    regions[p] = (CovRegion[]).init;
+                    lang[p] = spinSql!(() => db.getFileIdLanguage(id)).orElse(Language.init);
+                }
+                roots.add(p);
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+            }
+        }
+
+        data.hasRoot = !roots.empty;
+
+        if (regions.empty) {
+            logger.info("No files to gather coverage data from").collectException;
+        } else if (roots.empty) {
+            logger.warning("No root file for coverage instrumentation found").collectException;
+            logger.info("A root file is one in e.g. compile_commands.json").collectException;
+        }
+    }
+
     void opCall(SaveOriginal data) {
         try {
             foreach (a; regions.byKey) {
@@ -183,11 +228,10 @@ nothrow:
 
     void opCall(Instrument data) {
         import std.path : extension, stripExtension;
-        import dextool.plugin.mutate.backend.resource : coverageMmapHdr;
 
-        Blob makeInstrumentation(Blob original, CovRegion[] regions, Language lang) {
+        Blob makeInstrumentation(Blob original, CovRegion[] regions, Language lang, Edit[] extra) {
             auto edits = appender!(Edit[])();
-            edits.put(new Edit(Interval(0, 0), cast(const(ubyte)[]) coverageMmapHdr));
+            edits.put(extra);
             foreach (a; regions) {
                 long id = cast(long) localId.length;
                 localId[id] = a.id;
@@ -201,9 +245,20 @@ nothrow:
         try {
             // sort by filename to enforce that the IDs are stable.
             foreach (a; regions.byKeyValue.array.sort!((a, b) => a.key < b.key)) {
+                auto extra = () {
+                    if (a.key in roots) {
+                        logger.info("Injecting coverage runtime in ", a.key);
+                        return makeRootImpl;
+                    }
+                    return makeHdr;
+                }();
+
                 logger.infof("Coverage instrumenting %s regions in %s", a.value.length, a.key);
-                auto instr = makeInstrumentation(original[a.key], a.value, lang[a.key]);
+                auto instr = makeInstrumentation(original[a.key], a.value, lang[a.key], [
+                        extra
+                        ]);
                 fio.makeOutput(a.key).write(instr);
+
                 if (log) {
                     const ext = a.key.toString.extension;
                     const l = AbsolutePath(a.key.toString.stripExtension ~ ".cov" ~ ext);
@@ -304,6 +359,8 @@ nothrow:
 
 private:
 
+import dextool.plugin.mutate.backend.resource : coverageMapHdr, coverageMapImpl;
+
 immutable dextoolCovMapKey = "DEXTOOL_COVMAP";
 
 struct CovEntry {
@@ -318,10 +375,18 @@ const(ubyte)[] makeInstrCode(long id, Language l) {
     case Language.assumeCpp:
         goto case;
     case Language.cpp:
-        return cast(const(ubyte)[]) format!"::dextool_cov(%s);"(id + 1);
+        return cast(const(ubyte)[]) format!"::dextool_cov__(%s);"(id + 1);
     case Language.c:
-        return cast(const(ubyte)[]) format!"dextool_cov(%s);"(id + 1);
+        return cast(const(ubyte)[]) format!"dextool_cov__(%s);"(id + 1);
     }
+}
+
+Edit makeRootImpl() {
+    return new Edit(Interval(0, 0), cast(const(ubyte)[]) coverageMapImpl);
+}
+
+Edit makeHdr() {
+    return new Edit(Interval(0, 0), cast(const(ubyte)[]) coverageMapHdr);
 }
 
 void createCovMap(const AbsolutePath fname, const long localIdSz) {

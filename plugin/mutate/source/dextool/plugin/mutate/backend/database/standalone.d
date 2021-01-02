@@ -171,27 +171,27 @@ struct Database {
 
     /// Returns: the path ID for the mutant.
     Nullable!FileId getFileId(const MutationId id) @trusted {
-        enum sql = format("SELECT t1.file_id
+        immutable sql = format("SELECT t1.file_id
             FROM %s t0, %s t1
             WHERE t0.id = :id AND t0.mp_id = t1.id",
-                    mutationTable, mutationPointTable);
+                mutationTable, mutationPointTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
 
         typeof(return) rval;
-        foreach (r; stmt.get.execute)
+        foreach (ref r; stmt.get.execute)
             rval = FileId(r.peek!long(0));
         return rval;
     }
 
     /// Returns: the file path that the id correspond to.
     Nullable!Path getFile(const FileId id) @trusted {
-        enum sql = format("SELECT path FROM %s WHERE id = :id", filesTable);
+        immutable sql = format("SELECT path FROM %s WHERE id = :id", filesTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
 
         typeof(return) rval;
-        foreach (r; stmt.get.execute)
+        foreach (ref r; stmt.get.execute)
             rval = Path(r.peek!string(0));
         return rval;
     }
@@ -201,9 +201,21 @@ struct Database {
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
 
-        foreach (r; stmt.get.execute)
+        foreach (ref r; stmt.get.execute)
             return some(r.peek!ubyte(0).to!Language);
         return none!Language;
+    }
+
+    /// Returns: a random file that is tagged as a root.
+    FileId[] getRootFiles() @trusted {
+        immutable sql = format!"SELECT id FROM %s WHERE root=1"(filesTable);
+
+        auto app = appender!(FileId[])();
+        auto stmt = db.prepare(sql);
+        foreach (ref r; stmt.get.execute) {
+            app.put(r.peek!long(0).FileId);
+        }
+        return app.data;
     }
 
     /// Remove the file with all mutations that are coupled to it.
@@ -254,9 +266,9 @@ struct Database {
         return none!SysTime;
     }
 
-    void put(const Path p, Checksum cs, const Language lang) @trusted {
-        immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang, timestamp)
-            VALUES (:path, :checksum0, :checksum1, :lang, :time)"(
+    void put(const Path p, Checksum cs, const Language lang, bool isRoot) @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang, timestamp, root)
+            VALUES (:path, :checksum0, :checksum1, :lang, :time, :root)"(
                 filesTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", p.toString);
@@ -264,6 +276,7 @@ struct Database {
         stmt.get.bind(":checksum1", cast(long) cs.c1);
         stmt.get.bind(":lang", cast(long) lang);
         stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
+        stmt.get.bind(":root", isRoot);
         stmt.get.execute;
     }
 
@@ -1905,7 +1918,7 @@ struct Database {
         foreach (f; fragments.enumerate) {
             const fileId = getFileId(f.value.file);
             if (fileId.isNull) {
-                logger.warning("Unable to add schemata fragment for file %s because it doesn't exist",
+                logger.warningf("Unable to add schemata fragment for file %s because it doesn't exist",
                         f.value.file);
                 continue;
             }
@@ -2125,6 +2138,14 @@ struct Database {
         }
 
         return rval;
+    }
+
+    long getCoverageMapCount() @trusted {
+        immutable sql = format!"SELECT count(*) FROM %s"(srcCovTable);
+        auto stmt = db.prepare(sql);
+        foreach (ref r; stmt.get.execute)
+            return r.peek!long(0);
+        return 0;
     }
 
     void clearCoverageMap(const FileId id) @trusted {
