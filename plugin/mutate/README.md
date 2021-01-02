@@ -21,6 +21,8 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
    testing on a project.
  * See [fmt tutorial](README_tutorial_fmt.md) for a practical example of
    running mutation testing.
+ * See [roadmap](README_roadmap.md) for where dextool mutate is headed in the
+   future.
 
 Note: the build instructions is in the root `README.md` of this repo.
 
