@@ -1004,6 +1004,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     private void visitFunc(T)(ref const T v) @trusted {
         if (isConstExpr(v.cursor)) {
+            // TODO: maybe allow mutations but blacklist instead?
             return;
         }
 
@@ -1289,7 +1290,7 @@ enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind
 enum floatCategory = AliasSeq!(CXTypeKind.float_, CXTypeKind.double_,
             CXTypeKind.longDouble, CXTypeKind.float128, CXTypeKind.half, CXTypeKind.float16,);
 enum pointerCategory = AliasSeq!(CXTypeKind.nullPtr, CXTypeKind.pointer,
-            CXTypeKind.blockPointer, CXTypeKind.memberPointer);
+            CXTypeKind.blockPointer, CXTypeKind.memberPointer, CXTypeKind.record);
 enum boolCategory = AliasSeq!(CXTypeKind.bool_);
 
 struct DeriveTypeResult {
