@@ -10,6 +10,42 @@ enum Enum1 { gEnum1, gEnum2 };
 
 enum class Enum2 { lEnum1, lEnum2, lEnum3 };
 
+class OpOverload {
+public:
+    OpOverload() = default;
+
+    // AOR
+    OpOverload operator+(const OpOverload&) { return *this; }
+    OpOverload operator-(const OpOverload&) { return *this; }
+    OpOverload operator*(const OpOverload&) { return *this; }
+    OpOverload operator/(const OpOverload&) { return *this; }
+    OpOverload operator%(const OpOverload&) { return *this; }
+
+    OpOverload operator=(const OpOverload& o) { return *this; }
+};
+
+void arith_op_on_object() {
+    OpOverload a, b, res;
+    res = a + b;
+    res = a - b;
+    res = a * b;
+    res = a / b;
+    res = a % b;
+}
+
+class OpPartialOverload {
+public:
+    OpPartialOverload() = default;
+
+    // AOR
+    OpPartialOverload operator+(const OpPartialOverload&) { return *this; }
+};
+
+void arith_op_on_partial_object() {
+    OpPartialOverload a, b, res;
+    res = a + b;
+}
+
 Enum2 test_enum_value(Enum2 x) {
     if (x == Enum2::lEnum1)
         return Enum2::lEnum2;

@@ -34,6 +34,8 @@ class ShallRunAorSchema : SchemataFixutre {
                 `from '+' to '-'`,
                 `alive`,
                 ]).shouldBeIn(r.output);
+
+        testAnyOrder!SubStr(["failed to compile"]).shouldNotBeIn(r.output);
         // dfmt on
     }
 }
