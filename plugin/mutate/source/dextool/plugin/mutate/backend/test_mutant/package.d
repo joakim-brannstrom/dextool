@@ -1124,7 +1124,7 @@ nothrow:
             if (mutants >= threshold) {
                 data.hasSchema.get = true;
                 data.schemataId = id;
-                logger.infof("Use schema %s (%s/%s)", id.get, schematas.length + 1,
+                logger.infof("Use schema %s (%s/%s)", id.get, local.get!NextSchemata.totalSchematas - schematas.length,
                         local.get!NextSchemata.totalSchematas).collectException;
             }
         }
@@ -1266,7 +1266,7 @@ nothrow:
             }
 
             trans.commit;
-            logger.infof("Marked %s mutants as alive because they where not covered by tests",
+            logger.infof("Marked %s mutants as alive because they where not covered by any test",
                     noCov.length);
         }
 

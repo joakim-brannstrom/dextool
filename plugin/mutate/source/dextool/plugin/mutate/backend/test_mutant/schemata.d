@@ -317,7 +317,6 @@ nothrow:
         }
 
         try {
-            logger.info("Injecting the schemata in:");
             foreach (f; modifiedFiles) {
                 auto extra = () {
                     if (f in roots) {
@@ -327,7 +326,7 @@ nothrow:
                     return makeHdr;
                 }();
 
-                logger.info(f);
+                logger.info("Injecting schema in ", f);
 
                 // writing the schemata.
                 auto s = makeSchemata(fio.makeInput(f), fragments(fio.toRelativeRoot(f)), extra);
