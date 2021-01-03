@@ -27,6 +27,10 @@ struct Vector(T) {
         data ~= a;
     }
 
+    void put(T[] a) {
+        data ~= a;
+    }
+
     void popBack() {
         data = data[0 .. $ - 1];
     }
