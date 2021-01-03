@@ -131,18 +131,34 @@ struct Index(KeyT) {
         }
     }
 
+    private static bool test(Interval i, uint p) {
+        return p >= i.begin && p <= i.end;
+    }
+
     /** Check if `i` is inside any of the intervals for `key`.
      *
-     * Returns: true if `i` is inside a macro interval.
+     * Returns: true if `i` is inside any interval.
      */
     bool inside(const KeyT key, const Interval i) {
-        static bool test(Interval i, uint p) {
-            return p >= i.begin && p <= i.end;
-        }
-
         if (auto intervals = key in index) {
             foreach (a; *intervals) {
                 if (test(a, i.begin) || test(a, i.end)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /** Check if `i` overlap any intervals for `key`.
+     *
+     * Returns: true if `i` overlap.
+     */
+    bool overlap(const KeyT key, const Interval i) {
+        if (auto intervals = key in index) {
+            foreach (a; *intervals) {
+                if (test(a, i.begin) || test(a, i.end) || test(i, a.begin) || test(i, a.end)) {
                     return true;
                 }
             }

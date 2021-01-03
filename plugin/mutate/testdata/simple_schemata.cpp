@@ -78,6 +78,7 @@ int test_assign_op(int x) {
 int test_const(int x, const int y) {
     int w = 42;
     const int a = 84 + 4;
+    return w + a;
 }
 
 int test_sdl1(int x) {

@@ -188,16 +188,21 @@ struct SchematasRange {
         foreach (group; raw.byKeyValue) {
             auto file = fio.toRelativeRoot(group.key);
             foreach (a; group.value.byValue) {
-                builder.make(a.fragments, file).match!((Some!ET a) => values_.put(a.value), (None a) {
-                });
+                builder.pass1(a.fragments, file).match!((Some!ET a) => values_.put(a.value),
+                        (None a) {});
                 auto spillOver = builder.spillOver;
                 while (!spillOver.empty) {
-                    builder.make(spillOver, file)
+                    builder.pass1(spillOver, file)
                         .match!((Some!ET a) => values_.put(a.value), (None a) {});
                     spillOver = builder.spillOver;
                 }
             }
         }
+
+        while (!builder.pass2Data.empty) {
+            builder.pass2.match!((Some!ET a) => values_.put(a.value), (None a) {});
+        }
+
         this.values = values_.data;
     }
 
@@ -906,43 +911,108 @@ auto contentOrNull(uint begin, uint end, const(ubyte)[] content) {
     return content[begin .. end];
 }
 
-// Build schematan from the individual fragments for a individual file.
+/** Build schematan from the individual fragments for a individual file.
+ * TODO: optimize the implementation. A lot of redundant memory allocations
+ * etc.
+ *
+ * Conservative to only allow up to <user defined> mutants per schemata but it
+ * reduces the chance that one failing schemata is "fatal", loosing too many
+ * muntats.
+ */
 struct SchemataBuilder {
+    import my.container.vector;
+
+    alias Fragment = Tuple!(SchemataFragment, "fragment", CodeMutant[], "mutants");
+
     alias ET = SchematasRange.ET;
-    long mutantsPerSchema;
+    const long mutantsPerSchema;
+
     SchemataResult.Fragment[] spillOver;
 
-    Optional!ET make(SchemataResult.Fragment[] fragments, Path file) {
+    // schemas that in pass1 is less than the threshold
+    Vector!Fragment pass2Data;
+
+    /** Merge analyze fragments into larger schemata fragments. If a schemata
+     * fragment is large enough it is converted to a schemata. Otherwise kept
+     * for pass2.
+     *
+     * Schematan from this pass only contain one kind and only affect one file.
+     */
+    Optional!ET pass1(SchemataResult.Fragment[] fragments, Path file) {
         // overlapping mutants is not supported "yet" thus make sure no
         // fragment overlap with another fragment.
-        Index!int index;
-        auto spillOver = appender!(SchemataResult.Fragment[])();
+        Index!byte index;
 
-        auto app = appender!(SchemataFragment[])();
+        auto spillOver = appender!(SchemataResult.Fragment[])();
+        scope (exit)
+            this.spillOver = spillOver.data;
+
+        auto app = appender!(Fragment[])();
 
         Set!CodeMutant mutants;
         foreach (a; fragments) {
-            // conservative to only allow up to <user defined> mutants per
-            // schemata but it reduces the chance that one failing schemata
-            // is "fatal", loosing too many muntats.
-            if (index.inside(0, a.offset) || mutants.length >= mutantsPerSchema) {
+            if (mutants.length >= mutantsPerSchema || index.inside(0, a.offset)) {
                 spillOver.put(a);
                 continue;
             }
 
-            // if any of the mutants in the schema has already been added
-            // then the new fragment is also overlapping
+            // if any of the mutants in the schema has already been added then
+            // the new fragment is also overlapping
             if (any!(a => a in mutants)(a.mutants)) {
                 spillOver.put(a);
                 continue;
             }
 
-            app.put(SchemataFragment(file, a.offset, a.text));
+            app.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
             mutants.add(a.mutants);
             index.put(0, a.offset);
         }
 
-        this.spillOver = spillOver.data;
+        if (mutants.length >= mutantsPerSchema) {
+            ET v;
+            v.fragments = app.data.map!(a => a.fragment).array;
+            v.mutants = mutants.toArray;
+            v.checksum = toSchemataChecksum(v.mutants);
+            return some(v);
+        } else if (!mutants.empty) {
+            pass2Data.put(app.data);
+        }
+
+        return none!ET;
+    }
+
+    /** Merge schemata fragments to schemas. A schemata from this pass may may
+     * contain multiple mutation kinds and span over multiple files.
+     */
+    Optional!ET pass2() {
+        import std.algorithm;
+
+        Index!byte index;
+
+        auto app = appender!(SchemataFragment[])();
+        Set!CodeMutant mutants;
+
+        typeof(pass2Data) rest;
+        scope (exit)
+            pass2Data = rest;
+
+        foreach (a; pass2Data) {
+            if (mutants.length >= mutantsPerSchema || index.overlap(0, a.fragment.offset)) {
+                rest.put(a);
+                continue;
+            }
+
+            // if any of the mutants in the schema has already been added then
+            // the new fragment is also overlapping
+            if (any!(a => a in mutants)(a.mutants)) {
+                rest.put(a);
+                continue;
+            }
+
+            app.put(a.fragment);
+            mutants.add(a.mutants);
+            index.put(0, a.fragment.offset);
+        }
 
         if (mutants.empty)
             return none!ET;

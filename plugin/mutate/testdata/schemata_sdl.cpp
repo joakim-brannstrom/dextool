@@ -100,6 +100,7 @@ int a_binary_unary_inside_if(int x) {
     if (x == 4) {
         y += 5;
     }
+    return y;
 }
 
 int main(int argc, char** argv) { return 0; }
