@@ -764,13 +764,25 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const ForStmt v) {
         mixin(mixinNodeLog!());
         pushStack(new analyze.Loop, v);
-        v.accept(this);
+
+        auto visitor = new FindVisitor!CompoundStmt;
+        v.accept(visitor);
+
+        if (visitor.node !is null) {
+            this.visit(visitor.node);
+        }
     }
 
     override void visit(const CxxForRangeStmt v) {
         mixin(mixinNodeLog!());
         pushStack(new analyze.Loop, v);
-        v.accept(this);
+
+        auto visitor = new FindVisitor!CompoundStmt;
+        v.accept(visitor);
+
+        if (visitor.node !is null) {
+            this.visit(visitor.node);
+        }
     }
 
     override void visit(const WhileStmt v) {
@@ -1042,6 +1054,19 @@ final class EnumVisitor : ExtendedVisitor {
         }();
 
         return new analyze.DiscreteType(analyze.Range(l, u));
+    }
+}
+
+final class FindVisitor(T) : ExtendedVisitor {
+    import clang.c.Index : CXCursorKind, CXTypeKind;
+    import cpptooling.analyzer.clang.ast;
+
+    alias visit = ExtendedVisitor.visit;
+
+    T node;
+
+    override void visit(const T v) @trusted {
+        node = cast() v;
     }
 }
 
