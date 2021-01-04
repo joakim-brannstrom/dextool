@@ -809,9 +809,9 @@ class SdlBlockVisitor : DepthFirstVisitor {
     override void visit(Return n) {
         hasReturn = true;
 
-        // a return expression that is NOT void always have a child which is
-        // the value returned.
-        if (n.children.empty) {
+        auto ty = ast.type(n);
+
+        if (ty !is null && ty.kind == TypeKind.top) {
             accept(n, this);
         } else {
             canRemove = false;
