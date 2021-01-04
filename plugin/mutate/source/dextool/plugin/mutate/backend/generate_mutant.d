@@ -374,7 +374,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         break;
     case dccBomb:
         // assigning null should crash the program, thus a 'bomb'
-        m.mutate = (const(ubyte)[] expr) { return toB(`*((char*)0)='x';break;`); };
+        m.mutate = (const(ubyte)[] expr) { return toB(`*((char*)0)='x';`); };
         break;
     case dcrCaseDel:
         m.mutate = (const(ubyte)[] expr) { return toB(""); };

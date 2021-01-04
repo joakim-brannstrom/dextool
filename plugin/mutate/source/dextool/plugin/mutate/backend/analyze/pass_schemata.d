@@ -166,7 +166,6 @@ enum MutantGroup {
     ror,
     lcr,
     lcrb,
-    dcc,
     dcr,
     uoi,
     sdl,
@@ -252,7 +251,6 @@ class CodeMutantIndex {
 class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
     import dextool.plugin.mutate.backend.mutation_type.aor : aorMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.dcc : dccMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
@@ -296,14 +294,12 @@ class CppSchemataVisitor : DepthFirstVisitor {
     override void visit(Branch n) @trusted {
         if (n.inside !is null) {
             visitBlock!BlockChain(n.inside, MutantGroup.dcr, dcrMutationsAll);
-            visitBlock!BlockChain(n.inside, MutantGroup.dcc, dccMutationsAll);
         }
         accept(n, this);
     }
 
     override void visit(Condition n) {
         visitCondition(n, MutantGroup.dcr, dcrMutationsAll);
-        visitCondition(n, MutantGroup.dcc, dccMutationsAll);
         accept(n, this);
     }
 
@@ -518,7 +514,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
 class BinaryOpVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
     import dextool.plugin.mutate.backend.mutation_type.aor : aorMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.dcc : dccMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
@@ -577,7 +572,6 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
     override void visit(OpAnd n) {
         visitBinaryOp(n, MutantGroup.lcr, lcrMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
@@ -589,49 +583,42 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
     override void visit(OpOr n) {
         visitBinaryOp(n, MutantGroup.lcr, lcrMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpLess n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpLessEq n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpGreater n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpGreaterEq n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpEqual n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpNotEqual n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }

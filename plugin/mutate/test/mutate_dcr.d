@@ -2,10 +2,8 @@
 Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
-
-#TST-mutation_dcc
 */
-module dextool_test.mutate_dcc;
+module dextool_test.mutate_dcr;
 
 import std.algorithm : joiner, count;
 
@@ -18,11 +16,11 @@ import dextool_test.utility;
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "dcc_dc_ifstmt1.cpp")
+        .addInputArg(testData ~ "dcr_dc_ifstmt1.cpp")
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
-        .addArg(["--mutant", "dcc"])
+        .addArg(["--mutant", "dcr"])
         .run;
     testAnyOrder!SubStr([
         "from 'x' to 'true'",
@@ -50,11 +48,11 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "dcc_dc_ifstmt2.cpp")
+        .addInputArg(testData ~ "dcr_dc_ifstmt2.cpp")
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
-        .addArg(["--mutant", "dcc"])
+        .addArg(["--mutant", "dcr"])
         .run;
     testAnyOrder!SubStr([
         "from 'x' to 'true'",
@@ -66,7 +64,7 @@ unittest {
 
 @(testId ~ "shall produce 2 predicate mutations for an expression of multiple clauses")
 unittest {
-foreach (getValue; ["dcc_dc_ifstmt3.cpp", "dcc_dc_stmt3.cpp"]) {
+foreach (getValue; ["dcr_dc_ifstmt3.cpp", "dcr_dc_stmt3.cpp"]) {
     mixin(envSetup(globalTestdir, No.setupEnv));
     testEnv.outputSuffix(getValue);
     testEnv.setupEnv;
@@ -76,7 +74,7 @@ foreach (getValue; ["dcc_dc_ifstmt3.cpp", "dcc_dc_stmt3.cpp"]) {
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
-        .addArg(["--mutant", "dcc"])
+        .addArg(["--mutant", "dcr"])
         .run;
     testAnyOrder!SubStr([
         "from 'x == 0 || y == 0' to 'true'",
@@ -87,7 +85,7 @@ foreach (getValue; ["dcc_dc_ifstmt3.cpp", "dcc_dc_stmt3.cpp"]) {
 
 @(testId ~ "shall produce 6 clause mutations")
 unittest {
-foreach (getValue; ["dcc_cc_ifstmt1.cpp", "dcc_cc_stmt1.cpp"]) {
+foreach (getValue; ["dcr_cc_ifstmt1.cpp", "dcr_cc_stmt1.cpp"]) {
     mixin(envSetup(globalTestdir, No.setupEnv));
     testEnv.outputSuffix(getValue);
     testEnv.setupEnv;
@@ -97,7 +95,7 @@ foreach (getValue; ["dcc_cc_ifstmt1.cpp", "dcc_cc_stmt1.cpp"]) {
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
-        .addArg(["--mutant", "dcc"])
+        .addArg(["--mutant", "dcr"])
         .run;
     testAnyOrder!SubStr([
         "from 'x == 0' to 'true'",
@@ -120,29 +118,11 @@ foreach (getValue; ["dcc_cc_ifstmt1.cpp", "dcc_cc_stmt1.cpp"]) {
 }
 }
 
-@(testId ~ "shall produce 4 switch bomb mutations")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "dcc_dc_switch1.cpp")
-        .run;
-    auto r = makeDextool(testEnv)
-        .addArg(["test"])
-        .addArg(["--mutant", "dcc"])
-        .run;
-    testAnyOrder!SubStr([
-        "from 'return -1 ;' to '*((char*)0)='x';break;'",
-        "from 'return 1;' to '*((char*)0)='x';break;'",
-        "from 'break;' to '*((char*)0)='x';break;'",
-        "from '' to '*((char*)0)='x';break;'",
-    ]).shouldBeIn(r.output);
-}
-
 @(testId ~ "shall produce 3 switch deletion mutations (fallthrough ignored)")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "dcc_dc_switch1.cpp")
+        .addInputArg(testData ~ "dcr_dc_switch1.cpp")
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
@@ -155,11 +135,11 @@ unittest {
     ]).shouldBeIn(r.output);
 }
 
-@(testId ~ "shall produce 1 DCC mutant in C when the input is a C file")
+@(testId ~ "shall produce 1 DCR mutant in C when the input is a C file")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ "dcc_as_c_file.c")
+        .addInputArg(testData ~ "dcr_as_c_file.c")
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
@@ -190,9 +170,9 @@ unittest {
 
 // shall produce 6 predicate and 8 clause mutations for an expression of
 // multiple clauses of C code
-class ShallProduceAllDccMutantsWithSchemataForC : SchemataFixutre {
+class ShallProduceAllDcrMutantsWithSchemataForC : SchemataFixutre {
     override string programFile() {
-        return (testData ~ "dcc_dc_stmt4.c").toString;
+        return (testData ~ "dcr_dc_stmt4.c").toString;
     }
 
     override void test() {
@@ -229,9 +209,9 @@ class ShallProduceAllDccMutantsWithSchemataForC : SchemataFixutre {
             "from 'x == TRUE' to '0'",
             ];
 
-        testAnyOrder!SubStr(expected).shouldBeIn(runDextoolTest(testEnv).addPostArg(["--mutant", "dcc"]).run.output);
+        testAnyOrder!SubStr(expected).shouldBeIn(runDextoolTest(testEnv).addPostArg(["--mutant", "dcr"]).run.output);
         makeDextoolAdmin(testEnv).addArg(["--operation", "resetMutant", "--status", "alive"]).run;
-        testAnyOrder!SubStr(expected).shouldBeIn(makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "dcc"]).run.output);
+        testAnyOrder!SubStr(expected).shouldBeIn(makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "dcr"]).run.output);
     }
 }
 

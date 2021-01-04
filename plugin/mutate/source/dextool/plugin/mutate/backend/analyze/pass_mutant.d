@@ -320,7 +320,6 @@ private:
 
 class MutantVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.abs : absMutations;
-    import dextool.plugin.mutate.backend.mutation_type.dcc : dccMutations;
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutations;
     import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutations;
 
@@ -406,7 +405,6 @@ class MutantVisitor : DepthFirstVisitor {
         put(loc, absMutations(n.kind), n.blacklist);
 
         if (isParentBoolFunc && isParent(Kind.Return) && !isParent(Kind.Call)) {
-            put(loc, dccMutations(n.kind), n.blacklist);
             put(loc, dcrMutations(n.kind), n.blacklist);
         }
 
@@ -458,7 +456,6 @@ class MutantVisitor : DepthFirstVisitor {
         }
 
         if (isParentBoolFunc && isParent(Kind.Return)) {
-            put(loc, dccMutations(n.kind), n.blacklist);
             put(loc, dcrMutations(n.kind), n.blacklist);
         }
 
@@ -624,7 +621,7 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Condition n) {
-        auto kinds = dccMutations(n.kind);
+        auto kinds = dcrMutations(n.kind);
         kinds ~= dcrMutations(n.kind);
         put(ast.location(n), kinds, n.blacklist);
         accept(n, this);
@@ -638,8 +635,6 @@ class MutantVisitor : DepthFirstVisitor {
             // jump to the default branch. It becomes "more" predictable what
             // happens compared to "falling through to the next case".
             put(ast.location(n.inside), dcrMutations(n.kind), n.inside.blacklist);
-
-            put(ast.location(n.inside), dccMutations(n.kind), n.inside.blacklist);
         }
         accept(n, this);
     }
@@ -700,7 +695,6 @@ class MutantVisitor : DepthFirstVisitor {
         }
         {
             expr ~= dcrMutations(n.kind);
-            expr ~= dccMutations(n.kind);
         }
         if (isDirectParent(Kind.Block)) {
             expr ~= stmtDelMutations(n.kind);

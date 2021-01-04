@@ -2,6 +2,7 @@
 /// @date 2020
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
+#include <string>
 #include <vector>
 
 // a for each loop
@@ -102,5 +103,44 @@ int a_binary_unary_inside_if(int x) {
     }
     return y;
 }
+
+enum class MobType { Unknown, Rabbit, RabbitWere, Snake, OrcWeak, OrcStrong, Player };
+
+inline std::string to_string(MobType type) {
+    // using namespace std::string_literals;
+
+    switch (type) {
+    default:
+    case MobType::Unknown:
+        return std::string("MobType::Unknown");
+    }
+    // case MobType::Rabbit:
+    //     return "MobType::Rabbit"s;
+    // case MobType::RabbitWere:
+    //     return "MobType::RabbitWere"s;
+    // case MobType::Snake:
+    //     return "MobType::Snake"s;
+    // case MobType::OrcWeak:
+    //     return "MobType::OrcWeak"s;
+    // case MobType::OrcStrong:
+    //     return "MobType::OrcStrong"s;
+    // case MobType::Player:
+    //     return "MobType::Player"s;
+    // }
+}
+
+class MobInfo {};
+
+class Component {};
+
+class Mob : public Component {
+public:
+    Mob() = default;
+    Mob(const MobInfo* info) : info{info} {}
+    const MobInfo* info{&sMobInfo};
+
+private:
+    static MobInfo sMobInfo;
+};
 
 int main(int argc, char** argv) { return 0; }
