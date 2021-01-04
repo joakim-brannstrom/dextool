@@ -412,7 +412,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitCondition(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) @trusted {
-        if (n.schemaBlacklist)
+        if (n.blacklist || n.schemaBlacklist)
             return;
 
         // The schematas from the code below are only needed for e.g. function
@@ -442,7 +442,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBlock(ChainT, T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
-        if (n.schemaBlacklist)
+        if (n.blacklist || n.schemaBlacklist)
             return;
 
         auto loc = ast.location(n);
@@ -480,7 +480,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitUnaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
-        if (n.schemaBlacklist)
+        if (n.blacklist || n.schemaBlacklist)
             return;
 
         auto loc = ast.location(n.operator);
@@ -507,7 +507,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBinaryOp(T)(T n) @trusted {
-        if (n.schemaBlacklist)
+        if (n.blacklist || n.schemaBlacklist)
             return;
 
         try {
@@ -661,6 +661,9 @@ class BinaryOpVisitor : DepthFirstVisitor {
     }
 
     private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds_) {
+        if (n.blacklist || n.schemaBlacklist)
+            return;
+
         auto locExpr = ast.location(n);
         auto locOp = ast.location(n.operator);
 
@@ -777,7 +780,7 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
  * ternery operator that activate one mutant if necessary.
  *
  * A id can only be added once to the chain. This ensure that there are no
- * duplications. This can happen when e.g. adding rorFalse and dccFalse to an
+ * duplications. This can happen when e.g. adding rorFalse and dcrFalse to an
  * expression group. They both result in the same source code mutation thus
  * only one of them is actually needed. This deduplications this case.
  */
@@ -837,7 +840,7 @@ struct ExpressionChain {
  * the original.
  *
  * A id can only be added once to the chain. This ensure that there are no
- * duplications. This can happen when e.g. adding rorFalse and dccFalse to an
+ * duplications. This can happen when e.g. adding rorFalse and dcrFalse to an
  * expression group. They both result in the same source code mutation thus
  * only one of them is actually needed. This deduplications this case.
  */

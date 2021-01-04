@@ -366,13 +366,13 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     case corTrue:
         m.mutate = &clangTrue;
         break;
-    case dccTrue:
+    case dcrTrue:
         m.mutate = &clangTrue;
         break;
-    case dccFalse:
+    case dcrFalse:
         m.mutate = &clangFalse;
         break;
-    case dccBomb:
+    case dcrBomb:
         // assigning null should crash the program, thus a 'bomb'
         m.mutate = (const(ubyte)[] expr) { return toB(`*((char*)0)='x';`); };
         break;

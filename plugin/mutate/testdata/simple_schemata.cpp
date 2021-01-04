@@ -10,29 +10,6 @@ enum Enum1 { gEnum1, gEnum2 };
 
 enum class Enum2 { lEnum1, lEnum2, lEnum3 };
 
-class OpOverload {
-public:
-    OpOverload() = default;
-
-    // AOR
-    OpOverload operator+(const OpOverload&) { return *this; }
-    OpOverload operator-(const OpOverload&) { return *this; }
-    OpOverload operator*(const OpOverload&) { return *this; }
-    OpOverload operator/(const OpOverload&) { return *this; }
-    OpOverload operator%(const OpOverload&) { return *this; }
-
-    OpOverload operator=(const OpOverload& o) { return *this; }
-};
-
-void arith_op_on_object() {
-    OpOverload a, b, res;
-    res = a + b;
-    res = a - b;
-    res = a * b;
-    res = a / b;
-    res = a % b;
-}
-
 class OpPartialOverload {
 public:
     OpPartialOverload() = default;
@@ -70,7 +47,7 @@ int test_switch(int x) {
     case 1: {
         return 3;
     }
-    // fallthrough had a bug wherein dcc crashed
+    // fallthrough had a bug wherein dcr crashed
     case 2:
     case 3:
     default:

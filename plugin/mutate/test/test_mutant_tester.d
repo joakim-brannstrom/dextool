@@ -974,7 +974,7 @@ class ShallTestMutantsOnSpecifiedLines : SimpleFixture {
     }
 
     override string programFile() {
-        return (testData ~ "dcc_dc_switch1.cpp").toString;
+        return (testData ~ "dcr_dc_switch1.cpp").toString;
     }
 }
 
@@ -1004,13 +1004,13 @@ class ShallTestMutantsInDiff : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!Re([
-                `.*Found 1 mutant.*dcc_dc_switch1.cpp:11`,
+                `.*Found 1 mutant.*dcr_dc_switch1.cpp:11`,
                 ]).shouldBeIn(r.output);
         testAnyOrder!Re([`info:.*from 'return -1 ;' to ''`, `info:.*killed`,]).shouldBeIn(r.output);
     }
 
     override string programFile() {
-        return (testData ~ "dcc_dc_switch1.cpp").toString;
+        return (testData ~ "dcr_dc_switch1.cpp").toString;
     }
 }
 
@@ -1049,7 +1049,7 @@ class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
     }
 
     override string programFile() {
-        return (testData ~ "dcc_dc_switch1.cpp").toString;
+        return (testData ~ "dcr_dc_switch1.cpp").toString;
     }
 }
 
@@ -1080,12 +1080,12 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
 
         testConsecutiveSparseOrder!Re([
                 `.*Using random seed 42`,
-                `.*Test sequence \[13, 12, 18, 9, 1, 16, 10, 17, 8, 14, 15, 4, 5, 7, 11, 6, 2, 3\]`,
+                `.*Test sequence \[2, 3, 8, 1, 6, 4, 13, 12, 7, 11, 9, 5, 10\]`,
                 ]).shouldBeIn(r.output);
         // dfmt on
     }
 
     override string programFile() {
-        return (testData ~ "dcc_dc_switch1.cpp").toString;
+        return (testData ~ "dcr_dc_switch1.cpp").toString;
     }
 }

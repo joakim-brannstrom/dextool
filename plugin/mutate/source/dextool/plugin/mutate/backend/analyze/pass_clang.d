@@ -437,6 +437,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     private void pushStack(analyze.Node n, analyze.Location l, const CXCursorKind cKind) @trusted {
         n.blacklist = n.blacklist || blacklist.inside(l);
+        n.schemaBlacklist = n.schemaBlacklist || blacklist.blockSchema(l);
         nstack.put(n, indent);
         cstack.put(cKind, indent);
         ast.put(n, l);
@@ -881,9 +882,10 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
+        astOp.schemaBlacklist = op.isOverload;
         astOp.operator = op.operator;
         astOp.operator.blacklist = blacklist.inside(op.opLoc);
-        astOp.operator.schemaBlacklist = op.isOverload;
+        astOp.operator.schemaBlacklist = op.isOverload || blacklist.blockSchema(op.opLoc);
 
         op.put(nstack.back, ast);
         pushStack(astOp, op.exprLoc, cKind);
@@ -949,6 +951,7 @@ final class BaseVisitor : ExtendedVisitor {
 
         astOp.operator = op.operator;
         astOp.operator.blacklist = blacklist.inside(op.opLoc);
+        astOp.operator.schemaBlacklist = op.isOverload || blacklist.blockSchema(op.opLoc);
 
         op.put(nstack.back, ast);
         pushStack(astOp, op.exprLoc, cKind);
@@ -1488,35 +1491,52 @@ struct BlackList {
     import dextool.plugin.mutate.backend.analyze.utility : Index;
 
     Index!string macros;
+    /// schemas are blacklisted for these
+    Index!string schemas;
 
     this(const Cursor root) {
         Interval[][string] macros;
+        Interval[][string] schemas;
 
         foreach (c, parent; root.all) {
-            if (c.kind != CXCursorKind.macroExpansion || c.isMacroBuiltin)
+            if (!c.kind.among(CXCursorKind.macroExpansion,
+                    CXCursorKind.macroDefinition) || c.isMacroBuiltin)
                 continue;
 
             auto spelling = c.spelling;
             // C code almost always implement these as macros. They should not
             // be blocked from being mutated.
-            if (spelling.among("bool", "TRUE", "FALSE"))
-                continue;
-
-            const file = c.location.path;
-            const e = c.extent;
-            const interval = Interval(e.start.offset, e.end.offset);
-            if (auto v = file in macros) {
-                (*v) ~= interval;
+            if (spelling.among("bool", "TRUE", "FALSE")) {
+                add(c, schemas);
             } else {
-                macros[file] = [interval];
+                add(c, macros);
             }
         }
 
         foreach (k; macros.byKey) {
             macros[k] = macros[k].sort.array;
         }
+        foreach (k; schemas.byKey) {
+            schemas[k] = schemas[k].sort.array;
+        }
 
         this.macros = Index!string(macros);
+        this.schemas = Index!string(schemas);
+    }
+
+    void add(const Cursor c, ref Interval[][string] idx) {
+        const file = c.location.path;
+        const e = c.extent;
+        const interval = Interval(e.start.offset, e.end.offset);
+        if (auto v = file in idx) {
+            (*v) ~= interval;
+        } else {
+            idx[file] = [interval];
+        }
+    }
+
+    bool blockSchema(analyze.Location l) {
+        return schemas.inside(l.file, l.interval);
     }
 
     bool inside(const Cursor c) {

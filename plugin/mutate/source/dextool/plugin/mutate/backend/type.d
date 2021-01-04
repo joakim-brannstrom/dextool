@@ -137,15 +137,15 @@ struct Mutation {
         uoiPostInc,
         uoiPostDec,
         // these work for rvalue
-        uoiPreInc,
-        uoiPreDec,
-        uoiAddress,
-        uoiIndirection,
-        uoiPositive,
-        uoiNegative,
-        uoiComplement,
+        uoiPreInc, // unused
+        uoiPreDec, // unused
+        uoiAddress, // unused
+        uoiIndirection, // unused
+        uoiPositive, // unused
+        uoiNegative, // unused
+        uoiComplement, // unused
         uoiNegation,
-        uoiSizeof_,
+        uoiSizeof_, // unused
         /// Absolute value replacement
         absPos,
         absNeg,
@@ -153,21 +153,21 @@ struct Mutation {
         /// statement deletion
         stmtDel,
         /// Conditional Operator Replacement (reduced set)
-        corAnd,
-        corOr,
-        corFalse,
-        corLhs,
-        corRhs,
-        corEQ,
-        corNE,
-        corTrue,
+        corAnd, // unused
+        corOr, // unused
+        corFalse, // unused
+        corLhs, // unused
+        corRhs, // unused
+        corEQ, // unused
+        corNE, // unused
+        corTrue, // unused
         /// Relational operator replacement
         rorTrue,
         rorFalse,
         /// Decision/Condition Coverage
-        dccTrue,
-        dccFalse,
-        dccBomb,
+        dcrTrue,
+        dcrFalse,
+        dcrBomb, // unused
         /// Decision/Condition Requirement
         dcrCaseDel,
         /// Relational operator replacement for pointers

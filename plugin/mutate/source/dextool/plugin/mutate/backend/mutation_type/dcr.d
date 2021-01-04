@@ -43,7 +43,7 @@ Mutation.Kind[] dcrMutations(Kind operator) @safe pure nothrow {
     case Kind.OpNotEqual:
         goto case;
     case Kind.Condition:
-        rval = [dccTrue, dccFalse];
+        rval = [dcrTrue, dcrFalse];
         break;
     case Kind.Branch:
         rval = [dcrCaseDel];
@@ -59,7 +59,7 @@ immutable Mutation.Kind[] dcrMutationsAll;
 shared static this() {
     with (Mutation.Kind) {
         dcrCaseMutationsRaw = [dcrCaseDel];
-        dcrBranchMutationsRaw = [dccTrue, dccFalse];
+        dcrBranchMutationsRaw = [dcrTrue, dcrFalse];
     }
     dcrMutationsAll = dcrBranchMutationsRaw ~ dcrCaseMutationsRaw;
 }

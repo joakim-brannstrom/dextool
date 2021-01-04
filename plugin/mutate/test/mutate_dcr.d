@@ -205,8 +205,9 @@ class ShallProduceAllDcrMutantsWithSchemataForC : SchemataFixutre {
             "from 'y == 0' to '1'",
             "from 'y == 0' to '0'",
             // isPredicateFunc3
-            "from 'x == TRUE' to '1'",
-            "from 'x == TRUE' to '0'",
+            // not possible because of C macros
+            //"from 'x == TRUE' to '1'",
+            //"from 'x == TRUE' to '0'",
             ];
 
         testAnyOrder!SubStr(expected).shouldBeIn(runDextoolTest(testEnv).addPostArg(["--mutant", "dcr"]).run.output);
