@@ -24,7 +24,7 @@ int test_switch(int x) {
         break;
     }
 
-    // fallthrough had a bug wherein dcc crashed
+    // fallthrough had a bug wherein dcr crashed
     case 2:
     case 3:
     default:

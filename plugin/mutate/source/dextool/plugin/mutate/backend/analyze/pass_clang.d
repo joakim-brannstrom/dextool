@@ -61,6 +61,9 @@ private:
 struct OperatorCursor {
     analyze.Expr astOp;
 
+    // both sides are primitive types, in other words no class overloading.
+    bool isOverload;
+
     // the whole expression
     analyze.Location exprLoc;
     DeriveCursorTypeResult exprTy;
@@ -132,129 +135,153 @@ Nullable!OperatorCursor operatorCursor(T)(T node) {
         res.exprTy = deriveCursorType(op.cursor);
         switch (op.kind) with (OpKind) {
         case OO_Star: // "*"
+            res.isOverload = true;
             goto case;
         case Mul: // "*"
             res.astOp = new analyze.OpMul;
             break;
         case OO_Slash: // "/"
+            res.isOverload = true;
             goto case;
         case Div: // "/"
             res.astOp = new analyze.OpDiv;
             break;
         case OO_Percent: // "%"
+            res.isOverload = true;
             goto case;
         case Rem: // "%"
             res.astOp = new analyze.OpMod;
             break;
         case OO_Plus: // "+"
+            res.isOverload = true;
             goto case;
         case Add: // "+"
             res.astOp = new analyze.OpAdd;
             break;
         case OO_Minus: // "-"
+            res.isOverload = true;
             goto case;
         case Sub: // "-"
             res.astOp = new analyze.OpSub;
             break;
         case OO_Less: // "<"
+            res.isOverload = true;
             goto case;
         case LT: // "<"
             res.astOp = new analyze.OpLess;
             break;
         case OO_Greater: // ">"
+            res.isOverload = true;
             goto case;
         case GT: // ">"
             res.astOp = new analyze.OpGreater;
             break;
         case OO_LessEqual: // "<="
+            res.isOverload = true;
             goto case;
         case LE: // "<="
             res.astOp = new analyze.OpLessEq;
             break;
         case OO_GreaterEqual: // ">="
+            res.isOverload = true;
             goto case;
         case GE: // ">="
             res.astOp = new analyze.OpGreaterEq;
             break;
         case OO_EqualEqual: // "=="
+            res.isOverload = true;
             goto case;
         case EQ: // "=="
             res.astOp = new analyze.OpEqual;
             break;
         case OO_Exclaim: // "!"
+            res.isOverload = true;
             goto case;
         case LNot: // "!"
             res.astOp = new analyze.OpNegate;
             break;
         case OO_ExclaimEqual: // "!="
+            res.isOverload = true;
             goto case;
         case NE: // "!="
             res.astOp = new analyze.OpNotEqual;
             break;
         case OO_AmpAmp: // "&&"
+            res.isOverload = true;
             goto case;
         case LAnd: // "&&"
             res.astOp = new analyze.OpAnd;
             break;
         case OO_PipePipe: // "||"
+            res.isOverload = true;
             goto case;
         case LOr: // "||"
             res.astOp = new analyze.OpOr;
             break;
         case OO_Amp: // "&"
+            res.isOverload = true;
             goto case;
         case And: // "&"
             res.astOp = new analyze.OpAndBitwise;
             break;
         case OO_Pipe: // "|"
+            res.isOverload = true;
             goto case;
         case Or: // "|"
             res.astOp = new analyze.OpOrBitwise;
             break;
         case OO_StarEqual: // "*="
+            res.isOverload = true;
             goto case;
         case MulAssign: // "*="
             res.astOp = new analyze.OpAssignMul;
             break;
         case OO_SlashEqual: // "/="
+            res.isOverload = true;
             goto case;
         case DivAssign: // "/="
             res.astOp = new analyze.OpAssignDiv;
             break;
         case OO_PercentEqual: // "%="
+            res.isOverload = true;
             goto case;
         case RemAssign: // "%="
             res.astOp = new analyze.OpAssignMod;
             break;
         case OO_PlusEqual: // "+="
+            res.isOverload = true;
             goto case;
         case AddAssign: // "+="
             res.astOp = new analyze.OpAssignAdd;
             break;
         case OO_MinusEqual: // "-="
+            res.isOverload = true;
             goto case;
         case SubAssign: // "-="
             res.astOp = new analyze.OpAssignSub;
             break;
         case OO_AmpEqual: // "&="
+            res.isOverload = true;
             goto case;
         case AndAssign: // "&="
             res.astOp = new analyze.OpAssignAndBitwise;
             break;
-        case OrAssign: // "|="
-            goto case;
         case OO_PipeEqual: // "|="
+            res.isOverload = true;
+            goto case;
+        case OrAssign: // "|="
             res.astOp = new analyze.OpAssignOrBitwise;
             break;
+        case OO_CaretEqual: // "^="
+            res.isOverload = true;
+            goto case;
+        case OO_Equal: // "="
+            goto case;
         case ShlAssign: // "<<="
             goto case;
         case ShrAssign: // ">>="
             goto case;
         case XorAssign: // "^="
-            goto case;
-        case OO_CaretEqual: // "^="
-            goto case;
-        case OO_Equal: // "="
             goto case;
         case Assign: // "="
             res.astOp = new analyze.OpAssign;
@@ -410,6 +437,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     private void pushStack(analyze.Node n, analyze.Location l, const CXCursorKind cKind) @trusted {
         n.blacklist = n.blacklist || blacklist.inside(l);
+        n.schemaBlacklist = n.schemaBlacklist || blacklist.blockSchema(l);
         nstack.put(n, indent);
         cstack.put(cKind, indent);
         ast.put(n, l);
@@ -764,13 +792,25 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const ForStmt v) {
         mixin(mixinNodeLog!());
         pushStack(new analyze.Loop, v);
-        v.accept(this);
+
+        auto visitor = new FindVisitor!CompoundStmt;
+        v.accept(visitor);
+
+        if (visitor.node !is null) {
+            this.visit(visitor.node);
+        }
     }
 
     override void visit(const CxxForRangeStmt v) {
         mixin(mixinNodeLog!());
         pushStack(new analyze.Loop, v);
-        v.accept(this);
+
+        auto visitor = new FindVisitor!CompoundStmt;
+        v.accept(visitor);
+
+        if (visitor.node !is null) {
+            this.visit(visitor.node);
+        }
     }
 
     override void visit(const WhileStmt v) {
@@ -842,8 +882,10 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
+        astOp.schemaBlacklist = op.isOverload;
         astOp.operator = op.operator;
         astOp.operator.blacklist = blacklist.inside(op.opLoc);
+        astOp.operator.schemaBlacklist = op.isOverload || blacklist.blockSchema(op.opLoc);
 
         op.put(nstack.back, ast);
         pushStack(astOp, op.exprLoc, cKind);
@@ -909,6 +951,7 @@ final class BaseVisitor : ExtendedVisitor {
 
         astOp.operator = op.operator;
         astOp.operator.blacklist = blacklist.inside(op.opLoc);
+        astOp.operator.schemaBlacklist = op.isOverload || blacklist.blockSchema(op.opLoc);
 
         op.put(nstack.back, ast);
         pushStack(astOp, op.exprLoc, cKind);
@@ -965,6 +1008,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     private void visitFunc(T)(ref const T v) @trusted {
         if (isConstExpr(v.cursor)) {
+            // TODO: maybe allow mutations but blacklist instead?
             return;
         }
 
@@ -1045,6 +1089,19 @@ final class EnumVisitor : ExtendedVisitor {
     }
 }
 
+final class FindVisitor(T) : ExtendedVisitor {
+    import clang.c.Index : CXCursorKind, CXTypeKind;
+    import cpptooling.analyzer.clang.ast;
+
+    alias visit = ExtendedVisitor.visit;
+
+    T node;
+
+    override void visit(const T v) @trusted {
+        node = cast() v;
+    }
+}
+
 /** Rewrite the node to correctly represent a case statement as a fallthrough.
  *
  * - Branch
@@ -1085,6 +1142,7 @@ void rewriteCaseToFallthrough(ref analyze.Ast ast, analyze.Node node) {
  */
 void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
     import std.array : appender;
+    import my.container.vector;
 
     //logger.trace("before rewrite:\n", ast.toString);
 
@@ -1118,17 +1176,19 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
         return app.data;
     }
 
-    // change loc of parent end to be the last of its children last child, nested.
-    void adjustLoc(analyze.Node n) {
+    // change loc of `n`s end to be that of its largest child, nested.
+    void expandLoc(analyze.Node n) {
         if (n.children.empty || n.kind != analyze.Kind.Branch) {
             return;
         }
 
-        static analyze.Node lastNode(ref analyze.Ast ast, analyze.Node curr, analyze.Node candidate) {
+        // largest node of the parent.
+        static analyze.Node largestNode(ref analyze.Ast ast, analyze.Node curr,
+                analyze.Node candidate) {
             auto rval = candidate;
             auto rvall = ast.location(candidate);
             foreach (n; curr.children) {
-                auto c = lastNode(ast, n, rval);
+                auto c = largestNode(ast, n, rval);
                 auto l = ast.location(c);
                 if (l.interval.end > rvall.interval.end) {
                     rval = c;
@@ -1146,20 +1206,15 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
                 // a fallthrough case branch
                 return branch.inside;
             }
-            auto ln = lastNode(ast, n, n);
+            auto ln = largestNode(ast, n, n);
             auto lnloc = ast.location(ln);
             if (lnloc.interval.end < loc.interval.end) {
                 return branch.inside;
             }
             return ln;
         }();
-        auto cloc = ast.location(last);
 
-        {
-            auto loc = ast.location(n);
-            loc.interval.end = cloc.interval.end;
-            loc.sloc.end = cloc.sloc.end;
-        }
+        auto cloc = ast.location(last);
 
         {
             auto loc = ast.location(n);
@@ -1174,8 +1229,24 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
         }
     }
 
+    // contract all locs of `n` to not go over the boundary `bottom`.
+    static void contractLocRecursive(ref analyze.Ast ast, analyze.Node root, Location bottom) {
+        void contract(analyze.Node n) {
+            auto l = ast.location(n);
+            if (l.interval.end > bottom.interval.begin) {
+                l.interval.end = bottom.interval.begin;
+                l.sloc.end = bottom.sloc.begin;
+            }
+        }
+
+        contract(root);
+        foreach (c; root.children) {
+            contractLocRecursive(ast, c, bottom);
+        }
+    }
+
     // remove the expression nodes of the switch statement.
-    analyze.Node[] popUntilBranch(analyze.Node[] nodes) {
+    static analyze.Node[] popUntilBranch(analyze.Node[] nodes) {
         foreach (i; 0 .. nodes.length) {
             if (nodes[i].kind == analyze.Kind.Branch) {
                 return nodes[i .. $];
@@ -1194,7 +1265,7 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
     }
     nodes = flatten(nodes);
 
-    auto rootChildren = appender!(analyze.Node[])();
+    Vector!(analyze.Node) rootChildren;
     analyze.Node curr = nodes[0];
     auto merge = appender!(analyze.Node[])();
 
@@ -1209,7 +1280,7 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
         }
         merge.clear;
 
-        adjustLoc(curr);
+        expandLoc(curr);
         rootChildren.put(curr);
         curr = n;
     }
@@ -1226,7 +1297,13 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
         updateNode(curr);
     }
 
-    root.children = rootChildren.data;
+    if (rootChildren.length > 1) {
+        foreach (i; 0 .. rootChildren.length - 1) {
+            contractLocRecursive(ast, rootChildren[i], ast.location(rootChildren[i + 1]));
+        }
+    }
+
+    root.children = rootChildren[];
 }
 
 enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind.char16,
@@ -1237,8 +1314,10 @@ enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind
 enum floatCategory = AliasSeq!(CXTypeKind.float_, CXTypeKind.double_,
             CXTypeKind.longDouble, CXTypeKind.float128, CXTypeKind.half, CXTypeKind.float16,);
 enum pointerCategory = AliasSeq!(CXTypeKind.nullPtr, CXTypeKind.pointer,
-            CXTypeKind.blockPointer, CXTypeKind.memberPointer);
+            CXTypeKind.blockPointer, CXTypeKind.memberPointer, CXTypeKind.record);
 enum boolCategory = AliasSeq!(CXTypeKind.bool_);
+
+enum voidCategory = AliasSeq!(CXTypeKind.void_);
 
 struct DeriveTypeResult {
     analyze.TypeId id;
@@ -1282,6 +1361,11 @@ DeriveTypeResult deriveType(Type cty) {
         if (!cty.isSigned) {
             rval.type.range.low = analyze.Value(analyze.Value.Int(0));
         }
+    } else if (cty.kind.among(voidCategory)) {
+        rval.type = new analyze.VoidType();
+    } else {
+        // unknown such as an elaborated
+        rval.type = new analyze.Type();
     }
 
     return rval;
@@ -1407,35 +1491,52 @@ struct BlackList {
     import dextool.plugin.mutate.backend.analyze.utility : Index;
 
     Index!string macros;
+    /// schemas are blacklisted for these
+    Index!string schemas;
 
     this(const Cursor root) {
         Interval[][string] macros;
+        Interval[][string] schemas;
 
         foreach (c, parent; root.all) {
-            if (c.kind != CXCursorKind.macroExpansion || c.isMacroBuiltin)
+            if (!c.kind.among(CXCursorKind.macroExpansion,
+                    CXCursorKind.macroDefinition) || c.isMacroBuiltin)
                 continue;
 
             auto spelling = c.spelling;
             // C code almost always implement these as macros. They should not
             // be blocked from being mutated.
-            if (spelling.among("bool", "TRUE", "FALSE"))
-                continue;
-
-            const file = c.location.path;
-            const e = c.extent;
-            const interval = Interval(e.start.offset, e.end.offset);
-            if (auto v = file in macros) {
-                (*v) ~= interval;
+            if (spelling.among("bool", "TRUE", "FALSE")) {
+                add(c, schemas);
             } else {
-                macros[file] = [interval];
+                add(c, macros);
             }
         }
 
         foreach (k; macros.byKey) {
             macros[k] = macros[k].sort.array;
         }
+        foreach (k; schemas.byKey) {
+            schemas[k] = schemas[k].sort.array;
+        }
 
         this.macros = Index!string(macros);
+        this.schemas = Index!string(schemas);
+    }
+
+    void add(const Cursor c, ref Interval[][string] idx) {
+        const file = c.location.path;
+        const e = c.extent;
+        const interval = Interval(e.start.offset, e.end.offset);
+        if (auto v = file in idx) {
+            (*v) ~= interval;
+        } else {
+            idx[file] = [interval];
+        }
+    }
+
+    bool blockSchema(analyze.Location l) {
+        return schemas.inside(l.file, l.interval);
     }
 
     bool inside(const Cursor c) {

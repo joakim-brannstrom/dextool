@@ -163,9 +163,15 @@ class AstPrintVisitor : DepthFirstVisitor {
                     return " blacklist".color(Color.magenta).toString;
                 return "";
             }();
-            formattedWrite(buf, "%s %x%s", n.kind.to!string.color(Color.lightGreen), () @trusted {
+            auto schemaBl = () {
+                if (n.schemaBlacklist)
+                    return " !schema".color(Color.magenta).toString;
+                return "";
+            }();
+            formattedWrite(buf, "%s %x%s%s",
+                    n.kind.to!string.color(Color.lightGreen), () @trusted {
                 return cast(void*) n;
-            }().to!string.color(Color.lightYellow), bl);
+            }().to!string.color(Color.lightYellow), bl, schemaBl);
         }
 
         void printTypeSymbol(Node n) {
@@ -264,6 +270,12 @@ abstract class Node {
      * the node covers a C macro.
      */
     bool blacklist;
+
+    /** If the node should not be part of mutant schemata because it is highly
+     * likely to introduce compilation errors. It is for example likely when
+     * operators are overloaded.
+     */
+    bool schemaBlacklist;
 }
 
 /**
@@ -745,6 +757,16 @@ final class BooleanType : Type {
     }
 }
 
+final class VoidType : Type {
+    this() {
+        super();
+    }
+
+    override TypeKind kind() const {
+        return TypeKind.top;
+    }
+}
+
 enum TypeKind {
     // It can be anything, practically useless for mutation testing because it
     // doesn't provide any logic that can be used to e.g. generate
@@ -758,6 +780,8 @@ enum TypeKind {
     unordered,
     ///
     boolean,
+    /// a top type is nothing
+    top,
 }
 
 struct Value {

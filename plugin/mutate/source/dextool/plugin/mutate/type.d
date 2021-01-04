@@ -29,8 +29,6 @@ enum MutationKind {
     abs,
     /// Statement deletion
     sdl,
-    /// Decision/Condition Coverage
-    dcc,
     /// Decision/Condition Requirement
     dcr,
     /// Logical Connector Replacement Bit-wise

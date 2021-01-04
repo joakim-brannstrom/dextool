@@ -12,30 +12,27 @@ import dextool_test.utility;
 @(testId ~ "shall produce all LCR mutations for primitive types")
 unittest {
     foreach (getValue; [
-            "lcr_primitive.cpp", "lcr_overload.cpp", "lcr_in_ifstmt.cpp"
+            "lcr_primitive.cpp", "lcr_in_ifstmt.cpp", "lcr_overload.cpp"
         ]) {
         mixin(envSetup(globalTestdir, No.setupEnv));
         testEnv.outputSuffix(getValue);
         testEnv.setupEnv;
 
-        // dfmt off
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ getValue)
-        .run;
-    auto r = makeDextool(testEnv)
-        .addArg(["test"])
-        .addArg(["--mutant", "lcr"])
-        .run;
+        makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).run;
+        auto r = makeDextool(testEnv).addArg(["test"]).addArg([
+                "--mutant", "lcr"
+                ]).run;
 
-    testAnyOrder!SubStr([
-        "from '&&' to '||'",
-        "from 'a && b' to 'true'",
-        "from 'a && b' to 'false'",
-        "from '||' to '&&'",
-        "from 'a || b' to 'true'",
-        "from 'a || b' to 'false'",
-    ]).shouldBeIn(r.output);
-    // dfmt on
+        // dfmt off
+        testAnyOrder!SubStr([
+            "from '&&' to '||'",
+            "from 'a && b' to 'true'",
+            "from 'a && b' to 'false'",
+            "from '||' to '&&'",
+            "from 'a || b' to 'true'",
+            "from 'a || b' to 'false'",
+        ]).shouldBeIn(r.output);
+        // dfmt on
     }
 }
 

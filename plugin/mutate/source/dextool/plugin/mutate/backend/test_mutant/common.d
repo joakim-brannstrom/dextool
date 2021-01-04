@@ -19,8 +19,9 @@ import std.exception : collectException;
 import std.path : buildPath;
 import std.typecons : Flag, No;
 
-import sumtype;
+import blob_model : Blob;
 import proc : DrainElement;
+import sumtype;
 
 import dextool.plugin.mutate.backend.database : MutationId;
 import dextool.plugin.mutate.backend.interface_;
@@ -490,4 +491,10 @@ TestResult runTester(ref TestRunner runner) nothrow {
     }
 
     return rval;
+}
+
+void restoreFiles(AbsolutePath[] files, FilesysIO fio) {
+    foreach (a; files) {
+        fio.makeOutput(a).write(fio.makeInput(a));
+    }
 }

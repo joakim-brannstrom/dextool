@@ -14,7 +14,6 @@ import dextool.plugin.mutate.type : MutationKind;
 
 public import dextool.plugin.mutate.backend.mutation_type.abs;
 public import dextool.plugin.mutate.backend.mutation_type.aor;
-public import dextool.plugin.mutate.backend.mutation_type.dcc;
 public import dextool.plugin.mutate.backend.mutation_type.dcr;
 public import dextool.plugin.mutate.backend.mutation_type.lcr;
 public import dextool.plugin.mutate.backend.mutation_type.lcrb;
@@ -47,8 +46,6 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
             return absMutations;
         case sdl:
             return stmtDelMutations;
-        case dcc:
-            return dccMutationsAll.dup;
         case dcr:
             return dcrMutationsAll.dup;
         case lcrb:

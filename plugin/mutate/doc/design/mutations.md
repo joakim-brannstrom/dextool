@@ -372,21 +372,25 @@ TODO: OR should be `||` but it doesn't render corrently on github.
 This mutant is inactivated in the tool because it has turned out to generate
 too much junk.
 
-## Decision/Condition Coverage (DCC) {id="design-mutation_dcc"}
+## Decision/Condition Requirement (DCR) {id="design-mutation_dcr"}
 
 [partof](#req-mutations)
 
-A test suite that achieve MC/DC should kill 100% of these mutants.
-
+The DCR mutation operator is modelled after the DCC in [@thesis1]. [@thesis1]
+argues that a test suite that achieve MC/DC should kill 100% of these mutants.
 As discussed in [@thesis1] a specialized mutation for DC/C results in:
  * less mutations overall
  * less equivalent mutations
  * makes it easier for the human to interpret the results
 
-See [@thesis1].
-
 The intention is to be at least equivalent to a coverage tools report for
-decision/condition coverage. This is the reason why a *bomb* is part of DCC.
+decision/condition coverage.
+
+[@thesis1] name this mutation operator as DCC.
+
+The difference between DCC and DCR is that the *bomb* for case statements is
+replaced by statement deletion in DCR. The intention is to require the test
+suite to *prove* that it verifies the behavior and not just visit the branch.
 
 ### Decision Coverage
 
@@ -403,23 +407,6 @@ The CC criteria requires that all conditions clauses are executed with true/fals
 As discussed in [@thesis1, p. 20] the CC criteria is simulated by replacing
 clauses with `true` or `false`.  See [@subsumeCondMutTesting] for further
 discussions.
-
-### Bomb
-
-A statement that halts the program.
-
-The DCC bomb is only needed for case statements.
-
-Note that the bomb do not provide any more information than a coverage report
-do because it doesn't force the test suite to check the output of the program.
-It is equivalent to coverage information.
-
-## Decision/Condition Requirement (DCR) {id="design-mutation_dcr"}
-
-[partof](#req-mutations)
-
-This is a twist of DCC. It replaces the bomb with statement deletion. The
-intention is to require the test suite to check the output.
 
 ### Case Deletion
 

@@ -91,7 +91,7 @@ struct CoverageDriver {
         ShellCommand buildCmd;
         Duration buildCmdTimeout;
 
-        Blob[AbsolutePath] original;
+        AbsolutePath[] restore;
         Language[AbsolutePath] lang;
 
         /// Runs the test commands.
@@ -209,18 +209,15 @@ nothrow:
         if (regions.empty) {
             logger.info("No files to gather coverage data from").collectException;
         } else if (roots.empty) {
-            logger.warning("No root file for coverage instrumentation found").collectException;
-            logger.info("A root file is one in e.g. compile_commands.json").collectException;
+            logger.warning("No root file found to inject the coverage instrumentation runtime in")
+                .collectException;
         }
     }
 
     void opCall(SaveOriginal data) {
         try {
-            foreach (a; regions.byKey) {
-                original[a] = fio.makeInput(a);
-            }
+            restore = regions.byKey.array;
         } catch (Exception e) {
-            // TODO: should it set error?
             isRunning_ = false;
             logger.warning(e.msg).collectException;
         }
@@ -229,7 +226,7 @@ nothrow:
     void opCall(Instrument data) {
         import std.path : extension, stripExtension;
 
-        Blob makeInstrumentation(Blob original, CovRegion[] regions, Language lang, Edit[] extra) {
+        Blob makeInstrumentation(Blob original, CovRegion[] regions, Language lang, Edit extra) {
             auto edits = appender!(Edit[])();
             edits.put(extra);
             foreach (a; regions) {
@@ -254,9 +251,7 @@ nothrow:
                 }();
 
                 logger.infof("Coverage instrumenting %s regions in %s", a.value.length, a.key);
-                auto instr = makeInstrumentation(original[a.key], a.value, lang[a.key], [
-                        extra
-                        ]);
+                auto instr = makeInstrumentation(fio.makeInput(a.key), a.value, lang[a.key], extra);
                 fio.makeOutput(a.key).write(instr);
 
                 if (log) {
@@ -341,14 +336,14 @@ nothrow:
     }
 
     void opCall(Restore data) {
-        foreach (a; original.byKeyValue) {
-            try {
-                fio.makeOutput(a.key).write(a.value);
-            } catch (Exception e) {
-                isRunning_ = false;
-                error_ = true;
-                logger.error(e.msg).collectException;
-            }
+        import dextool.plugin.mutate.backend.test_mutant.common : restoreFiles;
+
+        try {
+            restoreFiles(restore, fio);
+        } catch (Exception e) {
+            isRunning_ = false;
+            error_ = true;
+            logger.error(e.msg).collectException;
         }
     }
 

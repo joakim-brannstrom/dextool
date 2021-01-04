@@ -46,7 +46,8 @@ MeasureTestSuite --> Error : unreliable
 MeasureTestSuite --> Coverage : useCov
 MeasureTestSuite --> LoadSchematas : !useCov
 
-Coverage --> PropagateCov
+Coverage --> PropagateCov : !error
+Coverage --> LoadSchematas : error
 PropagateCov --> LoadSchematas
 
 LoadSchematas --> ResetOldMutant
@@ -59,16 +60,11 @@ CheckRuntime --> Done : runtime>max
 NextPullRequestMutant --> MutationTest
 NextPullRequestMutant --> Done : allTested
 
-NextSchemata --> PreSchemata : hasSchema
+NextSchemata --> SchemataTest : hasSchema
 NextSchemata --> Done : !hasSchema && user
 NextSchemata --> NextMutant
-PreSchemata --> SanityCheckSchemata
-SanityCheckSchemata --> SchemataRestore : failed
-SanityCheckSchemata --> SchemataTest : ok
-SchemataTest --> SchemataTest
 SchemataTest --> SchemataTestResult : done
-SchemataTestResult --> SchemataRestore
-SchemataRestore --> CheckRuntime
+SchemataTestResult --> CheckRuntime
 
 NextMutant --> CheckTimeout : allTested
 NextMutant --> MutationTest
@@ -79,6 +75,7 @@ MutationTest --> MutationTest
 HandleTestResult --> CheckRuntime
 
 CheckTimeout --> Done : unchanged
+CheckTimeout --> UpdateTimeout : changed
 
 Done --> SchemataPruneUsed
 SchemataPruneUsed --> Stop

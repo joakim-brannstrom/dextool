@@ -119,7 +119,7 @@ unittest {
         .addInputArg(testData ~ "report_tool_integration.cpp")
         .run;
     auto r = makeDextoolReport(testEnv, testData.dirName)
-        .addArg(["--mutant", "dcc"])
+        .addArg(["--mutant", "dcr"])
         .addArg(["--style", "json"])
         .addArg(["--section", "all_mut"])
         .addArg(["--section", "summary"])
@@ -510,7 +510,7 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
         testConsecutiveSparseOrder!Re([
             "Score:.*0.64",
             "Total:.*25",
-            "Untested:.*38",
+            "Untested:.*36",
             "Alive:.*14",
             "Killed:.*11",
             "Timeout:.*0",
@@ -545,7 +545,7 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "Total",
             "25",
             "Untested",
-            "38",
+            "36",
             "Alive",
             "14",
             "Killed",

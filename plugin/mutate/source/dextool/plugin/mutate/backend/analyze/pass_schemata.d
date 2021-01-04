@@ -22,7 +22,9 @@ import std.typecons : tuple, Tuple, scoped;
 
 import my.container.vector : vector, Vector;
 import my.gc.refc : RefCounted;
+import my.optional;
 import my.set;
+import sumtype;
 
 import dextool.type : AbsolutePath, Path;
 
@@ -39,8 +41,8 @@ import dextool.plugin.mutate.backend.analyze.ast;
 import dextool.plugin.mutate.backend.analyze.pass_mutant : CodeMutantsResult;
 
 // constant defined by the schemata that test_mutant uses too
-/// The global variable that a mutant reads to see if it should activate.
-immutable schemataMutantIdentifier = "gDEXTOOL_MUTID";
+/// The function that a mutant reads to see if it should activate.
+immutable schemataMutantIdentifier = "dextool_get_mutid__()";
 /// The environment variable that is read to set the current active mutant.
 immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
@@ -164,20 +166,9 @@ enum MutantGroup {
     ror,
     lcr,
     lcrb,
-    // the operator mutants that replace the whole expression. The schema have
-    // a high probability of working because it isn't dependent on the
-    // operators being implemented for lhs/rhs
-    opExpr,
-    dcc,
     dcr,
     uoi,
     sdl,
-}
-
-auto defaultHeader(Path f) {
-    import dextool.plugin.mutate.backend.resource : schemataHeader;
-
-    return SchemataFragment(f, Offset(0, 0), cast(const(ubyte)[]) schemataHeader);
 }
 
 struct SchematasRange {
@@ -185,69 +176,32 @@ struct SchematasRange {
             SchemataChecksum, "checksum");
 
     private {
-        FilesysIO fio;
         ET[] values;
     }
 
-    this(FilesysIO fio, SchemataResult.Schemata[MutantGroup][AbsolutePath] raw,
+    this(scope FilesysIO fio, SchemataResult.Schemata[MutantGroup][AbsolutePath] raw,
             long mutantsPerSchema) {
-        this.fio = fio;
-
-        // TODO: maybe accumulate the fragments for more files? that would make
-        // it possible to easily create a large schemata.
         auto values_ = appender!(ET[])();
-
-        SchemataResult.Fragment[] makeSchema(SchemataResult.Fragment[] fragments, Path relp) {
-            // overlapping mutants is not supported "yet" thus make sure no
-            // fragment overlap with another fragment.
-            Index!int index;
-            auto spillOver = appender!(SchemataResult.Fragment[])();
-
-            auto app = appender!(SchemataFragment[])();
-
-            app.put(defaultHeader(relp));
-
-            Set!CodeMutant mutants;
-            foreach (a; fragments) {
-                // conservative to only allow up to <user defined> mutants per
-                // schemata but it reduces the chance that one failing schemata
-                // is "fatal", loosing too many muntats.
-                if (index.inside(0, a.offset) || mutants.length >= mutantsPerSchema) {
-                    spillOver.put(a);
-                    continue;
-                }
-
-                // if any of the mutants in the schema has already been added
-                // then the new fragment is also overlapping
-                if (any!(a => a in mutants)(a.mutants)) {
-                    spillOver.put(a);
-                    continue;
-                }
-
-                app.put(SchemataFragment(relp, a.offset, a.text));
-                mutants.add(a.mutants);
-                index.put(0, a.offset);
-            }
-
-            ET v;
-            v.fragments = app.data;
-
-            v.mutants = mutants.toArray;
-            v.checksum = toSchemataChecksum(v.mutants);
-            values_.put(v);
-
-            return spillOver.data;
-        }
+        auto builder = SchemataBuilder(mutantsPerSchema);
 
         foreach (group; raw.byKeyValue) {
-            auto relp = fio.toRelativeRoot(group.key);
+            auto file = fio.toRelativeRoot(group.key);
             foreach (a; group.value.byValue) {
-                auto spillOver = makeSchema(a.fragments, relp);
+                builder.pass1(a.fragments, file).match!((Some!ET a) => values_.put(a.value),
+                        (None a) {});
+                auto spillOver = builder.spillOver;
                 while (!spillOver.empty) {
-                    spillOver = makeSchema(spillOver, relp);
+                    builder.pass1(spillOver, file)
+                        .match!((Some!ET a) => values_.put(a.value), (None a) {});
+                    spillOver = builder.spillOver;
                 }
             }
         }
+
+        while (!builder.pass2Data.empty) {
+            builder.pass2.match!((Some!ET a) => values_.put(a.value), (None a) {});
+        }
+
         this.values = values_.data;
     }
 
@@ -297,7 +251,6 @@ class CodeMutantIndex {
 class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
     import dextool.plugin.mutate.backend.mutation_type.aor : aorMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.dcc : dccMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
@@ -341,14 +294,12 @@ class CppSchemataVisitor : DepthFirstVisitor {
     override void visit(Branch n) @trusted {
         if (n.inside !is null) {
             visitBlock!BlockChain(n.inside, MutantGroup.dcr, dcrMutationsAll);
-            visitBlock!BlockChain(n.inside, MutantGroup.dcc, dccMutationsAll);
         }
         accept(n, this);
     }
 
     override void visit(Condition n) {
         visitCondition(n, MutantGroup.dcr, dcrMutationsAll);
-        visitCondition(n, MutantGroup.dcc, dccMutationsAll);
         accept(n, this);
     }
 
@@ -461,6 +412,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitCondition(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) @trusted {
+        if (n.blacklist || n.schemaBlacklist)
+            return;
+
         // The schematas from the code below are only needed for e.g. function
         // calls such as if (fn())...
 
@@ -488,6 +442,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBlock(ChainT, T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+        if (n.blacklist || n.schemaBlacklist)
+            return;
+
         auto loc = ast.location(n);
         auto offs = loc.interval;
         auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
@@ -523,6 +480,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitUnaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+        if (n.blacklist || n.schemaBlacklist)
+            return;
+
         auto loc = ast.location(n.operator);
         auto locExpr = ast.location(n);
 
@@ -547,6 +507,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBinaryOp(T)(T n) @trusted {
+        if (n.blacklist || n.schemaBlacklist)
+            return;
+
         try {
             auto v = scoped!BinaryOpVisitor(ast, &index, fio, n);
             v.startVisit(n);
@@ -563,7 +526,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
 class BinaryOpVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
     import dextool.plugin.mutate.backend.mutation_type.aor : aorMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.dcc : dccMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
@@ -622,7 +584,6 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
     override void visit(OpAnd n) {
         visitBinaryOp(n, MutantGroup.lcr, lcrMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
@@ -634,49 +595,42 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
     override void visit(OpOr n) {
         visitBinaryOp(n, MutantGroup.lcr, lcrMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpLess n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpLessEq n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpGreater n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpGreaterEq n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpEqual n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpNotEqual n) {
         visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcc, dccMutationsAll);
         visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
@@ -707,6 +661,9 @@ class BinaryOpVisitor : DepthFirstVisitor {
     }
 
     private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds_) {
+        if (n.blacklist || n.schemaBlacklist)
+            return;
+
         auto locExpr = ast.location(n);
         auto locOp = ast.location(n.operator);
 
@@ -752,41 +709,34 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         foreach (const mutant; lhsMutants) {
             // dfmt off
-            schema[MutantGroup.opExpr]
-                .put(mutant.id.c0,
-                    schema[group].put(mutant.id.c0,
-                        left,
-                        makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
-                        content[offsLhs.end .. locExpr.interval.end],
-                        right));
+            schema[group].put(mutant.id.c0,
+                left,
+                makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
+                content[offsLhs.end .. locExpr.interval.end],
+                right);
             // dfmt on
         }
 
         foreach (const mutant; rhsMutants) {
             // dfmt off
-            schema[MutantGroup.opExpr]
-                .put(mutant.id.c0,
-                    schema[group].put(mutant.id.c0,
-                        left,
-                        content[locExpr.interval.begin .. offsRhs.begin],
-                        makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
-                        right));
+            schema[group].put(mutant.id.c0,
+                left,
+                content[locExpr.interval.begin .. offsRhs.begin],
+                makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
+                right);
             // dfmt on
         }
 
         foreach (const mutant; exprMutants) {
             // dfmt off
-            schema[MutantGroup.opExpr]
-                .put(mutant.id.c0,
-                    schema[group].put(mutant.id.c0,
-                        left,
-                        makeMutation(mutant.mut.kind, ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
-                        right));
+            schema[group].put(mutant.id.c0,
+                left,
+                makeMutation(mutant.mut.kind, ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
+                right);
             // dfmt on
         }
 
         mutants[group].add(opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants);
-        mutants[MutantGroup.opExpr].add(exprMutants);
     }
 }
 
@@ -830,7 +780,7 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
  * ternery operator that activate one mutant if necessary.
  *
  * A id can only be added once to the chain. This ensure that there are no
- * duplications. This can happen when e.g. adding rorFalse and dccFalse to an
+ * duplications. This can happen when e.g. adding rorFalse and dcrFalse to an
  * expression group. They both result in the same source code mutation thus
  * only one of them is actually needed. This deduplications this case.
  */
@@ -890,7 +840,7 @@ struct ExpressionChain {
  * the original.
  *
  * A id can only be added once to the chain. This ensure that there are no
- * duplications. This can happen when e.g. adding rorFalse and dccFalse to an
+ * duplications. This can happen when e.g. adding rorFalse and dcrFalse to an
  * expression group. They both result in the same source code mutation thus
  * only one of them is actually needed. This deduplications this case.
  */
@@ -961,4 +911,118 @@ auto contentOrNull(uint begin, uint end, const(ubyte)[] content) {
     if (begin >= end)
         return null;
     return content[begin .. end];
+}
+
+/** Build schematan from the individual fragments for a individual file.
+ * TODO: optimize the implementation. A lot of redundant memory allocations
+ * etc.
+ *
+ * Conservative to only allow up to <user defined> mutants per schemata but it
+ * reduces the chance that one failing schemata is "fatal", loosing too many
+ * muntats.
+ */
+struct SchemataBuilder {
+    import my.container.vector;
+
+    alias Fragment = Tuple!(SchemataFragment, "fragment", CodeMutant[], "mutants");
+
+    alias ET = SchematasRange.ET;
+    const long mutantsPerSchema;
+
+    SchemataResult.Fragment[] spillOver;
+
+    // schemas that in pass1 is less than the threshold
+    Vector!Fragment pass2Data;
+
+    /** Merge analyze fragments into larger schemata fragments. If a schemata
+     * fragment is large enough it is converted to a schemata. Otherwise kept
+     * for pass2.
+     *
+     * Schematan from this pass only contain one kind and only affect one file.
+     */
+    Optional!ET pass1(SchemataResult.Fragment[] fragments, Path file) {
+        // overlapping mutants is not supported "yet" thus make sure no
+        // fragment overlap with another fragment.
+        Index!byte index;
+
+        auto spillOver = appender!(SchemataResult.Fragment[])();
+        scope (exit)
+            this.spillOver = spillOver.data;
+
+        auto app = appender!(Fragment[])();
+
+        Set!CodeMutant mutants;
+        foreach (a; fragments) {
+            if (mutants.length >= mutantsPerSchema || index.inside(0, a.offset)) {
+                spillOver.put(a);
+                continue;
+            }
+
+            // if any of the mutants in the schema has already been added then
+            // the new fragment is also overlapping
+            if (any!(a => a in mutants)(a.mutants)) {
+                spillOver.put(a);
+                continue;
+            }
+
+            app.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
+            mutants.add(a.mutants);
+            index.put(0, a.offset);
+        }
+
+        if (mutants.length >= mutantsPerSchema) {
+            ET v;
+            v.fragments = app.data.map!(a => a.fragment).array;
+            v.mutants = mutants.toArray;
+            v.checksum = toSchemataChecksum(v.mutants);
+            return some(v);
+        } else if (!mutants.empty) {
+            pass2Data.put(app.data);
+        }
+
+        return none!ET;
+    }
+
+    /** Merge schemata fragments to schemas. A schemata from this pass may may
+     * contain multiple mutation kinds and span over multiple files.
+     */
+    Optional!ET pass2() {
+        import std.algorithm;
+
+        Index!byte index;
+
+        auto app = appender!(SchemataFragment[])();
+        Set!CodeMutant mutants;
+
+        typeof(pass2Data) rest;
+        scope (exit)
+            pass2Data = rest;
+
+        foreach (a; pass2Data) {
+            if (mutants.length >= mutantsPerSchema || index.overlap(0, a.fragment.offset)) {
+                rest.put(a);
+                continue;
+            }
+
+            // if any of the mutants in the schema has already been added then
+            // the new fragment is also overlapping
+            if (any!(a => a in mutants)(a.mutants)) {
+                rest.put(a);
+                continue;
+            }
+
+            app.put(a.fragment);
+            mutants.add(a.mutants);
+            index.put(0, a.fragment.offset);
+        }
+
+        if (mutants.empty)
+            return none!ET;
+
+        ET v;
+        v.fragments = app.data;
+        v.mutants = mutants.toArray;
+        v.checksum = toSchemataChecksum(v.mutants);
+        return some(v);
+    }
 }

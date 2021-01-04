@@ -10,6 +10,19 @@ enum Enum1 { gEnum1, gEnum2 };
 
 enum class Enum2 { lEnum1, lEnum2, lEnum3 };
 
+class OpPartialOverload {
+public:
+    OpPartialOverload() = default;
+
+    // AOR
+    OpPartialOverload operator+(const OpPartialOverload&) { return *this; }
+};
+
+void arith_op_on_partial_object() {
+    OpPartialOverload a, b, res;
+    res = a + b;
+}
+
 Enum2 test_enum_value(Enum2 x) {
     if (x == Enum2::lEnum1)
         return Enum2::lEnum2;
@@ -34,7 +47,7 @@ int test_switch(int x) {
     case 1: {
         return 3;
     }
-    // fallthrough had a bug wherein dcc crashed
+    // fallthrough had a bug wherein dcr crashed
     case 2:
     case 3:
     default:
@@ -78,6 +91,7 @@ int test_assign_op(int x) {
 int test_const(int x, const int y) {
     int w = 42;
     const int a = 84 + 4;
+    return w + a;
 }
 
 int test_sdl1(int x) {

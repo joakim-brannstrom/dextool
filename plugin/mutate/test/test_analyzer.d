@@ -66,9 +66,9 @@ unittest {
         .run;
 
     testConsecutiveSparseOrder!Re([
-        `trace:.*Dropping undesired mutant.*dccTrue`,
-        `trace:.*Dropping undesired mutant.*dccFalse`,
-        `trace:.*Dropping undesired mutant.*dccTrue`,
+        `trace:.*Dropping undesired mutant.*dcrTrue`,
+        `trace:.*Dropping undesired mutant.*dcrFalse`,
+        `trace:.*Dropping undesired mutant.*dcrTrue`,
     ]).shouldBeIn(r.output);
 }
 

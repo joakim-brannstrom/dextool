@@ -18,8 +18,8 @@ const ops = ["+", "-", "*", "/", "%"];
 @(testId ~ "shall produce all AOR operator mutations")
 unittest {
     foreach (getValue; [
-            "aor_primitive.cpp", "aor_object_overload.cpp",
-            "aor_primitive_modern_cpp.cpp"
+            "aor_primitive.cpp", "aor_primitive_modern_cpp.cpp",
+            "aor_object_overload.cpp"
         ]) {
         mixin(envSetup(globalTestdir, No.setupEnv));
         testEnv.outputSuffix(getValue);

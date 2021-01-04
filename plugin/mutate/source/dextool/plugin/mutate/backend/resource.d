@@ -74,6 +74,10 @@ string tmplDefaultCss() {
 }
 
 string schemataHeader() {
+    return readData("schemata_header.h");
+}
+
+string schemataImpl() {
     return readData("schemata_header.c");
 }
 
