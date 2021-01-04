@@ -58,8 +58,12 @@ Mutants analyzeForUndesiredMutant(Blob file, Mutants mutants, const Language lan
                     file.uri, mutants.point, k);
             app.put(k);
         } else if (lang.among(Language.assumeCpp, Language.cpp)
-                && isUndesiredCppPattern(file, mutants.point.offset, mutant.rawMutation)) {
+                && isUndesiredCppPattern(file, mutants.point.offset)) {
             logger.tracef("Dropping undesired mutant. The mutant is an undesired C++ mutant pattern (%s %s %s)",
+                    file.uri, mutants.point, k);
+            app.put(k);
+        } else if (isOnlyWhitespace(file, mutants.point.offset, mutant.rawMutation)) {
+            logger.tracef("Dropping undesired mutant. Both the original and the mutant is only whitespaces (%s %s %s)",
                     file.uri, mutants.point, k);
             app.put(k);
         }
@@ -72,7 +76,28 @@ bool isTextuallyEqual(Blob file, Offset o, const(ubyte)[] mutant) {
     return file.content[o.begin .. o.end] == mutant;
 }
 
-bool isUndesiredCppPattern(Blob file, Offset o, const(ubyte)[] mutant) {
+// if both the original and mutation is only whitespace
+bool isOnlyWhitespace(Blob file, Offset o, const(ubyte)[] mutant) {
+    import std.algorithm : canFind;
+
+    static immutable ubyte[6] whitespace = [
+        cast(ubyte) ' ', cast(ubyte) '\t', cast(ubyte) '\v', cast(ubyte) '\r',
+        cast(ubyte) '\n', cast(ubyte) '\f'
+    ];
+
+    bool rval = true;
+    foreach (a; file.content[o.begin .. o.end]) {
+        rval = rval && whitespace[].canFind(a);
+    }
+
+    foreach (a; mutant) {
+        rval = rval && whitespace[].canFind(a);
+    }
+
+    return rval;
+}
+
+bool isUndesiredCppPattern(Blob file, Offset o) {
     static immutable ubyte[2] ctorParenthesis = [40, 41];
     static immutable ubyte[2] ctorCurly = [123, 125];
 
