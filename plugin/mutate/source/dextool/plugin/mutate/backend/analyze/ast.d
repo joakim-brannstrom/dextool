@@ -745,6 +745,16 @@ final class BooleanType : Type {
     }
 }
 
+final class VoidType : Type {
+    this() {
+        super();
+    }
+
+    override TypeKind kind() const {
+        return TypeKind.top;
+    }
+}
+
 enum TypeKind {
     // It can be anything, practically useless for mutation testing because it
     // doesn't provide any logic that can be used to e.g. generate
@@ -758,6 +768,8 @@ enum TypeKind {
     unordered,
     ///
     boolean,
+    /// a top type is nothing
+    top,
 }
 
 struct Value {
