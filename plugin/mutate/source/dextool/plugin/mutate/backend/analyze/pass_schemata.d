@@ -412,6 +412,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitCondition(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) @trusted {
+        if (n.schemaBlacklist)
+            return;
+
         // The schematas from the code below are only needed for e.g. function
         // calls such as if (fn())...
 
@@ -439,6 +442,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBlock(ChainT, T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+        if (n.schemaBlacklist)
+            return;
+
         auto loc = ast.location(n);
         auto offs = loc.interval;
         auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
@@ -474,6 +480,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitUnaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+        if (n.schemaBlacklist)
+            return;
+
         auto loc = ast.location(n.operator);
         auto locExpr = ast.location(n);
 
@@ -498,6 +507,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBinaryOp(T)(T n) @trusted {
+        if (n.schemaBlacklist)
+            return;
+
         try {
             auto v = scoped!BinaryOpVisitor(ast, &index, fio, n);
             v.startVisit(n);

@@ -882,7 +882,8 @@ final class BaseVisitor : ExtendedVisitor {
             return false;
 
         astOp.operator = op.operator;
-        astOp.operator.blacklist = blacklist.inside(op.opLoc) || op.isOverload;
+        astOp.operator.blacklist = blacklist.inside(op.opLoc);
+        astOp.operator.schemaBlacklist = op.isOverload;
 
         op.put(nstack.back, ast);
         pushStack(astOp, op.exprLoc, cKind);
