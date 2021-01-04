@@ -1138,6 +1138,7 @@ void rewriteCaseToFallthrough(ref analyze.Ast ast, analyze.Node node) {
  */
 void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
     import std.array : appender;
+    import my.container.vector;
 
     //logger.trace("before rewrite:\n", ast.toString);
 
@@ -1171,17 +1172,19 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
         return app.data;
     }
 
-    // change loc of parent end to be the last of its children last child, nested.
-    void adjustLoc(analyze.Node n) {
+    // change loc of `n`s end to be that of its largest child, nested.
+    void expandLoc(analyze.Node n) {
         if (n.children.empty || n.kind != analyze.Kind.Branch) {
             return;
         }
 
-        static analyze.Node lastNode(ref analyze.Ast ast, analyze.Node curr, analyze.Node candidate) {
+        // largest node of the parent.
+        static analyze.Node largestNode(ref analyze.Ast ast, analyze.Node curr,
+                analyze.Node candidate) {
             auto rval = candidate;
             auto rvall = ast.location(candidate);
             foreach (n; curr.children) {
-                auto c = lastNode(ast, n, rval);
+                auto c = largestNode(ast, n, rval);
                 auto l = ast.location(c);
                 if (l.interval.end > rvall.interval.end) {
                     rval = c;
@@ -1199,20 +1202,15 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
                 // a fallthrough case branch
                 return branch.inside;
             }
-            auto ln = lastNode(ast, n, n);
+            auto ln = largestNode(ast, n, n);
             auto lnloc = ast.location(ln);
             if (lnloc.interval.end < loc.interval.end) {
                 return branch.inside;
             }
             return ln;
         }();
-        auto cloc = ast.location(last);
 
-        {
-            auto loc = ast.location(n);
-            loc.interval.end = cloc.interval.end;
-            loc.sloc.end = cloc.sloc.end;
-        }
+        auto cloc = ast.location(last);
 
         {
             auto loc = ast.location(n);
@@ -1227,8 +1225,24 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
         }
     }
 
+    // contract all locs of `n` to not go over the boundary `bottom`.
+    static void contractLocRecursive(ref analyze.Ast ast, analyze.Node root, Location bottom) {
+        void contract(analyze.Node n) {
+            auto l = ast.location(n);
+            if (l.interval.end > bottom.interval.begin) {
+                l.interval.end = bottom.interval.begin;
+                l.sloc.end = bottom.sloc.begin;
+            }
+        }
+
+        contract(root);
+        foreach (c; root.children) {
+            contractLocRecursive(ast, c, bottom);
+        }
+    }
+
     // remove the expression nodes of the switch statement.
-    analyze.Node[] popUntilBranch(analyze.Node[] nodes) {
+    static analyze.Node[] popUntilBranch(analyze.Node[] nodes) {
         foreach (i; 0 .. nodes.length) {
             if (nodes[i].kind == analyze.Kind.Branch) {
                 return nodes[i .. $];
@@ -1247,7 +1261,7 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
     }
     nodes = flatten(nodes);
 
-    auto rootChildren = appender!(analyze.Node[])();
+    Vector!(analyze.Node) rootChildren;
     analyze.Node curr = nodes[0];
     auto merge = appender!(analyze.Node[])();
 
@@ -1262,7 +1276,7 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
         }
         merge.clear;
 
-        adjustLoc(curr);
+        expandLoc(curr);
         rootChildren.put(curr);
         curr = n;
     }
@@ -1279,7 +1293,13 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
         updateNode(curr);
     }
 
-    root.children = rootChildren.data;
+    if (rootChildren.length > 1) {
+        foreach (i; 0 .. rootChildren.length - 1) {
+            contractLocRecursive(ast, rootChildren[i], ast.location(rootChildren[i + 1]));
+        }
+    }
+
+    root.children = rootChildren[];
 }
 
 enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind.char16,
