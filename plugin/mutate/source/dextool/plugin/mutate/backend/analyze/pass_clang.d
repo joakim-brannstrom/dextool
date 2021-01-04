@@ -1313,6 +1313,8 @@ enum pointerCategory = AliasSeq!(CXTypeKind.nullPtr, CXTypeKind.pointer,
             CXTypeKind.blockPointer, CXTypeKind.memberPointer, CXTypeKind.record);
 enum boolCategory = AliasSeq!(CXTypeKind.bool_);
 
+enum voidCategory = AliasSeq!(CXTypeKind.void_);
+
 struct DeriveTypeResult {
     analyze.TypeId id;
     analyze.Type type;
@@ -1355,6 +1357,11 @@ DeriveTypeResult deriveType(Type cty) {
         if (!cty.isSigned) {
             rval.type.range.low = analyze.Value(analyze.Value.Int(0));
         }
+    } else if (cty.kind.among(voidCategory)) {
+        rval.type = new analyze.VoidType();
+    } else {
+        // unknown such as an elaborated
+        rval.type = new analyze.Type();
     }
 
     return rval;
