@@ -81,7 +81,9 @@ New items are added at the top
    includeVisitor to find the dependencies.
  * add a database query that returns test cases sorted by the number of mutants they killed.
    change package.d to using it instead of `sort_tcs_on_kills`.
- * rank mutants by how much they changed the source code. more tokens then
+  * add statement coverage.
+  * add an option to rank mutants by how much they change the code coverage (test impact).
+  * rank mutants by how much they changed the source code. more tokens then
    higher risk? Add to high interest mutants.  an alternative would be how much
    they change the dataflow based on the LLVM IR.
  * allow the limits for the colors in the html report for files to be configurable.
