@@ -417,6 +417,11 @@ final class BaseVisitor : ExtendedVisitor {
         ast.release;
     }
 
+    /// Returns: the depth (1+) if any of the parent nodes is `k`.
+    uint isParent(CXCursorKind k) {
+        return cstack.isParent(k);
+    }
+
     /// Returns: if the previous nodes is a CXCursorKind `k`.
     bool isDirectParent(CXCursorKind k) {
         if (cstack.empty)
@@ -438,6 +443,8 @@ final class BaseVisitor : ExtendedVisitor {
     private void pushStack(analyze.Node n, analyze.Location l, const CXCursorKind cKind) @trusted {
         n.blacklist = n.blacklist || blacklist.inside(l);
         n.schemaBlacklist = n.schemaBlacklist || blacklist.blockSchema(l);
+        if (!nstack.empty)
+            n.schemaBlacklist = n.schemaBlacklist || nstack[$ - 1].data.schemaBlacklist;
         nstack.put(n, indent);
         cstack.put(cKind, indent);
         ast.put(n, l);
@@ -495,6 +502,20 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const ParmDecl v) @trusted {
         mixin(mixinNodeLog!());
         visitVar(v);
+        v.accept(this);
+    }
+
+    override void visit(const ClassTemplate v) {
+        mixin(mixinNodeLog!());
+        // by adding the node it is possible to search for it in cstack
+        pushStack(new analyze.Poision, v);
+        v.accept(this);
+    }
+
+    override void visit(const ClassTemplatePartialSpecialization v) {
+        mixin(mixinNodeLog!());
+        // by adding the node it is possible to search for it in cstack
+        pushStack(new analyze.Poision, v);
         v.accept(this);
     }
 
@@ -890,10 +911,14 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
-        astOp.schemaBlacklist = op.isOverload;
+        const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc)
+            || isParent(CXCursorKind.classTemplate)
+            || isParent(CXCursorKind.classTemplatePartialSpecialization);
+
+        astOp.schemaBlacklist = blockSchema;
         astOp.operator = op.operator;
         astOp.operator.blacklist = blacklist.inside(op.opLoc);
-        astOp.operator.schemaBlacklist = op.isOverload || blacklist.blockSchema(op.opLoc);
+        astOp.operator.schemaBlacklist = blockSchema;
 
         op.put(nstack.back, ast);
         pushStack(astOp, op.exprLoc, cKind);
@@ -1015,13 +1040,9 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitFunc(T)(ref const T v) @trusted {
-        if (isConstExpr(v.cursor)) {
-            // TODO: maybe allow mutations but blacklist instead?
-            return;
-        }
-
         auto loc = v.cursor.toLocation;
         auto n = new analyze.Function;
+        n.schemaBlacklist = isConstExpr(v.cursor);
         nstack.back.children ~= n;
         pushStack(n, loc, v.cursor.kind);
 

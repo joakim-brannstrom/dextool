@@ -10,6 +10,7 @@ module dextool_test.mutate_ror;
 import std.format : format;
 
 import dextool_test.utility;
+import dextool_test.fixtures;
 
 import unit_threaded;
 
@@ -340,4 +341,19 @@ unittest {
         "from '!=' to '=='",
         "from 'b0() != b1()' to 'true'",
     ]).shouldBeIn(r.output);
+}
+
+class ShallOnlyGenerateValidRorSchemas : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_ror.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "rorp"]).addFlag("-std=c++11").run;
+    }
 }

@@ -118,13 +118,13 @@ class CoverageVisitor : DepthFirstVisitor {
     }
 
     override void visit(Function n) {
-        if (n.blacklist)
+        if (n.blacklist || n.schemaBlacklist)
             return;
         accept(n, this);
     }
 
     override void visit(Block n) {
-        if (visited[$ - 1].data != Kind.Function || n.blacklist)
+        if (visited[$ - 1].data != Kind.Function || n.blacklist || n.schemaBlacklist)
             return;
 
         const l = ast.location(n);

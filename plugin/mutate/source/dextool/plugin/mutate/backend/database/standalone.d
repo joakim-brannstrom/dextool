@@ -869,35 +869,23 @@ struct Database {
 
     import dextool.plugin.mutate.backend.type;
 
-    alias aliveMutants = countMutants!([Mutation.Status.alive], false);
-    alias killedMutants = countMutants!([Mutation.Status.killed], false);
-    alias timeoutMutants = countMutants!([Mutation.Status.timeout], false);
-
-    /// Returns: Total that should be counted when calculating the mutation score.
-    alias totalMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
-            ], false);
-
-    alias unknownMutants = countMutants!([Mutation.Status.unknown], false);
-    alias killedByCompilerMutants = countMutants!([
-            Mutation.Status.killedByCompiler
-            ], false);
-
-    alias aliveSrcMutants = countMutants!([Mutation.Status.alive], true);
-    alias killedSrcMutants = countMutants!([Mutation.Status.killed], true);
-    alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout], true);
-    alias noCovSrcMutants = countMutants!([Mutation.Status.noCoverage], true);
+    alias aliveSrcMutants = countMutants!([
+            Mutation.Status.alive, Mutation.Status.noCoverage
+            ]);
+    alias killedSrcMutants = countMutants!([Mutation.Status.killed]);
+    alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout]);
+    alias noCovSrcMutants = countMutants!([Mutation.Status.noCoverage]);
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalSrcMutants = countMutants!([
             Mutation.Status.alive, Mutation.Status.killed,
             Mutation.Status.timeout, Mutation.Status.noCoverage
-            ], true);
+            ]);
 
-    alias unknownSrcMutants = countMutants!([Mutation.Status.unknown], true);
+    alias unknownSrcMutants = countMutants!([Mutation.Status.unknown]);
     alias killedByCompilerSrcMutants = countMutants!([
             Mutation.Status.killedByCompiler
-            ], true);
+            ]);
 
     /** Count the mutants with the nomut metadata.
      *
@@ -907,30 +895,19 @@ struct Database {
      *  kinds = the kind of mutants to count.
      *  file = file to count mutants in.
      */
-    private MutationReportEntry countMutants(int[] status, bool distinct)(
-            const Mutation.Kind[] kinds, string file = null) @trusted {
-        static if (distinct) {
-            auto qq = "
-                SELECT count(*),sum(compile_time_ms),sum(test_time_ms)
-                FROM (
-                SELECT count(*),sum(t1.compile_time_ms) compile_time_ms,sum(t1.test_time_ms) test_time_ms
-                FROM %s t0, %s t1%s
-                WHERE
-                %s
-                t0.st_id = t1.id AND
-                t1.status IN (%(%s,%)) AND
-                t0.kind IN (%(%s,%))
-                GROUP BY t1.id)";
-        } else {
-            auto qq = "
-                SELECT count(*),sum(t1.compile_time_ms) compile_time_ms,sum(t1.test_time_ms) test_time_ms
-                FROM %s t0, %s t1%s
-                WHERE
-                %s
-                t0.st_id = t1.id AND
-                t1.status IN (%(%s,%)) AND
-                t0.kind IN (%(%s,%))";
-        }
+    private MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds,
+            string file = null) @trusted {
+        auto qq = "
+            SELECT count(*),sum(compile_time_ms),sum(test_time_ms)
+            FROM (
+            SELECT count(*),sum(t1.compile_time_ms) compile_time_ms,sum(t1.test_time_ms) test_time_ms
+            FROM %s t0, %s t1%s
+            WHERE
+            %s
+            t0.st_id = t1.id AND
+            t1.status IN (%(%s,%)) AND
+            t0.kind IN (%(%s,%))
+            GROUP BY t1.id)";
         const query = () {
             auto fq = file.length == 0
                 ? null : "t0.mp_id = t2.id AND t2.file_id = t3.id AND t3.path = :path AND";

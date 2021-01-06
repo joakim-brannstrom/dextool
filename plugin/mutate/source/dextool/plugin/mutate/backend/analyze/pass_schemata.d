@@ -129,9 +129,9 @@ class SchemataResult {
 
         void toBuf(Schemata s) {
             foreach (f; s.fragments) {
-                formattedWrite(w, "%(  %s\n%)\n", f.mutants);
                 formattedWrite(w, "  %s: %s\n", f.offset,
                         (cast(const(char)[]) f.text).byUTF!(const(char)));
+                formattedWrite(w, "%(    %s\n%)\n", f.mutants);
             }
         }
 

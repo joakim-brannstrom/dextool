@@ -276,6 +276,10 @@ abstract class Node {
      * operators are overloaded.
      */
     bool schemaBlacklist;
+
+    bool opEquals(Kind k) {
+        return kind == k;
+    }
 }
 
 /**
@@ -347,6 +351,7 @@ alias Nodes = AliasSeq!(
     OpOrBitwise,
     OpSub,
     Operator,
+    Poision,
     Return,
     Statement,
     TranslationUnit,
@@ -393,6 +398,7 @@ enum Kind {
     OpOrBitwise,
     OpSub,
     Operator,
+    Poision,
     Return,
     Statement,
     TranslationUnit,
@@ -458,6 +464,13 @@ class DepthFirstVisitor : Visitor {
             --visitDepth;
         }
     }
+}
+
+/** A phantom node that carry semantic information about its children. It
+ * "poisons" all children.
+ */
+class Poision : Node {
+    mixin NodeKind;
 }
 
 class TranslationUnit : Node {

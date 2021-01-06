@@ -39,7 +39,7 @@ class ShallUseCoverage : CoverageFixutre {
         // dfmt on
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["stat"];
-        j["alive"].integer.shouldEqual(0);
+        j["alive"].integer.shouldBeGreaterThan(1);
         j["killed"].integer.shouldEqual(3);
         j["no_coverage"].integer.shouldEqual(2);
     }

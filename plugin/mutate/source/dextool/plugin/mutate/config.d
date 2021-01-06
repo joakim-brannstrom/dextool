@@ -104,7 +104,7 @@ struct ConfigAnalyze {
     bool forceSaveAnalyze;
 
     /// Number of mutants to at most put in a schema (soft limit)
-    long mutantsPerSchema = 100;
+    long mutantsPerSchema = 1000;
 
     /// User file/directories containing tests to checksum and timestamp
     string[] rawTestPaths;
