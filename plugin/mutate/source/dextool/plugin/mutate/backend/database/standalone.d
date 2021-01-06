@@ -869,7 +869,9 @@ struct Database {
 
     import dextool.plugin.mutate.backend.type;
 
-    alias aliveMutants = countMutants!([Mutation.Status.alive], false);
+    alias aliveMutants = countMutants!([
+            Mutation.Status.alive, Mutation.Status.noCoverage
+            ], false);
     alias killedMutants = countMutants!([Mutation.Status.killed], false);
     alias timeoutMutants = countMutants!([Mutation.Status.timeout], false);
 
@@ -883,7 +885,9 @@ struct Database {
             Mutation.Status.killedByCompiler
             ], false);
 
-    alias aliveSrcMutants = countMutants!([Mutation.Status.alive], true);
+    alias aliveSrcMutants = countMutants!([
+            Mutation.Status.alive, Mutation.Status.noCoverage
+            ], true);
     alias killedSrcMutants = countMutants!([Mutation.Status.killed], true);
     alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout], true);
     alias noCovSrcMutants = countMutants!([Mutation.Status.noCoverage], true);

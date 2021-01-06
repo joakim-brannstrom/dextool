@@ -540,7 +540,7 @@ struct MutationStat {
         if (untested > 0) {
             formattedWrite(w, "%-*s %s\n", align_, "Untested:", untested);
         }
-        formattedWrite(w, "%-*s %s\n", align_, "Alive:", alive + noCoverage);
+        formattedWrite(w, "%-*s %s\n", align_, "Alive:", alive);
         formattedWrite(w, "%-*s %s\n", align_, "Killed:", killed);
         formattedWrite(w, "%-*s %s\n", align_, "Timeout:", timeout);
         formattedWrite(w, "%-*s %s\n", align_, "Killed by compiler:", killedByCompiler);

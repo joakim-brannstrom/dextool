@@ -3,11 +3,13 @@
 
 .mutant {display:none; background-color: yellow;}
 .status_alive {background-color: lightpink;}
+.status_noCoverage {background-color: lightpink;}
 .status_killed {background-color: lightgreen;}
 .status_killedByCompiler {background-color: #eeeeee;}
 .status_timeout {background-color: lightgreen;}
 .status_unknown {background-color: lightyellow;}
 .hover_alive {color: lightpink;}
+.hover_noCoverage {color: lightpink;}
 .hover_killed {color: lightgreen;}
 .hover_killedByCompiler {color: #eeeeee;}
 .hover_timeout {color: lightgreen;}

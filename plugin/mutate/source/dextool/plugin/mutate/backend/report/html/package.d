@@ -727,6 +727,7 @@ struct MetaSpan {
         killedByCompiler,
         unknown,
         none,
+        noCoverage
     }
 
     StatusColor status;
@@ -754,7 +755,8 @@ MetaSpan.StatusColor pickColor(const FileMutant m,
         MetaSpan.StatusColor status = MetaSpan.StatusColor.none) {
     final switch (m.mut.status) {
     case Mutation.Status.noCoverage:
-        goto case;
+        status = MetaSpan.StatusColor.noCoverage;
+        break;
     case Mutation.Status.alive:
         status = MetaSpan.StatusColor.alive;
         break;
@@ -870,15 +872,16 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
             auto testCases = ctx.getTestCaseInfo(m.id);
             if (testCases.empty) {
-                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};",
+                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : %s, 'mutText' : %s, 'meta' : '%s'};",
                         m.id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
-                        m.mut.status.to!ubyte, window(m.txt.original),
-                        window(m.txt.mutation), metadata.kindToString));
+                        m.mut.status.to!ubyte, toJson(window(m.txt.original)),
+                        toJson(window(m.txt.mutation)), metadata.kindToString));
             } else {
-                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : '%s', 'mutText' : '%s', 'meta' : '%s'};",
+                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : %s, 'mutText' : %s, 'meta' : '%s'};",
                         m.id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, testCases.map!(a => a.name),
-                        window(m.txt.original), window(m.txt.mutation), metadata.kindToString));
+                        toJson(window(m.txt.original)),
+                        toJson(window(m.txt.mutation)), metadata.kindToString));
             }
         }
         lastLoc = s.tok.locEnd;
