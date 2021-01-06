@@ -1,4 +1,5 @@
-# REQ-plugin_mutate-use_case
+# Use Cases {id="req-use_cases"}
+
 This is a meta requirement for those that are traceable to use cases.
 
 An important aspect is ease of use in day-to-day development. When verification
@@ -12,9 +13,10 @@ be able to run it routinely each time they develop new modules or modify
 existing ones. Ideally as part of the code compile step. The sooner checking is
 performed in the development process, the better.
 
-# REQ-early_validation
-partof: REQ-plugin_mutate-use_case
-###
+# Early Validation {id="req-early_validation"}
+
+[partof](#req-plugin_mutate-use_case)
+
 This plugin should be easy to use in the day-to-day development.
 
 The plugin should be _fast_ when the changes in the code base are *small*.
@@ -31,9 +33,10 @@ The plugin should on request visualize the changes to the code.
 The plugin should be easy to integrate with an IDE for visual feedback to the
 user.
 
-# REQ-inspection_of_test_proc
-partof: REQ-plugin_mutate-use_case
-###
+# Inspection of Test Procedures {id="req-inspection_of_test_proc"}
+
+[partof](#req-plugin_mutate-use_case)
+
 This plugin should replace or simplify parts of the inspection as required by
 DO-178C.
 
@@ -67,9 +70,9 @@ minimal quality of test cases.
    the same set of mutants are probably equivalent. One of them is probably
    redundant.
 
-# REQ-test_design_metric
-partof: REQ-inspection_of_test_proc
-###
+# Test Design Metric {id="req-test_design_metric"}
+
+[partof](#req-inspection_of_test_proc)
 
 The plugin should produce metrics for how well the design methods in
 [[REQ-inspection_of_test_proc]] has been carried out.
@@ -85,9 +88,10 @@ Regarding mutation:
    can be measured in mutation score. Ideally the mutation operations should be
    representative of all realistic type of faults that could occur in practice.
 
-# SPC-incremental_mutation
-partof: REQ-early_validation
-###
+# Incremental Mutation {id="spc-incremental_mutation"}
+
+[partof](#req-early_validation)
+
 The plugin shall support incremental mutation.
 
 A change of one statement should only generate mutants for that change.
@@ -113,9 +117,9 @@ A draft of a workflow and architecture would be.
  * The user export a mutation result report to file Y (same fileformat as X).
  * The user only has to go through and determine equivalence for the new mutations.
 
-# REQ-uc_understand_analyze
-partof:
-###
+# Understand Analysis {id="req-uc_understand_analysis"}
+
+[partof](#req-early_validation)
 
 The user wants help to understand what is being analyzed and mutated. (1)
 
@@ -140,9 +144,7 @@ want it spelled out.  The goal should be to provide enough information for the
 user to easier understand the report.  They shouldn't need to look up a wiki or
 other things. The tool should help them understand.
 
-# REQ-uc_characteristics_of_good_tests
-partof:
-###
+# Characteristics of Good Tests {id="req-uc_characteristics_of_good_tests"}
 
 Good test cases satisfy the following criterias [@rieson178C]:
 
