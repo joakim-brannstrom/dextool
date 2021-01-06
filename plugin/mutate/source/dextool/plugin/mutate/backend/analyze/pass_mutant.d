@@ -713,7 +713,7 @@ class MutantVisitor : DepthFirstVisitor {
         {
             import dextool.plugin.mutate.backend.mutation_type.aor;
 
-            auto m = aorMutations(n.kind);
+            auto m = aorMutations(AorInfo(n.kind, ast.type(n.lhs), ast.type(n.rhs)));
             op ~= m.op;
             lhs ~= m.lhs;
             rhs ~= m.rhs;
