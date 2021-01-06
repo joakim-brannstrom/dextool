@@ -923,12 +923,16 @@ auto contentOrNull(uint begin, uint end, const(ubyte)[] content) {
  * muntats.
  */
 struct SchemataBuilder {
+    import std.algorithm : any, all;
     import my.container.vector;
 
     alias Fragment = Tuple!(SchemataFragment, "fragment", CodeMutant[], "mutants");
 
     alias ET = SchematasRange.ET;
     const long mutantsPerSchema;
+
+    /// All mutants that have been included in any generated schema.
+    Set!CodeMutant global;
 
     SchemataResult.Fragment[] spillOver;
 
@@ -952,32 +956,37 @@ struct SchemataBuilder {
 
         auto app = appender!(Fragment[])();
 
-        Set!CodeMutant mutants;
+        Set!CodeMutant local;
         foreach (a; fragments) {
-            if (mutants.length >= mutantsPerSchema || index.inside(0, a.offset)) {
+            if (local.length >= mutantsPerSchema || index.inside(0, a.offset)) {
                 spillOver.put(a);
                 continue;
             }
 
-            // if any of the mutants in the schema has already been added then
-            // the new fragment is also overlapping
-            if (any!(a => a in mutants)(a.mutants)) {
+            // all mutants in the fragment have already been generated, discard.
+            if (all!(a => a in global)(a.mutants)) {
+                continue;
+            }
+
+            // if any of the mutants in the schema has already been included.
+            if (any!(a => a in local)(a.mutants)) {
                 spillOver.put(a);
                 continue;
             }
 
             app.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
-            mutants.add(a.mutants);
+            local.add(a.mutants);
             index.put(0, a.offset);
         }
 
-        if (mutants.length >= mutantsPerSchema) {
+        if (local.length >= mutantsPerSchema) {
             ET v;
             v.fragments = app.data.map!(a => a.fragment).array;
-            v.mutants = mutants.toArray;
+            v.mutants = local.toArray;
             v.checksum = toSchemataChecksum(v.mutants);
+            global.add(v.mutants);
             return some(v);
-        } else if (!mutants.empty) {
+        } else if (!local.empty) {
             pass2Data.put(app.data);
         }
 
@@ -988,42 +997,45 @@ struct SchemataBuilder {
      * contain multiple mutation kinds and span over multiple files.
      */
     Optional!ET pass2() {
-        import std.algorithm;
-
         Index!byte index;
 
         auto app = appender!(SchemataFragment[])();
-        Set!CodeMutant mutants;
+        Set!CodeMutant local;
 
         typeof(pass2Data) rest;
         scope (exit)
             pass2Data = rest;
 
         foreach (a; pass2Data) {
-            if (mutants.length >= mutantsPerSchema || index.overlap(0, a.fragment.offset)) {
+            if (local.length >= mutantsPerSchema || index.overlap(0, a.fragment.offset)) {
                 rest.put(a);
                 continue;
             }
 
-            // if any of the mutants in the schema has already been added then
-            // the new fragment is also overlapping
-            if (any!(a => a in mutants)(a.mutants)) {
+            // all mutants in the fragment have already been generated, discard.
+            if (all!(a => a in global)(a.mutants)) {
+                continue;
+            }
+
+            // if any of the mutants in the schema has already been included.
+            if (any!(a => a in local)(a.mutants)) {
                 rest.put(a);
                 continue;
             }
 
             app.put(a.fragment);
-            mutants.add(a.mutants);
+            local.add(a.mutants);
             index.put(0, a.fragment.offset);
         }
 
-        if (mutants.empty)
+        if (local.empty)
             return none!ET;
 
         ET v;
         v.fragments = app.data;
-        v.mutants = mutants.toArray;
+        v.mutants = local.toArray;
         v.checksum = toSchemataChecksum(v.mutants);
+        global.add(v.mutants);
         return some(v);
     }
 }
