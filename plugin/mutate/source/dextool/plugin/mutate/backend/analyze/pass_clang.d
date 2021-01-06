@@ -1040,13 +1040,9 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitFunc(T)(ref const T v) @trusted {
-        if (isConstExpr(v.cursor)) {
-            // TODO: maybe allow mutations but blacklist instead?
-            return;
-        }
-
         auto loc = v.cursor.toLocation;
         auto n = new analyze.Function;
+        n.schemaBlacklist = isConstExpr(v.cursor);
         nstack.back.children ~= n;
         pushStack(n, loc, v.cursor.kind);
 
