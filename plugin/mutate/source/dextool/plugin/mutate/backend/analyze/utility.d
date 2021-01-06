@@ -68,7 +68,7 @@ struct Stack(T) {
      */
     uint isParent(K)(K k) {
         return match!((a) {
-            if (a[0].data.kind == k)
+            if (a[0].data == k)
                 return a[0].depth;
             return 0;
         })(stack, Direction.bottomToTop);
