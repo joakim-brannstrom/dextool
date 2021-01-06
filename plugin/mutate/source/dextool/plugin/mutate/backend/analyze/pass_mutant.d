@@ -446,7 +446,7 @@ class MutantVisitor : DepthFirstVisitor {
 
         put(loc, memrMutations(MemrInfo(n.kind, ast.typeId(n).orElse(TypeId(0)))), n.blacklist);
 
-        if (ast.type(n) is null && !isParent(Kind.Return) && isDirectParent(Kind.Block)) {
+        if (!isParent(Kind.Return) && isDirectParent(Kind.Block)) {
             // the check for Return blocks all SDL when an exception is thrown.
             //
             // the check isDirectParent(Kind.Block) is to only delete function

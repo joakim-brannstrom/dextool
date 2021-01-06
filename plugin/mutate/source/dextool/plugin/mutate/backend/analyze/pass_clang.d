@@ -664,6 +664,7 @@ final class BaseVisitor : ExtendedVisitor {
             return;
 
         auto n = new analyze.Call;
+        pushStack(n, v);
 
         // try associate a type with the call
         auto uc = Cursor(getUnderlyingExprNode(v.cursor));
@@ -675,7 +676,6 @@ final class BaseVisitor : ExtendedVisitor {
                 ast.put(n, ty.id);
         }
 
-        pushStack(n, v);
         v.accept(this);
     }
 
