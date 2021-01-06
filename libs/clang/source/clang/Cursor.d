@@ -646,6 +646,11 @@ import clang.Visitor;
         return clang_CXXMethod_isDefaulted(cx) != 0;
     }
 
+    /// Determine if a C++ member function or member function template is pure virtual.
+    bool isPureVirtual() @trusted {
+        return clang_CXXMethod_isPureVirtual(cx) != 0;
+    }
+
     /** Describe the visibility of the entity referred to by a cursor.
      *
      * Note: This is linker visibility.

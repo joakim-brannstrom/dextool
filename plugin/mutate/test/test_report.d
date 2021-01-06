@@ -510,7 +510,7 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
         testConsecutiveSparseOrder!Re([
             "Score:.*0.64",
             "Total:.*25",
-            "Untested:.*36",
+            "Untested:.*37",
             "Alive:.*14",
             "Killed:.*11",
             "Timeout:.*0",
@@ -545,7 +545,7 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "Total",
             "25",
             "Untested",
-            "36",
+            "37",
             "Alive",
             "14",
             "Killed",

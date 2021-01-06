@@ -12,6 +12,7 @@ import std.array;
 import std.format : format;
 
 import dextool_test.utility;
+import dextool_test.fixtures;
 
 const ops = ["+", "-", "*", "/", "%"];
 
@@ -55,5 +56,29 @@ unittest {
 
         testAnyOrder!SubStr(ops.map!(a => format!"from 'a %s' to ''"(a)).array).shouldBeIn(
                 r.output);
+    }
+}
+
+class ShallOnlyGenerateValidAorSchemas : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "aor_primitive_float.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "aor"]).addFlag("-std=c++11").run;
+
+        // modulo/reminder operator do not support floating point.
+        testAnyOrder!SubStr(ops.map!(a => a)
+                .permutations
+                .filter!(a => a[0] != a[1])
+                .filter!(a => a[0] != "%")
+                .filter!(a => a[1] != "%")
+                .map!(a => format!"from '%s' to '%s'"(a[0], a[1]))
+                .array).shouldBeIn(r.output);
     }
 }

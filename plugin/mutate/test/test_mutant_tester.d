@@ -1055,7 +1055,9 @@ class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
 
 class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
     override void test() {
+        import std.array : array;
         import std.path : relativePath;
+        import std.string : startsWith;
 
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
@@ -1063,7 +1065,7 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         // dfmt off
-        auto r = dextool_test.makeDextool(testEnv)
+        auto r = () { return dextool_test.makeDextool(testEnv)
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
@@ -1077,11 +1079,15 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
             .addPostArg(["--pull-request-seed", "42"])
             .addPostArg(["-L", programCode.relativePath(workDir.toString) ~ ":8-18"])
             .run;
+        };
 
-        testConsecutiveSparseOrder!Re([
-                `.*Using random seed 42`,
-                `.*Test sequence \[2, 3, 8, 1, 6, 4, 13, 12, 7, 11, 9, 5, 10\]`,
-                ]).shouldBeIn(r.output);
+        const pass1 = r().output.filter!(a => a.startsWith("trace: Test sequence")).array;
+        const pass2 = r().output.filter!(a => a.startsWith("trace: Test sequence")).array;
+
+        pass1.length.should == 1;
+        pass2.length.should == 1;
+
+        pass1[0].should == pass2[0];
         // dfmt on
     }
 

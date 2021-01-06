@@ -414,7 +414,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     }, (immutable Analyze.Result a) {
                         waiter.analyzeFileCnt++;
                         save(a);
-                        logger.infof("Analyzed files %s/%s",
+                        logger.infof("Analyzed file %s/%s",
                             waiter.analyzeFileCnt, waiter.analyzeFileWaitCnt);
                     }, (immutable TestFileResult a) {
                         waiter.isTestFilesDone = true;

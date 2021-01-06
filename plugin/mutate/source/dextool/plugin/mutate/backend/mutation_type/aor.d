@@ -18,11 +18,19 @@ import dextool.clang_extensions : OpKind;
 
 import dextool.plugin.mutate.backend.analyze.ast;
 
-auto aorMutations(Kind operator) @safe pure nothrow {
+/// Information used to intelligently generate ror mutants;
+struct AorInfo {
+    Kind operator;
+    Type lhs;
+    Type rhs;
+}
+
+auto aorMutations(AorInfo info) @safe {
+    // TODO: for AORs it is probably better to do one op and then lhs+rhs.
     alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "lhs", Mutation.Kind[], "rhs");
     Rval rval;
 
-    switch (operator) with (Mutation.Kind) {
+    switch (info.operator) with (Mutation.Kind) {
     case Kind.OpAdd:
         rval = Rval([aorMul, aorDiv, aorRem, aorSub], null, null);
         break;
@@ -60,6 +68,13 @@ auto aorMutations(Kind operator) @safe pure nothrow {
         break;
     default:
     }
+
+    // modulo do not work when either side is a floating point.
+    // assume modulo (rem) is not possible if the type is unknown.
+    if (info.lhs is null || info.rhs is null || info.lhs.kind == TypeKind.continues
+            || info.rhs.kind == TypeKind.continues)
+        rval.op = rval.op.filter!(a => !a.among(Mutation.Kind.aorRem,
+                Mutation.Kind.aorRemAssign)).array;
 
     return rval;
 }

@@ -25,6 +25,8 @@ Mutation.Kind[] stmtDelMutations(Kind operator) @safe pure nothrow {
         goto case;
     case Kind.Block:
         goto case;
+    case Kind.Branch:
+        goto case;
     case Kind.BinaryOp:
         goto case;
     case Kind.OpAssign:

@@ -52,7 +52,7 @@ class ShallDeleteReturnStmt : SdlFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv);
-        testAnyOrder!SubStr([`from 'return' to ''`, `from 'return' to ''`,]).shouldBeIn(r.output);
+        testAnyOrder!Re([`from.*return.*to ''`, `from.*return.*to ''`,]).shouldBeIn(r.output);
         testAnyOrder!SubStr([`return false`,]).shouldNotBeIn(r.output);
     }
 }

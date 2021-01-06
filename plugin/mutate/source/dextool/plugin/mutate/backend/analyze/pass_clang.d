@@ -598,6 +598,14 @@ final class BaseVisitor : ExtendedVisitor {
         visitFunc(v);
     }
 
+    override void visit(const Constructor v) @trusted {
+        mixin(mixinNodeLog!());
+
+        // skip all "= default" constructors.
+        if (!v.cursor.isDefaulted)
+            v.accept(this);
+    }
+
     override void visit(const CxxMethod v) {
         mixin(mixinNodeLog!());
 
@@ -1139,6 +1147,9 @@ void rewriteCaseToFallthrough(ref analyze.Ast ast, analyze.Node node) {
  *      - Block
  *          - Node
  *          - Node
+ *
+ * TODO: This function now "works" but probably contains redundant
+ * functionality and is inefficient. Simplify the implementation.
  */
 void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
     import std.array : appender;
