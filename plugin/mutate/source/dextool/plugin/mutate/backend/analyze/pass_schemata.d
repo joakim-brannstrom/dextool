@@ -930,6 +930,8 @@ struct SchemataBuilder {
 
     alias ET = SchematasRange.ET;
     const long mutantsPerSchema;
+    // hardcoded for now the minimum req. for a schema to be saved.
+    immutable long minMutantsPerSchema = 2;
 
     /// All mutants that have been included in any generated schema.
     Set!CodeMutant global;
@@ -1028,7 +1030,7 @@ struct SchemataBuilder {
             index.put(0, a.fragment.offset);
         }
 
-        if (local.empty)
+        if (local.length <= minMutantsPerSchema)
             return none!ET;
 
         ET v;
