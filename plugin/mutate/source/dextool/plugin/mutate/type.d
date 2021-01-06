@@ -33,6 +33,8 @@ enum MutationKind {
     dcr,
     /// Logical Connector Replacement Bit-wise
     lcrb,
+    /// memory replacement
+    memr,
 }
 
 /// The order the mutations are done when running in test_mutants mode

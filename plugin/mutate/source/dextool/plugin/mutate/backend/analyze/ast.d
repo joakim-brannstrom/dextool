@@ -20,6 +20,7 @@ import std.meta : AliasSeq;
 import std.range : isOutputRange;
 
 import sumtype;
+import my.optional;
 
 import dextool.type : AbsolutePath, Path;
 
@@ -66,6 +67,13 @@ struct Ast {
             return *v;
         }
         return null;
+    }
+
+    Optional!TypeId typeId(Node n) {
+        if (auto v = n in nodeTypes) {
+            return some(*v);
+        }
+        return none!TypeId;
     }
 
     Type type(Node n) {

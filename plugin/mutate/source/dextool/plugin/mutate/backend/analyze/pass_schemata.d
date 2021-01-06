@@ -169,6 +169,7 @@ enum MutantGroup {
     dcr,
     uoi,
     sdl,
+    memr,
 }
 
 struct SchematasRange {
@@ -254,6 +255,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
+    import dextool.plugin.mutate.backend.mutation_type.memr : memrMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.ror : rorMutationsAll, rorpMutationsAll;
     import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutationsRaw;
 
@@ -326,6 +328,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     override void visit(Call n) {
         visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!(ExpressionChain)(n, MutantGroup.memr, memrMutationsAll);
         accept(n, this);
     }
 

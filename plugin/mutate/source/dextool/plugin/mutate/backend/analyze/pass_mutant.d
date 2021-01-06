@@ -18,6 +18,7 @@ import std.range : retro, ElementType;
 import std.typecons : tuple, Tuple, scoped;
 
 import my.gc.refc : RefCounted;
+import my.optional;
 
 import dextool.type : AbsolutePath, Path;
 
@@ -322,6 +323,7 @@ class MutantVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.abs : absMutations;
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutations;
     import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutations;
+    import dextool.plugin.mutate.backend.mutation_type.memr : memrMutations, MemrInfo;
 
     RefCounted!Ast ast;
     MutantsResult result;
@@ -441,6 +443,8 @@ class MutantVisitor : DepthFirstVisitor {
         }
 
         auto loc = ast.location(n);
+
+        put(loc, memrMutations(MemrInfo(n.kind, ast.typeId(n).orElse(TypeId(0)))), n.blacklist);
 
         if (ast.type(n) is null && !isParent(Kind.Return) && isDirectParent(Kind.Block)) {
             // the check for Return blocks all SDL when an exception is thrown.

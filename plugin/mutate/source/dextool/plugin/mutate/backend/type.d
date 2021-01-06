@@ -194,6 +194,8 @@ struct Mutation {
         aorRhs,
         // uoi
         uoiDel,
+        // mem
+        memrNull,
     }
 
     /// The status of a mutant.

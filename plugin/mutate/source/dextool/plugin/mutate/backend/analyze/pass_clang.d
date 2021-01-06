@@ -657,13 +657,26 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const CallExpr v) {
+    override void visit(const CallExpr v) @trusted {
         mixin(mixinNodeLog!());
 
-        if (!visitOp(v, v.cursor.kind)) {
-            pushStack(new analyze.Call, v);
-            v.accept(this);
+        if (visitOp(v, v.cursor.kind))
+            return;
+
+        auto n = new analyze.Call;
+
+        // try associate a type with the call
+        auto uc = Cursor(getUnderlyingExprNode(v.cursor));
+        if (uc.isValid) {
+            auto cty = uc.type.canonicalType;
+            auto ty = deriveType(cty);
+            ty.put(ast);
+            if (ty.type !is null)
+                ast.put(n, ty.id);
         }
+
+        pushStack(n, v);
+        v.accept(this);
     }
 
     override void visit(const CxxThrowExpr v) {
