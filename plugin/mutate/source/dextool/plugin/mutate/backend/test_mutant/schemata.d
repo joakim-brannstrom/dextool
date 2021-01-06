@@ -320,7 +320,7 @@ nothrow:
             foreach (f; modifiedFiles) {
                 auto extra = () {
                     if (f in roots) {
-                        logger.info("Injecting schemata runtime in ", f);
+                        logger.trace("Injecting schemata runtime in ", f);
                         return makeRootImpl;
                     }
                     return makeHdr;

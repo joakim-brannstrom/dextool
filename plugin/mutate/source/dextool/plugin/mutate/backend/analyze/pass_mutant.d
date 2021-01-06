@@ -420,15 +420,15 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Block n) {
-        sdlVisitBlock(n, stmtDelMutations(n.kind));
+        deleteVisitBlock(n, stmtDelMutations(n.kind));
     }
 
     override void visit(Loop n) {
-        sdlVisitBlock(n, stmtDelMutations(n.kind));
+        deleteVisitBlock(n, stmtDelMutations(n.kind));
     }
 
     override void visit(BranchBundle n) {
-        sdlVisitBlock(n, stmtDelMutations(n.kind));
+        deleteVisitBlock(n, stmtDelMutations(n.kind));
     }
 
     override void visit(Call n) {
@@ -465,12 +465,11 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Return n) {
-        if (n.children.empty) {
-            // if the function return void then it is safe to delete the return.
-            //
-            // c++ throw expressions is modelled as returns with a child node
-            // Call. Overall in any language it should be OK to remove a return
-            // of something that returns void, the bottom type.
+        auto ty = ast.type(n);
+
+        if (ty !is null && ty.kind == TypeKind.top) {
+            // only function with return type void (top, no type) can be
+            // deleted without introducing undefined behavior.
             put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         }
 
@@ -622,7 +621,6 @@ class MutantVisitor : DepthFirstVisitor {
 
     override void visit(Condition n) {
         auto kinds = dcrMutations(n.kind);
-        kinds ~= dcrMutations(n.kind);
         put(ast.location(n), kinds, n.blacklist);
         accept(n, this);
     }
@@ -636,6 +634,9 @@ class MutantVisitor : DepthFirstVisitor {
             // happens compared to "falling through to the next case".
             put(ast.location(n.inside), dcrMutations(n.kind), n.inside.blacklist);
         }
+
+        deleteVisitBlock(n, stmtDelMutations(n.kind));
+
         accept(n, this);
     }
 
@@ -748,9 +749,10 @@ class MutantVisitor : DepthFirstVisitor {
         }
     }
 
-    private void sdlVisitBlock(T)(T n, Mutation.Kind[] op) @trusted {
-        auto sdlAnalyze = scoped!SdlBlockVisitor(ast);
+    private void deleteVisitBlock(T)(T n, Mutation.Kind[] op) @trusted {
+        auto sdlAnalyze = scoped!DeleteBlockVisitor(ast);
         sdlAnalyze.startVisit(n);
+
         if (sdlAnalyze.canRemove) {
             put(sdlAnalyze.loc, op, n.blacklist);
         }
@@ -759,24 +761,24 @@ class MutantVisitor : DepthFirstVisitor {
     }
 }
 
-/** Analyze a block to see if its content can be removed by the SDL mutation
- * operator.
+/** Analyze a block to see if its content can be removed without introducing
+ * any undefined behavior.
  *
  * The block must:
  *  * contain something.
  *  * not contain a `Return` that returns a type other than void.
  */
-class SdlBlockVisitor : DepthFirstVisitor {
+class DeleteBlockVisitor : DepthFirstVisitor {
     RefCounted!Ast ast;
 
     // if the analyzer has determined that this node in the tree can be removed
     // with SDL. Note though that it doesn't know anything about the parent
     // node.
-    bool canRemove;
-    // if the block contains returns;
-    bool hasReturn;
+    bool canRemove = true;
     /// The location that represent the block to remove.
     Location loc;
+
+    alias visit = DepthFirstVisitor.visit;
 
     this(RefCounted!Ast ast) {
         this.ast = ast;
@@ -788,24 +790,19 @@ class SdlBlockVisitor : DepthFirstVisitor {
 
         if (l.interval.end.among(l.interval.begin, l.interval.begin + 1)) {
             // it is an empty block so it can't be removed.
-            return;
-        }
-
-        if (l.interval.begin < l.interval.end) {
+            canRemove = false;
+        } else if (l.interval.begin < l.interval.end) {
             loc = l;
-            canRemove = true;
             visit(n);
+        } else {
+            // something is wrong with the location.... this should never
+            // happen.
+            canRemove = false;
         }
     }
 
-    alias visit = DepthFirstVisitor.visit;
-
     override void visit(Return n) {
-        hasReturn = true;
-
-        auto ty = ast.type(n);
-
-        if (ty !is null && ty.kind == TypeKind.top) {
+        if (n.children.empty) {
             accept(n, this);
         } else {
             canRemove = false;

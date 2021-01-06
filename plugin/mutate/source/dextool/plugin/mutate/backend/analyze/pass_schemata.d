@@ -292,6 +292,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     alias visit = DepthFirstVisitor.visit;
 
     override void visit(Branch n) @trusted {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
         if (n.inside !is null) {
             visitBlock!BlockChain(n.inside, MutantGroup.dcr, dcrMutationsAll);
         }
