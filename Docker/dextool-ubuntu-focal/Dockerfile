@@ -45,7 +45,7 @@ ENV PATH "/opt/dextool_install/bin:$PATH"
 # Specific
 
 RUN apt-get -y --no-install-recommends install autoconf automake autopoint bison gperf texinfo bear
-RUN apt-get -y --no-install-recommends install rsync patch gettext-base
+RUN apt-get -y --no-install-recommends install rsync patch gettext-base wget
 
 RUN git clone git://git.sv.gnu.org/coreutils
 RUN cd coreutils && ./bootstrap
