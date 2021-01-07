@@ -519,6 +519,13 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const FunctionTemplate v) {
+        mixin(mixinNodeLog!());
+        // by adding the node it is possible to search for it in cstack
+        pushStack(new analyze.Poision, v);
+        v.accept(this);
+    }
+
     override void visit(const TemplateTypeParameter v) {
         mixin(mixinNodeLog!());
         // block mutants inside template parameters
@@ -911,9 +918,12 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
+        // TODO: refactor so isParent take multiple kinds. this is very
+        // inefficient traversing multiple times.
         const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc)
-            || isParent(CXCursorKind.classTemplate)
-            || isParent(CXCursorKind.classTemplatePartialSpecialization);
+            || isParent(CXCursorKind.classTemplate) || isParent(
+                    CXCursorKind.classTemplatePartialSpecialization)
+            || isParent(CXCursorKind.functionTemplate);
 
         astOp.schemaBlacklist = blockSchema;
         astOp.operator = op.operator;
