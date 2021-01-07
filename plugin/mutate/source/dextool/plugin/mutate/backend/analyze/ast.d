@@ -83,6 +83,13 @@ struct Ast {
         return null;
     }
 
+    Optional!SymbolId symbolId(Node n) {
+        if (auto v = n in nodeSymbols) {
+            return some(*v);
+        }
+        return none!SymbolId;
+    }
+
     Symbol symbol(Node n) {
         if (auto v = n in nodeSymbols) {
             return symbols.get(*v);

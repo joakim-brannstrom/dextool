@@ -666,15 +666,17 @@ final class BaseVisitor : ExtendedVisitor {
         auto n = new analyze.Call;
         pushStack(n, v);
 
-        // try associate a type with the call
-        auto uc = Cursor(getUnderlyingExprNode(v.cursor));
-        if (uc.isValid) {
-            auto cty = uc.type.canonicalType;
-            auto ty = deriveType(cty);
-            ty.put(ast);
-            if (ty.type !is null)
-                ast.put(n, ty.id);
-        }
+        // a CallExpr always references a the cursor it uses.
+        auto uc = v.cursor.referenced;
+        auto sy = new analyze.Symbol;
+        auto syId = analyze.makeId!(analyze.SymbolId)(() {
+            auto m = uc.mangling;
+            if (m.empty)
+                return v.spelling;
+            return m;
+        }());
+        ast.symbols.require(syId, sy);
+        ast.put(n, syId);
 
         v.accept(this);
     }

@@ -15,7 +15,7 @@ import dextool.plugin.mutate.backend.analyze.ast;
 
 struct MemrInfo {
     Kind node;
-    TypeId tid;
+    SymbolId tid;
 }
 
 Mutation.Kind[] memrMutations(MemrInfo info) @safe pure nothrow {
@@ -33,7 +33,7 @@ Mutation.Kind[] memrMutations(MemrInfo info) @safe pure nothrow {
 }
 
 immutable Mutation.Kind[] memrMutationsAll;
-private immutable TypeId mallocId;
+private immutable SymbolId mallocId;
 
 shared static this() {
     with (Mutation.Kind) {
@@ -41,5 +41,5 @@ shared static this() {
     }
 
     // matches the C version of malloc. the function name is the identifier.
-    mallocId = makeId!TypeId(cast(const(ubyte)[]) "malloc");
+    mallocId = makeId!SymbolId(cast(const(ubyte)[]) "malloc");
 }

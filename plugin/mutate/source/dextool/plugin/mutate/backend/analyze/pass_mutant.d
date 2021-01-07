@@ -444,7 +444,8 @@ class MutantVisitor : DepthFirstVisitor {
 
         auto loc = ast.location(n);
 
-        put(loc, memrMutations(MemrInfo(n.kind, ast.typeId(n).orElse(TypeId(0)))), n.blacklist);
+        put(loc, memrMutations(MemrInfo(n.kind, ast.symbolId(n)
+                .orElse(SymbolId(0)))), n.blacklist);
 
         if (!isParent(Kind.Return) && isDirectParent(Kind.Block)) {
             // the check for Return blocks all SDL when an exception is thrown.
