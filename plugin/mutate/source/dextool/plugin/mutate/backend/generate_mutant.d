@@ -397,7 +397,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         m.mutate = (const(ubyte)[] expr) { return toB(""); };
         break;
     case memrNull:
-        m.mutate = (const(ubyte)[] expr) { return toB("NULL"); };
+        m.mutate = (const(ubyte)[] expr) { return toB("0"); };
         break;
     }
 
