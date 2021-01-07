@@ -959,7 +959,7 @@ struct SchemataBuilder {
 
         Set!CodeMutant local;
         foreach (a; fragments) {
-            if (local.length >= mutantsPerSchema || index.inside(0, a.offset)) {
+            if (local.length >= mutantsPerSchema || index.overlap(0, a.offset)) {
                 spillOver.put(a);
                 continue;
             }
@@ -998,7 +998,7 @@ struct SchemataBuilder {
      * contain multiple mutation kinds and span over multiple files.
      */
     Optional!ET pass2() {
-        Index!byte index;
+        Index!Path index;
 
         auto app = appender!(SchemataFragment[])();
         Set!CodeMutant local;
@@ -1008,7 +1008,8 @@ struct SchemataBuilder {
             pass2Data = rest;
 
         foreach (a; pass2Data) {
-            if (local.length >= mutantsPerSchema || index.overlap(0, a.fragment.offset)) {
+            if (local.length >= mutantsPerSchema
+                    || index.overlap(a.fragment.file, a.fragment.offset)) {
                 rest.put(a);
                 continue;
             }
@@ -1026,7 +1027,7 @@ struct SchemataBuilder {
 
             app.put(a.fragment);
             local.add(a.mutants);
-            index.put(0, a.fragment.offset);
+            index.put(a.fragment.file, a.fragment.offset);
         }
 
         if (local.length <= minMutantsPerSchema)
