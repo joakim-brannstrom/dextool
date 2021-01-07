@@ -55,4 +55,4 @@ RUN cd coreutils && chmod u+w -R src
 
 # must be a dextool_mutate.toml in the directory the docker is built
 COPY dextool_mutate.toml coreutils/.dextool_mutate.toml
-RUN cd coreutils && /opt/dextool_install/dextool mutate analyze
+RUN cd coreutils && dextool mutate analyze
