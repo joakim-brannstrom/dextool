@@ -267,9 +267,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         uint depth;
     }
 
-    void dispose() {
-        ast.release;
-    }
+    alias visit = DepthFirstVisitor.visit;
 
     this(RefCounted!Ast ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result) {
         assert(!ast.empty);
@@ -278,6 +276,10 @@ class CppSchemataVisitor : DepthFirstVisitor {
         this.index = index;
         this.fio = fio;
         this.result = result;
+    }
+
+    void dispose() {
+        ast.release;
     }
 
     override void visitPush(Node n) {
@@ -445,11 +447,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return;
 
         auto loc = ast.location(n);
-        auto offs = loc.interval;
-        auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
-
         if (loc.interval.isZero)
             return;
+
+        auto offs = loc.interval;
+        auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
 
         if (mutants.empty)
             return;
@@ -457,7 +459,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         auto fin = fio.makeInput(loc.file);
 
         auto content = () {
-            // TODO: why does it crash when null is returned? it shuld work...
+            // TODO: why does it crash when null is returned? it should work...
             // switch statements with fallthrough case-branches have an
             // offs.begin == offs.end
             if (offs.begin >= offs.end) {
@@ -484,7 +486,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
         auto loc = ast.location(n.operator);
         auto locExpr = ast.location(n);
-
         if (loc.interval.isZero || locExpr.interval.isZero)
             return;
 
