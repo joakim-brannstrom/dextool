@@ -26,6 +26,8 @@ unittest {
 
     testAnyOrder!SubStr([
         "from 'malloc(42)' to 'NULL'",
+        "from 'kmalloc(42)' to 'NULL'",
+        "from 'xmalloc(42)' to 'NULL'",
     ]).shouldBeIn(r.output);
 }
 
@@ -43,6 +45,8 @@ class ShallProduceValidSchemataForMemr : SchemataFixutre {
         auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "memr"]).run;
         testAnyOrder!SubStr([
                             "from 'malloc(42)' to 'NULL'",
+                            "from 'kmalloc(42)' to 'NULL'",
+                            "from 'xmalloc(42)' to 'NULL'",
         ]).shouldBeIn(r.output);
     }
 }

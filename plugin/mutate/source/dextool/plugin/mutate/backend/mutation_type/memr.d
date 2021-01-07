@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type.memr;
 
+import std.algorithm : map, canFind;
+
 import dextool.plugin.mutate.backend.type;
 
 import dextool.plugin.mutate.backend.analyze.ast;
@@ -23,7 +25,7 @@ Mutation.Kind[] memrMutations(MemrInfo info) @safe pure nothrow {
 
     switch (info.node) with (Mutation.Kind) {
     case Kind.Call:
-        if (mallocId == info.tid)
+        if (mallocId.canFind(info.tid))
             rval = [memrNull];
         break;
     default:
@@ -33,13 +35,17 @@ Mutation.Kind[] memrMutations(MemrInfo info) @safe pure nothrow {
 }
 
 immutable Mutation.Kind[] memrMutationsAll;
-private immutable SymbolId mallocId;
+private immutable SymbolId[] mallocId;
 
 shared static this() {
+    import std.array : array;
+    import std.range : only;
+
     with (Mutation.Kind) {
         memrMutationsAll = [memrNull];
     }
 
     // matches the C version of malloc. the function name is the identifier.
-    mallocId = makeId!SymbolId(cast(const(ubyte)[]) "malloc");
+    mallocId = only("malloc", "xmalloc", "kmalloc").map!(
+            a => makeId!SymbolId(cast(const(ubyte)[]) a)).array;
 }
