@@ -49,7 +49,7 @@ RUN apt-get -y --no-install-recommends install rsync patch gettext-base wget
 
 RUN git clone git://git.sv.gnu.org/coreutils
 RUN cd coreutils && ./bootstrap
-RUN cd coreutils && ./configure
+RUN cd coreutils && FORCE_UNSAFE_CONFIGURE=1 ./configure
 RUN cd coreutils && bear make
 RUN cd coreutils && chmod u+w -R src
 
