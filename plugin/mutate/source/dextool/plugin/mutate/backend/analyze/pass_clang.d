@@ -11,7 +11,7 @@ module dextool.plugin.mutate.backend.analyze.pass_clang;
 
 import logger = std.experimental.logger;
 import std.algorithm : among, map, sort, filter;
-import std.array : empty, array;
+import std.array : empty, array, appender;
 import std.exception : collectException;
 import std.format : formattedWrite;
 import std.meta : AliasSeq;
@@ -26,13 +26,14 @@ import clang.Eval : Eval;
 import clang.Type : Type;
 import clang.c.Index : CXTypeKind, CXCursorKind, CXEvalResultKind, CXTokenKind;
 
+import cpptooling.analyzer.clang.cursor_visitor;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
 import dextool.clang_extensions : getUnderlyingExprNode;
 
 import dextool.type : Path, AbsolutePath;
 
-import dextool.plugin.mutate.backend.analyze.ast : Interval, Location;
+import dextool.plugin.mutate.backend.analyze.ast : Interval, Location, TypeKind;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.utility;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
@@ -876,8 +877,50 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     override void visit(const IfStmtCond v) {
+        import std.algorithm : any;
+
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Condition, v);
+
+        auto n = new analyze.Condition;
+
+        // TODO: inefficient to use two separate visitors
+
+        // can't run schemata when declaring a variable
+        // this is a bug in the schemata generator
+        const declVariable = () @trusted {
+            import clang.SourceRange;
+
+            auto parentInterval = v.cursor.extent;
+
+            foreach (child; v.cursor.children.filter!(a => a.kind == CXCursorKind.firstExpr)) {
+                auto uc = Cursor(getUnderlyingExprNode(child)).referenced;
+                if (uc.kind != CXCursorKind.varDecl)
+                    continue;
+                auto l = uc.extent;
+                if (intersects(l, parentInterval))
+                    return true;
+            }
+            return false;
+        }();
+
+        // TODO: refactor this to be prettier. Leaving the code here for now to
+        // see if this fixes the DCR problem wherein a pointer is used in a
+        // condition.
+        // TODO: this is a pesismistic analysis. It should be changed to only
+        // look at the first layer of nodes but I start by prohibiting
+        // schematan if any of the nodes are a unordered (pointer).
+        auto t = () @trusted {
+            const tys = getChildrenTypes(v.cursor);
+            if (any!(a => a.among(TypeKind.unordered, TypeKind.bottom))(tys))
+                return new analyze.Type;
+            return new analyze.BooleanType(analyze.Range.makeBoolean);
+        }();
+        auto tyId = make!(analyze.TypeId)(v.cursor);
+        ast.types.require(tyId, t);
+        ast.put(n, tyId);
+
+        n.schemaBlacklist = t.kind == analyze.TypeKind.bottom || declVariable;
+        pushStack(n, v);
 
         incr;
         scope (exit)
@@ -1602,4 +1645,37 @@ struct BlackList {
     bool inside(const Path file, const Interval i) {
         return macros.inside(file, i);
     }
+}
+
+/// Returns: true if any of the childern is a pointer type.
+/// TODO: refactor, this duplicates logic of deriveType.
+TypeKind[] getChildrenTypes(const ref Cursor parent) @trusted {
+    import clang.c.Index : CXTypeKind;
+
+    auto app = appender!(TypeKind[])();
+
+    foreach (child; visitDepthFirst(parent)) {
+        auto cty = child.type;
+        if (!cty.isValid)
+            continue;
+
+        if (cty.isEnum) {
+            app.put(TypeKind.discrete);
+        } else if (cty.kind.among(floatCategory)) {
+            app.put(TypeKind.continues);
+        } else if (cty.kind.among(pointerCategory)) {
+            app.put(TypeKind.unordered);
+        } else if (cty.kind.among(boolCategory)) {
+            app.put(TypeKind.boolean);
+        } else if (cty.kind.among(discreteCategory)) {
+            app.put(TypeKind.discrete);
+        } else if (cty.kind.among(voidCategory)) {
+            app.put(TypeKind.top);
+        } else {
+            // assum anything
+            app.put(TypeKind.bottom);
+        }
+    }
+
+    return app.data;
 }

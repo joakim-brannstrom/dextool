@@ -507,9 +507,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBinaryOp(T)(T n) @trusted {
-        if (n.blacklist || n.schemaBlacklist)
-            return;
-
         try {
             auto v = scoped!BinaryOpVisitor(ast, &index, fio, n);
             v.startVisit(n);

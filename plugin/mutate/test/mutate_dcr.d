@@ -168,6 +168,23 @@ unittest {
                         ]).shouldBeIn(r.output);
 }
 
+@(testId ~ "shall block DCR when the operand is a non-boolean")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "dcr_cc_ifstmt2.cpp")
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["test"])
+        .addArg(["--mutant", "dcr"])
+        .run;
+    testAnyOrder!SubStr([
+    "from 'fun(x)' to 'true'",
+    "from 'fun(x)' to 'false'",
+                        ]).shouldBeIn(r.output);
+}
+
 // shall produce 6 predicate and 8 clause mutations for an expression of
 // multiple clauses of C code
 class ShallProduceAllDcrMutantsWithSchemataForC : SchemataFixutre {
@@ -233,5 +250,59 @@ class ShallSkipDcrMutantInsideTemplate : SchemataFixutre {
         // but for now removing it because it seems to fail on min docker
         // image. Probably something to do with the compiler.
         testAnyOrder!SubStr(["error:"]).shouldNotBeIn(runDextoolTest(testEnv).addPostArg(["--mutant", "dcr"]).run.output);
+    }
+}
+
+class ShallGenerateValidDcrForOnelineIfSchema : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "dcr_cc_ifstmt2.cpp").toString;
+    }
+
+    override void test() {
+        import std.file : readText;
+        import std.json;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+
+        runDextoolTest(testEnv).addPostArg(["--mutant", "dcr"]).addFlag("-std=c++11").run;
+
+        makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--style", "json"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
+        auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["stat"];
+        j["alive"].integer.shouldEqual(0);
+        j["killed"].integer.shouldEqual(0);
+    }
+}
+
+class ShallGenerateValidDcrForDeclIfSchema : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "dcr_cc_ifstmt3.cpp").toString;
+    }
+
+    override void test() {
+        import std.file : readText;
+        import std.json;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+
+        runDextoolTest(testEnv).addPostArg(["--mutant", "dcr"]).addFlag("-std=c++11").run;
+
+        makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--style", "json"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
+        auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["stat"];
+        j["alive"].integer.shouldBeGreaterThan(5);
+        j["killed"].integer.shouldBeGreaterThan(5);
     }
 }
