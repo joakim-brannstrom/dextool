@@ -633,9 +633,9 @@ class MutantVisitor : DepthFirstVisitor {
             // jump to the default branch. It becomes "more" predictable what
             // happens compared to "falling through to the next case".
             put(ast.location(n.inside), dcrMutations(n.kind), n.inside.blacklist);
-        }
 
-        deleteVisitBlock(n, stmtDelMutations(n.kind));
+            deleteVisitBlock(n.inside, stmtDelMutations(n.kind));
+        }
 
         accept(n, this);
     }
