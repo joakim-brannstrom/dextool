@@ -23,7 +23,8 @@ Mutation.Kind[] memrMutations(MemrInfo info) @safe pure nothrow {
 
     switch (info.node) with (Mutation.Kind) {
     case Kind.Call:
-        rval = [memrNull];
+        if (mallocId == info.tid)
+            rval = [memrNull];
         break;
     default:
     }
