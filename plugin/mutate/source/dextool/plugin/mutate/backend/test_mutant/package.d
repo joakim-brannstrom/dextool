@@ -381,6 +381,7 @@ struct TestDriver {
 
     static struct Coverage {
         bool propagate;
+        bool fatalError;
     }
 
     static struct PropagateCoverage {
@@ -477,6 +478,8 @@ struct TestDriver {
                 return fsm(Coverage.init);
             return fsm(LoadSchematas.init);
         }, (Coverage a) {
+            if (a.fatalError)
+                return fsm(Error.init);
             if (a.propagate)
                 return fsm(PropagateCoverage.init);
             return fsm(LoadSchematas.init);
@@ -1250,9 +1253,15 @@ nothrow:
                 driver.execute;
             }
             data.propagate = true;
+            data.fatalError = driver.hasFatalError;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
+            data.fatalError = true;
         }
+
+        if (data.fatalError)
+            logger.warning("Error detected when trying to gather coverage information")
+                .collectException;
     }
 
     void opCall(PropagateCoverage data) {
