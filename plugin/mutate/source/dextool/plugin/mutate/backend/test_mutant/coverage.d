@@ -341,7 +341,6 @@ nothrow:
         try {
             restoreFiles(restore, fio);
         } catch (Exception e) {
-            isRunning_ = false;
             error_ = true;
             logger.error(e.msg).collectException;
         }
