@@ -87,9 +87,14 @@ struct SourceRange {
  * Implementation by Wojciech Szęszoł, Feb 14 2016.
  */
 bool intersects(in SourceRange a, in SourceRange b) {
-    return a.path == b.path && (a.start.offset <= b.start.offset
-            && b.start.offset < a.end.offset) || (a.start.offset < b.end.offset
-            && b.end.offset <= a.end.offset);
+    static bool test(uint begin, uint end, uint p) {
+        return p >= begin && p <= end;
+    }
+
+    return a.path == b.path && (test(a.start.offset, a.end.offset,
+            b.start.offset) || test(a.start.offset, a.end.offset,
+            b.end.offset) || test(b.start.offset, b.end.offset,
+            a.start.offset) || test(b.start.offset, b.end.offset, a.end.offset));
 }
 
 /// Retrieve a source range given the beginning and ending source locations.
