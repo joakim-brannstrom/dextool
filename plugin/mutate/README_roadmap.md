@@ -77,6 +77,7 @@ The focus is on speed. Both in running the tool and in giving actionable feedbac
 
  * Improve priority of how mutants are executed.
  * Reduce "junk" mutants.
+ * Rewrite schemata engine
 
 ### Tasks
 
@@ -96,6 +97,8 @@ more complex may need to be broken down and added to the roadmap.
 
 New items are added at the top
 
+ * rewrite the schemata engine. it is now obvious which patterns are generic.
+   It should be possible to completely generalize.
  * fix sdl for single line if-statement. it do not delete the branch.
  * display mutant prioritization to the user? Depending on how it is implemented.
  * implement a function mutation coverage metric or something. It can be argued
