@@ -71,10 +71,12 @@ auto aorMutations(AorInfo info) @safe {
 
     // modulo do not work when either side is a floating point.
     // assume modulo (rem) is not possible if the type is unknown.
-    if (info.lhs is null || info.rhs is null || info.lhs.kind == TypeKind.continues
-            || info.rhs.kind == TypeKind.continues)
+    if (info.lhs is null || info.rhs is null) {
+        // do nothing
+    } else if (info.lhs.kind == TypeKind.continues || info.rhs.kind == TypeKind.continues) {
         rval.op = rval.op.filter!(a => !a.among(Mutation.Kind.aorRem,
                 Mutation.Kind.aorRemAssign)).array;
+    }
 
     return rval;
 }

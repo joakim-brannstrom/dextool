@@ -174,15 +174,13 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     auto clangTrue(const(ubyte)[]) {
         if (lang == Language.c)
             return toB("1");
-        else
-            return toB("true");
+        return toB("true");
     }
 
     auto clangFalse(const(ubyte)[]) {
         if (lang == Language.c)
             return cast(const(ubyte)[]) "0";
-        else
-            return cast(const(ubyte)[]) "false";
+        return cast(const(ubyte)[]) "false";
     }
 
     final switch (kind) with (Mutation.Kind) {
@@ -369,8 +367,18 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     case dcrTrue:
         m.mutate = &clangTrue;
         break;
+    case dcrReturnTrue:
+        m.mutate = (const(ubyte)[] expr) {
+            return toB("return ") ~ clangTrue(null);
+        };
+        break;
     case dcrFalse:
         m.mutate = &clangFalse;
+        break;
+    case dcrReturnFalse:
+        m.mutate = (const(ubyte)[] expr) {
+            return toB("return ") ~ clangFalse(null);
+        };
         break;
     case dcrBomb:
         // assigning null should crash the program, thus a 'bomb'

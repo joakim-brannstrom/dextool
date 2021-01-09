@@ -291,36 +291,23 @@ class CppSchemataVisitor : DepthFirstVisitor {
         --depth;
     }
 
-    override void visit(Branch n) @trusted {
-        if (n.inside !is null) {
-            visitBlock!BlockChain(n.inside, MutantGroup.dcr, dcrMutationsAll);
-            visitBlock!BlockChain(n.inside, MutantGroup.sdl, stmtDelMutationsRaw);
-        }
-        accept(n, this);
-    }
-
-    override void visit(Condition n) {
-        visitCondition(n, MutantGroup.dcr, dcrMutationsAll);
-        accept(n, this);
-    }
-
-    override void visit(VarDecl n) {
-        // block schematas if the visitor is inside a const declared variable.
-        // a schemata is dependent on a runtime variable but a const
-        // declaration requires its expression to be resolved at compile time.
-        // Thus if a schema mutant is injected inside this part of the tree it
-        // will result in a schema that do not compile.
-        if (!n.isConst) {
-            accept(n, this);
-        }
-    }
-
     override void visit(Expr n) {
         accept(n, this);
+        visitBlock!ExpressionChain(n, MutantGroup.dcr, dcrMutationsAll);
     }
 
     override void visit(Block n) {
         visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(Loop n) @trusted {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(BranchBundle n) @trusted {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
         accept(n, this);
     }
 
@@ -329,19 +316,55 @@ class CppSchemataVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
-    override void visit(OpAssign n) {
-        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
-        accept(n, this);
-    }
-
     override void visit(Return n) {
-        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(BinaryOp n) {
         // these are operators such as x += 2
         visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssign n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignAdd n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignAndBitwise n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignDiv n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignMod n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignMul n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignOrBitwise n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignSub n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
         accept(n, this);
     }
 
@@ -410,6 +433,19 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     override void visit(OpDiv n) {
         visitBinaryOp(n);
+    }
+
+    override void visit(Condition n) {
+        visitCondition(n, MutantGroup.dcr, dcrMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(Branch n) {
+        if (n.inside !is null) {
+            visitBlock!BlockChain(n.inside, MutantGroup.dcr, dcrMutationsAll);
+            visitBlock!BlockChain(n.inside, MutantGroup.sdl, stmtDelMutationsRaw);
+        }
+        accept(n, this);
     }
 
     private void visitCondition(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) @trusted {
@@ -890,7 +926,7 @@ struct BlockChain {
             app.put("u".rewrite);
             app.put(") {".rewrite);
             app.put(mutant.value);
-            app.put("} ".rewrite);
+            app.put(";} ".rewrite);
         }
 
         app.put("else {".rewrite);
@@ -898,7 +934,7 @@ struct BlockChain {
         if (original[$ - 1 .. $] != ";".rewrite) {
             app.put(";".rewrite);
         }
-        app.put("}".rewrite);
+        app.put(";}".rewrite);
 
         return app.data;
     }

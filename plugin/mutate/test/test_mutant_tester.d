@@ -967,10 +967,10 @@ class ShallTestMutantsOnSpecifiedLines : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!Re([
-                `.*Found 1 mutant.*program.cpp:13`,
-                `.*Found 1 mutant.*program.cpp:15`
+                `.*Found . mutant.*program.cpp:13`,
+                `.*Found . mutant.*program.cpp:15`
                 ]).shouldBeIn(r.output);
-        testAnyOrder!Re([`info:.*from 'break;`, `info:.*from 'return 1;'`,]).shouldBeIn(r.output);
+        testAnyOrder!Re([`from 'return true' to 'return false'`,]).shouldBeIn(r.output);
     }
 
     override string programFile() {
@@ -1004,9 +1004,11 @@ class ShallTestMutantsInDiff : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!Re([
-                `.*Found 1 mutant.*dcr_dc_switch1.cpp:11`,
+                `.*Found . mutant.*dcr_dc_switch1.cpp:11`,
                 ]).shouldBeIn(r.output);
-        testAnyOrder!Re([`info:.*from 'return -1 ;' to ''`, `info:.*killed`,]).shouldBeIn(r.output);
+        testAnyOrder!Re([
+                `info:.*from 'return false ;' to ''`, `info:.*killed`,
+                ]).shouldBeIn(r.output);
     }
 
     override string programFile() {

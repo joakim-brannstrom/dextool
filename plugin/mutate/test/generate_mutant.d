@@ -5,19 +5,20 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.generate_mutant;
 
-import std.file : copy;
+import std.file : copy, readText;
 
 import dextool_test.utility;
 
 // dfmt off
 
-@(testId ~ "shall produce the mutant specified by the ID")
+@(testId ~ "shall inject a mutant")
 unittest {
     mixin(EnvSetup(globalTestdir));
 
     immutable dst = testEnv.outdir ~ "report_one_ror_mutation_point.cpp";
+    const originalFname = (testData ~ "report_one_ror_mutation_point.cpp").toString;
 
-    copy((testData ~ "report_one_ror_mutation_point.cpp").toString, dst.toString);
+    copy(originalFname, dst.toString);
 
     makeDextoolAnalyze(testEnv)
         .addInputArg(dst)
@@ -30,11 +31,8 @@ unittest {
         .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
         .run;
 
-    testAnyOrder!SubStr([
-        "x >= 3",
-    ]).shouldBeIn(readOutput(testEnv, "report_one_ror_mutation_point.cpp"));
+    auto original = readText(originalFname);
+    auto mutated = readText(dst.toString);
 
-    testAnyOrder!SubStr([
-        "from '>' to '>='",
-    ]).shouldBeIn(r.output);
+    original.shouldNotEqual(mutated);
 }

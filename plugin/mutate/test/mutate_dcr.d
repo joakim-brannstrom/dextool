@@ -64,23 +64,27 @@ unittest {
 
 @(testId ~ "shall produce 2 predicate mutations for an expression of multiple clauses")
 unittest {
-foreach (getValue; ["dcr_dc_ifstmt3.cpp", "dcr_dc_stmt3.cpp"]) {
-    mixin(envSetup(globalTestdir, No.setupEnv));
-    testEnv.outputSuffix(getValue);
-    testEnv.setupEnv;
+    foreach (sourceFile; ["dcr_dc_stmt3.cpp", "dcr_dc_ifstmt3.cpp"]) {
+        mixin(envSetup(globalTestdir, No.setupEnv));
+        testEnv.outputSuffix(sourceFile);
+        testEnv.setupEnv;
 
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ getValue)
-        .run;
-    auto r = makeDextool(testEnv)
-        .addArg(["test"])
-        .addArg(["--mutant", "dcr"])
-        .run;
-    testAnyOrder!SubStr([
-        "from 'x == 0 || y == 0' to 'true'",
-        "from 'x == 0 || y == 0' to 'false'",
-    ]).shouldBeIn(r.output);
-}
+        makeDextoolAnalyze(testEnv)
+            .addInputArg(testData ~ sourceFile)
+            .run;
+        auto r = makeDextool(testEnv)
+            .addArg(["test"])
+            .addArg(["--mutant", "dcr"])
+            .run;
+        testAnyOrder!SubStr([
+            "from 'x == 0' to 'true'",
+            "from 'x == 0' to 'false'",
+            "from 'y == 0' to 'true'",
+            "from 'y == 0' to 'false'",
+            "from 'x == 0 || y == 0' to 'true'",
+            "from 'x == 0 || y == 0' to 'false'",
+        ]).shouldBeIn(r.output);
+    }
 }
 
 @(testId ~ "shall produce 6 clause mutations")
@@ -118,7 +122,7 @@ foreach (getValue; ["dcr_cc_ifstmt1.cpp", "dcr_cc_stmt1.cpp"]) {
 }
 }
 
-@(testId ~ "shall produce 3 switch deletion mutations (fallthrough ignored)")
+@(testId ~ "shall produce 5 mutations in the switch")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv)
@@ -129,9 +133,11 @@ unittest {
         .addArg(["--mutant", "dcr"])
         .run;
     testConsecutiveSparseOrder!SubStr([
-        "from 'return -1 ;' to ''",
-        "from 'return 1;' to ''",
-        "from 'break;' to ''",
+        "from 'return false' to 'return true'",
+        "from 'return true' to 'return false'",
+        "from 'return false' to 'return true'",
+        "from 'return false' to 'return true'",
+        "from 'return true' to 'return false'",
     ]).shouldBeIn(r.output);
 }
 
@@ -163,9 +169,9 @@ unittest {
         .addArg(["--mutant", "dcr"])
         .run;
     testAnyOrder!SubStr([
-    "from 'fun(x)' to 'true'",
-    "from 'fun(x)' to 'false'",
-                        ]).shouldBeIn(r.output);
+        "from 'return fun(x)' to 'return true'",
+        "from 'return fun(x)' to 'return false'",
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall block DCR when the operand is a non-boolean")
@@ -180,9 +186,11 @@ unittest {
         .addArg(["--mutant", "dcr"])
         .run;
     testAnyOrder!SubStr([
-    "from 'fun(x)' to 'true'",
-    "from 'fun(x)' to 'false'",
-                        ]).shouldBeIn(r.output);
+        "from 'x' to 'true'",
+        "from 'x' to 'false'",
+        "from 'y' to 'true'",
+        "from 'y' to 'false'",
+    ]).shouldBeIn(r.output);
 }
 
 // shall produce 6 predicate and 8 clause mutations for an expression of
@@ -275,7 +283,7 @@ class ShallGenerateValidDcrForOnelineIfSchema : SchemataFixutre {
             .run;
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["stat"];
-        j["alive"].integer.shouldEqual(0);
+        j["alive"].integer.shouldBeGreaterThan(12);
         j["killed"].integer.shouldEqual(0);
     }
 }
@@ -294,12 +302,21 @@ class ShallGenerateValidDcrForDeclIfSchema : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
 
-        runDextoolTest(testEnv).addPostArg(["--mutant", "dcr"]).addFlag("-std=c++11").run;
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "dcr"]).addFlag("-std=c++11").run;
 
         makeDextoolReport(testEnv, testData.dirName)
             .addArg(["--style", "json"])
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
+
+        testAnyOrder!SubStr([
+            "from 'Foo::a < Bar::a' to 'true'",
+            "from 'Foo::a < Bar::a' to 'false'",
+            "from 'argc == 5 || argc == 7' to 'true'",
+            "from 'argc == 5 || argc == 7' to 'false'",
+            "from 'argc == 42 || argc == 3' to 'true'",
+            "from 'argc == 42 || argc == 3' to 'false'",
+        ]).shouldBeIn(r.output);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["stat"];
         j["alive"].integer.shouldBeGreaterThan(5);

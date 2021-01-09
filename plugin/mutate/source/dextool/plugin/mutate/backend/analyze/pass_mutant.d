@@ -320,7 +320,7 @@ private:
 
 class MutantVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.abs : absMutations;
-    import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutations;
+    import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutations, DcrInfo;
     import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutations;
 
     RefCounted!Ast ast;
@@ -357,6 +357,15 @@ class MutantVisitor : DepthFirstVisitor {
         --depth;
     }
 
+    /// Returns: the closest function from the current node.
+    Function getClosestFunc() {
+        return cast(Function) match!((a) {
+            if (a[0].data.kind == Kind.Function)
+                return a[0].data;
+            return null;
+        })(nstack, Direction.bottomToTop);
+    }
+
     /// Returns: true if the current node is inside a function that returns bool.
     bool isParentBoolFunc() {
         if (auto rty = closestFuncType) {
@@ -376,21 +385,25 @@ class MutantVisitor : DepthFirstVisitor {
     bool isDirectParent(Kind k) {
         if (nstack.empty)
             return false;
-        return nstack[$ - 1].data.kind == k;
+        return nstack.back.kind == k;
     }
 
     /// Returns: the type, if any, of the function that the current visited node is inside.
-    auto closestFuncType() @trusted {
-        foreach (n; nstack[].retro.filter!(a => a.data.kind == Kind.Function)) {
-            auto fn = cast(Function) n.data;
-            if (auto rty = ast.type(fn.return_)) {
-                return rty;
-            }
-            break;
-        }
-        return null;
+    Type closestFuncType() @trusted {
+        auto f = getClosestFunc;
+        if (f is null)
+            return null;
+        return ast.type(f.return_);
     }
 
+    /// Returns: a range of all types of the children of `n`.
+    auto allTypes(Node n) {
+        return n.children
+            .map!(a => ast.type(a))
+            .filter!(a => a !is null);
+    }
+
+    /// Returns: a range of all kinds of the children of `n`.
     void put(Location loc, Mutation.Kind[] kinds, const bool blacklist) {
         if (blacklist)
             return;
@@ -405,17 +418,9 @@ class MutantVisitor : DepthFirstVisitor {
         put(loc, absMutations(n.kind), n.blacklist);
 
         if (isParentBoolFunc && isParent(Kind.Return) && !isParent(Kind.Call)) {
-            put(loc, dcrMutations(n.kind), n.blacklist);
+            put(loc, dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);
         }
 
-        accept(n, this);
-    }
-
-    override void visit(Constructor n) {
-        accept(n, this);
-    }
-
-    override void visit(Function n) {
         accept(n, this);
     }
 
@@ -432,17 +437,14 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Call n) {
+        // the check isParent..:
         // e.g. a C++ class constructor calls a members constructor in its
         // initialization list.
         // TODO: is this needed? I do not think so considering the rest of the
         // code.
-        if (!isParent(Kind.Function)) {
-            return;
-        }
 
-        auto loc = ast.location(n);
-
-        if (ast.type(n) is null && !isParent(Kind.Return) && isDirectParent(Kind.Block)) {
+        if (isParent(Kind.Function) && ast.type(n) is null
+                && !isParent(Kind.Return) && isDirectParent(Kind.Block)) {
             // the check for Return blocks all SDL when an exception is thrown.
             //
             // the check isDirectParent(Kind.Block) is to only delete function
@@ -452,26 +454,25 @@ class MutantVisitor : DepthFirstVisitor {
             // a bit restricive to be begin with to only delete void returning
             // functions. Extend it in the future when it can "see" that the
             // return value is discarded.
+            auto loc = ast.location(n);
             put(loc, stmtDelMutations(n.kind), n.blacklist);
         }
 
-        if (isParentBoolFunc && isParent(Kind.Return)) {
-            put(loc, dcrMutations(n.kind), n.blacklist);
-        }
-
         // should call visitOp
-
         accept(n, this);
     }
 
     override void visit(Return n) {
-        auto ty = ast.type(n);
+        auto ty = closestFuncType;
+        auto loc = ast.location(n);
 
         if (ty !is null && ty.kind == TypeKind.top) {
             // only function with return type void (top, no type) can be
             // deleted without introducing undefined behavior.
-            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
+            put(loc, stmtDelMutations(n.kind), n.blacklist);
         }
+
+        put(loc, dcrMutations(DcrInfo(n.kind, ty)), n.blacklist);
 
         accept(n, this);
     }
@@ -620,8 +621,7 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Condition n) {
-        auto kinds = dcrMutations(n.kind);
-        put(ast.location(n), kinds, n.blacklist);
+        put(ast.location(n), dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);
         accept(n, this);
     }
 
@@ -632,7 +632,7 @@ class MutantVisitor : DepthFirstVisitor {
             // removing the whole branch because then e.g. a switch-block would
             // jump to the default branch. It becomes "more" predictable what
             // happens compared to "falling through to the next case".
-            put(ast.location(n.inside), dcrMutations(n.kind), n.inside.blacklist);
+            put(ast.location(n.inside), dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);
 
             deleteVisitBlock(n.inside, stmtDelMutations(n.kind));
         }
@@ -695,7 +695,9 @@ class MutantVisitor : DepthFirstVisitor {
             expr ~= absMutations(n.kind);
         }
         {
-            expr ~= dcrMutations(n.kind);
+            auto nty = ast.type(n);
+            logger.tracef("foo %s %s", nty.kind, ast.location(n));
+            expr ~= dcrMutations(DcrInfo(n.kind, ast.type(n)));
         }
         if (isDirectParent(Kind.Block)) {
             expr ~= stmtDelMutations(n.kind);

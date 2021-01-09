@@ -5,21 +5,21 @@
 // clang-format off
 // contains small formatting "errors". This is intentional to test that the
 // offsets are calculated correctly.
-int isPredicateFunc(int x) {
+bool isPredicateFunc(int x) {
     switch (x) {
     case 0:
-        return -1 ;
+        return false ;
     case 1:
-        return 1;
+        return true;
     case 3:
         break;
     case 4:
     case 2:{
-            return 100;
+            return false;
         }
     default:
-        return 0;
+        return false;
     }
 
-    return 42;
+    return true;
 }
