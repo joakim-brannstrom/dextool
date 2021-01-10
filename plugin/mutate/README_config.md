@@ -64,9 +64,7 @@ These are options that occur in multiple command groups.
 ```
 Mutants to operate on.
  - *all* : All mutants are generated.
- - *abs* : Absolute Value Insertion.
  - *aor* : Arithmetical Operator Replacement.
- - *dcc* : Decision/Condition Coverage.
  - *dcr* : Decision/Condition Requirement.
  - *lcr* : Logical Connector Replacement.
  - *lcrb* : Logical Connector Replacement (Bit-wise).

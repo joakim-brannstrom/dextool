@@ -12,7 +12,7 @@ exclude = []
 
 # default mutants to test if none is specified by --mutant
 # note that this affects the analyze phase thus the --mutant argument must be one of those specified here
-# available options are: ["all", "ror", "rorp", "lcr", "aor", "uoi", "abs", "sdl", "dcc", "dcr", "lcrb"]
+# available options are: ["all", "ror", "rorp", "lcr", "aor", "uoi", "sdl", "dcr", "lcrb"]
 # **FOR THE READER**
 # the recommended is ["lcr", "lcrb", "sdl", "uoi", "dcr"]
 # but the config only uses lcr/lcrb so **you** will quickly will get to test
