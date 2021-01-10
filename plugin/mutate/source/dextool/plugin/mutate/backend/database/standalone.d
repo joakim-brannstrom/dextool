@@ -897,10 +897,10 @@ struct Database {
      */
     private MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds,
             string file = null) @trusted {
-        auto qq = "
+        const qq = "
             SELECT count(*),sum(compile_time_ms),sum(test_time_ms)
             FROM (
-            SELECT count(*),sum(t1.compile_time_ms) compile_time_ms,sum(t1.test_time_ms) test_time_ms
+            SELECT sum(t1.compile_time_ms) compile_time_ms,sum(t1.test_time_ms) test_time_ms
             FROM %s t0, %s t1%s
             WHERE
             %s
@@ -1438,14 +1438,17 @@ struct Database {
 
     /// Returns: stats about the test case.
     Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc, const Mutation.Kind[] kinds) @trusted {
-        const sql = format("SELECT sum(t2.compile_time_ms),sum(t2.test_time_ms),count(t1.st_id)
+        const sql = format("SELECT sum(ctime),sum(ttime),count(*)
+            FROM (
+            SELECT sum(t2.compile_time_ms) ctime,sum(t2.test_time_ms) ttime
             FROM %s t0, %s t1, %s t2, %s t3
             WHERE
             t0.name = :name AND
             t0.id = t1.tc_id AND
             t1.st_id = t2.id AND
             t1.st_id = t3.st_id AND
-            t3.kind IN (%(%s,%))", allTestCaseTable,
+            t3.kind IN (%(%s,%))
+            GROUP BY t1.st_id)", allTestCaseTable,
                 killedTestCaseTable, mutationStatusTable, mutationTable,
                 kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
