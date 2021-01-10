@@ -266,85 +266,84 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     override void visit(Expr n) {
         accept(n, this);
-        visitBlock!ExpressionChain(n, dcrMutationsAll);
+        visitBlock!ExpressionChain(n);
     }
 
     override void visit(Block n) {
-        visitBlock!(BlockChain)(n, stmtDelMutationsRaw);
+        visitBlock!(BlockChain)(n);
         accept(n, this);
     }
 
     override void visit(Loop n) @trusted {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(BranchBundle n) @trusted {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(Call n) {
-        visitBlock!(BlockChain)(n, stmtDelMutationsRaw);
+        visitBlock!(BlockChain)(n);
         accept(n, this);
     }
 
     override void visit(Return n) {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
-        visitBlock!BlockChain(n, dcrMutationsAll);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(BinaryOp n) {
         // these are operators such as x += 2
-        visitBlock!(BlockChain)(n, stmtDelMutationsRaw);
+        visitBlock!(BlockChain)(n);
         accept(n, this);
     }
 
     override void visit(OpAssign n) {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(OpAssignAdd n) {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(OpAssignAndBitwise n) {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(OpAssignDiv n) {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(OpAssignMod n) {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(OpAssignMul n) {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(OpAssignOrBitwise n) {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(OpAssignSub n) {
-        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
     override void visit(OpNegate n) {
         import dextool.plugin.mutate.backend.mutation_type.uoi : uoiLvalueMutationsRaw;
 
-        visitUnaryOp(n, uoiLvalueMutationsRaw);
+        visitUnaryOp(n);
         accept(n, this);
     }
 
@@ -409,19 +408,18 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Condition n) {
-        visitCondition(n, dcrMutationsAll);
+        visitCondition(n);
         accept(n, this);
     }
 
     override void visit(Branch n) {
         if (n.inside !is null) {
-            visitBlock!BlockChain(n.inside, dcrMutationsAll);
-            visitBlock!BlockChain(n.inside, stmtDelMutationsRaw);
+            visitBlock!BlockChain(n.inside);
         }
         accept(n, this);
     }
 
-    private void visitCondition(T)(T n, const Mutation.Kind[] kinds) @trusted {
+    private void visitCondition(T)(T n) @trusted {
         if (n.blacklist || n.schemaBlacklist)
             return;
 
@@ -429,8 +427,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         // calls such as if (fn())...
 
         auto loc = ast.location(n);
-        auto mutants = index.get(loc.file, loc.interval)
-            .filter!(a => canFind(kinds, a.mut.kind)).array;
+        auto mutants = index.get(loc.file, loc.interval);
 
         if (loc.interval.isZero)
             return;
@@ -451,7 +448,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         result.putFragment(loc.file, rewrite(loc, schema.generate, mutants));
     }
 
-    private void visitBlock(ChainT, T)(T n, const Mutation.Kind[] kinds) {
+    private void visitBlock(ChainT, T)(T n) {
         if (n.blacklist || n.schemaBlacklist)
             return;
 
@@ -460,7 +457,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return;
 
         auto offs = loc.interval;
-        auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
+        auto mutants = index.get(loc.file, offs);
 
         if (mutants.empty)
             return;
@@ -489,7 +486,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         result.putFragment(loc.file, rewrite(loc, schema.generate, mutants));
     }
 
-    private void visitUnaryOp(T)(T n, const Mutation.Kind[] kinds) {
+    private void visitUnaryOp(T)(T n) {
         if (n.blacklist || n.schemaBlacklist)
             return;
 
@@ -498,8 +495,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         if (loc.interval.isZero || locExpr.interval.isZero)
             return;
 
-        auto mutants = index.get(loc.file, loc.interval)
-            .filter!(a => canFind(kinds, a.mut.kind)).array;
+        auto mutants = index.get(loc.file, loc.interval);
 
         if (mutants.empty)
             return;
@@ -578,89 +574,81 @@ class BinaryOpVisitor : DepthFirstVisitor {
     alias visit = DepthFirstVisitor.visit;
 
     override void visit(OpAndBitwise n) {
-        visitBinaryOp(n, lcrbMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpAnd n) {
-        visitBinaryOp(n, lcrMutationsAll);
-        visitBinaryOp(n, dcrMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpOrBitwise n) {
-        visitBinaryOp(n, lcrbMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpOr n) {
-        visitBinaryOp(n, lcrMutationsAll);
-        visitBinaryOp(n, dcrMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpLess n) {
-        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, dcrMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpLessEq n) {
-        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, dcrMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpGreater n) {
-        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, dcrMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpGreaterEq n) {
-        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, dcrMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpEqual n) {
-        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, dcrMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpNotEqual n) {
-        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, dcrMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpAdd n) {
-        visitBinaryOp(n, aorMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpSub n) {
-        visitBinaryOp(n, aorMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpMul n) {
-        visitBinaryOp(n, aorMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpMod n) {
-        visitBinaryOp(n, aorMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
     override void visit(OpDiv n) {
-        visitBinaryOp(n, aorMutationsAll);
+        visitBinaryOp(n);
         accept(n, this);
     }
 
-    private void visitBinaryOp(T)(T n, const Mutation.Kind[] opKinds_) {
+    private void visitBinaryOp(T)(T n) {
         if (n.blacklist || n.schemaBlacklist)
             return;
 
@@ -676,21 +664,15 @@ class BinaryOpVisitor : DepthFirstVisitor {
         // must check otherwise it crash on intervals that have zero length e.g. [9, 9].
         auto right = contentOrNull(locExpr.interval.end, root.end, content);
 
-        auto opKinds = opKinds_.dup.sort.uniq.array;
+        auto opMutants = index.get(locOp.file, locOp.interval);
 
-        auto opMutants = index.get(locOp.file, locOp.interval)
-            .filter!(a => canFind(opKinds, a.mut.kind)).array;
-
-        auto exprMutants = index.get(locOp.file, locExpr.interval)
-            .filter!(a => canFind(opKinds, a.mut.kind)).array;
+        auto exprMutants = index.get(locOp.file, locExpr.interval);
 
         auto offsLhs = Offset(locExpr.interval.begin, locOp.interval.end);
-        auto lhsMutants = index.get(locOp.file, offsLhs)
-            .filter!(a => canFind(opKinds, a.mut.kind)).array;
+        auto lhsMutants = index.get(locOp.file, offsLhs);
 
         auto offsRhs = Offset(locOp.interval.begin, locExpr.interval.end);
-        auto rhsMutants = index.get(locOp.file, offsRhs)
-            .filter!(a => canFind(opKinds, a.mut.kind)).array;
+        auto rhsMutants = index.get(locOp.file, offsRhs);
 
         if (opMutants.empty && lhsMutants.empty && rhsMutants.empty && exprMutants.empty)
             return;
