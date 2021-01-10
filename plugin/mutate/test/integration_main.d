@@ -12,7 +12,6 @@ int main(string[] args) {
     return args.runTests!(
                           "dextool_test.generate_mutant",
                           "dextool_test.mutate_aor",
-                          "dextool_test.mutate_cor",
                           "dextool_test.mutate_dcr",
                           "dextool_test.mutate_lcr",
                           "dextool_test.mutate_lcrb",

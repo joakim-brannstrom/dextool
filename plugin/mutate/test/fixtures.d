@@ -5,16 +5,22 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.fixtures;
 
+import std.algorithm : map;
+import std.array : array;
 import std.file : copy;
-import std.stdio : File;
 import std.format : format;
+import std.stdio : File;
+
+import dextool.plugin.mutate.backend.database.standalone : Database;
 
 import dextool_test.utility;
 
+auto getAllMutationIds(ref Database db) {
+    return db.getAllMutationStatus.map!(a => db.getMutationId(a).get).array;
+}
+
 /// Fejk database entries
 class DatabaseFixture : TestCase {
-    import dextool.plugin.mutate.backend.database.standalone : Database;
-
     string databaseFile;
 
     Database precondition(ref TestEnv testEnv) {
@@ -24,7 +30,7 @@ class DatabaseFixture : TestCase {
     }
 
     string programFile() {
-        return (testData ~ "report_one_ror_mutation_point.cpp").toString;
+        return (testData ~ "many_mutants.cpp").toString;
     }
 }
 

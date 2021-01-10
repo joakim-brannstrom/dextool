@@ -10,6 +10,7 @@ TODO the full test specification is not implemented.
 module dextool_test.test_report;
 
 import core.time : dur, Duration;
+import std.algorithm : map;
 import std.array : array;
 import std.conv : to;
 import std.file : copy, exists, readText;
@@ -57,7 +58,8 @@ unittest {
         .addInputArg(testData ~ "report_one_ror_mutation_point.cpp")
         .run;
     auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-    db.updateMutation(MutationId(1), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
+    auto ids = getAllMutationIds(db);
+    db.updateMutation(ids[0], Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
 
     // Act
     auto r = makeDextoolReport(testEnv, testData.dirName)
@@ -67,12 +69,14 @@ unittest {
         .addArg(["--section", "summary"])
         .run;
 
+    // TODO: there is a bug in the report because it do not deduplicate
+    // similare mutants that occur on the same mutation point.
     testConsecutiveSparseOrder!SubStr([
         "Mutation operators: all",
         "alive from",
-        "| Percentage | Count | From | To         |",
-        "|------------|-------|------|------------|",
-        "| 100        | 1     | `x`  | `fail_...` |",
+        "| Percentage | Count | From | To   |",
+        "|------------|-------|------|------|",
+        "| 100        | 2     | `>`  | `>=` |",
         "Summary",
         "Time spent:",
         "Score:",
@@ -254,16 +258,16 @@ class ShallReportTopTestCaseStats : ReportTestCaseStats {
          testConsecutiveSparseOrder!SubStr([
             "| Percentage | Count | TestCase |",
             "|------------|-------|----------|",
-            "| 66.6667    | 2     | tc_2     |",
-            "| 33.3333    | 1     | tc_3     |",
-            "| 33.3333    | 1     | tc_1     |",
+            "| 100        | 2     | tc_2     |",
+            "| 50         | 1     | tc_3     |",
+            "| 50         | 1     | tc_1     |",
          ]).shouldBeIn(r.output);
 
         testConsecutiveSparseOrder!SubStr([
             "Test Case Statistics",
-            "0.67", "2", "tc_2",
-            "0.33", "1", "tc_3",
-            "0.33", "1", "tc_1",
+            "1.0", "2", "tc_2",
+            "0.5", "1", "tc_3",
+            "0.5", "1", "tc_1",
         ]).shouldBeIn(File((testEnv.outdir ~ "html/test_case_stat.html").toString).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
@@ -337,9 +341,9 @@ unittest {
 
     // assert
     testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)
-        "| File ", "        | Line | Column | Mutation               | Status           | Rationale                      |",
-        "|------", "--------|------|--------|------------------------|------------------|--------------------------------|",
-        "|", `fibonacci.cpp | 8    | 8      | 'x'->'-abs_dextool(x)' | killedByCompiler | "Marked mutant to be reported" |`,
+        "| File ", "        | Line | Column | Mutation         | Status           | Rationale                      |",
+        "|------", "--------|------|--------|------------------|------------------|--------------------------------|",
+        "|", `fibonacci.cpp | 8    | 8      | 'x < 0'->'false' | killedByCompiler | "Marked mutant to be reported" |`,
     ]).shouldBeIn(r.output);
 }
 
@@ -464,13 +468,13 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
 
         testConsecutiveSparseOrder!SubStr([
             "Diff View",
-            "Mutation Score <b>0.6",
+            "Mutation Score <b>0.7",
             "Analyzed Diff",
             "build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp",
         ]).shouldBeIn(File((testEnv.outdir ~ "html/diff_view.html").toString).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["diff"];
-        (cast(int) (10 * j["score"].floating)).shouldEqual(6);
+        (cast(int) (10 * j["score"].floating)).shouldEqual(7);
     }
 }
 
@@ -486,11 +490,12 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
         precondition(testEnv);
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+        auto ids = getAllMutationIds(db);
 
-        foreach (i; 0 .. 15)
-            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
-        foreach (i; 15 .. 30)
-            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
+        foreach (i; ids[0 .. $/2])
+            db.updateMutation(i, Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
+        foreach (i; ids[$/2 .. $])
+            db.updateMutation(i, Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
 
         auto plain = makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
@@ -508,14 +513,13 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!Re([
-            "Score:.*0.64",
-            "Total:.*25",
-            "Untested:.*36",
-            "Alive:.*14",
-            "Killed:.*11",
+            "Score:.*0.71",
+            "Total:.*10",
+            "Alive:.*5",
+            "Killed:.*5",
             "Timeout:.*0",
             "Killed by compiler:.*0",
-            "Suppressed .nomut.:.*8 .0.32",
+            "Suppressed .nomut.:.*3 .0.3",
         ]).shouldBeIn(plain.output);
     }
 }
@@ -527,10 +531,11 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
-        foreach (i; 0 .. 15)
-            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
-        foreach (i; 15 .. 30)
-            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
+        foreach (stId; db.getAllMutationStatus) {
+            const id = db.getMutationId(stId).get;
+            db.updateMutation(id, Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
+        }
+
 
         makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
@@ -541,23 +546,23 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!SubStr([
-            "Mutation Score <b>",
+            "Mutation Score <b>0</b>",
             "Total",
-            "25",
+            "10",
             "Untested",
-            "36",
+            "0",
             "Alive",
-            "14",
+            "10",
             "Killed",
-            "11",
+            "0",
             "Timeout",
             "0",
             "Killed by compiler",
             "0",
             "NoMut",
-            "8",
+            "5",
             "NoMut/total",
-            "0.32",
+            "0.5",
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "stats.html")).byLineCopy.array);
     }
 }
@@ -569,9 +574,9 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
-        foreach (i; 0 .. 15)
+        foreach (i; 0 .. 5)
             db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
-        foreach (i; 15 .. 30)
+        foreach (i; 5 .. 10)
             db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
 
         makeDextoolReport(testEnv, testData.dirName)
@@ -601,10 +606,8 @@ class ShallReportHtmlNoMutSummary : LinesWithNoMut {
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
-        foreach (i; 0 .. 15)
-            db.updateMutation(MutationId(i), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
-        foreach (i; 15 .. 30)
-            db.updateMutation(MutationId(i), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
+        foreach (id; getAllMutationIds(db))
+            db.updateMutation(id, Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
 
         makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
@@ -629,6 +632,7 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         precondition(testEnv);
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+        auto ids = getAllMutationIds(db);
 
         import dextool.plugin.mutate.backend.type : TestCase;
 
@@ -639,11 +643,11 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
         // tc3: [1,12]
-        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
-        db.updateMutation(MutationId(8), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
-        db.updateMutation(MutationId(12), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(15), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
+        db.updateMutation(ids[0], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.updateMutation(ids[1], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
+        db.updateMutation(ids[2], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
+        db.updateMutation(ids[3], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.updateMutation(ids[4], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
 
         // Act
         makeDextoolReport(testEnv, testData.dirName)
@@ -656,9 +660,9 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         // Assert
         testConsecutiveSparseOrder!SubStr([
                 `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
-                `<td>tc_2`, `<td>0.8`, `<td>tc_3`, `<td>0.4`,
+                `<td>tc_2`, `<td>0.8`, `<td>tc_3`, `<td>0.5`,
                 `<h2 class="tbl_header"><i class="right"></i> tc_2</h2>`,
-                `<td>tc_1`, `<td>1.00`, `<td>tc_3`, `<td>0.5`,
+                `<td>tc_1`, `<td>1.00`, `<td>tc_3`, `<td>0.6`,
                 `<h2 class="tbl_header"><i class="right"></i> tc_3</h2>`,
                 `<td>tc_1`, `<td>1.00`, `<td>tc_2`, `<td>1.00`,
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
@@ -674,6 +678,7 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
         precondition(testEnv);
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+        auto ids = getAllMutationIds(db);
 
         import dextool.plugin.mutate.backend.type : TestCase;
 
@@ -681,14 +686,14 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
         const tc1 = TestCase("tc_1");
         const tc2 = TestCase("tc_2");
         const tc3 = TestCase("tc_3");
-        // tc1: [1,3,8,12,15]
-        // tc2: [1,8,12,15]
-        // tc3: [1,12]
-        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
-        db.updateMutation(MutationId(8), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
-        db.updateMutation(MutationId(12), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(15), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
+        // tc1: [0,1,2,3,4]
+        // tc2: [0,2,3,4]
+        // tc3: [0,3]
+        db.updateMutation(ids[0], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.updateMutation(ids[1], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
+        db.updateMutation(ids[2], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
+        db.updateMutation(ids[3], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.updateMutation(ids[4], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
 
         // Act
         makeDextoolReport(testEnv, testData.dirName)
@@ -712,6 +717,6 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
                 "test_case_unique.html")).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
-        j["test_case_no_unique"].array.length.shouldEqual(3);
+        j["test_case_no_unique"].array.length.shouldEqual(2);
     }
 }

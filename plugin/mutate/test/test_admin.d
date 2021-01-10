@@ -45,18 +45,14 @@ class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
         // tc3: [1,12]
         db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0),
                 MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0),
+        db.updateMutation(MutationId(2), Mutation.Status.killed, ExitStatus(0),
                 MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
-        db.updateMutation(MutationId(8), Mutation.Status.killed, ExitStatus(0),
+        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0),
                 MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
-        db.updateMutation(MutationId(12), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1, tc2, tc3
-                ]);
-        db.updateMutation(MutationId(15), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1, tc2
-                ]);
+        db.updateMutation(MutationId(4), Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.updateMutation(MutationId(5), Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
 
         db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
             .get.killedMutants.shouldBeGreaterThan(1);
@@ -89,14 +85,12 @@ class ShallRemoveTestCase : SimpleAnalyzeFixture {
         // tc2: [1,8,12,15]
         db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0),
                 MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0),
+        db.updateMutation(MutationId(2), Mutation.Status.killed, ExitStatus(0),
                 MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
-        db.updateMutation(MutationId(8), Mutation.Status.killed, ExitStatus(0),
+        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0),
                 MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
-        db.updateMutation(MutationId(15), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1, tc2
-                ]);
+        db.updateMutation(MutationId(4), Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
 
         db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
             .get.killedMutants.shouldBeGreaterThan(1);
@@ -121,7 +115,7 @@ unittest {
     // act
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(4)])
+        .addArg(["--id",        to!string(1)])
         .addArg(["--to-status", to!string(Status.killed)])
         .addArg(["--rationale", `"A good rationale"`])
         .run;
@@ -136,7 +130,7 @@ unittest {
     testAnyOrder!SubStr(["error"]).shouldNotBeIn(r.output);
 
     testAnyOrder!SubStr([
-        to!string(4),
+        to!string(1),
         to!string(Status.killed),
         `"A good rationale"`
     ]).shouldBeIn(r.output);

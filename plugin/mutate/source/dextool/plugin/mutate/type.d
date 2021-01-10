@@ -25,8 +25,6 @@ enum MutationKind {
     aor,
     /// Unary operator insert
     uoi,
-    /// Absolute value replacement
-    abs,
     /// Statement deletion
     sdl,
     /// Decision/Condition Requirement

@@ -319,7 +319,6 @@ class CodeMutantsResult {
 private:
 
 class MutantVisitor : DepthFirstVisitor {
-    import dextool.plugin.mutate.backend.mutation_type.abs : absMutations;
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutations, DcrInfo;
     import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutations;
 
@@ -415,7 +414,6 @@ class MutantVisitor : DepthFirstVisitor {
 
     override void visit(Expr n) {
         auto loc = ast.location(n);
-        put(loc, absMutations(n.kind), n.blacklist);
 
         if (isParentBoolFunc && isParent(Kind.Return) && !isParent(Kind.Call)) {
             put(loc, dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);
@@ -652,9 +650,6 @@ class MutantVisitor : DepthFirstVisitor {
 
             op ~= uoiMutations(n.kind);
         }
-        {
-            expr ~= absMutations(n.kind);
-        }
         if (isDirectParent(Kind.Block)) {
             expr ~= stmtDelMutations(n.kind);
         }
@@ -692,9 +687,6 @@ class MutantVisitor : DepthFirstVisitor {
             rhs ~= m.rhs;
         }
         {
-            expr ~= absMutations(n.kind);
-        }
-        {
             auto nty = ast.type(n);
             logger.tracef("foo %s %s", nty.kind, ast.location(n));
             expr ~= dcrMutations(DcrInfo(n.kind, ast.type(n)));
@@ -709,9 +701,6 @@ class MutantVisitor : DepthFirstVisitor {
     private void visitArithmeticBinaryOp(T)(T n) {
         Mutation.Kind[] op, lhs, rhs, expr;
 
-        {
-            expr ~= absMutations(n.kind);
-        }
         {
             import dextool.plugin.mutate.backend.mutation_type.aor;
 
