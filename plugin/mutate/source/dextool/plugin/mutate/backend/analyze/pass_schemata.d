@@ -267,9 +267,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         uint depth;
     }
 
-    void dispose() {
-        ast.release;
-    }
+    alias visit = DepthFirstVisitor.visit;
 
     this(RefCounted!Ast ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result) {
         assert(!ast.empty);
@@ -278,6 +276,10 @@ class CppSchemataVisitor : DepthFirstVisitor {
         this.index = index;
         this.fio = fio;
         this.result = result;
+    }
+
+    void dispose() {
+        ast.release;
     }
 
     override void visitPush(Node n) {
@@ -289,38 +291,23 @@ class CppSchemataVisitor : DepthFirstVisitor {
         --depth;
     }
 
-    alias visit = DepthFirstVisitor.visit;
-
-    override void visit(Branch n) @trusted {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
-        if (n.inside !is null) {
-            visitBlock!BlockChain(n.inside, MutantGroup.dcr, dcrMutationsAll);
-        }
-        accept(n, this);
-    }
-
-    override void visit(Condition n) {
-        visitCondition(n, MutantGroup.dcr, dcrMutationsAll);
-        accept(n, this);
-    }
-
-    override void visit(VarDecl n) {
-        // block schematas if the visitor is inside a const declared variable.
-        // a schemata is dependent on a runtime variable but a const
-        // declaration requires its expression to be resolved at compile time.
-        // Thus if a schema mutant is injected inside this part of the tree it
-        // will result in a schema that do not compile.
-        if (!n.isConst) {
-            accept(n, this);
-        }
-    }
-
     override void visit(Expr n) {
         accept(n, this);
+        visitBlock!ExpressionChain(n, MutantGroup.dcr, dcrMutationsAll);
     }
 
     override void visit(Block n) {
         visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(Loop n) @trusted {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(BranchBundle n) @trusted {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
         accept(n, this);
     }
 
@@ -329,19 +316,55 @@ class CppSchemataVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
-    override void visit(OpAssign n) {
-        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
-        accept(n, this);
-    }
-
     override void visit(Return n) {
-        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, MutantGroup.dcr, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(BinaryOp n) {
         // these are operators such as x += 2
         visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssign n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignAdd n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignAndBitwise n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignDiv n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignMod n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignMul n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignOrBitwise n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        accept(n, this);
+    }
+
+    override void visit(OpAssignSub n) {
+        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
         accept(n, this);
     }
 
@@ -412,6 +435,19 @@ class CppSchemataVisitor : DepthFirstVisitor {
         visitBinaryOp(n);
     }
 
+    override void visit(Condition n) {
+        visitCondition(n, MutantGroup.dcr, dcrMutationsAll);
+        accept(n, this);
+    }
+
+    override void visit(Branch n) {
+        if (n.inside !is null) {
+            visitBlock!BlockChain(n.inside, MutantGroup.dcr, dcrMutationsAll);
+            visitBlock!BlockChain(n.inside, MutantGroup.sdl, stmtDelMutationsRaw);
+        }
+        accept(n, this);
+    }
+
     private void visitCondition(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) @trusted {
         if (n.blacklist || n.schemaBlacklist)
             return;
@@ -447,11 +483,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return;
 
         auto loc = ast.location(n);
-        auto offs = loc.interval;
-        auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
-
         if (loc.interval.isZero)
             return;
+
+        auto offs = loc.interval;
+        auto mutants = index.get(loc.file, offs).filter!(a => canFind(kinds, a.mut.kind)).array;
 
         if (mutants.empty)
             return;
@@ -459,7 +495,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         auto fin = fio.makeInput(loc.file);
 
         auto content = () {
-            // TODO: why does it crash when null is returned? it shuld work...
+            // TODO: why does it crash when null is returned? it should work...
             // switch statements with fallthrough case-branches have an
             // offs.begin == offs.end
             if (offs.begin >= offs.end) {
@@ -486,7 +522,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
         auto loc = ast.location(n.operator);
         auto locExpr = ast.location(n);
-
         if (loc.interval.isZero || locExpr.interval.isZero)
             return;
 
@@ -508,9 +543,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBinaryOp(T)(T n) @trusted {
-        if (n.blacklist || n.schemaBlacklist)
-            return;
-
         try {
             auto v = scoped!BinaryOpVisitor(ast, &index, fio, n);
             v.startVisit(n);
@@ -894,7 +926,7 @@ struct BlockChain {
             app.put("u".rewrite);
             app.put(") {".rewrite);
             app.put(mutant.value);
-            app.put("} ".rewrite);
+            app.put(";} ".rewrite);
         }
 
         app.put("else {".rewrite);
@@ -902,7 +934,7 @@ struct BlockChain {
         if (original[$ - 1 .. $] != ";".rewrite) {
             app.put(";".rewrite);
         }
-        app.put("}".rewrite);
+        app.put(";}".rewrite);
 
         return app.data;
     }
@@ -960,7 +992,7 @@ struct SchemataBuilder {
 
         Set!CodeMutant local;
         foreach (a; fragments) {
-            if (local.length >= mutantsPerSchema || index.inside(0, a.offset)) {
+            if (local.length >= mutantsPerSchema || index.overlap(0, a.offset)) {
                 spillOver.put(a);
                 continue;
             }
@@ -999,7 +1031,7 @@ struct SchemataBuilder {
      * contain multiple mutation kinds and span over multiple files.
      */
     Optional!ET pass2() {
-        Index!byte index;
+        Index!Path index;
 
         auto app = appender!(SchemataFragment[])();
         Set!CodeMutant local;
@@ -1009,7 +1041,8 @@ struct SchemataBuilder {
             pass2Data = rest;
 
         foreach (a; pass2Data) {
-            if (local.length >= mutantsPerSchema || index.overlap(0, a.fragment.offset)) {
+            if (local.length >= mutantsPerSchema
+                    || index.overlap(a.fragment.file, a.fragment.offset)) {
                 rest.put(a);
                 continue;
             }
@@ -1027,7 +1060,7 @@ struct SchemataBuilder {
 
             app.put(a.fragment);
             local.add(a.mutants);
-            index.put(0, a.fragment.offset);
+            index.put(a.fragment.file, a.fragment.offset);
         }
 
         if (local.length <= minMutantsPerSchema)

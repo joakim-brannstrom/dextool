@@ -157,3 +157,22 @@ class ShallGenerateValidSchemataForOverload : SchemataFixutre {
         testAnyOrder!SubStr([`from '=='`,]).shouldNotBeIn(r.output);
     }
 }
+
+class ShallGenerateValidSchemataForNestedIf : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_nested_if.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "sdl"]).run;
+
+        testAnyOrder!SubStr([`*this`,]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '+'`,]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '=='`,]).shouldNotBeIn(r.output);
+    }
+}

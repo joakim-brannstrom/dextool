@@ -65,10 +65,11 @@ unittest {
         .addFlag("-std=c++11")
         .run;
 
-    testConsecutiveSparseOrder!Re([
+    testAnyOrder!Re([
         `trace:.*Dropping undesired mutant.*dcrTrue`,
         `trace:.*Dropping undesired mutant.*dcrFalse`,
-        `trace:.*Dropping undesired mutant.*dcrTrue`,
+        `trace:.*Dropping undesired mutant.*dcrReturnTrue`,
+        `trace:.*Dropping undesired mutant.*dcrReturnFalse`,
     ]).shouldBeIn(r.output);
 }
 

@@ -19,6 +19,7 @@ import std.format : formattedWrite, format;
 import std.meta : AliasSeq;
 import std.range : isOutputRange;
 
+import my.optional;
 import sumtype;
 
 import dextool.type : AbsolutePath, Path;
@@ -73,6 +74,13 @@ struct Ast {
             return types.get(*v);
         }
         return null;
+    }
+
+    Optional!TypeId typeId(Node n) {
+        if (auto v = n in nodeTypes) {
+            return some(*v);
+        }
+        return none!TypeId;
     }
 
     Symbol symbol(Node n) {
@@ -1102,6 +1110,31 @@ struct Symbols {
         foreach (kv; symbols.byKeyValue) {
             formattedWrite(w, "%X:%s:%s\n", kv.key.value, kv.value.kind, kv.value.value);
         }
+    }
+}
+
+struct RecurseRange {
+    import my.container.vector;
+
+    Vector!Node nodes;
+
+    this(Node n) {
+        nodes.put(n);
+    }
+
+    Node front() @safe pure nothrow {
+        assert(!empty, "Can't get front of an empty range");
+        return nodes.front;
+    }
+
+    void popFront() @safe pure nothrow {
+        assert(!empty, "Can't pop front of an empty range");
+        nodes.put(nodes.front.children);
+        nodes.popFront;
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return nodes.empty;
     }
 }
 

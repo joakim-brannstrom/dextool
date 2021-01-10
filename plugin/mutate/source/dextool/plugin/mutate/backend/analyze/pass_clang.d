@@ -11,7 +11,7 @@ module dextool.plugin.mutate.backend.analyze.pass_clang;
 
 import logger = std.experimental.logger;
 import std.algorithm : among, map, sort, filter;
-import std.array : empty, array;
+import std.array : empty, array, appender;
 import std.exception : collectException;
 import std.format : formattedWrite;
 import std.meta : AliasSeq;
@@ -20,19 +20,21 @@ import std.typecons : Nullable, scoped;
 import blob_model : Blob;
 import my.container.vector : vector, Vector;
 import my.gc.refc : RefCounted;
+import my.optional;
 
 import clang.Cursor : Cursor;
 import clang.Eval : Eval;
 import clang.Type : Type;
 import clang.c.Index : CXTypeKind, CXCursorKind, CXEvalResultKind, CXTokenKind;
 
+import cpptooling.analyzer.clang.cursor_visitor;
 import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
 
 import dextool.clang_extensions : getUnderlyingExprNode;
 
 import dextool.type : Path, AbsolutePath;
 
-import dextool.plugin.mutate.backend.analyze.ast : Interval, Location;
+import dextool.plugin.mutate.backend.analyze.ast : Interval, Location, TypeKind;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.utility;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
@@ -386,6 +388,7 @@ final class BaseVisitor : ExtendedVisitor {
     import clang.c.Index : CXCursorKind, CXTypeKind;
     import cpptooling.analyzer.clang.ast;
     import dextool.clang_extensions : getExprOperator, OpKind;
+    import my.set;
 
     alias visit = ExtendedVisitor.visit;
 
@@ -405,6 +408,9 @@ final class BaseVisitor : ExtendedVisitor {
     BlackList blacklist;
 
     RefCounted!(analyze.Ast) ast;
+
+    /// Keep track of visited nodes to avoid circulare references.
+    Set!size_t isVisited;
 
     FilesysIO fio;
 
@@ -442,7 +448,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     private void pushStack(analyze.Node n, analyze.Location l, const CXCursorKind cKind) @trusted {
         n.blacklist = n.blacklist || blacklist.inside(l);
-        n.schemaBlacklist = n.schemaBlacklist || blacklist.blockSchema(l);
+        n.schemaBlacklist = n.schemaBlacklist;
         if (!nstack.empty)
             n.schemaBlacklist = n.schemaBlacklist || nstack[$ - 1].data.schemaBlacklist;
         nstack.put(n, indent);
@@ -452,7 +458,10 @@ final class BaseVisitor : ExtendedVisitor {
 
     /// Returns: true if it is OK to modify the cursor
     private void pushStack(AstT, ClangT)(AstT n, ClangT c) @trusted {
-        auto loc = c.cursor.toLocation;
+        static if (is(ClangT == Cursor))
+            auto loc = c.toLocation;
+        else
+            auto loc = c.cursor.toLocation;
         nstack.back.children ~= n;
         pushStack(n, loc, c.kind);
     }
@@ -519,6 +528,13 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const FunctionTemplate v) {
+        mixin(mixinNodeLog!());
+        // by adding the node it is possible to search for it in cstack
+        pushStack(new analyze.Poision, v);
+        v.accept(this);
+    }
+
     override void visit(const TemplateTypeParameter v) {
         mixin(mixinNodeLog!());
         // block mutants inside template parameters
@@ -552,6 +568,13 @@ final class BaseVisitor : ExtendedVisitor {
         auto ty = v.cursor.type;
         if (ty.isValid) {
             n.isConst = ty.isConst;
+
+            // block schematas if the visitor is inside a const declared
+            // variable. a schemata is dependent on a runtime variable but a
+            // const declaration requires its expression to be resolved at
+            // compile time. Thus if a schema mutant is injected inside this
+            // part of the tree it will result in a schema that do not compile.
+            n.schemaBlacklist = ty.isConst;
         }
 
         pushStack(n, v);
@@ -567,27 +590,72 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    // TODO overlapping logic with Expression. deduplicate
+    override void visit(const DeclRefExpr v) @trusted {
+        import cpptooling.analyzer.clang.ast : dispatch;
+        import clang.SourceRange : intersects;
+
+        mixin(mixinNodeLog!());
+
+        if (v.cursor.toHash in isVisited)
+            return;
+        isVisited.add(v.cursor.toHash);
+
+        auto n = new analyze.Expr;
+
+        auto ue = deriveCursorType(v.cursor);
+        ue.put(ast);
+        if (ue.type !is null) {
+            ast.put(n, ue.id);
+        }
+
+        // only deref a node which is a self-reference
+        auto r = v.cursor.referenced;
+        if (r.isValid && r != v.cursor && intersects(v.cursor.extent, r.extent)
+                && r.toHash !in isVisited) {
+            isVisited.add(r.toHash);
+            pushStack(n, v);
+
+            incr;
+            scope (exit)
+                decr;
+            dispatch(r, this);
+        } else if (ue.expr.isValid && ue.expr != v.cursor && ue.expr.toHash !in isVisited) {
+            isVisited.add(ue.expr.toHash);
+            pushStack(n, ue.expr);
+
+            incr;
+            scope (exit)
+                decr;
+            dispatch(ue.expr, this);
+        } else {
+            pushStack(n, v);
+            v.accept(this);
+        }
+    }
+
     override void visit(const Statement v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
     override void visit(const Expression v) {
-        import cpptooling.analyzer.clang.ast : dispatch;
-        import dextool.clang_extensions : getUnderlyingExprNode;
-
         mixin(mixinNodeLog!());
 
-        auto ue = Cursor(getUnderlyingExprNode(v.cursor));
-        if (ue.isValid && ue != v.cursor) {
-            incr;
-            scope (exit)
-                decr;
-            dispatch(ue, this);
-        } else {
-            pushStack(new analyze.Expr, v);
-            v.accept(this);
+        if (v.cursor.toHash in isVisited)
+            return;
+        isVisited.add(v.cursor.toHash);
+
+        auto n = new analyze.Expr;
+
+        auto ue = deriveCursorType(v.cursor);
+        ue.put(ast);
+        if (ue.type !is null) {
+            ast.put(n, ue.id);
         }
+
+        pushStack(n, v);
+        v.accept(this);
     }
 
     override void visit(const Preprocessor v) {
@@ -670,7 +738,9 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // model a C++ exception as a return expression because that is
         // "basically" what happens.
-        pushStack(new analyze.Return, v);
+        auto n = new analyze.Return;
+        n.blacklist = true;
+        pushStack(n, v);
         v.accept(this);
     }
 
@@ -870,14 +940,15 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const IfStmtCond v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Condition, v);
 
-        incr;
-        scope (exit)
-            decr;
+        auto n = new analyze.Condition;
+        pushStack(n, v);
+
         if (!visitOp(v, v.cursor.kind)) {
             v.accept(this);
         }
+
+        rewriteCondition(ast, n);
     }
 
     override void visit(const IfStmtThen v) {
@@ -911,9 +982,12 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
+        // TODO: refactor so isParent take multiple kinds. this is very
+        // inefficient traversing multiple times.
         const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc)
-            || isParent(CXCursorKind.classTemplate)
-            || isParent(CXCursorKind.classTemplatePartialSpecialization);
+            || isParent(CXCursorKind.classTemplate) || isParent(
+                    CXCursorKind.classTemplatePartialSpecialization)
+            || isParent(CXCursorKind.functionTemplate);
 
         astOp.schemaBlacklist = blockSchema;
         astOp.operator = op.operator;
@@ -1013,7 +1087,8 @@ final class BaseVisitor : ExtendedVisitor {
                     ast.put(b, ty.symId);
                 }
             }
-        } else if (op.rhs.isValid) {
+        }
+        if (op.rhs.isValid) {
             incr;
             scope (exit)
                 decr;
@@ -1338,6 +1413,45 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
     root.children = rootChildren[];
 }
 
+/** Rewrite the position of a condition to perfectly match the parenthesis.
+ *
+ * The source code:
+ * ```
+ * if (int x = 42) y = 43;
+ * ```
+ *
+ * Results in something like this in the AST.
+ *
+ * `-Condition
+ *   `-Expr
+ *     `-Expr
+ *       `-VarDecl
+ *         `-OpGreater
+ *           `-Operator
+ *           `-Expr
+ *           `-Expr
+ *
+ * The problem is that the location of the Condition node will be OpGreater and
+ * not the VarDecl.
+ */
+void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
+    import sumtype;
+    import dextool.plugin.mutate.backend.analyze.ast : TypeId, VarDecl, Kind, RecurseRange;
+
+    foreach (ty; RecurseRange(root).map!(a => ast.typeId(a))
+            .filter!(a => a.hasValue)) {
+        sumtype.match!((Some!TypeId a) => ast.put(root, a), (None a) {})(ty);
+        break;
+    }
+
+    foreach (a; RecurseRange(root).filter!(a => a.kind == Kind.VarDecl)) {
+        ast.put(root, ast.location(a));
+        root.schemaBlacklist = true;
+        a.schemaBlacklist = true;
+        break;
+    }
+}
+
 enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind.char16,
             CXTypeKind.char32, CXTypeKind.uShort, CXTypeKind.uInt, CXTypeKind.uLong, CXTypeKind.uLongLong,
             CXTypeKind.uInt128, CXTypeKind.charS, CXTypeKind.sChar, CXTypeKind.wChar, CXTypeKind.short_,
@@ -1508,11 +1622,6 @@ bool isConstExpr(const Cursor c) @trusted {
     }
 
     auto toks = c.tokens;
-    if (toks.empty) {
-        // unknown assuming true. this happens when a constexpr is prefixed by
-        // a macro.
-        return true;
-    }
     return helper(toks);
 }
 
@@ -1568,7 +1677,7 @@ struct BlackList {
     }
 
     bool blockSchema(analyze.Location l) {
-        return schemas.inside(l.file, l.interval);
+        return schemas.overlap(l.file, l.interval);
     }
 
     bool inside(const Cursor c) {
@@ -1590,6 +1699,39 @@ struct BlackList {
      * Returns: true if `i` is inside a macro interval.
      */
     bool inside(const Path file, const Interval i) {
-        return macros.inside(file, i);
+        return macros.overlap(file, i);
     }
+}
+
+/// Returns: true if any of the childern is a pointer type.
+/// TODO: refactor, this duplicates logic of deriveType.
+TypeKind[] getChildrenTypes(const ref Cursor parent) @trusted {
+    import clang.c.Index : CXTypeKind;
+
+    auto app = appender!(TypeKind[])();
+
+    foreach (child; visitDepthFirst(parent)) {
+        auto ty = child.type;
+        if (!ty.isValid)
+            continue;
+
+        if (ty.isEnum) {
+            app.put(TypeKind.discrete);
+        } else if (ty.kind.among(floatCategory)) {
+            app.put(TypeKind.continues);
+        } else if (ty.kind.among(pointerCategory)) {
+            app.put(TypeKind.unordered);
+        } else if (ty.kind.among(boolCategory)) {
+            app.put(TypeKind.boolean);
+        } else if (ty.kind.among(discreteCategory)) {
+            app.put(TypeKind.discrete);
+        } else if (ty.kind.among(voidCategory)) {
+            app.put(TypeKind.top);
+        } else {
+            // assum anything
+            app.put(TypeKind.bottom);
+        }
+    }
+
+    return app.data;
 }

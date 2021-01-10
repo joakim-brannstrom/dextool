@@ -47,6 +47,22 @@ struct Offset {
         return begin >= end;
     }
 
+    uint length() @safe pure nothrow const @nogc {
+        if (isZero)
+            return 0;
+        return end - begin;
+    }
+
+    private static bool test(Offset i, uint p) {
+        return p >= i.begin && p <= i.end;
+    }
+
+    /// Check if there is an overlap between the offsets.
+    bool intersect(in Offset other) {
+        return test(other, begin) || test(other, end) || test(this,
+                other.begin) || test(this, other.end);
+    }
+
     size_t toHash() @safe pure nothrow const @nogc scope {
         auto a = begin.hashOf();
         return end.hashOf(a); // mixing two hash values
@@ -194,6 +210,9 @@ struct Mutation {
         aorRhs,
         // uoi
         uoiDel,
+        // dcr for return types
+        dcrReturnTrue,
+        dcrReturnFalse,
     }
 
     /// The status of a mutant.

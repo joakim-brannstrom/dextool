@@ -9,18 +9,24 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type.dcr;
 
+import logger = std.experimental.logger;
+
 import dextool.plugin.mutate.backend.type;
 import dextool.plugin.mutate.backend.analyze.ast;
 
-immutable Mutation.Kind[] dcrCaseMutationsRaw;
-immutable Mutation.Kind[] dcrBranchMutationsRaw;
+/// Information used to intelligently generate ror mutants;
+struct DcrInfo {
+    Kind operator;
+    Type ty;
+}
 
-Mutation.Kind[] dcrMutations(Kind operator) @safe pure nothrow {
+Mutation.Kind[] dcrMutations(DcrInfo info) @safe {
+    import std.algorithm : among;
+
     typeof(return) rval;
-
     // an operator is a predicate, leaf.
     // the condition is obviously the top node.
-    switch (operator) with (Mutation.Kind) {
+    switch (info.operator) with (Mutation.Kind) {
     case Kind.Call:
         goto case;
     case Kind.Expr:
@@ -43,10 +49,19 @@ Mutation.Kind[] dcrMutations(Kind operator) @safe pure nothrow {
     case Kind.OpNotEqual:
         goto case;
     case Kind.Condition:
-        rval = [dcrTrue, dcrFalse];
+        // pessimistic, no type then do nothing.
+        // discrete because it degenerate to a boolean.
+        if (info.ty !is null
+                && info.ty.kind.among(TypeKind.boolean, TypeKind.discrete))
+            rval = [dcrTrue, dcrFalse];
         break;
     case Kind.Branch:
         rval = [dcrCaseDel];
+        break;
+    case Kind.Return:
+        if (info.ty !is null
+                && info.ty.kind == TypeKind.boolean)
+            rval = [dcrReturnTrue, dcrReturnFalse];
         break;
     default:
     }
@@ -58,8 +73,8 @@ immutable Mutation.Kind[] dcrMutationsAll;
 
 shared static this() {
     with (Mutation.Kind) {
-        dcrCaseMutationsRaw = [dcrCaseDel];
-        dcrBranchMutationsRaw = [dcrTrue, dcrFalse];
+        dcrMutationsAll = [
+            dcrTrue, dcrFalse, dcrReturnTrue, dcrReturnFalse, dcrCaseDel
+        ];
     }
-    dcrMutationsAll = dcrBranchMutationsRaw ~ dcrCaseMutationsRaw;
 }
