@@ -73,6 +73,9 @@ Mutants analyzeForUndesiredMutant(Blob file, Mutants mutants, const Language lan
 }
 
 bool isTextuallyEqual(Blob file, Offset o, const(ubyte)[] mutant) {
+    if (o.isZero)
+        return false;
+
     return file.content[o.begin .. o.end] == mutant;
 }
 
@@ -84,6 +87,9 @@ bool isOnlyWhitespace(Blob file, Offset o, const(ubyte)[] mutant) {
         cast(ubyte) ' ', cast(ubyte) '\t', cast(ubyte) '\v', cast(ubyte) '\r',
         cast(ubyte) '\n', cast(ubyte) '\f'
     ];
+
+    if (o.isZero)
+        return false;
 
     bool rval = true;
     foreach (a; file.content[o.begin .. o.end]) {

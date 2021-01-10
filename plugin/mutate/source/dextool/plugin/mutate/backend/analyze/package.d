@@ -91,6 +91,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             .filter!(a => conf_analyze.fileMatcher.match(a.cmd.absoluteFile.toString))
             .filter!(a => fileFilter.shouldAnalyze(a.cmd.absoluteFile))) {
         try {
+            //logger.infof("%s sending", f.cmd.absoluteFile);
             pool.put(task!analyzeActor(kinds, f, valLoc.dup, fio.dup, conf_compiler, conf_analyze, store));
             taskCnt++;
         } catch (Exception e) {
@@ -184,10 +185,12 @@ void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze, Val
     auto profile = Profile("analyze file " ~ fileToAnalyze.cmd.absoluteFile);
 
     try {
+        //logger.infof("%s begin", fileToAnalyze.cmd.absoluteFile);
         auto analyzer = Analyze(kinds, vloc, fio, Analyze.Config(compilerConf.forceSystemIncludes,
                 analyzeConf.mutantsPerSchema, analyzeConf.saveCoverage.get));
         analyzer.process(fileToAnalyze);
         send(storeActor, cast(immutable) analyzer.result);
+        //logger.infof("%s end", fileToAnalyze.cmd.absoluteFile);
         return;
     } catch (Exception e) {
         logger.error(e.msg).collectException;
@@ -195,8 +198,10 @@ void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze, Val
 
     // send a dummy result
     try {
+        //logger.infof("%s failed", fileToAnalyze.cmd.absoluteFile);
         send(storeActor, cast(immutable) new Analyze.Result);
     } catch (Exception e) {
+        logger.error(e.msg).collectException;
     }
 }
 

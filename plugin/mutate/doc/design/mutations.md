@@ -38,7 +38,7 @@ equivalent mutants as much as possible.
 
 ## Requirements
 
-The plugin shall support **at least** the mutations ROR, AOR, LCR, UOI and ABS.
+The plugin shall support **at least** the mutations ROR, AOR, LCR and UOI.
 
 ## Relational Operator Replacement (ROR) {id="design-mutation_ror"}
 
@@ -334,13 +334,18 @@ a = -abs(b + c)
 a = fail_on_zero(b + c)
 ```
 
-## Undesired Mutant
+### Undesired Mutant
 
 Based on empirical observations integer literals are not mutated because they usually result in equivalent mutants.
 Further studies on this subject is needed.
 
 > The mutation abs(0) and abs(0.0) is undesired because it has no semantic effect.
 > Note though that abs(-0.0) is a separate case.
+
+### Note
+
+This mutant has been removed from the tool because it has turned out to generate
+too much junk.
 
 ## Conditional Operator Replacement (COR) {id="design-mutation_cor"}
 
@@ -369,7 +374,7 @@ TODO: OR should be `||` but it doesn't render corrently on github.
 
 ### Note
 
-This mutant is inactivated in the tool because it has turned out to generate
+This mutant has been removed from the tool because it has turned out to generate
 too much junk.
 
 ## Decision/Condition Requirement (DCR) {id="design-mutation_dcr"}

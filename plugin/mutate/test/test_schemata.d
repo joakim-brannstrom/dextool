@@ -176,3 +176,46 @@ class ShallGenerateValidSchemataForNestedIf : SchemataFixutre {
         testAnyOrder!SubStr([`from '=='`,]).shouldNotBeIn(r.output);
     }
 }
+
+class ShallGenerateValidSchemataForEnableIf : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_enableif.cpp").toString;
+    }
+
+    override string scriptBuild() {
+        return "#!/bin/bash
+set -e
+g++ -std=c++14 %s -o %s
+";
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++14").run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "rorp"]).run;
+
+        testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
+                r.output);
+    }
+}
+
+class ShallGenerateValidSchemataForPtr : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_aor.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "aor"]).run;
+
+        testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
+                r.output);
+    }
+}
