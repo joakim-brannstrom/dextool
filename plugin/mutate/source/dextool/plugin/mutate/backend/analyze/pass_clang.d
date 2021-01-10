@@ -517,21 +517,27 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const ClassTemplate v) {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        pushStack(new analyze.Poision, v);
+        auto n = new analyze.Poision;
+        n.schemaBlacklist = true;
+        pushStack(n, v);
         v.accept(this);
     }
 
     override void visit(const ClassTemplatePartialSpecialization v) {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        pushStack(new analyze.Poision, v);
+        auto n = new analyze.Poision;
+        n.schemaBlacklist = true;
+        pushStack(n, v);
         v.accept(this);
     }
 
     override void visit(const FunctionTemplate v) {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        pushStack(new analyze.Poision, v);
+        auto n = new analyze.Poision;
+        n.schemaBlacklist = true;
+        pushStack(n, v);
         v.accept(this);
     }
 
