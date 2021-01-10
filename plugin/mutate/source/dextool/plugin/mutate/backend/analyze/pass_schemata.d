@@ -91,11 +91,12 @@ class SchemataResult {
     }
 
     static struct Schemata {
+        // TODO: change to using appender
         Fragment[] fragments;
     }
 
     private {
-        Schemata[MutantGroup][AbsolutePath] schematas;
+        Schemata[AbsolutePath] schematas;
         FilesysIO fio;
         const long mutantsPerSchema;
     }
@@ -110,14 +111,11 @@ class SchemataResult {
     }
 
     /// Assuming that all fragments for a file should be merged to one huge.
-    private void putFragment(AbsolutePath file, MutantGroup g, Fragment sf) {
+    private void putFragment(AbsolutePath file, Fragment sf) {
         if (auto v = file in schematas) {
-            (*v)[g].fragments ~= sf;
+            (*v).fragments ~= sf;
         } else {
-            foreach (a; [EnumMembers!MutantGroup]) {
-                schematas[file][a] = Schemata.init;
-            }
-            schematas[file][g] = Schemata([sf]);
+            schematas[file] = Schemata([sf]);
         }
     }
 
@@ -135,17 +133,10 @@ class SchemataResult {
             }
         }
 
-        void toBufGroups(Schemata[MutantGroup] s) {
-            foreach (a; s.byKeyValue) {
-                formattedWrite(w, "Group %s\n", a.key);
-                toBuf(a.value);
-            }
-        }
-
         foreach (k; schematas.byKey.array.sort) {
             try {
                 formattedWrite(w, "%s:\n", k);
-                toBufGroups(schematas[k]);
+                toBuf(schematas[k]);
             } catch (Exception e) {
             }
         }
@@ -156,21 +147,6 @@ class SchemataResult {
 
 private:
 
-/** All mutants for a file that is part of the same group are merged to one schemata.
- *
- * Each file can have multiple groups.
- */
-enum MutantGroup {
-    none,
-    aor,
-    ror,
-    lcr,
-    lcrb,
-    dcr,
-    uoi,
-    sdl,
-}
-
 struct SchematasRange {
     alias ET = Tuple!(SchemataFragment[], "fragments", CodeMutant[], "mutants",
             SchemataChecksum, "checksum");
@@ -179,22 +155,19 @@ struct SchematasRange {
         ET[] values;
     }
 
-    this(scope FilesysIO fio, SchemataResult.Schemata[MutantGroup][AbsolutePath] raw,
-            long mutantsPerSchema) {
+    this(scope FilesysIO fio, SchemataResult.Schemata[AbsolutePath] raw, long mutantsPerSchema) {
         auto values_ = appender!(ET[])();
         auto builder = SchemataBuilder(mutantsPerSchema);
 
-        foreach (group; raw.byKeyValue) {
-            auto file = fio.toRelativeRoot(group.key);
-            foreach (a; group.value.byValue) {
-                builder.pass1(a.fragments, file).match!((Some!ET a) => values_.put(a.value),
-                        (None a) {});
-                auto spillOver = builder.spillOver;
-                while (!spillOver.empty) {
-                    builder.pass1(spillOver, file)
-                        .match!((Some!ET a) => values_.put(a.value), (None a) {});
-                    spillOver = builder.spillOver;
-                }
+        foreach (schema; raw.byKeyValue) {
+            auto file = fio.toRelativeRoot(schema.key);
+            builder.pass1(schema.value.fragments, file)
+                .match!((Some!ET a) => values_.put(a.value), (None a) {});
+            auto spillOver = builder.spillOver;
+            while (!spillOver.empty) {
+                builder.pass1(spillOver, file).match!((Some!ET a) => values_.put(a.value), (None a) {
+                });
+                spillOver = builder.spillOver;
             }
         }
 
@@ -293,85 +266,85 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     override void visit(Expr n) {
         accept(n, this);
-        visitBlock!ExpressionChain(n, MutantGroup.dcr, dcrMutationsAll);
+        visitBlock!ExpressionChain(n, dcrMutationsAll);
     }
 
     override void visit(Block n) {
-        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!(BlockChain)(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(Loop n) @trusted {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(BranchBundle n) @trusted {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(Call n) {
-        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!(BlockChain)(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(Return n) {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
-        visitBlock!BlockChain(n, MutantGroup.dcr, dcrMutationsAll);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(BinaryOp n) {
         // these are operators such as x += 2
-        visitBlock!(BlockChain)(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!(BlockChain)(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(OpAssign n) {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(OpAssignAdd n) {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(OpAssignAndBitwise n) {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(OpAssignDiv n) {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(OpAssignMod n) {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(OpAssignMul n) {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(OpAssignOrBitwise n) {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(OpAssignSub n) {
-        visitBlock!BlockChain(n, MutantGroup.sdl, stmtDelMutationsRaw);
+        visitBlock!BlockChain(n, stmtDelMutationsRaw);
         accept(n, this);
     }
 
     override void visit(OpNegate n) {
         import dextool.plugin.mutate.backend.mutation_type.uoi : uoiLvalueMutationsRaw;
 
-        visitUnaryOp(n, MutantGroup.uoi, uoiLvalueMutationsRaw);
+        visitUnaryOp(n, uoiLvalueMutationsRaw);
         accept(n, this);
     }
 
@@ -436,19 +409,19 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Condition n) {
-        visitCondition(n, MutantGroup.dcr, dcrMutationsAll);
+        visitCondition(n, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(Branch n) {
         if (n.inside !is null) {
-            visitBlock!BlockChain(n.inside, MutantGroup.dcr, dcrMutationsAll);
-            visitBlock!BlockChain(n.inside, MutantGroup.sdl, stmtDelMutationsRaw);
+            visitBlock!BlockChain(n.inside, dcrMutationsAll);
+            visitBlock!BlockChain(n.inside, stmtDelMutationsRaw);
         }
         accept(n, this);
     }
 
-    private void visitCondition(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) @trusted {
+    private void visitCondition(T)(T n, const Mutation.Kind[] kinds) @trusted {
         if (n.blacklist || n.schemaBlacklist)
             return;
 
@@ -475,10 +448,10 @@ class CppSchemataVisitor : DepthFirstVisitor {
             // dfmt on
         }
 
-        result.putFragment(loc.file, group, rewrite(loc, schema.generate, mutants));
+        result.putFragment(loc.file, rewrite(loc, schema.generate, mutants));
     }
 
-    private void visitBlock(ChainT, T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+    private void visitBlock(ChainT, T)(T n, const Mutation.Kind[] kinds) {
         if (n.blacklist || n.schemaBlacklist)
             return;
 
@@ -513,10 +486,10 @@ class CppSchemataVisitor : DepthFirstVisitor {
             schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang).mutate(content));
         }
 
-        result.putFragment(loc.file, group, rewrite(loc, schema.generate, mutants));
+        result.putFragment(loc.file, rewrite(loc, schema.generate, mutants));
     }
 
-    private void visitUnaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] kinds) {
+    private void visitUnaryOp(T)(T n, const Mutation.Kind[] kinds) {
         if (n.blacklist || n.schemaBlacklist)
             return;
 
@@ -539,18 +512,15 @@ class CppSchemataVisitor : DepthFirstVisitor {
                     fin.content[loc.interval.end .. locExpr.interval.end]);
         }
 
-        result.putFragment(loc.file, group, rewrite(locExpr, schema.generate, mutants));
+        result.putFragment(loc.file, rewrite(locExpr, schema.generate, mutants));
     }
 
     private void visitBinaryOp(T)(T n) @trusted {
         try {
             auto v = scoped!BinaryOpVisitor(ast, &index, fio, n);
             v.startVisit(n);
-
-            foreach (a; v.schema.byKeyValue.filter!(a => !a.value.empty)) {
-                result.putFragment(v.rootLoc.file, a.key, rewrite(v.rootLoc,
-                        a.value.generate, v.mutants[a.key].toArray));
-            }
+            result.putFragment(v.rootLoc.file, rewrite(v.rootLoc,
+                    v.schema.generate, v.mutants.toArray));
         } catch (Exception e) {
         }
     }
@@ -577,8 +547,8 @@ class BinaryOpVisitor : DepthFirstVisitor {
     const(ubyte)[] content;
 
     /// The resulting fragments of the expression.
-    ExpressionChain[MutantGroup] schema;
-    Set!(CodeMutant)[MutantGroup] mutants;
+    ExpressionChain schema;
+    Set!CodeMutant mutants;
 
     this(T)(RefCounted!Ast ast, CodeMutantIndex* index, FilesysIO fio, T root) {
         this.ast = ast;
@@ -600,10 +570,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
         if (content.empty)
             return;
 
-        foreach (mg; [EnumMembers!MutantGroup]) {
-            schema[mg] = ExpressionChain(content[root.begin .. root.end]);
-            mutants[mg] = Set!CodeMutant.init;
-        }
+        schema = ExpressionChain(content[root.begin .. root.end]);
 
         visit(n);
     }
@@ -611,89 +578,89 @@ class BinaryOpVisitor : DepthFirstVisitor {
     alias visit = DepthFirstVisitor.visit;
 
     override void visit(OpAndBitwise n) {
-        visitBinaryOp(n, MutantGroup.lcrb, lcrbMutationsAll);
+        visitBinaryOp(n, lcrbMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpAnd n) {
-        visitBinaryOp(n, MutantGroup.lcr, lcrMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
+        visitBinaryOp(n, lcrMutationsAll);
+        visitBinaryOp(n, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpOrBitwise n) {
-        visitBinaryOp(n, MutantGroup.lcrb, lcrbMutationsAll);
+        visitBinaryOp(n, lcrbMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpOr n) {
-        visitBinaryOp(n, MutantGroup.lcr, lcrMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
+        visitBinaryOp(n, lcrMutationsAll);
+        visitBinaryOp(n, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpLess n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
+        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpLessEq n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
+        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpGreater n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
+        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpGreaterEq n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
+        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpEqual n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
+        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpNotEqual n) {
-        visitBinaryOp(n, MutantGroup.ror, rorMutationsAll ~ rorpMutationsAll);
-        visitBinaryOp(n, MutantGroup.dcr, dcrMutationsAll);
+        visitBinaryOp(n, rorMutationsAll ~ rorpMutationsAll);
+        visitBinaryOp(n, dcrMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpAdd n) {
-        visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
+        visitBinaryOp(n, aorMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpSub n) {
-        visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
+        visitBinaryOp(n, aorMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpMul n) {
-        visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
+        visitBinaryOp(n, aorMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpMod n) {
-        visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
+        visitBinaryOp(n, aorMutationsAll);
         accept(n, this);
     }
 
     override void visit(OpDiv n) {
-        visitBinaryOp(n, MutantGroup.aor, aorMutationsAll);
+        visitBinaryOp(n, aorMutationsAll);
         accept(n, this);
     }
 
-    private void visitBinaryOp(T)(T n, const MutantGroup group, const Mutation.Kind[] opKinds_) {
+    private void visitBinaryOp(T)(T n, const Mutation.Kind[] opKinds_) {
         if (n.blacklist || n.schemaBlacklist)
             return;
 
@@ -730,7 +697,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         foreach (const mutant; opMutants) {
             // dfmt off
-            schema[group].
+            schema.
                 put(mutant.id.c0,
                     left,
                     content[locExpr.interval.begin .. locOp.interval.begin],
@@ -742,7 +709,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         foreach (const mutant; lhsMutants) {
             // dfmt off
-            schema[group].put(mutant.id.c0,
+            schema.put(mutant.id.c0,
                 left,
                 makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
                 content[offsLhs.end .. locExpr.interval.end],
@@ -752,7 +719,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         foreach (const mutant; rhsMutants) {
             // dfmt off
-            schema[group].put(mutant.id.c0,
+            schema.put(mutant.id.c0,
                 left,
                 content[locExpr.interval.begin .. offsRhs.begin],
                 makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
@@ -762,14 +729,14 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         foreach (const mutant; exprMutants) {
             // dfmt off
-            schema[group].put(mutant.id.c0,
+            schema.put(mutant.id.c0,
                 left,
                 makeMutation(mutant.mut.kind, ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
                 right);
             // dfmt on
         }
 
-        mutants[group].add(opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants);
+        mutants.add(opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants);
     }
 }
 
