@@ -11,6 +11,7 @@ module dextool.plugin.mutate.backend.mutation_type.aor;
 
 import std.algorithm : filter, among;
 import std.array : array;
+import std.range : only;
 import std.typecons : Tuple;
 
 import dextool.plugin.mutate.backend.type;
@@ -28,8 +29,8 @@ struct AorInfo {
 auto aorMutations(AorInfo info) @safe {
     // TODO: for AORs it is probably better to do one op and then lhs+rhs.
     alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "lhs", Mutation.Kind[], "rhs");
-    Rval rval;
 
+    Rval rval;
     switch (info.operator) with (Mutation.Kind) {
     case Kind.OpAdd:
         rval = Rval([aorMul, aorDiv, aorRem, aorSub], null, null);
@@ -70,7 +71,6 @@ auto aorMutations(AorInfo info) @safe {
     }
 
     // modulo do not work when either side is a floating point.
-    // assume modulo (rem) is not possible if the type is unknown.
     if (info.lhs is null || info.rhs is null) {
         // do nothing
     } else if (info.lhs.kind == TypeKind.continues || info.rhs.kind == TypeKind.continues) {

@@ -34,7 +34,8 @@ import dextool.clang_extensions : getUnderlyingExprNode;
 
 import dextool.type : Path, AbsolutePath;
 
-import dextool.plugin.mutate.backend.analyze.ast : Interval, Location, TypeKind;
+import dextool.plugin.mutate.backend.analyze.ast : Interval, Location, TypeKind,
+    Node, Ast, RecurseRange;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.utility;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
@@ -424,7 +425,7 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     /// Returns: the depth (1+) if any of the parent nodes is `k`.
-    uint isParent(CXCursorKind k) {
+    uint isParent(K...)(auto ref K k) {
         return cstack.isParent(k);
     }
 
@@ -518,7 +519,6 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = new analyze.Poision;
-        n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
@@ -527,7 +527,6 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = new analyze.Poision;
-        n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
@@ -536,7 +535,6 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = new analyze.Poision;
-        n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
@@ -608,6 +606,8 @@ final class BaseVisitor : ExtendedVisitor {
         isVisited.add(v.cursor.toHash);
 
         auto n = new analyze.Expr;
+        n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
+                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
         auto ue = deriveCursorType(v.cursor);
         ue.put(ast);
@@ -653,6 +653,8 @@ final class BaseVisitor : ExtendedVisitor {
         isVisited.add(v.cursor.toHash);
 
         auto n = new analyze.Expr;
+        n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
+                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
         auto ue = deriveCursorType(v.cursor);
         ue.put(ast);
@@ -990,10 +992,8 @@ final class BaseVisitor : ExtendedVisitor {
 
         // TODO: refactor so isParent take multiple kinds. this is very
         // inefficient traversing multiple times.
-        const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc)
-            || isParent(CXCursorKind.classTemplate) || isParent(
-                    CXCursorKind.classTemplatePartialSpecialization)
-            || isParent(CXCursorKind.functionTemplate);
+        const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc) || isParent(CXCursorKind.classTemplate,
+                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
         astOp.schemaBlacklist = blockSchema;
         astOp.operator = op.operator;
@@ -1049,6 +1049,15 @@ final class BaseVisitor : ExtendedVisitor {
                     ast.put(b, ty.symId);
                 }
             }
+        }
+
+        // TODO: this is crude and shouldn't be here as a check but we must
+        // block aor/rorp schematan when the type is a pointer.
+        foreach (_; getChildrenTypes(ast, astOp).filter!(a => a.among(TypeKind.unordered,
+                TypeKind.bottom))) {
+            foreach (c; RecurseRange(astOp))
+                c.schemaBlacklist = true;
+            break;
         }
 
         return true;
@@ -1709,35 +1718,9 @@ struct BlackList {
     }
 }
 
-/// Returns: true if any of the childern is a pointer type.
-/// TODO: refactor, this duplicates logic of deriveType.
-TypeKind[] getChildrenTypes(const ref Cursor parent) @trusted {
-    import clang.c.Index : CXTypeKind;
-
-    auto app = appender!(TypeKind[])();
-
-    foreach (child; visitDepthFirst(parent)) {
-        auto ty = child.type;
-        if (!ty.isValid)
-            continue;
-
-        if (ty.isEnum) {
-            app.put(TypeKind.discrete);
-        } else if (ty.kind.among(floatCategory)) {
-            app.put(TypeKind.continues);
-        } else if (ty.kind.among(pointerCategory)) {
-            app.put(TypeKind.unordered);
-        } else if (ty.kind.among(boolCategory)) {
-            app.put(TypeKind.boolean);
-        } else if (ty.kind.among(discreteCategory)) {
-            app.put(TypeKind.discrete);
-        } else if (ty.kind.among(voidCategory)) {
-            app.put(TypeKind.top);
-        } else {
-            // assum anything
-            app.put(TypeKind.bottom);
-        }
-    }
-
-    return app.data;
+/// Returns: the types of the children
+auto getChildrenTypes(ref Ast ast, Node parent) {
+    return RecurseRange(parent).map!(a => ast.type(a))
+        .filter!(a => a !is null)
+        .map!(a => a.kind);
 }

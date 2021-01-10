@@ -60,10 +60,6 @@ int main(int argc, char** argv) {
     x = x + argc + 1;
     x = x + argc + 1;
     x = x + argc + 1;
-    x = x + argc + 1;
-    x = x + argc + 1;
-    x = x + argc + 1;
-    x = x + argc + 1;
 
     return 0;
 }

@@ -66,9 +66,11 @@ struct Stack(T) {
      * Returns: the depth (1+) if any of the parent nodes is `k`, zero
      * otherwise.
      */
-    uint isParent(K)(K k) {
+    uint isParent(K...)(auto ref K k) {
+        import std.algorithm : among;
+
         return match!((a) {
-            if (a[0].data == k)
+            if (a[0].data.among(k))
                 return a[0].depth;
             return 0;
         })(stack, Direction.bottomToTop);
