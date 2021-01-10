@@ -688,7 +688,6 @@ class MutantVisitor : DepthFirstVisitor {
         }
         {
             auto nty = ast.type(n);
-            logger.tracef("foo %s %s", nty.kind, ast.location(n));
             expr ~= dcrMutations(DcrInfo(n.kind, ast.type(n)));
         }
         if (isDirectParent(Kind.Block)) {
