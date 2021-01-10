@@ -1,4 +1,6 @@
+
 #ifndef DEXTOOL_MUTANT_SCHEMATA_INCL_GUARD
+#pragma GCC diagnostic ignored "-Wunused-macros"
 #define DEXTOOL_MUTANT_SCHEMATA_INCL_GUARD
 #include <stdlib.h>
 
@@ -22,3 +24,4 @@ __attribute__((constructor, weak)) void dextool_init_mutid(void) {
 __attribute__((weak)) unsigned int dextool_get_mutid__(void) { return gDEXTOOL_MUTID; }
 
 #endif /* DEXTOOL_MUTANT_SCHEMATA_INCL_GUARD */
+

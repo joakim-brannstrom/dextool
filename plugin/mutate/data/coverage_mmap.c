@@ -1,4 +1,6 @@
+
 #ifndef DEXTOOL_MUTANT_COV_INCL_GUARD
+#pragma GCC diagnostic ignored "-Wunused-macros"
 #define DEXTOOL_MUTANT_COV_INCL_GUARD
 
 #include <fcntl.h>
@@ -16,7 +18,7 @@ __attribute__((constructor, weak)) void dextool_init_covmap__(void) {
     const char* cov_map_file = getenv("DEXTOOL_COVMAP");
     if (cov_map_file == NULL)
         return;
-    int fd = open(cov_map_file, O_RDWR | O_LARGEFILE);
+    int fd = open(cov_map_file, O_RDWR);
     if (fd == -1)
         return;
     struct stat sb;
@@ -37,3 +39,4 @@ __attribute__((weak)) void dextool_cov__(unsigned int x) {
 }
 
 #endif /* DEXTOOL_MUTANT_COV_INCL_GUARD */
+

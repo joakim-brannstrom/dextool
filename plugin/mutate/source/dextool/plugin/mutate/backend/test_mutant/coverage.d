@@ -226,7 +226,7 @@ nothrow:
     void opCall(Instrument data) {
         import std.path : extension, stripExtension;
 
-        Blob makeInstrumentation(Blob original, CovRegion[] regions, Language lang, Edit extra) {
+        Blob makeInstrumentation(Blob original, CovRegion[] regions, Language lang, Edit[] extra) {
             auto edits = appender!(Edit[])();
             edits.put(extra);
             foreach (a; regions) {
@@ -242,16 +242,17 @@ nothrow:
         try {
             // sort by filename to enforce that the IDs are stable.
             foreach (a; regions.byKeyValue.array.sort!((a, b) => a.key < b.key)) {
+                auto f = fio.makeInput(a.key);
                 auto extra = () {
                     if (a.key in roots) {
                         logger.info("Injecting coverage runtime in ", a.key);
-                        return makeRootImpl;
+                        return makeRootImpl(f.content.length);
                     }
                     return makeHdr;
                 }();
 
                 logger.infof("Coverage instrumenting %s regions in %s", a.value.length, a.key);
-                auto instr = makeInstrumentation(fio.makeInput(a.key), a.value, lang[a.key], extra);
+                auto instr = makeInstrumentation(f, a.value, lang[a.key], extra);
                 fio.makeOutput(a.key).write(instr);
 
                 if (log) {
@@ -375,12 +376,15 @@ const(ubyte)[] makeInstrCode(long id, Language l) {
     }
 }
 
-Edit makeRootImpl() {
-    return new Edit(Interval(0, 0), cast(const(ubyte)[]) coverageMapImpl);
+Edit[] makeRootImpl(ulong end) {
+    return [
+        makeHdr[0],
+        new Edit(Interval(end, end), cast(const(ubyte)[]) coverageMapImpl)
+    ];
 }
 
-Edit makeHdr() {
-    return new Edit(Interval(0, 0), cast(const(ubyte)[]) coverageMapHdr);
+Edit[] makeHdr() {
+    return [new Edit(Interval(0, 0), cast(const(ubyte)[]) coverageMapHdr)];
 }
 
 void createCovMap(const AbsolutePath fname, const long localIdSz) {

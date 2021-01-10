@@ -302,7 +302,7 @@ nothrow:
         scope (exit)
             schemata = Schemata.init; // release the memory back to the GC
 
-        Blob makeSchemata(Blob original, SchemataFragment[] fragments, Edit extra) {
+        Blob makeSchemata(Blob original, SchemataFragment[] fragments, Edit[] extra) {
             auto edits = appender!(Edit[])();
             edits.put(extra);
             foreach (a; fragments) {
@@ -317,27 +317,28 @@ nothrow:
         }
 
         try {
-            foreach (f; modifiedFiles) {
+            foreach (fname; modifiedFiles) {
+                auto f = fio.makeInput(fname);
                 auto extra = () {
-                    if (f in roots) {
-                        logger.trace("Injecting schemata runtime in ", f);
-                        return makeRootImpl;
+                    if (fname in roots) {
+                        logger.trace("Injecting schemata runtime in ", fname);
+                        return makeRootImpl(f.content.length);
                     }
                     return makeHdr;
                 }();
 
-                logger.info("Injecting schema in ", f);
+                logger.info("Injecting schema in ", fname);
 
                 // writing the schemata.
-                auto s = makeSchemata(fio.makeInput(f), fragments(fio.toRelativeRoot(f)), extra);
-                fio.makeOutput(f).write(s);
+                auto s = makeSchemata(f, fragments(fio.toRelativeRoot(fname)), extra);
+                fio.makeOutput(fname).write(s);
 
                 if (log) {
-                    const ext = f.toString.extension;
-                    fio.makeOutput(AbsolutePath(format!"%s.%s.schema%s"(f.toString.stripExtension,
+                    const ext = fname.toString.extension;
+                    fio.makeOutput(AbsolutePath(format!"%s.%s.schema%s"(fname.toString.stripExtension,
                             schemataId.get, ext).Path)).write(s);
 
-                    fio.makeOutput(AbsolutePath(format!"%s.%s.kinds.txt"(f,
+                    fio.makeOutput(AbsolutePath(format!"%s.%s.kinds.txt"(fname,
                             schemataId.get).Path)).write(format("%s", kinds));
                 }
             }
@@ -557,14 +558,16 @@ unittest {
     assert(r.empty);
 }
 
-Edit makeRootImpl() {
+Edit[] makeRootImpl(ulong end) {
     import dextool.plugin.mutate.backend.resource : schemataImpl;
 
-    return new Edit(Interval(0, 0), cast(const(ubyte)[]) schemataImpl);
+    return [
+        makeHdr[0], new Edit(Interval(end, end), cast(const(ubyte)[]) schemataImpl)
+    ];
 }
 
-Edit makeHdr() {
+Edit[] makeHdr() {
     import dextool.plugin.mutate.backend.resource : schemataHeader;
 
-    return new Edit(Interval(0, 0), cast(const(ubyte)[]) schemataHeader);
+    return [new Edit(Interval(0, 0), cast(const(ubyte)[]) schemataHeader)];
 }
