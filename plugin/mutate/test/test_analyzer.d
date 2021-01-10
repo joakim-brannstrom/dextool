@@ -66,10 +66,10 @@ unittest {
         .run;
 
     testAnyOrder!Re([
-        `trace:.*Dropping undesired mutant.*dcrTrue`,
-        `trace:.*Dropping undesired mutant.*dcrFalse`,
-        `trace:.*Dropping undesired mutant.*dcrReturnTrue`,
-        `trace:.*Dropping undesired mutant.*dcrReturnFalse`,
+        `.*4.*dcrTrue`,
+        `.*10.*dcrFalse`,
+        `.*4.*dcrReturnTrue`,
+        `.*10.*dcrReturnFalse`,
     ]).shouldBeIn(r.output);
 }
 
@@ -89,11 +89,11 @@ unittest {
         .run;
 
     auto r = makeDextoolReport(testEnv, testData ~ "all_kinds_of_abs_mutation_points.cpp")
-        .addPostArg(["--mutant", "abs"])
+        .addPostArg(["--mutant", "aor"])
         .run;
 
     testConsecutiveSparseOrder!Re([
-        `Mutation operators: abs`,
+        `Mutation operators: aor`,
         `Total:\s*0`,
     ]).shouldBeIn(r.output);
 }
