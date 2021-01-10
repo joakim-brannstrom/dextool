@@ -163,12 +163,6 @@ struct SchematasRange {
             auto file = fio.toRelativeRoot(schema.key);
             builder.pass1(schema.value.fragments, file)
                 .match!((Some!ET a) => values_.put(a.value), (None a) {});
-            auto spillOver = builder.spillOver;
-            while (!spillOver.empty) {
-                builder.pass1(spillOver, file).match!((Some!ET a) => values_.put(a.value), (None a) {
-                });
-                spillOver = builder.spillOver;
-            }
         }
 
         while (!builder.pass2Data.empty) {
@@ -917,8 +911,6 @@ struct SchemataBuilder {
     /// All mutants that have been included in any generated schema.
     Set!CodeMutant global;
 
-    SchemataResult.Fragment[] spillOver;
-
     // schemas that in pass1 is less than the threshold
     Vector!Fragment pass2Data;
 
@@ -933,16 +925,12 @@ struct SchemataBuilder {
         // fragment overlap with another fragment.
         Index!byte index;
 
-        auto spillOver = appender!(SchemataResult.Fragment[])();
-        scope (exit)
-            this.spillOver = spillOver.data;
-
         auto app = appender!(Fragment[])();
 
         Set!CodeMutant local;
         foreach (a; fragments) {
             if (local.length >= mutantsPerSchema || index.overlap(0, a.offset)) {
-                spillOver.put(a);
+                pass2Data.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
                 continue;
             }
 
@@ -953,7 +941,7 @@ struct SchemataBuilder {
 
             // if any of the mutants in the schema has already been included.
             if (any!(a => a in local)(a.mutants)) {
-                spillOver.put(a);
+                pass2Data.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
                 continue;
             }
 
