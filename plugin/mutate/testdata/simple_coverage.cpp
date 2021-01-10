@@ -42,9 +42,14 @@ public:
     void foo() override {}
 };
 
+#define A_MACRO 42
+
 int cover(int x) {
     if (x > 3) {
         return 0;
+    }
+    if (x > A_MACRO) {
+        return 2;
     }
     return 1;
 }

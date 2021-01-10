@@ -929,7 +929,7 @@ struct SchemataBuilder {
 
         Set!CodeMutant local;
         foreach (a; fragments) {
-            if (local.length >= mutantsPerSchema || index.overlap(0, a.offset)) {
+            if (local.length >= mutantsPerSchema || index.intersect(0, a.offset)) {
                 pass2Data.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
                 continue;
             }
@@ -979,7 +979,7 @@ struct SchemataBuilder {
 
         foreach (a; pass2Data) {
             if (local.length >= mutantsPerSchema
-                    || index.overlap(a.fragment.file, a.fragment.offset)) {
+                    || index.intersect(a.fragment.file, a.fragment.offset)) {
                 rest.put(a);
                 continue;
             }
