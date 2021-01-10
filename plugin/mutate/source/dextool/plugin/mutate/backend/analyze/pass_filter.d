@@ -52,6 +52,13 @@ Mutants analyzeForUndesiredMutant(Blob file, Mutants mutants, const Language lan
     auto app = appender!(Mutation.Kind[])();
 
     foreach (k; mutants.kind) {
+        if (isEmpty(mutants.point.offset)) {
+            logger.tracef("Dropping undesired mutant. Mutant is empty (%s %s %s)",
+                    file.uri, mutants.point, k);
+            app.put(k);
+            continue;
+        }
+
         auto mutant = makeMutationText(file, mutants.point.offset, k, lang);
         if (isTextuallyEqual(file, mutants.point.offset, mutant.rawMutation)) {
             logger.tracef("Dropping undesired mutant. Original and mutant is textually equivalent (%s %s %s)",
@@ -72,10 +79,12 @@ Mutants analyzeForUndesiredMutant(Blob file, Mutants mutants, const Language lan
     return Mutants(app.data, mutants.point);
 }
 
-bool isTextuallyEqual(Blob file, Offset o, const(ubyte)[] mutant) {
-    if (o.isZero)
-        return false;
+bool isEmpty(Offset o) {
+    // well an empty region can just be removed
+    return o.isZero;
+}
 
+bool isTextuallyEqual(Blob file, Offset o, const(ubyte)[] mutant) {
     return file.content[o.begin .. o.end] == mutant;
 }
 
@@ -87,9 +96,6 @@ bool isOnlyWhitespace(Blob file, Offset o, const(ubyte)[] mutant) {
         cast(ubyte) ' ', cast(ubyte) '\t', cast(ubyte) '\v', cast(ubyte) '\r',
         cast(ubyte) '\n', cast(ubyte) '\f'
     ];
-
-    if (o.isZero)
-        return false;
 
     bool rval = true;
     foreach (a; file.content[o.begin .. o.end]) {

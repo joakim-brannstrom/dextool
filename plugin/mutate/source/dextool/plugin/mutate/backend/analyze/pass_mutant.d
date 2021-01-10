@@ -122,10 +122,11 @@ class MutantsResult {
         if (auto a = p in points) {
             if (auto b = mp in *a) {
                 (*b).remove(kind);
-                if (b.empty) {
+                if (b.empty)
                     (*a).remove(mp);
-                }
             }
+            if (a.empty)
+                points.remove(p);
         }
     }
 
