@@ -9,7 +9,7 @@ sudo apt-get upgrade
 
 **(Optional) Step 2:** Check which llvm, clang and libclang version to use.
 
-Dextool has been tested with libclang 4.0, 5.0, 6.0, 7.0, 8.0 and 10.0
+Dextool has been tested with libclang 4.0, 5.0, 6.0, 7.0, 8.0, 10.0 and 11.0
 
 Run the following to check which versions are available:
 

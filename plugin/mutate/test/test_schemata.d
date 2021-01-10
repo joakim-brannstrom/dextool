@@ -84,7 +84,7 @@ class ShallRunUoiSchema : SchemataFixutre {
 
         // dfmt off
         testConsecutiveSparseOrder!SubStr([
-                `from '!' to ''`,
+                `from '!' to '!!'`,
                 `alive`,
                 ]).shouldBeIn(r.output);
         // dfmt on
