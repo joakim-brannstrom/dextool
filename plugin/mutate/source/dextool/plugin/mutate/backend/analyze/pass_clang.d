@@ -449,7 +449,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     private void pushStack(analyze.Node n, analyze.Location l, const CXCursorKind cKind) @trusted {
         n.blacklist = n.blacklist || blacklist.inside(l);
-        n.schemaBlacklist = n.schemaBlacklist;
+        n.schemaBlacklist = n.blacklist || n.schemaBlacklist;
         if (!nstack.empty)
             n.schemaBlacklist = n.schemaBlacklist || nstack[$ - 1].data.schemaBlacklist;
         nstack.put(n, indent);

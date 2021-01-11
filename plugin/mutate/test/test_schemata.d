@@ -219,3 +219,21 @@ class ShallGenerateValidSchemataForPtr : SchemataFixutre {
                 r.output);
     }
 }
+
+class ShallGenerateValidSchemataForConstexpr : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_constexpr.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+
+        testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
+                r.output);
+    }
+}

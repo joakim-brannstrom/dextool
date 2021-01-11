@@ -17,4 +17,4 @@ public import dextool.plugin.mutate.backend.interface_;
 public import dextool.plugin.mutate.backend.report;
 public import dextool.plugin.mutate.backend.test_mutant;
 
-public import dextool.plugin.mutate.backend.type : Mutation, TestGroup;
+public import dextool.plugin.mutate.backend.type : Mutation, TestGroup, Language;

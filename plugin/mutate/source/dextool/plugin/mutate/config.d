@@ -12,8 +12,9 @@ module dextool.plugin.mutate.config;
 import core.time : Duration, dur;
 import std.typecons : Nullable;
 
-import my.named_type;
 import my.filter : GlobFilter;
+import my.named_type;
+import my.optional;
 
 import dextool.plugin.mutate.type;
 import dextool.type : AbsolutePath, Path;
@@ -238,6 +239,9 @@ struct ConfigMutationTest {
 
     /// If the generated coverage files should be saved.
     NamedType!(bool, Tag!"LogCoverage", bool.init, TagStringable) logCoverage;
+
+    /// allows a user to control exactly which files the coverage and schemata runtime is injected in.
+    UserRuntime[] userRuntimeCtrl;
 }
 
 /// Settings for the administration mode

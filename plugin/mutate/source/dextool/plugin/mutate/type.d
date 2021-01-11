@@ -179,3 +179,10 @@ struct ShellCommand {
         formattedWrite(w, "shell command '%-(%s %)'", value);
     }
 }
+
+struct UserRuntime {
+    import dextool.plugin.mutate.backend.type : Language;
+
+    Path file;
+    Language lang;
+}
