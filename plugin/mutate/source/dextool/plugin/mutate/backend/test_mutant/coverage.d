@@ -370,9 +370,9 @@ const(ubyte)[] makeInstrCode(long id, Language l) {
     case Language.assumeCpp:
         goto case;
     case Language.cpp:
-        return cast(const(ubyte)[]) format!"::dextool_cov__(%s);"(id + 1);
+        return cast(const(ubyte)[]) format!"::dextool_cov(%s);"(id + 1);
     case Language.c:
-        return cast(const(ubyte)[]) format!"dextool_cov__(%s);"(id + 1);
+        return cast(const(ubyte)[]) format!"dextool_cov(%s);"(id + 1);
     }
 }
 
