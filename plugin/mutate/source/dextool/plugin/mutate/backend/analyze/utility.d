@@ -134,10 +134,22 @@ struct Index(KeyT) {
     }
 
     /// Check if `i` overlap any intervals for `key`.
-    bool overlap(const KeyT key, const Interval i) {
+    bool intersect(const KeyT key, const Interval i) {
         if (auto intervals = key in index) {
             foreach (a; *intervals) {
                 if (a.intersect(i))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// Check if `i` overlap any intervals for `key`.
+    bool overlap(const KeyT key, const Interval i) {
+        if (auto intervals = key in index) {
+            foreach (a; *intervals) {
+                if (a.overlap(i))
                     return true;
             }
         }
