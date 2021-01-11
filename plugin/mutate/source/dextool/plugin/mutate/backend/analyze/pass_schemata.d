@@ -42,7 +42,7 @@ import dextool.plugin.mutate.backend.analyze.pass_mutant : CodeMutantsResult;
 
 // constant defined by the schemata that test_mutant uses too
 /// The function that a mutant reads to see if it should activate.
-immutable schemataMutantIdentifier = "dextool_get_mutid__()";
+immutable schemataMutantIdentifier = "dextool_get_mutid()";
 /// The environment variable that is read to set the current active mutant.
 immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 

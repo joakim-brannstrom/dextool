@@ -61,7 +61,7 @@ struct BuildTestMutant {
 
     private InternalData data;
 
-    auto config(ConfigMutationTest c) nothrow {
+    auto config(ConfigMutationTest c) @trusted nothrow {
         data.config = c;
         return this;
     }
@@ -1141,9 +1141,9 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         try {
-            auto driver = SchemataTestDriver(global.data.filesysIO, &runner,
-                    global.data.db, &testCaseAnalyzer, data.id, global.data.kinds,
-                    global.data.conf.mutationCompile,
+            auto driver = SchemataTestDriver(global.data.filesysIO, &runner, global.data.db,
+                    &testCaseAnalyzer, global.data.conf.userRuntimeCtrl, data.id,
+                    global.data.kinds, global.data.conf.mutationCompile,
                     global.data.conf.buildCmdTimeout, global.data.conf.logSchemata);
 
             while (driver.isRunning) {
@@ -1247,8 +1247,8 @@ nothrow:
 
         try {
             auto driver = CoverageDriver(global.data.filesysIO, global.data.db, &runner,
-                    global.data.conf.mutationCompile, global.data.conf.buildCmdTimeout,
-                    global.data.conf.logCoverage.get);
+                    global.data.conf.userRuntimeCtrl, global.data.conf.mutationCompile,
+                    global.data.conf.buildCmdTimeout, global.data.conf.logCoverage.get);
             while (driver.isRunning) {
                 driver.execute;
             }

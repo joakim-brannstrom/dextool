@@ -34,7 +34,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, Checksum;
-import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand;
+import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand, UserRuntime;
 
 @safe:
 
@@ -152,8 +152,8 @@ struct SchemataTestDriver {
     }
 
     this(FilesysIO fio, TestRunner* runner, Database* db, TestCaseAnalyzer* testCaseAnalyzer,
-            SchemataId id, Mutation.Kind[] kinds, ShellCommand buildCmd,
-            Duration buildCmdTimeout, bool log) {
+            UserRuntime[] userRuntimeCtrl, SchemataId id, Mutation.Kind[] kinds,
+            ShellCommand buildCmd, Duration buildCmdTimeout, bool log) {
         this.fio = fio;
         this.runner = runner;
         this.db = db;
@@ -165,6 +165,11 @@ struct SchemataTestDriver {
 
         this.local.get!TestCaseAnalyze.testCaseAnalyzer = testCaseAnalyzer;
         this.local.get!TestMutant.hasTestCaseOutputAnalyzer = !testCaseAnalyzer.empty;
+
+        foreach (a; userRuntimeCtrl) {
+            auto p = fio.toAbsoluteRoot(a.file);
+            roots.add(p);
+        }
     }
 
     static void execute_(ref SchemataTestDriver self) @trusted {
@@ -258,30 +263,34 @@ nothrow:
     }
 
     void opCall(ref InitializeRoots data) {
-        auto allRoots = () {
-            AbsolutePath[] tmp;
-            try {
-                tmp = spinSql!(() => db.getRootFiles).map!(a => db.getFile(a).get)
-                    .map!(a => fio.toAbsoluteRoot(a))
-                    .array;
-                if (tmp.empty) {
-                    // no root found. Inject the runtime in all files and "hope for
-                    // the best". it will be less efficient but the weak symbol
-                    // should still mean that it link correctly.
-                    tmp = modifiedFiles;
+        if (roots.empty) {
+            auto allRoots = () {
+                AbsolutePath[] tmp;
+                try {
+                    tmp = spinSql!(() => db.getRootFiles).map!(a => db.getFile(a).get)
+                        .map!(a => fio.toAbsoluteRoot(a))
+                        .array;
+                    if (tmp.empty) {
+                        // no root found. Inject the runtime in all files and "hope for
+                        // the best". it will be less efficient but the weak symbol
+                        // should still mean that it link correctly.
+                        tmp = modifiedFiles;
+                    }
+                } catch (Exception e) {
+                    logger.error(e.msg).collectException;
                 }
-            } catch (Exception e) {
-                logger.error(e.msg).collectException;
+                return tmp;
+            }();
+
+            foreach (r; allRoots) {
+                roots.add(r);
             }
-            return tmp;
-        }();
+        }
 
         auto mods = modifiedFiles.toSet;
-        foreach (r; allRoots) {
-            if (r !in mods) {
+        foreach (r; roots.toRange) {
+            if (r !in mods)
                 modifiedFiles ~= r;
-            }
-            roots.add(r);
         }
 
         data.hasRoot = !roots.empty;

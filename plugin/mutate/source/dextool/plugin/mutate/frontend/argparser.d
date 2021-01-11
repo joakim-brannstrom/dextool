@@ -21,13 +21,15 @@ import std.path : buildPath;
 import std.traits : EnumMembers;
 
 import my.filter : GlobFilter;
+import my.optional;
+import my.path;
 
 import toml : TOMLDocument;
 
-public import dextool.plugin.mutate.backend : Mutation;
+public import dextool.plugin.mutate.backend : Mutation, Language;
 public import dextool.plugin.mutate.type;
 import dextool.plugin.mutate.config;
-import dextool.type : AbsolutePath, Path, ExitStatusType;
+import dextool.type : ExitStatusType;
 
 version (unittest) {
     import unit_threaded.assertions;
@@ -119,6 +121,14 @@ struct ArgParser {
         app.put(null);
         app.put("# Use coverage to reduce the tested mutants");
         app.put("use_coverage = true");
+        app.put(null);
+        app.put(
+                "# Default is to inject the runtime in all roots. A root is a file either provided by --in");
+        app.put("# or a file in compile_commands.json.");
+        app.put(
+                "# If specified then the coverage and schemata runtime is only injected in these files.");
+        app.put("# paths are relative to root.");
+        app.put(`# inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]`);
         app.put(null);
 
         app.put("[analyze]");
@@ -715,6 +725,21 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         return ShellCommand[].init;
     }
 
+    static UserRuntime toUserRuntime(ref TOMLValue v) {
+        if (v.type != TOML_TYPE.ARRAY)
+            throw new Exception("the data must be an array of arrays");
+        auto tmp = v.array;
+        if (tmp.length != 2)
+            throw new Exception("the inner array must be size 2");
+        try {
+            return UserRuntime(Path(tmp[0].str), tmp[1].str.to!Language);
+        } catch (Exception e) {
+            logger.warningf("Available options for language are %-(%s, %)",
+                    [EnumMembers!Language]);
+            throw e;
+        }
+    }
+
     callbacks["analyze.include"] = (ref ArgParser c, ref TOMLValue v) {
         c.analyze.rawInclude = v.array.map!(a => a.str).array;
     };
@@ -769,6 +794,14 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["generic.use_coverage"] = (ref ArgParser c, ref TOMLValue v) {
         c.analyze.saveCoverage.get = v == true;
         c.mutationTest.useCoverage.get = v == true;
+    };
+    callbacks["generic.inject_runtime_impl"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.mutationTest.userRuntimeCtrl = v.array.map!(a => toUserRuntime(a)).array;
+        } catch (Exception e) {
+            logger.error("generic.inject_runtime_impl: failed parsing");
+            logger.error(e.msg);
+        }
     };
 
     callbacks["database.db"] = (ref ArgParser c, ref TOMLValue v) {
@@ -1096,6 +1129,21 @@ mutants = ["lcr"]
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.data.mutation.shouldEqual([MutationKind.lcr]);
+}
+
+@("shall parse the files to inject the runtime to")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[generic]
+inject_runtime_impl = [["foo", "cpp"]]
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.mutationTest.userRuntimeCtrl.shouldEqual([
+            UserRuntime(Path("foo"), Language.cpp)
+            ]);
 }
 
 @("shall parse the report sections")

@@ -28,7 +28,7 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
 import dextool.plugin.mutate.backend.type : Mutation, Language;
-import dextool.plugin.mutate.type : ShellCommand;
+import dextool.plugin.mutate.type : ShellCommand, UserRuntime;
 
 @safe:
 
@@ -107,15 +107,20 @@ struct CoverageDriver {
         Set!AbsolutePath roots;
     }
 
-    this(FilesysIO fio, Database* db, TestRunner* runner, ShellCommand buildCmd,
-            Duration buildCmdTimeout, bool log) {
+    this(FilesysIO fio, Database* db, TestRunner* runner, UserRuntime[] userRuntimeCtrl,
+            ShellCommand buildCmd, Duration buildCmdTimeout, bool log) {
         this.fio = fio;
         this.db = db;
         this.runner = runner;
         this.buildCmd = buildCmd;
         this.buildCmdTimeout = buildCmdTimeout;
         this.log = log;
-        logger.trace("coverage logging ", log).collectException;
+
+        foreach (a; userRuntimeCtrl) {
+            auto p = fio.toAbsoluteRoot(a.file);
+            roots.add(p);
+            lang[p] = a.lang;
+        }
     }
 
     static void execute_(ref CoverageDriver self) @trusted {
@@ -179,26 +184,36 @@ nothrow:
     }
 
     void opCall(ref InitializeRoots data) {
-        auto rootIds = () {
-            auto tmp = spinSql!(() => db.getRootFiles);
-            if (tmp.empty) {
-                // no root found, inject instead in all instrumented files and
-                // "hope for the best".
-                tmp = spinSql!(() => db.getCoverageMap).byKey.array;
-            }
-            return tmp;
-        }();
-
-        foreach (id; rootIds) {
-            try {
-                auto p = fio.toAbsoluteRoot(spinSql!(() => db.getFile(id)).get);
-                if (p !in regions) {
-                    // add a dummy such that the instrumentation state do not need
-                    // a special case for if no root is being instrumented.
-                    regions[p] = (CovRegion[]).init;
-                    lang[p] = spinSql!(() => db.getFileIdLanguage(id)).orElse(Language.init);
+        if (roots.empty) {
+            auto rootIds = () {
+                auto tmp = spinSql!(() => db.getRootFiles);
+                if (tmp.empty) {
+                    // no root found, inject instead in all instrumented files and
+                    // "hope for the best".
+                    tmp = spinSql!(() => db.getCoverageMap).byKey.array;
                 }
-                roots.add(p);
+                return tmp;
+            }();
+
+            foreach (id; rootIds) {
+                try {
+                    auto p = fio.toAbsoluteRoot(spinSql!(() => db.getFile(id)).get);
+                    lang[p] = spinSql!(() => db.getFileIdLanguage(id)).orElse(Language.init);
+                    roots.add(p);
+                } catch (Exception e) {
+                    logger.warning(e.msg).collectException;
+                }
+            }
+        }
+
+        foreach (p; roots.toRange) {
+            try {
+                if (p !in regions) {
+                    // add a dummy such that the instrumentation state do not
+                    // need a special case for if no root is being
+                    // instrumented.
+                    regions[p] = (CovRegion[]).init;
+                }
             } catch (Exception e) {
                 logger.warning(e.msg).collectException;
             }
@@ -370,9 +385,9 @@ const(ubyte)[] makeInstrCode(long id, Language l) {
     case Language.assumeCpp:
         goto case;
     case Language.cpp:
-        return cast(const(ubyte)[]) format!"::dextool_cov__(%s);"(id + 1);
+        return cast(const(ubyte)[]) format!"::dextool_cov(%s);"(id + 1);
     case Language.c:
-        return cast(const(ubyte)[]) format!"dextool_cov__(%s);"(id + 1);
+        return cast(const(ubyte)[]) format!"dextool_cov(%s);"(id + 1);
     }
 }
 
