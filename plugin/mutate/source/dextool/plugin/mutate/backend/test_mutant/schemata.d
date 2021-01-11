@@ -363,7 +363,7 @@ nothrow:
 
         logger.infof("Compile schema %s", schemataId.get).collectException;
 
-        compile(buildCmd, buildCmdTimeout, log).match!((Mutation.Status a) {
+        compile(buildCmd, buildCmdTimeout, true).match!((Mutation.Status a) {
             data.error = true;
         }, (bool success) { data.error = !success; });
 
