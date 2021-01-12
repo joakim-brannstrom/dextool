@@ -698,9 +698,19 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const Constructor v) @trusted {
         mixin(mixinNodeLog!());
 
-        // skip all "= default" constructors.
+        // skip all "= default"
         if (!v.cursor.isDefaulted)
             v.accept(this);
+    }
+
+    override void visit(const Destructor v) @trusted {
+        mixin(mixinNodeLog!());
+
+        // skip all "= default"
+        if (!v.cursor.isDefaulted)
+            v.accept(this);
+        // TODO: no test covers this case where = default is used for a
+        // destructor. For some versions of clang a CompoundStmt is generated
     }
 
     override void visit(const CxxMethod v) {
@@ -708,7 +718,10 @@ final class BaseVisitor : ExtendedVisitor {
 
         // model C++ methods as functions. It should be enough to know that it
         // is a function and the return type when generating mutants.
-        visitFunc(v);
+
+        // skip all "= default"
+        if (!v.cursor.isDefaulted)
+            visitFunc(v);
     }
 
     override void visit(const BreakStmt v) {
@@ -718,6 +731,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const BinaryOperator v) @trusted {
         mixin(mixinNodeLog!());
+
         visitOp(v, v.cursor.kind);
     }
 
