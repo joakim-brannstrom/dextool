@@ -125,8 +125,6 @@ class MutantsResult {
                 if (b.empty)
                     (*a).remove(mp);
             }
-            if (a.empty)
-                points.remove(p);
         }
     }
 
