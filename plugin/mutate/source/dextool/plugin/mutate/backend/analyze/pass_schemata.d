@@ -249,6 +249,13 @@ class CppSchemataVisitor : DepthFirstVisitor {
         ast.release;
     }
 
+    /// Returns: if the previous nodes is of kind `k`.
+    bool isDirectParent(Args...)(auto ref Args kinds) {
+        if (nstack.empty)
+            return false;
+        return nstack.back.kind.among(kinds) != 0;
+    }
+
     override void visitPush(Node n) {
         nstack.put(n, ++depth);
     }
@@ -279,7 +286,10 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Call n) {
-        visitBlock!(BlockChain)(n);
+        if (isDirectParent(ExpressionKind))
+            visitBlock!ExpressionChain(n);
+        else
+            visitBlock!BlockChain(n);
         accept(n, this);
     }
 
@@ -290,7 +300,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     override void visit(BinaryOp n) {
         // these are operators such as x += 2
-        visitBlock!(BlockChain)(n);
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 
@@ -472,7 +482,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return fin.content[offs.begin .. offs.end];
         }();
 
-        auto schema = ChainT(content);
+        auto schema = ChainT(content, !isDirectParent(Kind.Block));
         foreach (const mutant; mutants) {
             schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang).mutate(content));
         }
@@ -766,7 +776,7 @@ struct ExpressionChain {
     Set!ulong mutantIds;
     const(ubyte)[] original;
 
-    this(const(ubyte)[] original) {
+    this(const(ubyte)[] original, bool wrap = false) {
         this.original = original;
     }
 
@@ -825,9 +835,11 @@ struct BlockChain {
     Set!ulong mutantIds;
     Appender!(Mutant[]) mutants;
     const(ubyte)[] original;
+    bool wrap;
 
-    this(const(ubyte)[] original) {
+    this(const(ubyte)[] original, bool wrap) {
         this.original = original;
+        this.wrap = wrap;
     }
 
     bool empty() @safe pure nothrow const @nogc {
@@ -856,6 +868,10 @@ struct BlockChain {
     const(ubyte)[] generate() {
         auto app = appender!(const(ubyte)[])();
         bool isFirst = true;
+
+        if (wrap)
+            app.put("{".rewrite);
+
         foreach (const mutant; mutants.data) {
             if (isFirst) {
                 app.put("if (".rewrite);
@@ -878,6 +894,9 @@ struct BlockChain {
             app.put(";".rewrite);
         }
         app.put(";}".rewrite);
+
+        if (wrap)
+            app.put("}".rewrite);
 
         return app.data;
     }
