@@ -415,39 +415,40 @@ enum Kind {
     VarRef,
 }
 
-bool isExpression(Kind k) @safe pure nothrow @nogc {
-    with (Kind) {
-        return k.among(
-            BinaryOp,
-            Call,
-            Condition,
-            Constructor,
-            Expr,
-            OpAdd,
-            OpAnd,
-            OpAndBitwise,
-            OpAssign,
-            OpDiv,
-            OpEqual,
-            OpGreater,
-            OpGreaterEq,
-            OpLess,
-            OpLessEq,
-            OpMod,
-            OpMul,
-            OpNegate,
-            OpNotEqual,
-            OpOr,
-            OpOrBitwise,
-            OpSub,
-            Return,
-            UnaryOp,
-            VarDecl,
-            VarRef,
-            ) != 0;
-    }
-}
+
+alias ExpressionKind = AliasSeq!(
+    Kind.BinaryOp,
+    Kind.Call,
+    Kind.Condition,
+    Kind.Constructor,
+    Kind.Expr,
+    Kind.OpAdd,
+    Kind.OpAnd,
+    Kind.OpAndBitwise,
+    Kind.OpAssign,
+    Kind.OpDiv,
+    Kind.OpEqual,
+    Kind.OpGreater,
+    Kind.OpGreaterEq,
+    Kind.OpLess,
+    Kind.OpLessEq,
+    Kind.OpMod,
+    Kind.OpMul,
+    Kind.OpNegate,
+    Kind.OpNotEqual,
+    Kind.OpOr,
+    Kind.OpOrBitwise,
+    Kind.OpSub,
+    Kind.Return,
+    Kind.UnaryOp,
+    Kind.VarDecl,
+    Kind.VarRef,
+);
 // dfmt on
+
+bool isExpression(Kind k) @safe pure nothrow @nogc {
+    return k.among(ExpressionKind) != 0;
+}
 
 interface Visitor {
     static foreach (N; Nodes) {
