@@ -31,6 +31,8 @@ enum MutationKind {
     dcr,
     /// Logical Connector Replacement Bit-wise
     lcrb,
+    /// rithmetic operator replacement simple
+    aors
 }
 
 /// The order the mutations are done when running in test_mutants mode

@@ -95,9 +95,11 @@ The recommended operators to use try to affect the logic and data flow:
 
 Optional that are good candidates are:
 
+ * aor. Mutates math operations such as `+`.
+ * aors. Same as aor but instead of generating 4 mutants it only generates the
+   counter mutation e.g. + to -. It thus is 1/4 of the mutants
  * rorp. Changes the relational operators such as `<` to its close relative
    `<=`. Strongly affects the boundaries how values are used and indexing.
- * aor. Mutates math operations such as `+`.
 
 ```
 /---------------------------\    /-----------------------------------------------------\

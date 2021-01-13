@@ -39,6 +39,34 @@ unittest {
     }
 }
 
+@(testId ~ "shall produce all AORs operator mutations")
+unittest {
+    foreach (getValue; [
+            "aor_primitive.cpp", "aor_primitive_modern_cpp.cpp",
+            "aor_object_overload.cpp"
+        ]) {
+        mixin(envSetup(globalTestdir, No.setupEnv));
+        testEnv.outputSuffix(getValue);
+        testEnv.setupEnv;
+
+        makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).addFlag("-std=c++11").run;
+        auto r = makeDextool(testEnv).addArg(["test"]).addArg([
+                "--mutant", "aors"
+                ]).run;
+
+        testAnyOrder!SubStr([
+                `from '+' to '-'`, `from '-' to '+'`, `from '/' to '*'`,
+                `from '*' to '/'`, `from '%' to '/'`,
+                ]).shouldBeIn(r.output);
+
+        testAnyOrder!SubStr([`from '+' to '*'`]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '*' to '+'`]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '/' to '-'`]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '%' to '-'`]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '-' to '*'`]).shouldNotBeIn(r.output);
+    }
+}
+
 @(testId ~ "shall produce all AOR delete mutations")
 @ShouldFail unittest {
     foreach (getValue; [

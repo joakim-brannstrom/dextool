@@ -707,6 +707,11 @@ class MutantVisitor : DepthFirstVisitor {
             lhs ~= m.lhs;
             rhs ~= m.rhs;
         }
+        {
+            import dextool.plugin.mutate.backend.mutation_type.aors;
+
+            op ~= aorsMutations(n.kind);
+        }
         if (isDirectParent(Kind.Block)) {
             expr ~= stmtDelMutations(n.kind);
         }

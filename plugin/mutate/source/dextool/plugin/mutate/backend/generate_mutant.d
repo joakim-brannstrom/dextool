@@ -246,33 +246,49 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         /// Arithmetic operator replacement
         /// #SPC-mutation_aor
     case aorMul:
+        goto case;
+    case aorsMul:
         m.mutate = (const(ubyte)[] expr) { return toB("*"); };
         break;
     case aorDiv:
+        goto case;
+    case aorsDiv:
         m.mutate = (const(ubyte)[] expr) { return toB("/"); };
         break;
     case aorRem:
         m.mutate = (const(ubyte)[] expr) { return toB("%"); };
         break;
     case aorAdd:
+        goto case;
+    case aorsAdd:
         m.mutate = (const(ubyte)[] expr) { return toB("+"); };
         break;
     case aorSub:
+        goto case;
+    case aorsSub:
         m.mutate = (const(ubyte)[] expr) { return toB("-"); };
         break;
     case aorMulAssign:
+        goto case;
+    case aorsMulAssign:
         m.mutate = (const(ubyte)[] expr) { return toB("*="); };
         break;
     case aorDivAssign:
+        goto case;
+    case aorsDivAssign:
         m.mutate = (const(ubyte)[] expr) { return toB("/="); };
         break;
     case aorRemAssign:
         m.mutate = (const(ubyte)[] expr) { return toB("%="); };
         break;
     case aorAddAssign:
+        goto case;
+    case aorsAddAssign:
         m.mutate = (const(ubyte)[] expr) { return toB("+="); };
         break;
     case aorSubAssign:
+        goto case;
+    case aorsSubAssign:
         m.mutate = (const(ubyte)[] expr) { return toB("-="); };
         break;
     case aorLhs:
