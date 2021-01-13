@@ -221,15 +221,36 @@ pointer type.
 
 Replace a single arithmetic operator with another operand.
 
-| Original | 1   | 2   | 3       | 4       | 5       | 6       |
-|----------|-----|-----|---------|---------|---------|---------|
-| `x + y`  | `x` | `y` | `x - y` | `x * y` | `x / y` | `x % y` |
-| `x - y`  | `x` | `y` | `x + y` | `x * y` | `x / y` | `x % y` |
-| `x * y`  | `x` | `y` | `x - y` | `x + y` | `x / y` | `x % y` |
-| `x / y`  | `x` | `y` | `x - y` | `x * y` | `x + y` | `x % y` |
-| `x % y`  | `x` | `y` | `x - y` | `x * y` | `x / y` | `x + y` |
+| Original | 1       | 2       | 3       | 4       |
+|----------|---------|---------|---------|---------|
+| `x + y`  | `x - y` | `x * y` | `x / y` | `x % y` |
+| `x - y`  | `x + y` | `x * y` | `x / y` | `x % y` |
+| `x * y`  | `x - y` | `x + y` | `x / y` | `x % y` |
+| `x / y`  | `x - y` | `x * y` | `x + y` | `x % y` |
+| `x % y`  | `x - y` | `x * y` | `x / y` | `x + y` |
 
-Column 1-2 where added after studying [@googleStateOfMutationTesting2018] p.4.
+### Future Improvement
+
+Should the mutations for lhs/rhs be added? See
+[@googleStateOfMutationTesting2018] p.4.
+
+## Arithmetic Operator Replacement Simple (AORs) {id="design-mutation_aors"}
+
+[partof](#req-mutations)
+
+AOR generate a large number of mutants. It is normally so that if one is killed
+then all are killed. AORs uses this fact to only generate the inverse of the
+operator. It should be good enough.
+
+Replace a single arithmetic operator with another operand.
+
+| Original | 1       |
+|----------|---------|
+| `x + y`  | `x - y` |
+| `x - y`  | `x + y` |
+| `x * y`  | `x / y` |
+| `x / y`  | `x * y` |
+| `x % y`  | `x / y` |
 
 ## Logical Connector Replacement (LCR) {id="design-mutation_lcr"}
 
