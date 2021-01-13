@@ -1521,7 +1521,7 @@ struct Database {
     /// The mutation ids are guaranteed to be sorted.
     /// Returns: the mutants the test case killed.
     MutationId[] getTestCaseMutantKills(const TestCaseId id, const Mutation.Kind[] kinds) @trusted {
-        immutable sql = format!"SELECT t2.st_id
+        immutable sql = format!"SELECT t2.id
             FROM %s t1, %s t2
             WHERE
             t1.tc_id = :tid AND

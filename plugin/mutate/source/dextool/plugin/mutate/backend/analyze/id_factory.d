@@ -35,15 +35,12 @@ struct MutationIdFactory {
     import dextool.plugin.mutate.backend.type : CodeMutant, CodeChecksum, Mutation, Checksum;
     import dextool.type : Path;
 
-    /// An instance is related to a filename.
-    Path fileName;
-
-    /// Checksum of the filename containing the mutants.
-    Checksum file;
-    /// Checksum of all tokens content.
-    Checksum content;
-
     private {
+        /// Checksum of the filename containing the mutants.
+        Checksum file;
+        /// Checksum of all tokens content.
+        Checksum content;
+
         /// Where in the token stream the preMutant calculation is.
         size_t preIdx;
         Checksum preMutant;
@@ -58,15 +55,20 @@ struct MutationIdFactory {
      * file = checksum of the filename.
      * tokens = all tokens from the file.
      */
-    this(Path fileName, Checksum file, Token[] tokens) {
-        this.fileName = fileName;
-        this.file = file;
+    this(Path fileName, Token[] tokens) {
+        file = () {
+            BuildChecksum128 bc;
+            bc.put(cast(const(ubyte)[]) fileName.toString);
+            return toChecksum128(bc);
+        }();
 
-        BuildChecksum128 bc;
-        foreach (t; tokens) {
-            bc.put(cast(const(ubyte)[]) t.spelling);
-        }
-        this.content = toChecksum128(bc);
+        content = () {
+            BuildChecksum128 bc;
+            foreach (t; tokens) {
+                bc.put(cast(const(ubyte)[]) t.spelling);
+            }
+            return toChecksum128(bc);
+        }();
     }
 
     /// Update the number of tokens that are before and after the mutant.
@@ -92,8 +94,8 @@ struct MutationIdFactory {
 
     /// Calculate the unique ID for a specific mutation at this point.
     Checksum128 makeId(const(ubyte)[] mut) @safe pure nothrow const @nogc scope {
-        // # SPC-analyzer-checksum
         BuildChecksum128 h;
+
         h.put(file.c0.toBytes);
         h.put(file.c1.toBytes);
 
