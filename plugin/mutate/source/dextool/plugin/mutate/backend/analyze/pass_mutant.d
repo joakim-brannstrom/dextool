@@ -230,6 +230,8 @@ class CodeMutantsResult {
 
         TokenStream tstream;
 
+        /// Current filename that the id factory is initialized with.
+        AbsolutePath idFileName;
         MutationIdFactory idFactory;
         /// Tokens of the current file that idFactory is configured for.
         Token[] tokens;
@@ -277,9 +279,10 @@ class CodeMutantsResult {
     private void put(AbsolutePath p, Offset offset, SourceLocRange sloc, Mutation.Kind[] kinds) @safe {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
-        if (p != idFactory.fileName) {
+        if (p != idFileName) {
+            idFileName = p;
             tokens = tstream.getFilteredTokens(p);
-            idFactory = MutationIdFactory(p, csFiles[p], tokens);
+            idFactory = MutationIdFactory(fio.toRelativeRoot(p), tokens);
         }
 
         auto split = splitByMutationPoint(tokens, offset);

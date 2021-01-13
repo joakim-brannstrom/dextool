@@ -214,13 +214,14 @@ final class ReportJson {
 
         if (ReportSection.tc_unique in sections) {
             auto r = reportTestCaseUniqueness(db, kinds);
-            JSONValue s;
-            foreach (a; r.uniqueKills.byKeyValue) {
-                s[a.key.name] = a.value.map!((a => a.get)).array;
-            }
             if (!r.uniqueKills.empty) {
+                JSONValue s;
+                foreach (a; r.uniqueKills.byKeyValue) {
+                    s[a.key.name] = a.value.map!((a => a.get)).array;
+                }
                 report["test_case_unique"] = s;
             }
+
             if (!r.noUniqueKills.empty) {
                 report["test_case_no_unique"] = r.noUniqueKills.map!(a => a.name).array;
             }

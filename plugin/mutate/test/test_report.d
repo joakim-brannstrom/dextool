@@ -71,12 +71,10 @@ unittest {
 
     // TODO: there is a bug in the report because it do not deduplicate
     // similare mutants that occur on the same mutation point.
-    testConsecutiveSparseOrder!SubStr([
+    testConsecutiveSparseOrder!Re([
         "Mutation operators: all",
         "alive from",
-        "| Percentage | Count | From | To   |",
-        "|------------|-------|------|------|",
-        "| 100        | 2     | `>`  | `>=` |",
+        `|\s*100\s*|\s*2\s*|\s*'>'\s*|\s*'!='\s*|`,
         "Summary",
         "Time spent:",
         "Score:",
@@ -640,9 +638,9 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         const tc1 = TestCase("tc_1");
         const tc2 = TestCase("tc_2");
         const tc3 = TestCase("tc_3");
-        // tc1: [1,3,8,12,15]
-        // tc2: [1,8,12,15]
-        // tc3: [1,12]
+        // tc1: [0,1,2,3,4]
+        // tc2: [0,2,3,4]
+        // tc3: [0,3]
         db.updateMutation(ids[0], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
         db.updateMutation(ids[1], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
         db.updateMutation(ids[2], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
@@ -660,9 +658,9 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         // Assert
         testConsecutiveSparseOrder!SubStr([
                 `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
-                `<td>tc_2`, `<td>0.8`, `<td>tc_3`, `<td>0.5`,
+                `<td>tc_2`, `<td>0.8`, `<td>tc_3`, `<td>0.4`,
                 `<h2 class="tbl_header"><i class="right"></i> tc_2</h2>`,
-                `<td>tc_1`, `<td>1.00`, `<td>tc_3`, `<td>0.6`,
+                `<td>tc_1`, `<td>1.00`, `<td>tc_3`, `<td>0.5`,
                 `<h2 class="tbl_header"><i class="right"></i> tc_3</h2>`,
                 `<td>tc_1`, `<td>1.00`, `<td>tc_2`, `<td>1.00`,
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
@@ -704,6 +702,7 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
             .run;
 
         makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
             .addArg(["--section", "tc_unique"])
             .addArg(["--style", "json"])
             .addArg(["--logdir", testEnv.outdir.toString])
