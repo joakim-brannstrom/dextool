@@ -224,6 +224,15 @@ struct Mutation {
         // dcr for return types
         dcrReturnTrue,
         dcrReturnFalse,
+        // aors variant
+        aorsMul,
+        aorsDiv,
+        aorsAdd,
+        aorsSub,
+        aorsMulAssign,
+        aorsDivAssign,
+        aorsAddAssign,
+        aorsSubAssign,
     }
 
     /// The status of a mutant.
