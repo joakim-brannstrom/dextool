@@ -217,12 +217,6 @@ class CodeMutantIndex {
 
 class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
-    import dextool.plugin.mutate.backend.mutation_type.aor : aorMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.ror : rorMutationsAll, rorpMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutationsRaw;
 
     RefCounted!Ast ast;
     CodeMutantIndex index;
@@ -528,12 +522,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
 class BinaryOpVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
-    import dextool.plugin.mutate.backend.mutation_type.aor : aorMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.lcr : lcrMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.lcrb : lcrbMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.ror : rorMutationsAll, rorpMutationsAll;
-    import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutationsRaw;
 
     RefCounted!Ast ast;
     CodeMutantIndex* index;
