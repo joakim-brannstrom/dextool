@@ -17,6 +17,7 @@ import logger = std.experimental.logger;
 import std.algorithm : joiner, sort, map, filter;
 import std.array : empty, array, appender;
 import std.exception : collectException;
+import std.parallelism : totalCPUs;
 import std.path : buildPath;
 import std.traits : EnumMembers;
 
@@ -94,7 +95,6 @@ struct ArgParser {
         import std.ascii : newline;
         import std.conv : to;
         import std.format : format;
-        import std.parallelism : totalCPUs;
         import std.utf : toUTF8;
 
         auto app = appender!(string[])();
@@ -373,6 +373,7 @@ struct ArgParser {
             // set the seed here so if the user specify the CLI the rolling
             // seed is overridden.
             mutationTest.pullRequestSeed += Clock.currTime.isoWeek + Clock.currTime.year;
+            mutationTest.loadThreshold.get = totalCPUs + 1;
 
             data.toolMode = ToolMode.test_mutants;
             // dfmt off
@@ -387,7 +388,7 @@ struct ArgParser {
                    "exclude", exclude_help, &workArea.rawExclude,
                    "include", include_help, &workArea.rawInclude,
                    "load-behavior", "how to behave when the threshold is hit " ~ format("[%(%s|%)]", [EnumMembers!(ConfigMutationTest.LoadBehavior)]), &mutationTest.loadBehavior,
-                   "load-threshold", "the 15min loadavg threshold ", mutationTest.loadThreshold.getPtr,
+                   "load-threshold", format!"the 15min loadavg threshold (default: %s)"(mutationTest.loadThreshold.get), mutationTest.loadThreshold.getPtr,
                    "log-coverage", "write the instrumented coverage files to a separate file", mutationTest.logCoverage.getPtr,
                    "log-schemata", "write the mutation schematas to a separate file", &mutationTest.logSchemata,
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
