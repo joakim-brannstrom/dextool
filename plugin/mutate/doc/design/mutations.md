@@ -521,25 +521,3 @@ body is deleted and test cases do not kill the mutant that the function is
 *unused* or *dead code*.
 
 The plugin shall remove the content of the specified void function body.
-
-## Mutation Identifier {id="design-mutation_id"}
-
-[partof](#req-mutations)
-
-This is to reduce the number of mutations that need to be tested by enabling
-reuse of the results. From this perspective it is an performance improvements.
-The checksum is intended to be used in the future for mutation metaprograms.
-See [@thesis1].
-
-The plugin shall generate an identifier for each mutant.
-
-### Checksum algorithm
-
-The algorithm is a simple Merkel tree. It is based on [@thesis1, p. 27].
-The hash algorithm should be murmurhash3 128-bit.
-
-1. Generate the hash *s* of the entire source code.
-2. Generate the hash *o1* of the begin offset.
-3. Generate the hash *o2* of the end offset.
-4. Generate the hash *m* of the textual representation of the mutation.
-5. Generate the final hash of *s*, *o1*, *o2* and *m*.

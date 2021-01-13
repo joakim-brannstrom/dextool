@@ -88,35 +88,6 @@ Regarding mutation:
    can be measured in mutation score. Ideally the mutation operations should be
    representative of all realistic type of faults that could occur in practice.
 
-# Incremental Mutation {id="spc-incremental_mutation"}
-
-[partof](#req-early_validation)
-
-The plugin shall support incremental mutation.
-
-A change of one statement should only generate mutants for that change.
-
-A change to a file should only generate mutants derived from that file.
-
-## Notes
-The user will spend time on performing a manual analysis of the mutants.
-
-To make it easier for the user it is important that this manual analysis can be
-reused as much as possible when the SUT changes.
-
-A draft of a workflow and architecture would be.
- * The user has a report of live mutants.
- * The user goes through the live mutants and mark some as equivalent mutations.
- * The result is saved in a file X.
- * Time goes by and the SUT changes in a couple of files.
- * The user rerun the analyzer.
-     The analyzer repopulates the internal database with new mutations for the changed files.
- * The user run the mutant tester. The mutant tester only test those mutations
-   that are in the changed files.
- * The user import the previous analysis from file X into Dextool.
- * The user export a mutation result report to file Y (same fileformat as X).
- * The user only has to go through and determine equivalence for the new mutations.
-
 # Understand Analysis {id="req-uc_understand_analysis"}
 
 [partof](#req-early_validation)

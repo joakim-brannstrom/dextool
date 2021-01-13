@@ -46,8 +46,6 @@ Note: the build instructions is in the root `README.md` of this repo.
 * 🐇 Can automatically [rerun the mutations that previously survived](#re-test-alive)
     when new tests are added to the test suite.
 * 🐇 Does automatic handling of infinite loops (timeout).
-* 🐇 Detects that a file has been renamed and move the mutation testing result
-  from the new filename.
 * 🐇 Uses coverage information to only test mutants in functions/methods
   covered by the test suite.
 * 🔨 Works with all C/C++ versions.
