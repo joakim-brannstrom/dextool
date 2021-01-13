@@ -1521,14 +1521,14 @@ struct Database {
     /// The mutation ids are guaranteed to be sorted.
     /// Returns: the mutants the test case killed.
     MutationId[] getTestCaseMutantKills(const TestCaseId id, const Mutation.Kind[] kinds) @trusted {
-        immutable sql = format!"SELECT t2.id
+        immutable sql = format!"SELECT t2.st_id
             FROM %s t1, %s t2
             WHERE
             t1.tc_id = :tid AND
             t1.st_id = t2.st_id AND
             t2.kind IN (%(%s,%))
-            ORDER BY
-            t2.id"(killedTestCaseTable,
+            GROUP BY t2.st_id
+            ORDER BY t2.id"(killedTestCaseTable,
                 mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(MutationId[])();
