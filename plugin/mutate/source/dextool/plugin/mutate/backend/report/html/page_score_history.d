@@ -20,7 +20,7 @@ import dextool.plugin.mutate.backend.report.analyzers : MutationScoreHistory,
     reportMutationScoreHistory;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.resource;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable, filesCss;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
@@ -32,7 +32,7 @@ string makeScoreHistory(ref Database db, ref const ConfigReport conf,
 
     auto sections = conf.reportSection.toSet;
 
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.filesCss;
     doc.title(format("Mutation Score History %(%s %) %s", humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init();make_chart(g_data);");
 

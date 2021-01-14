@@ -13,32 +13,19 @@ import logger = std.experimental.logger;
 import std.datetime : Clock, dur;
 import std.format : format;
 
-import arsd.dom : Element, Table, RawSource;
+import arsd.dom : Element, Table, RawSource, Link;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : MutationStat, reportStatistics;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.resource;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 
-string makeStats(ref Database db, ref const ConfigReport conf,
-        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
-    import dextool.plugin.mutate.type : ReportSection;
-    import my.set;
-
-    auto sections = conf.reportSection.toSet;
-
-    auto doc = tmplBasicPage;
-    doc.title(format("Mutation Testing Report %(%s %) %s", humanReadableKinds, Clock.currTime));
-
-    auto s = doc.root.childElements("head")[0].addChild("script");
-
-    overallStat(reportStatistics(db, kinds), doc.mainBody);
-
-    return doc.toPrettyString;
+void makeStats(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
+    DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Overview");
+    overallStat(reportStatistics(db, kinds), root);
 }
 
 private:
@@ -49,9 +36,6 @@ void overallStat(const MutationStat s, Element n) {
     import std.typecons : tuple;
 
     auto base = n.addChild("div").addClass("base");
-    auto heading = base.addChild("h2").addClass("tbl_header");
-    heading.addChild("i").addClass("right");
-    heading.appendText(" Summary");
 
     base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b> (trend %.3s)",
             s.score, s.estimate.value.get));

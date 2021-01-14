@@ -18,7 +18,8 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseStats, TestCaseStat;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.resource;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
+    tmplDefaultTable, dashboardCss;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
@@ -28,7 +29,7 @@ auto makeTestCaseStats(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
     import std.datetime : Clock;
 
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.dashboardCss;
     auto s = doc.root.childElements("head")[0].addChild("script");
     s.addChild(new RawSource(doc, jsIndex));
     doc.mainBody.setAttribute("onload", "init()");

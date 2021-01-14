@@ -20,17 +20,17 @@ import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.report.analyzers : DiffReport, reportDiff;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, filesCss, tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 
 string makeDiffView(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds,
-        ref Diff diff, from.dextool.type.AbsolutePath workdir) @trusted {
+        ref Diff diff, from.my.path.AbsolutePath workdir) @trusted {
     import std.datetime : Clock;
 
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.filesCss;
     doc.title(format("Diff View %(%s %) %s", humanReadableKinds, Clock.currTime));
 
     toHtml(reportDiff(db, kinds, diff, workdir), doc.mainBody);
@@ -124,7 +124,7 @@ void toHtml(DiffReport report, Element root) {
                 foreach (a; (*alive).dup.sort!((a, b) => a.sloc.line < b.sloc.line)) {
                     auto link = alive_ids.addChild("a", format("%s:%s",
                             a.kind.toUser, a.sloc.line));
-                    link.href = format("%s#%s", buildPath(htmlFileDir,
+                    link.href = format("%s#%s", buildPath(Html.fileDir,
                             pathToHtmlLink(path)), a.id);
                     alive_ids.appendText(" ");
                 }
@@ -135,7 +135,7 @@ void toHtml(DiffReport report, Element root) {
                 foreach (a; (*killed).dup.sort!((a, b) => a.sloc.line < b.sloc.line)) {
                     auto link = killed_ids.addChild("a", format("%s:%s",
                             a.kind.toUser, a.sloc.line));
-                    link.href = format("%s#%s", buildPath(htmlFileDir,
+                    link.href = format("%s#%s", buildPath(Html.fileDir,
                             pathToHtmlLink(path)), a.id);
                     killed_ids.appendText(" ");
                 }

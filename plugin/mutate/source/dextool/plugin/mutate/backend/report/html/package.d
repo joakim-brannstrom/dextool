@@ -17,7 +17,7 @@ import std.format : format;
 import std.stdio : File;
 import std.utf : toUTF8, byChar;
 
-import arsd.dom : Document, Element, require, Table, RawSource;
+import arsd.dom : Document, Element, require, Table, RawSource, Link;
 import my.set;
 
 import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId;
@@ -29,7 +29,8 @@ import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportSection;
 import dextool.type : AbsolutePath, Path;
 
-import dextool.plugin.mutate.backend.report.html.constants;
+import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html,
+    SortableTable, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.resource;
 
@@ -68,14 +69,11 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 }
 
 struct FileIndex {
+    import dextool.plugin.mutate.backend.report.analyzers : MutationScore;
+
     Path path;
     string display;
-
-    long aliveMutants;
-    long killedMutants;
-    long totalMutants;
-    // Nr of mutants that are alive but tagged with nomut.
-    long aliveNoMut;
+    MutationScore stat;
 }
 
 @safe final class ReportHtml {
@@ -111,8 +109,8 @@ struct FileIndex {
         this.kinds = kinds;
         this.fio = fio;
         this.conf = conf;
-        this.logDir = buildPath(conf.logDir, htmlDir).Path.AbsolutePath;
-        this.logFilesDir = buildPath(this.logDir, htmlFileDir).Path.AbsolutePath;
+        this.logDir = buildPath(conf.logDir, HtmlStyle.dir).Path.AbsolutePath;
+        this.logFilesDir = buildPath(this.logDir, HtmlStyle.fileDir).Path.AbsolutePath;
         this.diff = diff;
 
         sections = conf.reportSection.toSet;
@@ -133,12 +131,11 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.analyzers : reportScore;
 
         const original = fr.file.dup.pathToHtml;
-        const report = (original ~ htmlExt).Path;
+        const report = (original ~ HtmlStyle.ext).Path;
 
         auto stat = reportScore(db, kinds, fr.file);
 
-        files.put(FileIndex(report, fr.file, stat.alive,
-                stat.killed + stat.timeout + stat.aliveNoMut, stat.total, stat.aliveNoMut));
+        files.put(FileIndex(report, fr.file, stat));
 
         const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
@@ -188,28 +185,36 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_tree_map;
         import dextool.plugin.mutate.backend.report.html.page_score_history;
 
-        auto index = tmplBasicPage;
+        auto index = makeDashboard;
         index.title = format("Mutation Testing Report %(%s %) %s",
                 humanReadableKinds, Clock.currTime);
-        auto s = index.root.childElements("head")[0].addChild("script");
-        s.addChild(new RawSource(index, jsIndex));
 
-        void addSubPage(Fn)(Fn fn, string name, string link_txt) {
-            import std.functional : unaryFun;
+        auto content = index.mainBody.getElementById("content");
 
-            const fname = buildPath(logDir, name ~ htmlExt);
-            index.mainBody.addChild("p").addChild("a", link_txt).href = fname.baseName;
-            logger.infof("Generating %s (%s)", link_txt, name);
+        NavbarItem[] navbarItems;
+        void addSubPage(Fn)(Fn fn, string name, string linkTxt) {
+            const fname = buildPath(logDir, name ~ HtmlStyle.ext);
+            logger.infof("Generating %s (%s)", linkTxt, name);
             File(fname, "w").write(fn());
+            navbarItems ~= NavbarItem(linkTxt, fname.baseName);
         }
 
-        addSubPage(() => makeStats(db, conf, humanReadableKinds, kinds), "stats", "Statistics");
+        void addContent(Fn)(Fn fn, string name, string tag) {
+            logger.infof("Generating %s", name);
+            fn(tag);
+            navbarItems ~= NavbarItem(name, tag);
+        }
+
+        addContent((string tag) => makeStats(db, kinds, tag, content), "Overview", "#overview");
+        navbarItems ~= NavbarItem("Files", "#files"); // add files here to force it to always be after the overview
+
+        addContent((string tag) => makeLongTermView(db, kinds, tag, content),
+                "Long Term View", "#long_term_view");
+
         if (!diff.empty) {
             addSubPage(() => makeDiffView(db, conf, humanReadableKinds, kinds,
                     diff, fio.getOutputDir), "diff_view", "Diff View");
         }
-        addSubPage(() => makeLongTermView(db, conf, humanReadableKinds, kinds),
-                "long_term_view", "Long Term View");
         if (ReportSection.treemap in sections) {
             addSubPage(() => makeTreeMapPage(files.data), "tree_map", "Treemap");
         }
@@ -239,8 +244,8 @@ struct FileIndex {
                     kinds), "test_case_unique", "Test Case Uniqueness");
         }
         if (ReportSection.tc_killed_no_mutants in sections) {
-            addSubPage(() => makeDeadTestCase(db, conf, humanReadableKinds, kinds),
-                    "killed_no_mutants_test_cases", "Killed No Mutants Test Cases");
+            addContent((string tag) => makeDeadTestCase(db, kinds, tag, content),
+                    "Killed No Mutants Test Cases", "#killed_no_mutants_test_cases");
         }
         if (ReportSection.tc_full_overlap in sections
                 || ReportSection.tc_full_overlap_with_mutation_id in sections) {
@@ -252,8 +257,11 @@ struct FileIndex {
                     kinds), "score_history", "Mutation Score History");
         }
 
-        files.data.toIndex(index.mainBody, htmlFileDir);
-        File(buildPath(logDir, "index" ~ htmlExt), "w").write(index.toPrettyString);
+        files.data.toIndex(content, HtmlStyle.fileDir);
+
+        addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
+
+        File(buildPath(logDir, "index" ~ HtmlStyle.ext), "w").write(index.toPrettyString);
     }
 }
 
@@ -294,7 +302,7 @@ struct FileCtx {
         import dextool.plugin.mutate.backend.report.html.tmpl;
 
         auto r = FileCtx.init;
-        r.doc = tmplBasicPage;
+        r.doc = tmplBasicPage.filesCss;
         r.doc.title = title;
         r.doc.mainBody.setAttribute("onload", "javascript:init();");
 
@@ -663,27 +671,22 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     import std.conv : to;
     import std.path : buildPath;
 
-    auto tbl_container = root.addChild("div").addClass("tbl_container");
-    auto tbl = tmplDefaultTable(tbl_container, [
-            "Path", "Score", "Alive", "NoMut", "Total"
-            ]);
+    DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
+
+    auto tbl = tmplDefaultTable(root.addChild("div").addClass(SortableTable.id),
+            ["Path", "Score", "Alive", "NoMut", "Total", "Duration"]);
 
     // Users are not interested that files that contains zero mutants are shown
     // in the list. It is especially annoying when they are marked with dark
     // green.
-    bool has_suppressed;
-    foreach (f; files.sort!((a, b) => a.path < b.path)
-            .filter!(a => a.totalMutants != 0)) {
+    bool hasSuppressed;
+    foreach (f; files.sort!((a, b) => a.path < b.path)) {
         auto r = tbl.appendRow();
         r.addChild("td").addChild("a", f.display).href = buildPath(htmlFileDir, f.path);
 
-        const score = () {
-            if (f.totalMutants == 0)
-                return 1.0;
-            return cast(double) f.killedMutants / cast(double) f.totalMutants;
-        }();
+        const score = f.stat.score;
         const style = () {
-            if (f.killedMutants == f.totalMutants)
+            if (f.stat.killed == f.stat.total)
                 return "background-color: green";
             if (score < 0.3)
                 return "background-color: red";
@@ -696,17 +699,19 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
             return null;
         }();
 
-        r.addChild("td", format("%.3s", score)).style = style;
-        r.addChild("td", f.aliveMutants.to!string).style = style;
-        r.addChild("td", f.aliveNoMut.to!string).style = style;
-        r.addChild("td", f.totalMutants.to!string).style = style;
+        r.addChild("td", format!"%.3s"(score)).style = style;
+        r.addChild("td", f.stat.alive.to!string).style = style;
+        r.addChild("td", f.stat.aliveNoMut.to!string).style = style;
+        r.addChild("td", f.stat.total.to!string).style = style;
+        r.addChild("td", f.stat.totalTime.to!string).style = style;
 
-        has_suppressed = has_suppressed || f.aliveNoMut != 0;
+        hasSuppressed = hasSuppressed || f.stat.aliveNoMut != 0;
     }
 
-    root.addChild("p", "NoMut is the number of alive mutants in the file that are ignored.")
-        .appendText(" This increases the score.");
-    root.setAttribute("onload", "init()");
+    if (hasSuppressed) {
+        root.addChild("p", "NoMut is the number of alive mutants in the file that are ignored.")
+            .appendText(" This increases the score.");
+    }
 }
 
 /** Metadata about the span to be used to e.g. color it.
@@ -927,5 +932,38 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     } catch (Exception e) {
         logger.error(e.msg).collectException;
         logger.error("Unable to generate a HTML report for ", ctx.processFile).collectException;
+    }
+}
+
+Document makeDashboard() @trusted {
+    import dextool.plugin.mutate.backend.resource : dashboard, jsIndex;
+
+    auto data = dashboard();
+
+    auto doc = new Document(data.dashboardHtml.get);
+    auto style = doc.root.childElements("head")[0].addChild("style");
+    style.addChild(new RawSource(doc, data.bootstrapCss.get));
+    style.addChild(new RawSource(doc, data.dashboardCss.get));
+
+    auto script = doc.root.childElements("head")[0].addChild("script");
+    script.addChild(new RawSource(doc, data.jquery.get));
+    script.addChild(new RawSource(doc, data.bootstrapJs.get));
+    script.addChild(new RawSource(doc, data.chart.get));
+    script.addChild(new RawSource(doc, jsIndex));
+
+    // jsIndex provide init()
+    doc.mainBody.setAttribute("onload", "init()");
+
+    return doc;
+}
+
+struct NavbarItem {
+    string name;
+    string link;
+}
+
+void addNavbarItems(NavbarItem[] items, Element root) @trusted {
+    foreach (item; items) {
+        root.addChild("li").addChild(new Link(item.link, item.name));
     }
 }

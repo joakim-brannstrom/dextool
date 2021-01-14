@@ -9,15 +9,40 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html.constants;
 
-immutable htmlExt = ".html";
-immutable htmlDir = "html";
-immutable htmlFileDir = "files";
+import arsd.dom : Element;
+
+struct Html {
+    static immutable ext = ".html";
+    static immutable dir = "html";
+    static immutable fileDir = "files";
+}
 
 // CSS style
-immutable tableStat = "stat_tbl";
-immutable tableStyle = "overlap_tbl";
-immutable tableColumnHdrStyle = "tg-g59y";
-immutable matrixTableStyle = "vertical_tbl";
-immutable matrixTableHdrStyle = "tg";
-immutable tableRowStyle = "tg-0lax";
-immutable tableRowDarkStyle = "tg-0lax_dark";
+
+struct TableStat {
+    static immutable style = "stat_tbl";
+}
+
+struct Table {
+    static immutable style = "table table-striped";
+    static immutable hdrStyle = "tg-g59y";
+    static immutable rowStyle = "tg-0lax";
+    static immutable rowDarkStyle = "tg-0lax_dark";
+}
+
+struct MatrixTable {
+    static immutable style = "vertical_tbl";
+    static immutable hdrStyle = "tg";
+}
+
+struct SortableTable {
+    // table that is sortable
+    // TODO: change index.js from tbl_container to table-responsive
+    static immutable id = "table-responsive";
+}
+
+struct DashboardCss {
+    static Element h2(Element root, string txt) @trusted {
+        return root.addChild("h2", txt).addClass("sub-header");
+    }
+}

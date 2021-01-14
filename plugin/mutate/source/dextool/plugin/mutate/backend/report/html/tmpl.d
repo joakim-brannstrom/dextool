@@ -19,31 +19,46 @@ Document tmplBasicPage() @trusted {
 <body></body>
 </html>
 `);
-    tmplDefaultCss(doc);
     return doc;
 }
 
 /// Add the CSS style after the head element.
-void tmplDefaultCss(Document doc) @trusted {
+Document dashboardCss(Document doc) @trusted {
+    //import dextool.plugin.mutate.backend.resource : tmplDefaultCss;
+    import arsd.dom : RawSource;
+    import dextool.plugin.mutate.backend.resource : dashboard, jsIndex;
+
+    auto data = dashboard();
+
+    auto style = doc.root.childElements("head")[0].addChild("style");
+    style.addChild(new RawSource(doc, data.bootstrapCss.get));
+    style.addChild(new RawSource(doc, data.dashboardCss.get));
+
+    return doc;
+}
+
+Document filesCss(Document doc) @trusted {
     import dextool.plugin.mutate.backend.resource : tmplDefaultCss;
 
-    auto s = doc.root.childElements("head")[0].addChild("style");
-    s.appendText(tmplDefaultCss);
+    auto style = doc.root.childElements("head")[0].addChild("style");
+    style.appendText(tmplDefaultCss);
+
+    return doc;
 }
 
 Table tmplDefaultTable(Element n, string[] header) @trusted {
     import std.range : enumerate;
     import std.format : format;
-    import dextool.plugin.mutate.backend.report.html.constants;
+    import dextool.plugin.mutate.backend.report.html.constants : TableStyle = Table;
 
     auto tbl = n.addChild("table").require!Table;
-    tbl.addClass(tableStyle);
+    tbl.addClass(TableStyle.style);
 
     auto tr = n.parentDocument.createElement("tr");
     foreach (h; header.enumerate) {
         auto th = tr.addChild("th", h.value);
-        th.addClass(tableColumnHdrStyle);
-        th.setAttribute("id", format("%s-%d", "col", h.index));
+        th.addClass(TableStyle.hdrStyle);
+        th.setAttribute("id", format!"col-%s"(h.index));
         th.appendText(" ");
         th.addChild("i").addClass("right");
     }
@@ -57,12 +72,12 @@ Table tmplDefaultMatrixTable(Element n, string[] header) @trusted {
     import dextool.plugin.mutate.backend.report.html.constants;
 
     auto tbl = n.addChild("table").require!Table;
-    tbl.addClass(matrixTableStyle);
+    tbl.addClass(MatrixTable.style);
 
     auto tr = n.parentDocument.createElement("tr");
     foreach (h; header) {
         auto th = tr.addChild("th", h);
-        th.addClass(matrixTableHdrStyle);
+        th.addClass(MatrixTable.hdrStyle);
     }
 
     tbl.addChild("thead").appendChild(tr);
