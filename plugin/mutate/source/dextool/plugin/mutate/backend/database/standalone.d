@@ -1235,6 +1235,8 @@ struct Database {
                 sw.reset;
             }
         }
+
+        logger.infof(!removeIds.empty, "%1$s/%1$s removed", removeIds.length);
     }
 
     /** Add a link between the mutation and what test case killed it.
