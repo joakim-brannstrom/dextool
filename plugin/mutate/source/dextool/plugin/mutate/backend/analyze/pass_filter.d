@@ -52,7 +52,7 @@ Mutants analyzeForUndesiredMutant(Blob file, Mutants mutants, const Language lan
     auto app = appender!(Mutation.Kind[])();
 
     foreach (k; mutants.kind) {
-        if (isEmpty(mutants.point.offset)) {
+        if (isEmpty(file, mutants.point.offset)) {
             logger.tracef("Dropping undesired mutant. Mutant is empty (%s %s %s)",
                     file.uri, mutants.point, k);
             app.put(k);
@@ -79,9 +79,9 @@ Mutants analyzeForUndesiredMutant(Blob file, Mutants mutants, const Language lan
     return Mutants(app.data, mutants.point);
 }
 
-bool isEmpty(Offset o) {
+bool isEmpty(Blob file, Offset o) {
     // well an empty region can just be removed
-    return o.isZero;
+    return o.isZero || o.end > file.content.length;
 }
 
 bool isTextuallyEqual(Blob file, Offset o, const(ubyte)[] mutant) {
