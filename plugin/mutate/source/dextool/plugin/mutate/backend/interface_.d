@@ -32,11 +32,10 @@ interface ValidateLoc {
     /// Returns: the root directory that files to be mutated must reside inside
     AbsolutePath getOutputDir() nothrow;
 
+    bool isInsideOutputDir(AbsolutePath p) nothrow;
+
     /// Returns: if a path should be analyzed for mutation points.
     bool shouldAnalyze(AbsolutePath p);
-
-    /// ditto
-    bool shouldAnalyze(string p);
 
     /// Returns: if a mutant are allowed to be written to this path.
     bool shouldMutate(AbsolutePath p);

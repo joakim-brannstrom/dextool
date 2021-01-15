@@ -64,6 +64,8 @@ import miniorm : Miniorm, TableName, buildSchema, ColumnParam, TableForeignKey,
     TableConstraint, TablePrimaryKey, KeyRef, KeyParam, ColumnName, delete_, insert, select;
 
 immutable allTestCaseTable = "all_test_case";
+immutable depFileTable = "dependency_file";
+immutable depRootTable = "rel_dependency_root";
 immutable filesTable = "files";
 immutable killedTestCaseTable = "killed_test_case";
 immutable markedMutantTable = "marked_mutant";
@@ -593,6 +595,32 @@ struct CoverageTimeTtampTable {
     SysTime timeStamp;
 }
 
+/** Files that roots are dependent on. They do not need to contain mutants.
+ */
+@TableName(depFileTable)
+@TableConstraint("unique_ UNIQUE (file)")
+struct DependencyFileTable {
+    long id;
+
+    string file;
+
+    /// checksum is 128bit.
+    long checksum0;
+    long checksum1;
+}
+
+@TableName(depRootTable)
+@TableForeignKey("dep_id", KeyRef("dependency_file(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+@TableConstraint("unique_ UNIQUE (dep_id, file_id)")
+struct DependencyRootTable {
+    @ColumnName("dep_id")
+    long depFileId;
+
+    @ColumnName("file_id")
+    long fileId;
+}
+
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
         db.run(delete_!VersionTbl);
@@ -709,8 +737,8 @@ void upgradeV0(ref Miniorm db) {
             NomutDataTbl, SchemataTable, SchemataFragmentTable,
             SchemataMutantTable,
             SchemataUsedTable, MutantWorklistTbl, RuntimeHistoryTable,
-            MutationScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
-            CoverageInfoTable, CoverageTimeTtampTable));
+            MutationScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable, CoverageInfoTable,
+            CoverageTimeTtampTable, DependencyFileTable, DependencyRootTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1395,6 +1423,11 @@ void upgradeV32(ref Miniorm db) {
                   SELECT id,path,checksum0,checksum1,lang,timestamp,0 FROM %s",
             newFilesTbl, filesTable));
     db.replaceTbl(newFilesTbl, filesTable);
+}
+
+/// 2021-01-15
+void upgradeV33(ref Miniorm db) {
+    db.run(buildSchema!(DependencyFileTable, DependencyRootTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

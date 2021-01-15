@@ -31,7 +31,9 @@ import std.path : relativePath;
 import std.regex : Regex, matchFirst;
 import std.typecons : Nullable, Flag, No;
 
-import miniorm : toSqliteDateTime, fromSqLiteDateTime, Bind;
+import d2sqlite3 : SqlDatabase = Database;
+import miniorm : Miniorm, select, insert, insertOrReplace, delete_,
+    insertOrIgnore, toSqliteDateTime, fromSqLiteDateTime, Bind;
 import my.named_type;
 import my.optional;
 
@@ -39,15 +41,11 @@ import dextool.type : AbsolutePath, Path, ExitStatusType;
 
 import dextool.plugin.mutate.backend.database.schema;
 import dextool.plugin.mutate.backend.database.type;
-import dextool.plugin.mutate.backend.type : Language, Checksum, Offset;
+import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum, Language, Offset;
 
 /** Database wrapper with minimal dependencies.
  */
 struct Database {
-    import miniorm : Miniorm, select, insert, insertOrReplace, delete_, insertOrIgnore;
-    import d2sqlite3 : SqlDatabase = Database;
-    import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
-
     Miniorm db;
     alias db this;
 
@@ -162,7 +160,7 @@ struct Database {
     Nullable!FileId getFileId(const Path p) @trusted {
         static immutable sql = format("SELECT id FROM %s WHERE path=:path", filesTable);
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":path", cast(string) p);
+        stmt.get.bind(":path", p.toString);
         auto res = stmt.get.execute;
 
         typeof(return) rval;
@@ -208,7 +206,7 @@ struct Database {
         return none!Language;
     }
 
-    /// Returns: a random file that is tagged as a root.
+    /// Returns: all files tagged as a root.
     FileId[] getRootFiles() @trusted {
         static immutable sql = format!"SELECT id FROM %s WHERE root=1"(filesTable);
 
@@ -545,8 +543,7 @@ struct Database {
 
     MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
         auto rval = MutantMetaData(id);
-        foreach (res; db.run(select!NomutDataTbl.where("mut_id = :mutid",
-                Bind("mutid")), cast(long) id)) {
+        foreach (res; db.run(select!NomutDataTbl.where("mut_id = :mutid", Bind("mutid")), id.get)) {
             rval.set(NoMut(res.tag, res.comment));
         }
         return rval;
@@ -2194,6 +2191,102 @@ struct Database {
         }
 
         return app.data;
+    }
+
+    DbDependency dependencyApi() return @trusted {
+        return DbDependency(&this);
+    }
+}
+
+/** Dependencies between root and those files that should trigger a re-analyze
+ * of the root if they are changed.
+ */
+struct DbDependency {
+    private Database* db;
+
+    /// The root must already exist or the whole operation will fail with an sql error.
+    void set(const Path path, const DepFile[] deps) @trusted {
+        static immutable insertDepSql = format!"INSERT OR IGNORE INTO %1$s (file,checksum0,checksum1)
+            VALUES(:file,:cs0,:cs1)
+            ON CONFLICT (file) DO UPDATE SET checksum0=:cs0,checksum1=:cs1 WHERE file=:file"(
+                depFileTable);
+
+        auto stmt = db.prepare(insertDepSql);
+        auto ids = appender!(long[])();
+        foreach (a; deps) {
+            stmt.get.bind(":file", a.file.toString);
+            stmt.get.bind(":cs0", cast(long) a.checksum.c0);
+            stmt.get.bind(":cs1", cast(long) a.checksum.c1);
+            stmt.get.execute;
+            stmt.get.reset;
+
+            // can't use lastInsertRowid because a conflict would not update
+            // the ID.
+            auto id = getId(a.file);
+            if (id.hasValue)
+                ids.put(id.orElse(0L));
+        }
+
+        static immutable addRelSql = format!"INSERT OR IGNORE INTO %1$s (dep_id,file_id) VALUES(:did, :fid)"(
+                depRootTable);
+        stmt = db.prepare(addRelSql);
+        const fid = () {
+            auto a = db.getFileId(path);
+            if (a.isNull) {
+                throw new Exception(
+                        "File is not tracked (is missing from the files table in the database) "
+                        ~ path);
+            }
+            return a.get;
+        }();
+
+        foreach (id; ids.data) {
+            stmt.get.bind(":did", id);
+            stmt.get.bind(":fid", fid.get);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
+    }
+
+    private Optional!long getId(const Path file) {
+        foreach (a; db.run(select!DependencyFileTable.where("file = :file",
+                Bind("file")), file.toString)) {
+            return some(a.id);
+        }
+        return none!long;
+    }
+
+    /// Returns: all dependencies.
+    DepFile[] getAll() @trusted {
+        return db.run(select!DependencyFileTable)
+            .map!(a => DepFile(Path(a.file), Checksum(a.checksum0, a.checksum1))).array;
+    }
+
+    /// Returns: all files that a root is dependent on.
+    Path[] get(const Path root) @trusted {
+        static immutable sql = format!"SELECT t0.file
+            FROM %1$s t0, %2$s t1, %3$s t2
+            WHERE
+            t0.id = t1.dep_id AND
+            t1.file_id = t2.id AND
+            t2.path = :file"(depFileTable,
+                depRootTable, filesTable);
+
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":file", root.toString);
+        auto app = appender!(Path[])();
+        foreach (ref a; stmt.get.execute) {
+            app.put(Path(a.peek!string(0)));
+        }
+
+        return app.data;
+    }
+
+    /// Remove all dependencies that have no relation to a root.
+    void cleanup() @trusted {
+        db.run(format!"DELETE FROM %1$s
+               WHERE id NOT IN (SELECT dep_id FROM %2$s)"(depFileTable,
+                depRootTable));
     }
 }
 

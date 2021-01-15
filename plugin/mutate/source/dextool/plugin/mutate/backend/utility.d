@@ -66,6 +66,18 @@ Checksum checksum(const(ubyte)[] a) {
     return makeMurmur3(a);
 }
 
+Checksum checksum(AbsolutePath p) @trusted {
+    import std.mmfile : MmFile;
+
+    try {
+        scope content = new MmFile(p.toString);
+        return checksum(cast(const(ubyte)[]) content[]);
+    } catch (Exception e) {
+    }
+
+    return Checksum.init;
+}
+
 /// Package the values to a checksum.
 Checksum checksum(T)(const(T[2]) a) if (T.sizeof == 8) {
     return Checksum(cast(ulong) a[0], cast(ulong) a[1]);

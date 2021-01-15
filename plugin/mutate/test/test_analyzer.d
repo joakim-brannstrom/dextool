@@ -5,6 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.test_analyzer;
 
+import std.file : copy;
 import std.path : relativePath, buildPath;
 
 import dextool.plugin.mutate.backend.database.standalone;
@@ -96,4 +97,23 @@ unittest {
         `Mutation operators: aor`,
         `Total:\s*0`,
     ]).shouldBeIn(r.output);
+}
+
+@(testId ~ "shall record the #include as dependencies")
+unittest {
+    import std.stdio : File;
+
+    mixin(EnvSetup(globalTestdir));
+
+    const programHdr = (testEnv.outdir ~ "program.hpp").toString;
+    const programCpp = (testEnv.outdir ~ "program.cpp").toString;
+
+    //copy((testData ~ "analyze_dep.hpp").toString, programHdr);
+    File(programHdr, "w").write("//\n");
+    copy((testData ~ "analyze_dep.cpp").toString, programCpp);
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(programCpp)
+        .addPostArg(["--mutant", "all"])
+        .run;
 }

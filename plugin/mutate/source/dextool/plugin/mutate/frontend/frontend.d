@@ -141,17 +141,17 @@ final class FrontendIO : FilesysIO {
 
     BlobVfs vfs;
 
-    private AbsolutePath output_dir;
+    private AbsolutePath root;
     private bool dry_run;
 
-    this(AbsolutePath output_dir, bool dry_run) {
-        this.output_dir = output_dir;
+    this(AbsolutePath root, bool dry_run) {
+        this.root = root;
         this.dry_run = dry_run;
         this.vfs = new BlobVfs;
     }
 
     override FilesysIO dup() {
-        return new FrontendIO(output_dir, dry_run);
+        return new FrontendIO(root, dry_run);
     }
 
     override File getDevNull() {
@@ -167,25 +167,25 @@ final class FrontendIO : FilesysIO {
     override Path toRelativeRoot(Path p) @trusted {
         import std.path : relativePath;
 
-        return relativePath(p, output_dir).Path;
+        return relativePath(p, root).Path;
     }
 
     override AbsolutePath toAbsoluteRoot(Path p) {
-        return AbsolutePath(buildPath(output_dir, p));
+        return AbsolutePath(buildPath(root, p));
     }
 
     override AbsolutePath getOutputDir() @safe pure nothrow @nogc {
-        return output_dir;
+        return root;
     }
 
     override SafeOutput makeOutput(AbsolutePath p) @safe {
-        if (!verifyPathInsideRoot(output_dir, p, dry_run))
+        if (!verifyPathInsideRoot(root, p, dry_run))
             throw singletonException;
         return SafeOutput(p, this);
     }
 
     override Blob makeInput(AbsolutePath p) @safe {
-        if (!verifyPathInsideRoot(output_dir, p, dry_run))
+        if (!verifyPathInsideRoot(root, p, dry_run))
             throw singletonException;
 
         const uri = Uri(cast(string) p);
@@ -202,7 +202,7 @@ final class FrontendIO : FilesysIO {
         // because a Blob/SafeOutput could theoretically be created via
         // other means than a FilesysIO.
         // TODO fix so this validate is not needed.
-        if (!dry_run && verifyPathInsideRoot(output_dir, fname, dry_run))
+        if (!dry_run && verifyPathInsideRoot(root, fname, dry_run))
             File(fname, "w").rawWrite(data);
     }
 
@@ -223,20 +223,26 @@ private:
 }
 
 final class FrontendValidateLoc : ValidateLoc {
-    private GlobFilter mutantMatcher;
-    private AbsolutePath output_dir;
+    import std.string : startsWith;
 
-    this(GlobFilter matcher, AbsolutePath output_dir) {
+    private GlobFilter mutantMatcher;
+    private AbsolutePath root;
+
+    this(GlobFilter matcher, AbsolutePath root) {
         this.mutantMatcher = matcher;
-        this.output_dir = output_dir;
+        this.root = root;
     }
 
     override ValidateLoc dup() {
-        return new FrontendValidateLoc(mutantMatcher, output_dir);
+        return new FrontendValidateLoc(mutantMatcher, root);
+    }
+
+    override bool isInsideOutputDir(AbsolutePath p) nothrow {
+        return p.toString.startsWith(root.toString);
     }
 
     override AbsolutePath getOutputDir() nothrow {
-        return this.output_dir;
+        return this.root;
     }
 
     override bool shouldAnalyze(AbsolutePath p) {
@@ -245,20 +251,14 @@ final class FrontendValidateLoc : ValidateLoc {
         return res;
     }
 
-    /// Returns: if a file should be analyzed for mutants.
-    override bool shouldAnalyze(const string p) {
-        return shouldAnalyze(p.AbsolutePath);
-    }
-
     /// Returns: if a file should be mutated.
     override bool shouldMutate(AbsolutePath p) {
         import std.file : isDir, exists;
-        import std.string : startsWith;
 
         if (!exists(p) || isDir(p))
             return false;
 
-        bool res = p.toString.startsWith(output_dir.toString);
+        bool res = isInsideOutputDir(p);
 
         if (res) {
             return shouldAnalyze(p);

@@ -26,12 +26,14 @@ import std.typecons : tuple;
 import colorlog;
 import my.filter : GlobFilter;
 import my.named_type;
+import my.optional;
 import my.set;
 
-import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter,
-    CompileCommandDB, ParsedCompileCommandRange, ParsedCompileCommand;
+import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB,
+    ParsedCompileCommandRange, ParsedCompileCommand, ParseFlags, SystemIncludePath;
 import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
-import dextool.plugin.mutate.backend.database : Database, LineMetadata, MutationPointEntry2;
+import dextool.plugin.mutate.backend.database : Database, LineMetadata,
+    MutationPointEntry2, DepFile;
 import dextool.plugin.mutate.backend.database.type : MarkedMutant, TestFile,
     TestFilePath, TestFileChecksum;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
@@ -72,9 +74,24 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
         return new TaskPool(conf_analyze.poolSize);
     }();
 
+    // if a dependency of a root file has been changed.
+    auto changedDeps = dependencyAnalyze(dbPath);
+
     // will only be used by one thread at a time.
     auto store = spawn(&storeActor, dbPath, cast(shared) fio.dup, conf_analyze.prune,
-            conf_analyze.fastDbStore, conf_analyze.poolSize, conf_analyze.forceSaveAnalyze);
+            conf_analyze.fastDbStore, conf_analyze.poolSize,
+            conf_analyze.forceSaveAnalyze, cast(immutable) changedDeps.byKeyValue
+            .filter!(a => !a.value)
+            .map!(a => a.key)
+            .array);
+
+    try {
+        pool.put(task!testPathActor(conf_analyze.testPaths,
+                conf_analyze.testFileMatcher, fio.dup, store));
+    } catch (Exception e) {
+        logger.trace(e);
+        logger.warning(e.msg);
+    }
 
     auto kinds = toInternal(userKinds);
     int taskCnt;
@@ -88,8 +105,14 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             .tee!(a => alreadyAnalyzed.add(a.cmd.absoluteFile))
             .cache
             .filter!(a => conf_analyze.fileMatcher.match(a.cmd.absoluteFile.toString))
-            .filter!(a => fileFilter.shouldAnalyze(a.cmd.absoluteFile))) {
+            .filter!(a => fileFilter.shouldAnalyze(a.cmd.absoluteFile))
+            ) {
         try {
+            if (auto v = fio.toRelativeRoot(f.cmd.absoluteFile) in changedDeps) {
+                if (!(*v || conf_analyze.forceSaveAnalyze))
+                    continue;
+            }
+
             //logger.infof("%s sending", f.cmd.absoluteFile);
             pool.put(task!analyzeActor(kinds, f, valLoc.dup, fio.dup, conf_compiler, conf_analyze, store));
             taskCnt++;
@@ -99,14 +122,6 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
         }
     }
     // dfmt on
-
-    try {
-        pool.put(task!testPathActor(conf_analyze.testPaths,
-                conf_analyze.testFileMatcher, fio.dup, store));
-    } catch (Exception e) {
-        logger.trace(e);
-        logger.warning(e.msg);
-    }
 
     // inform the store actor of how many analyse results it should *try* to
     // save.
@@ -215,6 +230,8 @@ void testPathActor(const AbsolutePath[] userPaths, GlobFilter matcher, FilesysIO
     import std.file : isDir, isFile, dirEntries, SpanMode;
     import my.container.vector;
 
+    auto profile = Profile("checksum test files");
+
     auto sw = StopWatch(AutoStart.yes);
 
     TestFile makeTestFile(const AbsolutePath file) {
@@ -258,8 +275,9 @@ void testPathActor(const AbsolutePath[] userPaths, GlobFilter matcher, FilesysIO
 }
 
 /// Store the result of the analyze.
-void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
-        const bool prune, const bool fastDbStore, const long poolSize, const bool forceSave) @trusted nothrow {
+void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, const bool prune,
+        const bool fastDbStore, const long poolSize, const bool forceSave,
+        immutable Path[] notAnalyzed) @trusted nothrow {
     import cachetools : CacheLRU;
     import dextool.cachetools : nullableCache;
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
@@ -303,7 +321,11 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         }
 
         void save(immutable Analyze.Result result_) {
+            import dextool.plugin.mutate.backend.type : Language;
+
             auto result = cast() result_;
+
+            auto profile = Profile("save " ~ result.root);
 
             // mark files that have an unchanged checksum as "already saved"
             foreach (f; result.idFile
@@ -330,10 +352,29 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     const relp = fio.toRelativeRoot(f);
                     db.removeFile(relp);
                     const info = result.infoId[result.idFile[f]];
-                    db.put(relp, info.checksum, info.language, f in result.isRoot);
+                    db.put(relp, info.checksum, info.language, f == result.root);
                     savedFiles.add(f);
                 }
                 db.put(app.data, fio.getOutputDir);
+
+                if (result.root !in savedFiles) {
+                    // this occurs when the file is e.g. a unittest that uses a
+                    // header only library. The unittests are not mutated thus
+                    // no mutation points exists in them but we want dextool to
+                    // still, if possible, track the unittests for changes.
+                    isChanged = true;
+                    const relp = fio.toRelativeRoot(result.root);
+                    db.removeFile(relp);
+                    // the language do not matter because it is a file without
+                    // any mutants.
+                    db.put(relp, result.rootCs, Language.init, true);
+                    savedFiles.add(fio.toAbsoluteRoot(result.root));
+                }
+
+                // must always update dependencies because they may not contain
+                // mutants. Only files that are changed and contain mutants
+                // trigger isChanged to be true.
+                db.dependencyApi.set(fio.toRelativeRoot(result.root), result.dependencies);
 
                 if (isChanged || oldVersion.get) {
                     foreach (a; result.coverage.byKeyValue) {
@@ -389,6 +430,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         }
 
         void saveTestResult(immutable TestFileResult result) {
+            auto profile = Profile("save test files");
             Set!Checksum old;
 
             foreach (a; db.getTestFiles) {
@@ -407,7 +449,6 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
 
         // listen for results from workers until the expected number is processed.
         void recv() {
-            auto profile = Profile("updating files");
             logger.info("Updating files");
             RecvWaiter waiter;
 
@@ -444,6 +485,22 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 logger.info("Removing ".color(Color.red), f);
                 db.removeFile(fio.toRelativeRoot(f));
             }
+        }
+
+        void addNotAnalyzed() {
+            if (forceSave)
+                return;
+
+            auto profile = Profile("add not analyzed");
+            foreach (a; notAnalyzed) {
+                savedFiles.add(fio.toAbsoluteRoot(a));
+                // fejk text for the user to tell them that yes, the files have
+                // been analyzed.
+                logger.info("Analyzing ", a);
+                logger.info("Unchanged ".color(Color.yellow), a);
+            }
+            foreach (a; notAnalyzed.map!(a => db.dependencyApi.get(a)).joiner)
+                savedFiles.add(fio.toAbsoluteRoot(a));
         }
 
         void fastDbOn() {
@@ -488,6 +545,8 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
 
             recv();
 
+            addNotAnalyzed();
+
             logger.info("Resetting timeout context");
             resetTimeoutContext(db);
 
@@ -505,6 +564,11 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     auto profile = Profile("prune schemas");
                     logger.info("Prune the database of unused schemas");
                     db.pruneSchemas;
+                }
+                {
+                    auto profile = Profile("prune dependencies");
+                    logger.info("Prune dependencies");
+                    db.dependencyApi.cleanup;
                 }
             }
 
@@ -603,13 +667,15 @@ struct Analyze {
             return;
         }
 
-        auto root = in_file.cmd.absoluteFile;
+        result.root = in_file.cmd.absoluteFile;
 
         try {
+            result.rootCs = checksum(result.root);
+
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
             auto tstream = new TokenStreamImpl(ctx);
 
-            analyzeForMutants(in_file, root, ctx, tstream);
+            analyzeForMutants(in_file, result.root, ctx, tstream);
             foreach (f; result.fileId.byValue)
                 analyzeForComments(f, tstream);
         } catch (Exception e) {
@@ -640,9 +706,9 @@ struct Analyze {
                 return;
             }
 
-            result.isRoot.add(checked_in_file);
-
-            ast = toMutateAst(tu.cursor, fio);
+            auto res = toMutateAst(tu.cursor, fio);
+            ast = res.ast;
+            saveDependencies(in_file.flags, result.root, res.dependencies);
             debug logger.trace(ast);
         }
 
@@ -721,6 +787,28 @@ struct Analyze {
         }
     }
 
+    void saveDependencies(ParseFlags flags, AbsolutePath root, Path[] dependencies) @trusted {
+        import std.algorithm : cache;
+        import std.mmfile;
+
+        auto rootDir = root.dirName;
+
+        foreach (p; dependencies.map!(a => toAbsolutePath(a, rootDir,
+                flags.includes, flags.systemIncludes))
+                .cache
+                .filter!(a => a.hasValue)
+                .map!(a => a.orElse(AbsolutePath.init))
+                .filter!(a => valLoc.isInsideOutputDir(a))) {
+            try {
+                result.dependencies ~= DepFile(fio.toRelativeRoot(p), checksum(p));
+            } catch (Exception e) {
+                logger.trace(e.msg).collectException;
+            }
+        }
+
+        debug logger.trace(result.dependencies);
+    }
+
     static class Result {
         import dextool.plugin.mutate.backend.analyze.ast : Interval;
         import dextool.plugin.mutate.backend.database.type : SchemataFragment;
@@ -738,7 +826,12 @@ struct Analyze {
             Language language;
         }
 
-        Set!AbsolutePath isRoot;
+        /// The file that is analyzed, which is a root
+        AbsolutePath root;
+        Checksum rootCs;
+
+        /// An analyze is of a root. this
+        DepFile[] dependencies;
 
         /// The key is the ID from idFile.
         FileInfo[LocalFileId] infoId;
@@ -916,4 +1009,100 @@ index 0123..2345 100644
 
     files.shouldAnalyze("standalone.d".Path.AbsolutePath).shouldBeFalse;
     files.shouldAnalyze("standalone2.d".Path.AbsolutePath).shouldBeTrue;
+}
+
+/// Convert to an absolute path by finding the first match among the compiler flags
+Optional!AbsolutePath toAbsolutePath(Path file, AbsolutePath workDir,
+        ParseFlags.Include[] includes, SystemIncludePath[] systemIncludes) @trusted nothrow {
+    import std.algorithm : map, filter;
+    import std.file : exists;
+    import std.path : buildPath;
+
+    Optional!AbsolutePath lookup(string dir) nothrow {
+        const p = buildPath(dir, file);
+        try {
+            if (exists(p))
+                return some(AbsolutePath(p));
+        } catch (Exception e) {
+        }
+        return none!AbsolutePath;
+    }
+
+    {
+        auto a = lookup(workDir.toString);
+        if (a.hasValue)
+            return a;
+    }
+
+    foreach (a; includes.map!(a => lookup(a.payload))
+            .filter!(a => a.hasValue)) {
+        return a;
+    }
+
+    foreach (a; systemIncludes.map!(a => lookup(a.value))
+            .filter!(a => a.hasValue)) {
+        return a;
+    }
+
+    return none!AbsolutePath;
+}
+
+/** Returns: the root files that need to be re-analyzed because either them or
+ * their dependency has changed.
+ */
+bool[Path] dependencyAnalyze(const AbsolutePath dbPath) @trusted {
+    import dextool.cachetools : nullableCache;
+    import dextool.plugin.mutate.backend.database : FileId;
+
+    auto db = Database.make(dbPath);
+
+    typeof(return) rval;
+
+    // pessimistic. Add all as needing to be analyzed.
+    foreach (a; db.getRootFiles.map!(a => db.getFile(a).get)) {
+        rval[a] = false;
+    }
+
+    try {
+        auto getFileId = nullableCache!(string, FileId, (string p) => db.getFileId(p.Path))(256,
+                30.dur!"seconds");
+        auto getFileName = nullableCache!(FileId, Path, (FileId id) => db.getFile(id))(256,
+                30.dur!"seconds");
+        auto getFileDbChecksum = nullableCache!(string, Checksum,
+                (string p) => db.getFileChecksum(p.Path))(256, 30.dur!"seconds");
+        auto getFileFsChecksum = nullableCache!(string, Checksum, (string p) {
+            return checksum(AbsolutePath(Path(p)));
+        })(256, 30.dur!"seconds");
+
+        Checksum[Path] dbDeps;
+        foreach (a; db.dependencyApi.getAll)
+            dbDeps[a.file] = a.checksum;
+
+        bool isChanged(T)(T f) {
+            if (f.rootCs != getFileFsChecksum(f.root))
+                return true;
+
+            foreach (a; f.deps.filter!(a => getFileFsChecksum(a) != dbDeps[a])) {
+                return true;
+            }
+
+            return false;
+        }
+
+        foreach (f; db.getRootFiles
+                .map!(a => db.getFile(a).get)
+                .map!(a => tuple!("root", "rootCs", "deps")(a,
+                    getFileDbChecksum(a), db.dependencyApi.get(a)))
+                .cache
+                .filter!(a => isChanged(a))
+                .map!(a => a.root)) {
+            rval[f] = true;
+        }
+    } catch (Exception e) {
+        logger.warning(e.msg);
+    }
+
+    logger.trace("Dependency analyze: ", rval);
+
+    return rval;
 }
