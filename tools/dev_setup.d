@@ -22,7 +22,10 @@ int main(string[] args) {
             ], null, std.process.Config.none, "build").wait != 0)
         return 1;
 
-    spawnProcess(["dscanner", "--sloc"] ~ sourcePaths).wait;
+    try {
+        spawnProcess(["dscanner", "--sloc"] ~ sourcePaths).wait;
+    } catch (Exception e) {
+    }
 
     writeln("To rebuild on changes run:");
     writeln(`dub run watchexec -- -w libs -w plugin -w source --shell -- "export CPUNR=$(nproc);cd build;make check -j \$CPUNR && make -j \$CPUNR && make check_integration -j \$CPUNR"`);
