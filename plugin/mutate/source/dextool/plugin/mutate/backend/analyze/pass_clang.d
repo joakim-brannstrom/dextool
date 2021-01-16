@@ -64,7 +64,7 @@ private:
 struct OperatorCursor {
     analyze.Expr astOp;
 
-    // both sides are primitive types, in other words no class overloading.
+    // true if the operator is overloaded.
     bool isOverload;
 
     // the whole expression
