@@ -161,8 +161,7 @@ struct SchematasRange {
 
         foreach (schema; raw.byKeyValue) {
             auto file = fio.toRelativeRoot(schema.key);
-            builder.pass1(schema.value.fragments, file)
-                .match!((Some!ET a) => values_.put(a.value), (None a) {});
+            builder.put(schema.value.fragments, file);
         }
 
         while (!builder.pass2Data.empty) {
@@ -915,8 +914,8 @@ struct SchemataBuilder {
     // hardcoded for now the minimum req. for a schema to be saved.
     immutable long minMutantsPerSchema = 2;
 
-    /// All mutants that have been included in any generated schema.
-    Set!CodeMutant global;
+    /// All mutants that have been used in any generated schema.
+    Set!CodeMutant isUsed;
 
     // schemas that in pass1 is less than the threshold
     Vector!Fragment pass2Data;
@@ -927,48 +926,10 @@ struct SchemataBuilder {
      *
      * Schematan from this pass only contain one kind and only affect one file.
      */
-    Optional!ET pass1(SchemataResult.Fragment[] fragments, Path file) {
-        // overlapping mutants is not supported "yet" thus make sure no
-        // fragment overlap with another fragment.
-        Index!byte index;
-
-        auto app = appender!(Fragment[])();
-
-        Set!CodeMutant local;
+    void put(SchemataResult.Fragment[] fragments, Path file) {
         foreach (a; fragments) {
-            if (local.length >= mutantsPerSchema || index.intersect(0, a.offset)) {
-                pass2Data.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
-                continue;
-            }
-
-            // all mutants in the fragment have already been generated, discard.
-            if (all!(a => a in global)(a.mutants)) {
-                continue;
-            }
-
-            // if any of the mutants in the schema has already been included.
-            if (any!(a => a in local)(a.mutants)) {
-                pass2Data.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
-                continue;
-            }
-
-            app.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
-            local.add(a.mutants);
-            index.put(0, a.offset);
+            pass2Data.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
         }
-
-        if (local.length >= mutantsPerSchema) {
-            ET v;
-            v.fragments = app.data.map!(a => a.fragment).array;
-            v.mutants = local.toArray;
-            v.checksum = toSchemataChecksum(v.mutants);
-            global.add(v.mutants);
-            return some(v);
-        } else if (!local.empty) {
-            pass2Data.put(app.data);
-        }
-
-        return none!ET;
     }
 
     /** Merge schemata fragments to schemas. A schemata from this pass may may
@@ -985,14 +946,14 @@ struct SchemataBuilder {
             pass2Data = rest;
 
         foreach (a; pass2Data) {
-            if (local.length >= mutantsPerSchema
-                    || index.intersect(a.fragment.file, a.fragment.offset)) {
-                rest.put(a);
+            // all mutants in the fragment have already been generated, discard.
+            if (all!(a => a in isUsed)(a.mutants)) {
                 continue;
             }
 
-            // all mutants in the fragment have already been generated, discard.
-            if (all!(a => a in global)(a.mutants)) {
+            if (local.length >= mutantsPerSchema
+                    || index.intersect(a.fragment.file, a.fragment.offset)) {
+                rest.put(a);
                 continue;
             }
 
@@ -1010,11 +971,13 @@ struct SchemataBuilder {
         if (local.length <= minMutantsPerSchema)
             return none!ET;
 
+        debug logger.tracef("created schema with %s mutants", local.length);
+
         ET v;
         v.fragments = app.data;
         v.mutants = local.toArray;
         v.checksum = toSchemataChecksum(v.mutants);
-        global.add(v.mutants);
+        isUsed.add(v.mutants);
         return some(v);
     }
 }

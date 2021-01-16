@@ -472,11 +472,11 @@ final class BaseVisitor : ExtendedVisitor {
 
         mixin(mixinNodeLog!());
 
-        blacklist = BlackList(v.cursor);
-
         ast.root = new analyze.TranslationUnit;
         auto loc = v.cursor.toLocation;
         pushStack(ast.root, loc, v.cursor.kind);
+
+        blacklist = BlackList(v.cursor);
 
         // it is most often invalid
         switch (v.cursor.language) {
@@ -1694,8 +1694,10 @@ struct BlackList {
         this.schemas = Index!string(schemas);
     }
 
-    void add(const Cursor c, ref Interval[][string] idx) {
+    static void add(const Cursor c, ref Interval[][string] idx) {
         const file = c.location.path;
+        if (file.empty)
+            return;
         const e = c.extent;
         const interval = Interval(e.start.offset, e.end.offset);
         if (auto v = file in idx) {
@@ -1706,7 +1708,7 @@ struct BlackList {
     }
 
     bool blockSchema(analyze.Location l) {
-        return schemas.overlap(l.file, l.interval);
+        return schemas.intersect(l.file, l.interval);
     }
 
     bool inside(const Cursor c) {
