@@ -83,18 +83,9 @@ struct SourceRange {
 }
 
 /** Check if two source ranges intersect
- *
- * Implementation by Wojciech Szęszoł, Feb 14 2016.
  */
 bool intersects(in SourceRange a, in SourceRange b) {
-    static bool test(uint begin, uint end, uint p) {
-        return p >= begin && p <= end;
-    }
-
-    return a.path == b.path && (test(a.start.offset, a.end.offset,
-            b.start.offset) || test(a.start.offset, a.end.offset,
-            b.end.offset) || test(b.start.offset, b.end.offset,
-            a.start.offset) || test(b.start.offset, b.end.offset, a.end.offset));
+    return a.path == b.path && a.end.offset >= b.start.offset && b.end.offset >= a.start.offset;
 }
 
 /// Retrieve a source range given the beginning and ending source locations.
