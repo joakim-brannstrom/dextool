@@ -53,25 +53,28 @@ struct Offset {
         return end - begin;
     }
 
-    private static bool test(Offset i, uint p) {
-        return i.begin <= p && p < i.end;
+    /// Check if offsets intersect.
+    bool intersect(in Offset y)
+    in (y.begin <= y.end, "y.begin > y.end")
+    in (begin <= end, "begin > end") {
+        return end >= y.begin && y.end >= begin;
     }
 
-    /// Check if there is an overlap between the offsets.
-    bool intersect(in Offset other) {
-        return test(other, begin) || test(other, end) || test(this,
-                other.begin) || test(this, other.end);
-    }
+    /// Check if offsets overlap.
+    bool overlap(in Offset y)
+    in (y.begin <= y.end, "y.begin > y.end")
+    in (begin <= end, "begin > end") {
+        static bool test(Offset i, uint p) {
+            return i.begin <= p && p < i.end;
+        }
 
-    /// Check if either overlap at the sides.
-    bool overlap(in Offset other) {
         //       a--------a
         // true:     b--------b
         // true:    c--c
-        const t0 = test(this, other.begin);
-        const t1 = test(this, other.end);
+        const t0 = test(this, y.begin);
+        const t1 = test(this, y.end);
 
-        return (t0 || t1);
+        return ((t0 || t1) && (t0 != t1)) || (t0 && t1);
     }
 
     size_t toHash() @safe pure nothrow const @nogc scope {

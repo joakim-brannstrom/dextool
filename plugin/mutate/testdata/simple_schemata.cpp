@@ -61,6 +61,10 @@ int test_switch(int x) {
 int test_unary_op(int x) {
     if (!x)
         x = 42;
+    if (!x)
+        x = 42;
+    if (!x)
+        x = 42;
     x = !x;
     return x;
 }

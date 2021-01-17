@@ -137,8 +137,9 @@ struct Index(KeyT) {
     bool intersect(const KeyT key, const Interval i) {
         if (auto intervals = key in index) {
             foreach (a; *intervals) {
-                if (a.intersect(i))
+                if (a.intersect(i)) {
                     return true;
+                }
             }
         }
 
@@ -149,8 +150,9 @@ struct Index(KeyT) {
     bool overlap(const KeyT key, const Interval i) {
         if (auto intervals = key in index) {
             foreach (a; *intervals) {
-                if (a.overlap(i))
+                if (a.overlap(i)) {
                     return true;
+                }
             }
         }
 

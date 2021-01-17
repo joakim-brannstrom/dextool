@@ -64,7 +64,7 @@ private:
 struct OperatorCursor {
     analyze.Expr astOp;
 
-    // both sides are primitive types, in other words no class overloading.
+    // true if the operator is overloaded.
     bool isOverload;
 
     // the whole expression
@@ -472,11 +472,11 @@ final class BaseVisitor : ExtendedVisitor {
 
         mixin(mixinNodeLog!());
 
-        blacklist = BlackList(v.cursor);
-
         ast.root = new analyze.TranslationUnit;
         auto loc = v.cursor.toLocation;
         pushStack(ast.root, loc, v.cursor.kind);
+
+        blacklist = BlackList(v.cursor);
 
         // it is most often invalid
         switch (v.cursor.language) {
@@ -1004,8 +1004,6 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
-        // TODO: refactor so isParent take multiple kinds. this is very
-        // inefficient traversing multiple times.
         const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc) || isParent(CXCursorKind.classTemplate,
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
@@ -1085,9 +1083,12 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
+        const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc) || isParent(CXCursorKind.classTemplate,
+                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
+
         astOp.operator = op.operator;
         astOp.operator.blacklist = blacklist.inside(op.opLoc);
-        astOp.operator.schemaBlacklist = op.isOverload || blacklist.blockSchema(op.opLoc);
+        astOp.operator.schemaBlacklist = blockSchema;
 
         op.put(nstack.back, ast);
         pushStack(astOp, op.exprLoc, cKind);
@@ -1694,8 +1695,10 @@ struct BlackList {
         this.schemas = Index!string(schemas);
     }
 
-    void add(const Cursor c, ref Interval[][string] idx) {
+    static void add(const Cursor c, ref Interval[][string] idx) {
         const file = c.location.path;
+        if (file.empty)
+            return;
         const e = c.extent;
         const interval = Interval(e.start.offset, e.end.offset);
         if (auto v = file in idx) {
@@ -1706,7 +1709,7 @@ struct BlackList {
     }
 
     bool blockSchema(analyze.Location l) {
-        return schemas.overlap(l.file, l.interval);
+        return schemas.intersect(l.file, l.interval);
     }
 
     bool inside(const Cursor c) {

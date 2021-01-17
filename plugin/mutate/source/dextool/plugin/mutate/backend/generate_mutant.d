@@ -333,7 +333,7 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
         m.mutate = (const(ubyte)[] expr) { return toB("sizeof(") ~ expr ~ toB(")"); };
         break;
     case uoiDel:
-        m.mutate = (const(ubyte)[] expr) { return toB("!!"); };
+        m.mutate = (const(ubyte)[] expr) { return toB("!") ~ expr; };
         break;
         /// Absolute value replacement
         /// #SPC-mutation_abs

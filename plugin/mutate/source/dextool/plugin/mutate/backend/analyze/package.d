@@ -379,7 +379,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     const fid = getFileId(fio.toRelativeRoot(result.fileId[localId]));
                     if (fid.isNull && !printed.contains(md.id.get)) {
                         printed.add(md.id.get);
-                        logger.warningf("File with suppressed mutants (// NOMUT) not in the database: %s. Skipping...",
+                        logger.info("File with suppressed mutants (// NOMUT) not in the database: ",
                                 result.fileId[localId]).collectException;
                     } else if (!fid.isNull) {
                         app.put(LineMetadata(fid.get, md.line, md.attr));
@@ -632,7 +632,7 @@ struct Analyze {
         auto tu = ctx.makeTranslationUnit(checked_in_file, in_file.flags.completeFlags);
         if (tu.hasParseErrors) {
             logDiagnostic(tu);
-            logger.errorf("Compile error in %s. Skipping", checked_in_file);
+            logger.warningf("Compile error in %s. Skipping", checked_in_file);
             return;
         }
 
