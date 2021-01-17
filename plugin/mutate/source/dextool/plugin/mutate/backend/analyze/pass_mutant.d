@@ -650,7 +650,7 @@ class MutantVisitor : DepthFirstVisitor {
         {
             import dextool.plugin.mutate.backend.mutation_type.uoi;
 
-            op ~= uoiMutations(n.kind);
+            expr ~= uoiMutations(n.kind);
         }
         if (isDirectParent(Kind.Block)) {
             expr ~= stmtDelMutations(n.kind);

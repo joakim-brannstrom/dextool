@@ -70,11 +70,11 @@ struct Offset {
 
         //       a--------a
         // true:     b--------b
-        // false:    c--c
+        // true:    c--c
         const t0 = test(this, y.begin);
         const t1 = test(this, y.end);
 
-        return (t0 || t1) && (t0 != t1);
+        return ((t0 || t1) && (t0 != t1)) || (t0 && t1);
     }
 
     size_t toHash() @safe pure nothrow const @nogc scope {

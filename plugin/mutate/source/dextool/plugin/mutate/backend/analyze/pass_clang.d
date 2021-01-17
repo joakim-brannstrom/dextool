@@ -1004,8 +1004,6 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
-        // TODO: refactor so isParent take multiple kinds. this is very
-        // inefficient traversing multiple times.
         const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc) || isParent(CXCursorKind.classTemplate,
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
@@ -1085,9 +1083,12 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
+        const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc) || isParent(CXCursorKind.classTemplate,
+                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
+
         astOp.operator = op.operator;
         astOp.operator.blacklist = blacklist.inside(op.opLoc);
-        astOp.operator.schemaBlacklist = op.isOverload || blacklist.blockSchema(op.opLoc);
+        astOp.operator.schemaBlacklist = blockSchema;
 
         op.put(nstack.back, ast);
         pushStack(astOp, op.exprLoc, cKind);
