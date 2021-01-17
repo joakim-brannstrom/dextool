@@ -19,6 +19,13 @@ import dextool.type : AbsolutePath;
 
 @safe:
 
+/// When a Path is outside of the valid locations.
+class InvalidPathException : Exception {
+    this(string msg, string file = __FILE__, int line = __LINE__) @safe pure nothrow {
+        super(msg, file, line);
+    }
+}
+
 /** Validate source code locations for analyze and mutation.
  */
 interface ValidateLoc {
