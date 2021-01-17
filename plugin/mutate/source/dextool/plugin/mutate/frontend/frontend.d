@@ -208,7 +208,9 @@ private:
         import std.string : startsWith;
 
         if (!dry_run && !p.toString.startsWith(root.toString)) {
-            throw new Exception(format("Path '%s' escaping output directory (--out) '%s'", p, root));
+            debug logger.tracef(format("Path '%s' escaping output directory (--out) '%s'",
+                    p, root));
+            throw new Exception(null);
         }
     }
 }

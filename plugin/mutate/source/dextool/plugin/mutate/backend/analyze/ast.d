@@ -44,6 +44,13 @@ struct Ast {
 
     Node root;
 
+    // Change the path and thus string in the saved locations to reduce the used memory.
+    Dedup!AbsolutePath paths;
+
+    void releaseCache() {
+        paths.release;
+    }
+
     void accept(VisitorT)(VisitorT v) {
         v.visit(root);
     }
@@ -51,6 +58,7 @@ struct Ast {
     void put(Node n, Location l) {
         // TODO: deduplicate the path because it will otherwise take up so much
         // memory.....
+        l.file = paths.dedup(l.file);
         locs[n] = l;
     }
 
@@ -1146,5 +1154,33 @@ mixin template NodeKind() {
         import std.traits : Unqual;
 
         mixin("return Kind." ~ Unqual!(typeof(this)).stringof ~ ";");
+    }
+}
+
+/// Dedup the paths to reduce the required memory.
+struct Dedup(T) {
+    T[ulong] cache;
+    /// Number of deduplications.
+    long count;
+    /// ".length" accumulated of items deduplicated.
+    long lengthAccum;
+
+    T dedup(T p) {
+        import std.traits : hasMember;
+
+        const cs = p.toHash;
+        if (auto v = cs in cache) {
+            ++count;
+            static if (hasMember!(T, "length"))
+                lengthAccum += p.length;
+            return *v;
+        }
+
+        cache[cs] = p;
+        return p;
+    }
+
+    void release() {
+        cache = typeof(cache).init;
     }
 }

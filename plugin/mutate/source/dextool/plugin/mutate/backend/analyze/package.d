@@ -656,6 +656,8 @@ struct Analyze {
         {
             auto schemas = toSchemata(ast, fio, codeMutants, conf.mutantsPerSchema);
             debug logger.trace(schemas);
+            logger.tracef("path dedup count:%s length_acc:%s", ast.paths.count,
+                    ast.paths.lengthAccum);
 
             foreach (f; schemas.getSchematas.filter!(a => !(a.fragments.empty || a.mutants.empty))) {
                 const id = Result.LocalSchemaId(result.schematas.length);

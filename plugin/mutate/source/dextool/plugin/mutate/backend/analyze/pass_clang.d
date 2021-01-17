@@ -56,7 +56,9 @@ RefCounted!(analyze.Ast) toMutateAst(const Cursor root, FilesysIO fio) @safe {
     auto ast = ClangAST!BaseVisitor(root);
     ast.accept(visitor);
 
-    return visitor.ast;
+    auto rval = visitor.ast;
+    rval.releaseCache;
+    return rval;
 }
 
 private:
