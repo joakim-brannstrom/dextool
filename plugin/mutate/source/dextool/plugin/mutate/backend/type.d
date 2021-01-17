@@ -39,6 +39,9 @@ struct MutationPoint {
 
 /// Offset range. It is a closed->open set.
 struct Offset {
+    import std.algorithm : min, max;
+
+    // TODO: fix bug somewhere which mean that begin > end.
     uint begin;
     uint end;
 
@@ -54,20 +57,26 @@ struct Offset {
     }
 
     /// Check if offsets intersect.
-    bool intersect(in Offset y)
-    in (y.begin <= y.end, "y.begin > y.end")
-    in (begin <= end, "begin > end") {
-        return end >= y.begin && y.end >= begin;
+    bool intersect(in Offset y) //in (y.begin <= y.end, "y.begin > y.end")
+    //in (begin <= end, "begin > end")
+    {
+        const x1 = min(begin, end);
+        const x2 = max(begin, end);
+        const y1 = min(y.begin, y.end);
+        const y2 = max(y.begin, y.end);
+
+        return x2 >= y1 && y2 >= x1;
     }
 
     /// Check if offsets overlap.
-    bool overlap(in Offset y)
-    in (y.begin <= y.end, "y.begin > y.end")
-    in (begin <= end, "begin > end") {
-        static bool test(Offset i, uint p) {
-            return i.begin <= p && p < i.end;
+    bool overlap(in Offset y) //in (y.begin <= y.end, "y.begin > y.end")
+    //in (begin <= end, "begin > end")
+    {
+        static bool test(Offset y, uint p) {
+            const y1 = min(y.begin, y.end);
+            const y2 = max(y.begin, y.end);
+            return y1 <= p && p < y2;
         }
-
         //       a--------a
         // true:     b--------b
         // true:    c--c
