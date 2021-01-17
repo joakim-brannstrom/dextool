@@ -21,7 +21,7 @@ import std.datetime : dur, Duration;
 import std.exception : collectException;
 import std.parallelism;
 import std.range : tee, enumerate;
-import std.typecons;
+import std.typecons : tuple;
 
 import colorlog;
 import my.filter : GlobFilter;
@@ -603,15 +603,12 @@ struct Analyze {
         }
 
         try {
-            () @trusted {
-                auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-                auto tstream = new TokenStreamImpl(ctx);
+            auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+            auto tstream = new TokenStreamImpl(ctx);
 
-                analyzeForMutants(in_file, checked_in_file, ctx, tstream);
-                // TODO: filter files so they are only analyzed once for comments
-                foreach (f; result.fileId.byValue)
-                    analyzeForComments(f, tstream);
-            }();
+            analyzeForMutants(in_file, checked_in_file, ctx, tstream);
+            foreach (f; result.fileId.byValue)
+                analyzeForComments(f, tstream);
         } catch (Exception e) {
             () @trusted { logger.trace(e); }();
             logger.info(e.msg);
@@ -621,6 +618,8 @@ struct Analyze {
 
     void analyzeForMutants(ParsedCompileCommand in_file,
             Exists!AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
+        import my.gc.refc : RefCounted;
+        import dextool.plugin.mutate.backend.analyze.ast : Ast;
         import dextool.plugin.mutate.backend.analyze.pass_clang;
         import dextool.plugin.mutate.backend.analyze.pass_coverage;
         import dextool.plugin.mutate.backend.analyze.pass_filter;
@@ -629,17 +628,20 @@ struct Analyze {
         import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
 
         logger.infof("Analyzing %s", checked_in_file);
-        auto tu = ctx.makeTranslationUnit(checked_in_file, in_file.flags.completeFlags);
-        if (tu.hasParseErrors) {
-            logDiagnostic(tu);
-            logger.warningf("Compile error in %s. Skipping", checked_in_file);
-            return;
+        RefCounted!(Ast) ast;
+        {
+            auto tu = ctx.makeTranslationUnit(checked_in_file, in_file.flags.completeFlags);
+            if (tu.hasParseErrors) {
+                logDiagnostic(tu);
+                logger.warningf("Compile error in %s. Skipping", checked_in_file);
+                return;
+            }
+
+            result.isRoot.add(checked_in_file);
+
+            ast = toMutateAst(tu.cursor, fio);
+            debug logger.trace(ast);
         }
-
-        result.isRoot.add(checked_in_file);
-
-        auto ast = toMutateAst(tu.cursor, fio);
-        debug logger.trace(ast);
 
         auto codeMutants = () {
             auto mutants = toMutants(ast, fio, valLoc, kinds);
