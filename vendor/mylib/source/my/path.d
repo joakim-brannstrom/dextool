@@ -176,6 +176,10 @@ struct AbsolutePath {
         return value_;
     }
 
+    size_t length() @safe pure nothrow const @nogc {
+        return value.length;
+    }
+
     ///
     void opAssign(AbsolutePath p) @safe pure nothrow @nogc {
         value_ = p.value_;

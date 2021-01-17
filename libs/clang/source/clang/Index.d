@@ -12,6 +12,11 @@ History:
 */
 module clang.Index;
 
+import logger = std.experimental.logger;
+
+import my.gc.refc;
+import my.set;
+
 import clang.c.Index;
 
 /** An "index" that consists of a set of translation units that would typically
@@ -58,29 +63,28 @@ import clang.c.Index;
  * (which gives the indexer the same performance benefit as the compiler).
  */
 struct Index {
-    import std.array : Appender;
-    import std.typecons : RefCounted;
     import clang.Util;
 
     static private struct ContainIndex {
         mixin CX!("Index");
-        Appender!(CXTranslationUnit[]) tus;
+        CXTranslationUnit[] tunits;
 
-        void put(CXTranslationUnit tu) @safe {
-            tus.put(tu);
+        void put(CXTranslationUnit t) @safe pure nothrow {
+            tunits ~= t;
         }
 
         ~this() @trusted {
-            foreach (tu; tus.data)
-                clang_disposeTranslationUnit(tu);
+            if (cx is null)
+                return;
+
+            foreach (a; tunits)
+                clang_disposeTranslationUnit(a);
             dispose();
         }
     }
 
     RefCounted!ContainIndex cx;
     alias cx this;
-
-    @disable this(this);
 
     this(bool excludeDeclarationsFromPCH, bool displayDiagnostics) @trusted {
         cx = ContainIndex(clang_createIndex(excludeDeclarationsFromPCH ? 1 : 0,

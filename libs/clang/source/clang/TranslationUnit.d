@@ -34,9 +34,6 @@ struct TranslationUnit {
     ContainTU cx;
     alias cx this;
 
-    // the translation unit is destroyed when the dtor is ran.
-    @disable this(this);
-
     /**
      * Trusted: on the assumption that clang_parseTranslationUnit is
      * implemented by the LLVM team.
@@ -58,10 +55,9 @@ struct TranslationUnit {
                                        options
                                       );
         // dfmt on
+        index.put(p);
 
-        auto tu = TranslationUnit(p);
-        index.cx.put(p);
-        return tu;
+        return TranslationUnit(p);
     }
 
     /** Convenient function to create a TranslationUnit from source code via a

@@ -38,7 +38,7 @@ import dextool.plugin.mutate.backend.analyze.ast : Interval, Location, TypeKind,
     Node, Ast, RecurseRange;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.utility;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO, InvalidPathException;
 import dextool.plugin.mutate.backend.type : Language, SourceLoc, Offset, SourceLocRange;
 
 import analyze = dextool.plugin.mutate.backend.analyze.ast;
@@ -56,7 +56,9 @@ RefCounted!(analyze.Ast) toMutateAst(const Cursor root, FilesysIO fio) @safe {
     auto ast = ClangAST!BaseVisitor(root);
     ast.accept(visitor);
 
-    return visitor.ast;
+    auto rval = visitor.ast;
+    rval.releaseCache;
+    return rval;
 }
 
 private:
@@ -832,6 +834,7 @@ final class BaseVisitor : ExtendedVisitor {
                 auto n = new analyze.Block;
                 nstack.back.children ~= n;
                 pushStack(n, loc, v.cursor.kind);
+            } catch (InvalidPathException e) {
             } catch (Exception e) {
                 logger.trace(e.msg).collectException;
             }

@@ -15,6 +15,7 @@ import std.exception : collectException;
 import std.path : buildPath;
 
 import my.filter : GlobFilter;
+import my.optional;
 
 import dextool.compilation_db;
 import dextool.type : Path, AbsolutePath, ExitStatusType;
@@ -72,7 +73,13 @@ ExitStatusType runMutate(ArgParser conf) {
 
 private:
 
-import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc;
+import dextool.plugin.mutate.backend : FilesysIO, ValidateLoc, InvalidPathException;
+
+static InvalidPathException singletonException;
+
+static this() {
+    singletonException = new InvalidPathException("Path outside root");
+}
 
 struct DataAccess {
     import std.typecons : Nullable;
@@ -172,14 +179,14 @@ final class FrontendIO : FilesysIO {
     }
 
     override SafeOutput makeOutput(AbsolutePath p) @safe {
-        verifyPathInsideRoot(output_dir, p, dry_run);
+        if (!verifyPathInsideRoot(output_dir, p, dry_run))
+            throw singletonException;
         return SafeOutput(p, this);
     }
 
     override Blob makeInput(AbsolutePath p) @safe {
-        import std.file;
-
-        verifyPathInsideRoot(output_dir, p, dry_run);
+        if (!verifyPathInsideRoot(output_dir, p, dry_run))
+            throw singletonException;
 
         const uri = Uri(cast(string) p);
         if (!vfs.exists(uri)) {
@@ -195,21 +202,23 @@ final class FrontendIO : FilesysIO {
         // because a Blob/SafeOutput could theoretically be created via
         // other means than a FilesysIO.
         // TODO fix so this validate is not needed.
-        verifyPathInsideRoot(output_dir, fname, dry_run);
-        if (!dry_run)
+        if (!dry_run && verifyPathInsideRoot(output_dir, fname, dry_run))
             File(fname, "w").rawWrite(data);
     }
 
 private:
     // assuming that root is already a realpath
     // TODO: replace this function with dextool.utility.isPathInsideRoot
-    static void verifyPathInsideRoot(AbsolutePath root, AbsolutePath p, bool dry_run) {
+    static bool verifyPathInsideRoot(AbsolutePath root, AbsolutePath p, bool dry_run) {
         import std.format : format;
         import std.string : startsWith;
 
         if (!dry_run && !p.toString.startsWith(root.toString)) {
-            throw new Exception(format("Path '%s' escaping output directory (--out) '%s'", p, root));
+            debug logger.tracef(format("Path '%s' escaping output directory (--out) '%s'",
+                    p, root));
+            return false;
         }
+        return true;
     }
 }
 
@@ -238,7 +247,7 @@ final class FrontendValidateLoc : ValidateLoc {
     override bool shouldAnalyze(const string p) {
         auto realp = p.Path.AbsolutePath;
         bool res = mutantMatcher.match(realp.toString);
-        logger.tracef(!res, "Path '%s' do not match the glob patterns", realp);
+        debug logger.tracef(!res, "Path '%s' do not match the glob patterns", realp);
         return res;
     }
 

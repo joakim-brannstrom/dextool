@@ -18,10 +18,10 @@ set(SRC_FILES
 )
 
 set(flags
-    "-J${CMAKE_CURRENT_LIST_DIR}/resources -I${CMAKE_SOURCE_DIR}/libs/libclang/source"
+    "-J${CMAKE_CURRENT_LIST_DIR}/resources -I${CMAKE_SOURCE_DIR}/libs/libclang/source -I${CMAKE_SOURCE_DIR}/vendor/mylib/source"
 )
 
-compile_d_static_lib(dextool_clang "${SRC_FILES}" "${flags}" "" "dextool_libclang")
+compile_d_static_lib(dextool_clang "${SRC_FILES}" "${flags}" "" "dextool_libclang;dextool_mylib")
 
 list(APPEND SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/ut_main.d")
-compile_d_unittest(dextool_clang "${SRC_FILES}" "${flags}" "" "dextool_libclang")
+compile_d_unittest(dextool_clang "${SRC_FILES}" "${flags}" "" "dextool_libclang;dextool_mylib")
