@@ -425,15 +425,18 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Block n) {
-        deleteVisitBlock(n, stmtDelMutations(n.kind));
+        sdlBlock(n, stmtDelMutations(n.kind));
+        accept(n, this);
     }
 
     override void visit(Loop n) {
-        deleteVisitBlock(n, stmtDelMutations(n.kind));
+        sdlBlock(n, stmtDelMutations(n.kind));
+        accept(n, this);
     }
 
     override void visit(BranchBundle n) {
-        deleteVisitBlock(n, stmtDelMutations(n.kind));
+        sdlBlock(n, stmtDelMutations(n.kind));
+        accept(n, this);
     }
 
     override void visit(Call n) {
@@ -634,7 +637,7 @@ class MutantVisitor : DepthFirstVisitor {
             // happens compared to "falling through to the next case".
             put(ast.location(n.inside), dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);
 
-            deleteVisitBlock(n.inside, stmtDelMutations(n.kind));
+            sdlBlock(n.inside, stmtDelMutations(n.kind));
         }
 
         accept(n, this);
@@ -746,15 +749,13 @@ class MutantVisitor : DepthFirstVisitor {
         }
     }
 
-    private void deleteVisitBlock(T)(T n, Mutation.Kind[] op) @trusted {
+    private void sdlBlock(T)(T n, Mutation.Kind[] op) @trusted {
         auto sdlAnalyze = scoped!DeleteBlockVisitor(ast);
         sdlAnalyze.startVisit(n);
 
         if (sdlAnalyze.canRemove) {
             put(sdlAnalyze.loc, op, n.blacklist);
         }
-
-        accept(n, this);
     }
 }
 
