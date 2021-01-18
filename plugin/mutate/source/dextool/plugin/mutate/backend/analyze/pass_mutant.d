@@ -632,12 +632,13 @@ class MutantVisitor : DepthFirstVisitor {
         // only case statements have an inside. pretty bad "detection" but
         // works for now.
         if (n.inside !is null) {
+            const canRemove = sdlBlock(n.inside, stmtDelMutations(n.kind));
+
             // removing the whole branch because then e.g. a switch-block would
             // jump to the default branch. It becomes "more" predictable what
             // happens compared to "falling through to the next case".
-            put(ast.location(n.inside), dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);
-
-            sdlBlock(n.inside, stmtDelMutations(n.kind));
+            put(ast.location(n.inside), dcrMutations(DcrInfo(n.kind,
+                    ast.type(n), canRemove)), n.blacklist);
         }
 
         accept(n, this);
@@ -749,13 +750,14 @@ class MutantVisitor : DepthFirstVisitor {
         }
     }
 
-    private void sdlBlock(T)(T n, Mutation.Kind[] op) @trusted {
+    private bool sdlBlock(T)(T n, Mutation.Kind[] op) @trusted {
         auto sdlAnalyze = scoped!DeleteBlockVisitor(ast);
         sdlAnalyze.startVisit(n);
 
-        if (sdlAnalyze.canRemove) {
+        if (sdlAnalyze.canRemove)
             put(sdlAnalyze.loc, op, n.blacklist);
-        }
+
+        return sdlAnalyze.canRemove;
     }
 }
 
