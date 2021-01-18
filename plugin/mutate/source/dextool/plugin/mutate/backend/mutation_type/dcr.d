@@ -18,6 +18,7 @@ import dextool.plugin.mutate.backend.analyze.ast;
 struct DcrInfo {
     Kind operator;
     Type ty;
+    bool canRemoveBranch;
 }
 
 Mutation.Kind[] dcrMutations(DcrInfo info) @safe {
@@ -56,7 +57,8 @@ Mutation.Kind[] dcrMutations(DcrInfo info) @safe {
             rval = [dcrTrue, dcrFalse];
         break;
     case Kind.Branch:
-        rval = [dcrCaseDel];
+        if (info.canRemoveBranch)
+            rval = [dcrCaseDel];
         break;
     case Kind.Return:
         if (info.ty !is null

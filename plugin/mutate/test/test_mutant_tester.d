@@ -1007,7 +1007,7 @@ class ShallTestMutantsInDiff : SimpleFixture {
                 `.*Found . mutant.*dcr_dc_switch1.cpp:11`,
                 ]).shouldBeIn(r.output);
         testAnyOrder!Re([
-                `info:.*from 'return false ;' to ''`, `info:.*killed`,
+                `info:.*from 'return false' to 'return true'`, `info:.*killed`,
                 ]).shouldBeIn(r.output);
     }
 
