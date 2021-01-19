@@ -5,7 +5,6 @@ RUN apt-get update && \
     apt-get -y --no-install-recommends install \
         ca-certificates \
         git \
-        sqlite3 libsqlite3-dev \
         make cmake ninja-build \
         llvm-4.0 llvm-4.0-dev clang-4.0 libclang-4.0-dev
 
