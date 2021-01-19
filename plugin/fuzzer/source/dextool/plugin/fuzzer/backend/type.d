@@ -81,7 +81,7 @@ struct TemplateConfig {
 
         TemplateConfig r;
         r.doc = new Document(new Tag("dextool"));
-        r.doc.tag.attr["version"] = dextoolVersion;
+        r.doc.tag.attr["version"] = dextoolVersion.get;
         r.symbols = new Element("symbols");
         r.doc ~= r.symbols;
         return r;

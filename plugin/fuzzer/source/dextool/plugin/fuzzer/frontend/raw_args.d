@@ -183,7 +183,7 @@ auto parseRawConfig(T)(T xml) @trusted {
     Symbols syms;
 
     if (auto tag = "version" in xml.tag.attr) {
-        version_ = *tag;
+        version_ = DextoolVersion(*tag);
     }
 
     // dfmt off

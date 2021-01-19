@@ -6,6 +6,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dextool.type;
 
 static import my.path;
+import my.named_type;
 
 public import dextool.compilation_db : FilterClangFlag;
 
@@ -16,10 +17,8 @@ enum ExitStatusType {
     Errors
 }
 
-struct DextoolVersion {
-    string payload;
-    alias payload this;
-}
+alias DextoolVersion = NamedType!(string, Tag!"DextoolVersion", string.init,
+        TagStringable, Lengthable);
 
 alias Path = my.path.Path;
 alias AbsolutePath = my.path.AbsolutePath;
