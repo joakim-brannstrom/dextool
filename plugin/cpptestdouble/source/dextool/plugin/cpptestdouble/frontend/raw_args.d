@@ -191,7 +191,7 @@ auto parseRawConfig(T)(T xml) @trusted {
     FilterClangFlag[] filter_clang_flags;
 
     if (auto tag = "version" in xml.tag.attr) {
-        version_ = *tag;
+        version_ = DextoolVersion(*tag);
     }
 
     // dfmt off

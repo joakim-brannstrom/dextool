@@ -60,15 +60,6 @@ shared static this() {
 
 @safe:
 
-Path trustedRelativePath(string p, AbsolutePath root) @trusted {
-    import std.path : relativePath;
-
-    return relativePath(p, root).Path;
-}
-
-/**
- * trusted: void[] is perfectly representable as ubyte[] accoding to the specification.
- */
 Checksum checksum(const(ubyte)[] a) {
     import my.hash : makeMurmur3;
 

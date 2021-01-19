@@ -91,7 +91,7 @@ ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
     auto cleaned_cli = raw_cli_flags.drop(1);
 
     auto doc = new Document(new Tag("dextool"));
-    doc.tag.attr["version"] = dextoolVersion;
+    doc.tag.attr["version"] = dextoolVersion.get;
     {
         auto command = new Element("command");
         command ~= new CData(format("%s %s %s", exe_name, plugin_name,

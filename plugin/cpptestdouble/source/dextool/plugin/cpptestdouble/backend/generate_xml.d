@@ -22,7 +22,7 @@ ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_fi
     import dextool.xml : makePrelude;
 
     auto doc = new Document(new Tag("dextool"));
-    doc.tag.attr["version"] = dextoolVersion;
+    doc.tag.attr["version"] = dextoolVersion.get;
     {
         auto compiler_tag = new Element("compiler_flag_filter");
         compiler_tag.tag.attr["skip_compiler_args"]

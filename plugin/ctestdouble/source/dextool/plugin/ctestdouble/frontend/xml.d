@@ -33,7 +33,7 @@ ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_fi
     import dextool.xml : makePrelude;
 
     auto doc = new Document(new Tag("dextool"));
-    doc.tag.attr["version"] = dextoolVersion;
+    doc.tag.attr["version"] = dextoolVersion.get;
     {
         auto compiler_tag = new Element("compiler_flag_filter");
         compiler_tag.tag.attr["skip_compiler_args"]
@@ -80,7 +80,7 @@ XmlConfig parseRawConfig(T)(T xml) @trusted {
     FilterSymbol exclude_symbols;
 
     if (auto tag = "version" in xml.tag.attr) {
-        version_ = *tag;
+        version_ = DextoolVersion(*tag);
     }
 
     // dfmt off
@@ -147,7 +147,7 @@ unittest {
     auto xml = new DocumentParser(raw);
     auto p = parseRawConfig(xml);
 
-    p.version_.dup.shouldEqual("test");
+    p.version_.get.shouldEqual("test");
     p.command.payload.shouldEqual(string[].init);
     p.skipCompilerArgs.shouldEqual(2);
     p.filterClangFlags.shouldEqual([

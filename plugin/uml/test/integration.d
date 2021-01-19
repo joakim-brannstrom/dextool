@@ -187,16 +187,6 @@ unittest {
     runTestFile(p, testEnv);
 }
 
-@(
-        testId
-        ~ "Should be a class diagram where the relators are wrapped in strings to correcty relate templates")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-    auto p = genTestClassParams("dev/compose_of_vector.hpp", testEnv);
-    p.dexDiagramParams ~= ["--file-restrict", ".*/" ~ p.input_ext.baseName];
-    runTestFile(p, testEnv);
-}
-
 @(testId ~ "Should be a class diagram with relations via composition and aggregation")
 unittest {
     mixin(EnvSetup(globalTestdir));
