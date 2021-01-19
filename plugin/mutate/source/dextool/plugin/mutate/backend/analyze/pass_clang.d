@@ -133,7 +133,7 @@ Nullable!OperatorCursor operatorCursor(T)(T node) {
         auto loc = op.location;
         auto sr = loc.spelling;
         res.operator = new analyze.Operator;
-        res.opLoc = new analyze.Location(path, Interval(sr.offset,
+        res.opLoc = analyze.Location(path, Interval(sr.offset,
                 cast(uint)(sr.offset + op.length)), SourceLocRange(SourceLoc(loc.line,
                 loc.column), SourceLoc(loc.line, cast(uint)(loc.column + op.length))));
     }
@@ -141,7 +141,7 @@ Nullable!OperatorCursor operatorCursor(T)(T node) {
     // the arguments and the operator
     void exprPoint() {
         auto sr = op.cursor.extent;
-        res.exprLoc = new analyze.Location(path, Interval(sr.start.offset,
+        res.exprLoc = analyze.Location(path, Interval(sr.start.offset,
                 sr.end.offset), SourceLocRange(SourceLoc(sr.start.line,
                 sr.start.column), SourceLoc(sr.end.line, sr.end.column)));
         res.exprTy = deriveCursorType(op.cursor);
@@ -355,7 +355,7 @@ Nullable!CaseStmtCursor caseStmtCursor(T)(T node) {
     }
 
     void subStmt() {
-        res.insideBranch = new analyze.Location(path, offs, insideLoc);
+        res.insideBranch = analyze.Location(path, offs, insideLoc);
     }
 
     void stmt() {
@@ -364,9 +364,8 @@ Nullable!CaseStmtCursor caseStmtCursor(T)(T node) {
         // reuse the end from offs because it covers either only the
         // fallthrough OR also the end semicolon
         auto stmt_offs = Interval(extent.start.offset, offs.end);
-        res.branch = new analyze.Location(path, stmt_offs,
-                SourceLocRange(SourceLoc(loc.line, loc.column),
-                    SourceLoc(loc_end.line, loc_end.column)));
+        res.branch = analyze.Location(path, stmt_offs, SourceLocRange(SourceLoc(loc.line,
+                loc.column), SourceLoc(loc_end.line, loc_end.column)));
     }
 
     stmt;
@@ -381,7 +380,7 @@ Location toLocation(ref const Cursor c) {
     auto interval = Interval(e.start.offset, e.end.offset);
     auto begin = e.start;
     auto end = e.end;
-    return new Location(e.path.Path, interval, SourceLocRange(SourceLoc(begin.line,
+    return Location(e.path.Path, interval, SourceLocRange(SourceLoc(begin.line,
             begin.column), SourceLoc(end.line, end.column)));
 }
 
@@ -906,7 +905,7 @@ final class BaseVisitor : ExtendedVisitor {
 
         auto loc = () {
             auto loc = ast.location(branch);
-            auto l = new analyze.Location(loc.file, loc.interval, loc.sloc);
+            auto l = analyze.Location(loc.file, loc.interval, loc.sloc);
 
             const default_ = "default:";
             if ((l.interval.end - l.interval.begin) < default_.length) {
@@ -1272,9 +1271,11 @@ void rewriteCaseToFallthrough(ref analyze.Ast ast, analyze.Node node) {
 
     loc.interval.end = iloc.interval.begin;
     loc.sloc.end = iloc.sloc.begin;
+    ast.put(branch, loc);
 
     iloc.interval.end = iloc.interval.begin;
     iloc.sloc.end = iloc.sloc.begin;
+    ast.put(branch.inside, iloc);
 }
 
 /** Rewrite the structure of a switch statement from:
@@ -1374,12 +1375,14 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
             auto loc = ast.location(n);
             loc.interval.end = cloc.interval.end;
             loc.sloc.end = cloc.sloc.end;
+            ast.put(n, loc);
         }
 
         if (branch.children.length == 1 && branch.children[0].kind == analyze.Kind.Block) {
             auto loc = ast.location(branch.children[0]);
             loc.interval.end = cloc.interval.end;
             loc.sloc.end = cloc.sloc.end;
+            ast.put(branch.children[0], loc);
         }
     }
 
@@ -1390,6 +1393,7 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
             if (l.interval.end > bottom.interval.begin) {
                 l.interval.end = bottom.interval.begin;
                 l.sloc.end = bottom.sloc.begin;
+                ast.put(n, l);
             }
         }
 

@@ -19,6 +19,8 @@ import std.format : formattedWrite, format;
 import std.meta : AliasSeq;
 import std.range : isOutputRange;
 
+//import std.experimental.allocator.mallocator: Mallocator;
+
 import my.optional;
 import sumtype;
 
@@ -74,7 +76,7 @@ struct Ast {
         if (auto v = n in locs) {
             return *v;
         }
-        return null;
+        return Location.init;
     }
 
     Type type(Node n) {
@@ -255,7 +257,9 @@ alias Interval = dextool.plugin.mutate.backend.type.Offset;
 alias SourceLoc = dextool.plugin.mutate.backend.type.SourceLoc;
 alias SourceLocRange = dextool.plugin.mutate.backend.type.SourceLocRange;
 
-class Location {
+struct Location {
+    import std.range : isOutputRange;
+
     AbsolutePath file;
     Interval interval;
     SourceLocRange sloc;
@@ -266,14 +270,28 @@ class Location {
         sloc = s;
     }
 
+    T opCast(T : bool)() @safe pure const nothrow {
+        return !file.empty;
+    }
+
     // Convert only the position in the file to a string.
     string posToString() @safe const {
         return format!"[%s:%s-%s:%s]:[%s:%s]"(sloc.begin.line, sloc.begin.column,
                 sloc.end.line, sloc.end.column, interval.begin, interval.end);
     }
 
-    override string toString() @safe const {
-        return format!"%s:%s"(file, posToString);
+    string toString() @safe const {
+        import std.array : appender;
+
+        auto buf = appender!string;
+        toString(buf);
+        return buf.data;
+    }
+
+    void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
+        import std.format : formattedWrite;
+
+        formattedWrite!"%s:%s"(w, file, posToString);
     }
 }
 
