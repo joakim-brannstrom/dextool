@@ -11,7 +11,7 @@ module dextool.plugin.mutate.backend.analyze.pass_clang;
 
 import logger = std.experimental.logger;
 import std.algorithm : among, map, sort, filter;
-import std.array : empty, array, appender;
+import std.array : empty, array, appender, Appender;
 import std.exception : collectException;
 import std.format : formattedWrite;
 import std.meta : AliasSeq;
@@ -47,7 +47,7 @@ alias accept = dextool.plugin.mutate.backend.analyze.extensions.accept;
 
 /** Translate a clang AST to a mutation AST.
  */
-RefCounted!(analyze.Ast) toMutateAst(const Cursor root, FilesysIO fio) @safe {
+ClangResult toMutateAst(const Cursor root, FilesysIO fio) @safe {
     import cpptooling.analyzer.clang.ast : ClangAST;
 
     auto visitor = new BaseVisitor(fio);
@@ -55,10 +55,17 @@ RefCounted!(analyze.Ast) toMutateAst(const Cursor root, FilesysIO fio) @safe {
         visitor.dispose;
     auto ast = ClangAST!BaseVisitor(root);
     ast.accept(visitor);
+    visitor.ast.releaseCache;
 
-    auto rval = visitor.ast;
-    rval.releaseCache;
+    auto rval = ClangResult(visitor.ast, visitor.includes.data);
     return rval;
+}
+
+struct ClangResult {
+    RefCounted!(analyze.Ast) ast;
+
+    /// All dependencies that the root has.
+    Path[] dependencies;
 }
 
 private:
@@ -411,6 +418,7 @@ final class BaseVisitor : ExtendedVisitor {
     BlackList blacklist;
 
     RefCounted!(analyze.Ast) ast;
+    Appender!(Path[]) includes;
 
     /// Keep track of visited nodes to avoid circulare references.
     Set!size_t isVisited;
@@ -588,6 +596,12 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const Directive v) {
         mixin(mixinNodeLog!());
+        v.accept(this);
+    }
+
+    override void visit(const InclusionDirective v) {
+        mixin(mixinNodeLog!());
+        includes.put(Path(v.spelling));
         v.accept(this);
     }
 

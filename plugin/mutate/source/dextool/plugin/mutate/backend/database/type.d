@@ -320,3 +320,9 @@ struct CovRegion {
     CoverageRegionId id;
     Offset region;
 }
+
+/// A file that a root is dependent on.
+struct DepFile {
+    Path file;
+    Checksum checksum;
+}

@@ -69,14 +69,14 @@ int main(string[] args) {
     // Setup tests
     tests["ldc-ubuntu-min-test"] ~= () {
         build(mergeFiles([
-                    "ubuntu_minimal_base", "ldc_min_version", "ldc",
-                    "fix_repo", "prepare_test_build_ubuntu", "build_test"
+                    "ubuntu_minimal_base", "ldc_min_version", "ldc", "fix_repo",
+                    "prepare_test_build_min_ubuntu", "build_test"
                 ]), tag.next);
     };
     tests["dmd-ubuntu-min-test"] ~= () {
         build(mergeFiles([
-                    "ubuntu_minimal_base", "dmd_min_version", "dmd",
-                    "fix_repo", "prepare_test_build_ubuntu", "build_test"
+                    "ubuntu_minimal_base", "dmd_min_version", "dmd", "fix_repo",
+                    "prepare_test_build_min_ubuntu", "build_test"
                 ]), tag.next);
     };
     tests["dmd-ubuntu-latest-test"] ~= () {

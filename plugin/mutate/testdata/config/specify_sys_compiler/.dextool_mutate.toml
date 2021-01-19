@@ -1,6 +1,6 @@
 [workarea]
 root = "."
-restrict = []
+include = ["*"]
 
 [database]
 db = "dextool_mutate.sqlite3"

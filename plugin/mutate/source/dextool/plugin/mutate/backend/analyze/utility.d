@@ -9,7 +9,11 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.analyze.utility;
 
+import my.optional;
+import my.path;
+
 import dextool.plugin.mutate.backend.analyze.ast : Interval;
+import dextool.compilation_db : ParseFlags, SystemIncludePath;
 
 enum Direction {
     bottomToTop,

@@ -277,7 +277,8 @@ unittest {
         .addArg(["--rationale", `"Lost"`])
         .run;
 
-    auto r = makeDextoolAnalyze(testEnv).addInputArg(testData ~ "abs.cpp").run;
+    auto r = makeDextoolAnalyze(testEnv).addInputArg(testData ~ "abs.cpp")
+        .addArg("--force-save").run;
 
     // assert
     testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)

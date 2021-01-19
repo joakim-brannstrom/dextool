@@ -1,0 +1,5 @@
+# install sqlite3 because too old in ubuntu bionic
+RUN mkdir -p sqlite && cd sqlite && cmake ../dextool/vendor/sqlite3
+RUN cd sqlite && make
+
+RUN mkdir -p build && cd build && cmake ../dextool -DCMAKE_BUILD_TYPE=Debug -DSQLITE3_LIB="-L/opt/sqlite -lsqlite3" -DBUILD_TEST=ON $BUILD_COV $LIBLLVM_CXX_EXTRA_FLAGS
