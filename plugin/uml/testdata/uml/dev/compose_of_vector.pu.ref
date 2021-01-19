@@ -1,5 +1,0 @@
-@startuml
-class "A" as YzpAU0BB
-class "std::vector<std::vector<int, std::allocator<int> > *, std::allocator<std::vector<int, std::allocator<int> > *> >" as YzpATkBzdGRAU0B2ZWN0b3I-IyokQE5Ac3RkQFNAdmVjdG9yPiNJIyRATkBzdGRAU0BhbGxvY2F0b3I-I0kjJEBOQHN0ZEBTQGFsbG9jYXRvcj4jUzBf
-"YzpAU0BB" *-- "YzpATkBzdGRAU0B2ZWN0b3I-IyokQE5Ac3RkQFNAdmVjdG9yPiNJIyRATkBzdGRAU0BhbGxvY2F0b3I-I0kjJEBOQHN0ZEBTQGFsbG9jYXRvcj4jUzBf"
-@enduml
