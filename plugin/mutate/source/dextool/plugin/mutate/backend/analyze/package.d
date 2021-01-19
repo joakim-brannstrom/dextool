@@ -37,8 +37,7 @@ import dextool.plugin.mutate.backend.database.type : MarkedMutant, TestFile,
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
-import dextool.plugin.mutate.backend.utility : checksum, trustedRelativePath,
-    Checksum, getProfileResult, Profile;
+import dextool.plugin.mutate.backend.utility : checksum, Checksum, getProfileResult, Profile;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.type : MutationKind;
 import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
@@ -553,7 +552,6 @@ struct Analyze {
     import std.typecons : Yes;
     import cpptooling.analyzer.clang.context : ClangContext;
     import cpptooling.utility.virtualfilesystem;
-    import dextool.type : Exists, makeExists;
 
     static struct Config {
         bool forceSystemIncludes;
@@ -591,22 +589,27 @@ struct Analyze {
     }
 
     void process(ParsedCompileCommand in_file) @safe {
+        import std.file : exists;
+
         in_file.flags.forceSystemIncludes = conf.forceSystemIncludes;
 
-        // find the file and flags to analyze
-        Exists!AbsolutePath checked_in_file;
         try {
-            checked_in_file = makeExists(in_file.cmd.absoluteFile);
+            if (!exists(in_file.cmd.absoluteFile)) {
+                logger.warningf("Failed to analyze %s. Do not exist", in_file.cmd.absoluteFile);
+                return;
+            }
         } catch (Exception e) {
             logger.warning(e.msg);
             return;
         }
 
+        auto root = in_file.cmd.absoluteFile;
+
         try {
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
             auto tstream = new TokenStreamImpl(ctx);
 
-            analyzeForMutants(in_file, checked_in_file, ctx, tstream);
+            analyzeForMutants(in_file, root, ctx, tstream);
             foreach (f; result.fileId.byValue)
                 analyzeForComments(f, tstream);
         } catch (Exception e) {
@@ -617,7 +620,7 @@ struct Analyze {
     }
 
     void analyzeForMutants(ParsedCompileCommand in_file,
-            Exists!AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
+            AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
         import my.gc.refc : RefCounted;
         import dextool.plugin.mutate.backend.analyze.ast : Ast;
         import dextool.plugin.mutate.backend.analyze.pass_clang;
@@ -627,7 +630,7 @@ struct Analyze {
         import dextool.plugin.mutate.backend.analyze.pass_schemata;
         import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
 
-        logger.infof("Analyzing %s", checked_in_file);
+        logger.info("Analyzing ", checked_in_file);
         RefCounted!(Ast) ast;
         {
             auto tu = ctx.makeTranslationUnit(checked_in_file, in_file.flags.completeFlags);

@@ -147,7 +147,7 @@ unittest {
     auto xml = new DocumentParser(raw);
     auto p = parseRawConfig(xml);
 
-    p.version_.dup.shouldEqual("test");
+    p.version_.get.shouldEqual("test");
     p.command.payload.shouldEqual(string[].init);
     p.skipCompilerArgs.shouldEqual(2);
     p.filterClangFlags.shouldEqual([
