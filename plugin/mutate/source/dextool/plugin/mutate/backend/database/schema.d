@@ -1428,6 +1428,15 @@ void upgradeV32(ref Miniorm db) {
 /// 2021-01-15
 void upgradeV33(ref Miniorm db) {
     db.run(buildSchema!(DependencyFileTable, DependencyRootTable));
+
+    // add all existing files as being dependent on each other.
+    // this forces, if any one of them changes, all to be re-analyzed.
+    db.run(format("INSERT OR IGNORE INTO %1$s (file,checksum0,checksum1)
+                  SELECT path,0,0 FROM %2$s",
+            depFileTable, filesTable));
+    db.run(format("INSERT OR IGNORE INTO %1$s (dep_id,file_id)
+                  SELECT t0.id,t1.id FROM %2$s t0, %3$s t1", depRootTable,
+            depFileTable, filesTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
