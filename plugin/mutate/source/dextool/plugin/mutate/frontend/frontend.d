@@ -240,15 +240,14 @@ final class FrontendValidateLoc : ValidateLoc {
     }
 
     override bool shouldAnalyze(AbsolutePath p) {
-        return shouldAnalyze(p.toString);
+        bool res = mutantMatcher.match(p.toString);
+        debug logger.tracef(!res, "Path '%s' do not match the glob patterns", p);
+        return res;
     }
 
     /// Returns: if a file should be analyzed for mutants.
     override bool shouldAnalyze(const string p) {
-        auto realp = p.Path.AbsolutePath;
-        bool res = mutantMatcher.match(realp.toString);
-        debug logger.tracef(!res, "Path '%s' do not match the glob patterns", realp);
-        return res;
+        return shouldAnalyze(p.AbsolutePath);
     }
 
     /// Returns: if a file should be mutated.
