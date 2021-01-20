@@ -50,7 +50,7 @@ alias accept = dextool.plugin.mutate.backend.analyze.extensions.accept;
 ClangResult toMutateAst(const Cursor root, FilesysIO fio) @safe {
     import cpptooling.analyzer.clang.ast : ClangAST;
 
-    auto visitor = new BaseVisitor(fio);
+    scope visitor = new BaseVisitor(fio);
     scope (exit)
         visitor.dispose;
     auto ast = ClangAST!BaseVisitor(root);
@@ -105,7 +105,7 @@ struct OperatorCursor {
     }
 }
 
-Nullable!OperatorCursor operatorCursor(T)(T node) {
+Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
     import dextool.clang_extensions : getExprOperator, OpKind, ValueKind, getUnderlyingExprNode;
 
     auto op = getExprOperator(node.cursor);
@@ -132,7 +132,7 @@ Nullable!OperatorCursor operatorCursor(T)(T node) {
     void opPoint() {
         auto loc = op.location;
         auto sr = loc.spelling;
-        res.operator = new analyze.Operator;
+        res.operator = ast.make!(analyze.Operator);
         res.opLoc = analyze.Location(path, Interval(sr.offset,
                 cast(uint)(sr.offset + op.length)), SourceLocRange(SourceLoc(loc.line,
                 loc.column), SourceLoc(loc.line, cast(uint)(loc.column + op.length))));
@@ -144,145 +144,145 @@ Nullable!OperatorCursor operatorCursor(T)(T node) {
         res.exprLoc = analyze.Location(path, Interval(sr.start.offset,
                 sr.end.offset), SourceLocRange(SourceLoc(sr.start.line,
                 sr.start.column), SourceLoc(sr.end.line, sr.end.column)));
-        res.exprTy = deriveCursorType(op.cursor);
+        res.exprTy = deriveCursorType(ast, op.cursor);
         switch (op.kind) with (OpKind) {
         case OO_Star: // "*"
             res.isOverload = true;
             goto case;
         case Mul: // "*"
-            res.astOp = new analyze.OpMul;
+            res.astOp = ast.make!(analyze.OpMul);
             break;
         case OO_Slash: // "/"
             res.isOverload = true;
             goto case;
         case Div: // "/"
-            res.astOp = new analyze.OpDiv;
+            res.astOp = ast.make!(analyze.OpDiv);
             break;
         case OO_Percent: // "%"
             res.isOverload = true;
             goto case;
         case Rem: // "%"
-            res.astOp = new analyze.OpMod;
+            res.astOp = ast.make!(analyze.OpMod);
             break;
         case OO_Plus: // "+"
             res.isOverload = true;
             goto case;
         case Add: // "+"
-            res.astOp = new analyze.OpAdd;
+            res.astOp = ast.make!(analyze.OpAdd);
             break;
         case OO_Minus: // "-"
             res.isOverload = true;
             goto case;
         case Sub: // "-"
-            res.astOp = new analyze.OpSub;
+            res.astOp = ast.make!(analyze.OpSub);
             break;
         case OO_Less: // "<"
             res.isOverload = true;
             goto case;
         case LT: // "<"
-            res.astOp = new analyze.OpLess;
+            res.astOp = ast.make!(analyze.OpLess);
             break;
         case OO_Greater: // ">"
             res.isOverload = true;
             goto case;
         case GT: // ">"
-            res.astOp = new analyze.OpGreater;
+            res.astOp = ast.make!(analyze.OpGreater);
             break;
         case OO_LessEqual: // "<="
             res.isOverload = true;
             goto case;
         case LE: // "<="
-            res.astOp = new analyze.OpLessEq;
+            res.astOp = ast.make!(analyze.OpLessEq);
             break;
         case OO_GreaterEqual: // ">="
             res.isOverload = true;
             goto case;
         case GE: // ">="
-            res.astOp = new analyze.OpGreaterEq;
+            res.astOp = ast.make!(analyze.OpGreaterEq);
             break;
         case OO_EqualEqual: // "=="
             res.isOverload = true;
             goto case;
         case EQ: // "=="
-            res.astOp = new analyze.OpEqual;
+            res.astOp = ast.make!(analyze.OpEqual);
             break;
         case OO_Exclaim: // "!"
             res.isOverload = true;
             goto case;
         case LNot: // "!"
-            res.astOp = new analyze.OpNegate;
+            res.astOp = ast.make!(analyze.OpNegate);
             break;
         case OO_ExclaimEqual: // "!="
             res.isOverload = true;
             goto case;
         case NE: // "!="
-            res.astOp = new analyze.OpNotEqual;
+            res.astOp = ast.make!(analyze.OpNotEqual);
             break;
         case OO_AmpAmp: // "&&"
             res.isOverload = true;
             goto case;
         case LAnd: // "&&"
-            res.astOp = new analyze.OpAnd;
+            res.astOp = ast.make!(analyze.OpAnd);
             break;
         case OO_PipePipe: // "||"
             res.isOverload = true;
             goto case;
         case LOr: // "||"
-            res.astOp = new analyze.OpOr;
+            res.astOp = ast.make!(analyze.OpOr);
             break;
         case OO_Amp: // "&"
             res.isOverload = true;
             goto case;
         case And: // "&"
-            res.astOp = new analyze.OpAndBitwise;
+            res.astOp = ast.make!(analyze.OpAndBitwise);
             break;
         case OO_Pipe: // "|"
             res.isOverload = true;
             goto case;
         case Or: // "|"
-            res.astOp = new analyze.OpOrBitwise;
+            res.astOp = ast.make!(analyze.OpOrBitwise);
             break;
         case OO_StarEqual: // "*="
             res.isOverload = true;
             goto case;
         case MulAssign: // "*="
-            res.astOp = new analyze.OpAssignMul;
+            res.astOp = ast.make!(analyze.OpAssignMul);
             break;
         case OO_SlashEqual: // "/="
             res.isOverload = true;
             goto case;
         case DivAssign: // "/="
-            res.astOp = new analyze.OpAssignDiv;
+            res.astOp = ast.make!(analyze.OpAssignDiv);
             break;
         case OO_PercentEqual: // "%="
             res.isOverload = true;
             goto case;
         case RemAssign: // "%="
-            res.astOp = new analyze.OpAssignMod;
+            res.astOp = ast.make!(analyze.OpAssignMod);
             break;
         case OO_PlusEqual: // "+="
             res.isOverload = true;
             goto case;
         case AddAssign: // "+="
-            res.astOp = new analyze.OpAssignAdd;
+            res.astOp = ast.make!(analyze.OpAssignAdd);
             break;
         case OO_MinusEqual: // "-="
             res.isOverload = true;
             goto case;
         case SubAssign: // "-="
-            res.astOp = new analyze.OpAssignSub;
+            res.astOp = ast.make!(analyze.OpAssignSub);
             break;
         case OO_AmpEqual: // "&="
             res.isOverload = true;
             goto case;
         case AndAssign: // "&="
-            res.astOp = new analyze.OpAssignAndBitwise;
+            res.astOp = ast.make!(analyze.OpAssignAndBitwise);
             break;
         case OO_PipeEqual: // "|="
             res.isOverload = true;
             goto case;
         case OrAssign: // "|="
-            res.astOp = new analyze.OpAssignOrBitwise;
+            res.astOp = ast.make!(analyze.OpAssignOrBitwise);
             break;
         case OO_CaretEqual: // "^="
             res.isOverload = true;
@@ -296,13 +296,13 @@ Nullable!OperatorCursor operatorCursor(T)(T node) {
         case XorAssign: // "^="
             goto case;
         case Assign: // "="
-            res.astOp = new analyze.OpAssign;
+            res.astOp = ast.make!(analyze.OpAssign);
             break;
             //case Xor: // "^"
             //case OO_Caret: // "^"
             //case OO_Tilde: // "~"
         default:
-            res.astOp = new analyze.BinaryOp;
+            res.astOp = ast.make!(analyze.BinaryOp);
         }
     }
 
@@ -481,7 +481,7 @@ final class BaseVisitor : ExtendedVisitor {
 
         mixin(mixinNodeLog!());
 
-        ast.root = new analyze.TranslationUnit;
+        ast.root = ast.make!(analyze.TranslationUnit);
         auto loc = v.cursor.toLocation;
         pushStack(ast.root, loc, v.cursor.kind);
 
@@ -527,7 +527,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const ClassTemplate v) {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        auto n = new analyze.Poision;
+        auto n = ast.make!(analyze.Poision);
         pushStack(n, v);
         v.accept(this);
     }
@@ -535,7 +535,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const ClassTemplatePartialSpecialization v) {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        auto n = new analyze.Poision;
+        auto n = ast.make!(analyze.Poision);
         pushStack(n, v);
         v.accept(this);
     }
@@ -543,7 +543,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const FunctionTemplate v) {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        auto n = new analyze.Poision;
+        auto n = ast.make!(analyze.Poision);
         pushStack(n, v);
         v.accept(this);
     }
@@ -576,7 +576,11 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitVar(T)(T v) @trusted {
-        auto n = new analyze.VarDecl;
+        //auto bar = ast.make!(analyze.VarDecl);
+        //bar.isConst = true;
+        //logger.tracef("%x", cast(void*) bar);
+
+        auto n = ast.make!(analyze.VarDecl);
 
         auto ty = v.cursor.type;
         if (ty.isValid) {
@@ -620,11 +624,11 @@ final class BaseVisitor : ExtendedVisitor {
             return;
         isVisited.add(v.cursor.toHash);
 
-        auto n = new analyze.Expr;
+        auto n = ast.make!(analyze.Expr);
         n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
-        auto ue = deriveCursorType(v.cursor);
+        auto ue = deriveCursorType(ast, v.cursor);
         ue.put(ast);
         if (ue.type !is null) {
             ast.put(n, ue.id);
@@ -667,11 +671,11 @@ final class BaseVisitor : ExtendedVisitor {
             return;
         isVisited.add(v.cursor.toHash);
 
-        auto n = new analyze.Expr;
+        auto n = ast.make!(analyze.Expr);
         n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
-        auto ue = deriveCursorType(v.cursor);
+        auto ue = deriveCursorType(ast, v.cursor);
         ue.put(ast);
         if (ue.type !is null) {
             ast.put(n, ue.id);
@@ -697,10 +701,8 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const EnumDecl v) @trusted {
         mixin(mixinNodeLog!());
 
-        import std.typecons : scoped;
-
         // extract the boundaries of the enum to update the type db.
-        auto vis = scoped!EnumVisitor(indent);
+        scope vis = new EnumVisitor(ast.get, indent);
         vis.visit(v);
         ast.types.set(vis.id, vis.toType);
     }
@@ -758,7 +760,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const CompoundAssignOperator v) {
         mixin(mixinNodeLog!());
         // TODO: implement all aor assignment such as +=
-        pushStack(new analyze.OpAssign, v);
+        pushStack(ast.make!(analyze.OpAssign), v);
         v.accept(this);
     }
 
@@ -766,7 +768,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
 
         if (!visitOp(v, v.cursor.kind)) {
-            pushStack(new analyze.Call, v);
+            pushStack(ast.make!(analyze.Call), v);
             v.accept(this);
         }
     }
@@ -775,7 +777,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // model a C++ exception as a return expression because that is
         // "basically" what happens.
-        auto n = new analyze.Return;
+        auto n = ast.make!(analyze.Return);
         n.blacklist = true;
         pushStack(n, v);
         v.accept(this);
@@ -783,7 +785,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const InitListExpr v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Constructor, v);
+        pushStack(ast.make!(analyze.Constructor), v);
         v.accept(this);
     }
 
@@ -797,7 +799,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const ReturnStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Return, v);
+        pushStack(ast.make!(analyze.Return), v);
         v.accept(this);
     }
 
@@ -844,7 +846,7 @@ final class BaseVisitor : ExtendedVisitor {
                 // TODO: need to adjust sloc too
                 loc.interval = Interval(begin, end);
 
-                auto n = new analyze.Block;
+                auto n = ast.make!(analyze.Block);
                 nstack.back.children ~= n;
                 pushStack(n, loc, v.cursor.kind);
             } catch (InvalidPathException e) {
@@ -865,12 +867,12 @@ final class BaseVisitor : ExtendedVisitor {
 
         auto res = caseStmtCursor(v);
         if (res.isNull) {
-            pushStack(new analyze.Block, v);
+            pushStack(ast.make!(analyze.Block), v);
             v.accept(this);
             return;
         }
 
-        auto branch = new analyze.Branch;
+        auto branch = ast.make!(analyze.Branch);
         nstack.back.children ~= branch;
         pushStack(branch, res.get.branch, v.cursor.kind);
 
@@ -880,7 +882,7 @@ final class BaseVisitor : ExtendedVisitor {
         scope (exit)
             decr;
 
-        auto inner = new analyze.Block;
+        auto inner = ast.make!(analyze.Block);
         branch.children ~= inner;
         branch.inside = inner;
         pushStack(inner, res.get.insideBranch, v.cursor.kind);
@@ -896,7 +898,7 @@ final class BaseVisitor : ExtendedVisitor {
             rewriteCaseToFallthrough(ast, nstack[$ - 2].data);
         }
 
-        auto branch = new analyze.Branch;
+        auto branch = ast.make!(analyze.Branch);
         pushStack(branch, v);
 
         incr;
@@ -916,7 +918,7 @@ final class BaseVisitor : ExtendedVisitor {
             return l;
         }();
 
-        auto inside = new analyze.Block;
+        auto inside = ast.make!(analyze.Block);
         branch.inside = inside;
         branch.children ~= inside;
         pushStack(inside, loc, v.cursor.kind);
@@ -928,9 +930,9 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const ForStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Loop, v);
+        pushStack(ast.make!(analyze.Loop), v);
 
-        auto visitor = new FindVisitor!CompoundStmt;
+        scope visitor = new FindVisitor!CompoundStmt;
         v.accept(visitor);
 
         if (visitor.node !is null) {
@@ -940,9 +942,9 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const CxxForRangeStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Loop, v);
+        pushStack(ast.make!(analyze.Loop), v);
 
-        auto visitor = new FindVisitor!CompoundStmt;
+        scope visitor = new FindVisitor!CompoundStmt;
         v.accept(visitor);
 
         if (visitor.node !is null) {
@@ -952,19 +954,19 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const WhileStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Loop, v);
+        pushStack(ast.make!(analyze.Loop), v);
         v.accept(this);
     }
 
     override void visit(const DoStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Loop, v);
+        pushStack(ast.make!(analyze.Loop), v);
         v.accept(this);
     }
 
     override void visit(const SwitchStmt v) {
         mixin(mixinNodeLog!());
-        auto n = new analyze.BranchBundle;
+        auto n = ast.make!(analyze.BranchBundle);
         pushStack(n, v);
         v.accept(this);
         rewriteSwitch(ast, n);
@@ -972,14 +974,14 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const IfStmt v) @trusted {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.BranchBundle, v);
+        pushStack(ast.make!(analyze.BranchBundle), v);
         dextool.plugin.mutate.backend.analyze.extensions.accept(v, this);
     }
 
     override void visit(const IfStmtCond v) {
         mixin(mixinNodeLog!());
 
-        auto n = new analyze.Condition;
+        auto n = ast.make!(analyze.Condition);
         pushStack(n, v);
 
         if (!visitOp(v, v.cursor.kind)) {
@@ -991,18 +993,18 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const IfStmtThen v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Branch, v);
+        pushStack(ast.make!(analyze.Branch), v);
         v.accept(this);
     }
 
     override void visit(const IfStmtElse v) {
         mixin(mixinNodeLog!());
-        pushStack(new analyze.Branch, v);
+        pushStack(ast.make!(analyze.Branch), v);
         v.accept(this);
     }
 
     private bool visitOp(T)(ref const T v, const CXCursorKind cKind) @trusted {
-        auto op = operatorCursor(v);
+        auto op = operatorCursor(ast.get, v);
         if (op.isNull) {
             return false;
         }
@@ -1046,7 +1048,7 @@ final class BaseVisitor : ExtendedVisitor {
             }();
             if (b !is null && b != astOp) {
                 astOp.lhs = b;
-                auto ty = deriveCursorType(op.lhs);
+                auto ty = deriveCursorType(ast, op.lhs);
                 ty.put(ast);
                 if (ty.type !is null) {
                     ast.put(b, ty.id);
@@ -1068,7 +1070,7 @@ final class BaseVisitor : ExtendedVisitor {
             }();
             if (b !is null && b != astOp) {
                 astOp.rhs = b;
-                auto ty = deriveCursorType(op.rhs);
+                auto ty = deriveCursorType(ast, op.rhs);
                 ty.put(ast);
                 if (ty.type !is null) {
                     ast.put(b, ty.id);
@@ -1124,7 +1126,7 @@ final class BaseVisitor : ExtendedVisitor {
             }();
             if (b !is null && b != astOp) {
                 astOp.expr = b;
-                auto ty = deriveCursorType(op.lhs);
+                auto ty = deriveCursorType(ast, op.lhs);
                 ty.put(ast);
                 if (ty.type !is null) {
                     ast.put(b, ty.id);
@@ -1146,7 +1148,7 @@ final class BaseVisitor : ExtendedVisitor {
             }();
             if (b !is null && b != astOp) {
                 astOp.expr = b;
-                auto ty = deriveCursorType(op.rhs);
+                auto ty = deriveCursorType(ast, op.rhs);
                 ty.put(ast);
                 if (ty.type !is null) {
                     ast.put(b, ty.id);
@@ -1162,13 +1164,13 @@ final class BaseVisitor : ExtendedVisitor {
 
     private void visitFunc(T)(ref const T v) @trusted {
         auto loc = v.cursor.toLocation;
-        auto n = new analyze.Function;
+        auto n = ast.make!(analyze.Function);
         n.schemaBlacklist = isConstExpr(v.cursor);
         nstack.back.children ~= n;
         pushStack(n, loc, v.cursor.kind);
 
-        auto fRetval = new analyze.Return;
-        auto rty = deriveType(v.cursor.func.resultType);
+        auto fRetval = ast.make!(analyze.Return);
+        auto rty = deriveType(ast.get, v.cursor.func.resultType);
         rty.put(ast);
         if (rty.type !is null) {
             ast.put(fRetval, loc);
@@ -1191,11 +1193,13 @@ final class EnumVisitor : ExtendedVisitor {
 
     mixin generateIndentIncrDecr;
 
+    analyze.Ast* ast;
     analyze.TypeId id;
     Nullable!long minValue;
     Nullable!long maxValue;
 
-    this(const uint indent) {
+    this(ref analyze.Ast ast, const uint indent) @trusted {
+        this.ast = &ast;
         this.indent = indent;
     }
 
@@ -1223,7 +1227,7 @@ final class EnumVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    analyze.Type toType() const {
+    analyze.Type toType() {
         auto l = () {
             if (minValue.isNull)
                 return analyze.Value(analyze.Value.NegInf.init);
@@ -1235,7 +1239,7 @@ final class EnumVisitor : ExtendedVisitor {
             return analyze.Value(analyze.Value.Int(maxValue.get));
         }();
 
-        return new analyze.DiscreteType(analyze.Range(l, u));
+        return ast.make!(analyze.DiscreteType)(analyze.Range(l, u));
     }
 }
 
@@ -1532,7 +1536,7 @@ struct DeriveTypeResult {
     }
 }
 
-DeriveTypeResult deriveType(Type cty) {
+DeriveTypeResult deriveType(ref Ast ast, Type cty) {
     DeriveTypeResult rval;
 
     auto ctydecl = cty.declaration;
@@ -1543,26 +1547,26 @@ DeriveTypeResult deriveType(Type cty) {
     }
 
     if (cty.isEnum) {
-        rval.type = new analyze.DiscreteType(analyze.Range.makeInf);
+        rval.type = ast.make!(analyze.DiscreteType)(analyze.Range.makeInf);
         if (!cty.isSigned) {
             rval.type.range.low = analyze.Value(analyze.Value.Int(0));
         }
     } else if (cty.kind.among(floatCategory)) {
-        rval.type = new analyze.ContinuesType(analyze.Range.makeInf);
+        rval.type = ast.make!(analyze.ContinuesType)(analyze.Range.makeInf);
     } else if (cty.kind.among(pointerCategory)) {
-        rval.type = new analyze.UnorderedType(analyze.Range.makeInf);
+        rval.type = ast.make!(analyze.UnorderedType)(analyze.Range.makeInf);
     } else if (cty.kind.among(boolCategory)) {
-        rval.type = new analyze.BooleanType(analyze.Range.makeBoolean);
+        rval.type = ast.make!(analyze.BooleanType)(analyze.Range.makeBoolean);
     } else if (cty.kind.among(discreteCategory)) {
-        rval.type = new analyze.DiscreteType(analyze.Range.makeInf);
+        rval.type = ast.make!(analyze.DiscreteType)(analyze.Range.makeInf);
         if (!cty.isSigned) {
             rval.type.range.low = analyze.Value(analyze.Value.Int(0));
         }
     } else if (cty.kind.among(voidCategory)) {
-        rval.type = new analyze.VoidType();
+        rval.type = ast.make!(analyze.VoidType)();
     } else {
         // unknown such as an elaborated
-        rval.type = new analyze.Type();
+        rval.type = ast.make!(analyze.Type)();
     }
 
     return rval;
@@ -1579,14 +1583,14 @@ struct DeriveCursorTypeResult {
  *
  * This is intended for expression nodes in the clang AST.
  */
-DeriveCursorTypeResult deriveCursorType(const Cursor baseCursor) {
+DeriveCursorTypeResult deriveCursorType(ref Ast ast, const Cursor baseCursor) {
     auto c = Cursor(getUnderlyingExprNode(baseCursor));
     if (!c.isValid)
         return DeriveCursorTypeResult.init;
 
     auto rval = DeriveCursorTypeResult(c);
     auto cty = c.type.canonicalType;
-    rval.typeResult = deriveType(cty);
+    rval.typeResult = deriveType(ast, cty);
 
     // evaluate the cursor to add a value for the symbol
     void eval(const ref Eval e) {
@@ -1603,7 +1607,7 @@ DeriveCursorTypeResult deriveCursorType(const Cursor baseCursor) {
         }();
 
         rval.symId = make!(analyze.SymbolId)(c);
-        rval.symbol = new analyze.DiscretSymbol(analyze.Value(analyze.Value.Int(value)));
+        rval.symbol = ast.make!(analyze.DiscretSymbol)(analyze.Value(analyze.Value.Int(value)));
     }
 
     if (cty.isEnum) {
@@ -1622,7 +1626,8 @@ DeriveCursorTypeResult deriveCursorType(const Cursor baseCursor) {
         if (cref.kind == CXCursorKind.enumConstantDecl) {
             const long value = cref.enum_.signedValue;
             rval.symId = make!(analyze.SymbolId)(c);
-            rval.symbol = new analyze.DiscretSymbol(analyze.Value(analyze.Value.Int(value)));
+            rval.symbol = ast.make!(analyze.DiscretSymbol)(
+                    analyze.Value(analyze.Value.Int(value)));
         }
     } else if (cty.kind.among(discreteCategory)) {
         // crashes in clang 7.x. Investigate why.
