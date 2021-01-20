@@ -58,7 +58,7 @@ SchemataResult toSchemata(RefCounted!Ast ast, FilesysIO fio,
     case Language.assumeCpp:
         goto case;
     case Language.cpp:
-        auto visitor = new CppSchemataVisitor(ast, index, fio, rval);
+        scope visitor = new CppSchemataVisitor(ast, index, fio, rval);
         scope (exit)
             visitor.dispose;
         ast.accept(visitor);

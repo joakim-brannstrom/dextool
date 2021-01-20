@@ -15,7 +15,7 @@ import std.array : appender, empty, array, Appender;
 import std.exception : collectException;
 import std.format : formattedWrite;
 import std.range : retro, ElementType;
-import std.typecons : tuple, Tuple, scoped;
+import std.typecons : tuple, Tuple;
 
 import my.gc.refc : RefCounted;
 
@@ -31,7 +31,7 @@ import dextool.plugin.mutate.backend.type : Language, Offset, Mutation, SourceLo
 
 /// Find mutants.
 MutantsResult toMutants(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) @safe {
-    auto visitor = new MutantVisitor(ast, fio, vloc, kinds);
+    scope visitor = new MutantVisitor(ast, fio, vloc, kinds);
     scope (exit)
         visitor.dispose;
     ast.accept(visitor);
@@ -745,7 +745,7 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     private void sdlBlock(T)(T n, Mutation.Kind[] op) @trusted {
-        auto sdlAnalyze = scoped!DeleteBlockVisitor(ast);
+        scope sdlAnalyze = new DeleteBlockVisitor(ast);
         sdlAnalyze.startVisit(n);
 
         if (sdlAnalyze.canRemove)
