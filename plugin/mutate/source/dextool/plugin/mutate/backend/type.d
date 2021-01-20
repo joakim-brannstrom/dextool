@@ -208,7 +208,7 @@ struct Mutation {
         dcrFalse,
         dcrBomb, // unused
         /// Decision/Condition Requirement
-        dcrCaseDel,
+        dcrCaseDel, // unused
         /// Relational operator replacement for pointers
         rorpLT,
         rorpLE,

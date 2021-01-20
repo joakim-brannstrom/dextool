@@ -434,53 +434,6 @@ As discussed in [@thesis1, p. 20] the CC criteria is simulated by replacing
 clauses with `true` or `false`.  See [@subsumeCondMutTesting] for further
 discussions.
 
-### Case Deletion
-
-This is only needed for switch statements.
-It *deactivates* the functionality in the case branch in a switch statement.
-
-It is **more** equivalent to the DCC mutation for predicates (decision) that is
-set to *false* than using a bomb for the branch because deleting the
-functionality requires the test suite to *test* the side effect to be able to
-kill the mutant.  It isn't enough to *visit* the branch which is the case for a
-bomb.
-
-Motivation why it is equivalent.
-
-Consider the following switch statement:
-```cpp
-switch (x) {
-case A: y = 1; break;
-case B: y = 2; break;
-default: y = 3; break;
-}
-```
-
-It can be rewritten as:
-```cpp
-if (x == A) { y = 1; }
-else if (x == B) { y = 2; }
-else { y = 3; }
-```
-
-A decision mutation of the first branch is equivalent to replacement of `x == A` with `true`/`false`.
-```cpp
-if (false) { y = 1; }
-else if (x == B) { y = 2; }
-else { y = 3; }
-```
-
-Note that when it is set to `false` it is equivalent to *never* being taken.
-It is thus equivalent to the rewrite:
-```cpp
-if (x == B) { y = 2; }
-else { y = 3; }
-```
-
-The branch is deleted.
-
-Thus `false` is equivalent to statement deletion of the branch content.
-
 ### DCR for Bool Function {id="design-mutation_dcr-bool_func"}
 
 [partof](#design-mutation_dcr)

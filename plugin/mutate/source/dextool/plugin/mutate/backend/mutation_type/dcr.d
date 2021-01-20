@@ -56,10 +56,6 @@ Mutation.Kind[] dcrMutations(DcrInfo info) @safe {
                 && info.ty.kind.among(TypeKind.boolean, TypeKind.discrete))
             rval = [dcrTrue, dcrFalse];
         break;
-    case Kind.Branch:
-        if (info.canRemoveBranch)
-            rval = [dcrCaseDel];
-        break;
     case Kind.Return:
         if (info.ty !is null
                 && info.ty.kind == TypeKind.boolean)
@@ -75,8 +71,6 @@ immutable Mutation.Kind[] dcrMutationsAll;
 
 shared static this() {
     with (Mutation.Kind) {
-        dcrMutationsAll = [
-            dcrTrue, dcrFalse, dcrReturnTrue, dcrReturnFalse, dcrCaseDel
-        ];
+        dcrMutationsAll = [dcrTrue, dcrFalse, dcrReturnTrue, dcrReturnFalse];
     }
 }
