@@ -966,10 +966,7 @@ class ShallTestMutantsOnSpecifiedLines : SimpleFixture {
             .run;
         // dfmt on
 
-        testConsecutiveSparseOrder!Re([
-                `.*Found . mutant.*program.cpp:13`,
-                `.*Found . mutant.*program.cpp:15`
-                ]).shouldBeIn(r.output);
+        testConsecutiveSparseOrder!Re([`.*Found . mutant.*program.cpp:13`,]).shouldBeIn(r.output);
         testAnyOrder!Re([`from 'return true' to 'return false'`,]).shouldBeIn(r.output);
     }
 
