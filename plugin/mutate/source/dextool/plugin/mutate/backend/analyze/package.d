@@ -460,13 +460,19 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
                     receive((AnalyzeCntMsg a) {
                         waiter.analyzeFileWaitCnt = a.value;
                     }, (immutable Analyze.Result a) {
+                        auto trans = db.transaction;
                         waiter.analyzeFileCnt++;
                         save(a);
+                        trans.commit;
+
                         logger.infof("Analyzed file %s/%s",
                             waiter.analyzeFileCnt, waiter.analyzeFileWaitCnt);
                     }, (immutable TestFileResult a) {
+                        auto trans = db.transaction;
                         waiter.isTestFilesDone = true;
                         saveTestResult(a);
+                        trans.commit;
+
                         logger.info("Done analyzing test files in ", a.time);
                     });
                 } catch (Exception e) {
@@ -534,50 +540,56 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
 
             fastDbOn();
 
-            auto trans = db.transaction;
+            {
+                auto trans = db.transaction;
 
-            if (prune) {
-                auto profile = Profile("prune old schemas");
-                logger.info("Prune database of schemata created by an old version");
-                oldVersion = db.pruneOldSchemas;
+                if (prune) {
+                    auto profile = Profile("prune old schemas");
+                    logger.info("Prune database of schemata created by an old version");
+                    oldVersion = db.pruneOldSchemas;
+                }
+                trans.commit;
             }
 
             recv();
 
-            addNotAnalyzed();
+            {
+                auto trans = db.transaction;
+                addNotAnalyzed();
 
-            logger.info("Resetting timeout context");
-            resetTimeoutContext(db);
+                logger.info("Resetting timeout context");
+                resetTimeoutContext(db);
 
-            logger.info("Updating metadata");
-            db.updateMetadata;
+                logger.info("Updating metadata");
+                db.updateMetadata;
 
-            if (prune) {
-                pruneFiles();
-                {
-                    auto profile = Profile("remove orphaned mutants");
-                    logger.info("Removing orphaned mutants");
-                    db.removeOrphanedMutants;
+                if (prune) {
+                    pruneFiles();
+                    {
+                        auto profile = Profile("remove orphaned mutants");
+                        logger.info("Removing orphaned mutants");
+                        db.removeOrphanedMutants;
+                    }
+                    {
+                        auto profile = Profile("prune schemas");
+                        logger.info("Prune the database of unused schemas");
+                        db.pruneSchemas;
+                    }
+                    {
+                        auto profile = Profile("prune dependencies");
+                        logger.info("Prune dependencies");
+                        db.dependencyApi.cleanup;
+                    }
                 }
-                {
-                    auto profile = Profile("prune schemas");
-                    logger.info("Prune the database of unused schemas");
-                    db.pruneSchemas;
-                }
-                {
-                    auto profile = Profile("prune dependencies");
-                    logger.info("Prune dependencies");
-                    db.dependencyApi.cleanup;
-                }
+
+                logger.info("Updating manually marked mutants");
+                updateMarkedMutants(db);
+                printLostMarkings(db.getLostMarkings);
+
+                logger.info("Committing changes");
+                trans.commit;
+                logger.info("Ok".color(Color.green));
             }
-
-            logger.info("Updating manually marked mutants");
-            updateMarkedMutants(db);
-            printLostMarkings(db.getLostMarkings);
-
-            logger.info("Committing changes");
-            trans.commit;
-            logger.info("Ok".color(Color.green));
 
             fastDbOff();
 

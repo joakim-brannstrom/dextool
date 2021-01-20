@@ -41,6 +41,7 @@ Note: the build instructions is in the root `README.md` of this repo.
   fast feedback in a pull request workflow.
 * 🐇 Can [continue](README_ci.md#incremental-mutation-test) from where a
   testing session was interrupted.
+* 🐇 Can resume an interrupted analysis.
 * 🐇 Allows multiple instances to be [run in parallel](README_parallel.md).
 * 🐇 Can reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
 * 🐇 Can automatically [rerun the mutations that previously survived](#re-test-alive)
