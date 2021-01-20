@@ -740,13 +740,13 @@ class MutantVisitor : DepthFirstVisitor {
         // produced. Seems to be something with templates and function calls.
         if (n.lhs !is null && locExpr.interval.begin < locOp.interval.end) {
             auto offset = Interval(locExpr.interval.begin, locOp.interval.end);
-            put(new Location(locOp.file, offset,
-                    SourceLocRange(locExpr.sloc.begin, locOp.sloc.end)), lhs, n.lhs.blacklist);
+            put(Location(locOp.file, offset, SourceLocRange(locExpr.sloc.begin,
+                    locOp.sloc.end)), lhs, n.lhs.blacklist);
         }
         if (n.rhs !is null && locOp.interval.begin < locExpr.interval.end) {
             auto offset = Interval(locOp.interval.begin, locExpr.interval.end);
-            put(new Location(locOp.file, offset,
-                    SourceLocRange(locOp.sloc.begin, locExpr.sloc.end)), rhs, n.rhs.blacklist);
+            put(Location(locOp.file, offset, SourceLocRange(locOp.sloc.begin,
+                    locExpr.sloc.end)), rhs, n.rhs.blacklist);
         }
     }
 
