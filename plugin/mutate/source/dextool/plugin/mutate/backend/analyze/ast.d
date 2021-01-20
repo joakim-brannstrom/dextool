@@ -15,11 +15,10 @@ module dextool.plugin.mutate.backend.analyze.ast;
 import logger = std.experimental.logger;
 import std.algorithm : map, filter, among;
 import std.array : appender;
+import std.exception : collectException;
 import std.format : formattedWrite, format;
 import std.meta : AliasSeq;
 import std.range : isOutputRange;
-
-//import std.experimental.allocator.mallocator: Mallocator;
 
 import my.optional;
 import sumtype;
@@ -31,6 +30,8 @@ static import dextool.plugin.mutate.backend.type;
 @safe:
 
 struct Ast {
+    import std.experimental.allocator.mallocator : Mallocator;
+
     /// The language the mutation AST is based on.
     dextool.plugin.mutate.backend.type.Language lang;
 
@@ -48,6 +49,53 @@ struct Ast {
 
     // Change the path and thus string in the saved locations to reduce the used memory.
     Dedup!AbsolutePath paths;
+
+    private {
+        Object[] dobjs;
+    }
+
+    ~this() nothrow {
+        release;
+    }
+
+    T make(T, Args...)(auto ref Args args) {
+        import core.memory : GC;
+        import std.experimental.allocator : make;
+        import std.functional : forward;
+
+        auto obj = () @trusted {
+            return make!T(Mallocator.instance, forward!args);
+        }();
+        () @trusted {
+            auto repr = (cast(void*) obj)[0 .. __traits(classInstanceSize, Type)];
+            GC.addRange(&repr[(void*).sizeof], __traits(classInstanceSize,
+                    Type) - (void*).sizeof);
+        }();
+
+        dobjs ~= obj;
+        return obj;
+    }
+
+    /// Release all nodes by destroying them and releasing the memory
+    void release() nothrow @trusted {
+        import core.memory : GC;
+        import std.experimental.allocator : dispose;
+
+        logger.tracef("released %s objects", dobjs.length).collectException;
+
+        auto allocator = Mallocator.instance;
+        foreach (n; dobjs) {
+            dispose(allocator, n);
+            auto repr = (cast(void*) n)[0 .. __traits(classInstanceSize, Type)];
+            GC.removeRange(&repr[(void*).sizeof]);
+        }
+
+        dobjs = null;
+        paths = typeof(paths).init;
+        nodeTypes = null;
+        nodeSymbols = null;
+        locs = null;
+    }
 
     void releaseCache() {
         paths.release;
@@ -112,7 +160,7 @@ struct Ast {
         formattedWrite(w, "Source language: %s\n", lang);
 
         auto res = () @trusted {
-            auto dump = new AstPrintVisitor(&this);
+            scope dump = new AstPrintVisitor(&this);
             this.accept(dump);
             return dump.buf.data;
         }();
@@ -186,10 +234,9 @@ class AstPrintVisitor : DepthFirstVisitor {
                     return " !schema".color(Color.magenta).toString;
                 return "";
             }();
-            formattedWrite(buf, "%s %x%s%s",
-                    n.kind.to!string.color(Color.lightGreen), () @trusted {
-                return cast(void*) n;
-            }().to!string.color(Color.lightYellow), bl, schemaBl);
+            formattedWrite(buf, "%s %s%s%s",
+                    n.kind.to!string.color(Color.lightGreen),
+                    n.id.to!string.color(Color.lightYellow), bl, schemaBl);
         }
 
         void printTypeSymbol(Node n) {
@@ -295,8 +342,14 @@ struct Location {
     }
 }
 
+private ulong uniqueNodeId() {
+    static ulong next;
+    return next++;
+}
+
 abstract class Node {
     Kind kind() const;
+    ulong id() @safe pure nothrow const @nogc;
 
     Node[] children;
 
@@ -313,6 +366,15 @@ abstract class Node {
 
     bool opEquals(Kind k) {
         return kind == k;
+    }
+
+    override bool opEquals(Object o) {
+        auto rhs = cast(const Node) o;
+        return (rhs && (id == rhs.id));
+    }
+
+    override size_t toHash() @safe pure nothrow const @nogc scope {
+        return id.hashOf();
     }
 }
 
@@ -441,7 +503,6 @@ enum Kind {
     VarRef,
 }
 
-
 alias ExpressionKind = AliasSeq!(
     Kind.BinaryOp,
     Kind.Call,
@@ -505,28 +566,28 @@ class DepthFirstVisitor : Visitor {
  * "poisons" all children.
  */
 class Poision : Node {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class TranslationUnit : Node {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class Statement : Node {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class Loop : Node {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class Expr : Node {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 /// A function definition.
 class Function : Node {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 
     /// If the function has a return type it is associated with this expression.
     Return return_;
@@ -534,17 +595,17 @@ class Function : Node {
 
 /// A constructor for a variable.
 class Constructor : Expr {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 /// A function call.
 class Call : Expr {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 /// The operator itself in a binary operator expression.
 class Operator : Node {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 /** A block of code such such as a local scope enclosed by brackets, `{}`.
@@ -553,7 +614,7 @@ class Operator : Node {
  * analyzed for e.g. `Return` nodes.
  */
 class Block : Node {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 /** Multiple branches are contained in the bundle that can be e.g. deleted.
@@ -561,7 +622,7 @@ class Block : Node {
  * This can, in C/C++, be either a whole if-statement or switch.
  */
 class BranchBundle : Node {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 /** The code for one of the branches resulting from a condition.
@@ -573,7 +634,7 @@ class BranchBundle : Node {
  * evaluated to a value of a type.
  */
 class Branch : Node {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 
     // The inside of a branch node wherein code can be injected.
     Block inside;
@@ -581,25 +642,26 @@ class Branch : Node {
 
 /// Results in the bottom type or up.
 class Return : Expr {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 /// A condition wraps "something" which always evaluates to a boolean.
 class Condition : Expr {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class VarDecl : Expr {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
     bool isConst;
 }
 
 class VarRef : Expr {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
     // should always refer to something
     VarDecl to;
 
     this(VarDecl to) {
+        this();
         this.to = to;
     }
 
@@ -609,35 +671,31 @@ class VarRef : Expr {
 }
 
 class UnaryOp : Expr {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 
     Operator operator;
     Expr expr;
 
-    this() {
-    }
-
     this(Operator op, Expr expr) {
+        this();
         this.operator = op;
         this.expr = expr;
     }
 }
 
 class OpNegate : UnaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class BinaryOp : Expr {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 
     Operator operator;
     Expr lhs;
     Expr rhs;
 
-    this() {
-    }
-
     this(Operator op, Expr lhs, Expr rhs) {
+        this();
         this.operator = op;
         this.lhs = lhs;
         this.rhs = rhs;
@@ -645,95 +703,95 @@ class BinaryOp : Expr {
 }
 
 class OpAssign : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpAssignAdd : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpAssignSub : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpAssignMul : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpAssignDiv : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpAssignMod : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpAssignAndBitwise : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpAssignOrBitwise : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpAdd : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpSub : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpMul : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpDiv : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpMod : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpAnd : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpAndBitwise : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpOr : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpOrBitwise : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpEqual : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpLess : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpGreater : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpLessEq : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpGreaterEq : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 class OpNotEqual : BinaryOp {
-    mixin NodeKind;
+    mixin(nodeImpl!(typeof(this)));
 }
 
 RetT makeId(RetT, T)(T data) {
@@ -750,6 +808,8 @@ RetT makeUniqueId(RetT)() {
 }
 
 class Type {
+    private const ulong id_;
+
     Range range;
 
     this() {
@@ -758,10 +818,24 @@ class Type {
 
     this(Range r) {
         this.range = r;
+        id_ = uniqueNodeId;
     }
 
     TypeKind kind() const {
         return TypeKind.bottom;
+    }
+
+    ulong id() @safe pure nothrow const @nogc {
+        return id_;
+    }
+
+    override bool opEquals(Object o) {
+        auto rhs = cast(const Type) o;
+        return (rhs && (id == rhs.id));
+    }
+
+    override size_t toHash() @safe pure nothrow const @nogc scope {
+        return id.hashOf();
     }
 }
 
@@ -1167,12 +1241,28 @@ struct RecurseRange {
 
 private:
 
-mixin template NodeKind() {
-    override Kind kind() const {
-        import std.traits : Unqual;
+string nodeImpl(T)() {
+    return `
+    private const ulong id_;
 
-        mixin("return Kind." ~ Unqual!(typeof(this)).stringof ~ ";");
+    override ulong id() @safe pure nothrow const @nogc { return id_; }
+
+    override Kind kind() const {
+        return Kind.` ~ T.stringof ~ `;
     }
+
+    this() {
+        id_ = uniqueNodeId;
+    }`;
+}
+
+string typeImpl() {
+    return `
+    private const ulong id_;
+    override ulong id() @safe pure nothrow const @nogc { return id_; }
+    this() {
+        id_ = uniqueNodeId;
+    }`;
 }
 
 /// Dedup the paths to reduce the required memory.
