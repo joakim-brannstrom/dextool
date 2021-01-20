@@ -350,7 +350,10 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
                     isChanged = true;
                     logger.info("Saving ".color(Color.green), f);
                     const relp = fio.toRelativeRoot(f);
+
+                    // this is critical in order to remove old data about a file.
                     db.removeFile(relp);
+
                     const info = result.infoId[result.idFile[f]];
                     db.put(relp, info.checksum, info.language, f == result.root);
                     savedFiles.add(f);
@@ -532,10 +535,6 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
             fastDbOn();
 
             auto trans = db.transaction;
-
-            // TODO: only remove those files that are modified.
-            logger.info("Removing metadata");
-            db.clearMetadata;
 
             if (prune) {
                 auto profile = Profile("prune old schemas");
