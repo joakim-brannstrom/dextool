@@ -50,7 +50,7 @@ alias accept = dextool.plugin.mutate.backend.analyze.extensions.accept;
 ClangResult toMutateAst(const Cursor root, FilesysIO fio) @safe {
     import cpptooling.analyzer.clang.ast : ClangAST;
 
-    scope visitor = new BaseVisitor(fio);
+    auto visitor = new BaseVisitor(fio);
     scope (exit)
         visitor.dispose;
     auto ast = ClangAST!BaseVisitor(root);
@@ -702,7 +702,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
 
         // extract the boundaries of the enum to update the type db.
-        scope vis = new EnumVisitor(ast.get, indent);
+        auto vis = new EnumVisitor(ast.get, indent);
         vis.visit(v);
         ast.types.set(vis.id, vis.toType);
     }
@@ -932,7 +932,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
 
-        scope visitor = new FindVisitor!CompoundStmt;
+        auto visitor = new FindVisitor!CompoundStmt;
         v.accept(visitor);
 
         if (visitor.node !is null) {
@@ -944,7 +944,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
 
-        scope visitor = new FindVisitor!CompoundStmt;
+        auto visitor = new FindVisitor!CompoundStmt;
         v.accept(visitor);
 
         if (visitor.node !is null) {

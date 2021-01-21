@@ -171,7 +171,7 @@ struct Ast {
         formattedWrite(w, "Source language: %s\n", lang);
 
         auto res = () @trusted {
-            scope dump = new AstPrintVisitor(&this);
+            auto dump = new AstPrintVisitor(&this);
             this.accept(dump);
             return dump.buf.data;
         }();
