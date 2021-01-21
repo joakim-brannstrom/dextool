@@ -31,7 +31,7 @@ import dextool.plugin.mutate.backend.type : Language, Offset, Mutation, SourceLo
 
 /// Find mutants.
 MutantsResult toMutants(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) @safe {
-    scope visitor = new MutantVisitor(ast, fio, vloc, kinds);
+    auto visitor = new MutantVisitor(ast, fio, vloc, kinds);
     scope (exit)
         visitor.dispose;
     ast.accept(visitor);
