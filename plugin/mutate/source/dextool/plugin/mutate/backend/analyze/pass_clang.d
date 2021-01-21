@@ -15,7 +15,7 @@ import std.array : empty, array, appender, Appender;
 import std.exception : collectException;
 import std.format : formattedWrite;
 import std.meta : AliasSeq;
-import std.typecons : Nullable, scoped;
+import std.typecons : Nullable;
 
 import blob_model : Blob;
 import my.container.vector : vector, Vector;
@@ -1186,7 +1186,6 @@ final class BaseVisitor : ExtendedVisitor {
 }
 
 final class EnumVisitor : ExtendedVisitor {
-    import std.typecons : Nullable;
     import cpptooling.analyzer.clang.ast;
 
     alias visit = ExtendedVisitor.visit;

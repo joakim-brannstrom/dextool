@@ -14,7 +14,7 @@ module dextool.plugin.mutate.backend.analyze.ast;
 
 import logger = std.experimental.logger;
 import std.algorithm : map, filter, among;
-import std.array : appender;
+import std.array : Appender, appender, empty;
 import std.exception : collectException;
 import std.format : formattedWrite, format;
 import std.meta : AliasSeq;
@@ -51,7 +51,12 @@ struct Ast {
     Dedup!AbsolutePath paths;
 
     private {
-        Object[] dobjs;
+        static struct AllocObj {
+            Object obj;
+            size_t sz;
+        }
+
+        AllocObj[] dobjs;
     }
 
     ~this() nothrow {
@@ -66,13 +71,13 @@ struct Ast {
         auto obj = () @trusted {
             return make!T(Mallocator.instance, forward!args);
         }();
+        enum sz = __traits(classInstanceSize, T);
         () @trusted {
-            auto repr = (cast(void*) obj)[0 .. __traits(classInstanceSize, Type)];
-            GC.addRange(&repr[(void*).sizeof], __traits(classInstanceSize,
-                    Type) - (void*).sizeof);
+            auto repr = (cast(void*) obj)[0 .. sz];
+            GC.addRange(&repr[(void*).sizeof], sz - (void*).sizeof);
         }();
 
-        dobjs ~= obj;
+        dobjs ~= AllocObj(obj, sz);
         return obj;
     }
 
@@ -81,12 +86,18 @@ struct Ast {
         import core.memory : GC;
         import std.experimental.allocator : dispose;
 
-        logger.tracef("released %s objects", dobjs.length).collectException;
+        if (!dobjs.empty) {
+            if (auto v = root in locs)
+                logger.tracef("released AST for %s with objects %s", v.file,
+                        dobjs.length).collectException;
+            else
+                logger.tracef("released AST with %s objects", dobjs.length).collectException;
+        }
 
         auto allocator = Mallocator.instance;
         foreach (n; dobjs) {
-            dispose(allocator, n);
-            auto repr = (cast(void*) n)[0 .. __traits(classInstanceSize, Type)];
+            dispose(allocator, n.obj);
+            auto repr = (cast(void*) n.obj)[0 .. n.sz];
             GC.removeRange(&repr[(void*).sizeof]);
         }
 
@@ -176,7 +187,6 @@ struct Ast {
 }
 
 class AstPrintVisitor : DepthFirstVisitor {
-    import std.array : Appender;
     import std.range : put, repeat;
 
     Appender!string buf;
@@ -328,8 +338,6 @@ struct Location {
     }
 
     string toString() @safe const {
-        import std.array : appender;
-
         auto buf = appender!string;
         toString(buf);
         return buf.data;
