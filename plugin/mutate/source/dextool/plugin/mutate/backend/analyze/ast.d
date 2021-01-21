@@ -31,6 +31,7 @@ static import dextool.plugin.mutate.backend.type;
 
 struct Ast {
     import std.experimental.allocator.mallocator : Mallocator;
+    import my.alloc.class_;
 
     /// The language the mutation AST is based on.
     dextool.plugin.mutate.backend.type.Language lang;
@@ -51,12 +52,7 @@ struct Ast {
     Dedup!AbsolutePath paths;
 
     private {
-        static struct AllocObj {
-            Object obj;
-            size_t sz;
-        }
-
-        AllocObj[] dobjs;
+        Bundle!Mallocator bundle;
     }
 
     ~this() nothrow {
@@ -64,44 +60,22 @@ struct Ast {
     }
 
     T make(T, Args...)(auto ref Args args) {
-        import core.memory : GC;
-        import std.experimental.allocator : make;
         import std.functional : forward;
 
-        auto obj = () @trusted {
-            return make!T(Mallocator.instance, forward!args);
-        }();
-        enum sz = __traits(classInstanceSize, T);
-        () @trusted {
-            auto repr = (cast(void*) obj)[0 .. sz];
-            GC.addRange(&repr[(void*).sizeof], sz - (void*).sizeof);
-        }();
-
-        dobjs ~= AllocObj(obj, sz);
-        return obj;
+        return bundle.make!T(forward!args);
     }
 
     /// Release all nodes by destroying them and releasing the memory
     void release() nothrow @trusted {
-        import core.memory : GC;
-        import std.experimental.allocator : dispose;
-
-        if (!dobjs.empty) {
+        if (!bundle.empty) {
             if (auto v = root in locs)
                 logger.tracef("released AST for %s with objects %s", v.file,
-                        dobjs.length).collectException;
+                        bundle.length).collectException;
             else
-                logger.tracef("released AST with %s objects", dobjs.length).collectException;
+                logger.tracef("released AST with %s objects", bundle.length).collectException;
         }
+        bundle.release;
 
-        auto allocator = Mallocator.instance;
-        foreach (n; dobjs) {
-            dispose(allocator, n.obj);
-            auto repr = (cast(void*) n.obj)[0 .. n.sz];
-            GC.removeRange(&repr[(void*).sizeof]);
-        }
-
-        dobjs = null;
         paths = typeof(paths).init;
         nodeTypes = null;
         nodeSymbols = null;

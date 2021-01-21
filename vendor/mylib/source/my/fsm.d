@@ -9,10 +9,13 @@ import std.format : format;
 
 /** A state machine derived from the types it is based on.
  *
- * Each state have its unique data that it works on.
+ * Each state have its unique, temporary data that it works on. If a state
+ * needs persistent data then look into using the `TypeDataMap`.
  *
  * The state transitions are calculated by `next` and the actions are performed
  * by `act`.
+ *
+ * See the unittests for example of how to use the implementation.
  */
 struct Fsm(StateTT...) {
     static import sumtype;
