@@ -137,6 +137,8 @@ struct ConfigCompiler {
     /// supplied compilation database.  / This is needed when the one specified
     /// in the DB has e.g. a c++ stdlib that is not compatible with clang.
     SystemCompiler useCompilerSystemIncludes;
+
+    NamedType!(bool, Tag!"AllowErrors", bool.init, TagStringable) allowErrors;
 }
 
 /// Settings for mutation testing
