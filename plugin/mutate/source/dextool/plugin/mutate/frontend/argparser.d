@@ -176,6 +176,10 @@ struct ArgParser {
         app.put(format(`# use_compiler_system_includes = "%s"`, compiler.useCompilerSystemIncludes.length == 0
                 ? "/path/to/c++" : compiler.useCompilerSystemIncludes.value));
         app.put(null);
+        app.put("# allow compilation errors.");
+        app.put("# This is useful to active when clang complain about e.g. gcc specific builtins");
+        app.put("# allow_errors = true");
+        app.put(null);
 
         app.put("[compile_commands]");
         app.put(null);
@@ -321,6 +325,7 @@ struct ArgParser {
             data.toolMode = ToolMode.analyzer;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
+                   "allow-errors", "allow compilation errors during analysis (default: false)", compiler.allowErrors.getPtr,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDbs,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
@@ -831,6 +836,10 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         c.compiler.useCompilerSystemIncludes = v.str;
     };
 
+    callbacks["compiler.allow_errors"] = (ref ArgParser c, ref TOMLValue v) {
+        c.compiler.allowErrors.get = v == true;
+    };
+
     callbacks["mutant_test.test_cmd"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.mutationTester = toShellCommands(v,
                 "config: failed to parse mutant_test.test_cmd");
@@ -1104,6 +1113,19 @@ mutants_per_schema = 200
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.analyze.mutantsPerSchema.shouldEqual(200);
+}
+
+@("shall parse if compilation errors are allowed")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[compiler]
+allow_errors = true
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.compiler.allowErrors.get.shouldBeTrue;
 }
 
 @("shall parse the build command timeout")

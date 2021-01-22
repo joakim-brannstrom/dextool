@@ -117,3 +117,15 @@ unittest {
         .addPostArg(["--mutant", "all"])
         .run;
 }
+
+@(testId ~ "shall find the mutants even though the SUT contains a compilation error")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto r = makeDextoolAnalyze(testEnv)
+        .addPostArg(["--mutant", "all"])
+        .addInputArg(testData ~ "analyze_compile_error.cpp")
+        .addPostArg("--allow-errors")
+        .run;
+
+    testConsecutiveSparseOrder!Re(["info: Saving.*analyze_compile_error.cpp"]).shouldBeIn(r.output);
+}

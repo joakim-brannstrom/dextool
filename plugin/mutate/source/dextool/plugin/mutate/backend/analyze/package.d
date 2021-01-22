@@ -201,7 +201,8 @@ void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze, Val
     try {
         //logger.infof("%s begin", fileToAnalyze.cmd.absoluteFile);
         auto analyzer = Analyze(kinds, vloc, fio, Analyze.Config(compilerConf.forceSystemIncludes,
-                analyzeConf.mutantsPerSchema, analyzeConf.saveCoverage.get));
+                analyzeConf.mutantsPerSchema, analyzeConf.saveCoverage.get,
+                compilerConf.allowErrors.get));
         analyzer.process(fileToAnalyze);
         send(storeActor, cast(immutable) analyzer.result);
         //logger.infof("%s end", fileToAnalyze.cmd.absoluteFile);
@@ -632,6 +633,7 @@ struct Analyze {
         bool forceSystemIncludes;
         long mutantsPerSchema;
         bool saveCoverage;
+        bool allowErrors;
     }
 
     private {
@@ -713,8 +715,11 @@ struct Analyze {
             auto tu = ctx.makeTranslationUnit(checked_in_file, in_file.flags.completeFlags);
             if (tu.hasParseErrors) {
                 logDiagnostic(tu);
-                logger.warningf("Compile error in %s. Skipping", checked_in_file);
-                return;
+                logger.warningf("Compile error in %s", checked_in_file);
+                if (!conf.allowErrors) {
+                    logger.warning("Skipping");
+                    return;
+                }
             }
 
             auto res = toMutateAst(tu.cursor, fio);
