@@ -1,4 +1,4 @@
-# Install Dextool on Ubuntu 19.04
+# Install Dextool on Ubuntu
 
 **(Optional) Step 1:** Update and install the latest packages:
 
@@ -19,12 +19,12 @@ apt search clang-
 apt search libclang-
 ```
 
-You should see for example `libclang-10-dev`.
+You should see for example `libclang-11-dev`.
 
 **Step 3:** Install the dependencies:
 
 ```
-sudo apt install build-essential cmake llvm-10 llvm-10-dev clang-10 libclang-10-dev libsqlite3-dev
+sudo apt install build-essential cmake llvm-11 llvm-11-dev clang-11 libclang-11-dev libsqlite3-dev
 ```
 
 **Step 4:** Install the D compiler:
@@ -35,6 +35,7 @@ Example (2021-01-07):
 
 ```sh
 wget https://github.com/ldc-developers/ldc/releases/download/v1.24.0/ldc2-1.24.0-linux-x86_64.tar.xz
+mkdir -p ~/dlang
 tar -xf ldc2-1.24.0-linux-x86_64.tar.xz -C ~/dlang
 ```
 
