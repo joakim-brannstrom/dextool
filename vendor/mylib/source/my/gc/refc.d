@@ -100,17 +100,10 @@ struct RefCounted(T) {
     }
 
     this(Args...)(auto ref Args args) {
-        // need to use untyped memory, so we don't get a dtor call by the GC.
-        import std.traits : hasIndirections;
         import std.conv : emplace;
 
-        static if (hasIndirections!T)
-            auto rawMem = new void[Impl.sizeof];
-        else
-            auto rawMem = new ubyte[Impl.sizeof];
-        impl = (() @trusted => cast(Impl*) rawMem.ptr)();
-        emplace(impl, args);
-        () @trusted { GC.addRoot(impl); }();
+        impl = alloc();
+        () @trusted { emplace(impl, args); GC.addRoot(impl); }();
     }
 
     this(this) {
@@ -125,6 +118,18 @@ struct RefCounted(T) {
         }
     }
 
+    /// Set impl to an allocated block of data. It is uninitialized.
+    private static Impl* alloc() @trusted {
+        // need to use untyped memory, so we don't get a dtor call by the GC.
+        import std.traits : hasIndirections;
+
+        static if (hasIndirections!T)
+            auto rawMem = new void[Impl.sizeof];
+        else
+            auto rawMem = new ubyte[Impl.sizeof];
+        return (() @trusted => cast(Impl*) rawMem.ptr)();
+    }
+
     ref inout(T) get() inout {
         assert(impl, "Invalid refcounted access");
         return impl.item;
@@ -135,7 +140,14 @@ struct RefCounted(T) {
     }
 
     void opAssign(T other) {
-        move(other, impl.item);
+        import std.conv : emplace;
+
+        if (empty) {
+            impl = alloc;
+            () @trusted { emplace(impl, other); GC.addRoot(impl); }();
+        } else {
+            move(other, impl.item);
+        }
     }
 
     /// Release the reference.
