@@ -1,4 +1,4 @@
-# colorlog [![Build Status](https://travis-ci.org/joakim-brannstrom/colorlog.svg?branch=master)](https://travis-ci.org/joakim-brannstrom/colorlog)
+# colorlog [![Build Status](https://dev.azure.com/wikodes/wikodes/_apis/build/status/joakim-brannstrom.colorlog?branchName=master)](https://dev.azure.com/wikodes/wikodes/_build/latest?definitionId=8&branchName=master)
 
 **colorlog** is a logger intended to be used with `std.experimental.logger`. It adds two loggers and functionality to add console colors to messages.
 

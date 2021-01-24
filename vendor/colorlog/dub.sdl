@@ -4,4 +4,6 @@ authors "Joakim Braennstroem"
 copyright "Copyright © 2018, Joakim Braennstroem"
 license "BSL-1.0"
 
+dependency "my" version="~>0.0.25"
+
 targetType "library"
