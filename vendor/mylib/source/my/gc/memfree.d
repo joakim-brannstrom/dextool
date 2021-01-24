@@ -11,12 +11,11 @@ module my.gc.memfree;
 import std.concurrency : send, spawn, receiveTimeout, Tid;
 
 import my.gc.refc;
+import my.libc;
 
 /// Returns: a started instance of MemFree.
-RefCounted!MemFree memFree() @safe {
-    MemFree inst;
-    inst.start;
-    return RefCounted!MemFree(inst);
+MemFree memFree() @safe {
+    return MemFree(true);
 }
 
 /** Reduces the used memory by the GC and free the heap to the OS.
@@ -27,18 +26,25 @@ RefCounted!MemFree memFree() @safe {
  * TODO: maybe add functionality to call it more often when above e.g. 50% memory usage?
  */
 struct MemFree {
-    private {
+    private static struct Data {
         bool isRunning;
         Tid bg;
     }
 
+    private RefCounted!Data data;
+
+    this(bool startNow) @safe {
+        if (startNow)
+            start;
+    }
+
     ~this() @trusted {
-        if (!isRunning)
+        if (data.empty || !data.isRunning)
             return;
 
         scope (exit)
-            isRunning = false;
-        send(bg, Msg.stop);
+            data.isRunning = false;
+        send(data.bg, Msg.stop);
     }
 
     /** Start a background thread to do the work.
@@ -46,8 +52,7 @@ struct MemFree {
      * It terminates when the destructor is called.
      */
     void start() @trusted {
-        bg = spawn(&tick);
-        isRunning = true;
+        data = Data(true, spawn(&tick));
     }
 
 }
@@ -77,6 +82,3 @@ void tick() nothrow {
         malloc_trim(0);
     }
 }
-
-// malloc_trim - release free memory from the heap
-extern (C) int malloc_trim(size_t pad) nothrow @system;

@@ -22,11 +22,11 @@ struct Timers {
         Nullable!Timer front_;
     }
 
-    void put(Timer.Action action, Duration d) {
+    void put(Timer.Action action, Duration d) @trusted {
         timers.stableInsert(Timer(Clock.currTime + d, action));
     }
 
-    void put(Timer.Action action, SysTime t) {
+    void put(Timer.Action action, SysTime t) @trusted {
         timers.stableInsert(Timer(t, action));
     }
 
@@ -96,6 +96,10 @@ struct Timer {
         this.expire = expire;
         this.action = action;
         this.id = () @trusted { return cast(size_t)&action; }();
+    }
+
+    size_t toHash() pure nothrow const @nogc scope {
+        return expire.toHash.hashOf(id); // mixing two hash values
     }
 
     bool opEquals()(auto ref const typeof(this) s) const {
