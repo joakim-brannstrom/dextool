@@ -1,4 +1,95 @@
+# v3.0.0 Nice Weather
+
+This release, as the previous once, has focused on the mutation testing plugin.
+The focus has been on improving the mutation testing speed for software that
+have just started to write tests to those that have a full test suite with 100%
+statement coverage. The road has been long but we are finally at the finish line.
+
+New features for dextool mutate
+
+ * Replaced `restrict` in the configuration with `include` and `exclude` to
+   allow a user to both box in what to test and to selectively exclude parts.
+ * Automatically run SQL vacuum on the database to reduce its size. Currently
+   triggers when there is a new tool release or schematan are removed.
+ * An estimation (trend) is calculated using a kalman filter which is ran over
+   the historical data of when a mutant where discovered. The intention is to
+   give the user a *feeling* of how the mutation score and thus test suite
+   quality is trending based on the latest code changes.
+ * Add an admin command to reset a mutant subtype.
+ * Add an admin command to clear the worklist.
+ * Allow a user to specify retest of old mutants as a percentage of the total.
+   This is to allow a user to easier predict when all mutants have been
+   re-tested.
+ * Reduce the database size by only saving those mutants to the database that
+   the user has specified.
+ * Save the test suites execution time in the database to reduce the number of
+   times it needs to be executed during the warmup phase of testing mutants.
+ * Save the mutation testing score in the database when all mutants have been tested (worklist is zero).
+   Use this mutation score show a bar graph of how it has changed over time.
+ * Add `--load-threshold` and `--load-behavior` to easier integrate the plugin
+   in Jenkins as a *good citizen* by allowing the plugin to detect when the
+   build server is overloaded and either slow down or stop mutation testing.
+   Mainly intended to be used for mutation testing of the `master` branch which
+   should have a lower priority than pull requests.
+ * Add test case stats, uniqueness and test cases to the JSON report.
+ * Save the exit code of the test suite to the database. This will be used in
+   the future to improve the reports because users are interested in the
+   difference between them such as when the test suite SEGFAULT verses exits
+   with a failure.
+ * Add tracking of the test suite to allow dextool to know if old mutants need
+   to be tested because the test suite have changed.
+ * Use coverage information to quickly mark mutants that exists in functions
+   that are never executed by the test suite as `alive`.
+ * Add AORs as a simplified AOR. Instead of producing four mutants when an
+   arithmetic operator is used it only produce one.
+ * Add dependency tracking to reduce the number of files that need to be
+   re-analysed. It is expensive to analyze modern C++ thus by tracking the
+   `#include` it is possible to see exactly which files need to be analysed
+   instead of as previously, always analyse every file.
+ * Enable analysis of code that isn't parsed correctly by the clang frontend by
+   the analysis to proceed even though there are compilation errors.
+
+Fixes for dextool mutate
+
+ * Fix the table sorting in the HTML report to be numerical instead of lexical.
+ * Fix the mutation score constantly "resetting" because tests are added/removed.
+ * Fix schemata bug for switch statements. The scheman where not equivalent to
+   the source code mutants.
+ * Fix bug where the admin command to stop the timeout testing didn't actually work.
+ * Removed case branch delete from mutation operator DCR because it is a
+   duplicate of what SDL do for case branches.
+ * Fix memory usage when analysing. A pool is now used for the mutant AST where
+   all nodes are allocated. The pool is then disposed as soon as it isn't
+   needed.
+ * Fix bug in MemFree which calls malloc_trim and GC free to reduce the heap.
+ * Always interpret the build command as a shell command to execute. Reduced or
+   removes the need for a `build.sh` because the most common use where just to
+   change directory and call make.
+ * Separately record the time it took to test a mutant as in compile and
+   execute test suite time.
+ * Print what is wrong in the configuration file when it fails to parse.
+ * Fix SQL query for retrieving the oldest mutants by telling it to interpret
+   as a datetime and not string.
+ * Remove mutants that only delete whitespaces. These are obviously equivalent
+   mutants thus not interesting.
+ * Fix AOR mutation operator using the modulo operator when either side is a
+   floating point type by not generating this type of mutants.
+ * Fix bug when counting the number of mutants a test case killed. Mutants
+   where duplicated.
+ * Fix mutation checksum calculation which thus repaired the previously broken
+   comment robustness.
+ * Fix UOI negation by using double negation instead of removing `!`. This is
+   because `!` changes the type to a boolean and C++ is picky about the types.
+
+Breaking changes to dextool mutate
+
+ * Removed the mutation operator COR and DCC.
+ * Removed the deprecated `--level` for the report subcommand.
+ * Remove `restrict` from the configuration file.
+
 # v2.3.0
+
+# v2.2.0
 
 # v2.1.0 Camp Fire
 
@@ -13,7 +104,7 @@ been handled by the refactored analyser.
 
 New features
 
-    introduce profiling of the analyse and report stage. This can be used by a user to understand "why" certain operations take time.
+    Introduce profiling of the analyse and report stage. This can be used by a user to understand "why" certain operations take time.
     Print a progress message when removing orphaned mutants. This can take a long time thus this printing avoid e.g. a Jenkins timeout and helps a user not get impatient.
     Mutations that would occur inside a C/C++ macro is now removed except a small list of hard coded exceptions such as TRUE and FALSE.
     The test command runner has been able to execute the tests in parallel since the v2.0.0. It is now possible to configure it to stop execution as soon as one of the test commands signal failure. This can reduce the time it takes to test a mutant at the expense of the report of the test cases being less accurate.
