@@ -376,6 +376,10 @@ struct TestDriver {
         bool sleep;
     }
 
+    static struct ContinuesCheckTestSuite {
+        bool ok;
+    }
+
     static struct Stop {
     }
 
@@ -394,7 +398,8 @@ struct TestDriver {
             UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant,
             ParseStdin, FindTestCmds, ChooseMode, NextSchemata, SchemataTest,
             SchemataTestResult, LoadSchematas, SchemataPruneUsed, Stop,
-            SaveMutationScore, OverloadCheck, Coverage, PropagateCoverage);
+            SaveMutationScore, OverloadCheck, Coverage, PropagateCoverage,
+            ContinuesCheckTestSuite);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData,
             PullRequestData, ResetOldMutantData, NextSchemataData);
 
@@ -507,7 +512,11 @@ struct TestDriver {
                 return fsm(Done.init);
             if (a.sleep)
                 return fsm(CheckRuntime.init);
-            return fsm(Cleanup.init);
+            return fsm(ContinuesCheckTestSuite.init);
+        }, (ContinuesCheckTestSuite a) {
+            if (a.ok)
+                return fsm(Cleanup.init);
+            return fsm(Error.init);
         }, (MutationTest a) {
             if (a.mutationError)
                 return fsm(Error.init);
@@ -676,6 +685,42 @@ nothrow:
             logger.warning(isOverloaded, "Halting").collectException;
             data.halt = isOverloaded;
             break;
+        }
+    }
+
+    void opCall(ref ContinuesCheckTestSuite data) {
+        data.ok = true;
+
+        if (!global.data.conf.contCheckTestSuite)
+            return;
+
+        const wlist = spinSql!(() => global.data.db.getWorklistCount);
+        const period = global.data.conf.contCheckTestSuitePeriod.get;
+        if (wlist % period != 0)
+            return;
+
+        compile(global.data.conf.mutationCompile, global.data.conf.buildCmdTimeout, true).match!(
+                (Mutation.Status a) { data.ok = false; }, (bool success) {
+            data.ok = success;
+        });
+
+        if (data.ok) {
+            try {
+                data.ok = measureTestCommand(runner, 1).ok;
+            } catch (Exception e) {
+                logger.error(e.msg).collectException;
+                data.ok = false;
+            }
+        }
+
+        if (!data.ok) {
+            logger.warning("Continues sanity check of the test suite has failed.").collectException;
+            logger.infof("Rolling back the status of the last %s mutants to status unknown.",
+                    period).collectException;
+            foreach (a; spinSql!(() => global.data.db.getLatestMutants(global.data.kinds, period))) {
+                spinSql!(() => global.data.db.updateMutation(a.id,
+                        Mutation.Status.unknown, ExitStatus(0), MutantTimeProfile.init));
+            }
         }
     }
 
