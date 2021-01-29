@@ -664,6 +664,17 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const ArraySubscriptExpr v) {
+        mixin(mixinNodeLog!());
+        // block schematan inside subscripts because some lead to compilation
+        // errors. Need to investigate more to understand why and how to avoid.
+        // For now they are blocked.
+        auto n = ast.make!(analyze.Poision);
+        n.schemaBlacklist = true;
+        pushStack(n, v);
+        v.accept(this);
+    }
+
     override void visit(const Expression v) {
         mixin(mixinNodeLog!());
 
