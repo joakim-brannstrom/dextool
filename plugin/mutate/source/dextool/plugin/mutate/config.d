@@ -244,6 +244,10 @@ struct ConfigMutationTest {
 
     /// allows a user to control exactly which files the coverage and schemata runtime is injected in.
     UserRuntime[] userRuntimeCtrl;
+
+    /// Continuesly run the test suite to see that the test suite is OK when no mutants are injected.
+    NamedType!(bool, Tag!"ContinuesCheckTestSuite", bool.init, TagStringable) contCheckTestSuite;
+    NamedType!(int, Tag!"ContinuesCheckTestSuitePeriod", int.init, TagStringable) contCheckTestSuitePeriod = 100;
 }
 
 /// Settings for the administration mode

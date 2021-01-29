@@ -230,7 +230,7 @@ struct ArgParser {
         app.put(format("# analyze_using_builtin = [%(%s, %)]",
                 [EnumMembers!TestCaseAnalyzeBuiltin].map!(a => a.to!string)));
         app.put(null);
-        app.put("# determine in what order mutations are chosen");
+        app.put("# determine in what order mutants are chosen");
         app.put(format("# available options are: %(%s %)",
                 [EnumMembers!MutationOrder].map!(a => a.to!string)));
         app.put(format(`# order = "%s"`, MutationOrder.random));
@@ -274,13 +274,24 @@ struct ArgParser {
         app.put("# it is a slowdown but nice robustness that is usually worth having");
         app.put("check_schemata = true");
         app.put(null);
+        app.put(`# Enable continues sanity check of the build environment and test suite.`);
+        app.put(
+                `# Run the test suite every 100 mutant to see that the test suite is OK when no mutants are injected.`);
+        app.put(
+                `# If the test suite fails the previous 100 mutants will be reverted and mutation testing stops.`);
+        app.put(`continues_check_test_suite = true`);
+        app.put(null);
+        app.put("# How often the test suite check is performed");
+        app.put(format!`continues_check_test_suite_period = %s`(
+                mutationTest.contCheckTestSuitePeriod.get));
+        app.put(null);
 
         app.put("[report]");
         app.put(null);
         app.put("# default style to use");
         app.put(format("# available options are: %(%s %)",
                 [EnumMembers!ReportKind].map!(a => a.to!string)));
-        app.put(format(`style = "%s"`, report.reportKind));
+        app.put(format!`style = "%s"`(report.reportKind));
         app.put(null);
         app.put("# default report sections when no --section is specified");
         app.put(format!"# available options are: [%(%s, %)]"(
@@ -386,6 +397,8 @@ struct ArgParser {
                    "L", "restrict testing to the requested files and lines (<file>:<start>-<end>)", &testConstraint,
                    "build-cmd", "program used to build the application", &mutationCompile,
                    "check-schemata", "sanity check a schemata before it is used", &mutationTest.sanityCheckSchemata,
+                   "cont-test-suite", "enable continues check of the test suite", mutationTest.contCheckTestSuite.getPtr,
+                   "cont-test-suite-period", "how often to check the test suite", mutationTest.contCheckTestSuitePeriod.getPtr,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &mutationTest.unifiedDiffFromStdin,
@@ -917,6 +930,12 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["mutant_test.check_schemata"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.sanityCheckSchemata = v == true;
     };
+    callbacks["mutant_test.continues_check_test_suite"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.contCheckTestSuite.get = v == true;
+    };
+    callbacks["mutant_test.continues_check_test_suite_period"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.contCheckTestSuitePeriod.get = cast(int) v.integer;
+    };
 
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
         c.report.reportKind = v.str.to!ReportKind;
@@ -1139,6 +1158,21 @@ build_cmd_timeout = "1 hours"
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.mutationTest.buildCmdTimeout.shouldEqual(1.dur!"hours");
+}
+
+@("shall parse the continues test suite test")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[mutant_test]
+continues_check_test_suite = true
+continues_check_test_suite_period = 3
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.mutationTest.contCheckTestSuite.get.shouldBeTrue;
+    ap.mutationTest.contCheckTestSuitePeriod.get.shouldEqual(3);
 }
 
 @("shall parse the mutants to test")

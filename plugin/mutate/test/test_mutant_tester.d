@@ -1130,3 +1130,41 @@ class ShallDetectWriteProtectedFiles : SimpleFixture {
         testConsecutiveSparseOrder!SubStr(["not writable", "Failed"]).shouldBeIn(r.output);
     }
 }
+
+class ShallDetectUnstableTestSuiteWhenRunning : SimpleFixture {
+    override string scriptTest() {
+        return "#!/bin/bash
+exit 1
+";
+    }
+
+    override void test() {
+        import my.file;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+
+        // dfmt off
+        auto r = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg("--dry-run")
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--mutant", "all"])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg(["--cont-test-suite", "--cont-test-suite-period", "2"])
+            .throwOnExitStatus(false)
+            .run;
+        // dfmt on
+
+        r.status.shouldEqual(1);
+        testConsecutiveSparseOrder!SubStr([
+                "Rolling back the status of the last 2"
+                ]).shouldBeIn(r.output);
+    }
+}
