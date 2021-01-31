@@ -12,10 +12,10 @@ import dextool_test.types;
 
 enum globalTestdir = "cpp_tests";
 
-auto testData() {
+Path testData() {
     return Path("testdata/cpp");
 }
 
-auto pluginTestData() {
-    return Path("plugin_testdata");
+AbsolutePath pluginTestData() {
+    return AbsolutePath("plugin_testdata");
 }
