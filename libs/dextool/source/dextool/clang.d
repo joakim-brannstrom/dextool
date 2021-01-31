@@ -128,13 +128,13 @@ auto reduceMissingFiles(LimitFileRange lfr, ParsedCompileCommand[] db) {
 
         ParsedCompileCommand cmd = res.get.derived;
 
+        // check if the file from the user is directly accessable on the
+        // filesystem. In such a case assume that the located file is the one
+        // the user want to parse. Otherwise derive it from the compile command
+        // DB.
         if (exists(f)) {
-            // check if the file from the user is directly accessable on the
-            // filesystem. In such a case assume that the located file is the
-            // one the user want to parse. Otherwise derive it from the compile
-            // command DB.
             cmd.cmd.file = Path(f);
-            cmd.cmd.absoluteFile = AbsolutePath(Path(buildPath(cmd.cmd.directory, f)));
+            cmd.cmd.absoluteFile = AbsolutePath(f);
         } else {
             logger.tracef("Unable to locate '%s' on the filesystem", f);
             logger.tracef("Using the filename from the compile DB instead '%s'",

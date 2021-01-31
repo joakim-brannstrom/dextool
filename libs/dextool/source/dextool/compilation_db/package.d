@@ -360,6 +360,8 @@ bool isMatch(CompileCommand a, string glob) {
 
     if (a.absoluteFile == glob)
         return true;
+    else if (a.absoluteFile == AbsolutePath(glob))
+        return true;
     else if (a.file == glob)
         return true;
     else if (globMatch(a.absoluteFile, glob))

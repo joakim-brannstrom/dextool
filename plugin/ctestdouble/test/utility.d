@@ -55,7 +55,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
 
     p.root = Path("testdata/cstub");
     p.input_ext = p.root ~ f;
-    p.base_cmp = p.input_ext.toString.stripExtension;
+    p.base_cmp = p.input_ext.toString.stripExtension.Path;
 
     p.out_hdr = testEnv.outdir ~ "test_double.hpp";
     p.out_impl = testEnv.outdir ~ "test_double.cpp";

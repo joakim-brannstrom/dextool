@@ -660,7 +660,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] userCflags,
 
     if (!compile_db.empty && !limitRange.isMissingFilesEmpty) {
         foreach (a; limitRange.missingFiles) {
-            logger.error("Unable to find any compiler flags for .", a);
+            logger.error("Unable to find any compiler flags for ", a);
         }
         return ExitStatusType.Errors;
     }
