@@ -70,6 +70,11 @@ struct Path {
     }
 
     ///
+    size_t length() @safe pure nothrow const @nogc {
+        return value_.length;
+    }
+
+    ///
     bool opEquals(const string s) @safe pure nothrow const @nogc {
         return value_ == s;
     }
@@ -85,17 +90,18 @@ struct Path {
     }
 
     ///
-    Path opBinary(string op)(string rhs) @safe {
+    Path opBinary(string op)(string rhs) @safe const {
         static if (op == "~") {
             return Path(buildPath(value_, rhs));
-        } else
+        } else {
             static assert(false, typeof(this).stringof ~ " does not have operator " ~ op);
+        }
     }
 
     ///
-    Path opBinary(string op)(Path rhs) @safe {
+    inout(Path) opBinary(string op)(const Path rhs) @safe inout {
         static if (op == "~") {
-            return Path(buildPath(value_, rhs));
+            return Path(buildPath(value_, rhs.value));
         } else
             static assert(false, typeof(this).stringof ~ " does not have operator " ~ op);
     }
@@ -108,7 +114,7 @@ struct Path {
             static assert(false, typeof(this).stringof ~ " does not have operator " ~ op);
     }
 
-    void opOpAssign(string op)(Path rhs) @safe nothrow {
+    void opOpAssign(string op)(const Path rhs) @safe nothrow {
         static if (op == "~=") {
             value_ = buildPath(value_, rhs);
         } else
@@ -169,6 +175,11 @@ struct AbsolutePath {
     ///
     this(Path p) @safe {
         value_ = Path(p.value_.expandTilde.absolutePath.buildNormalizedPath);
+    }
+
+    ///
+    bool empty() @safe pure nothrow const @nogc {
+        return value_.length == 0;
     }
 
     /// Returns: the underlying `Path`.
@@ -281,4 +292,29 @@ unittest {
 unittest {
     string a = Path("a");
     string b = AbsolutePath(Path("a"));
+}
+
+@("shall build path from path ~ string")
+unittest {
+    import std.file : getcwd;
+    import std.meta : AliasSeq;
+    import std.stdio;
+
+    static foreach (T; AliasSeq!(string, Path)) {
+        {
+            const a = Path("foo");
+            const T b = "smurf";
+            Path c = a ~ b;
+            assert(c.value == "foo/smurf");
+        }
+    }
+
+    static foreach (T; AliasSeq!(string, Path)) {
+        {
+            const a = Path("foo");
+            const T b = "smurf";
+            AbsolutePath c = a ~ b;
+            assert(c.value.value == buildPath(getcwd, "foo", "smurf"));
+        }
+    }
 }
