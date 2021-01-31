@@ -59,9 +59,8 @@ The focus is to polish existing features.
 
 ### Tasks
 
- * seems like some mutants occur in multiple schematan. reduce these
-   duplication which will lead to a speedup because less scheman with higher
-   quality.
+ * There are still too many schemas with 3-10 mutants in them. Merge schemas
+   across translation units.
  * the html report have an off-by-one error when displaying mutants.
  * html. a mutant that span multiple lines is displayed on one line. This makes
    it harder to read the report than necessary. fix it so ut is displayed with
@@ -76,8 +75,6 @@ The focus is to polish existing features.
 The focus is on speed. Both in running the tool and in giving actionable feedback to the user.
 
  * Improve priority of how mutants are executed.
- * Reduce "junk" mutants.
- * Rewrite schemata engine
 
 ### Tasks
 
@@ -97,8 +94,6 @@ more complex may need to be broken down and added to the roadmap.
 
 New items are added at the top
 
- * rewrite the schemata engine. it is now obvious which patterns are generic.
-   It should be possible to completely generalize.
  * fix sdl for single line if-statement. it do not delete the branch.
  * display mutant prioritization to the user? Depending on how it is implemented.
  * implement a function mutation coverage metric or something. It can be argued
@@ -123,32 +118,15 @@ New items are added at the top
       represent.
     * another way is to import a plain json as coverage data. then the user can
       transform from whatever they want to this json and dextool imports it.
- * add an option to let the file path, relative, be part of the checksum.
-    * needed for projects that have exactly copies of files in multiple
-      locations and these copies are used differently. This is probably a
-      corner case of the users so not a high priority to fix. The only reason
-      to probably fix it is to make users "feel good" that a loop hole is
-      closed.
  * add an option to let the compilation flags be part of the checksum.
  * embed the configuration in the database to make it easier to share, review
    and archive. "how was the mutation testing tool actually executed?".
- * use file checksum to NOT analyze redundant files. note though that this
-   requires a dependency tree so headers are re-analyzed even though the root
-   is unchanged.
  * present the first mutant that survived in a pull request as a diff. It
    should be "good enough" because the user is working on the pieace of code
    thus it should be able to "fast" understand what the mutant means.
- * build a dependency for a file that is mutated such that it is only
-   re-analyzed if that file or any of its dependencies has changed. Use the
-   includeVisitor to find the dependencies.
- * add a database query that returns test cases sorted by the number of mutants they killed.
-   change package.d to using it instead of `sort_tcs_on_kills`.
  * rank mutants by how much they changed the source code. more tokens then
    higher risk? Add to high interest mutants.  an alternative would be how much
    they change the dataflow based on the LLVM IR.
- * allow the limits for the colors in the html report for files to be configurable.
-    * The user may have either looser or stricter requirements than those that
-      are hard coded atm.
  * make it possible for the user to define "mutation operator sets" from the
    40+ primitives. There is no reason why they are hardcoded.
  * implement merge of databases. It is to make it possible for a team to work "distributed".
