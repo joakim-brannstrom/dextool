@@ -1,3 +1,13 @@
+# v3.0.1 Drizzle
+
+Improved sanity checks to catch common user or environment errors automatically.
+
+New features for dextool mutate
+
+ * Check that all files to mutate are writable.
+ * Check periodically that the test suite, without any mutants, execute OK. If
+   not, rollback the last tested mutants.
+
 # v3.0.0 Nice Weather
 
 This release, as the previous once, has focused on the mutation testing plugin.
