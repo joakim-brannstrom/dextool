@@ -35,7 +35,7 @@ TestParams genTestClassParams(string f, const ref TestEnv testEnv) {
 
     p.root = Path("plugin_testdata/uml");
     p.input_ext = p.root ~ f;
-    p.base_file_compare = p.input_ext.toString.stripExtension;
+    p.base_file_compare = p.input_ext.toString.stripExtension.Path;
 
     p.out_pu = testEnv.outdir ~ "view_classes.pu";
 
@@ -53,7 +53,7 @@ TestParams genTestComponentParams(string f, const ref TestEnv testEnv) {
 
     p.root = Path("plugin_testdata/uml");
     p.input_ext = p.root ~ f;
-    p.base_file_compare = p.input_ext.toString.stripExtension;
+    p.base_file_compare = p.input_ext.toString.stripExtension.Path;
 
     p.out_pu = testEnv.outdir ~ "view_components.pu";
 

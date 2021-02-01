@@ -31,7 +31,10 @@ UpdateTimeout --> OverloadCheck
 
 OverloadCheck --> CheckRuntime : sleep
 OverloadCheck --> Done : halt
-OverloadCheck --> Cleanup : ok
+OverloadCheck --> ContCheckTestSuite : ok
+
+ContCheckTestSuite --> Cleanup : ok
+ContCheckTestSuite --> Error : fail
 
 Cleanup --> NextSchemata
 Cleanup --> NextPullRequestMutant : hasConstraint

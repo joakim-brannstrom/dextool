@@ -1,5 +1,5 @@
---- build/plugin/mutate/plugin_testdata/dcr_dc_switch1.cpp	2018-11-18 21:25:46.631640690 +0100
-+++ build/plugin/mutate/plugin_testdata/dcr_dc_switch1.cpp	2018-11-18 21:26:17.003691847 +0100
+--- plugin_testdata/dcr_dc_switch1.cpp	2018-11-18 21:25:46.631640690 +0100
++++ plugin_testdata/dcr_dc_switch1.cpp	2018-11-18 21:26:17.003691847 +0100
 @@ -9,6 +9,6 @@
     case 0:
         return -1 ;

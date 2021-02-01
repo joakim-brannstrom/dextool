@@ -56,7 +56,7 @@ foreach (getValue; [["compile_db/dir1/single_file.h", "use_file"], ["compile_db/
 
     r.output.sliceContains(`Analyzing all files in the compilation DB for one that has an '#include "single_file.h"'`).shouldBeTrue;
     // the file returned shall be the full path for the one searching for
-    r.output.sliceContains("because it has an '#include' for '" ~ (testData ~ "compile_db/dir1/single_file.h").toString).shouldBeTrue;
+    r.output.sliceContains("because it has an '#include' for '" ~ (testData ~ "compile_db/dir1/single_file.h").AbsolutePath.toString).shouldBeTrue;
 }
 }
 

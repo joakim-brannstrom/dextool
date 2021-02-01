@@ -19,5 +19,5 @@ Path testData() {
 immutable defaultDb = "database.sqlite3";
 
 Path workDir() {
-    return Path("../../..");
+    return Path(".");
 }

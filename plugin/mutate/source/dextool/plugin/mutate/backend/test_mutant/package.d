@@ -376,6 +376,10 @@ struct TestDriver {
         bool sleep;
     }
 
+    static struct ContinuesCheckTestSuite {
+        bool ok;
+    }
+
     static struct Stop {
     }
 
@@ -394,7 +398,8 @@ struct TestDriver {
             UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant,
             ParseStdin, FindTestCmds, ChooseMode, NextSchemata, SchemataTest,
             SchemataTestResult, LoadSchematas, SchemataPruneUsed, Stop,
-            SaveMutationScore, OverloadCheck, Coverage, PropagateCoverage);
+            SaveMutationScore, OverloadCheck, Coverage, PropagateCoverage,
+            ContinuesCheckTestSuite);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData,
             PullRequestData, ResetOldMutantData, NextSchemataData);
 
@@ -507,7 +512,11 @@ struct TestDriver {
                 return fsm(Done.init);
             if (a.sleep)
                 return fsm(CheckRuntime.init);
-            return fsm(Cleanup.init);
+            return fsm(ContinuesCheckTestSuite.init);
+        }, (ContinuesCheckTestSuite a) {
+            if (a.ok)
+                return fsm(Cleanup.init);
+            return fsm(Error.init);
         }, (MutationTest a) {
             if (a.mutationError)
                 return fsm(Error.init);
@@ -573,14 +582,17 @@ nothrow:
     }
 
     void opCall(ref SanityCheck data) {
+        import core.sys.posix.sys.stat : S_IWUSR;
         import std.path : buildPath;
+        import my.file : getAttrs;
         import colorlog : color, Color;
         import dextool.plugin.mutate.backend.utility : checksum, Checksum;
 
-        logger.info("Checking that the file(s) on the filesystem match the database")
-            .collectException;
+        logger.info("Sanity check of files to mutate").collectException;
 
         auto failed = appender!(string[])();
+        auto checksumFailed = appender!(string[])();
+        auto writePermissionFailed = appender!(string[])();
         foreach (file; spinSql!(() { return global.data.db.getFiles; })) {
             auto db_checksum = spinSql!(() {
                 return global.data.db.getFileChecksum(file);
@@ -590,26 +602,48 @@ nothrow:
                 auto abs_f = AbsolutePath(buildPath(global.data.filesysIO.getOutputDir, file));
                 auto f_checksum = checksum(global.data.filesysIO.makeInput(abs_f).content[]);
                 if (db_checksum != f_checksum) {
-                    failed.put(abs_f);
+                    checksumFailed.put(abs_f);
+                }
+
+                uint attrs;
+                if (getAttrs(abs_f, attrs)) {
+                    if ((attrs & S_IWUSR) == 0) {
+                        writePermissionFailed.put(abs_f);
+                    }
+                } else {
+                    writePermissionFailed.put(abs_f);
                 }
             } catch (Exception e) {
-                // assume it is a problem reading the file or something like that.
                 failed.put(file);
                 logger.warningf("%s: %s", file, e.msg).collectException;
             }
         }
 
-        data.sanityCheckFailed = failed.data.length != 0;
+        data.sanityCheckFailed = !failed.data.empty
+            || !checksumFailed.data.empty || !writePermissionFailed.data.empty;
 
         if (data.sanityCheckFailed) {
-            logger.error("Detected that file(s) has changed since last analyze where done")
-                .collectException;
-            logger.error("Either restore the file(s) or rerun the analyze").collectException;
-            foreach (f; failed.data) {
+            logger.info(!failed.data.empty,
+                    "Unknown error when checking the files").collectException;
+            foreach (f; failed.data)
                 logger.info(f).collectException;
-            }
+
+            logger.info(!checksumFailed.data.empty,
+                    "Detected that file(s) has changed since last analyze where done")
+                .collectException;
+            logger.info(!checksumFailed.data.empty,
+                    "Either restore the file(s) or rerun the analyze").collectException;
+            foreach (f; checksumFailed.data)
+                logger.info(f).collectException;
+
+            logger.info(!writePermissionFailed.data.empty,
+                    "Files to mutate are not writable").collectException;
+            foreach (f; writePermissionFailed.data)
+                logger.info(f).collectException;
+
+            logger.info("Failed".color.fgRed).collectException;
         } else {
-            logger.info("Ok".color(Color.green)).collectException;
+            logger.info("Ok".color.fgGreen).collectException;
         }
     }
 
@@ -651,6 +685,42 @@ nothrow:
             logger.warning(isOverloaded, "Halting").collectException;
             data.halt = isOverloaded;
             break;
+        }
+    }
+
+    void opCall(ref ContinuesCheckTestSuite data) {
+        data.ok = true;
+
+        if (!global.data.conf.contCheckTestSuite)
+            return;
+
+        const wlist = spinSql!(() => global.data.db.getWorklistCount);
+        const period = global.data.conf.contCheckTestSuitePeriod.get;
+        if (wlist % period != 0)
+            return;
+
+        compile(global.data.conf.mutationCompile, global.data.conf.buildCmdTimeout, true).match!(
+                (Mutation.Status a) { data.ok = false; }, (bool success) {
+            data.ok = success;
+        });
+
+        if (data.ok) {
+            try {
+                data.ok = measureTestCommand(runner, 1).ok;
+            } catch (Exception e) {
+                logger.error(e.msg).collectException;
+                data.ok = false;
+            }
+        }
+
+        if (!data.ok) {
+            logger.warning("Continues sanity check of the test suite has failed.").collectException;
+            logger.infof("Rolling back the status of the last %s mutants to status unknown.",
+                    period).collectException;
+            foreach (a; spinSql!(() => global.data.db.getLatestMutants(global.data.kinds, period))) {
+                spinSql!(() => global.data.db.updateMutation(a.id,
+                        Mutation.Status.unknown, ExitStatus(0), MutantTimeProfile.init));
+            }
         }
     }
 
