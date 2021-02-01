@@ -363,11 +363,16 @@ nothrow:
 
         logger.infof("Compile schema %s", schemataId.get).collectException;
 
-        compile(buildCmd, buildCmdTimeout, true).match!((Mutation.Status a) {
+        compile(buildCmd, buildCmdTimeout, false).match!((Mutation.Status a) {
             data.error = true;
         }, (bool success) { data.error = !success; });
 
         if (data.error) {
+            // run again but this time show the output to the user.  scheman
+            // shouldn't fail that often so this help finding out why a schema
+            // fail to compile.
+            compile(buildCmd, buildCmdTimeout, true);
+
             logger.info("Skipping schema because it failed to compile".color(Color.yellow))
                 .collectException;
             spinSql!(() { db.markUsed(schemataId); });
