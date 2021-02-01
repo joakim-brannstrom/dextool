@@ -380,6 +380,11 @@ struct TestDriver {
         bool ok;
     }
 
+    static struct ContinuesCheckTestSuiteData {
+        long lastWorklistCnt;
+        SysTime lastCheck;
+    }
+
     static struct Stop {
     }
 
@@ -401,13 +406,13 @@ struct TestDriver {
             SaveMutationScore, OverloadCheck, Coverage, PropagateCoverage,
             ContinuesCheckTestSuite);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData,
-            PullRequestData, ResetOldMutantData, NextSchemataData);
+            PullRequestData, ResetOldMutantData, NextSchemataData, ContinuesCheckTestSuiteData);
 
     private {
         Fsm fsm;
         Global global;
         TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant,
-                PullRequest, ResetOldMutant, NextSchemata) local;
+                PullRequest, ResetOldMutant, NextSchemata, ContinuesCheckTestSuite) local;
         bool isRunning_ = true;
         bool isDone = false;
     }
@@ -689,15 +694,31 @@ nothrow:
     }
 
     void opCall(ref ContinuesCheckTestSuite data) {
+        import std.algorithm : max;
+
         data.ok = true;
 
         if (!global.data.conf.contCheckTestSuite)
             return;
 
+        enum forceCheckEach = 1.dur!"hours";
+
         const wlist = spinSql!(() => global.data.db.getWorklistCount);
-        const period = global.data.conf.contCheckTestSuitePeriod.get;
-        if (wlist % period != 0)
+        if (local.get!ContinuesCheckTestSuite.lastWorklistCnt == 0) {
+            // first time, just initialize.
+            local.get!ContinuesCheckTestSuite.lastWorklistCnt = wlist;
+            local.get!ContinuesCheckTestSuite.lastCheck = Clock.currTime + forceCheckEach;
             return;
+        }
+
+        const period = global.data.conf.contCheckTestSuitePeriod.get;
+        const diffCnt = local.get!ContinuesCheckTestSuite.lastWorklistCnt - wlist;
+        if (!(wlist % period == 0 || diffCnt >= period
+                || Clock.currTime > local.get!ContinuesCheckTestSuite.lastCheck))
+            return;
+
+        local.get!ContinuesCheckTestSuite.lastWorklistCnt = wlist;
+        local.get!ContinuesCheckTestSuite.lastCheck = Clock.currTime + forceCheckEach;
 
         compile(global.data.conf.mutationCompile, global.data.conf.buildCmdTimeout, true).match!(
                 (Mutation.Status a) { data.ok = false; }, (bool success) {
@@ -717,7 +738,8 @@ nothrow:
             logger.warning("Continues sanity check of the test suite has failed.").collectException;
             logger.infof("Rolling back the status of the last %s mutants to status unknown.",
                     period).collectException;
-            foreach (a; spinSql!(() => global.data.db.getLatestMutants(global.data.kinds, period))) {
+            foreach (a; spinSql!(() => global.data.db.getLatestMutants(global.data.kinds,
+                    max(diffCnt, period)))) {
                 spinSql!(() => global.data.db.updateMutation(a.id,
                         Mutation.Status.unknown, ExitStatus(0), MutantTimeProfile.init));
             }
