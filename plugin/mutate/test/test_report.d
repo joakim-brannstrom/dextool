@@ -88,8 +88,9 @@ unittest {
 
 @(testId ~ "shall report mutants in the database as gcc compiler warnings/notes with fixits to stderr")
 unittest {
-    auto input_src = testData ~ "report_one_ror_mutation_point.cpp";
     mixin(EnvSetup(globalTestdir));
+
+    auto input_src = AbsolutePath(testData ~ "report_one_ror_mutation_point.cpp");
     makeDextoolAnalyze(testEnv)
         .addInputArg(input_src)
         .run;
@@ -391,7 +392,7 @@ class ShallProduceHtmlReport : SimpleAnalyzeFixture {
             .run;
 
         // assert that the expected files have been generated
-        exists(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_one_ror_mutation_point.cpp.html")).shouldBeTrue;
+        exists(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata_report_one_ror_mutation_point.cpp.html")).shouldBeTrue;
         exists(buildPath(testEnv.outdir.toString, "html", "stats.html")).shouldBeTrue;
         exists(buildPath(testEnv.outdir.toString, "html", "index.html")).shouldBeTrue;
     }
@@ -419,7 +420,7 @@ class ShallProduceHtmlReportOfMultiLineComment : SimpleAnalyzeFixture {
             `"loc-11"`,
             `"loc-12"`,
             `"loc-13"`,
-        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_multi_line_comment.cpp.html")).byLineCopy.array);
+        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata_report_multi_line_comment.cpp.html")).byLineCopy.array);
     }
 }
 
@@ -468,7 +469,7 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
             "Diff View",
             "Mutation Score <b>0.7",
             "Analyzed Diff",
-            "build/plugin/mutate/plugin_testdata/report_one_ror_mutation_point.cpp",
+            "plugin_testdata/report_one_ror_mutation_point.cpp",
         ]).shouldBeIn(File((testEnv.outdir ~ "html/diff_view.html").toString).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["diff"];
@@ -511,13 +512,13 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!Re([
-            "Score:.*0.8",
+            "Score:.*0.6",
             "Total:.*9",
             "Alive:.*5",
             "Killed:.*4",
             "Timeout:.*0",
             "Killed by compiler:.*0",
-            "Suppressed .nomut.:.*4 .0.4",
+            "Suppressed .nomut.:.*3 .0.3",
         ]).shouldBeIn(plain.output);
     }
 }
@@ -533,7 +534,6 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             const id = db.getMutationId(stId).get;
             db.updateMutation(id, Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
         }
-
 
         makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
@@ -593,7 +593,7 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
             "'meta' : ''",
             "'meta' : 'nomut'",
             "'meta' : 'nomut'",
-            ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
+            ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
 }
 }
 
@@ -617,7 +617,7 @@ class ShallReportHtmlNoMutSummary : LinesWithNoMut {
         // assert
         testConsecutiveSparseOrder!SubStr([
                 `<h2>group1</h2>`,
-                `<a href="files/build_plugin_mutate_plugin_testdata_report_nomut1.cpp.html`,
+                `<a href="files/plugin_testdata_report_nomut1.cpp.html`,
                 `<br`, `with comment`
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
                 "nomut.html")).byLineCopy.array);
