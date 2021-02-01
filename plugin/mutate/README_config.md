@@ -151,19 +151,19 @@ Administrative operation to perform:
  - *removeTestCase* : Remove all test cases that match the supplied regex.
  - *markMutant*: Mark a mutant with a specific status and provide a rationale.
    Will both mark the mutant in mutationStatusTable and in a separate table.
- - removeMarkedMutant : remove the marking of a mutant.
- - resetTestCase : reset the mutants that the test case has killed to unknown (ignore `--to-status`)
- - compact : run a sqlite vacuum on the database with the goal of reducing the
+ - *removeMarkedMutant* : remove the marking of a mutant.
+ - *resetTestCase* : reset the mutants that the test case has killed to unknown (ignore `--to-status`)
+ - *compact* : run a sqlite vacuum on the database with the goal of reducing the
    database size. This is automatically done after operations that normally
    result in a potentially significant reduction of the database size so most
    often this option is not needed.
- - stopTimeoutTest : changes the states in the database and internal worklists
- - such that the test phase will finish the timeout testing faster. This may be
+ - *stopTimeoutTest* : changes the states in the database and internal worklists
+   such that the test phase will finish the timeout testing faster. This may be
    desired if there are many timeout mutants and it takes a long time to
    execute each of them.
- - resetMutantSubKind : same as resetMutant but only operates on the
+ - *resetMutantSubKind* : same as resetMutant but only operates on the
    sub-mutation kinds which have a higher precision of which ones are affected.
- - clearWorklist : clear the worklist of mutants to test.
+ - *clearWorklist* : clear the worklist of mutants to test.
 
 ```sh
 --test-case-regex
@@ -302,14 +302,6 @@ to generate specific result that helps a user improve test cases among other.
 
 Not all `--section` are supported by all report `--style`s. `plain` supports
 all of them. The rest are implemented as needed and if it is feasible.
-
-```sh
---level
-```
-Report level of the mutation data:
- - *summary* : Create a report that is a summary of the result.
- - *alive* : Create a report that only lists the alive mutants.
- - *all* : Create a report that contains all the mutants.
 
 ```sh
 --logdir
