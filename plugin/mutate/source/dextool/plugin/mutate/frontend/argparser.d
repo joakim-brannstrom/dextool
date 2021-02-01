@@ -213,7 +213,7 @@ struct ArgParser {
         app.put("# the arguments for test_cmd can be an array of multiple test commands");
         app.put(`# 1. ["test1.sh", "test2.sh"]`);
         app.put(`# 2. [["test1.sh", "-x"], "test2.sh"]`);
-        app.put(`# 3. [["/bin/make", "all"]]`);
+        app.put(`# 3. [["/bin/make", "test"]]`);
         app.put(`# test_cmd = ["./test.sh"]`);
         app.put(null);
         app.put(
