@@ -134,6 +134,8 @@ struct TestRunner {
         }
 
         void processDone(TestTask* t, ref TestResult result, ref Appender!(DrainElement[]) output) {
+            import std.string : join;
+
             auto res = t.yieldForce;
 
             result.exitStatus = mergeExitStatus(result.exitStatus, res.exitStatus);
@@ -145,6 +147,7 @@ struct TestRunner {
                 }
                 if (res.exitStatus.get != 0) {
                     incrCmdKills(res.cmd);
+                    result.testCmds ~= res.cmd.join(" ");
                 }
                 output.put(res.output);
                 break;
@@ -242,6 +245,9 @@ struct TestResult {
 
     Status status;
     ExitStatus exitStatus;
+
+    /// all test commands that found the mutant.
+    string[] testCmds;
 
     /// Output from all the test binaries and command.
     DrainElement[] output;

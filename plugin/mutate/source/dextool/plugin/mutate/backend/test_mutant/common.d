@@ -448,6 +448,7 @@ struct TestResult {
     Mutation.Status status;
     DrainElement[] output;
     ExitStatus exitStatus;
+    string[] testCmds;
 }
 
 /** Run the test suite to verify a mutation.
@@ -468,6 +469,7 @@ TestResult runTester(ref TestRunner runner) nothrow {
         auto res = runner.run;
         rval.output = res.output;
         rval.exitStatus = res.exitStatus;
+        rval.testCmds = res.testCmds;
 
         final switch (res.status) with (
             dextool.plugin.mutate.backend.test_mutant.test_cmd_runner.TestResult.Status) {
