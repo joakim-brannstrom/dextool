@@ -7,6 +7,7 @@ New features for dextool mutate
  * Check that all files to mutate are writable.
  * Check periodically that the test suite, without any mutants, execute OK. If
    not, rollback the last tested mutants.
+ * Save what test_cmd killed a mutant.
 
 # v3.0.0 Nice Weather
 

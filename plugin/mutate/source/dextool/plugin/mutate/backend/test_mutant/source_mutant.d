@@ -13,7 +13,8 @@ module dextool.plugin.mutate.backend.test_mutant.source_mutant;
 
 import core.time : Duration;
 import logger = std.experimental.logger;
-import std.array : empty;
+import std.algorithm : sort, map;
+import std.array : empty, array;
 import std.exception : collectException;
 import std.path : buildPath;
 
@@ -291,13 +292,16 @@ nothrow:
     }
 
     void opCall(ref TestCaseAnalyze data) {
+        scope (exit)
+            global.testResult = TestResult.init;
+
         try {
             auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(
                     global.testResult.output);
-            global.testResult.output = null;
 
             analyze.match!((TestCaseAnalyzer.Success a) {
                 global.testCases = a.failed;
+                global.testCases ~= global.testResult.testCmds.map!(a => TestCase(a)).array;
             }, (TestCaseAnalyzer.Unstable a) {
                 logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
                 logger.info(
@@ -312,7 +316,6 @@ nothrow:
     }
 
     void opCall(StoreResult data) {
-        import std.algorithm : sort, map;
         import miniorm : spinSql;
 
         const statusId = spinSql!(() => global.db.getMutationStatusId(global.mutp.id));
