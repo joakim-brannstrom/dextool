@@ -75,7 +75,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
     }();
 
     // if a dependency of a root file has been changed.
-    auto changedDeps = dependencyAnalyze(dbPath);
+    auto changedDeps = dependencyAnalyze(dbPath, fio);
 
     // will only be used by one thread at a time.
     auto store = spawn(&storeActor, dbPath, cast(shared) fio.dup, conf_analyze.prune,
@@ -1066,7 +1066,7 @@ Optional!AbsolutePath toAbsolutePath(Path file, AbsolutePath workDir,
 /** Returns: the root files that need to be re-analyzed because either them or
  * their dependency has changed.
  */
-bool[Path] dependencyAnalyze(const AbsolutePath dbPath) @trusted {
+bool[Path] dependencyAnalyze(const AbsolutePath dbPath, FilesysIO fio) @trusted {
     import dextool.cachetools : nullableCache;
     import dextool.plugin.mutate.backend.database : FileId;
 
@@ -1086,8 +1086,8 @@ bool[Path] dependencyAnalyze(const AbsolutePath dbPath) @trusted {
                 30.dur!"seconds");
         auto getFileDbChecksum = nullableCache!(string, Checksum,
                 (string p) => db.getFileChecksum(p.Path))(256, 30.dur!"seconds");
-        auto getFileFsChecksum = nullableCache!(string, Checksum, (string p) {
-            return checksum(AbsolutePath(Path(p)));
+        auto getFileFsChecksum = nullableCache!(AbsolutePath, Checksum, (AbsolutePath p) {
+            return checksum(p);
         })(256, 30.dur!"seconds");
 
         Checksum[Path] dbDeps;
@@ -1095,10 +1095,10 @@ bool[Path] dependencyAnalyze(const AbsolutePath dbPath) @trusted {
             dbDeps[a.file] = a.checksum;
 
         bool isChanged(T)(T f) {
-            if (f.rootCs != getFileFsChecksum(f.root))
+            if (f.rootCs != getFileFsChecksum(fio.toAbsoluteRoot(f.root)))
                 return true;
 
-            foreach (a; f.deps.filter!(a => getFileFsChecksum(a) != dbDeps[a])) {
+            foreach (a; f.deps.filter!(a => getFileFsChecksum(fio.toAbsoluteRoot(a)) != dbDeps[a])) {
                 return true;
             }
 
