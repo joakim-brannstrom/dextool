@@ -47,9 +47,8 @@ immutable schemataMutantIdentifier = "dextool_get_mutid()";
 immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
 /// Translate a mutation AST to a schemata.
-SchemataResult toSchemata(RefCounted!Ast ast, FilesysIO fio,
-        CodeMutantsResult cresult, long mutantsPerSchema) @safe {
-    auto rval = new SchemataResult(fio, mutantsPerSchema);
+SchemataResult toSchemata(RefCounted!Ast ast, FilesysIO fio, CodeMutantsResult cresult) @safe {
+    auto rval = new SchemataResult;
     auto index = new CodeMutantIndex(cresult);
 
     final switch (ast.lang) {
@@ -79,11 +78,8 @@ uint checksumToId(ulong cs) @safe pure nothrow @nogc {
     return cast(uint) cs;
 }
 
-/// Language generic
+/// Language generic schemata result.
 class SchemataResult {
-    import dextool.plugin.mutate.backend.database.type : SchemataFragment;
-    import dextool.plugin.mutate.backend.analyze.utility : Index;
-
     static struct Fragment {
         Offset offset;
         const(ubyte)[] text;
@@ -97,17 +93,10 @@ class SchemataResult {
 
     private {
         Schemata[AbsolutePath] schematas;
-        FilesysIO fio;
-        const long mutantsPerSchema;
     }
 
-    this(FilesysIO fio, long mutantsPerSchema) {
-        this.fio = fio;
-        this.mutantsPerSchema = mutantsPerSchema;
-    }
-
-    SchematasRange getSchematas() @safe {
-        return SchematasRange(fio, schematas, mutantsPerSchema);
+    Schemata[AbsolutePath] getSchematas() @safe {
+        return schematas;
     }
 
     /// Assuming that all fragments for a file should be merged to one huge.
@@ -145,46 +134,130 @@ class SchemataResult {
     }
 }
 
-private:
+/** Build scheman from the fragments.
+ *
+ * TODO: optimize the implementation. A lot of redundant memory allocations
+ * etc.
+ *
+ * Conservative to only allow up to <user defined> mutants per schemata but it
+ * reduces the chance that one failing schemata is "fatal", loosing too many
+ * muntats.
+ */
+struct SchemataBuilder {
+    import std.algorithm : any, all;
+    import my.container.vector;
 
-struct SchematasRange {
+    alias Fragment = Tuple!(SchemataFragment, "fragment", CodeMutant[], "mutants");
+
     alias ET = Tuple!(SchemataFragment[], "fragments", CodeMutant[], "mutants",
             SchemataChecksum, "checksum");
 
-    private {
-        ET[] values;
-    }
+    ///
+    bool discardMinScheman;
 
-    this(scope FilesysIO fio, SchemataResult.Schemata[AbsolutePath] raw, long mutantsPerSchema) {
-        auto values_ = appender!(ET[])();
-        auto builder = SchemataBuilder(mutantsPerSchema);
+    /// Max mutants per schema.
+    long mutantsPerSchema;
 
+    /// Minimal mutants that a schema must contain for it to be valid.
+    long minMutantsPerSchema = 3;
+
+    /// All mutants that have been used in any generated schema.
+    Set!CodeMutant isUsed;
+
+    // schemas that in pass1 is less than the threshold
+    Vector!Fragment current;
+    Vector!Fragment rest;
+
+    /// Save fragments to use them to build schematan.
+    void put(scope FilesysIO fio, SchemataResult.Schemata[AbsolutePath] raw) {
         foreach (schema; raw.byKeyValue) {
-            auto file = fio.toRelativeRoot(schema.key);
-            builder.put(schema.value.fragments, file);
+            const file = fio.toRelativeRoot(schema.key);
+            put(schema.value.fragments, file);
+        }
+    }
+
+    /** Merge analyze fragments into larger schemata fragments. If a schemata
+     * fragment is large enough it is converted to a schemata. Otherwise kept
+     * for pass2.
+     *
+     * Schematan from this pass only contain one kind and only affect one file.
+     */
+    private void put(SchemataResult.Fragment[] fragments, const Path file) {
+        foreach (a; fragments) {
+            current.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
+        }
+    }
+
+    /** Merge schemata fragments to schemas. A schemata from this pass may may
+     * contain multiple mutation kinds and span over multiple files.
+     */
+    Optional!ET next() {
+        Index!Path index;
+        auto app = appender!(Fragment[])();
+        Set!CodeMutant local;
+
+        while (!current.empty) {
+            if (local.length >= mutantsPerSchema) {
+                // done now so woop
+                break;
+            }
+
+            auto a = current.front;
+            current.popFront;
+
+            if (a.mutants.empty)
+                continue;
+
+            if (all!(a => a in isUsed)(a.mutants)) {
+                // all mutants in the fragment have already been used in
+                // schemas, discard.
+                rest.put(a);
+                continue;
+            }
+
+            if (index.intersect(a.fragment.file, a.fragment.offset)) {
+                rest.put(a);
+                continue;
+            }
+
+            // if any of the mutants in the schema has already been included.
+            if (any!(a => a in local)(a.mutants)) {
+                rest.put(a);
+                continue;
+            }
+
+            app.put(a);
+            local.add(a.mutants);
+            index.put(a.fragment.file, a.fragment.offset);
         }
 
-        while (!builder.pass2Data.empty) {
-            builder.pass2.match!((Some!ET a) => values_.put(a.value), (None a) {});
+        if (local.length < minMutantsPerSchema) {
+            if (!discardMinScheman) {
+                rest.put(app.data);
+            }
+            return none!ET;
         }
 
-        this.values = values_.data;
+        ET v;
+        v.fragments = app.data.map!(a => a.fragment).array;
+        v.mutants = local.toArray;
+        v.checksum = toSchemataChecksum(v.mutants);
+        isUsed.add(v.mutants);
+        return some(v);
     }
 
-    ET front() @safe pure nothrow {
-        assert(!empty, "Can't get front of an empty range");
-        return values[0];
+    bool isDone() @safe pure nothrow const @nogc {
+        return current.empty;
     }
 
-    void popFront() @safe {
-        assert(!empty, "Can't pop front of an empty range");
-        values = values[1 .. $];
-    }
-
-    bool empty() @safe pure nothrow const @nogc {
-        return values.empty;
+    void restart() @safe pure nothrow @nogc {
+        current = rest;
+        rest.clear;
+        isUsed = typeof(isUsed).init;
     }
 }
+
+private:
 
 // An index over the mutants and the interval they apply for.
 class CodeMutantIndex {
@@ -893,91 +966,4 @@ auto contentOrNull(uint begin, uint end, const(ubyte)[] content) {
     if (begin >= end)
         return null;
     return content[begin .. end];
-}
-
-/** Build schematan from the individual fragments for a individual file.
- * TODO: optimize the implementation. A lot of redundant memory allocations
- * etc.
- *
- * Conservative to only allow up to <user defined> mutants per schemata but it
- * reduces the chance that one failing schemata is "fatal", loosing too many
- * muntats.
- */
-struct SchemataBuilder {
-    import std.algorithm : any, all;
-    import my.container.vector;
-
-    alias Fragment = Tuple!(SchemataFragment, "fragment", CodeMutant[], "mutants");
-
-    alias ET = SchematasRange.ET;
-    const long mutantsPerSchema;
-    // hardcoded for now the minimum req. for a schema to be saved.
-    immutable long minMutantsPerSchema = 2;
-
-    /// All mutants that have been used in any generated schema.
-    Set!CodeMutant isUsed;
-
-    // schemas that in pass1 is less than the threshold
-    Vector!Fragment pass2Data;
-
-    /** Merge analyze fragments into larger schemata fragments. If a schemata
-     * fragment is large enough it is converted to a schemata. Otherwise kept
-     * for pass2.
-     *
-     * Schematan from this pass only contain one kind and only affect one file.
-     */
-    void put(SchemataResult.Fragment[] fragments, Path file) {
-        foreach (a; fragments) {
-            pass2Data.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
-        }
-    }
-
-    /** Merge schemata fragments to schemas. A schemata from this pass may may
-     * contain multiple mutation kinds and span over multiple files.
-     */
-    Optional!ET pass2() {
-        Index!Path index;
-
-        auto app = appender!(SchemataFragment[])();
-        Set!CodeMutant local;
-
-        typeof(pass2Data) rest;
-        scope (exit)
-            pass2Data = rest;
-
-        foreach (a; pass2Data) {
-            // all mutants in the fragment have already been generated, discard.
-            if (all!(a => a in isUsed)(a.mutants)) {
-                continue;
-            }
-
-            if (local.length >= mutantsPerSchema
-                    || index.intersect(a.fragment.file, a.fragment.offset)) {
-                rest.put(a);
-                continue;
-            }
-
-            // if any of the mutants in the schema has already been included.
-            if (any!(a => a in local)(a.mutants)) {
-                rest.put(a);
-                continue;
-            }
-
-            app.put(a.fragment);
-            local.add(a.mutants);
-            index.put(a.fragment.file, a.fragment.offset);
-        }
-
-        if (local.length <= minMutantsPerSchema)
-            return none!ET;
-
-        debug logger.tracef("created schema with %s mutants", local.length);
-
-        ET v;
-        v.fragments = app.data;
-        v.mutants = local.toArray;
-        v.checksum = toSchemataChecksum(v.mutants);
-        isUsed.add(v.mutants);
-        return some(v);
-    }
 }

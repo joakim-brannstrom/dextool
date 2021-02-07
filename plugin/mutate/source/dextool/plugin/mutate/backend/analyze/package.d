@@ -32,6 +32,7 @@ import my.set;
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB,
     ParsedCompileCommandRange, ParsedCompileCommand, ParseFlags, SystemIncludePath;
 import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
+import dextool.plugin.mutate.backend.analyze.pass_schemata : SchemataResult;
 import dextool.plugin.mutate.backend.database : Database, LineMetadata,
     MutationPointEntry2, DepFile;
 import dextool.plugin.mutate.backend.database.type : MarkedMutant, TestFile,
@@ -83,7 +84,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             conf_analyze.forceSaveAnalyze, cast(immutable) changedDeps.byKeyValue
             .filter!(a => !a.value)
             .map!(a => a.key)
-            .array);
+            .array, conf_analyze.mutantsPerSchema);
 
     try {
         pool.put(task!testPathActor(conf_analyze.testPaths,
@@ -201,8 +202,7 @@ void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze, Val
     try {
         //logger.infof("%s begin", fileToAnalyze.cmd.absoluteFile);
         auto analyzer = Analyze(kinds, vloc, fio, Analyze.Config(compilerConf.forceSystemIncludes,
-                analyzeConf.mutantsPerSchema, analyzeConf.saveCoverage.get,
-                compilerConf.allowErrors.get));
+                analyzeConf.saveCoverage.get, compilerConf.allowErrors.get));
         analyzer.process(fileToAnalyze);
         send(storeActor, cast(immutable) analyzer.result);
         //logger.infof("%s end", fileToAnalyze.cmd.absoluteFile);
@@ -278,7 +278,7 @@ void testPathActor(const AbsolutePath[] userPaths, GlobFilter matcher, FilesysIO
 /// Store the result of the analyze.
 void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, const bool prune,
         const bool fastDbStore, const long poolSize, const bool forceSave,
-        immutable Path[] notAnalyzed) @trusted nothrow {
+        immutable Path[] notAnalyzed, const long mutantsPerSchema) @trusted nothrow {
     import cachetools : CacheLRU;
     import dextool.cachetools : nullableCache;
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
@@ -295,6 +295,70 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
             return analyzeFileCnt < analyzeFileWaitCnt || !isTestFilesDone;
         }
     }
+
+    static struct SchemataSaver {
+        import sumtype;
+        import my.optional;
+        import dextool.plugin.mutate.backend.analyze.pass_schemata : SchemataBuilder;
+
+        long mutantsPerSchema;
+        SchemataBuilder builder;
+
+        void put(FilesysIO fio, SchemataResult.Schemata[AbsolutePath] a) {
+            builder.put(fio, a);
+        }
+
+        void process(ref Database db, Optional!(SchemataBuilder.ET) value) {
+            value.match!((Some!(SchemataBuilder.ET) a) {
+                try {
+                    auto mutants = a.mutants
+                        .map!(a => db.getMutationStatusId(a.id))
+                        .filter!(a => !a.isNull)
+                        .map!(a => a.get)
+                        .array;
+                    if (!mutants.empty) {
+                        const id = db.putSchemata(a.checksum, a.fragments, mutants);
+                        logger.tracef(!id.isNull, "Saving schema %s with %s mutants",
+                            id.get.get, mutants.length);
+                    }
+                } catch (Exception e) {
+                    logger.trace(e.msg);
+                }
+            }, (None a) {});
+        }
+
+        /// Consume fragments used by scheman containing >min mutants.
+        void intermediate(ref Database db) {
+            builder.discardMinScheman = false;
+            builder.mutantsPerSchema = mutantsPerSchema;
+            builder.minMutantsPerSchema = mutantsPerSchema;
+
+            while (!builder.isDone) {
+                process(db, builder.next);
+            }
+
+            builder.restart;
+        }
+
+        /// Consume all fragments or discard.
+        void finalize(ref Database db) {
+            builder.discardMinScheman = true;
+            builder.mutantsPerSchema = mutantsPerSchema;
+            builder.minMutantsPerSchema = 3;
+
+            // two loops to pass over all mutants and retry new schema
+            // compositions. Any schema that is less than the minimum will be
+            // discarded so the number of mutants will shrink.
+            while (!builder.isDone) {
+                while (!builder.isDone) {
+                    process(db, builder.next);
+                }
+                builder.restart;
+            }
+        }
+    }
+
+    auto schemas = SchemataSaver(mutantsPerSchema);
 
     void helper(FilesysIO fio, ref Database db) nothrow {
         // A file is at most saved one time to the database.
@@ -388,29 +452,12 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
                             db.putCoverageMap(fid.get, a.value);
                         }
                     }
-                }
 
-                // only save the schematas if mutation points where saved. This
-                // ensure that only schematas for changed/new files are saved.
-                if (isChanged || oldVersion.get) {
-                    foreach (s; result.schematas.enumerate) {
-                        const localId = Analyze.Result.LocalSchemaId(s.index);
-                        try {
-                            auto mutants = result.schemataMutants[localId].map!(
-                                    a => db.getMutationStatusId(a.value))
-                                .filter!(a => !a.isNull)
-                                .map!(a => a.get)
-                                .array;
-                            if (!mutants.empty && !s.value.empty) {
-                                const id = db.putSchemata(result.schemataChecksum[localId],
-                                        s.value, mutants);
-                                logger.trace(!id.isNull, "Saving schema ", id.get);
-                            }
-                        } catch (Exception e) {
-                            logger.trace(e.msg);
-                            logger.warning("Unable to save schema ", s.index).collectException;
-                        }
-                    }
+                    // only save the schematas if mutation points where saved.
+                    // This ensure that only schematas for changed/new files
+                    // are saved.
+                    schemas.put(fio, result.schematas);
+                    schemas.intermediate(db);
                 }
             }
 
@@ -553,6 +600,11 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
             }
 
             recv();
+            {
+                auto trans = db.transaction;
+                schemas.finalize(db);
+                trans.commit;
+            }
 
             {
                 auto trans = db.transaction;
@@ -631,7 +683,6 @@ struct Analyze {
 
     static struct Config {
         bool forceSystemIncludes;
-        long mutantsPerSchema;
         bool saveCoverage;
         bool allowErrors;
     }
@@ -643,7 +694,6 @@ struct Analyze {
 
         ValidateLoc valLoc;
         FilesysIO fio;
-        bool forceSystemIncludes;
 
         Cache cache;
 
@@ -660,7 +710,6 @@ struct Analyze {
         this.fio = fio;
         this.cache = new Cache;
         this.re_nomut = regex(raw_re_nomut);
-        this.forceSystemIncludes = forceSystemIncludes;
         this.result = new Result;
         this.conf = conf;
     }
@@ -741,17 +790,12 @@ struct Analyze {
         debug logger.trace(codeMutants);
 
         {
-            auto schemas = toSchemata(ast, fio, codeMutants, conf.mutantsPerSchema);
+            auto schemas = toSchemata(ast, fio, codeMutants);
             debug logger.trace(schemas);
             logger.tracef("path dedup count:%s length_acc:%s", ast.paths.count,
                     ast.paths.lengthAccum);
 
-            foreach (f; schemas.getSchematas.filter!(a => !(a.fragments.empty || a.mutants.empty))) {
-                const id = Result.LocalSchemaId(result.schematas.length);
-                result.schematas ~= f.fragments;
-                result.schemataMutants[id] = f.mutants.map!(a => a.id).array;
-                result.schemataChecksum[id] = f.checksum;
-            }
+            result.schematas = schemas.getSchematas;
         }
 
         result.mutationPoints = codeMutants.points.byKeyValue.map!(
@@ -846,7 +890,7 @@ struct Analyze {
         AbsolutePath root;
         Checksum rootCs;
 
-        /// An analyze is of a root. this
+        /// The dependencies the root has.
         DepFile[] dependencies;
 
         /// The key is the ID from idFile.
@@ -861,11 +905,7 @@ struct Analyze {
         LineMetadata[] metadata;
 
         /// Mutant schematas that has been generated.
-        SchemataFragment[][] schematas;
-        /// the mutants that are associated with a schemata.
-        CodeChecksum[][LocalSchemaId] schemataMutants;
-        /// checksum for the schemata
-        SchemataChecksum[LocalSchemaId] schemataChecksum;
+        SchemataResult.Schemata[AbsolutePath] schematas;
 
         /// Coverage intervals that can be instrumented.
         Interval[][LocalFileId] coverage;

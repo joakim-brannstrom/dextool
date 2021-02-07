@@ -77,7 +77,7 @@ struct Vector(T) {
 
     /// Assigns from a range.
     void opAssign(R)(R range) scope if (isForwardRange!(R)) {
-        data ~= range.array;
+        data = range.array;
     }
 
     void opOpAssign(string op)(T other) scope if (op == "~") {
