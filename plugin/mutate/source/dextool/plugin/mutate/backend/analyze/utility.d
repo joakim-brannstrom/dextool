@@ -74,8 +74,8 @@ struct Stack(T) {
         import std.algorithm : among;
 
         return match!((a) {
-            if (a[0].data.among(k))
-                return a[0].depth;
+            if (a.data.among(k))
+                return a.depth;
             return 0;
         })(stack, Direction.bottomToTop);
     }
@@ -87,28 +87,22 @@ struct Stack(T) {
  * `pred` should take one parameter.
  */
 auto match(alias pred, T)(ref T stack, Direction d) {
-    auto rval = typeof(pred(stack[0 .. $])).init;
+    auto rval = typeof(pred(stack[0])).init;
 
     if (stack.empty)
         return rval;
 
-    auto safeSlice(size_t i) @trusted {
-        return stack[i .. $];
-    }
-
     final switch (d) {
     case Direction.bottomToTop:
         foreach (i; 0 .. stack.length) {
-            rval = pred(safeSlice(i));
+            rval = pred(stack[i]);
             if (rval)
                 break;
         }
         break;
     case Direction.topToBottom:
         for (long i = stack.length - 1; i > 0; --i) {
-        }
-        foreach (i; 0 .. stack.length) {
-            rval = pred(safeSlice(i));
+            rval = pred(stack[i]);
             if (rval)
                 break;
         }

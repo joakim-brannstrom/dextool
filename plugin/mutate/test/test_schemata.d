@@ -292,3 +292,22 @@ class ShallGenerateValidSchemataArraySub : SchemataFixutre {
         testAnyOrder!SubStr(["from '+' to '-'"]).shouldNotBeIn(r.output);
     }
 }
+
+class ShallGenerateValidSchemataWithLambda : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_lambda.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+
+        testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
+                r.output);
+        //testAnyOrder!SubStr(["from '+' to '-'"]).shouldNotBeIn(r.output);
+    }
+}

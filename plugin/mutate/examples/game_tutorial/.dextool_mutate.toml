@@ -17,7 +17,7 @@ exclude = []
 # the recommended is ["lcr", "lcrb", "sdl", "uoi", "dcr"]
 # but the config only uses lcr/lcrb so **you** will quickly will get to test
 # the test and report phase.
-mutants = ["lcr", "lcrb"]
+mutants = ["lcr", "lcrb", "sdl", "uoi", "dcr"]
 
 # Use coverage to reduce the tested mutants
 use_coverage = true
