@@ -361,10 +361,10 @@ class MutantVisitor : DepthFirstVisitor {
     /// Returns: the closest function from the current node.
     Function getClosestFunc() {
         return cast(Function) match!((a) {
-            if (a[0].data.kind == Kind.Function)
-                return a[0].data;
+            if (a.data.kind == Kind.Function)
+                return a.data;
             return null;
-        })(nstack, Direction.bottomToTop);
+        })(nstack, Direction.topToBottom);
     }
 
     /// Returns: true if the current node is inside a function that returns bool.
@@ -425,17 +425,17 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Block n) {
-        sdlBlock(n, stmtDelMutations(n.kind));
+        sdlBlock(n, ast.location(n), stmtDelMutations(n.kind));
         accept(n, this);
     }
 
     override void visit(Loop n) {
-        sdlBlock(n, stmtDelMutations(n.kind));
+        sdlBlock(n, ast.location(n), stmtDelMutations(n.kind));
         accept(n, this);
     }
 
     override void visit(BranchBundle n) {
-        sdlBlock(n, stmtDelMutations(n.kind));
+        sdlBlock(n, ast.location(n), stmtDelMutations(n.kind));
         accept(n, this);
     }
 
@@ -632,7 +632,10 @@ class MutantVisitor : DepthFirstVisitor {
         // only case statements have an inside. pretty bad "detection" but
         // works for now.
         if (n.inside !is null) {
-            sdlBlock(n.inside, stmtDelMutations(n.kind));
+            // must analyze the n node because it is the one holding the
+            // children which is the whole hierarchy of nodes. the inside is
+            // "just" the inside of the block to delete.
+            sdlBlock(n, ast.location(n.inside), stmtDelMutations(n.kind));
         }
 
         accept(n, this);
@@ -744,12 +747,12 @@ class MutantVisitor : DepthFirstVisitor {
         }
     }
 
-    private void sdlBlock(T)(T n, Mutation.Kind[] op) @trusted {
+    private void sdlBlock(T)(T n, Location delLoc, Mutation.Kind[] op) @trusted {
         scope sdlAnalyze = new DeleteBlockVisitor(ast);
         sdlAnalyze.startVisit(n);
 
         if (sdlAnalyze.canRemove)
-            put(sdlAnalyze.loc, op, n.blacklist);
+            put(delLoc, op, n.blacklist);
     }
 }
 
@@ -767,8 +770,6 @@ class DeleteBlockVisitor : DepthFirstVisitor {
     // with SDL. Note though that it doesn't know anything about the parent
     // node.
     bool canRemove = true;
-    /// The location that represent the block to remove.
-    Location loc;
 
     alias visit = DepthFirstVisitor.visit;
 
@@ -781,10 +782,9 @@ class DeleteBlockVisitor : DepthFirstVisitor {
         auto l = ast.location(n);
 
         if (l.interval.end.among(l.interval.begin, l.interval.begin + 1)) {
-            // it is an empty block so it can't be removed.
+            // it is an empty block so deleting it is an equivalent mutant.
             canRemove = false;
         } else if (l.interval.begin < l.interval.end) {
-            loc = l;
             visit(n);
         } else {
             // something is wrong with the location.... this should never
