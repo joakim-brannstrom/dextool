@@ -295,7 +295,7 @@ struct TestDriver {
     }
 
     static struct MutationTest {
-        bool mutationError;
+        NamedType!(bool, Tag!"MutationError", bool.init, TagStringable) mutationError;
         MutationTestResult[] result;
     }
 
@@ -1101,12 +1101,12 @@ nothrow:
             }
 
             if (driver.stopBecauseError) {
-                data.mutationError = true;
+                data.mutationError.get = true;
             } else {
                 data.result = driver.result;
             }
         } catch (Exception e) {
-            data.mutationError = true;
+            data.mutationError.get = true;
             logger.error(e.msg).collectException;
         }
     }
