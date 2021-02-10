@@ -287,7 +287,7 @@ nothrow:
 
     void opCall(ref TestCaseAnalyze data) {
         scope (exit)
-            global.testResult = TestResult.init;
+            global.testResult.output = null;
 
         try {
             auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(
