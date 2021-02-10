@@ -18,9 +18,10 @@ import std.array : empty, array;
 import std.exception : collectException;
 import std.path : buildPath;
 
-import sumtype;
-import proc : DrainElement;
 import my.fsm : next, act, get, TypeDataMap;
+import my.named_type;
+import proc : DrainElement;
+import sumtype;
 
 static import my.fsm;
 
@@ -75,9 +76,8 @@ struct MutationTestDriver {
     }
 
     static struct MutateCode {
-        bool next;
-        bool filesysError;
-        bool mutationError;
+        NamedType!(bool, Tag!"FilesysError", bool.init, TagStringable, ImplicitConvertable) filesysError;
+        NamedType!(bool, Tag!"MutationError", bool.init, TagStringable, ImplicitConvertable) mutationError;
     }
 
     static struct TestMutantData {
@@ -88,12 +88,11 @@ struct MutationTestDriver {
     }
 
     static struct TestMutant {
-        bool hasTestOutput;
+        NamedType!(bool, Tag!"HasTestOutput", bool.init, TagStringable, ImplicitConvertable) hasTestOutput;
     }
 
     static struct RestoreCode {
-        bool next;
-        bool filesysError;
+        NamedType!(bool, Tag!"FilesysError", bool.init, TagStringable, ImplicitConvertable) filesysError;
     }
 
     static struct TestCaseAnalyzeData {
@@ -143,13 +142,11 @@ struct MutationTestDriver {
     static void execute_(ref MutationTestDriver self) @trusted {
         self.fsm.next!((None a) => fsm(Initialize.init),
                 (Initialize a) => fsm(MutateCode.init), (MutateCode a) {
-            if (a.next)
-                return fsm(TestMutant.init);
-            else if (a.filesysError)
+            if (a.filesysError)
                 return fsm(FilesysError.init);
             else if (a.mutationError)
                 return fsm(NoResultRestoreCode.init);
-            return fsm(a);
+            return fsm(TestMutant.init);
         }, (TestMutant a) {
             if (self.global.testResult.status == Mutation.Status.killed
                 && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && a.hasTestOutput) {
@@ -161,11 +158,9 @@ struct MutationTestDriver {
                 return fsm(NoResultRestoreCode.init);
             return fsm(RestoreCode.init);
         }, (RestoreCode a) {
-            if (a.next)
-                return fsm(StoreResult.init);
-            else if (a.filesysError)
+            if (a.filesysError)
                 return fsm(FilesysError.init);
-            return fsm(a);
+            return fsm(StoreResult.init);
         }, (StoreResult a) { return fsm(Done.init); }, (Done a) => fsm(a),
                 (FilesysError a) => fsm(a),
                 (NoResultRestoreCode a) => fsm(NoResult.init), (NoResult a) => fsm(a),);
@@ -229,7 +224,7 @@ nothrow:
         } catch (Exception e) {
             logger.error(e.msg).collectException;
             logger.warning("Unable to read ", global.mutateFile).collectException;
-            data.filesysError = true;
+            data.filesysError.get = true;
             return;
         }
 
@@ -240,36 +235,35 @@ nothrow:
 
             final switch (mut_res.status) with (GenerateMutantStatus) {
             case error:
-                data.mutationError = true;
+                data.mutationError.get = true;
                 break;
             case filesysError:
-                data.filesysError = true;
+                data.filesysError.get = true;
                 break;
             case databaseError:
                 // such as when the database is locked
-                data.mutationError = true;
+                data.mutationError.get = true;
                 break;
             case checksumError:
-                data.filesysError = true;
+                data.filesysError.get = true;
                 break;
             case noMutation:
-                data.mutationError = true;
+                data.mutationError.get = true;
                 break;
             case ok:
-                data.next = true;
                 try {
                     logger.infof("%s from '%s' to '%s' in %s:%s:%s", global.mutp.id.get,
                             cast(const(char)[]) mut_res.from, cast(const(char)[]) mut_res.to,
                             global.mutateFile, global.mutp.sloc.line, global.mutp.sloc.column);
 
                 } catch (Exception e) {
-                    logger.warning("Mutation ID", e.msg);
+                    logger.warningf("Mutation ID %s %s", global.mutp.id.get, e.msg);
                 }
                 break;
             }
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
-            data.mutationError = true;
+            data.mutationError.get = true;
         }
     }
 
@@ -288,12 +282,12 @@ nothrow:
 
         global.testResult = runTester(*global.runner);
 
-        data.hasTestOutput = !global.testResult.output.empty;
+        data.hasTestOutput.get = !global.testResult.output.empty;
     }
 
     void opCall(ref TestCaseAnalyze data) {
         scope (exit)
-            global.testResult = TestResult.init;
+            global.testResult.output = null;
 
         try {
             auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(
@@ -323,12 +317,15 @@ nothrow:
         global.swTest.stop;
         auto profile = MutantTimeProfile(global.swCompile.peek, global.swTest.peek);
 
-        if (!statusId.isNull) {
-            result = [
-                MutationTestResult(global.mutp.id, statusId.get, global.testResult.status,
-                        profile, global.testCases, global.testResult.exitStatus)
-            ];
+        if (statusId.isNull) {
+            logger.trace("No MutationStatusId for ", global.mutp.id.get).collectException;
+            return;
         }
+
+        result = [
+            MutationTestResult(global.mutp.id, statusId.get, global.testResult.status,
+                    profile, global.testCases, global.testResult.exitStatus)
+        ];
 
         logger.infof("%s %s:%s (%s)", global.mutp.id.get, global.testResult.status,
                 global.testResult.exitStatus.get, profile).collectException;
@@ -344,10 +341,7 @@ nothrow:
             logger.error(e.msg).collectException;
             // fatal error because being unable to restore a file prohibit
             // future mutations.
-            data.filesysError = true;
-            return;
+            data.filesysError.get = true;
         }
-
-        data.next = true;
     }
 }
