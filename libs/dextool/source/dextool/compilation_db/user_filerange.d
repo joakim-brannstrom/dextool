@@ -52,6 +52,10 @@ struct SimpleRange(T) {
         return values.length;
     }
 
+    typeof(this) save() @safe pure nothrow {
+        return typeof(this)(values);
+    }
+
     static SimpleRange!T make(T[] values) {
         return SimpleRange!T(values);
     }

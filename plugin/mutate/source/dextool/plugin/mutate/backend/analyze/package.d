@@ -69,6 +69,10 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
         return FileFilter.init;
     }();
 
+    bool shouldAnalyze(AbsolutePath p) {
+        return conf_analyze.fileMatcher.match(p.toString) && fileFilter.shouldAnalyze(p);
+    }
+
     auto pool = () {
         if (conf_analyze.poolSize == 0)
             return new TaskPool();
@@ -105,8 +109,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             .filter!(a => a.cmd.absoluteFile !in alreadyAnalyzed)
             .tee!(a => alreadyAnalyzed.add(a.cmd.absoluteFile))
             .cache
-            .filter!(a => conf_analyze.fileMatcher.match(a.cmd.absoluteFile.toString))
-            .filter!(a => fileFilter.shouldAnalyze(a.cmd.absoluteFile))
+            .filter!(a => shouldAnalyze(a.cmd.absoluteFile))
             ) {
         try {
             if (auto v = fio.toRelativeRoot(f.cmd.absoluteFile) in changedDeps) {
@@ -123,6 +126,8 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
         }
     }
     // dfmt on
+
+    changedDeps = typeof(changedDeps).init; // free the memory
 
     // inform the store actor of how many analyse results it should *try* to
     // save.
@@ -278,7 +283,7 @@ void testPathActor(const AbsolutePath[] userPaths, GlobFilter matcher, FilesysIO
 /// Store the result of the analyze.
 void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, const bool prune,
         const bool fastDbStore, const long poolSize, const bool forceSave,
-        immutable Path[] notAnalyzed, const long mutantsPerSchema) @trusted nothrow {
+        immutable Path[] rootFiles, const long mutantsPerSchema) @trusted nothrow {
     import cachetools : CacheLRU;
     import dextool.cachetools : nullableCache;
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
@@ -544,20 +549,27 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
             }
         }
 
-        void addNotAnalyzed() {
+        void addRoots() {
             if (forceSave)
                 return;
 
-            auto profile = Profile("add not analyzed");
-            foreach (a; notAnalyzed) {
-                savedFiles.add(fio.toAbsoluteRoot(a));
-                // fejk text for the user to tell them that yes, the files have
-                // been analyzed.
-                logger.info("Analyzing ", a);
-                logger.info("Unchanged ".color(Color.yellow), a);
+            // add root files and their dependencies that has not been analyzed because nothing has changed.
+            // By adding them they are not removed.
+
+            auto profile = Profile("add roots and dependencies");
+            foreach (a; rootFiles) {
+                auto p = fio.toAbsoluteRoot(a);
+                if (p !in savedFiles) {
+                    savedFiles.add(p);
+                    // fejk text for the user to tell them that yes, the files have
+                    // been analyzed.
+                    logger.info("Analyzing ", a);
+                    logger.info("Unchanged ".color(Color.yellow), a);
+                }
             }
-            foreach (a; notAnalyzed.map!(a => db.dependencyApi.get(a)).joiner)
+            foreach (a; rootFiles.map!(a => db.dependencyApi.get(a)).joiner) {
                 savedFiles.add(fio.toAbsoluteRoot(a));
+            }
         }
 
         void fastDbOn() {
@@ -608,7 +620,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
 
             {
                 auto trans = db.transaction;
-                addNotAnalyzed();
+                addRoots();
 
                 logger.info("Resetting timeout context");
                 resetTimeoutContext(db);

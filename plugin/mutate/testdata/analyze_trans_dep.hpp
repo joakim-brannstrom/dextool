@@ -2,6 +2,6 @@
 /// @date 2021
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
-#include <cstdio>
+#pragma once
 
-#define IS_VERSION_TWO 1
+#include "program2.hpp"
