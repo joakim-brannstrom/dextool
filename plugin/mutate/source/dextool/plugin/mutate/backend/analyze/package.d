@@ -688,7 +688,7 @@ struct Analyze {
     }
 
     private {
-        static immutable raw_re_nomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`;
+        static immutable rawReNomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`;
 
         Regex!char re_nomut;
 
@@ -709,19 +709,20 @@ struct Analyze {
         this.valLoc = valLoc;
         this.fio = fio;
         this.cache = new Cache;
-        this.re_nomut = regex(raw_re_nomut);
+        this.re_nomut = regex(rawReNomut);
         this.result = new Result;
         this.conf = conf;
     }
 
-    void process(ParsedCompileCommand in_file) @safe {
+    void process(ParsedCompileCommand commandsForFileToAnalyze) @safe {
         import std.file : exists;
 
-        in_file.flags.forceSystemIncludes = conf.forceSystemIncludes;
+        commandsForFileToAnalyze.flags.forceSystemIncludes = conf.forceSystemIncludes;
 
         try {
-            if (!exists(in_file.cmd.absoluteFile)) {
-                logger.warningf("Failed to analyze %s. Do not exist", in_file.cmd.absoluteFile);
+            if (!exists(commandsForFileToAnalyze.cmd.absoluteFile)) {
+                logger.warningf("Failed to analyze %s. Do not exist",
+                        commandsForFileToAnalyze.cmd.absoluteFile);
                 return;
             }
         } catch (Exception e) {
@@ -729,7 +730,7 @@ struct Analyze {
             return;
         }
 
-        result.root = in_file.cmd.absoluteFile;
+        result.root = commandsForFileToAnalyze.cmd.absoluteFile;
 
         try {
             result.rootCs = checksum(result.root);
@@ -737,18 +738,19 @@ struct Analyze {
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
             auto tstream = new TokenStreamImpl(ctx);
 
-            analyzeForMutants(in_file, result.root, ctx, tstream);
+            analyzeForMutants(commandsForFileToAnalyze, result.root, ctx, tstream);
             foreach (f; result.fileId.byValue)
                 analyzeForComments(f, tstream);
         } catch (Exception e) {
             () @trusted { logger.trace(e); }();
             logger.info(e.msg);
-            logger.error("failed analyze of ", in_file.cmd.absoluteFile).collectException;
+            logger.error("failed analyze of ",
+                    commandsForFileToAnalyze.cmd.absoluteFile).collectException;
         }
     }
 
-    void analyzeForMutants(ParsedCompileCommand in_file,
-            AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
+    void analyzeForMutants(ParsedCompileCommand commandsForFileToAnalyze,
+            AbsolutePath fileToAnalyze, ref ClangContext ctx, TokenStream tstream) @safe {
         import my.gc.refc : RefCounted;
         import dextool.plugin.mutate.backend.analyze.ast : Ast;
         import dextool.plugin.mutate.backend.analyze.pass_clang;
@@ -758,13 +760,14 @@ struct Analyze {
         import dextool.plugin.mutate.backend.analyze.pass_schemata;
         import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
 
-        logger.info("Analyzing ", checked_in_file);
+        logger.info("Analyzing ", fileToAnalyze);
         RefCounted!(Ast) ast;
         {
-            auto tu = ctx.makeTranslationUnit(checked_in_file, in_file.flags.completeFlags);
+            auto tu = ctx.makeTranslationUnit(fileToAnalyze,
+                    commandsForFileToAnalyze.flags.completeFlags);
             if (tu.hasParseErrors) {
                 logDiagnostic(tu);
-                logger.warningf("Compile error in %s", checked_in_file);
+                logger.warningf("Compile error in %s", fileToAnalyze);
                 if (!conf.allowErrors) {
                     logger.warning("Skipping");
                     return;
@@ -773,7 +776,7 @@ struct Analyze {
 
             auto res = toMutateAst(tu.cursor, fio);
             ast = res.ast;
-            saveDependencies(in_file.flags, result.root, res.dependencies);
+            saveDependencies(commandsForFileToAnalyze.flags, result.root, res.dependencies);
             debug logger.trace(ast);
         }
 
@@ -918,7 +921,7 @@ unittest {
     import std.regex : regex, matchFirst;
     import unit_threaded.runner.io : writelnUt;
 
-    auto re_nomut = regex(Analyze.raw_re_nomut);
+    auto re_nomut = regex(Analyze.rawReNomut);
     // NOMUT in other type of comments should NOT match.
     matchFirst("/// NOMUT", re_nomut).whichPattern.shouldEqual(0);
     matchFirst("// stuff with NOMUT in it", re_nomut).whichPattern.shouldEqual(0);
