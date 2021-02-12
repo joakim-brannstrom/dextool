@@ -69,6 +69,10 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
         return FileFilter.init;
     }();
 
+    bool shouldAnalyze(AbsolutePath p) {
+        return conf_analyze.fileMatcher.match(p.toString) && fileFilter.shouldAnalyze(p);
+    }
+
     auto pool = () {
         if (conf_analyze.poolSize == 0)
             return new TaskPool();
@@ -105,8 +109,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             .filter!(a => a.cmd.absoluteFile !in alreadyAnalyzed)
             .tee!(a => alreadyAnalyzed.add(a.cmd.absoluteFile))
             .cache
-            .filter!(a => conf_analyze.fileMatcher.match(a.cmd.absoluteFile.toString))
-            .filter!(a => fileFilter.shouldAnalyze(a.cmd.absoluteFile))
+            .filter!(a => shouldAnalyze(a.cmd.absoluteFile))
             ) {
         try {
             if (auto v = fio.toRelativeRoot(f.cmd.absoluteFile) in changedDeps) {
@@ -123,6 +126,8 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
         }
     }
     // dfmt on
+
+    changedDeps = typeof(changedDeps).init; // free the memory
 
     // inform the store actor of how many analyse results it should *try* to
     // save.
@@ -278,7 +283,7 @@ void testPathActor(const AbsolutePath[] userPaths, GlobFilter matcher, FilesysIO
 /// Store the result of the analyze.
 void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, const bool prune,
         const bool fastDbStore, const long poolSize, const bool forceSave,
-        immutable Path[] notAnalyzed, const long mutantsPerSchema) @trusted nothrow {
+        immutable Path[] rootFiles, const long mutantsPerSchema) @trusted nothrow {
     import cachetools : CacheLRU;
     import dextool.cachetools : nullableCache;
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
@@ -544,20 +549,27 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
             }
         }
 
-        void addNotAnalyzed() {
+        void addRoots() {
             if (forceSave)
                 return;
 
-            auto profile = Profile("add not analyzed");
-            foreach (a; notAnalyzed) {
-                savedFiles.add(fio.toAbsoluteRoot(a));
-                // fejk text for the user to tell them that yes, the files have
-                // been analyzed.
-                logger.info("Analyzing ", a);
-                logger.info("Unchanged ".color(Color.yellow), a);
+            // add root files and their dependencies that has not been analyzed because nothing has changed.
+            // By adding them they are not removed.
+
+            auto profile = Profile("add roots and dependencies");
+            foreach (a; rootFiles) {
+                auto p = fio.toAbsoluteRoot(a);
+                if (p !in savedFiles) {
+                    savedFiles.add(p);
+                    // fejk text for the user to tell them that yes, the files have
+                    // been analyzed.
+                    logger.info("Analyzing ", a);
+                    logger.info("Unchanged ".color(Color.yellow), a);
+                }
             }
-            foreach (a; notAnalyzed.map!(a => db.dependencyApi.get(a)).joiner)
+            foreach (a; rootFiles.map!(a => db.dependencyApi.get(a)).joiner) {
                 savedFiles.add(fio.toAbsoluteRoot(a));
+            }
         }
 
         void fastDbOn() {
@@ -608,7 +620,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
 
             {
                 auto trans = db.transaction;
-                addNotAnalyzed();
+                addRoots();
 
                 logger.info("Resetting timeout context");
                 resetTimeoutContext(db);
@@ -688,7 +700,7 @@ struct Analyze {
     }
 
     private {
-        static immutable raw_re_nomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`;
+        static immutable rawReNomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`;
 
         Regex!char re_nomut;
 
@@ -709,19 +721,20 @@ struct Analyze {
         this.valLoc = valLoc;
         this.fio = fio;
         this.cache = new Cache;
-        this.re_nomut = regex(raw_re_nomut);
+        this.re_nomut = regex(rawReNomut);
         this.result = new Result;
         this.conf = conf;
     }
 
-    void process(ParsedCompileCommand in_file) @safe {
+    void process(ParsedCompileCommand commandsForFileToAnalyze) @safe {
         import std.file : exists;
 
-        in_file.flags.forceSystemIncludes = conf.forceSystemIncludes;
+        commandsForFileToAnalyze.flags.forceSystemIncludes = conf.forceSystemIncludes;
 
         try {
-            if (!exists(in_file.cmd.absoluteFile)) {
-                logger.warningf("Failed to analyze %s. Do not exist", in_file.cmd.absoluteFile);
+            if (!exists(commandsForFileToAnalyze.cmd.absoluteFile)) {
+                logger.warningf("Failed to analyze %s. Do not exist",
+                        commandsForFileToAnalyze.cmd.absoluteFile);
                 return;
             }
         } catch (Exception e) {
@@ -729,7 +742,7 @@ struct Analyze {
             return;
         }
 
-        result.root = in_file.cmd.absoluteFile;
+        result.root = commandsForFileToAnalyze.cmd.absoluteFile;
 
         try {
             result.rootCs = checksum(result.root);
@@ -737,18 +750,19 @@ struct Analyze {
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
             auto tstream = new TokenStreamImpl(ctx);
 
-            analyzeForMutants(in_file, result.root, ctx, tstream);
+            analyzeForMutants(commandsForFileToAnalyze, result.root, ctx, tstream);
             foreach (f; result.fileId.byValue)
                 analyzeForComments(f, tstream);
         } catch (Exception e) {
             () @trusted { logger.trace(e); }();
             logger.info(e.msg);
-            logger.error("failed analyze of ", in_file.cmd.absoluteFile).collectException;
+            logger.error("failed analyze of ",
+                    commandsForFileToAnalyze.cmd.absoluteFile).collectException;
         }
     }
 
-    void analyzeForMutants(ParsedCompileCommand in_file,
-            AbsolutePath checked_in_file, ref ClangContext ctx, TokenStream tstream) @safe {
+    void analyzeForMutants(ParsedCompileCommand commandsForFileToAnalyze,
+            AbsolutePath fileToAnalyze, ref ClangContext ctx, TokenStream tstream) @safe {
         import my.gc.refc : RefCounted;
         import dextool.plugin.mutate.backend.analyze.ast : Ast;
         import dextool.plugin.mutate.backend.analyze.pass_clang;
@@ -758,13 +772,14 @@ struct Analyze {
         import dextool.plugin.mutate.backend.analyze.pass_schemata;
         import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
 
-        logger.info("Analyzing ", checked_in_file);
+        logger.info("Analyzing ", fileToAnalyze);
         RefCounted!(Ast) ast;
         {
-            auto tu = ctx.makeTranslationUnit(checked_in_file, in_file.flags.completeFlags);
+            auto tu = ctx.makeTranslationUnit(fileToAnalyze,
+                    commandsForFileToAnalyze.flags.completeFlags);
             if (tu.hasParseErrors) {
                 logDiagnostic(tu);
-                logger.warningf("Compile error in %s", checked_in_file);
+                logger.warningf("Compile error in %s", fileToAnalyze);
                 if (!conf.allowErrors) {
                     logger.warning("Skipping");
                     return;
@@ -773,7 +788,7 @@ struct Analyze {
 
             auto res = toMutateAst(tu.cursor, fio);
             ast = res.ast;
-            saveDependencies(in_file.flags, result.root, res.dependencies);
+            saveDependencies(commandsForFileToAnalyze.flags, result.root, res.dependencies);
             debug logger.trace(ast);
         }
 
@@ -918,7 +933,7 @@ unittest {
     import std.regex : regex, matchFirst;
     import unit_threaded.runner.io : writelnUt;
 
-    auto re_nomut = regex(Analyze.raw_re_nomut);
+    auto re_nomut = regex(Analyze.rawReNomut);
     // NOMUT in other type of comments should NOT match.
     matchFirst("/// NOMUT", re_nomut).whichPattern.shouldEqual(0);
     matchFirst("// stuff with NOMUT in it", re_nomut).whichPattern.shouldEqual(0);

@@ -602,9 +602,20 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const InclusionDirective v) {
+    override void visit(const InclusionDirective v) @trusted {
+        import std.file : exists;
+        import std.path : buildPath, dirName;
+
         mixin(mixinNodeLog!());
-        includes.put(Path(v.spelling));
+
+        const spell = v.spelling;
+        const file = v.cursor.location.file.name;
+        const p = buildPath(file.dirName, spell);
+        if (exists(p))
+            includes.put(Path(p));
+        else
+            includes.put(Path(spell));
+
         v.accept(this);
     }
 

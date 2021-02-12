@@ -99,18 +99,45 @@ unittest {
     ]).shouldBeIn(r.output);
 }
 
-@(testId ~ "shall record the #include as dependencies")
+@(testId ~ "shall detect changes in dependencies based on #include")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    const programHdr = (testEnv.outdir ~ "program.hpp").toString;
+    const programCpp = (testEnv.outdir ~ "program.cpp").toString;
+
+    copy((testData ~ "analyze_dep.cpp").toString, programCpp);
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(programCpp)
+        .addPostArg(["--mutant", "all"])
+        .run;
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(programCpp)
+        .addPostArg(["--mutant", "all"])
+        .run;
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(programCpp)
+        .addPostArg(["--mutant", "all"])
+        .addFlag("-DIS_VERSION_TWO")
+        .run;
+}
+
+@(testId ~ "shall transitively detect changes in dependencies")
 unittest {
     import std.stdio : File;
 
     mixin(EnvSetup(globalTestdir));
 
     const programHdr = (testEnv.outdir ~ "program.hpp").toString;
+    const programHdr2 = (testEnv.outdir ~ "program2.hpp").toString;
     const programCpp = (testEnv.outdir ~ "program.cpp").toString;
 
-    //copy((testData ~ "analyze_dep.hpp").toString, programHdr);
-    File(programHdr, "w").write("//\n");
-    copy((testData ~ "analyze_dep.cpp").toString, programCpp);
+    copy((testData ~ "analyze_trans_dep.cpp").toString, programCpp);
+    copy((testData ~ "analyze_trans_dep.hpp").toString, programHdr);
+    copy((testData ~ "analyze_trans_dep2.hpp").toString, programHdr2);
 
     makeDextoolAnalyze(testEnv)
         .addInputArg(programCpp)
