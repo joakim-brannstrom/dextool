@@ -131,7 +131,7 @@ struct SchemataTestDriver {
     static struct TestCaseAnalyzeData {
         TestCaseAnalyzer* testCaseAnalyzer;
         DrainElement[] output;
-        string[] testCmds;
+        TestCase[] testCmds;
     }
 
     static struct TestCaseAnalyze {
@@ -457,7 +457,7 @@ nothrow:
         data.result.exitStatus = res.exitStatus;
         data.hasTestOutput = !res.output.empty;
         local.get!TestCaseAnalyze.output = res.output;
-        local.get!TestCaseAnalyze.testCmds = res.testCmds;
+        local.get!TestCaseAnalyze.testCmds = res.testCmds.map!(a => TestCase(a.get)).array;
 
         logger.infof("%s %s:%s (%s)", data.inject.injectId, data.result.status,
                 data.result.exitStatus.get, data.result.profile).collectException;
@@ -476,10 +476,7 @@ nothrow:
 
             analyze.match!((TestCaseAnalyzer.Success a) {
                 data.result.testCases = a.failed;
-                data.result.testCases ~= local.get!TestCaseAnalyze
-                    .testCmds
-                    .map!(a => TestCase(a))
-                    .array;
+                data.result.testCases ~= local.get!TestCaseAnalyze.testCmds;
             }, (TestCaseAnalyzer.Unstable a) {
                 logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
                 logger.info(

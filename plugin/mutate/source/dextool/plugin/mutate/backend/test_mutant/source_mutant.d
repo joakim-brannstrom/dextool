@@ -295,7 +295,7 @@ nothrow:
 
             analyze.match!((TestCaseAnalyzer.Success a) {
                 global.testCases = a.failed;
-                global.testCases ~= global.testResult.testCmds.map!(a => TestCase(a)).array;
+                global.testCases ~= global.testResult.testCmds.map!(a => TestCase(a.get)).array;
             }, (TestCaseAnalyzer.Unstable a) {
                 logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
                 logger.info(
