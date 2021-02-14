@@ -25,8 +25,9 @@ import std.random : randomCover;
 import std.range : take;
 import std.typecons : Tuple;
 
-import proc;
+import my.named_type;
 import my.path : AbsolutePath, Path;
+import proc;
 
 import dextool.plugin.mutate.type : ShellCommand;
 import dextool.plugin.mutate.backend.type : ExitStatus;
@@ -134,8 +135,6 @@ struct TestRunner {
         }
 
         void processDone(TestTask* t, ref TestResult result, ref Appender!(DrainElement[]) output) {
-            import std.string : join;
-
             auto res = t.yieldForce;
 
             result.exitStatus = mergeExitStatus(result.exitStatus, res.exitStatus);
@@ -147,7 +146,15 @@ struct TestRunner {
                 }
                 if (res.exitStatus.get != 0) {
                     incrCmdKills(res.cmd);
-                    result.testCmds ~= res.cmd.join(" ");
+                    result.testCmds ~= TestResult.TestCmd(() {
+                        import std.range : only;
+                        import std.path : relativePath;
+                        import std.string : join;
+
+                        if (res.cmd.length == 1)
+                            return res.cmd[0].relativePath;
+                        return only([res.cmd[0].relativePath], res.cmd[1 .. $]).joiner.join(" ");
+                    }());
                 }
                 output.put(res.output);
                 break;
@@ -232,6 +239,8 @@ struct TestRunner {
 
 /// The result of running the tests.
 struct TestResult {
+    alias TestCmd = NamedType!(string, Tag!"TestCmd", string.init, TagStringable);
+
     enum Status {
         /// All test commands exited with exit status zero.
         passed,
@@ -247,7 +256,7 @@ struct TestResult {
     ExitStatus exitStatus;
 
     /// all test commands that found the mutant.
-    string[] testCmds;
+    TestCmd[] testCmds;
 
     /// Output from all the test binaries and command.
     DrainElement[] output;

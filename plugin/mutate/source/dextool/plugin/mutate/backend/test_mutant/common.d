@@ -20,6 +20,7 @@ import std.path : buildPath;
 import std.typecons : Flag, No;
 
 import blob_model : Blob;
+import my.named_type;
 import proc : DrainElement;
 import sumtype;
 
@@ -448,7 +449,7 @@ struct TestResult {
     Mutation.Status status;
     DrainElement[] output;
     ExitStatus exitStatus;
-    string[] testCmds;
+    NamedType!(string, Tag!"TestCmd", string.init, TagStringable)[] testCmds;
 }
 
 /** Run the test suite to verify a mutation.
