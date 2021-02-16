@@ -8,6 +8,8 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
 
 ## Overview
 
+ * See [installation](https://github.com/joakim-brannstrom/dextool/blob/master/README.md#Installation)
+   for how to build and install dextool.
  * See [config options](README_config.md) for detailed explanations of the
    configuration options.
  * See [continues integration](README_ci.md) contains a guide for how to
@@ -24,12 +26,10 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
  * See [roadmap](README_roadmap.md) for where dextool mutate is headed in the
    future.
 
-Note: the build instructions is in the root `README.md` of this repo.
-
 ## Features
 
 * 💉 Supports conventional mutation operators:
-    [AOR, ROR, DCC, DCR, LCR, SDL, UOI](https://github.com/joakim-brannstrom/dextool/blob/master/plugin/mutate/doc/design/mutations.md).
+    [AOR, ROR, DCC, DCR, LCR, SDL, UOI](doc/design/mutations.md).
 * 📈 Provides multiple [report](#report) formats (Console, Compiler warnings,
   JSON, HTML).
 * 💪 Detects "useless" test cases that do not kill any mutants.
@@ -45,10 +45,12 @@ Note: the build instructions is in the root `README.md` of this repo.
 * 🐇 Allows multiple instances to be [run in parallel](README_parallel.md).
 * 🐇 Can reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
 * 🐇 Can automatically [rerun the mutations that previously survived](#re-test-alive)
-    when new tests are added to the test suite.
+  when new tests are added to the test suite.
 * 🐇 Does automatic handling of infinite loops (timeout).
 * 🐇 Uses coverage information to only test mutants in functions/methods
   covered by the test suite.
+* 🐇 Uses [mutant schemata](doc/design/notes/schemata.md) to compile and link 
+  once per SUT, rather than once per mutant.
 * 🔨 Works with all C/C++ versions.
 * 🔨 Works with C++ templates.
 * 🔨 Integrates without modifications to the projects build system.
