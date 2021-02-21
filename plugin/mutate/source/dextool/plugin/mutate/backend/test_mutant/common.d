@@ -501,3 +501,64 @@ void restoreFiles(AbsolutePath[] files, FilesysIO fio) {
         fio.makeOutput(a).write(fio.makeInput(a));
     }
 }
+
+/// The conditions for when to stop mutation testing.
+/// Intended to be re-used by both the main FSM and the sub-FSMs.
+struct TestStopCheck {
+    import std.datetime.systime : Clock, SysTime;
+    import std.typecons : Nullable;
+    import dextool.plugin.mutate.config : ConfigMutationTest;
+
+    private {
+        typeof(ConfigMutationTest.loadBehavior) loadBehavior;
+        typeof(ConfigMutationTest.loadThreshold) loadThreshold;
+        Nullable!int maxAlive;
+        SysTime stopAt;
+        long aliveMutants;
+    }
+
+    this(ConfigMutationTest conf) {
+        loadBehavior = conf.loadBehavior;
+        loadThreshold = conf.loadThreshold;
+        maxAlive = conf.maxAlive;
+        stopAt = Clock.currTime() + conf.maxRuntime;
+    }
+
+    void incrAliveMutants() {
+        ++aliveMutants;
+    }
+
+    /// A halt conditions has occured. Mutation testing should stop.
+    bool isHalt() {
+        if (Clock.currTime > stopAt)
+            return true;
+
+        if (!maxAlive.isNull && maxAlive.get >= aliveMutants)
+            return true;
+
+        if (loadBehavior == ConfigMutationTest.LoadBehavior.halt && load15 > loadThreshold.get)
+            return true;
+
+        return false;
+    }
+
+    /// The system is overloaded and the user has configured the tool to slowdown.
+    bool isSlowdown() {
+        if (loadBehavior == ConfigMutationTest.LoadBehavior.slowdown && load15 > loadThreshold.get)
+            return true;
+
+        return false;
+    }
+
+private:
+    double load15() @trusted {
+        import my.libc : getloadavg;
+
+        double[3] load;
+        const nr = getloadavg(&load[0], 3);
+        if (nr <= 0 || nr > load.length) {
+            return 0.0;
+        }
+        return load[nr - 1];
+    };
+}
