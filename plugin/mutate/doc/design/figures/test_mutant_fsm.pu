@@ -66,8 +66,7 @@ NextPullRequestMutant --> Done : allTested
 NextSchemata --> SchemataTest : hasSchema
 NextSchemata --> Done : !hasSchema && user
 NextSchemata --> NextMutant
-SchemataTest --> SchemataTestResult : done
-SchemataTestResult --> CheckRuntime
+SchemataTest --> CheckRuntime : done
 
 NextMutant --> CheckTimeout : allTested
 NextMutant --> MutationTest

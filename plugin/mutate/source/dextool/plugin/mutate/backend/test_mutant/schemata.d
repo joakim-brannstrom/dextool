@@ -43,6 +43,7 @@ struct SchemataTestDriver {
         /// True as long as the schemata driver is running.
         bool isRunning_ = true;
         bool hasFatalError_;
+        bool isInvalidSchema_;
 
         FilesysIO fio;
 
@@ -75,6 +76,8 @@ struct SchemataTestDriver {
         AbsolutePath[] modifiedFiles;
 
         Set!AbsolutePath roots;
+
+        TestStopCheck stopCheck;
     }
 
     static struct None {
@@ -143,8 +146,13 @@ struct SchemataTestDriver {
         MutationTestResult result;
     }
 
-    alias Fsm = my.fsm.Fsm!(None, Initialize, InitializeRoots, Done, NextMutant,
-            TestMutant, TestCaseAnalyze, StoreResult, InjectSchema, Compile, Restore);
+    static struct OverloadCheck {
+        bool halt;
+        bool sleep;
+    }
+
+    alias Fsm = my.fsm.Fsm!(None, Initialize, InitializeRoots, Done, NextMutant, TestMutant,
+            TestCaseAnalyze, StoreResult, InjectSchema, Compile, Restore, OverloadCheck);
     alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData, NextMutantData);
 
     private {
@@ -153,12 +161,13 @@ struct SchemataTestDriver {
     }
 
     this(FilesysIO fio, TestRunner* runner, Database* db, TestCaseAnalyzer* testCaseAnalyzer,
-            UserRuntime[] userRuntimeCtrl, SchemataId id, Mutation.Kind[] kinds,
-            ShellCommand buildCmd, Duration buildCmdTimeout, bool log) {
+            UserRuntime[] userRuntimeCtrl, SchemataId id, TestStopCheck stopCheck,
+            Mutation.Kind[] kinds, ShellCommand buildCmd, Duration buildCmdTimeout, bool log) {
         this.fio = fio;
         this.runner = runner;
         this.db = db;
         this.schemataId = id;
+        this.stopCheck = stopCheck;
         this.kinds = kinds;
         this.buildCmd = buildCmd;
         this.buildCmdTimeout = buildCmdTimeout;
@@ -185,6 +194,12 @@ struct SchemataTestDriver {
         }, (InjectSchema a) {
             if (a.error)
                 return fsm(Restore.init);
+            return fsm(OverloadCheck.init);
+        }, (OverloadCheck a) {
+            if (a.halt)
+                return fsm(Restore.init);
+            if (a.sleep)
+                return fsm(OverloadCheck.init);
             return fsm(Compile.init);
         }, (Compile a) {
             if (a.error)
@@ -214,8 +229,10 @@ struct SchemataTestDriver {
 
 nothrow:
 
-    MutationTestResult[] result() {
-        return result_;
+    MutationTestResult[] popResult() {
+        auto tmp = result_;
+        result_ = null;
+        return tmp;
     }
 
     void execute() {
@@ -228,6 +245,10 @@ nothrow:
 
     bool hasFatalError() {
         return hasFatalError_;
+    }
+
+    bool isInvalidSchema() {
+        return isInvalidSchema_;
     }
 
     bool isRunning() {
@@ -369,6 +390,8 @@ nothrow:
         }, (bool success) { data.error = !success; });
 
         if (data.error) {
+            isInvalidSchema_ = true;
+
             // run again but this time show the output to the user.  scheman
             // shouldn't fail that often so this help finding out why a schema
             // fail to compile.
@@ -497,7 +520,17 @@ nothrow:
         result_ ~= data.result;
     }
 
-    void opCall(Restore data) {
+    void opCall(ref OverloadCheck data) {
+        data.halt = stopCheck.isHalt;
+        data.sleep = stopCheck.isOverloaded;
+
+        if (data.sleep) {
+            logger.info(stopCheck.overloadToString).collectException;
+            stopCheck.pause;
+        }
+    }
+
+    void opCall(ref Restore data) {
         try {
             restoreFiles(modifiedFiles, fio);
         } catch (Exception e) {

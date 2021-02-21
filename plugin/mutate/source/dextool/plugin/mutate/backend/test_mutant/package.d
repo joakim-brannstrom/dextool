@@ -21,6 +21,7 @@ import std.random : randomCover;
 import std.typecons : Nullable, Tuple, Yes;
 
 import blob_model : Blob;
+import my.container.vector;
 import my.fsm : Fsm, next, act, get, TypeDataMap;
 import my.named_type;
 import my.optional;
@@ -201,6 +202,9 @@ struct TestDriver {
     ///
     TestCaseAnalyzer testCaseAnalyzer;
 
+    /// Stop conditions (most of them)
+    TestStopCheck stopCheck;
+
     static struct Global {
         DriverData data;
 
@@ -215,9 +219,6 @@ struct TestDriver {
         // when the user manually configure the timeout it means that the
         // timeout algorithm should not be used.
         bool hardcodedTimeout;
-
-        /// Max time to run the mutation testing for.
-        SysTime maxRuntime;
 
         /// Test commands to execute.
         ShellCommand[] testCmds;
@@ -324,11 +325,6 @@ struct TestDriver {
         bool fatalError;
     }
 
-    static struct SchemataTestResult {
-        SchemataId id;
-        MutationTestResult[] result;
-    }
-
     static struct SchemataPruneUsed {
     }
 
@@ -348,12 +344,7 @@ struct TestDriver {
     static struct NextPullRequestMutantData {
         import dextool.plugin.mutate.backend.database : MutationStatusId;
 
-        MutationStatusId[] mutants;
-
-        /// If set then stop after this many alive are found.
-        Nullable!int maxAlive;
-        /// number of alive mutants that has been found.
-        int alive;
+        Vector!MutationStatusId mutants;
     }
 
     static struct NextMutant {
@@ -400,11 +391,10 @@ struct TestDriver {
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
-            UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant,
-            ParseStdin, FindTestCmds, ChooseMode, NextSchemata, SchemataTest,
-            SchemataTestResult, LoadSchematas, SchemataPruneUsed, Stop,
-            SaveMutationScore, OverloadCheck, Coverage, PropagateCoverage,
-            ContinuesCheckTestSuite);
+            UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant, ParseStdin,
+            FindTestCmds, ChooseMode, NextSchemata, SchemataTest, LoadSchematas,
+            SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck,
+            Coverage, PropagateCoverage, ContinuesCheckTestSuite);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData,
             PullRequestData, ResetOldMutantData, NextSchemataData, ContinuesCheckTestSuiteData);
 
@@ -423,7 +413,6 @@ struct TestDriver {
         this.global.hardcodedTimeout = !global.data.conf.mutationTesterRuntime.isNull;
         local.get!PullRequest.constraint = global.data.conf.constraint;
         local.get!PullRequest.seed = global.data.conf.pullRequestSeed;
-        local.get!NextPullRequestMutant.maxAlive = global.data.conf.maxAlive;
         local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
         local.get!ResetOldMutant.resetPercentage = global.data.conf.oldMutantPercentage;
         this.global.testCmds = global.data.conf.mutationTester;
@@ -440,6 +429,8 @@ struct TestDriver {
         // external analyzers.
         this.testCaseAnalyzer = TestCaseAnalyzer(global.data.conf.mutationTestCaseBuiltin,
                 global.data.conf.mutationTestCaseAnalyze, global.data.autoCleanup);
+
+        this.stopCheck = TestStopCheck(global.data.conf);
     }
 
     static void execute_(ref TestDriver self) @trusted {
@@ -507,8 +498,8 @@ struct TestDriver {
         }, (SchemataTest a) {
             if (a.fatalError)
                 return fsm(Error.init);
-            return fsm(SchemataTestResult(a.id, a.result));
-        }, (SchemataTestResult a) => CheckRuntime.init, (NextMutant a) {
+            return fsm(CheckRuntime.init);
+        }, (NextMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(CheckTimeout.init);
             return fsm(MutationTest.init);
@@ -566,7 +557,6 @@ nothrow:
 
     void opCall(Initialize data) {
         logger.info("Initializing worklist").collectException;
-        global.maxRuntime = Clock.currTime + global.data.conf.maxRuntime;
         spinSql!(() {
             global.data.db.updateWorklist(global.data.kinds, Mutation.Status.unknown);
         });
@@ -653,42 +643,27 @@ nothrow:
     }
 
     void opCall(ref OverloadCheck data) {
-        if (global.data.conf.loadBehavior == ConfigMutationTest.LoadBehavior.nothing) {
+        if (global.data.conf.loadBehavior == ConfigMutationTest.LoadBehavior.nothing)
             return;
-        }
-
-        const load15 = () @trusted {
-            double[3] load;
-            const nr = getloadavg(&load[0], 3);
-            if (nr <= 0 || nr > load.length) {
-                return 0.0;
-            }
-            return load[nr - 1];
-        }();
-
-        const isOverloaded = load15 > global.data.conf.loadThreshold.get;
-
-        if (isOverloaded) {
-            logger.infof("Detected overload (%s > %s).", load15,
-                    global.data.conf.loadThreshold.get).collectException;
-        }
 
         final switch (global.data.conf.loadBehavior) with (ConfigMutationTest.LoadBehavior) {
         case nothing:
             break;
         case slowdown:
-            const sleepFor = 30.dur!"seconds";
-            data.sleep = isOverloaded;
-            if (isOverloaded) {
-                logger.infof("Sleeping %s", sleepFor).collectException;
-                import core.thread : Thread;
+            if (stopCheck.isOverloaded) {
+                data.sleep = true;
 
-                () @trusted { Thread.sleep(sleepFor); }();
+                logger.info(stopCheck.overloadToString).collectException;
+                stopCheck.pause;
             }
             break;
         case halt:
-            logger.warning(isOverloaded, "Halting").collectException;
-            data.halt = isOverloaded;
+            if (stopCheck.isOverloaded) {
+                data.halt = true;
+
+                logger.info(stopCheck.overloadToString).collectException;
+                logger.warning("Halting").collectException;
+            }
             break;
         }
     }
@@ -982,7 +957,7 @@ nothrow:
         import dextool.plugin.mutate.backend.type : SourceLoc;
         import my.set;
 
-        Set!MutationStatusId mut_ids;
+        Set!MutationStatusId mutantIds;
 
         foreach (kv; local.get!PullRequest.constraint.value.byKeyValue) {
             const file_id = spinSql!(() => global.data.db.getFileId(kv.key));
@@ -998,26 +973,27 @@ nothrow:
                         file_id.get, SourceLoc(l.value, 0));
                 });
 
-                const pre_cnt = mut_ids.length;
+                const preCnt = mutantIds.length;
                 foreach (v; mutants)
-                    mut_ids.add(v);
+                    mutantIds.add(v);
 
-                logger.infof(mut_ids.length - pre_cnt > 0, "Found %s mutant(s) to test (%s:%s)",
-                        mut_ids.length - pre_cnt, kv.key, l.value).collectException;
+                logger.infof(mutantIds.length - preCnt > 0, "Found %s mutant(s) to test (%s:%s)",
+                        mutantIds.length - preCnt, kv.key, l.value).collectException;
             }
         }
 
-        logger.infof(!mut_ids.empty, "Found %s mutants in the diff",
-                mut_ids.length).collectException;
+        logger.infof(!mutantIds.empty, "Found %s mutants in the diff",
+                mutantIds.length).collectException;
 
         const seed = local.get!PullRequest.seed;
         logger.infof("Using random seed %s when choosing the mutants to test",
                 seed).collectException;
         auto rng = Mt19937_64(seed);
-        local.get!NextPullRequestMutant.mutants = mut_ids.toArray.sort.randomCover(rng).array;
+        local.get!NextPullRequestMutant.mutants = vector(
+                mutantIds.toArray.sort.randomCover(rng).array);
         logger.trace("Test sequence ", local.get!NextPullRequestMutant.mutants).collectException;
 
-        if (mut_ids.empty) {
+        if (mutantIds.empty) {
             logger.warning("None of the locations specified with -L exists").collectException;
             logger.info("Available files are:").collectException;
             foreach (f; spinSql!(() => global.data.db.getFiles))
@@ -1136,19 +1112,17 @@ nothrow:
         data.noUnknownMutantsLeft.get = true;
 
         while (!local.get!NextPullRequestMutant.mutants.empty) {
-            const id = local.get!NextPullRequestMutant.mutants[$ - 1];
+            const id = local.get!NextPullRequestMutant.mutants.front;
             const status = spinSql!(() => global.data.db.getMutationStatus(id));
 
             if (status.isNull)
                 continue;
 
-            if (status.get == Mutation.Status.alive) {
-                local.get!NextPullRequestMutant.alive++;
-            }
+            if (status.get == Mutation.Status.alive)
+                stopCheck.incrAliveMutants;
 
             if (status.get != Mutation.Status.unknown) {
-                local.get!NextPullRequestMutant.mutants
-                    = local.get!NextPullRequestMutant.mutants[0 .. $ - 1];
+                local.get!NextPullRequestMutant.mutants.popFront;
                 continue;
             }
 
@@ -1163,13 +1137,11 @@ nothrow:
             break;
         }
 
-        if (!local.get!NextPullRequestMutant.maxAlive.isNull) {
-            const alive = local.get!NextPullRequestMutant.alive;
-            const maxAlive = local.get!NextPullRequestMutant.maxAlive.get;
-            logger.infof(alive > 0, "Found %s/%s alive mutants", alive, maxAlive).collectException;
-            if (alive >= maxAlive) {
-                data.noUnknownMutantsLeft.get = true;
-            }
+        logger.infof(stopCheck.aliveMutants > 0, "Found %s/%s alive mutants",
+                stopCheck.aliveMutants, global.data.conf.maxAlive.get).collectException;
+
+        if (stopCheck.isAliveTested) {
+            data.noUnknownMutantsLeft.get = true;
         }
     }
 
@@ -1192,10 +1164,12 @@ nothrow:
     }
 
     void opCall(ref CheckRuntime data) {
-        data.reachedMax = Clock.currTime > global.maxRuntime;
+        import std.datetime : Clock;
+
+        data.reachedMax = stopCheck.isHalt;
         if (data.reachedMax) {
             logger.infof("Max runtime of %s reached at %s",
-                    global.data.conf.maxRuntime, global.maxRuntime).collectException;
+                    global.data.conf.maxRuntime, Clock.currTime).collectException;
         }
     }
 
@@ -1232,56 +1206,71 @@ nothrow:
     void opCall(ref SchemataTest data) {
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
+        // only remove schemas that are of no further use.
+        bool remove = true;
+        void updateRemove(MutationTestResult[] result) {
+            foreach (a; data.result) {
+                final switch (a.status) with (Mutation.Status) {
+                case unknown:
+                    goto case;
+                case noCoverage:
+                    goto case;
+                case alive:
+                    remove = false;
+                    return;
+                case killed:
+                    goto case;
+                case timeout:
+                    goto case;
+                case killedByCompiler:
+                    break;
+                }
+            }
+        }
+
+        void save(MutationTestResult[] result) {
+            updateRemove(result);
+            saveTestResult(result);
+            logger.infof(result.length > 0, "Saving %s schemata mutant results",
+                    result.length).collectException;
+        }
+
         try {
             auto driver = SchemataTestDriver(global.data.filesysIO, &runner, global.data.db,
-                    &testCaseAnalyzer, global.data.conf.userRuntimeCtrl, data.id,
+                    &testCaseAnalyzer, global.data.conf.userRuntimeCtrl, data.id, stopCheck,
                     global.data.kinds, global.data.conf.mutationCompile,
                     global.data.conf.buildCmdTimeout, global.data.conf.logSchemata);
 
+            const saveResultInterval = 20.dur!"minutes";
+            auto nextSave = Clock.currTime + saveResultInterval;
             while (driver.isRunning) {
                 driver.execute;
+
+                // to avoid loosing results in case of a crash etc save them
+                // continuously
+                if (Clock.currTime > nextSave && !driver.hasFatalError) {
+                    save(driver.popResult);
+                    nextSave = Clock.currTime + saveResultInterval;
+                }
             }
 
             data.fatalError = driver.hasFatalError;
 
-            if (!driver.hasFatalError) {
-                data.result = driver.result;
+            if (driver.hasFatalError) {
+                // do nothing
+            } else if (driver.isInvalidSchema) {
+                local.get!NextSchemata.invalidSchematas++;
+            } else {
+                save(driver.popResult);
             }
 
-            if (data.result.empty) {
-                local.get!NextSchemata.invalidSchematas++;
+            if (remove) {
+                spinSql!(() { global.data.db.markUsed(data.id); });
             }
+
         } catch (Exception e) {
             logger.info(e.msg).collectException;
             logger.warning("Failed executing schemata ", data.id).collectException;
-        }
-    }
-
-    void opCall(SchemataTestResult data) {
-        saveTestResult(data.result);
-
-        // only remove schemas that are of no further use.
-        bool remove = true;
-        foreach (a; data.result) {
-            final switch (a.status) with (Mutation.Status) {
-            case unknown:
-                goto case;
-            case noCoverage:
-                goto case;
-            case alive:
-                remove = false;
-                break;
-            case killed:
-                goto case;
-            case timeout:
-                goto case;
-            case killedByCompiler:
-                break;
-            }
-        }
-
-        if (remove) {
-            spinSql!(() { global.data.db.markUsed(data.id); });
         }
     }
 
