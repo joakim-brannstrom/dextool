@@ -46,7 +46,6 @@ function init() {
     init_legend();
     on_window_resize();
     var locs_table = document.getElementById("locs");
-    locs_table.style.width = "60%";
     var locs = document.getElementsByClassName('loc');
     for (var i=0; i<locs.length; i++){
         locs[i].addEventListener('wheel',
