@@ -125,6 +125,7 @@ span.xx_label {
 }
 #locs {
     display: block;
+    width: max-content;
 }
 #locs  tr{
     display: block;
