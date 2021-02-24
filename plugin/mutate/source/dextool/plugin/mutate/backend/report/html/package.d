@@ -809,7 +809,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     }
 
     auto root = ctx.doc.mainBody;
-    auto lines = root.addChild("table").setAttribute("id", "locs");
+    auto lines = root.addChild("table").setAttribute("id", "locs").setAttribute("cellpadding", "0");
     auto line = lines.addChild("tr").addChild("td").setAttribute("id", "loc-1");
     line.addClass("loc");
 
