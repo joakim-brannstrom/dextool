@@ -655,7 +655,7 @@ The runtime resources that are installed together with the tool such as the
 header that is injected for schemata can be overridden. Dextool mutate searches
 the following directories, in this order, for the resources:
 
- * `$XDG_RUNTIME_DIR`/.local/share/dextool/data/mutate
+ * `$XDG_RUNTIME_DIR`/dextool/mutate
  * `which dextool`/data/mutate
  * `dirname $(which dextool)`/data/mutate
  * `$XDG_DATA_DIRS`/dextool/data/mutate
