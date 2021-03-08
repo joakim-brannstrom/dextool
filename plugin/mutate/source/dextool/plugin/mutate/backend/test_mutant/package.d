@@ -1202,7 +1202,7 @@ nothrow:
     void opCall(ref NextSchemata data) {
         auto schematas = local.get!NextSchemata.schematas;
 
-        const threshold = schemataMutantsThreshold(global.data.conf.sanityCheckSchemata,
+        const threshold = schemataMutantsThreshold(global.data.conf.minMutantsPerSchema.get,
                 local.get!NextSchemata.invalidSchematas, local.get!NextSchemata.totalSchematas);
 
         while (!schematas.empty && !data.hasSchema) {
@@ -1309,7 +1309,7 @@ nothrow:
         foreach (id; spinSql!(() { return global.data.db.getSchematas(); })) {
             if (spinSql!(() {
                     return global.data.db.schemataMutantsCount(id, global.data.kinds);
-                }) >= schemataMutantsThreshold(global.data.conf.sanityCheckSchemata, 0, 0)) {
+                }) >= schemataMutantsThreshold(global.data.conf.minMutantsPerSchema.get, 0, 0)) {
                 app.put(id);
             }
         }
@@ -1419,14 +1419,15 @@ private:
  * Params:
  *  checkSchemata = if the user has activated check_schemata that run all test cases before the schemata is used.
  */
-long schemataMutantsThreshold(bool checkSchemata, long invalidSchematas, long totalSchematas) @safe pure nothrow @nogc {
-    double f = checkSchemata ? 3 : 2;
+long schemataMutantsThreshold(const long minThreshold, const long invalidSchematas,
+        const long totalSchematas) @safe pure nothrow @nogc {
     // "10" is a magic number that felt good but not too conservative. A future
     // improvement is to instead base it on the ratio between compilation time
     // and test suite execution time.
     if (totalSchematas > 0)
-        f += 10.0 * (cast(double) invalidSchematas / cast(double) totalSchematas);
-    return cast(long) f;
+        return cast(long)(minThreshold + 10.0 * (
+                cast(double) invalidSchematas / cast(double) totalSchematas));
+    return cast(long) minThreshold;
 }
 
 /** Compare the old test cases with those that have been found this run.

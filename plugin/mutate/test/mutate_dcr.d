@@ -277,9 +277,16 @@ class ShallGenerateValidDcrForOnelineIfSchema : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+        makeDextoolAnalyze(testEnv)
+            .addInputArg(programCode)
+            .addPostArg(["--schema-min-mutants", "0"])
+            .addFlag("-std=c++11")
+            .run;
 
-        runDextoolTest(testEnv).addPostArg(["--mutant", "dcr"]).addFlag("-std=c++11").run;
+        runDextoolTest(testEnv)
+            .addPostArg(["--mutant", "dcr"])
+            .addFlag("-std=c++11")
+            .run;
 
         makeDextoolReport(testEnv, testData.dirName)
             .addArg(["--style", "json"])

@@ -144,8 +144,11 @@ struct ArgParser {
         app.put("# remove files from the database that are no longer found during analysis.");
         app.put(`prune = true`);
         app.put(null);
+        app.put("# minimum number of mutants per schema.");
+        app.put(format!"# min_mutants_per_schema = %s"(analyze.minMutantsPerSchema.get));
+        app.put(null);
         app.put("# maximum number of mutants per schema (zero means no limit).");
-        app.put(format!"# mutants_per_schema = %s"(analyze.mutantsPerSchema));
+        app.put(format!"# mutants_per_schema = %s"(analyze.mutantsPerSchema.get));
         app.put(null);
         app.put("# checksum the files in this directories and warn if a mutation status is older");
         app.put("# than the newest file. The path can be a file or a directory. Directories");
@@ -353,7 +356,8 @@ struct ArgParser {
                    "no-prune", "do not prune the database of files that aren't found during the analyze", &noPrune,
                    "out", out_help, &workArea.rawRoot,
                    "profile", "print performance profile for the analyzers that are part of the report", &analyze.profile,
-                   "schema-mutants", "number of mutants per schema (soft upper limit)", &analyze.mutantsPerSchema,
+                   "schema-min-mutants", "mini number of mutants per schema", analyze.minMutantsPerSchema.getPtr,
+                   "schema-mutants", "number of mutants per schema (soft upper limit)", analyze.mutantsPerSchema.getPtr,
                    "threads", "number of threads to use for analysing files (default: CPU cores available)", &analyze.poolSize,
                    );
             // dfmt on
@@ -397,7 +401,6 @@ struct ArgParser {
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "L", "restrict testing to the requested files and lines (<file>:<start>-<end>)", &testConstraint,
                    "build-cmd", "program used to build the application", &mutationCompile,
-                   "check-schemata", "sanity check a schemata before it is used", &mutationTest.sanityCheckSchemata,
                    "cont-test-suite", "enable continues check of the test suite", mutationTest.contCheckTestSuite.getPtr,
                    "cont-test-suite-period", "how often to check the test suite", mutationTest.contCheckTestSuitePeriod.getPtr,
                    "c|config", conf_help, &conf_file,
@@ -409,20 +412,22 @@ struct ArgParser {
                    "load-behavior", "how to behave when the threshold is hit " ~ format("[%(%s|%)]", [EnumMembers!(ConfigMutationTest.LoadBehavior)]), &mutationTest.loadBehavior,
                    "load-threshold", format!"the 15min loadavg threshold (default: %s)"(mutationTest.loadThreshold.get), mutationTest.loadThreshold.getPtr,
                    "log-coverage", "write the instrumented coverage files to a separate file", mutationTest.logCoverage.getPtr,
-                   "log-schemata", "write the mutation schematas to a separate file", &mutationTest.logSchemata,
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
                    "m|mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
-                   "only-schemata", "stop testing after the last schema has been executed", &mutationTest.stopAfterLastSchema,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &workArea.rawRoot,
                    "pull-request-seed", "seed used when randomly choosing mutants to test in a pull request", &mutationTest.pullRequestSeed,
+                   "schema-check", "sanity check a schemata before it is used", &mutationTest.sanityCheckSchemata,
+                   "schema-log", "write mutant schematan to a separate file for later inspection", &mutationTest.logSchemata,
+                   "schema-min-mutants", "mini number of mutants per schema", mutationTest.minMutantsPerSchema.getPtr,
+                   "schema-only", "stop testing after the last schema has been executed", &mutationTest.stopAfterLastSchema,
+                   "schema-use", "use schematas to speed-up testing", &mutationTest.useSchemata,
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
                    "test-cmd", "program used to run the test suite", &mutationTester,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
                    "use-early-stop", "stop executing tests for a mutant as soon as one kill a mutant to speed-up testing", &mutationTest.useEarlyTestCmdStop,
-                   "use-schemata", "use schematas to speed-up testing", &mutationTest.useSchemata,
                    );
             // dfmt on
 
@@ -773,7 +778,10 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         c.analyze.prune = v == true;
     };
     callbacks["analyze.mutants_per_schema"] = (ref ArgParser c, ref TOMLValue v) {
-        c.analyze.mutantsPerSchema = cast(int) v.integer;
+        c.analyze.mutantsPerSchema.get = cast(int) v.integer;
+    };
+    callbacks["analyze.min_mutants_per_schema"] = (ref ArgParser c, ref TOMLValue v) {
+        c.analyze.minMutantsPerSchema.get = cast(int) v.integer;
     };
     callbacks["analyze.test_paths"] = (ref ArgParser c, ref TOMLValue v) {
         try {
@@ -1132,7 +1140,7 @@ mutants_per_schema = 200
 `;
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
-    ap.analyze.mutantsPerSchema.shouldEqual(200);
+    ap.analyze.mutantsPerSchema.get.shouldEqual(200);
 }
 
 @("shall parse if compilation errors are allowed")

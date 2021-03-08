@@ -280,6 +280,13 @@ mutants a schemata contains the higher is the likelihood that it will fail to
 compile.
 
 ```sh
+--schemata-min-mutants
+```
+Minimum number of mutants that must exist in a schema for it to be saved and
+then later on used in the test phase. It is used to avoid storing "junk"
+schemas that actually do not speed up the mutation testing phase.
+
+```sh
 --threads
 ```
 The number of threads to use when analyzing the program. By default as many
@@ -432,7 +439,7 @@ set the timeout-limit. It is recommended to let *Mutate* use the builtin
 algorithm for this since the time it takes to execute test suites varies.
 
 ```sh
---check-schemata
+--schema-check
 ```
 An injected schemata should, when no mutant is activated, not affect the result
 of the test suite. This option execute the test cases after the schemata has
@@ -442,7 +449,7 @@ schematan are still being developed and have been observed to sometimes
 negatively affect the test suite.
 
 ```sh
---log-schemata
+--schema-log
 ```
 Save the schematan, as they are used, to a file by their ID-number for later
 analysis. This option is mostly intended for developers of dextool.
@@ -455,7 +462,7 @@ be used when integrating mutation testing with pull requests to have an early
 halting condition.
 
 ```sh
---only-schemata
+--schema-only
 ```
 Only use schematan for the test phase. Depending on the operators this mean
 that between 50-100% of the mutants can be tested pretty fast.
@@ -469,11 +476,20 @@ tested stabel over multiple updates of a pull request. This option can be used
 to force a specific seed to be used.
 
 ```sh
---use-schemata
+--schema-use
 ```
 If schematan should be used. Dextool will start by trying to use all schematan
 that have mutants that are in the worklist. When all schematan are consumed
 dextool will fall back to the slower source code mutating.
+
+```sh
+--schemata-min-mutants
+```
+Minimum number of alive mutants that a schema must contain for it to be used.
+This is the starting value of the filtering process. Each schema that fail will
+increase the threshold because the tool assume that the probability of a schema
+to fail compiling is related to how many that have already failed to compile.
+This is to reduce the amount of wasted work (compiling invalid schemas).
 
 ```sh
 --use-early-stop

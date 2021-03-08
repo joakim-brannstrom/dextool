@@ -105,7 +105,10 @@ struct ConfigAnalyze {
     bool forceSaveAnalyze;
 
     /// Number of mutants to at most put in a schema (soft limit)
-    long mutantsPerSchema = 1000;
+    NamedType!(long, Tag!"MutantsPerSchema", long.init, TagStringable) mutantsPerSchema = 1000;
+
+    /// Minimum number of mutants per schema for the schema to be saved in the database.
+    NamedType!(long, Tag!"MinMutantsPerSchema", long.init, TagStringable) minMutantsPerSchema = 3;
 
     /// User file/directories containing tests to checksum and timestamp
     string[] rawTestPaths;
@@ -224,6 +227,9 @@ struct ConfigMutationTest {
 
     /// Stop mutation testing after the last schemata has been executed
     bool stopAfterLastSchema;
+
+    /// Minimum number of mutants per schema for it to be used.
+    NamedType!(long, Tag!"MinMutantsPerSchema", long.init, TagStringable) minMutantsPerSchema = 3;
 
     enum LoadBehavior {
         nothing,

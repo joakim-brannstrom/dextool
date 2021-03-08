@@ -83,12 +83,11 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
     auto changedDeps = dependencyAnalyze(dbPath, fio);
 
     // will only be used by one thread at a time.
-    auto store = spawn(&storeActor, dbPath, cast(shared) fio.dup, conf_analyze.prune,
-            conf_analyze.fastDbStore, conf_analyze.poolSize,
-            conf_analyze.forceSaveAnalyze, cast(immutable) changedDeps.byKeyValue
+    auto store = spawn(&storeActor, dbPath, cast(shared) fio.dup,
+            cast(shared) conf_analyze, cast(immutable) changedDeps.byKeyValue
             .filter!(a => !a.value)
             .map!(a => a.key)
-            .array, conf_analyze.mutantsPerSchema);
+            .array);
 
     try {
         pool.put(task!testPathActor(conf_analyze.testPaths,
@@ -281,12 +280,13 @@ void testPathActor(const AbsolutePath[] userPaths, GlobFilter matcher, FilesysIO
 }
 
 /// Store the result of the analyze.
-void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, const bool prune,
-        const bool fastDbStore, const long poolSize, const bool forceSave,
-        immutable Path[] rootFiles, const long mutantsPerSchema) @trusted nothrow {
+void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
+        scope shared ConfigAnalyze confAnalyzeShared, immutable Path[] rootFiles) @trusted nothrow {
     import cachetools : CacheLRU;
     import dextool.cachetools : nullableCache;
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
+
+    const confAnalyze = cast() confAnalyzeShared;
 
     // The conditions that the storeActor is waiting for receiving the results
     // from the workers.
@@ -306,7 +306,8 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
         import my.optional;
         import dextool.plugin.mutate.backend.analyze.pass_schemata : SchemataBuilder;
 
-        long mutantsPerSchema;
+        typeof(ConfigAnalyze.minMutantsPerSchema) minMutantsPerSchema;
+        typeof(ConfigAnalyze.mutantsPerSchema) mutantsPerSchema;
         SchemataBuilder builder;
 
         void put(FilesysIO fio, SchemataResult.Schemata[AbsolutePath] a) {
@@ -335,8 +336,8 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
         /// Consume fragments used by scheman containing >min mutants.
         void intermediate(ref Database db) {
             builder.discardMinScheman = false;
-            builder.mutantsPerSchema = mutantsPerSchema;
-            builder.minMutantsPerSchema = mutantsPerSchema;
+            builder.mutantsPerSchema = mutantsPerSchema.get;
+            builder.minMutantsPerSchema = mutantsPerSchema.get;
 
             while (!builder.isDone) {
                 process(db, builder.next);
@@ -348,8 +349,8 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
         /// Consume all fragments or discard.
         void finalize(ref Database db) {
             builder.discardMinScheman = true;
-            builder.mutantsPerSchema = mutantsPerSchema;
-            builder.minMutantsPerSchema = 3;
+            builder.mutantsPerSchema = mutantsPerSchema.get;
+            builder.minMutantsPerSchema = minMutantsPerSchema.get;
 
             // two loops to pass over all mutants and retry new schema
             // compositions. Any schema that is less than the minimum will be
@@ -363,7 +364,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
         }
     }
 
-    auto schemas = SchemataSaver(mutantsPerSchema);
+    auto schemas = SchemataSaver(confAnalyze.minMutantsPerSchema, confAnalyze.mutantsPerSchema);
 
     void helper(FilesysIO fio, ref Database db) nothrow {
         // A file is at most saved one time to the database.
@@ -402,7 +403,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
                     .byKey
                     .filter!(a => a !in savedFiles)
                     .filter!(a => getFileDbChecksum(fio.toRelativeRoot(a)) == getFileFsChecksum(a)
-                        && !forceSave)) {
+                        && !confAnalyze.forceSaveAnalyze)) {
                 logger.info("Unchanged ".color(Color.yellow), f);
                 savedFiles.add(f);
             }
@@ -550,7 +551,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
         }
 
         void addRoots() {
-            if (forceSave)
+            if (confAnalyze.forceSaveAnalyze)
                 return;
 
             // add root files and their dependencies that has not been analyzed because nothing has changed.
@@ -573,7 +574,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
         }
 
         void fastDbOn() {
-            if (!fastDbStore)
+            if (!confAnalyze.fastDbStore)
                 return;
             logger.info(
                     "Turning OFF sqlite3 synchronization protection to improve the write performance");
@@ -584,7 +585,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
         }
 
         void fastDbOff() {
-            if (!fastDbStore)
+            if (!confAnalyze.fastDbStore)
                 return;
             db.run("PRAGMA synchronous = ON");
             db.run("PRAGMA journal_mode = DELETE");
@@ -596,14 +597,14 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
             // by making the mailbox size follow the number of workers the overall
             // behavior will slow down if saving to the database is too slow. This
             // avoids excessive or even fatal memory usage.
-            setMaxMailboxSize(thisTid, poolSize + 2, OnCrowding.block);
+            setMaxMailboxSize(thisTid, confAnalyze.poolSize + 2, OnCrowding.block);
 
             fastDbOn();
 
             {
                 auto trans = db.transaction;
 
-                if (prune) {
+                if (confAnalyze.prune) {
                     auto profile = Profile("prune old schemas");
                     logger.info("Prune database of schemata created by an old version");
                     oldVersion = db.pruneOldSchemas;
@@ -628,7 +629,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared, con
                 logger.info("Updating metadata");
                 db.updateMetadata;
 
-                if (prune) {
+                if (confAnalyze.prune) {
                     pruneFiles();
                     {
                         auto profile = Profile("remove orphaned mutants");
