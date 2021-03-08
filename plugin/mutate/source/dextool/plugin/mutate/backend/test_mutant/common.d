@@ -501,3 +501,89 @@ void restoreFiles(AbsolutePath[] files, FilesysIO fio) {
         fio.makeOutput(a).write(fio.makeInput(a));
     }
 }
+
+/// The conditions for when to stop mutation testing.
+/// Intended to be re-used by both the main FSM and the sub-FSMs.
+struct TestStopCheck {
+    import std.datetime.systime : Clock, SysTime;
+    import std.typecons : Nullable;
+    import dextool.plugin.mutate.config : ConfigMutationTest;
+
+    private {
+        typeof(ConfigMutationTest.loadBehavior) loadBehavior;
+        typeof(ConfigMutationTest.loadThreshold) loadThreshold;
+        Nullable!int maxAlive;
+
+        /// Max time to run the mutation testing for.
+        SysTime stopAt;
+
+        long aliveMutants_;
+    }
+
+    this(ConfigMutationTest conf) {
+        loadBehavior = conf.loadBehavior;
+        loadThreshold = conf.loadThreshold;
+        maxAlive = conf.maxAlive;
+        stopAt = Clock.currTime + conf.maxRuntime;
+    }
+
+    void incrAliveMutants() @safe pure nothrow @nogc {
+        ++aliveMutants_;
+    }
+
+    long aliveMutants() @safe pure nothrow const @nogc {
+        return aliveMutants_;
+    }
+
+    /// A halt conditions has occured. Mutation testing should stop.
+    bool isHalt() @safe nothrow const {
+        if (Clock.currTime > stopAt)
+            return true;
+
+        if (!maxAlive.isNull && aliveMutants_ >= maxAlive.get)
+            return true;
+
+        if (loadBehavior == ConfigMutationTest.LoadBehavior.halt && load15 > loadThreshold.get)
+            return true;
+
+        return false;
+    }
+
+    /// The system is overloaded and the user has configured the tool to slowdown.
+    bool isOverloaded() @safe nothrow const @nogc {
+        if (loadBehavior == ConfigMutationTest.LoadBehavior.slowdown && load15 > loadThreshold.get)
+            return true;
+
+        return false;
+    }
+
+    bool isAliveTested() @safe pure nothrow const @nogc {
+        return !maxAlive.isNull && aliveMutants_ >= maxAlive.get;
+    }
+
+    double load15() nothrow const @nogc @trusted {
+        import my.libc : getloadavg;
+
+        double[3] load;
+        const nr = getloadavg(&load[0], 3);
+        if (nr <= 0 || nr > load.length) {
+            return 0.0;
+        }
+        return load[nr - 1];
+    };
+
+    /// Pause the current thread by sleeping.
+    void pause() @trusted nothrow const {
+        import core.thread : Thread;
+
+        const sleepFor = 30.dur!"seconds";
+        logger.infof("Sleeping %s", sleepFor).collectException;
+        Thread.sleep(sleepFor);
+    }
+
+    string overloadToString() @safe const {
+        import std.format : format;
+
+        return format!"Detected overload (%s > %s)"(load15, loadThreshold.get);
+    }
+}

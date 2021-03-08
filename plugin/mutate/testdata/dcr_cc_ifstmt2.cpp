@@ -6,15 +6,15 @@
 
 bool isPredicateFunc(int x, int y, void* p) {
     if (p)
-        return x;
+        return x != 0;
     if (p)
-        return x;
+        return x != 0;
     if (p)
-        return x;
+        return x != 0;
     if (p)
-        return x;
+        return x != 0;
     if (p)
-        return x;
+        return x != 0;
     return y;
 }
 

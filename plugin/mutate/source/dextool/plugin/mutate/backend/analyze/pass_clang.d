@@ -1015,12 +1015,15 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const IfStmtThen v) {
         mixin(mixinNodeLog!());
-        pushStack(ast.make!(analyze.Branch), v);
-        v.accept(this);
+        visitIfBranch(v);
     }
 
     override void visit(const IfStmtElse v) {
         mixin(mixinNodeLog!());
+        visitIfBranch(v);
+    }
+
+    private void visitIfBranch(T)(ref const T v) @trusted {
         pushStack(ast.make!(analyze.Branch), v);
         v.accept(this);
     }

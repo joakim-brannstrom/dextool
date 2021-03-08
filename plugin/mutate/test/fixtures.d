@@ -147,9 +147,10 @@ set -e
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-timeout", "10000"])
-            .addPostArg(["--only-schemata"])
-            .addPostArg(["--use-schemata"])
-            .addPostArg(["--log-schemata"]);
+            .addPostArg(["--schema-only"])
+            .addPostArg(["--schema-use"])
+            .addPostArg(["--schema-min-mutants", "0"])
+            .addPostArg(["--schema-log"]);
         // dfmt on
     }
 }

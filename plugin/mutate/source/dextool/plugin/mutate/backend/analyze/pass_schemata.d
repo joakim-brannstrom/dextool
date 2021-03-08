@@ -519,6 +519,8 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBlock(ChainT, T)(T n) {
+        import dextool.plugin.mutate.backend.analyze.ast : Location;
+
         if (n.blacklist || n.schemaBlacklist)
             return;
 
@@ -534,8 +536,25 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
         auto fin = fio.makeInput(loc.file);
 
+        const doWrap = !isDirectParent(Kind.Block);
+
+        static if (is(ChainT == BlockChain)) {
+            // have to extend the interval of the block to generate valid code for
+            // if-else branches.
+            // if (x) x = false; else x = true;
+            // mutated to
+            // if (x) {....} else {....}
+            // note how the ";" are removed too.
+            if (doWrap && (offs.end + 1 < fin.content.length)
+                    && fin.content[offs.end] == cast(ubyte) ';') {
+                offs.end++;
+                loc.interval = offs;
+            }
+        }
+
         auto content = () {
-            // TODO: why does it crash when null is returned? it should work...
+            // must be at least length 1 because ChainT look at the last value
+            //
             // switch statements with fallthrough case-branches have an
             // offs.begin == offs.end
             if (offs.begin >= offs.end) {
@@ -548,7 +567,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return fin.content[offs.begin .. offs.end];
         }();
 
-        auto schema = ChainT(content, !isDirectParent(Kind.Block));
+        auto schema = ChainT(content, doWrap);
         foreach (const mutant; mutants) {
             schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang).mutate(content));
         }
@@ -877,6 +896,7 @@ struct ExpressionChain {
         app.put("(".rewrite);
         app.put(original);
         app.put("))".rewrite);
+
         return app.data;
     }
 }
@@ -944,16 +964,21 @@ struct BlockChain {
             app.put(mutant.id.checksumToId.to!string.rewrite);
             app.put("u".rewrite);
             app.put(") {".rewrite);
+
             app.put(mutant.value);
-            app.put(";} ".rewrite);
+            if (!mutant.value.empty && mutant.value[$ - 1] != cast(ubyte) ';') {
+                app.put(";".rewrite);
+            }
+
+            app.put("} ".rewrite);
         }
 
         app.put("else {".rewrite);
         app.put(original);
-        if (original[$ - 1 .. $] != ";".rewrite) {
+        if (!original.empty && original[$ - 1] != cast(ubyte) ';') {
             app.put(";".rewrite);
         }
-        app.put(";}".rewrite);
+        app.put("}".rewrite);
 
         if (wrap)
             app.put("}".rewrite);

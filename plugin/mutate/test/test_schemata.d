@@ -52,7 +52,7 @@ class ShallUseSchemataSanityCheck : SchemataFixutre {
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         auto r = runDextoolTest(testEnv).addPostArg([
-                "--mutant", "aor", "--check-schemata"
+                "--mutant", "aor", "--schema-check"
                 ]).run;
 
         // dfmt off
