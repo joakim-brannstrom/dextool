@@ -19,9 +19,9 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : TestCaseSimilarityAnalyse,
     reportTestCaseSimilarityAnalyse;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.resource;
+import dextool.plugin.mutate.backend.resource : jsTableOnClick;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
-    tmplDefaultTable, tmplDefaultMatrixTable;
+    tmplDefaultTable, tmplDefaultMatrixTable, dashboardCss;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
@@ -29,7 +29,7 @@ import dextool.plugin.mutate.type : MutationKind;
 auto makeTestCaseSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
 
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.dashboardCss;
     doc.title(format("Test Case Similarity Analyse %(%s %) %s",
             humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");
@@ -65,7 +65,7 @@ void toHtml(ref Database db, Document doc, TestCaseSimilarityAnalyse result,
 
     auto getPath = nullableCache!(MutationId, string, (MutationId id) {
         auto path = spinSql!(() => db.getPath(id)).get;
-        return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
+        return format!"%s#%s"(buildPath(Html.fileDir, pathToHtmlLink(path)), id);
     })(0, 30.dur!"seconds");
 
     const test_cases = result.similarities.byKey.array.sort!((a, b) => a < b).array;

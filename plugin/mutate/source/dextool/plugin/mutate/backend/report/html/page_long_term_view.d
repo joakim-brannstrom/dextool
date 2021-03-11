@@ -12,42 +12,32 @@ module dextool.plugin.mutate.backend.report.html.page_long_term_view;
 import logger = std.experimental.logger;
 import std.format : format;
 
-import arsd.dom : Document, Element, require, Table, RawSource;
+import arsd.dom : Document, Element, require, Table, RawSource, Link;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : MutantSample, reportSelectedAliveMutants;
-import dextool.plugin.mutate.backend.report.html.constants;
+import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
+    tmplDefaultTable, dashboardCss;
 import dextool.plugin.mutate.backend.resource;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 import dextool.type : AbsolutePath;
 
-auto makeLongTermView(ref Database db, ref const ConfigReport conf,
-        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
-    import std.datetime : Clock;
-
-    auto doc = tmplBasicPage;
-    auto s = doc.root.childElements("head")[0].addChild("script");
-    s.addChild(new RawSource(doc, jsIndex));
-    doc.mainBody.setAttribute("onload", "init()");
-    doc.title(format("Long Term View %(%s %) %s", humanReadableKinds, Clock.currTime));
-
-    toHtml(reportSelectedAliveMutants(db, kinds, 10), doc.mainBody);
-
-    return doc.toPrettyString;
+void makeLongTermView(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
+    DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id",
+            tag[1 .. $]), "High Interest Mutants");
+    toHtml(reportSelectedAliveMutants(db, kinds, 10), root);
 }
 
 private:
 
-void toHtml(const MutantSample mut_sample, Element root) {
+void toHtml(const MutantSample sample, Element root) {
     import std.path : buildPath;
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
 
-    root.addChild("h2", "High Interest Mutants");
-
-    if (mut_sample.hardestToKill.length != 0) {
+    if (sample.hardestToKill.length != 0) {
         root.addChild("h3", "Longest surviving Mutants");
         root.addChild("p", "These mutants survived countless test runs.");
         auto tbl_container = root.addChild("div").addClass("tbl_container");
@@ -55,11 +45,11 @@ void toHtml(const MutantSample mut_sample, Element root) {
                 "Link", "Discovered", "Last Updated", "Survived"
                 ]);
 
-        foreach (const mutst; mut_sample.hardestToKill) {
-            const mut = mut_sample.mutants[mutst.statusId];
+        foreach (const mutst; sample.hardestToKill) {
+            const mut = sample.mutants[mutst.statusId];
             auto r = tbl.appendRow();
             r.addChild("td").addChild("a", format("%s:%s", mut.file,
-                    mut.sloc.line)).href = format("%s#%s", buildPath(htmlFileDir,
+                    mut.sloc.line)).href = format("%s#%s", buildPath(HtmlStyle.fileDir,
                     pathToHtmlLink(mut.file)), mut.id.get);
             r.addChild("td", mutst.added.isNull ? "unknown" : mutst.added.get.toString);
             r.addChild("td", mutst.updated.toString);
@@ -67,18 +57,18 @@ void toHtml(const MutantSample mut_sample, Element root) {
         }
     }
 
-    if (mut_sample.oldest.length != 0) {
+    if (sample.oldest.length != 0) {
         root.addChild("p", format("This is a list of the %s oldest mutants. This list contains information when they where last tested and had their status updated.",
-                mut_sample.oldest.length));
+                sample.oldest.length));
 
         auto tbl_container = root.addChild("div").addClass("tbl_container");
         auto tbl = tmplDefaultTable(tbl_container, ["Link", "Updated"]);
 
-        foreach (const mutst; mut_sample.oldest) {
-            auto mut = mut_sample.mutants[mutst.id];
+        foreach (const mutst; sample.oldest) {
+            auto mut = sample.mutants[mutst.id];
             auto r = tbl.appendRow();
             r.addChild("td").addChild("a", format("%s:%s", mut.file,
-                    mut.sloc.line)).href = format("%s#%s", buildPath(htmlFileDir,
+                    mut.sloc.line)).href = format("%s#%s", buildPath(HtmlStyle.fileDir,
                     pathToHtmlLink(mut.file)), mut.id.get);
             r.addChild("td", mutst.updated.toString);
         }

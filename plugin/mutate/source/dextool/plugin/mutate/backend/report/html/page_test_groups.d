@@ -18,7 +18,8 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.report.analyzers : TestGroupStat, reportTestGroups;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
+    tmplDefaultTable, dashboardCss;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
@@ -28,7 +29,7 @@ auto makeTestGroups(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
     import std.datetime : Clock;
 
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.dashboardCss;
     doc.title(format("Test Groups %(%s %) %s", humanReadableKinds, Clock.currTime));
 
     if (conf.testGroups.length != 0)
@@ -85,7 +86,7 @@ void testGroups(const TestGroupStat test_g, Element root) {
         if (auto alive = pkv[0] in test_g.alive) {
             foreach (a; (*alive).dup.sort!((a, b) => a.sloc.line < b.sloc.line)) {
                 auto link = alive_ids.addChild("a", format("%s:%s", a.kind.toUser, a.sloc.line));
-                link.href = format("%s#%s", buildPath(htmlFileDir, pathToHtmlLink(path)), a.id);
+                link.href = format("%s#%s", buildPath(Html.fileDir, pathToHtmlLink(path)), a.id);
                 alive_ids.appendText(" ");
             }
         }
@@ -94,7 +95,7 @@ void testGroups(const TestGroupStat test_g, Element root) {
         if (auto killed = pkv[0] in test_g.killed) {
             foreach (a; (*killed).dup.sort!((a, b) => a.sloc.line < b.sloc.line)) {
                 auto link = killed_ids.addChild("a", format("%s:%s", a.kind.toUser, a.sloc.line));
-                link.href = format("%s#%s", buildPath(htmlFileDir, pathToHtmlLink(path)), a.id);
+                link.href = format("%s#%s", buildPath(Html.fileDir, pathToHtmlLink(path)), a.id);
                 killed_ids.appendText(" ");
             }
         }

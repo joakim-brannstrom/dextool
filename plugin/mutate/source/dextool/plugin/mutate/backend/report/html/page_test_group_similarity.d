@@ -19,16 +19,16 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : TestGroupSimilarity,
     reportTestGroupsSimilarity;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.resource;
+import dextool.plugin.mutate.backend.resource : jsTableOnClick;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
-    tmplDefaultTable, tmplDefaultMatrixTable;
+    tmplDefaultTable, tmplDefaultMatrixTable, dashboardCss;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 
 auto makeTestGroupSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.dashboardCss;
     auto s = doc.root.childElements("head")[0].addChild("script");
     s.addChild(new RawSource(doc, jsTableOnClick));
     doc.title(format("Test Group Similarity Analyse %(%s %) %s",
@@ -61,7 +61,7 @@ void toHtml(ref Database db, TestGroupSimilarity result, Element root) {
 
     auto getPath = nullableCache!(MutationId, string, (MutationId id) {
         auto path = spinSql!(() => db.getPath(id)).get;
-        return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
+        return format!"%s#%s"(buildPath(Html.fileDir, pathToHtmlLink(path)), id);
     })(0, 30.dur!"seconds");
 
     const test_groups = result.similarities.byKey.array.sort!((a, b) => a < b).array;

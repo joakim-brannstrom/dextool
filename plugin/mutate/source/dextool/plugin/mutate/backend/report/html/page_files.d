@@ -24,5 +24,5 @@ string pathToHtml(string p) {
 }
 
 Path pathToHtmlLink(string p) {
-    return Path(pathToHtml(p) ~ htmlExt);
+    return Path(pathToHtml(p) ~ Html.ext);
 }

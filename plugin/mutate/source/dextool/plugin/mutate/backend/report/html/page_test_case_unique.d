@@ -18,16 +18,17 @@ import arsd.dom : Element, RawSource;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : TestCaseUniqueness,
     reportTestCaseUniqueness;
-import dextool.plugin.mutate.backend.report.html.constants : htmlFileDir;
+import dextool.plugin.mutate.backend.report.html.constants : Html;
 import dextool.plugin.mutate.backend.resource : jsTableOnClick;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
+    tmplDefaultTable, dashboardCss;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 
 auto makeTestCaseUnique(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.dashboardCss;
 
     auto s = doc.root.childElements("head")[0].addChild("script");
     s.addChild(new RawSource(doc, jsTableOnClick));
@@ -55,7 +56,7 @@ void toHtml(ref Database db, TestCaseUniqueness result, Element root) {
 
     auto getPath = nullableCache!(MutationId, string, (MutationId id) {
         auto path = spinSql!(() => db.getPath(id)).get;
-        return format!"%s#%s"(buildPath(htmlFileDir, pathToHtmlLink(path)), id);
+        return format!"%s#%s"(buildPath(Html.fileDir, pathToHtmlLink(path)), id);
     })(0, 30.dur!"seconds");
 
     with (root.addChild("button", "expand all")) {
@@ -75,8 +76,9 @@ void toHtml(ref Database db, TestCaseUniqueness result, Element root) {
         heading.addChild("i").addClass("right");
         heading.appendText(" ");
         heading.appendText(k.name);
-        auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
-        tbl_container.setAttribute("style", "display: none;");
+
+        auto tbl_container = comp_container.addChild("div")
+            .addClass("tbl_container").setAttribute("style", "display: none;");
         auto tbl = tmplDefaultTable(tbl_container, ["Mutation ID"]);
 
         auto r = tbl.appendRow();

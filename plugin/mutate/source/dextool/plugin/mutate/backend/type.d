@@ -501,6 +501,6 @@ struct MutantTimeProfile {
     void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
         import std.format : formattedWrite;
 
-        formattedWrite(w, "total:%s compile:%s test:%s", sum, compile, test);
+        formattedWrite(w, "%s compile:(%s) test:(%s)", sum, compile, test);
     }
 }

@@ -12,8 +12,13 @@ module dextool.plugin.mutate.backend.resource;
 import my.resource;
 import my.path;
 import my.optional;
+import my.named_type;
 
 @safe:
+
+alias Javascript = NamedType!(string, Tag!"Javascript", string.init, TagStringable);
+alias Html = NamedType!(string, Tag!"Html", string.init, TagStringable);
+alias Css = NamedType!(string, Tag!"Css", string.init, TagStringable);
 
 private string[string] cacheData;
 
@@ -87,4 +92,19 @@ string coverageMapHdr() {
 
 string coverageMapImpl() {
     return readData("coverage_mmap.c");
+}
+
+struct Dashboard {
+    Javascript jquery;
+    Javascript bootstrapJs;
+    Javascript chart;
+    Css bootstrapCss;
+    Css dashboardCss;
+    Html dashboardHtml;
+}
+
+Dashboard dashboard() {
+    return Dashboard(Javascript(readData("jquery.min.js")), Javascript(readData("bootstrap.min.js")),
+            Javascript(readData("chart.min.js")), Css(readData("bootstrap.min.css")),
+            Css(readData("dashboard.css")), Html(readData("dashboard.html")));
 }

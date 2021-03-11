@@ -16,7 +16,8 @@ import arsd.dom : Document, Element, require, Table;
 
 import dextool.plugin.mutate.backend.database : Database, MutantMetaData;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
+    dashboardCss, tmplDefaultTable;
 import dextool.plugin.mutate.backend.report.utility;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
@@ -27,7 +28,7 @@ auto makeNomut(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
     import std.datetime : Clock;
 
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.dashboardCss;
     doc.title(format("NoMut Details %(%s %) %s", humanReadableKinds, Clock.currTime));
     doc.mainBody.addChild("p",
             "This is all the mutation suppressions that are used and affects the analysis.");
@@ -84,7 +85,7 @@ void toHtml(MutantMetaData[] data, ref Database db, Element root) {
 
             auto td = r.addChild("td");
             td.addChild("a", file.get).href = format("%s#%s",
-                    buildPath(htmlFileDir, pathToHtmlLink(file.get)), m.id);
+                    buildPath(Html.fileDir, pathToHtmlLink(file.get)), m.id);
             td.addChild("br");
             td.appendText(m.comment);
         }

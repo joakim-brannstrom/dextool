@@ -19,7 +19,7 @@ import dextool.plugin.mutate.backend.report.analyzers : MinimalTestSet, reportMi
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
-    tmplDefaultTable, tmplDefaultMatrixTable;
+    tmplDefaultTable, dashboardCss, tmplDefaultMatrixTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
@@ -28,7 +28,7 @@ auto makeMinimalSetAnalyse(ref Database db, ref const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
     import std.datetime : Clock;
 
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.dashboardCss;
 
     auto s = doc.root.childElements("head")[0].addChild("script");
     s.addChild(new RawSource(doc, jsTableOnClick));

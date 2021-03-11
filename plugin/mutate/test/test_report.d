@@ -393,7 +393,6 @@ class ShallProduceHtmlReport : SimpleAnalyzeFixture {
 
         // assert that the expected files have been generated
         exists(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata_report_one_ror_mutation_point.cpp.html")).shouldBeTrue;
-        exists(buildPath(testEnv.outdir.toString, "html", "stats.html")).shouldBeTrue;
         exists(buildPath(testEnv.outdir.toString, "html", "index.html")).shouldBeTrue;
     }
 }
@@ -561,7 +560,7 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             "5",
             "NoMut/total",
             "0.5",
-        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "stats.html")).byLineCopy.array);
+        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "index.html")).byLineCopy.array);
     }
 }
 
@@ -711,7 +710,7 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
         // Assert
         testConsecutiveSparseOrder!SubStr([
                 `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
-                `<table class="overlap_tbl">`, `<td>tc_2</td>`, `<td>tc_3</td>`,
+                `<table`, `<td>tc_2</td>`, `<td>tc_3</td>`,
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
                 "test_case_unique.html")).byLineCopy.array);
 

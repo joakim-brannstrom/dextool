@@ -4,7 +4,7 @@ import std.json : JSONValue;
 import arsd.dom : Document, Element, require, Table, RawSource;
 
 import dextool.plugin.mutate.backend.report.html : FileIndex;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, filesCss;
 import dextool.plugin.mutate.backend.resource;
 
 /** A JSON-like object that is more easily manipulated than JSONValue.
@@ -15,7 +15,7 @@ import dextool.plugin.mutate.backend.resource;
 auto makeTreeMapPage(FileIndex[] files) {
     import std.format : format;
 
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.filesCss;
     doc.mainBody.setAttribute("onload", "init()");
 
     auto s = doc.root.childElements("head")[0].addChild("script");
@@ -50,11 +50,8 @@ auto makeTreeMapJSON(FileIndex[] files) {
             }
             parent = parent[seg];
         }
-        parent.locs = f.totalMutants;
-        if (f.totalMutants == 0)
-            parent.score = 1.0;
-        else
-            parent.score = cast(double) f.killedMutants / cast(double) f.totalMutants;
+        parent.locs = f.stat.total;
+        parent.score = f.stat.score;
     }
     return root.toJSONValue().toPrettyString();
 }

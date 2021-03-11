@@ -20,7 +20,8 @@ import dextool.plugin.mutate.backend.report.analyzers : TestCaseOverlapStat,
     reportTestCaseFullOverlap;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.resource;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, tmplDefaultTable;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
+    tmplDefaultTable, dashboardCss;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
@@ -32,7 +33,7 @@ string makeFullOverlapTestCase(ref Database db, ref const ConfigReport conf,
 
     auto sections = conf.reportSection.toSet;
 
-    auto doc = tmplBasicPage;
+    auto doc = tmplBasicPage.dashboardCss;
     doc.title(format("Full Overlap Test Cases %(%s %) %s", humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");
 
@@ -74,8 +75,8 @@ void toHtml(const TestCaseOverlapStat s, Element n) {
         bool first = true;
         string cls = () {
             if (tcs.index % 2 == 0)
-                return tableRowStyle;
-            return tableRowDarkStyle;
+                return Table.rowStyle;
+            return Table.rowDarkStyle;
         }();
 
         // TODO this is a bit slow. use a DB row iterator instead.
