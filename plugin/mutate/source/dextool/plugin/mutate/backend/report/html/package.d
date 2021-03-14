@@ -29,8 +29,7 @@ import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportSection;
 import dextool.type : AbsolutePath, Path;
 
-import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html,
-    SortableTable, DashboardCss;
+import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.resource;
 
@@ -673,8 +672,9 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
 
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
-    auto tbl = tmplDefaultTable(root.addChild("div").addClass(SortableTable.id),
-            ["Path", "Score", "Alive", "NoMut", "Total", "Duration"]);
+    auto tbl = tmplSortableTable(root, [
+            "Path", "Score", "Alive", "NoMut", "Total", "Duration"
+            ]);
 
     // Users are not interested that files that contains zero mutants are shown
     // in the list. It is especially annoying when they are marked with dark
@@ -700,10 +700,10 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
         }();
 
         r.addChild("td", format!"%.3s"(score)).style = style;
-        r.addChild("td", f.stat.alive.to!string).style = style;
-        r.addChild("td", f.stat.aliveNoMut.to!string).style = style;
-        r.addChild("td", f.stat.total.to!string).style = style;
-        r.addChild("td", f.stat.totalTime.to!string).style = style;
+        r.addChild("td", f.stat.alive.to!string);
+        r.addChild("td", f.stat.aliveNoMut.to!string);
+        r.addChild("td", f.stat.total.to!string);
+        r.addChild("td", f.stat.totalTime.to!string);
 
         hasSuppressed = hasSuppressed || f.stat.aliveNoMut != 0;
     }
@@ -944,6 +944,7 @@ Document makeDashboard() @trusted {
     auto style = doc.root.childElements("head")[0].addChild("style");
     style.addChild(new RawSource(doc, data.bootstrapCss.get));
     style.addChild(new RawSource(doc, data.dashboardCss.get));
+    style.addChild(new RawSource(doc, tmplDefaultCss));
 
     auto script = doc.root.childElements("head")[0].addChild("script");
     script.addChild(new RawSource(doc, data.jquery.get));

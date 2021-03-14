@@ -24,7 +24,6 @@ struct TableStat {
 }
 
 struct Table {
-    static immutable style = "table table-striped";
     static immutable hdrStyle = "tg-g59y";
     static immutable rowStyle = "tg-0lax";
     static immutable rowDarkStyle = "tg-0lax_dark";
@@ -35,14 +34,24 @@ struct MatrixTable {
     static immutable hdrStyle = "tg";
 }
 
-struct SortableTable {
-    // table that is sortable
-    // TODO: change index.js from tbl_container to table-responsive
-    static immutable id = "table-responsive";
-}
-
 struct DashboardCss {
     static Element h2(Element root, string txt) @trusted {
         return root.addChild("h2", txt).addClass("sub-header");
+    }
+
+    static Element defaultTable(Element root) @trusted {
+        return root.addClass("table table-striped");
+    }
+
+    static Element sortableTableDiv(Element root) @trusted {
+        return root.addClass("table-sortable-div");
+    }
+
+    static Element sortableTable(Element root) @trusted {
+        return root.addClass("table-sortable");
+    }
+
+    static Element sortableTableCol(Element root) @trusted {
+        return root.addClass("table-col-sortable");
     }
 }
