@@ -194,16 +194,16 @@ struct SchemataTestDriver {
         }, (InjectSchema a) {
             if (a.error)
                 return fsm(Restore.init);
+            return fsm(Compile.init);
+        }, (Compile a) {
+            if (a.error)
+                return fsm(Restore.init);
             return fsm(OverloadCheck.init);
         }, (OverloadCheck a) {
             if (a.halt)
                 return fsm(Restore.init);
             if (a.sleep)
                 return fsm(OverloadCheck.init);
-            return fsm(Compile.init);
-        }, (Compile a) {
-            if (a.error)
-                return fsm(Restore.init);
             return fsm(NextMutant.init);
         }, (NextMutant a) {
             if (a.done)
@@ -211,7 +211,7 @@ struct SchemataTestDriver {
             return fsm(TestMutant(a.inject));
         }, (TestMutant a) {
             if (a.mutantIdError)
-                return fsm(NextMutant.init);
+                return fsm(OverloadCheck.init);
             if (a.result.status == Mutation.Status.killed
                 && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && a.hasTestOutput) {
                 return fsm(TestCaseAnalyze(a.result));
@@ -219,9 +219,9 @@ struct SchemataTestDriver {
             return fsm(StoreResult(a.result));
         }, (TestCaseAnalyze a) {
             if (a.unstableTests)
-                return fsm(NextMutant.init);
+                return fsm(OverloadCheck.init);
             return fsm(StoreResult(a.result));
-        }, (StoreResult a) => fsm(NextMutant.init), (Restore a) => Done.init, (Done a) => a);
+        }, (StoreResult a) => fsm(OverloadCheck.init), (Restore a) => Done.init, (Done a) => a);
 
         debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
