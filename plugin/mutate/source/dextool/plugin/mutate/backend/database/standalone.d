@@ -42,6 +42,7 @@ import dextool.type : AbsolutePath, Path, ExitStatusType;
 import dextool.plugin.mutate.backend.database.schema;
 import dextool.plugin.mutate.backend.database.type;
 import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum, Language, Offset;
+import dextool.plugin.mutate.type : MutationOrder;
 
 /** Database wrapper with minimal dependencies.
  */
@@ -59,11 +60,16 @@ struct Database {
     }
 
     /// Add all mutants with the specific status to the worklist.
-    void updateWorklist(const Mutation.Kind[] kinds, const Mutation.Status status) @trusted {
-        const sql = format!"INSERT OR IGNORE INTO %s (id)
-            SELECT t1.id FROM %s t0, %s t1 WHERE t0.kind IN (%(%s,%)) AND
+    void updateWorklist(const Mutation.Kind[] kinds, const Mutation.Status status,
+            const long prio = 100, const MutationOrder userOrder = MutationOrder.random) @trusted {
+        const order = userOrder == MutationOrder.random
+            ? format!"%s + abs(random() %% %s)"(prio, 100) : prio.to!string;
+
+        const sql = format!"INSERT OR IGNORE INTO %s (id,prio)
+            SELECT t1.id,%s FROM %s t0, %s t1 WHERE t0.kind IN (%(%s,%)) AND
             t0.st_id = t1.id AND
-            t1.status = :status"(mutantWorklistTable,
+            t1.status = :status
+            "(mutantWorklistTable, order,
                 mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
@@ -71,9 +77,9 @@ struct Database {
     }
 
     /// Add a mutant to the worklist.
-    void addToWorklist(const MutationStatusId id) @trusted {
-        static immutable sql = format!"INSERT OR IGNORE INTO %1$s (id) VALUES(:id)"(
-                mutantWorklistTable);
+    void addToWorklist(const MutationStatusId id, const long prio = 0) @trusted {
+        const sql = format!"INSERT OR IGNORE INTO %1$s (id,prio) VALUES(:id,%2$s)"(
+                mutantWorklistTable, prio);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         stmt.get.execute;
@@ -1711,10 +1717,10 @@ struct Database {
     }
 
     /// Copy the timeout mutants to the worklist of mutants to test.
-    void copyMutantTimeoutWorklist() @trusted {
-        static immutable sql = format!"INSERT OR IGNORE INTO %1$s (id)
-            SELECT id FROM %2$s"(mutantWorklistTable,
-                mutantTimeoutWorklistTable);
+    void copyMutantTimeoutWorklist(const long prio = 100) @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %1$s (id,prio)
+            SELECT id,%3$s FROM %2$s"(mutantWorklistTable,
+                mutantTimeoutWorklistTable, prio);
         auto stmt = db.prepare(sql);
         stmt.get.execute;
     }
