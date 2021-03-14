@@ -7,7 +7,26 @@ New features for dextool mutate
  * Check that all files to mutate are writable.
  * Check periodically that the test suite, without any mutants, execute OK. If
    not, rollback the last tested mutants.
- * Save what test_cmd killed a mutant.
+ * Save what test_cmd killed a mutant. This is only activated if test case
+   analyzers are used.
+ * Prioritize testing of unknown mutants.
+ * Check overload/halt conditions when running a schema for each mutant that is
+   tested. Previously it was only done when selecting a new schema.
+ * Construct larger mutant scheman. Previously they where at most one
+   translation unit. Now they can span multiple translation units (e.g. *.cpp).
+   This mean that each schema contain more mutants thus the overall mutation
+   testing time is reduced.
+ * Continuously save the result (every 20minute) the tested mutants of a
+   schema. This should reduce the overall memory usage and means that if the
+   schema is interrupted only the result from the last 20 minutes (at the most)
+   are lost.
+ * Modernize the html layout theme.
+
+Fixes for dextool mutate
+
+ * Fix bugs in schema code generation such that more scheman compile.
+ * Fix bug where the dependency tracking via included headers used the wrong
+   path for headers included from the current directory (`#include "foo.hpp"`).
 
 # v3.0.0 Nice Weather
 
