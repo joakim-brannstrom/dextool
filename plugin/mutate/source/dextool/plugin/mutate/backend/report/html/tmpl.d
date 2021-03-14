@@ -26,13 +26,14 @@ Document tmplBasicPage() @trusted {
 Document dashboardCss(Document doc) @trusted {
     //import dextool.plugin.mutate.backend.resource : tmplDefaultCss;
     import arsd.dom : RawSource;
-    import dextool.plugin.mutate.backend.resource : dashboard, jsIndex;
+    import dextool.plugin.mutate.backend.resource : dashboard, jsIndex, tmplDefaultCss;
 
     auto data = dashboard();
 
     auto style = doc.root.childElements("head")[0].addChild("style");
     style.addChild(new RawSource(doc, data.bootstrapCss.get));
     style.addChild(new RawSource(doc, data.dashboardCss.get));
+    style.addChild(new RawSource(doc, tmplDefaultCss));
 
     return doc;
 }
@@ -47,25 +48,50 @@ Document filesCss(Document doc) @trusted {
 }
 
 Table tmplDefaultTable(Element n, string[] header) @trusted {
-    import std.range : enumerate;
-    import std.format : format;
-    import dextool.plugin.mutate.backend.report.html.constants : TableStyle = Table;
+    auto base = tmplTable(n);
 
-    auto tbl = n.addChild("table").require!Table;
-    tbl.addClass(TableStyle.style);
-
-    auto tr = n.parentDocument.createElement("tr");
-    foreach (h; header.enumerate) {
-        auto th = tr.addChild("th", h.value);
-        th.addClass(TableStyle.hdrStyle);
-        th.setAttribute("id", format!"col-%s"(h.index));
-        th.appendText(" ");
-        th.addChild("i").addClass("right");
+    auto tr = base.div.parentDocument.createElement("tr");
+    foreach (h; header) {
+        tr.addChild("th", h);
     }
 
-    tbl.addChild("thead").appendChild(tr);
+    base.tbl.addChild("thead").appendChild(tr);
+    return base.tbl;
+}
 
-    return tbl;
+Table tmplSortableTable(Element n, string[] header) @trusted {
+    import std.range : enumerate;
+    import std.format : format;
+    import dextool.plugin.mutate.backend.report.html.constants : DashboardCss;
+
+    auto base = tmplTable(n);
+    DashboardCss.sortableTableDiv(base.div);
+    DashboardCss.sortableTable(base.tbl);
+
+    auto tr = base.div.parentDocument.createElement("tr");
+    foreach (h; header.enumerate) {
+        auto th = tr.addChild("th", h.value);
+        DashboardCss.sortableTableCol(th).setAttribute("id",
+                format!"col-%s"(h.index)).appendText(" ").addChild("i").addClass("right");
+    }
+
+    base.tbl.addChild("thead").appendChild(tr);
+    return base.tbl;
+}
+
+private struct TableData {
+    Element div;
+    Table tbl;
+}
+
+private TableData tmplTable(Element n) @trusted {
+    import dextool.plugin.mutate.backend.report.html.constants : DashboardCss;
+
+    auto div = n.addChild("div");
+    auto tbl = div.addChild("table").require!Table;
+    DashboardCss.defaultTable(tbl);
+
+    return TableData(div, tbl);
 }
 
 Table tmplDefaultMatrixTable(Element n, string[] header) @trusted {
