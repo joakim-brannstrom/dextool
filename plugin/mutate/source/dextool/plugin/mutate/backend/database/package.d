@@ -25,8 +25,9 @@ import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.type;
 
 import dextool.plugin.mutate.backend.database.schema;
-public import dextool.plugin.mutate.backend.database.type;
+import dextool.plugin.mutate.type : MutationOrder;
 public import dextool.plugin.mutate.backend.database.standalone;
+public import dextool.plugin.mutate.backend.database.type;
 
 /** Wrapper for a sqlite3 database that provide a uniform, easy-to-use
  * interface for the mutation testing plugin.
@@ -37,7 +38,6 @@ struct Database {
     import std.typecons : Nullable;
     import dextool.plugin.mutate.backend.database.standalone : SDatabase = Database;
     import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum;
-    import dextool.plugin.mutate.type : MutationOrder;
 
     SDatabase db;
     alias db this;
@@ -46,9 +46,11 @@ struct Database {
         return Database(SDatabase.make(db));
     }
 
-    /** Get the next mutation point + 1 mutant for it that has status unknown.
+    /** Get the next mutation from the worklist to test by the highest
+     * priority.
      *
-     * TODO to run many instances in parallel the mutation should be locked.
+     * TODO: assuming that there are no more than 100 instances running in
+     * parallel.
      *
      * The chosen point is randomised.
      *
@@ -59,27 +61,31 @@ struct Database {
             const MutationOrder userOrder = MutationOrder.random) @trusted {
         import dextool.plugin.mutate.backend.type;
 
+        const order = userOrder == MutationOrder.random ? "100" : "1";
+
         typeof(return) rval;
 
-        const order = userOrder == MutationOrder.random ? "ORDER BY RANDOM()" : "";
-
-        immutable sql = format("SELECT
-                               t0.id,
-                               t0.kind,
-                               t3.compile_time_ms,
-                               t3.test_time_ms,
-                               t1.offset_begin,
-                               t1.offset_end,
-                               t1.line,
-                               t1.column,
-                               t2.path,
-                               t2.lang
-                               FROM %s t0,%s t1,%s t2,%s t3, %s t4
-                               WHERE
-                               t0.st_id = t3.id AND
-                               t3.id = t4.id AND
-                               t0.mp_id == t1.id AND
-                               t1.file_id == t2.id %s LIMIT 1", mutationTable, mutationPointTable,
+        immutable sql = format("
+            SELECT * FROM
+            (SELECT
+            t0.id,
+            t0.kind,
+            t3.compile_time_ms,
+            t3.test_time_ms,
+            t1.offset_begin,
+            t1.offset_end,
+            t1.line,
+            t1.column,
+            t2.path,
+            t2.lang
+            FROM %1$s t0,%2$s t1,%3$s t2,%4$s t3, %5$s t4
+            WHERE
+            t0.st_id = t3.id AND
+            t3.id = t4.id AND
+            t0.mp_id == t1.id AND
+            t1.file_id == t2.id
+            ORDER BY prio DESC LIMIT %6$s)
+            ORDER BY RANDOM() LIMIT 1", mutationTable, mutationPointTable,
                 filesTable, mutationStatusTable, mutantWorklistTable, order);
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;

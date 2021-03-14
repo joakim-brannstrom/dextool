@@ -395,6 +395,7 @@ struct MutationStatusTbl {
 @TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 struct MutantWorklistTbl {
     long id;
+    long prio;
 }
 
 /** Timeout mutants that are re-tested until none of them change status from
@@ -1266,6 +1267,12 @@ void upgradeV21(ref Miniorm db) {
 
 /// 2020-11-28
 void upgradeV22(ref Miniorm db) {
+    @TableName(mutantWorklistTable)
+    @TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+    struct MutantWorklistTbl {
+        long id;
+    }
+
     db.run(buildSchema!(MutantWorklistTbl));
 }
 
@@ -1433,6 +1440,14 @@ void upgradeV33(ref Miniorm db) {
     db.run(format("INSERT OR IGNORE INTO %1$s (dep_id,file_id)
                   SELECT t0.id,t1.id FROM %2$s t0, %3$s t1", depRootTable,
             depFileTable, filesTable));
+}
+
+/// 2021-03-14
+void upgradeV34(ref Miniorm db) {
+    immutable newTbl = "new_" ~ mutantWorklistTable;
+    db.run(buildSchema!MutantWorklistTbl("new_"));
+    db.run(format("INSERT INTO %1$s (id,prio) SELECT id,0 FROM %2$s", newTbl, mutantWorklistTable));
+    db.replaceTbl(newTbl, mutantWorklistTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

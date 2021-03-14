@@ -558,7 +558,8 @@ nothrow:
     void opCall(Initialize data) {
         logger.info("Initializing worklist").collectException;
         spinSql!(() {
-            global.data.db.updateWorklist(global.data.kinds, Mutation.Status.unknown);
+            global.data.db.updateWorklist(global.data.kinds,
+                Mutation.Status.unknown, 100, global.data.conf.mutationOrder);
         });
     }
 
@@ -824,6 +825,7 @@ nothrow:
     }
 
     void opCall(ResetOldMutant data) {
+        import std.range : enumerate;
         import dextool.plugin.mutate.backend.database.type;
 
         void printStatus(T0)(T0 oldestMutant, SysTime newestTest, SysTime newestFile) {
@@ -876,10 +878,13 @@ nothrow:
         });
 
         logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
-        foreach (const old; oldest) {
-            logger.info("Last updated ", old.updated).collectException;
-            spinSql!(() { global.data.db.addToWorklist(old.id); });
-        }
+        spinSql!(() {
+            foreach (const old; oldest.enumerate) {
+                logger.infof("%s Last updated %s", old.index + 1,
+                    old.value.updated).collectException;
+                global.data.db.addToWorklist(old.value.id);
+            }
+        });
     }
 
     void opCall(Cleanup data) {
