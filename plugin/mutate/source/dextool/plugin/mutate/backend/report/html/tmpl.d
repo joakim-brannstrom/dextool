@@ -9,7 +9,12 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html.tmpl;
 
-import arsd.dom : Document, Element, require, Table;
+import std.conv : to;
+import std.format : format;
+import std.json : JSONValue;
+
+import arsd.dom : Document, Element, require, Table, RawSource;
+import my.named_type;
 
 @safe:
 
@@ -109,4 +114,57 @@ Table tmplDefaultMatrixTable(Element n, string[] header) @trusted {
     tbl.addChild("thead").appendChild(tr);
 
     return tbl;
+}
+
+struct PieGraph {
+    alias Width = NamedType!(long, Tag!"PieGraphWidth", long.init, TagStringable);
+    static struct Item {
+        string label;
+        string color;
+        double value;
+    }
+
+    /// Name of the chart
+    string name;
+
+    /// Containted items.
+    Item[] items;
+
+    string data() {
+        import std.algorithm : map;
+        import std.array : array;
+
+        JSONValue j;
+        j["type"] = "pie";
+
+        JSONValue datasets;
+        datasets["data"] = items.map!(a => a.value).array;
+        datasets["backgroundColor"] = items.map!(a => a.color).array;
+        datasets["label"] = name;
+
+        JSONValue data_;
+        data_["datasets"] = [datasets];
+        data_["labels"] = items.map!(a => a.label).array;
+
+        j["data"] = data_;
+
+        return format!"var %1$sData = %2$s;"(name, j.toString);
+    }
+
+    Element canvas(const Width w) @trusted {
+        auto root = new Element("div", ["style": format!"width:%s%%"(w.get)]);
+        root.addChild(new Element("canvas", ["id": name]));
+        return root;
+    }
+
+    /// Call to initialize the graph with data.
+    string initCall() @trusted {
+        return format!"var ctx%1$s = document.getElementById('%1$s').getContext('2d'); var chart%1$s = new Chart(ctx%1$s, %1$sData);"(
+                name);
+    }
+
+    void html(Element root, const Width w) @trusted {
+        root.addChild(canvas(w));
+        root.addChild("script").innerRawSource(data ~ initCall);
+    }
 }

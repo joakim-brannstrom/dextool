@@ -18,7 +18,7 @@ import arsd.dom : Element, Table, RawSource, Link;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : MutationStat, reportStatistics;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable, PieGraph;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
@@ -45,12 +45,16 @@ void overallStat(const MutationStat s, Element n) {
         base.addChild("p", format("Remaining: %s (%s)", s.predictedDone, pred.toISOExtString));
     }
 
-    auto tbl_container = base.addChild("div").addClass("tbl_container");
-    auto tbl = tmplDefaultTable(tbl_container, ["Type", "Value"]);
+    PieGraph("score", [
+            PieGraph.Item("alive", "Red", s.alive),
+            PieGraph.Item("killed", "Green", s.killed),
+            PieGraph.Item("Untested", "Grey", s.untested),
+            PieGraph.Item("Timeout", "LightGreen", s.timeout)
+            ]).html(base, PieGraph.Width(50));
+
+    auto tbl = tmplDefaultTable(base, ["Type", "Value"]);
     foreach (const d; [
-            tuple("Total", s.total), tuple("Untested", cast(long) s.untested),
-            tuple("Alive", s.alive), tuple("Killed", s.killed),
-            tuple("Timeout", s.timeout),
+            tuple("Total", s.total),
             tuple("Killed by compiler", cast(long) s.killedByCompiler),
             tuple("Worklist", cast(long) s.worklist),
         ]) {
