@@ -1233,14 +1233,14 @@ EstimateScore reportEstimate(ref Database db, const Mutation.Kind[] kinds) @trus
 
 /** History of how the mutation score have evolved over time.
  *
- * The history is ordered in ascending order by date.
+ * The history is ordered iascending by date. Each day is the average of the
+ * recorded mutation score.
  */
 struct MutationScoreHistory {
     import dextool.plugin.mutate.backend.database.type : MutationScore;
 
-    MutationScore[] raw;
     /// only one score for each date.
-    MutationScore[] pretty;
+    MutationScore[] data;
 }
 
 MutationScoreHistory reportMutationScoreHistory(ref Database db) @safe {
@@ -1255,7 +1255,7 @@ private MutationScoreHistory reportMutationScoreHistory(
     auto pretty = appender!(MutationScore[])();
 
     if (data.length < 2) {
-        return MutationScoreHistory(data, data);
+        return MutationScoreHistory(data);
     }
 
     auto last = (cast(DateTime) data[0].timeStamp).date;
@@ -1275,7 +1275,7 @@ private MutationScoreHistory reportMutationScoreHistory(
     }
     pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr)));
 
-    return MutationScoreHistory(data, pretty.data);
+    return MutationScoreHistory(pretty.data);
 }
 
 @("shall calculate the mean of the mutation scores")
@@ -1293,6 +1293,6 @@ unittest {
 
     auto res = reportMutationScoreHistory(data.data);
 
-    res.pretty[0].score.get.shouldEqual(7.5);
-    res.pretty[1].score.get.shouldEqual(5.0);
+    res.data[0].score.get.shouldEqual(7.5);
+    res.data[1].score.get.shouldEqual(5.0);
 }

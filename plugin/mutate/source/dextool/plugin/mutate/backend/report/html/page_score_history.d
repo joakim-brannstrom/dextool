@@ -70,7 +70,7 @@ void toHtml(const MutationScoreHistory history, Document doc, Element root, Elem
             "Date", "Score"
             ]);
     auto app = appender!(JSONValue[])();
-    foreach (score; history.pretty.retro) {
+    foreach (score; history.data.retro) {
         const date = (cast(DateTime) score.timeStamp).date.toString;
         tbl.appendRow(date, format!"%.3s"(score.score.get));
 

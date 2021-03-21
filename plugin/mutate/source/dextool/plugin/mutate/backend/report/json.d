@@ -239,7 +239,7 @@ JSONValue[] toJson(MutationScoreHistory data) {
     import std.conv : to;
 
     auto app = appender!(JSONValue[])();
-    foreach (a; data.raw) {
+    foreach (a; data.data) {
         JSONValue s;
         s["date"] = a.timeStamp.to!string;
         s["score"] = a.score.get;
