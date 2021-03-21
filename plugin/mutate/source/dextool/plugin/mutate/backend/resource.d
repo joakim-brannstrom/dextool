@@ -54,10 +54,6 @@ string jsSource() {
     return readData("source.js");
 }
 
-string jsScoreHistory() {
-    return readData("score_history.js");
-}
-
 string jsTreeMap() {
     return readData("treemap.js");
 }
@@ -97,6 +93,7 @@ string coverageMapImpl() {
 struct Dashboard {
     Javascript jquery;
     Javascript bootstrapJs;
+    Javascript moment;
     Javascript chart;
     Css bootstrapCss;
     Css dashboardCss;
@@ -105,6 +102,7 @@ struct Dashboard {
 
 Dashboard dashboard() {
     return Dashboard(Javascript(readData("jquery.min.js")), Javascript(readData("bootstrap.min.js")),
-            Javascript(readData("chart.min.js")), Css(readData("bootstrap.min.css")),
+            Javascript(readData("moment.min.js")), Javascript(readData("chart.min.js")),
+            Css(readData("bootstrap.min.css")),
             Css(readData("dashboard.css")), Html(readData("dashboard.html")));
 }

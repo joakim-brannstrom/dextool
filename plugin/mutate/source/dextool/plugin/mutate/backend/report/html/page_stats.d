@@ -13,33 +13,30 @@ import logger = std.experimental.logger;
 import std.datetime : Clock, dur;
 import std.format : format;
 
-import arsd.dom : Element, Table, RawSource, Link;
+import arsd.dom : Element, Link;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : MutationStat, reportStatistics;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable, PieGraph;
 import dextool.plugin.mutate.backend.type : Mutation;
-import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 
 void makeStats(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Overview");
-    overallStat(reportStatistics(db, kinds), root);
+    overallStat(reportStatistics(db, kinds), root.addChild("div"));
 }
 
 private:
 
 // TODO: this function contains duplicated logic from the one in ../utility.d
-void overallStat(const MutationStat s, Element n) {
+void overallStat(const MutationStat s, Element base) {
     import std.conv : to;
     import std.typecons : tuple;
 
-    auto base = n.addChild("div").addClass("base");
-
-    base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b> (trend %.3s)",
-            s.score, s.estimate.value.get));
+    base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score));
     base.addChild("p", format("Time spent: %s", s.totalTime));
+
     if (s.untested > 0 && s.predictedDone > 0.dur!"msecs") {
         const pred = Clock.currTime + s.predictedDone;
         base.addChild("p", format("Remaining: %s (%s)", s.predictedDone, pred.toISOExtString));
@@ -61,8 +58,6 @@ void overallStat(const MutationStat s, Element n) {
         tbl.appendRow(d[0], d[1]);
     }
 
-    base.addChild("p").appendHtml(
-            "<i>trend</i> is a prediction of how the mutation score will based on the latest code changes.");
     base.addChild("p").appendHtml(
             "<i>worklist</i> is the number of mutants that are in the queue to be tested/retested.");
 

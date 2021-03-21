@@ -14,8 +14,9 @@ module dextool.plugin.mutate.backend.report.analyzers;
 
 import logger = std.experimental.logger;
 import std.algorithm : sum, map, sort, filter, count, cmp, joiner, among;
-import std.array : array, appender;
+import std.array : array, appender, empty;
 import std.conv : to;
+import std.datetime : SysTime;
 import std.exception : collectException;
 import std.format : format;
 import std.range : take, retro, only;
@@ -488,7 +489,6 @@ struct MutationStat {
     MutationScore scoreData;
     MutantTimeProfile killedByCompilerTime;
     Duration predictedDone;
-    EstimateScore estimate;
 
     /// Adjust the score with the alive mutants that are suppressed.
     double score() @safe pure nothrow const @nogc {
@@ -533,8 +533,6 @@ struct MutationStat {
 
         // mutation score and details
         formattedWrite(w, "%-*s %.3s\n", align_, "Score:", score);
-        formattedWrite(w, "%-*s %.3s (error:%.3s)\n", align_, "Trend Score:",
-                estimate.value.get, estimate.error.get);
 
         formattedWrite(w, "%-*s %s\n", align_, "Total:", total);
         if (untested > 0) {
@@ -576,10 +574,6 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.predictedDone = st.total > 0 ? (st.worklist * (st.totalTime.sum / st.total)) : 0
         .dur!"msecs";
     st.killedByCompilerTime = killedByCompiler.time;
-
-    if (st.total > 0) {
-        st.estimate = reportEstimate(db, kinds);
-    }
 
     return st;
 }
@@ -1163,14 +1157,35 @@ TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind
 }
 
 /// Estimate the mutation score.
+struct EstimateMutationScore {
+    import my.signal_theory.kalman : KalmanFilter;
+
+    private KalmanFilter kf;
+
+    void update(const double a) {
+        kf.updateEstimate(a);
+    }
+
+    /// The estimated mutation score.
+    NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value() @safe pure nothrow const @nogc {
+        return typeof(return)(kf.currentEstimate);
+    }
+
+    /// The error in the estimate. The unit is the same as `estimate`.
+    NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error() @safe pure nothrow const @nogc {
+        return typeof(return)(kf.estimateError);
+    }
+}
+
+/// Estimate the mutation score.
 struct EstimateScore {
-    import my.signal_theory.kalman;
+    import my.signal_theory.kalman : KalmanFilter;
 
     // 0.5 because then it starts in the middle of range possible values.
     // 0.01 such that the trend is "slowly" changing over the last 100 mutants.
     // 0.001 is to "insensitive" for an on the fly analysis so it mostly just
     //  end up being the current mutation score.
-    private KalmanFilter kf = KalmanFilter(0.5, 0.5, 0.01);
+    private EstimateMutationScore estimate = EstimateMutationScore(KalmanFilter(0.5, 0.5, 0.01));
 
     /// Update the estimate with the status of a mutant.
     void update(const Mutation.Status s) {
@@ -1197,17 +1212,44 @@ struct EstimateScore {
             }
         }();
 
-        kf.updateEstimate(v);
+        estimate.update(v);
     }
 
     /// The estimated mutation score.
-    NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value() @safe pure nothrow const @nogc {
-        return typeof(return)(kf.currentEstimate);
+    auto value() @safe pure nothrow const @nogc {
+        return estimate.value;
     }
 
     /// The error in the estimate. The unit is the same as `estimate`.
+    auto error() @safe pure nothrow const @nogc {
+        return estimate.error;
+    }
+}
+
+/// Estimated trend based on the latest code changes.
+struct ScoreTrendByCodeChange {
+    static struct Point {
+        SysTime timeStamp;
+
+        /// The estimated mutation score.
+        NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value;
+
+        /// The error in the estimate. The unit is the same as `estimate`.
+        NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error;
+    }
+
+    Point[] sample;
+
+    NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value() @safe pure nothrow const @nogc {
+        if (sample.empty)
+            return typeof(return).init;
+        return sample[$ - 1].value;
+    }
+
     NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error() @safe pure nothrow const @nogc {
-        return typeof(return)(kf.estimateError);
+        if (sample.empty)
+            return typeof(return).init;
+        return sample[$ - 1].error;
     }
 }
 
@@ -1216,31 +1258,76 @@ struct EstimateScore {
  * suites quality is going over time.
  *
  */
-EstimateScore reportEstimate(ref Database db, const Mutation.Kind[] kinds) @trusted nothrow {
-    EstimateScore rval;
+ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db, const Mutation.Kind[] kinds) @trusted nothrow {
+    auto app = appender!(ScoreTrendByCodeChange.Point[])();
+    EstimateScore estimate;
+
     try {
-        void fn(const Mutation.Status s) {
-            rval.update(s);
-            debug logger.trace(rval.kf).collectException;
+        SysTime lastAdded;
+        SysTime last;
+        bool first = true;
+        void fn(const Mutation.Status s, const SysTime added) {
+            estimate.update(s);
+            debug logger.trace(estimate.estimate.kf).collectException;
+
+            if (first)
+                lastAdded = added;
+
+            if (added != lastAdded) {
+                app.put(ScoreTrendByCodeChange.Point(added, estimate.value, estimate.error));
+                lastAdded = added;
+            }
+
+            last = added;
+            first = false;
         }
 
         db.iterateMutantStatus(kinds, &fn);
+        app.put(ScoreTrendByCodeChange.Point(last, estimate.value, estimate.error));
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }
-    return rval;
+    return ScoreTrendByCodeChange(app.data);
 }
 
 /** History of how the mutation score have evolved over time.
  *
- * The history is ordered in ascending order by date.
+ * The history is ordered iascending by date. Each day is the average of the
+ * recorded mutation score.
  */
 struct MutationScoreHistory {
     import dextool.plugin.mutate.backend.database.type : MutationScore;
 
-    MutationScore[] raw;
+    static struct Estimate {
+        SysTime x;
+        double avg = 0;
+        SysTime predX;
+        double predScore = 0;
+        bool posTrend = 0;
+    }
+
     /// only one score for each date.
-    MutationScore[] pretty;
+    MutationScore[] data;
+    Estimate estimate;
+
+    this(MutationScore[] data) {
+        import std.algorithm : sum, map, min;
+
+        this.data = data;
+        if (data.length < 6)
+            return;
+
+        const values = data[$ - 5 .. $];
+        const avg = sum(values.map!(a => a.score.get)) / 5.0;
+        const xDiff = values[$ - 1].timeStamp - values[0].timeStamp;
+        const dy = (values[$ - 1].score.get - avg) / (xDiff.total!"days" / 2.0);
+
+        estimate.x = values[0].timeStamp + xDiff / 2;
+        estimate.avg = avg;
+        estimate.predX = values[$ - 1].timeStamp + xDiff / 2;
+        estimate.predScore = min(1.0, dy * xDiff.total!"days" / 2.0 + values[$ - 1].score.get);
+        estimate.posTrend = estimate.predScore > values[$ - 1].score.get;
+    }
 }
 
 MutationScoreHistory reportMutationScoreHistory(ref Database db) @safe {
@@ -1255,7 +1342,7 @@ private MutationScoreHistory reportMutationScoreHistory(
     auto pretty = appender!(MutationScore[])();
 
     if (data.length < 2) {
-        return MutationScoreHistory(data, data);
+        return MutationScoreHistory(data);
     }
 
     auto last = (cast(DateTime) data[0].timeStamp).date;
@@ -1275,13 +1362,13 @@ private MutationScoreHistory reportMutationScoreHistory(
     }
     pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr)));
 
-    return MutationScoreHistory(data, pretty.data);
+    return MutationScoreHistory(pretty.data);
 }
 
 @("shall calculate the mean of the mutation scores")
 unittest {
     import core.time : days;
-    import std.datetime : DateTime, SysTime;
+    import std.datetime : DateTime;
     import dextool.plugin.mutate.backend.database.type : MutationScore;
 
     auto data = appender!(MutationScore[])();
@@ -1293,6 +1380,6 @@ unittest {
 
     auto res = reportMutationScoreHistory(data.data);
 
-    res.pretty[0].score.get.shouldEqual(7.5);
-    res.pretty[1].score.get.shouldEqual(5.0);
+    res.data[0].score.get.shouldEqual(7.5);
+    res.data[1].score.get.shouldEqual(5.0);
 }

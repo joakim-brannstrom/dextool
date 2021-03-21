@@ -316,7 +316,7 @@ workers in [parallel](README_parallel.md). When it is finally done you can
 generate a HTML report for easier navigation of the mutants:
 
 ```sh
-$ dextool mutate report --style html --section summary --section tc_stat --section tc_killed_no_mutants --section tc_unique --section score_history
+$ dextool mutate report --style html --section summary --section tc_stat --section tc_killed_no_mutants --section tc_unique --section trend
 info: Using /home/foo/fmt/dextool_mutate.sqlite3
 info: Generating Statistics (stats)
 info: Generating Long Term View (long_term_view)
@@ -324,7 +324,6 @@ info: Generating Test Case Statistics (test_case_stat)
 info: Generating NoMut Details (nomut)
 info: Generating Test Case Uniqueness (test_case_unique)
 info: Generating Killed No Mutants Test Cases (killed_no_mutants_test_cases)
-info: Generating Mutation Score History (score_history)
 
 $ firefox html/index.html
 ```

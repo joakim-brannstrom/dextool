@@ -97,8 +97,8 @@ enum ReportSection {
     tc_unique,
     /// mutants manually marked by user
     marked_mutants,
-    /// mutation score history
-    score_history,
+    /// trend information of how mutation score is predicted to evolve
+    trend,
 }
 
 /// How to sort test cases when reporting them by their kill statistics.

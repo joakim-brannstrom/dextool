@@ -181,3 +181,123 @@ struct PieGraph {
         root.addChild("script").innerRawSource(data ~ initCall);
     }
 }
+
+struct TimeScalePointGraph {
+    import std.datetime : SysTime;
+
+    alias Width = NamedType!(long, Tag!"PieGraphWidth", long.init, TagStringable);
+    static struct Point {
+        SysTime x;
+        double value;
+    }
+
+    static struct Sample {
+        Point[] values;
+        string bgColor;
+    }
+
+    /// Name of the chart
+    string name;
+
+    /// The key is the sample name.
+    Sample[string] samples;
+
+    this(string name) {
+        this.name = name;
+    }
+
+    void setColor(string sample, string c) {
+        samples.update(sample, { return Sample(null, c); }, (ref Sample s) {
+            s.bgColor = c;
+        });
+    }
+
+    void put(string sample, Point p) {
+        samples.update(sample, { return Sample([p], "blue"); }, (ref Sample s) {
+            s.values ~= p;
+        });
+    }
+
+    string data() {
+        import std.algorithm : map;
+        import std.array : array, appender;
+
+        JSONValue j;
+        j["type"] = "line";
+        j["data"] = () {
+            JSONValue data_;
+            data_["datasets"] = () {
+                auto app = appender!(JSONValue[])();
+                foreach (sample; samples.byKeyValue) {
+                    JSONValue d;
+                    d["label"] = sample.key;
+                    d["backgroundColor"] = sample.value.bgColor;
+                    d["borderColor"] = sample.value.bgColor;
+                    d["fill"] = false;
+                    auto data = appender!(JSONValue[])();
+                    foreach (v; sample.value.values) {
+                        JSONValue tmp;
+                        tmp["x"] = v.x.toISOExtString;
+                        tmp["y"] = v.value;
+                        data.put(tmp);
+                    }
+                    d["data"] = data.data;
+                    app.put(d);
+                }
+                return app.data;
+            }();
+
+            return data_;
+        }();
+
+        j["options"] = () {
+            JSONValue d;
+            d["title"] = () {
+                JSONValue tmp;
+                tmp["display"] = true;
+                tmp["text"] = name;
+                return tmp;
+            }();
+
+            d["tooltips"] = () { JSONValue tmp; tmp["enable"] = true; return tmp; }();
+
+            d["scales"] = () {
+                JSONValue x;
+                x["type"] = "time";
+                x["display"] = true;
+                x["scaleLabel"] = ["display": "true", "labelString": "Date"];
+                x["ticks"] = ["major": ["fontStyle": "bold"]];
+
+                JSONValue y;
+                y["display"] = true;
+                y["scaleLabel"] = ["display": "true", "labelString": "value"];
+
+                JSONValue tmp;
+                tmp["xAxes"] = [x];
+                tmp["yAxes"] = [y];
+                return tmp;
+            }();
+
+            return d;
+        }();
+
+        return format!"var %1$sData = %2$s;"(name, j.toString);
+    }
+
+    Element canvas(const Width w) @trusted {
+        auto root = new Element("div", ["style": format!"width:%s%%"(w.get)]);
+        root.addChild(new Element("canvas", ["id": name]));
+        return root;
+    }
+
+    /// Call to initialize the graph with data.
+    string initCall() @trusted {
+        return format!"var ctx%1$s = document.getElementById('%1$s').getContext('2d');\nvar chart%1$s = new Chart(ctx%1$s, %1$sData);\n"(
+                name);
+    }
+
+    void html(Element root, const Width w) @trusted {
+        root.addChild(canvas(w));
+        root.addChild("script").innerRawSource(data ~ initCall);
+    }
+}

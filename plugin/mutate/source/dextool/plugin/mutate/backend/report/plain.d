@@ -23,8 +23,7 @@ import dextool.plugin.mutate.backend.database : Database, IterateMutantRow, Muta
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats, reportMarkedMutants, reportStatistics,
-    MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr,
-    EstimateScore, MutationScoreHistory;
+    MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr, MutationScoreHistory;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table;
 import dextool.plugin.mutate.backend.type : Mutation;
@@ -74,7 +73,6 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
     MutationsMap testCaseMutationKilled;
     MutationReprMap mutationReprMap;
     Appender!(MutationId[]) testCaseSuggestions;
-    EstimateScore estimate;
 
     this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
         this.kinds = kinds;
@@ -234,9 +232,9 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 
     void statEvent(ref Database db) {
         import std.stdio : stdout, File, writeln, writefln;
-        import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap,
-            reportTestCaseStats, reportMutationTestCaseSuggestion,
-            reportDeadTestCases, reportEstimate, toTable, reportMutationScoreHistory;
+        import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap, reportTestCaseStats,
+            reportMutationTestCaseSuggestion, reportDeadTestCases, toTable,
+            reportMutationScoreHistory;
 
         auto stdout_ = () @trusted { return stdout; }();
 
@@ -300,7 +298,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
             writeln(r.tbl);
         }
 
-        if (ReportSection.score_history in sections) {
+        if (ReportSection.trend in sections) {
             logger.info("Mutation Score History");
             auto r = reportMutationScoreHistory(db);
             writeln(.toTable(r));
@@ -323,7 +321,7 @@ Table!2 toTable(MutationScoreHistory data) {
 
     Table!2 tbl;
     tbl.heading = ["Date", "Score"];
-    foreach (a; data.pretty) {
+    foreach (a; data.data) {
         typeof(tbl).Row row = [a.timeStamp.to!string, a.score.get.to!string];
         tbl.put(row);
     }

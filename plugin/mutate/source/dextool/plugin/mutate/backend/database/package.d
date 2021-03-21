@@ -34,6 +34,7 @@ public import dextool.plugin.mutate.backend.database.type;
  */
 struct Database {
     import std.conv : to;
+    import std.datetime : SysTime;
     import std.exception : collectException;
     import std.typecons : Nullable;
     import dextool.plugin.mutate.backend.database.standalone : SDatabase = Database;
@@ -110,8 +111,9 @@ struct Database {
     }
 
     /// Iterate over the mutants of `kinds` in oldest->newest datum order.
-    void iterateMutantStatus(const Mutation.Kind[] kinds, void delegate(const Mutation.Status) dg) @trusted {
-        immutable sql = format("SELECT t1.status FROM %s t0, %s t1
+    void iterateMutantStatus(const Mutation.Kind[] kinds,
+            void delegate(const Mutation.Status, const SysTime added) dg) @trusted {
+        immutable sql = format("SELECT t1.status,t1.added_ts FROM %s t0, %s t1
            WHERE
            t0.st_id = t1.id AND
            t0.kind IN (%(%s,%))
@@ -120,7 +122,7 @@ struct Database {
         auto stmt = db.prepare(sql);
         try {
             foreach (ref r; stmt.get.execute) {
-                dg(r.peek!int(0).to!(Mutation.Status));
+                dg(r.peek!int(0).to!(Mutation.Status), r.peek!string(1).fromSqLiteDateTime);
             }
         } catch (Exception e) {
             logger.error(e.msg).collectException;

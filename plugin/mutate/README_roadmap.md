@@ -52,38 +52,34 @@ for the next release together with mapping the items to implement.
 
 ## Arc Current
 
-The focus is to polish existing features.
-
- * Finalize schemata for the recommended mutation operators.
- * Fix html report to be more pleasing for the eye
+The focus is on bug fixes and minor improvements as reported by the user.
 
 ### Tasks
 
- * There are still too many schemas with 3-10 mutants in them. Merge schemas
-   across translation units.
- * the html report have an off-by-one error when displaying mutants.
- * html. a mutant that span multiple lines is displayed on one line. This makes
-   it harder to read the report than necessary. fix it so ut is displayed with
-   the line breaks.
- * update the layout of the html report. it looks unprofessional as it is.
- * html. show the date when the checksummed tests where last changed to the
-   user in the long term view. Then we can show to the user how "out of sync"
-   the tests are with the mutation report.
+ * update trend and score view in html to show a graph. Users have reported
+   that the trend is hard to understand. It seems to just "move around" without
+   any logic. Show the user what it is based on as a time series.
+ * Fix case branch for mutants. It only deletes the first line.
 
 ## Arc Next
 
-The focus is on speed. Both in running the tool and in giving actionable feedback to the user.
+The focus is on speed. Both in running the tool and in giving actionable
+feedback to the user.
 
  * Improve priority of how mutants are executed.
 
 ### Tasks
 
  * save the function name in the database for a coverage region.
- * implement a reduced AOR, AORs. AOR generate sooo many mutants. A simplified
-   would just result in one mutation instead of five. Less mutants, faster to
-   execute.
  * add prioritization based on the size of a mutant with a cut-off like max(10,
    offset.end - offset.begin). This affects in what order mutants are tested.
+ * the html report have an off-by-one error when displaying mutants.
+ * html. a mutant that span multiple lines is displayed on one line. This makes
+   it harder to read the report than necessary. fix it so ut is displayed with
+   the line breaks.
+ * html. show the date when the checksummed tests where last changed to the
+   user in the long term view. Then we can show to the user how "out of sync"
+   the tests are with the mutation report.
 
 # TODO
 
@@ -94,7 +90,7 @@ more complex may need to be broken down and added to the roadmap.
 
 New items are added at the top
 
- * fix sdl for single line if-statement. it do not delete the branch.
+ * change Duration in html report to be minutes to be able to sort in js.
  * display mutant prioritization to the user? Depending on how it is implemented.
  * implement a function mutation coverage metric or something. It can be argued
    that mutation score is somewhat "meeh" as a metric. hard to use. But hardly
