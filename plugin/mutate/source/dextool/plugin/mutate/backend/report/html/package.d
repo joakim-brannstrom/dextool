@@ -174,7 +174,6 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_long_term_view;
         import dextool.plugin.mutate.backend.report.html.page_minimal_set;
         import dextool.plugin.mutate.backend.report.html.page_nomut;
-        import dextool.plugin.mutate.backend.report.html.page_score_history;
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_case_full_overlap;
         import dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
@@ -251,10 +250,6 @@ struct FileIndex {
                 || ReportSection.tc_full_overlap_with_mutation_id in sections) {
             addSubPage(() => makeFullOverlapTestCase(db, conf, humanReadableKinds,
                     kinds), "full_overlap_test_cases", "Full Overlap Test Cases");
-        }
-        if (ReportSection.score_history in sections) {
-            addSubPage(() => makeScoreHistory(db, conf, humanReadableKinds,
-                    kinds), "score_history", "Mutation Score History");
         }
         if (ReportSection.trend in sections) {
             addContent((string tag) => makeTrend(db, kinds, tag, content), "Trend", "#trend");
@@ -953,6 +948,7 @@ Document makeDashboard() @trusted {
     auto script = doc.root.childElements("head")[0].addChild("script");
     script.addChild(new RawSource(doc, data.jquery.get));
     script.addChild(new RawSource(doc, data.bootstrapJs.get));
+    script.addChild(new RawSource(doc, data.moment.get));
     script.addChild(new RawSource(doc, data.chart.get));
     script.addChild(new RawSource(doc, jsIndex));
 

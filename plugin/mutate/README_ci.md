@@ -106,7 +106,7 @@ finished. Then the script for jenkins would basically be:
 ```sh
 dextool mutate analyze --fast-db-store
 dextool mutate test
-dextool mutate report --style html --section summary --section tc_stat --section tc_killed_no_mutants --section tc_unique --section score_history
+dextool mutate report --style html --section summary --section tc_stat --section tc_killed_no_mutants --section tc_unique --section trend
 ```
 
 The pull request job should **not** use the same database as the job that is

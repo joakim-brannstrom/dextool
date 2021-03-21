@@ -45,7 +45,7 @@ dextool mutate test
 
 To generate a report:
 ```sh
-dextool mutate report --style html --section tc_similarity --section tc_min_set --section tc_full_overlap_with_mutation_id --section tc_killed_no_mutants --section tc_full_overlap
+dextool mutate report --style html --section tc_similarity --section tc_min_set --section tc_full_overlap_with_mutation_id --section tc_killed_no_mutants --section tc_full_overlap --section trend
 ```
 
 If you want to forcefully re-test all alive mutants you can use this administration interface:

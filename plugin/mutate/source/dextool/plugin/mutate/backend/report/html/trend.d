@@ -21,17 +21,44 @@ import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.type : Mutation;
 
 void makeTrend(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
+    import std.datetime : SysTime;
+    import dextool.plugin.mutate.backend.report.html.tmpl : TimeScalePointGraph;
+
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Trend");
 
     auto base = root.addChild("div");
 
-    const history = reportMutationScoreHistory(db);
-    base.addChild("p").appendHtml(format("History %.3s", history.estimate.get));
-    const codeChange = reportTrendByCodeChange(db, kinds);
-    base.addChild("p").appendHtml(format("Code change %.3s", codeChange.value.get));
+    auto ts = TimeScalePointGraph("ScoreHistory");
 
-    base.addChild("p").appendHtml(
-            "<i>history</i> is a prediction of how the mutation score will change based on previous scores.");
-    base.addChild("p").appendHtml(
-            "<i>code change</i> is a prediction of how the mutation score will change based on the latest code changes.");
+    const history = reportMutationScoreHistory(db);
+    if (history.data.length > 2 && history.estimate.x != SysTime.init) {
+        foreach (v; history.data) {
+            ts.put("Score", TimeScalePointGraph.Point(v.timeStamp, v.score.get));
+        }
+        ts.setColor("Score", "blue");
+
+        ts.put("Trend", TimeScalePointGraph.Point(history.estimate.x, history.estimate.avg));
+        ts.put("Trend", TimeScalePointGraph.Point(history.data[$ - 1].timeStamp,
+                history.data[$ - 1].score.get));
+        ts.put("Trend", TimeScalePointGraph.Point(history.estimate.predX,
+                history.estimate.predScore));
+        ts.setColor("Trend", history.estimate.posTrend ? "green" : "red");
+
+        ts.html(base, TimeScalePointGraph.Width(80));
+        base.addChild("p")
+            .appendHtml(
+                    "<i>trend</i> is a prediction of how the mutation score will change based on previous scores.");
+    }
+
+    const codeChange = reportTrendByCodeChange(db, kinds);
+    if (codeChange.sample.length > 2) {
+        ts = TimeScalePointGraph("ScoreByCodeChange");
+        foreach (v; codeChange.sample) {
+            ts.put("Score", TimeScalePointGraph.Point(v.timeStamp, v.value.get));
+        }
+        ts.setColor("Score", "purple");
+        ts.html(base, TimeScalePointGraph.Width(80));
+        base.addChild("p").appendHtml(
+                "<i>code change</i> is a prediction of how the mutation score will change based on the latest code changes.");
+    }
 }

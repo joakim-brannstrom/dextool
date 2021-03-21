@@ -298,7 +298,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
             writeln(r.tbl);
         }
 
-        if (ReportSection.score_history in sections) {
+        if (ReportSection.trend in sections) {
             logger.info("Mutation Score History");
             auto r = reportMutationScoreHistory(db);
             writeln(.toTable(r));

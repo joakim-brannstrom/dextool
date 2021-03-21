@@ -174,7 +174,7 @@ A basic report with a file list, statistics and some simple test case
 analysises is:
 
 ```sh
-dextool mutate report --style html --section summary --section tc_stat --section tc_killed_no_mutants --section tc_unique --section score_history
+dextool mutate report --style html --section summary --section tc_stat --section tc_killed_no_mutants --section tc_unique --section trend
 ```
 
 ## Mark a Mutant as Dont Care <a name="mark-mutant"></a>

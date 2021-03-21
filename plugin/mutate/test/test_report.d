@@ -161,18 +161,18 @@ unittest {
 
     auto plain = makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--style", "plain"])
-        .addArg(["--section", "score_history"])
+        .addArg(["--section", "trend"])
         .run;
 
     makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--style", "json"])
-        .addArg(["--section", "score_history"])
+        .addArg(["--section", "trend"])
         .addArg(["--logdir", testEnv.outdir.toString])
         .run;
 
     makeDextoolReport(testEnv, testData.dirName)
         .addArg(["--style", "html"])
-        .addArg(["--section", "score_history"])
+        .addArg(["--section", "trend"])
         .addArg(["--logdir", testEnv.outdir.toString])
         .run;
 
@@ -183,7 +183,7 @@ unittest {
     ]).shouldBeIn(plain.output);
 
     auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
-    j["score_history"][0]["score"].integer.shouldEqual(0);
+    j["trend"]["score_history"][0]["score"].integer.shouldEqual(0);
 }
 
 @(testId ~ "shall report test cases that kill the same mutants (overlap)")
@@ -722,8 +722,10 @@ class ShallReportMutationScoreTrend : SimpleAnalyzeFixture {
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
         auto ts = Clock.currTime - 2.dur!"weeks";
-        foreach (d; 0 .. 10)
+        foreach (d; 0 .. 5)
             db.putMutationScore(MutationScore(ts + d.dur!"days", typeof(MutationScore.score)(0.2 + 0.05*d)));
+        foreach (d; 5 .. 10)
+            db.putMutationScore(MutationScore(ts + d.dur!"days", typeof(MutationScore.score)(0.2 + 0.05*5 - 0.01*d)));
 
         foreach (id; getAllMutationIds(db).enumerate)
             db.updateMutation(id.value, id.index % 3 == 0 ? Mutation.Status.alive : Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);

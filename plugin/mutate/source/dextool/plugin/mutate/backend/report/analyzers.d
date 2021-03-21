@@ -14,8 +14,9 @@ module dextool.plugin.mutate.backend.report.analyzers;
 
 import logger = std.experimental.logger;
 import std.algorithm : sum, map, sort, filter, count, cmp, joiner, among;
-import std.array : array, appender;
+import std.array : array, appender, empty;
 import std.conv : to;
+import std.datetime : SysTime;
 import std.exception : collectException;
 import std.format : format;
 import std.range : take, retro, only;
@@ -1227,11 +1228,29 @@ struct EstimateScore {
 
 /// Estimated trend based on the latest code changes.
 struct ScoreTrendByCodeChange {
-    /// The estimated mutation score.
-    NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value;
+    static struct Point {
+        SysTime timeStamp;
 
-    /// The error in the estimate. The unit is the same as `estimate`.
-    NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error;
+        /// The estimated mutation score.
+        NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value;
+
+        /// The error in the estimate. The unit is the same as `estimate`.
+        NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error;
+    }
+
+    Point[] sample;
+
+    NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value() @safe pure nothrow const @nogc {
+        if (sample.empty)
+            return typeof(return).init;
+        return sample[$ - 1].value;
+    }
+
+    NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error() @safe pure nothrow const @nogc {
+        if (sample.empty)
+            return typeof(return).init;
+        return sample[$ - 1].error;
+    }
 }
 
 /** Estimate the mutation score by running a kalman filter over the mutants in
@@ -1240,18 +1259,35 @@ struct ScoreTrendByCodeChange {
  *
  */
 ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db, const Mutation.Kind[] kinds) @trusted nothrow {
+    auto app = appender!(ScoreTrendByCodeChange.Point[])();
     EstimateScore estimate;
+
     try {
-        void fn(const Mutation.Status s) {
+        SysTime lastAdded;
+        SysTime last;
+        bool first = true;
+        void fn(const Mutation.Status s, const SysTime added) {
             estimate.update(s);
             debug logger.trace(estimate.estimate.kf).collectException;
+
+            if (first)
+                lastAdded = added;
+
+            if (added != lastAdded) {
+                app.put(ScoreTrendByCodeChange.Point(added, estimate.value, estimate.error));
+                lastAdded = added;
+            }
+
+            last = added;
+            first = false;
         }
 
         db.iterateMutantStatus(kinds, &fn);
+        app.put(ScoreTrendByCodeChange.Point(last, estimate.value, estimate.error));
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }
-    return ScoreTrendByCodeChange(estimate.value, estimate.error);
+    return ScoreTrendByCodeChange(app.data);
 }
 
 /** History of how the mutation score have evolved over time.
@@ -1262,9 +1298,17 @@ ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db, const Mutation.K
 struct MutationScoreHistory {
     import dextool.plugin.mutate.backend.database.type : MutationScore;
 
+    static struct Estimate {
+        SysTime x;
+        double avg = 0;
+        SysTime predX;
+        double predScore = 0;
+        bool posTrend = 0;
+    }
+
     /// only one score for each date.
     MutationScore[] data;
-    NamedType!(double, Tag!"MutationScoreEstimateFromHistory", double.init, TagStringable) estimate;
+    Estimate estimate;
 
     this(MutationScore[] data) {
         import std.algorithm : sum, map, min;
@@ -1275,9 +1319,14 @@ struct MutationScoreHistory {
 
         const values = data[$ - 5 .. $];
         const avg = sum(values.map!(a => a.score.get)) / 5.0;
-        const x = (values[$ - 1].timeStamp - values[0].timeStamp).total!"days" / 2.0;
-        const dy = (values[$ - 1].score.get - avg) / x;
-        estimate.get = min(1.0, dy + values[$ - 1].score.get);
+        const xDiff = values[$ - 1].timeStamp - values[0].timeStamp;
+        const dy = (values[$ - 1].score.get - avg) / (xDiff.total!"days" / 2.0);
+
+        estimate.x = values[0].timeStamp + xDiff / 2;
+        estimate.avg = avg;
+        estimate.predX = values[$ - 1].timeStamp + xDiff / 2;
+        estimate.predScore = min(1.0, dy * xDiff.total!"days" / 2.0 + values[$ - 1].score.get);
+        estimate.posTrend = estimate.predScore > values[$ - 1].score.get;
     }
 }
 
@@ -1319,7 +1368,7 @@ private MutationScoreHistory reportMutationScoreHistory(
 @("shall calculate the mean of the mutation scores")
 unittest {
     import core.time : days;
-    import std.datetime : DateTime, SysTime;
+    import std.datetime : DateTime;
     import dextool.plugin.mutate.backend.database.type : MutationScore;
 
     auto data = appender!(MutationScore[])();

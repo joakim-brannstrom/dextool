@@ -349,7 +349,8 @@ Sections to include in the report.
  - *tc_unique* : for each test case report the mutants that the test case is the
    only one to kill.
  * *marked_mutants* : a table with the manually marked mutants.
- * *score_history* : print the recorded mutation score, one for each day.
+ * *trend* : print the recorded mutation score, one for each day, and a trend
+   of how it is predicted to change.
 
 ```sh
 --section-tc_stat-num

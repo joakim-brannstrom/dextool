@@ -157,13 +157,6 @@ final class ReportJson {
             reportDeadTestCases, reportTestCaseStats, reportTestCaseUniqueness,
             reportTrendByCodeChange;
 
-        const history = () {
-            if (ReportSection.score_history in sections || ReportSection.trend in sections) {
-                return reportMutationScoreHistory(db);
-            }
-            return typeof(reportMutationScoreHistory(db)).init;
-        }();
-
         if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
             JSONValue s = ["alive" : stat.alive];
@@ -191,17 +184,15 @@ final class ReportJson {
             report["diff"] = s;
         }
 
-        if (ReportSection.score_history in sections) {
-            report["score_history"] = toJson(history);
-        }
-
         if (ReportSection.trend in sections) {
+            const history = reportMutationScoreHistory(db);
             const byCodeChange = reportTrendByCodeChange(db, kinds);
             JSONValue d;
             d["code_change_score"] = byCodeChange.value.get;
             d["code_change_score_error"] = byCodeChange.error.get;
 
-            d["history_score"] = history.estimate.get;
+            d["history_score"] = history.estimate.predScore;
+            d["score_history"] = toJson(history);
             report["trend"] = d;
         }
 
