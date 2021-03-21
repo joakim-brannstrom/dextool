@@ -94,7 +94,7 @@ more complex may need to be broken down and added to the roadmap.
 
 New items are added at the top
 
- * fix sdl for single line if-statement. it do not delete the branch.
+ * change Duration in html report to be minutes to be able to sort in js.
  * display mutant prioritization to the user? Depending on how it is implemented.
  * implement a function mutation coverage metric or something. It can be argued
    that mutation score is somewhat "meeh" as a metric. hard to use. But hardly
