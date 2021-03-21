@@ -585,7 +585,7 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
             "'meta' : 'nomut'",
             "'meta' : 'nomut'",
             ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
-}
+    }
 }
 
 class ShallReportHtmlNoMutSummary : LinesWithNoMut {
@@ -708,5 +708,38 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
         j["test_case_no_unique"].array.length.shouldEqual(2);
+    }
+}
+
+class ShallReportMutationScoreTrend : SimpleAnalyzeFixture {
+    override void test() {
+        import std.json;
+        import std.datetime : Clock;
+        import std.range : enumerate;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+        auto ts = Clock.currTime - 2.dur!"weeks";
+        foreach (d; 0 .. 10)
+            db.putMutationScore(MutationScore(ts + d.dur!"days", typeof(MutationScore.score)(0.2 + 0.05*d)));
+
+        foreach (id; getAllMutationIds(db).enumerate)
+            db.updateMutation(id.value, id.index % 3 == 0 ? Mutation.Status.alive : Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
+
+        makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--section", "trend"])
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
+        makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--section", "trend"])
+            .addArg(["--style", "json"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
     }
 }

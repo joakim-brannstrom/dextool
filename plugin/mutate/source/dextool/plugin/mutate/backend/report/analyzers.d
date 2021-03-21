@@ -488,7 +488,6 @@ struct MutationStat {
     MutationScore scoreData;
     MutantTimeProfile killedByCompilerTime;
     Duration predictedDone;
-    ScoreTrendByCodeChange trendByCodeChange;
 
     /// Adjust the score with the alive mutants that are suppressed.
     double score() @safe pure nothrow const @nogc {
@@ -533,8 +532,6 @@ struct MutationStat {
 
         // mutation score and details
         formattedWrite(w, "%-*s %.3s\n", align_, "Score:", score);
-        formattedWrite(w, "%-*s %.3s (error:%.3s)\n", align_, "Trend Score:",
-                trendByCodeChange.value.get, trendByCodeChange.error.get);
 
         formattedWrite(w, "%-*s %s\n", align_, "Total:", total);
         if (untested > 0) {
@@ -576,10 +573,6 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.predictedDone = st.total > 0 ? (st.worklist * (st.totalTime.sum / st.total)) : 0
         .dur!"msecs";
     st.killedByCompilerTime = killedByCompiler.time;
-
-    if (st.total > 0) {
-        st.trendByCodeChange = reportTrendByCodeChange(db, kinds);
-    }
 
     return st;
 }
@@ -1163,14 +1156,35 @@ TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind
 }
 
 /// Estimate the mutation score.
+struct EstimateMutationScore {
+    import my.signal_theory.kalman : KalmanFilter;
+
+    private KalmanFilter kf;
+
+    void update(const double a) {
+        kf.updateEstimate(a);
+    }
+
+    /// The estimated mutation score.
+    NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value() @safe pure nothrow const @nogc {
+        return typeof(return)(kf.currentEstimate);
+    }
+
+    /// The error in the estimate. The unit is the same as `estimate`.
+    NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error() @safe pure nothrow const @nogc {
+        return typeof(return)(kf.estimateError);
+    }
+}
+
+/// Estimate the mutation score.
 struct EstimateScore {
-    import my.signal_theory.kalman;
+    import my.signal_theory.kalman : KalmanFilter;
 
     // 0.5 because then it starts in the middle of range possible values.
     // 0.01 such that the trend is "slowly" changing over the last 100 mutants.
     // 0.001 is to "insensitive" for an on the fly analysis so it mostly just
     //  end up being the current mutation score.
-    private KalmanFilter kf = KalmanFilter(0.5, 0.5, 0.01);
+    private EstimateMutationScore estimate = EstimateMutationScore(KalmanFilter(0.5, 0.5, 0.01));
 
     /// Update the estimate with the status of a mutant.
     void update(const Mutation.Status s) {
@@ -1197,17 +1211,17 @@ struct EstimateScore {
             }
         }();
 
-        kf.updateEstimate(v);
+        estimate.update(v);
     }
 
     /// The estimated mutation score.
-    NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value() @safe pure nothrow const @nogc {
-        return typeof(return)(kf.currentEstimate);
+    auto value() @safe pure nothrow const @nogc {
+        return estimate.value;
     }
 
     /// The error in the estimate. The unit is the same as `estimate`.
-    NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error() @safe pure nothrow const @nogc {
-        return typeof(return)(kf.estimateError);
+    auto error() @safe pure nothrow const @nogc {
+        return estimate.error;
     }
 }
 
@@ -1230,7 +1244,7 @@ ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db, const Mutation.K
     try {
         void fn(const Mutation.Status s) {
             estimate.update(s);
-            debug logger.trace(estimate.kf).collectException;
+            debug logger.trace(estimate.estimate.kf).collectException;
         }
 
         db.iterateMutantStatus(kinds, &fn);
@@ -1250,6 +1264,21 @@ struct MutationScoreHistory {
 
     /// only one score for each date.
     MutationScore[] data;
+    NamedType!(double, Tag!"MutationScoreEstimateFromHistory", double.init, TagStringable) estimate;
+
+    this(MutationScore[] data) {
+        import std.algorithm : sum, map, min;
+
+        this.data = data;
+        if (data.length < 6)
+            return;
+
+        const values = data[$ - 5 .. $];
+        const avg = sum(values.map!(a => a.score.get)) / 5.0;
+        const x = (values[$ - 1].timeStamp - values[0].timeStamp).total!"days" / 2.0;
+        const dy = (values[$ - 1].score.get - avg) / x;
+        estimate.get = min(1.0, dy + values[$ - 1].score.get);
+    }
 }
 
 MutationScoreHistory reportMutationScoreHistory(ref Database db) @safe {

@@ -28,7 +28,7 @@ import dextool.type : AbsolutePath;
 void makeLongTermView(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id",
             tag[1 .. $]), "High Interest Mutants");
-    toHtml(reportSelectedAliveMutants(db, kinds, 10), root);
+    toHtml(reportSelectedAliveMutants(db, kinds, 5), root);
 }
 
 private:
@@ -38,8 +38,8 @@ void toHtml(const MutantSample sample, Element root) {
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
 
     if (sample.hardestToKill.length != 0) {
-        root.addChild("h3", "Longest surviving Mutants");
-        root.addChild("p", "These mutants survived countless test runs.");
+        root.addChild("p", format("This list the %s mutants that have survived the most test runs.",
+                sample.hardestToKill.length));
         auto tbl_container = root.addChild("div").addClass("tbl_container");
         auto tbl = tmplDefaultTable(tbl_container, [
                 "Link", "Discovered", "Last Updated", "Survived"
@@ -58,7 +58,7 @@ void toHtml(const MutantSample sample, Element root) {
     }
 
     if (sample.oldest.length != 0) {
-        root.addChild("p", format("This is a list of the %s oldest mutants. This list contains information when they where last tested and had their status updated.",
+        root.addChild("p", format("This list is the %s oldest mutants based on when they where last updated",
                 sample.oldest.length));
 
         auto tbl_container = root.addChild("div").addClass("tbl_container");

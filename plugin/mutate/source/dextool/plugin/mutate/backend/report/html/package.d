@@ -174,6 +174,7 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_long_term_view;
         import dextool.plugin.mutate.backend.report.html.page_minimal_set;
         import dextool.plugin.mutate.backend.report.html.page_nomut;
+        import dextool.plugin.mutate.backend.report.html.page_score_history;
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_case_full_overlap;
         import dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
@@ -182,7 +183,7 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
         import dextool.plugin.mutate.backend.report.html.page_tree_map;
-        import dextool.plugin.mutate.backend.report.html.page_score_history;
+        import dextool.plugin.mutate.backend.report.html.trend;
 
         auto index = makeDashboard;
         index.title = format("Mutation Testing Report %(%s %) %s",
@@ -254,6 +255,9 @@ struct FileIndex {
         if (ReportSection.score_history in sections) {
             addSubPage(() => makeScoreHistory(db, conf, humanReadableKinds,
                     kinds), "score_history", "Mutation Score History");
+        }
+        if (ReportSection.trend in sections) {
+            addContent((string tag) => makeTrend(db, kinds, tag, content), "Trend", "#trend");
         }
 
         files.data.toIndex(content, HtmlStyle.fileDir);

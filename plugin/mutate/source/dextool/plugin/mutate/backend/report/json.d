@@ -152,9 +152,17 @@ final class ReportJson {
         import std.datetime : Clock;
         import std.path : buildPath;
         import std.stdio : File;
-        import dextool.plugin.mutate.backend.report.analyzers : reportStatistics, reportDiff, DiffReport,
-            reportMutationScoreHistory, reportDeadTestCases,
-            reportTestCaseStats, reportTestCaseUniqueness;
+        import dextool.plugin.mutate.backend.report.analyzers : reportStatistics,
+            reportDiff, DiffReport, reportMutationScoreHistory,
+            reportDeadTestCases, reportTestCaseStats, reportTestCaseUniqueness,
+            reportTrendByCodeChange;
+
+        const history = () {
+            if (ReportSection.score_history in sections || ReportSection.trend in sections) {
+                return reportMutationScoreHistory(db);
+            }
+            return typeof(reportMutationScoreHistory(db)).init;
+        }();
 
         if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
@@ -172,8 +180,6 @@ final class ReportJson {
             s.object["total_test_time_s"] = stat.totalTime.test.total!"seconds";
             s.object["killed_by_compiler_time_s"] = stat.killedByCompilerTime.sum.total!"seconds";
             s.object["predicted_done"] = (Clock.currTime + stat.predictedDone).toISOExtString;
-            s.object["trend_score"] = stat.trendByCodeChange.value.get;
-            s.object["trend_score_error"] = stat.trendByCodeChange.error.get;
             s.object["worklist"] = stat.worklist;
 
             report["stat"] = s;
@@ -186,7 +192,17 @@ final class ReportJson {
         }
 
         if (ReportSection.score_history in sections) {
-            report["score_history"] = toJson(reportMutationScoreHistory(db));
+            report["score_history"] = toJson(history);
+        }
+
+        if (ReportSection.trend in sections) {
+            const byCodeChange = reportTrendByCodeChange(db, kinds);
+            JSONValue d;
+            d["code_change_score"] = byCodeChange.value.get;
+            d["code_change_score_error"] = byCodeChange.error.get;
+
+            d["history_score"] = history.estimate.get;
+            report["trend"] = d;
         }
 
         if (ReportSection.tc_killed_no_mutants in sections) {
@@ -235,7 +251,7 @@ private:
 
 import dextool.plugin.mutate.backend.report.analyzers : MutationScoreHistory;
 
-JSONValue[] toJson(MutationScoreHistory data) {
+JSONValue[] toJson(const MutationScoreHistory data) {
     import std.conv : to;
 
     auto app = appender!(JSONValue[])();
