@@ -172,8 +172,8 @@ final class ReportJson {
             s.object["total_test_time_s"] = stat.totalTime.test.total!"seconds";
             s.object["killed_by_compiler_time_s"] = stat.killedByCompilerTime.sum.total!"seconds";
             s.object["predicted_done"] = (Clock.currTime + stat.predictedDone).toISOExtString;
-            s.object["trend_score"] = stat.estimate.value.get;
-            s.object["trend_score_error"] = stat.estimate.error.get;
+            s.object["trend_score"] = stat.trendByCodeChange.value.get;
+            s.object["trend_score_error"] = stat.trendByCodeChange.error.get;
             s.object["worklist"] = stat.worklist;
 
             report["stat"] = s;

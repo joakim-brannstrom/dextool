@@ -488,7 +488,7 @@ struct MutationStat {
     MutationScore scoreData;
     MutantTimeProfile killedByCompilerTime;
     Duration predictedDone;
-    EstimateScore estimate;
+    ScoreTrendByCodeChange trendByCodeChange;
 
     /// Adjust the score with the alive mutants that are suppressed.
     double score() @safe pure nothrow const @nogc {
@@ -534,7 +534,7 @@ struct MutationStat {
         // mutation score and details
         formattedWrite(w, "%-*s %.3s\n", align_, "Score:", score);
         formattedWrite(w, "%-*s %.3s (error:%.3s)\n", align_, "Trend Score:",
-                estimate.value.get, estimate.error.get);
+                trendByCodeChange.value.get, trendByCodeChange.error.get);
 
         formattedWrite(w, "%-*s %s\n", align_, "Total:", total);
         if (untested > 0) {
@@ -578,7 +578,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.killedByCompilerTime = killedByCompiler.time;
 
     if (st.total > 0) {
-        st.estimate = reportEstimate(db, kinds);
+        st.trendByCodeChange = reportTrendByCodeChange(db, kinds);
     }
 
     return st;
@@ -1211,24 +1211,33 @@ struct EstimateScore {
     }
 }
 
+/// Estimated trend based on the latest code changes.
+struct ScoreTrendByCodeChange {
+    /// The estimated mutation score.
+    NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value;
+
+    /// The error in the estimate. The unit is the same as `estimate`.
+    NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error;
+}
+
 /** Estimate the mutation score by running a kalman filter over the mutants in
  * the order they have been tested. It gives a rough estimate of where the test
  * suites quality is going over time.
  *
  */
-EstimateScore reportEstimate(ref Database db, const Mutation.Kind[] kinds) @trusted nothrow {
-    EstimateScore rval;
+ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db, const Mutation.Kind[] kinds) @trusted nothrow {
+    EstimateScore estimate;
     try {
         void fn(const Mutation.Status s) {
-            rval.update(s);
-            debug logger.trace(rval.kf).collectException;
+            estimate.update(s);
+            debug logger.trace(estimate.kf).collectException;
         }
 
         db.iterateMutantStatus(kinds, &fn);
     } catch (Exception e) {
         logger.warning(e.msg).collectException;
     }
-    return rval;
+    return ScoreTrendByCodeChange(estimate.value, estimate.error);
 }
 
 /** History of how the mutation score have evolved over time.

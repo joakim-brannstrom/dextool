@@ -38,7 +38,7 @@ void overallStat(const MutationStat s, Element n) {
     auto base = n.addChild("div").addClass("base");
 
     base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b> (trend %.3s)",
-            s.score, s.estimate.value.get));
+            s.score, s.trendByCodeChange.value.get));
     base.addChild("p", format("Time spent: %s", s.totalTime));
     if (s.untested > 0 && s.predictedDone > 0.dur!"msecs") {
         const pred = Clock.currTime + s.predictedDone;

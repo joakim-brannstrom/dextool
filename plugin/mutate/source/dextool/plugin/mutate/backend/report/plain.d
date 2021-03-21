@@ -24,7 +24,7 @@ import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, m
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats, reportMarkedMutants, reportStatistics,
     MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr,
-    EstimateScore, MutationScoreHistory;
+    ScoreTrendByCodeChange, MutationScoreHistory;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table;
 import dextool.plugin.mutate.backend.type : Mutation;
@@ -74,7 +74,6 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
     MutationsMap testCaseMutationKilled;
     MutationReprMap mutationReprMap;
     Appender!(MutationId[]) testCaseSuggestions;
-    EstimateScore estimate;
 
     this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
         this.kinds = kinds;
@@ -236,7 +235,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
         import std.stdio : stdout, File, writeln, writefln;
         import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap,
             reportTestCaseStats, reportMutationTestCaseSuggestion,
-            reportDeadTestCases, reportEstimate, toTable, reportMutationScoreHistory;
+            reportDeadTestCases, reportTrendByCodeChange, toTable, reportMutationScoreHistory;
 
         auto stdout_ = () @trusted { return stdout; }();
 
