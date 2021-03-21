@@ -46,10 +46,10 @@ void overallStat(const MutationStat s, Element n) {
     }
 
     PieGraph("score", [
-            PieGraph.Item("alive", "Red", s.alive),
-            PieGraph.Item("killed", "Green", s.killed),
-            PieGraph.Item("Untested", "Grey", s.untested),
-            PieGraph.Item("Timeout", "LightGreen", s.timeout)
+            PieGraph.Item("alive", "red", s.alive),
+            PieGraph.Item("killed", "green", s.killed),
+            PieGraph.Item("Untested", "grey", s.untested),
+            PieGraph.Item("Timeout", "lightgreen", s.timeout)
             ]).html(base, PieGraph.Width(50));
 
     auto tbl = tmplDefaultTable(base, ["Type", "Value"]);
