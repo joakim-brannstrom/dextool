@@ -506,7 +506,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return;
 
         auto fin = fio.makeInput(loc.file);
-        auto schema = ExpressionChain(fin.content[loc.interval.begin .. loc.interval.end]);
+        auto content = fin.content[loc.interval.begin .. loc.interval.end];
+        if (content.empty)
+            return;
+
+        auto schema = ExpressionChain(content);
         foreach (const mutant; mutants) {
             // dfmt off
             schema.put(mutant.id.c0,
@@ -566,6 +570,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
             }
             return fin.content[offs.begin .. offs.end];
         }();
+
+        static if (is(ChainT == ExpressionChain)) {
+            if (content.empty || content[0] == ' ')
+                return;
+        }
 
         auto schema = ChainT(content, doWrap);
         foreach (const mutant; mutants) {
@@ -865,7 +874,8 @@ struct ExpressionChain {
 
     /// Returns: `value`
     const(ubyte)[] put(ulong id, const(ubyte)[] value) {
-        if (id !in mutantIds) {
+        // expressions cannot be empty
+        if (!value.empty && value[0] != ' ' && id !in mutantIds) {
             mutantIds.add(id);
             mutants.put(Mutant(id, value));
         }
@@ -885,6 +895,7 @@ struct ExpressionChain {
     const(ubyte)[] generate() {
         auto app = appender!(const(ubyte)[])();
         app.put("(".rewrite);
+
         foreach (const mutant; mutants.data) {
             app.put(format!"(%s == "(schemataMutantIdentifier).rewrite);
             app.put(mutant.id.checksumToId.to!string.rewrite);
