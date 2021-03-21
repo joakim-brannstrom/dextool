@@ -136,17 +136,30 @@ struct PieGraph {
 
         JSONValue j;
         j["type"] = "pie";
+        j["data"] = () {
+            JSONValue data_;
 
-        JSONValue datasets;
-        datasets["data"] = items.map!(a => a.value).array;
-        datasets["backgroundColor"] = items.map!(a => a.color).array;
-        datasets["label"] = name;
+            data_["datasets"] = [
+                () {
+                    JSONValue d;
+                    d["data"] = items.map!(a => a.value).array;
+                    d["backgroundColor"] = items.map!(a => a.color).array;
+                    d["label"] = name;
+                    return d;
+                }()
+            ];
 
-        JSONValue data_;
-        data_["datasets"] = [datasets];
-        data_["labels"] = items.map!(a => a.label).array;
+            data_["options"] = () {
+                JSONValue d;
+                JSONValue tooltips;
+                tooltips["enable"] = true;
+                d["tooltips"] = tooltips;
+                return d;
+            }();
 
-        j["data"] = data_;
+            data_["labels"] = items.map!(a => a.label).array;
+            return data_;
+        }();
 
         return format!"var %1$sData = %2$s;"(name, j.toString);
     }
@@ -159,7 +172,7 @@ struct PieGraph {
 
     /// Call to initialize the graph with data.
     string initCall() @trusted {
-        return format!"var ctx%1$s = document.getElementById('%1$s').getContext('2d'); var chart%1$s = new Chart(ctx%1$s, %1$sData);"(
+        return format!"var ctx%1$s = document.getElementById('%1$s').getContext('2d');\nvar chart%1$s = new Chart(ctx%1$s, %1$sData);\n"(
                 name);
     }
 
