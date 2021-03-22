@@ -35,7 +35,7 @@ import dextool.clang_extensions : getUnderlyingExprNode;
 import dextool.type : Path, AbsolutePath;
 
 import dextool.plugin.mutate.backend.analyze.ast : Interval, Location, TypeKind,
-    Node, Ast, RecurseRange;
+    Node, Ast, BreathFirstRange;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.utility;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, InvalidPathException;
@@ -1110,7 +1110,7 @@ final class BaseVisitor : ExtendedVisitor {
         // block aor/rorp schematan when the type is a pointer.
         foreach (_; getChildrenTypes(ast, astOp).filter!(a => a.among(TypeKind.unordered,
                 TypeKind.bottom))) {
-            foreach (c; RecurseRange(astOp))
+            foreach (c; BreathFirstRange(astOp))
                 c.schemaBlacklist = true;
             break;
         }
@@ -1515,15 +1515,15 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
  */
 void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
     import sumtype;
-    import dextool.plugin.mutate.backend.analyze.ast : TypeId, VarDecl, Kind, RecurseRange;
+    import dextool.plugin.mutate.backend.analyze.ast : TypeId, VarDecl, Kind;
 
-    foreach (ty; RecurseRange(root).map!(a => ast.typeId(a))
+    foreach (ty; BreathFirstRange(root).map!(a => ast.typeId(a))
             .filter!(a => a.hasValue)) {
         sumtype.match!((Some!TypeId a) => ast.put(root, a), (None a) {})(ty);
         break;
     }
 
-    foreach (a; RecurseRange(root).filter!(a => a.kind == Kind.VarDecl)) {
+    foreach (a; BreathFirstRange(root).filter!(a => a.kind == Kind.VarDecl)) {
         ast.put(root, ast.location(a));
         root.schemaBlacklist = true;
         a.schemaBlacklist = true;
@@ -1787,7 +1787,7 @@ struct BlackList {
 
 /// Returns: the types of the children
 auto getChildrenTypes(ref Ast ast, Node parent) {
-    return RecurseRange(parent).map!(a => ast.type(a))
+    return BreathFirstRange(parent).map!(a => ast.type(a))
         .filter!(a => a !is null)
         .map!(a => a.kind);
 }

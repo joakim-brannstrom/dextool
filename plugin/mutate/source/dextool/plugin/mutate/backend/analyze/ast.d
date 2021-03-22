@@ -1196,7 +1196,8 @@ struct Symbols {
     }
 }
 
-struct RecurseRange {
+/// Breath first visit of nodes.
+struct BreathFirstRange {
     import my.container.vector;
 
     Vector!Node nodes;
