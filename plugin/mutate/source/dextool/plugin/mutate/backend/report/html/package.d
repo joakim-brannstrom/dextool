@@ -672,7 +672,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
     auto tbl = tmplSortableTable(root, [
-            "Path", "Score", "Alive", "NoMut", "Total", "Duration"
+            "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
             ]);
 
     // Users are not interested that files that contains zero mutants are shown
@@ -702,7 +702,11 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
         r.addChild("td", f.stat.alive.to!string);
         r.addChild("td", f.stat.aliveNoMut.to!string);
         r.addChild("td", f.stat.total.to!string);
-        r.addChild("td", f.stat.totalTime.to!string);
+        r.addChild("td", f.stat
+                .totalTime
+                .sum
+                .total!"minutes"
+                .to!string);
 
         hasSuppressed = hasSuppressed || f.stat.aliveNoMut != 0;
     }
