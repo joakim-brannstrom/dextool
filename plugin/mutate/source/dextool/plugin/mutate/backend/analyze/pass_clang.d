@@ -35,7 +35,7 @@ import dextool.clang_extensions : getUnderlyingExprNode;
 import dextool.type : Path, AbsolutePath;
 
 import dextool.plugin.mutate.backend.analyze.ast : Interval, Location, TypeKind,
-    Node, Ast, RecurseRange;
+    Node, Ast, BreathFirstRange;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.utility;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, InvalidPathException;
@@ -1110,7 +1110,7 @@ final class BaseVisitor : ExtendedVisitor {
         // block aor/rorp schematan when the type is a pointer.
         foreach (_; getChildrenTypes(ast, astOp).filter!(a => a.among(TypeKind.unordered,
                 TypeKind.bottom))) {
-            foreach (c; RecurseRange(astOp))
+            foreach (c; BreathFirstRange(astOp))
                 c.schemaBlacklist = true;
             break;
         }
@@ -1354,63 +1354,36 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
                 }
             }
         }
-        //import std.format;
         //logger.info(app.data.map!(a => format("%s (%X)", a.kind, cast(void*) a)));
         return app.data;
     }
 
     // change loc of `n`s end to be that of its largest child, nested.
     void expandLoc(analyze.Node n) {
-        if (n.children.empty || n.kind != analyze.Kind.Branch) {
-            return;
-        }
-
         // largest node of the parent.
-        static analyze.Node largestNode(ref analyze.Ast ast, analyze.Node curr,
-                analyze.Node candidate) {
-            auto rval = candidate;
-            auto rvall = ast.location(candidate);
-            foreach (n; curr.children) {
-                auto c = largestNode(ast, n, rval);
-                auto l = ast.location(c);
-                if (l.interval.end > rvall.interval.end) {
-                    rval = c;
-                    rvall = l;
+        auto largest = (analyze.Node root) {
+            auto currLoc = ast.location(root);
+            foreach (n; BreathFirstRange(root)) {
+                auto l = ast.location(n);
+                if (l.interval.end > currLoc.interval.end) {
+                    currLoc = l;
                 }
             }
+            return currLoc;
+        }(n);
 
-            return rval;
-        }
-
-        auto branch = cast(analyze.Branch) n;
-        auto last = () {
-            auto loc = ast.location(branch.inside);
-            if (loc.interval.begin == loc.interval.end) {
-                // a fallthrough case branch
-                return branch.inside;
-            }
-            auto ln = largestNode(ast, n, n);
-            auto lnloc = ast.location(ln);
-            if (lnloc.interval.end < loc.interval.end) {
-                return branch.inside;
-            }
-            return ln;
-        }();
-
-        auto cloc = ast.location(last);
-
-        {
+        void updateLoc(analyze.Node n, analyze.Location newLoc) {
             auto loc = ast.location(n);
-            loc.interval.end = cloc.interval.end;
-            loc.sloc.end = cloc.sloc.end;
+            loc.interval.end = newLoc.interval.end;
+            loc.sloc.end = newLoc.sloc.end;
             ast.put(n, loc);
         }
 
-        if (branch.children.length == 1 && branch.children[0].kind == analyze.Kind.Block) {
-            auto loc = ast.location(branch.children[0]);
-            loc.interval.end = cloc.interval.end;
-            loc.sloc.end = cloc.sloc.end;
-            ast.put(branch.children[0], loc);
+        if (auto b = cast(analyze.Branch) n) {
+            updateLoc(n, largest);
+            updateLoc(b.inside, largest);
+        } else {
+            updateLoc(n, largest);
         }
     }
 
@@ -1456,9 +1429,6 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
     auto merge = appender!(analyze.Node[])();
 
     void updateNode(analyze.Node n) {
-        //() @trusted {
-        //logger.tracef("%s %X", n.kind, cast(const(void)*) n);
-        //}();
         if (curr.children.length >= 1 && curr.children[0].kind == analyze.Kind.Block) {
             curr.children[0].children = merge.data.dup;
         } else {
@@ -1515,15 +1485,15 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
  */
 void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
     import sumtype;
-    import dextool.plugin.mutate.backend.analyze.ast : TypeId, VarDecl, Kind, RecurseRange;
+    import dextool.plugin.mutate.backend.analyze.ast : TypeId, VarDecl, Kind;
 
-    foreach (ty; RecurseRange(root).map!(a => ast.typeId(a))
+    foreach (ty; BreathFirstRange(root).map!(a => ast.typeId(a))
             .filter!(a => a.hasValue)) {
         sumtype.match!((Some!TypeId a) => ast.put(root, a), (None a) {})(ty);
         break;
     }
 
-    foreach (a; RecurseRange(root).filter!(a => a.kind == Kind.VarDecl)) {
+    foreach (a; BreathFirstRange(root).filter!(a => a.kind == Kind.VarDecl)) {
         ast.put(root, ast.location(a));
         root.schemaBlacklist = true;
         a.schemaBlacklist = true;
@@ -1787,7 +1757,7 @@ struct BlackList {
 
 /// Returns: the types of the children
 auto getChildrenTypes(ref Ast ast, Node parent) {
-    return RecurseRange(parent).map!(a => ast.type(a))
+    return BreathFirstRange(parent).map!(a => ast.type(a))
         .filter!(a => a !is null)
         .map!(a => a.kind);
 }

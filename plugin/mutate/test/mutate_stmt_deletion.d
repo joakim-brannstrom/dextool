@@ -120,7 +120,7 @@ class ShallDeleteSwitchCase : SchemataFixutre {
                 ]).addFlag("-std=c++11").run;
 
         testAnyOrder!SubStr([
-                `from 'fn(2);' to ''`, `from 'fn(3)' to ''`, `from 'fn(4)' to ''`,
+                `from 'fn(2)' to ''`, `from 'fn(3)' to ''`, `from 'fn(4)' to ''`,
                 `from 'rval = 0;' to ''`, `from 'rval = 1;' to ''`,
                 ]).shouldBeIn(r.output);
     }

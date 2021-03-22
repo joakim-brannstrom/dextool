@@ -352,10 +352,19 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Call n) {
-        if (isDirectParent(ExpressionKind))
-            visitBlock!ExpressionChain(n);
-        else
+        // a call is always
+        // | `-Expr
+        // |   |-Call
+        // must check if the Expr is in a block. That means that it should be
+        // deleted as a statement.
+        if (isDirectParent(ExpressionKind)) {
+            if (nstack.length >= 3 && nstack[$ - 2].data.kind == Kind.Block)
+                visitBlock!BlockChain(n);
+            else
+                visitBlock!ExpressionChain(n);
+        } else {
             visitBlock!BlockChain(n);
+        }
         accept(n, this);
     }
 
