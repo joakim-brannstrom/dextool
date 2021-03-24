@@ -52,17 +52,6 @@ for the next release together with mapping the items to implement.
 
 ## Arc Current
 
-The focus is on bug fixes and minor improvements as reported by the user.
-
-### Tasks
-
- * update trend and score view in html to show a graph. Users have reported
-   that the trend is hard to understand. It seems to just "move around" without
-   any logic. Show the user what it is based on as a time series.
- * Fix case branch for mutants. It only deletes the first line.
-
-## Arc Next
-
 The focus is on speed. Both in running the tool and in giving actionable
 feedback to the user.
 
@@ -70,16 +59,18 @@ feedback to the user.
 
 ### Tasks
 
+ * present the first mutant that survived in a pull request as a diff. It
+   should be "good enough" because the user is working on the pieace of code
+   thus it should be able to "fast" understand what the mutant means.
  * save the function name in the database for a coverage region.
  * add prioritization based on the size of a mutant with a cut-off like max(10,
    offset.end - offset.begin). This affects in what order mutants are tested.
  * the html report have an off-by-one error when displaying mutants.
- * html. a mutant that span multiple lines is displayed on one line. This makes
-   it harder to read the report than necessary. fix it so ut is displayed with
-   the line breaks.
  * html. show the date when the checksummed tests where last changed to the
    user in the long term view. Then we can show to the user how "out of sync"
    the tests are with the mutation report.
+
+## Arc Next
 
 # TODO
 
@@ -90,7 +81,6 @@ more complex may need to be broken down and added to the roadmap.
 
 New items are added at the top
 
- * change Duration in html report to be minutes to be able to sort in js.
  * display mutant prioritization to the user? Depending on how it is implemented.
  * implement a function mutation coverage metric or something. It can be argued
    that mutation score is somewhat "meeh" as a metric. hard to use. But hardly
@@ -98,13 +88,12 @@ New items are added at the top
    it is "good". At least one of the mutants should have been killed. In other
    words, a function that is executed but totally untested is unarguably a sign
    of a deficiency of the test suite.
- * UOI is only partially implemented. Because UOI results in many mutants it
-   has been changed to only deleting "!". It is practical but not the
-   academical implementation.
- * add statement coverage. Requires that each block in the mutate AST is instrumented.
  * add an option to rank mutants by how much they change the code coverage (test impact).
     * computationally expensive so maybe add first after the static approaches
       are implemented such as AST affection.
+ * rank mutants by how much they changed the source code. more tokens then
+   higher risk? Add to high interest mutants.  an alternative would be how much
+   they change the dataflow based on the LLVM IR.
  * document the coverage map and how to integrate with it such that a custom
    format can be integrated. This is to make it possible to e.g. use the
    coverage information from a [lauterbach probe](https://www.lauterbach.com/frames.html?home.html).
@@ -117,12 +106,6 @@ New items are added at the top
  * add an option to let the compilation flags be part of the checksum.
  * embed the configuration in the database to make it easier to share, review
    and archive. "how was the mutation testing tool actually executed?".
- * present the first mutant that survived in a pull request as a diff. It
-   should be "good enough" because the user is working on the pieace of code
-   thus it should be able to "fast" understand what the mutant means.
- * rank mutants by how much they changed the source code. more tokens then
-   higher risk? Add to high interest mutants.  an alternative would be how much
-   they change the dataflow based on the LLVM IR.
  * make it possible for the user to define "mutation operator sets" from the
    40+ primitives. There is no reason why they are hardcoded.
  * implement merge of databases. It is to make it possible for a team to work "distributed".

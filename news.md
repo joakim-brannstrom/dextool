@@ -27,6 +27,8 @@ Fixes for dextool mutate
  * Fix bugs in schema code generation such that more scheman compile.
  * Fix bug where the dependency tracking via included headers used the wrong
    path for headers included from the current directory (`#include "foo.hpp"`).
+ * Fix bug where a mutant that span multiple lines in the html report is shown
+   on one line. It makes it hard to read.
 
 # v3.0.0 Nice Weather
 
