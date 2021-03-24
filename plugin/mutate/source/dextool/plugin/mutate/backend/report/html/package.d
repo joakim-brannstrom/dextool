@@ -319,14 +319,12 @@ struct FileCtx {
         typeof(tcKilledMutant) tmp;
         foreach (a; tc_info) {
             foreach (mut; a.killed) {
-                if (auto v = mut in tmp) {
-                    *v ~= TestCaseInfo(a.name, a.killed.length);
-                } else {
-                    tmp[mut] = [TestCaseInfo(a.name, a.killed.length)];
-                }
+                tmp.update(mut, { return [TestCaseInfo(a.name, a.killed.length)]; },
+                        (ref TestCaseInfo[] v) => v ~= TestCaseInfo(a.name, a.killed.length));
             }
-            r.testCases ~= TestCaseInfo(a.name, a.killed.length);
         }
+        r.testCases = tc_info.map!(a => TestCaseInfo(a.name, a.killed.length)).array;
+
         foreach (kv; tmp.byKeyValue) {
             r.tcKilledMutant[kv.key] = kv.value.sort.array;
         }
