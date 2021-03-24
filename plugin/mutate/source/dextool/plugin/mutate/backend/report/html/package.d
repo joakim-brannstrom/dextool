@@ -794,12 +794,6 @@ string toVisible(MetaSpan.StatusColor s) {
     return format("status_%s", s);
 }
 
-string toHover(MetaSpan.StatusColor s) {
-    if (s == MetaSpan.StatusColor.none)
-        return null;
-    return format("hover_%s", s);
-}
-
 void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     import std.conv : to;
     import std.range : repeat, enumerate;
@@ -842,17 +836,18 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
         auto meta = MetaSpan(s.muts);
 
         foreach (const i; 0 .. max(0, s.tok.loc.line - lastLoc.line)) {
-            with (line = lines.addChild("tr").addChild("td")) {
-                setAttribute("id", format("%s-%s", "loc", lastLoc.line + i + 1));
-                addClass("loc");
-                addChild("span", format("%s:", lastLoc.line + i + 1)).addClass("line_nr");
-            }
+            line = lines.addChild("tr").addChild("td");
+            line.setAttribute("id", format("%s-%s", "loc", lastLoc.line + i + 1))
+                .addClass("loc").addChild("span", format("%s:",
+                        lastLoc.line + i + 1)).addClass("line_nr");
+
             // force a newline in the generated html to improve readability
             lines.appendText("\n");
         }
 
         const spaces = max(0, s.tok.loc.column - lastLoc.column);
         line.addChild(new RawSource(ctx.doc, format("%-(%s%)", "&nbsp;".repeat(spaces))));
+
         auto d0 = line.addChild("div").setAttribute("style", "display: inline;");
         with (d0.addChild("span", s.tok.spelling)) {
             addClass("original");
@@ -871,10 +866,14 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             const metadata = db.getMutantationMetaData(m.id);
 
             muts.put(MData(m.id, m.txt, m.mut, metadata));
-            with (d0.addChild("span", m.mutation)) {
-                addClass("mutant");
-                addClass(s.tok.toName);
-                setAttribute("id", m.id.toString);
+            {
+                auto mutantHtmlTag = d0.addChild("span").addClass("mutant")
+                    .setAttribute("id", m.id.toString);
+                if (m.mutation.canFind('\n')) {
+                    mutantHtmlTag.addChild("pre", m.mutation).addClass("mutant2");
+                } else {
+                    mutantHtmlTag.appendText(m.mutation);
+                }
             }
             d0.addChild("a").setAttribute("href", "#" ~ m.id.toString);
 

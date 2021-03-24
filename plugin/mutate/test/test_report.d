@@ -386,7 +386,7 @@ class ShallProduceHtmlReport : SimpleAnalyzeFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        auto r = makeDextoolReport(testEnv, testData.dirName)
+        makeDextoolReport(testEnv, testData.dirName)
             .addArg(["--style", "html"])
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
