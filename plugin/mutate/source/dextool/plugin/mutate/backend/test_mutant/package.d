@@ -1169,13 +1169,8 @@ nothrow:
     }
 
     void opCall(ref CheckRuntime data) {
-        import std.datetime : Clock;
-
-        data.reachedMax = stopCheck.isHalt;
-        if (data.reachedMax) {
-            logger.infof("Max runtime of %s reached at %s",
-                    global.data.conf.maxRuntime, Clock.currTime).collectException;
-        }
+        data.reachedMax = stopCheck.isMaxRuntime;
+        logger.infof(data.reachedMax, stopCheck.maxRuntimeToString).collectException;
     }
 
     void opCall(ref NextSchemata data) {
