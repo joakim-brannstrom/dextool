@@ -1,7 +1,5 @@
 # v3.0.1 Drizzle
 
-Improved sanity checks to catch common user or environment errors automatically.
-
 New features for dextool mutate
 
  * Check that all files to mutate are writable.

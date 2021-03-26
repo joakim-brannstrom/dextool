@@ -505,26 +505,32 @@ void restoreFiles(AbsolutePath[] files, FilesysIO fio) {
 /// The conditions for when to stop mutation testing.
 /// Intended to be re-used by both the main FSM and the sub-FSMs.
 struct TestStopCheck {
+    import std.format : format;
     import std.datetime.systime : Clock, SysTime;
-    import std.typecons : Nullable;
+    import my.optional;
     import dextool.plugin.mutate.config : ConfigMutationTest;
 
     private {
         typeof(ConfigMutationTest.loadBehavior) loadBehavior;
+        typeof(ConfigMutationTest.loadThreshold) baseLoadThreshold;
         typeof(ConfigMutationTest.loadThreshold) loadThreshold;
-        Nullable!int maxAlive;
+
+        Optional!int maxAlive;
 
         /// Max time to run the mutation testing for.
         SysTime stopAt;
+        Duration maxRuntime;
 
         long aliveMutants_;
     }
 
     this(ConfigMutationTest conf) {
         loadBehavior = conf.loadBehavior;
-        loadThreshold = conf.loadThreshold;
-        maxAlive = conf.maxAlive;
+        baseLoadThreshold = conf.loadThreshold;
+        if (!conf.maxAlive.isNull)
+            maxAlive = some(conf.maxAlive.get);
         stopAt = Clock.currTime + conf.maxRuntime;
+        maxRuntime = conf.maxRuntime;
     }
 
     void incrAliveMutants() @safe pure nothrow @nogc {
@@ -536,14 +542,14 @@ struct TestStopCheck {
     }
 
     /// A halt conditions has occured. Mutation testing should stop.
-    bool isHalt() @safe nothrow const {
-        if (Clock.currTime > stopAt)
+    bool isHalt() @safe nothrow {
+        if (isMaxRuntime)
             return true;
 
-        if (!maxAlive.isNull && aliveMutants_ >= maxAlive.get)
+        if (isAliveTested)
             return true;
 
-        if (loadBehavior == ConfigMutationTest.LoadBehavior.halt && load15 > loadThreshold.get)
+        if (loadBehavior == ConfigMutationTest.LoadBehavior.halt && load15 > baseLoadThreshold.get)
             return true;
 
         return false;
@@ -557,8 +563,12 @@ struct TestStopCheck {
         return false;
     }
 
-    bool isAliveTested() @safe pure nothrow const @nogc {
-        return !maxAlive.isNull && aliveMutants_ >= maxAlive.get;
+    bool isAliveTested() @safe pure nothrow @nogc {
+        return maxAlive.hasValue && aliveMutants_ >= maxAlive.orElse(0);
+    }
+
+    bool isMaxRuntime() @safe nothrow const {
+        return Clock.currTime > stopAt;
     }
 
     double load15() nothrow const @nogc @trusted {
@@ -573,17 +583,25 @@ struct TestStopCheck {
     };
 
     /// Pause the current thread by sleeping.
-    void pause() @trusted nothrow const {
+    void pause() @trusted nothrow {
         import core.thread : Thread;
+        import std.algorithm : max;
 
         const sleepFor = 30.dur!"seconds";
         logger.infof("Sleeping %s", sleepFor).collectException;
         Thread.sleep(sleepFor);
+
+        // make it more sensitive if the system is still overloaded.
+        loadThreshold = baseLoadThreshold;
+        if (load15 > loadThreshold.get)
+            loadThreshold.get = max(1, baseLoadThreshold.get - 1);
     }
 
     string overloadToString() @safe const {
-        import std.format : format;
-
         return format!"Detected overload (%s > %s)"(load15, loadThreshold.get);
+    }
+
+    string maxRuntimeToString() @safe const {
+        return format!"Max runtime of %s reached at %s"(maxRuntime, Clock.currTime);
     }
 }
