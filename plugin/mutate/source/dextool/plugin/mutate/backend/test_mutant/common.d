@@ -512,7 +512,9 @@ struct TestStopCheck {
 
     private {
         typeof(ConfigMutationTest.loadBehavior) loadBehavior;
+        typeof(ConfigMutationTest.loadThreshold) baseLoadThreshold;
         typeof(ConfigMutationTest.loadThreshold) loadThreshold;
+
         Optional!int maxAlive;
 
         /// Max time to run the mutation testing for.
@@ -524,7 +526,7 @@ struct TestStopCheck {
 
     this(ConfigMutationTest conf) {
         loadBehavior = conf.loadBehavior;
-        loadThreshold = conf.loadThreshold;
+        baseLoadThreshold = conf.loadThreshold;
         if (!conf.maxAlive.isNull)
             maxAlive = some(conf.maxAlive.get);
         stopAt = Clock.currTime + conf.maxRuntime;
@@ -547,7 +549,7 @@ struct TestStopCheck {
         if (isAliveTested)
             return true;
 
-        if (loadBehavior == ConfigMutationTest.LoadBehavior.halt && load15 > loadThreshold.get)
+        if (loadBehavior == ConfigMutationTest.LoadBehavior.halt && load15 > baseLoadThreshold.get)
             return true;
 
         return false;
@@ -581,12 +583,18 @@ struct TestStopCheck {
     };
 
     /// Pause the current thread by sleeping.
-    void pause() @trusted nothrow const {
+    void pause() @trusted nothrow {
         import core.thread : Thread;
+        import std.algorithm : max;
 
         const sleepFor = 30.dur!"seconds";
         logger.infof("Sleeping %s", sleepFor).collectException;
         Thread.sleep(sleepFor);
+
+        // make it more sensitive if the system is still overloaded.
+        loadThreshold = baseLoadThreshold;
+        if (load15 > loadThreshold.get)
+            loadThreshold.get = max(1, baseLoadThreshold.get - 1);
     }
 
     string overloadToString() @safe const {
