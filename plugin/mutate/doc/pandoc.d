@@ -56,6 +56,7 @@ void main(string[] args) {
                 "definitions.md", "abbrevations.md", "appendix.md",
                 "references.md"
             ].map!(a => buildPath(root, a))).array, output, root);
+    copy(output ~ ".pdf", buildPath(root, output ~ ".pdf"));
 }
 
 struct Pandoc {
