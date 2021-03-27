@@ -65,7 +65,7 @@ Mutants analyzeForUndesiredMutant(Blob file, Mutants mutants, const Language lan
                     file.uri, mutants.point, k);
             app.put(k);
         } else if (lang.among(Language.assumeCpp, Language.cpp)
-                && isUndesiredCppPattern(file, mutants.point.offset)) {
+                && isUndesiredCppPattern(file, mutants.point.offset, mutant.rawMutation)) {
             logger.tracef("Dropping undesired mutant. The mutant is an undesired C++ mutant pattern (%s %s %s)",
                     file.uri, mutants.point, k);
             app.put(k);
@@ -109,14 +109,24 @@ bool isOnlyWhitespace(Blob file, Offset o, const(ubyte)[] mutant) {
     return rval;
 }
 
-bool isUndesiredCppPattern(Blob file, Offset o) {
-    static immutable ubyte[2] ctorParenthesis = [40, 41];
-    static immutable ubyte[2] ctorCurly = [123, 125];
+bool isUndesiredCppPattern(Blob file, Offset o, const(ubyte)[] mutant) {
+    static immutable ubyte[2] ctorParenthesis = ['(', ')'];
+    static immutable ubyte[2] ctorCurly = ['{', '}'];
+    static immutable ubyte zero = '0';
+    static immutable ubyte one = '1';
+    static immutable ubyte[5] false_ = ['f', 'a', 'l', 's', 'e'];
+    static immutable ubyte[4] true_ = ['t', 'r', 'u', 'e'];
 
     // e.g. delete of the constructor {} is undesired. It is almost always an
     // equivalent mutant.
     if (o.end - o.begin == 2 && file.content[o.begin .. o.end].among(ctorParenthesis[],
             ctorCurly[])) {
+        return true;
+    }
+
+    // replacing '0' with 'false' and '1' with 'true' is equivalent
+    if (file.content[o.begin] == zero && false_ == mutant
+            || file.content[o.begin] == one && true_ == mutant) {
         return true;
     }
 
