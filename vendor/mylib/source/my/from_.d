@@ -11,6 +11,11 @@ Example:
 ---
 std_.foo fun(std_.string.Path p)
 ---
+
+Or using in a function definition:
+---
+
+string foo(from.my.module.Type x) { return null; }
 */
 
 enum from = FromImpl!null();
