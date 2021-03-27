@@ -526,6 +526,7 @@ struct TestStopCheck {
 
     this(ConfigMutationTest conf) {
         loadBehavior = conf.loadBehavior;
+        loadThreshold = conf.loadThreshold;
         baseLoadThreshold = conf.loadThreshold;
         if (!conf.maxAlive.isNull)
             maxAlive = some(conf.maxAlive.get);
@@ -592,9 +593,10 @@ struct TestStopCheck {
         Thread.sleep(sleepFor);
 
         // make it more sensitive if the system is still overloaded.
-        loadThreshold = baseLoadThreshold;
         if (load15 > loadThreshold.get)
             loadThreshold.get = max(1, baseLoadThreshold.get - 1);
+        else
+            loadThreshold = baseLoadThreshold;
     }
 
     string overloadToString() @safe const {
