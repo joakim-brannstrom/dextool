@@ -746,6 +746,7 @@ nothrow:
             }, (TestCaseAnalyzer.Failed a) {
                 logger.warning("The parser that analyze the output for test case(s) failed");
             });
+            found ~= global.testCmds.map!(a => TestCase(a.toShortString)).array;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }

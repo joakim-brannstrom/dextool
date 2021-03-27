@@ -159,7 +159,12 @@ struct TestConstraint {
 }
 
 struct ShellCommand {
-    import std.range : isOutputRange;
+    import std.algorithm : joiner;
+    import std.array : appender;
+    import std.format : formattedWrite;
+    import std.path : relativePath;
+    import std.range : isOutputRange, only;
+    import std.string : join;
 
     string[] value;
 
@@ -168,17 +173,26 @@ struct ShellCommand {
     }
 
     string toString() @safe pure const {
-        import std.array : appender;
-
         auto buf = appender!string;
         toString(buf);
         return buf.data;
     }
 
     void toString(Writer)(ref Writer w) const if (isOutputRange!(Writer, char)) {
-        import std.format : formattedWrite;
-
         formattedWrite(w, "shell command '%-(%s %)'", value);
+    }
+
+    string toShortString() @safe nothrow const {
+        auto r = () nothrow{
+            try {
+                return value[0].relativePath;
+            } catch (Exception e) {
+            }
+            return value[0];
+        }();
+        if (value.length == 1)
+            return r;
+        return only([r], value[1 .. $]).joiner.join(" ");
     }
 }
 

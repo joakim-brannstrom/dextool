@@ -449,7 +449,7 @@ struct TestResult {
     Mutation.Status status;
     DrainElement[] output;
     ExitStatus exitStatus;
-    NamedType!(string, Tag!"TestCmd", string.init, TagStringable)[] testCmds;
+    ShellCommand[] testCmds;
 }
 
 /** Run the test suite to verify a mutation.

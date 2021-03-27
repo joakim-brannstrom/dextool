@@ -482,7 +482,8 @@ nothrow:
         data.result.exitStatus = res.exitStatus;
         data.hasTestOutput = !res.output.empty;
         local.get!TestCaseAnalyze.output = res.output;
-        local.get!TestCaseAnalyze.testCmds = res.testCmds.map!(a => TestCase(a.get)).array;
+        local.get!TestCaseAnalyze.testCmds = res.testCmds.map!(
+                a => TestCase(a.toShortString)).array;
 
         logger.infof("%s:%s (%s)", data.result.status,
                 data.result.exitStatus.get, data.result.profile).collectException;
@@ -502,8 +503,7 @@ nothrow:
                     local.get!TestCaseAnalyze.output);
 
             analyze.match!((TestCaseAnalyzer.Success a) {
-                data.result.testCases = a.failed;
-                data.result.testCases ~= local.get!TestCaseAnalyze.testCmds;
+                data.result.testCases = a.failed ~ local.get!TestCaseAnalyze.testCmds;
             }, (TestCaseAnalyzer.Unstable a) {
                 logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
                 logger.info(
