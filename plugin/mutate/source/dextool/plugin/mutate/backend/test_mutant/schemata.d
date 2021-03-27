@@ -462,8 +462,8 @@ nothrow:
             auto txt = makeMutationText(fio.makeInput(file), entry.mp.offset,
                     entry.mp.mutations[0].kind, entry.lang);
             debug logger.trace(entry);
-            logger.infof("%s from '%s' to '%s' in %s:%s:%s", data.inject.injectId,
-                    txt.original, txt.mutation, file, entry.sloc.line, entry.sloc.column);
+            logger.infof("from '%s' to '%s' in %s:%s:%s", txt.original,
+                    txt.mutation, file, entry.sloc.line, entry.sloc.column);
         } catch (Exception e) {
             logger.info(e.msg).collectException;
         }
@@ -484,9 +484,10 @@ nothrow:
         local.get!TestCaseAnalyze.output = res.output;
         local.get!TestCaseAnalyze.testCmds = res.testCmds.map!(a => TestCase(a.get)).array;
 
-        logger.infof("%s %s:%s (%s)", id.get, data.result.status,
+        logger.infof("%s:%s (%s)", data.result.status,
                 data.result.exitStatus.get, data.result.profile).collectException;
-        logger.tracef("schema inject id ", data.inject.injectId).collectException;
+        logger.tracef("%s %s injectId:%s", id, data.result.id,
+                data.inject.injectId).collectException;
     }
 
     void opCall(ref TestCaseAnalyze data) {
@@ -512,8 +513,8 @@ nothrow:
                 logger.warning("The parser that analyze the output from test case(s) failed");
             });
 
-            logger.infof(!data.result.testCases.empty, `%s killed by [%-(%s, %)]`,
-                    data.result.mutId, data.result.testCases.sort.map!"a.name").collectException;
+            logger.infof(!data.result.testCases.empty, `killed by [%-(%s, %)]`,
+                    data.result.testCases.sort.map!"a.name").collectException;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
