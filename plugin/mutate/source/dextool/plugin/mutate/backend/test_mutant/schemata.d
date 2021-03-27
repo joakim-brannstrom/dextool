@@ -180,6 +180,9 @@ struct SchemataTestDriver {
             auto p = fio.toAbsoluteRoot(a.file);
             roots.add(p);
         }
+
+        if (logger.globalLogLevel == logger.LogLevel.trace)
+            fsm.logger = (string s) { logger.trace(s); };
     }
 
     static void execute_(ref SchemataTestDriver self) @trusted {
@@ -223,7 +226,6 @@ struct SchemataTestDriver {
             return fsm(StoreResult(a.result));
         }, (StoreResult a) => fsm(OverloadCheck.init), (Restore a) => Done.init, (Done a) => a);
 
-        debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
     }
 

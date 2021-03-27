@@ -431,6 +431,9 @@ struct TestDriver {
                 global.data.conf.mutationTestCaseAnalyze, global.data.autoCleanup);
 
         this.stopCheck = TestStopCheck(global.data.conf);
+
+        if (logger.globalLogLevel == logger.LogLevel.trace)
+            fsm.logger = (string s) { logger.trace(s); };
     }
 
     static void execute_(ref TestDriver self) @trusted {
@@ -529,7 +532,6 @@ struct TestDriver {
                 (Done a) => fsm(SchemataPruneUsed.init),
                 (Error a) => fsm(Stop.init), (Stop a) => fsm(a));
 
-        debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
     }
 

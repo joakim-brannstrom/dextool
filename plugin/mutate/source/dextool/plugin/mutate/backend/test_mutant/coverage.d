@@ -121,6 +121,9 @@ struct CoverageDriver {
             roots.add(p);
             lang[p] = a.lang;
         }
+
+        if (logger.globalLogLevel == logger.LogLevel.trace)
+            fsm.logger = (string s) { logger.trace(s); };
     }
 
     static void execute_(ref CoverageDriver self) @trusted {
@@ -139,7 +142,6 @@ struct CoverageDriver {
             return fsm(SaveToDb(a.covMap));
         }, (SaveToDb a) => Restore.init, (Restore a) => Done.init, (Done a) => a);
 
-        debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!self;
     }
 

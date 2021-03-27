@@ -137,6 +137,9 @@ struct MutationTestDriver {
     this(Global global, TestMutantData l1, TestCaseAnalyzeData l2) {
         this.global = global;
         this.local = LocalStateDataT(l1, l2);
+
+        if (logger.globalLogLevel == logger.LogLevel.trace)
+            fsm.logger = (string s) { logger.trace(s); };
     }
 
     static void execute_(ref MutationTestDriver self) @trusted {
@@ -165,7 +168,6 @@ struct MutationTestDriver {
                 (FilesysError a) => fsm(a),
                 (NoResultRestoreCode a) => fsm(NoResult.init), (NoResult a) => fsm(a),);
 
-        debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!self;
     }
 

@@ -151,6 +151,12 @@ struct TimeoutFsm {
 
     this(const Mutation.Kind[] kinds) nothrow {
         global.kinds = kinds.dup;
+        try {
+            if (logger.globalLogLevel == logger.LogLevel.trace)
+                fsm.logger = (string s) { logger.trace(s); };
+        } catch (Exception e) {
+            logger.trace(e.msg).collectException;
+        }
     }
 
     void execute(ref Database db) @trusted {
