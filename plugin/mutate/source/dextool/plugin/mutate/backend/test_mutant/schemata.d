@@ -484,8 +484,9 @@ nothrow:
         local.get!TestCaseAnalyze.output = res.output;
         local.get!TestCaseAnalyze.testCmds = res.testCmds.map!(a => TestCase(a.get)).array;
 
-        logger.infof("%s %s:%s (%s)", data.inject.injectId, data.result.status,
+        logger.infof("%s %s:%s (%s)", id.get, data.result.status,
                 data.result.exitStatus.get, data.result.profile).collectException;
+        logger.tracef("schema inject id ", data.inject.injectId).collectException;
     }
 
     void opCall(ref TestCaseAnalyze data) {
