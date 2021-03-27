@@ -137,6 +137,9 @@ struct MutationTestDriver {
     this(Global global, TestMutantData l1, TestCaseAnalyzeData l2) {
         this.global = global;
         this.local = LocalStateDataT(l1, l2);
+
+        if (logger.globalLogLevel == logger.LogLevel.trace)
+            fsm.logger = (string s) { logger.trace(s); };
     }
 
     static void execute_(ref MutationTestDriver self) @trusted {
@@ -165,7 +168,6 @@ struct MutationTestDriver {
                 (FilesysError a) => fsm(a),
                 (NoResultRestoreCode a) => fsm(NoResult.init), (NoResult a) => fsm(a),);
 
-        debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!self;
     }
 
@@ -252,12 +254,12 @@ nothrow:
                 break;
             case ok:
                 try {
-                    logger.infof("%s from '%s' to '%s' in %s:%s:%s", global.mutp.id.get,
+                    logger.infof("from '%s' to '%s' in %s:%s:%s",
                             cast(const(char)[]) mut_res.from, cast(const(char)[]) mut_res.to,
                             global.mutateFile, global.mutp.sloc.line, global.mutp.sloc.column);
-
+                    logger.trace(global.mutp.id).collectException;
                 } catch (Exception e) {
-                    logger.warningf("Mutation ID %s %s", global.mutp.id.get, e.msg);
+                    logger.warningf("%s %s", global.mutp.id, e.msg);
                 }
                 break;
             }
@@ -327,10 +329,10 @@ nothrow:
                     profile, global.testCases, global.testResult.exitStatus)
         ];
 
-        logger.infof("%s %s:%s (%s)", global.mutp.id.get, global.testResult.status,
+        logger.infof("%s:%s (%s)", global.testResult.status,
                 global.testResult.exitStatus.get, profile).collectException;
-        logger.infof(!global.testCases.empty, `%s killed by [%-(%s, %)]`,
-                global.mutp.id.get, global.testCases.sort.map!"a.name").collectException;
+        logger.infof(!global.testCases.empty, `killed by [%-(%s, %)]`,
+                global.testCases.sort.map!"a.name").collectException;
     }
 
     void opCall(ref RestoreCode data) {

@@ -235,6 +235,7 @@ struct TestDriver {
     }
 
     static struct Initialize {
+        bool halt;
     }
 
     static struct PullRequest {
@@ -355,15 +356,14 @@ struct TestDriver {
         MutationTestResult[] result;
     }
 
-    static struct CheckRuntime {
-        bool reachedMax;
+    static struct CheckStopCond {
+        bool halt;
     }
 
     static struct LoadSchematas {
     }
 
     static struct OverloadCheck {
-        bool halt;
         bool sleep;
     }
 
@@ -391,7 +391,7 @@ struct TestDriver {
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
-            UpdateTimeout, CheckRuntime, PullRequest, NextPullRequestMutant, ParseStdin,
+            UpdateTimeout, CheckStopCond, PullRequest, NextPullRequestMutant, ParseStdin,
             FindTestCmds, ChooseMode, NextSchemata, SchemataTest, LoadSchematas,
             SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck,
             Coverage, PropagateCoverage, ContinuesCheckTestSuite);
@@ -431,14 +431,20 @@ struct TestDriver {
                 global.data.conf.mutationTestCaseAnalyze, global.data.autoCleanup);
 
         this.stopCheck = TestStopCheck(global.data.conf);
+
+        if (logger.globalLogLevel == logger.LogLevel.trace)
+            fsm.logger = (string s) { logger.trace(s); };
     }
 
     static void execute_(ref TestDriver self) @trusted {
         // see test_mutant/basis.md and figures/test_mutant_fsm.pu for a
         // graphical view of the state machine.
 
-        self.fsm.next!((None a) => fsm(Initialize.init),
-                (Initialize a) => fsm(SanityCheck.init), (SanityCheck a) {
+        self.fsm.next!((None a) => fsm(Initialize.init), (Initialize a) {
+            if (a.halt)
+                return fsm(CheckStopCond.init);
+            return fsm(SanityCheck.init);
+        }, (SanityCheck a) {
             if (a.sanityCheckFailed)
                 return fsm(Error.init);
             if (self.global.data.conf.unifiedDiffFromStdin)
@@ -498,16 +504,14 @@ struct TestDriver {
         }, (SchemataTest a) {
             if (a.fatalError)
                 return fsm(Error.init);
-            return fsm(CheckRuntime.init);
+            return fsm(CheckStopCond.init);
         }, (NextMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(CheckTimeout.init);
             return fsm(MutationTest.init);
         }, (UpdateTimeout a) => fsm(OverloadCheck.init), (OverloadCheck a) {
-            if (a.halt)
-                return fsm(Done.init);
             if (a.sleep)
-                return fsm(CheckRuntime.init);
+                return fsm(CheckStopCond.init);
             return fsm(ContinuesCheckTestSuite.init);
         }, (ContinuesCheckTestSuite a) {
             if (a.ok)
@@ -517,8 +521,8 @@ struct TestDriver {
             if (a.mutationError)
                 return fsm(Error.init);
             return fsm(HandleTestResult(a.result));
-        }, (HandleTestResult a) => fsm(CheckRuntime.init), (CheckRuntime a) {
-            if (a.reachedMax)
+        }, (HandleTestResult a) => fsm(CheckStopCond.init), (CheckStopCond a) {
+            if (a.halt)
                 return fsm(Done.init);
             return fsm(UpdateTimeout.init);
         }, (CheckTimeout a) {
@@ -529,7 +533,6 @@ struct TestDriver {
                 (Done a) => fsm(SchemataPruneUsed.init),
                 (Error a) => fsm(Stop.init), (Stop a) => fsm(a));
 
-        debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
     }
 
@@ -555,12 +558,19 @@ nothrow:
     void opCall(None data) {
     }
 
-    void opCall(Initialize data) {
+    void opCall(ref Initialize data) {
         logger.info("Initializing worklist").collectException;
         spinSql!(() {
             global.data.db.updateWorklist(global.data.kinds,
                 Mutation.Status.unknown, 100, global.data.conf.mutationOrder);
         });
+
+        // detect if the system is overloaded before trying to do something
+        // slow such as compiling the SUT.
+        if (global.data.conf.loadBehavior == ConfigMutationTest.LoadBehavior.halt
+                && stopCheck.isHalt) {
+            data.halt = true;
+        }
     }
 
     void opCall(Stop data) {
@@ -644,28 +654,11 @@ nothrow:
     }
 
     void opCall(ref OverloadCheck data) {
-        if (global.data.conf.loadBehavior == ConfigMutationTest.LoadBehavior.nothing)
-            return;
-
-        final switch (global.data.conf.loadBehavior) with (ConfigMutationTest.LoadBehavior) {
-        case nothing:
-            break;
-        case slowdown:
-            if (stopCheck.isOverloaded) {
-                data.sleep = true;
-
-                logger.info(stopCheck.overloadToString).collectException;
-                stopCheck.pause;
-            }
-            break;
-        case halt:
-            if (stopCheck.isOverloaded) {
-                data.halt = true;
-
-                logger.info(stopCheck.overloadToString).collectException;
-                logger.warning("Halting").collectException;
-            }
-            break;
+        if (global.data.conf.loadBehavior == ConfigMutationTest.LoadBehavior.slowdown
+                && stopCheck.isOverloaded) {
+            data.sleep = true;
+            logger.info(stopCheck.overloadToString).collectException;
+            stopCheck.pause;
         }
     }
 
@@ -1145,9 +1138,8 @@ nothrow:
         logger.infof(stopCheck.aliveMutants > 0, "Found %s/%s alive mutants",
                 stopCheck.aliveMutants, global.data.conf.maxAlive.get).collectException;
 
-        if (stopCheck.isAliveTested) {
+        if (stopCheck.isAliveTested)
             data.noUnknownMutantsLeft.get = true;
-        }
     }
 
     void opCall(ref NextMutant data) {
@@ -1159,18 +1151,21 @@ nothrow:
 
         data.noUnknownMutantsLeft.get = next.st == NextMutationEntry.Status.done;
 
-        if (!next.entry.isNull) {
+        if (!next.entry.isNull)
             global.nextMutant = next.entry.get;
-        }
     }
 
     void opCall(HandleTestResult data) {
         saveTestResult(data.result);
     }
 
-    void opCall(ref CheckRuntime data) {
-        data.reachedMax = stopCheck.isMaxRuntime;
-        logger.infof(data.reachedMax, stopCheck.maxRuntimeToString).collectException;
+    void opCall(ref CheckStopCond data) {
+        data.halt = stopCheck.isHalt;
+        logger.infof(stopCheck.isMaxRuntime, stopCheck.maxRuntimeToString).collectException;
+        logger.infof(stopCheck.isAliveTested, "Alive mutants threshold reached").collectException;
+        if (global.data.conf.loadBehavior == ConfigMutationTest.LoadBehavior.halt)
+            logger.info(stopCheck.isOverloaded, stopCheck.overloadToString).collectException;
+        logger.warning(data.halt, "Halting").collectException;
     }
 
     void opCall(ref NextSchemata data) {

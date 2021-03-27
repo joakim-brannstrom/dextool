@@ -94,9 +94,11 @@ private void releaseWeakCnt(T)(ref T cb) @trusted {
 struct RefCounted(T) {
     alias Impl = ControlBlock!T;
     private Impl* impl;
+    private T* item;
 
     this(Impl* impl) {
         this.impl = impl;
+        setLocalItem;
     }
 
     this(Args...)(auto ref Args args) {
@@ -104,6 +106,7 @@ struct RefCounted(T) {
 
         impl = alloc();
         () @trusted { emplace(impl, args); GC.addRoot(impl); }();
+        setLocalItem;
     }
 
     this(this) {
@@ -130,13 +133,19 @@ struct RefCounted(T) {
         return (() @trusted => cast(Impl*) rawMem.ptr)();
     }
 
+    private void setLocalItem() @trusted {
+        if (impl)
+            item = &impl.item;
+    }
+
     ref inout(T) get() inout {
         assert(impl, "Invalid refcounted access");
-        return impl.item;
+        return *item;
     }
 
     void opAssign(RefCounted other) {
         swap(impl, other.impl);
+        setLocalItem;
     }
 
     void opAssign(T other) {
@@ -148,6 +157,7 @@ struct RefCounted(T) {
         } else {
             move(other, impl.item);
         }
+        setLocalItem;
     }
 
     /// Release the reference.
@@ -225,6 +235,7 @@ RefCounted!T refCounted(T)(auto ref T item) {
 struct WeakRef(T) {
     alias Impl = ControlBlock!T;
     private Impl* impl;
+    private T* item;
 
     this(RefCounted!T r) {
         incrWeakCnt(r.impl);
@@ -237,6 +248,7 @@ struct WeakRef(T) {
     this(ref RefCounted!T r) @safe nothrow {
         incrWeakCnt(r.impl);
         impl = r.impl;
+        setLocalItem;
     }
 
     this(this) {
@@ -251,8 +263,14 @@ struct WeakRef(T) {
         }
     }
 
+    private void setLocalItem() @trusted {
+        if (impl)
+            item = &impl.item;
+    }
+
     void opAssign(WeakRef other) @safe nothrow {
         swap(impl, other.impl);
+        setLocalItem;
     }
 
     RefCounted!T asRefCounted() nothrow {

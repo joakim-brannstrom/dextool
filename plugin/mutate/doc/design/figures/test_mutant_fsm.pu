@@ -29,7 +29,7 @@ UpdateAndResetAliveMutants --> CheckMutantsLeft
 
 UpdateTimeout --> OverloadCheck
 
-OverloadCheck --> CheckRuntime : sleep
+OverloadCheck --> CheckStopCond : sleep
 OverloadCheck --> Done : halt
 OverloadCheck --> ContCheckTestSuite : ok
 
@@ -57,8 +57,8 @@ LoadSchematas --> ResetOldMutant
 
 ResetOldMutant --> UpdateTimeout
 
-CheckRuntime --> UpdateTimeout
-CheckRuntime --> Done : runtime>max
+CheckStopCond --> UpdateTimeout
+CheckStopCond --> Done : runtime>max
 
 NextPullRequestMutant --> MutationTest
 NextPullRequestMutant --> Done : allTested
@@ -66,7 +66,7 @@ NextPullRequestMutant --> Done : allTested
 NextSchemata --> SchemataTest : hasSchema
 NextSchemata --> Done : !hasSchema && user
 NextSchemata --> NextMutant
-SchemataTest --> CheckRuntime : done
+SchemataTest --> CheckStopCond : done
 
 NextMutant --> CheckTimeout : allTested
 NextMutant --> MutationTest
@@ -74,7 +74,7 @@ MutationTest --> HandleTestResult : next
 MutationTest --> Error : error
 MutationTest --> MutationTest
 
-HandleTestResult --> CheckRuntime
+HandleTestResult --> CheckStopCond
 
 CheckTimeout --> Done : unchanged
 CheckTimeout --> UpdateTimeout : changed

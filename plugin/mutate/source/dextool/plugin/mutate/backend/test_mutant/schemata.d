@@ -180,6 +180,9 @@ struct SchemataTestDriver {
             auto p = fio.toAbsoluteRoot(a.file);
             roots.add(p);
         }
+
+        if (logger.globalLogLevel == logger.LogLevel.trace)
+            fsm.logger = (string s) { logger.trace(s); };
     }
 
     static void execute_(ref SchemataTestDriver self) @trusted {
@@ -223,7 +226,6 @@ struct SchemataTestDriver {
             return fsm(StoreResult(a.result));
         }, (StoreResult a) => fsm(OverloadCheck.init), (Restore a) => Done.init, (Done a) => a);
 
-        debug logger.trace("state: ", self.fsm.logNext);
         self.fsm.act!(self);
     }
 
@@ -460,8 +462,8 @@ nothrow:
             auto txt = makeMutationText(fio.makeInput(file), entry.mp.offset,
                     entry.mp.mutations[0].kind, entry.lang);
             debug logger.trace(entry);
-            logger.infof("%s from '%s' to '%s' in %s:%s:%s", data.inject.injectId,
-                    txt.original, txt.mutation, file, entry.sloc.line, entry.sloc.column);
+            logger.infof("from '%s' to '%s' in %s:%s:%s", txt.original,
+                    txt.mutation, file, entry.sloc.line, entry.sloc.column);
         } catch (Exception e) {
             logger.info(e.msg).collectException;
         }
@@ -482,8 +484,10 @@ nothrow:
         local.get!TestCaseAnalyze.output = res.output;
         local.get!TestCaseAnalyze.testCmds = res.testCmds.map!(a => TestCase(a.get)).array;
 
-        logger.infof("%s %s:%s (%s)", data.inject.injectId, data.result.status,
+        logger.infof("%s:%s (%s)", data.result.status,
                 data.result.exitStatus.get, data.result.profile).collectException;
+        logger.tracef("%s %s injectId:%s", id, data.result.id,
+                data.inject.injectId).collectException;
     }
 
     void opCall(ref TestCaseAnalyze data) {
@@ -509,8 +513,8 @@ nothrow:
                 logger.warning("The parser that analyze the output from test case(s) failed");
             });
 
-            logger.infof(!data.result.testCases.empty, `%s killed by [%-(%s, %)]`,
-                    data.result.mutId, data.result.testCases.sort.map!"a.name").collectException;
+            logger.infof(!data.result.testCases.empty, `killed by [%-(%s, %)]`,
+                    data.result.testCases.sort.map!"a.name").collectException;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
