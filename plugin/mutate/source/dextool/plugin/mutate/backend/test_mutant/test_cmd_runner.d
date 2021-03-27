@@ -40,7 +40,7 @@ version (unittest) {
 
 struct TestRunner {
     private {
-        alias TestTask = Task!(spawnRunTest, string[], Duration,
+        alias TestTask = Task!(spawnRunTest, ShellCommand, Duration,
                 string[string], Signal, Mutex, Condition);
         TaskPool pool;
         Duration timeout_;
@@ -146,15 +146,7 @@ struct TestRunner {
                 }
                 if (res.exitStatus.get != 0) {
                     incrCmdKills(res.cmd);
-                    result.testCmds ~= TestResult.TestCmd(() {
-                        import std.range : only;
-                        import std.path : relativePath;
-                        import std.string : join;
-
-                        if (res.cmd.length == 1)
-                            return res.cmd[0].relativePath;
-                        return only([res.cmd[0].relativePath], res.cmd[1 .. $]).joiner.join(" ");
-                    }());
+                    result.testCmds ~= res.cmd;
                 }
                 output.put(res.output);
                 break;
@@ -219,7 +211,7 @@ struct TestRunner {
         auto tasks = appender!(TestTask*[])();
 
         foreach (c; commands) {
-            auto t = task!spawnRunTest(c.cmd.value, timeout, env, earlyStopSignal, mtx, condDone);
+            auto t = task!spawnRunTest(c.cmd, timeout, env, earlyStopSignal, mtx, condDone);
             tasks.put(t);
             pool.put(t);
         }
@@ -227,9 +219,9 @@ struct TestRunner {
     }
 
     /// Find the test command and update its kill counter.
-    private void incrCmdKills(string[] cmd) {
+    private void incrCmdKills(ShellCommand cmd) {
         foreach (ref a; commands) {
-            if (a.cmd.value == cmd) {
+            if (a.cmd == cmd) {
                 a.kills++;
                 break;
             }
@@ -239,8 +231,6 @@ struct TestRunner {
 
 /// The result of running the tests.
 struct TestResult {
-    alias TestCmd = NamedType!(string, Tag!"TestCmd", string.init, TagStringable);
-
     enum Status {
         /// All test commands exited with exit status zero.
         passed,
@@ -256,7 +246,7 @@ struct TestResult {
     ExitStatus exitStatus;
 
     /// all test commands that found the mutant.
-    TestCmd[] testCmds;
+    ShellCommand[] testCmds;
 
     /// Output from all the test binaries and command.
     DrainElement[] output;
@@ -278,7 +268,7 @@ string[] findExecutables(AbsolutePath root) @trusted {
     return app.data;
 }
 
-RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env,
+RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env,
         Signal earlyStop, Mutex mtx, Condition condDone) @trusted nothrow {
     import std.algorithm : copy;
     static import std.process;
@@ -303,7 +293,8 @@ RunResult spawnRunTest(string[] cmd, Duration timeout, string[string] env,
     }
 
     try {
-        auto p = pipeProcess(cmd, std.process.Redirect.all, env).sandbox.timeout(timeout).rcKill;
+        auto p = pipeProcess(cmd.value, std.process.Redirect.all, env).sandbox.timeout(timeout)
+            .rcKill;
         auto output = appender!(DrainElement[])();
         foreach (a; p.process.drain) {
             if (!a.empty) {
@@ -350,7 +341,7 @@ struct RunResult {
     }
 
     /// The command that where executed.
-    string[] cmd;
+    ShellCommand cmd;
 
     Status status;
     ///
