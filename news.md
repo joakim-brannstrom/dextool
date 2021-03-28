@@ -19,6 +19,9 @@ New features for dextool mutate
    schema is interrupted only the result from the last 20 minutes (at the most)
    are lost.
  * Modernize the html layout theme.
+ * Prioritize mutants to test based on how much they affect the source code in
+   order to quicker give actionable feedback to the user. Based on the
+   assumption that a *large* mutant that survive is *important* to kill.
 
 Fixes for dextool mutate
 
@@ -54,7 +57,8 @@ New features for dextool mutate
    the user has specified.
  * Save the test suites execution time in the database to reduce the number of
    times it needs to be executed during the warmup phase of testing mutants.
- * Save the mutation testing score in the database when all mutants have been tested (worklist is zero).
+ * Save the mutation testing score in the database when all mutants have been
+   tested (worklist is zero).
    Use this mutation score show a bar graph of how it has changed over time.
  * Add `--load-threshold` and `--load-behavior` to easier integrate the plugin
    in Jenkins as a *good citizen* by allowing the plugin to detect when the
