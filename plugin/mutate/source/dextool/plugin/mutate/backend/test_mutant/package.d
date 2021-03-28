@@ -192,9 +192,10 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
 struct TestDriver {
     import std.datetime : SysTime;
     import dextool.plugin.mutate.backend.database : SchemataId, MutationStatusId;
+    import dextool.plugin.mutate.backend.report.analyzers : EstimateScore;
     import dextool.plugin.mutate.backend.test_mutant.source_mutant : MutationTestDriver;
     import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
-    import dextool.plugin.mutate.backend.report.analyzers : EstimateScore;
+    import dextool.plugin.mutate.type : MutationOrder;
 
     /// Runs the test commands.
     TestRunner runner;
@@ -225,6 +226,9 @@ struct TestDriver {
 
         /// mutation score estimation
         EstimateScore estimate;
+
+        // The order to test mutants. It is either affected by the user directly or if pull request mode is activated.
+        MutationOrder mutationOrder;
     }
 
     static struct UpdateTimeoutData {
@@ -245,7 +249,6 @@ struct TestDriver {
         import dextool.plugin.mutate.type : TestConstraint;
 
         TestConstraint constraint;
-        long seed;
     }
 
     static struct SanityCheck {
@@ -338,14 +341,13 @@ struct TestDriver {
     static struct UpdateTimeout {
     }
 
-    static struct NextPullRequestMutant {
+    static struct CheckPullRequestMutant {
         NamedType!(bool, Tag!"NoUnknown", bool.init, TagStringable, ImplicitConvertable) noUnknownMutantsLeft;
     }
 
-    static struct NextPullRequestMutantData {
-        import dextool.plugin.mutate.backend.database : MutationStatusId;
-
-        Vector!MutationStatusId mutants;
+    static struct CheckPullRequestMutantData {
+        long startWorklistCnt;
+        long stopAfter;
     }
 
     static struct NextMutant {
@@ -391,17 +393,17 @@ struct TestDriver {
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
-            UpdateTimeout, CheckStopCond, PullRequest, NextPullRequestMutant, ParseStdin,
+            UpdateTimeout, CheckStopCond, PullRequest, CheckPullRequestMutant, ParseStdin,
             FindTestCmds, ChooseMode, NextSchemata, SchemataTest, LoadSchematas,
             SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck,
             Coverage, PropagateCoverage, ContinuesCheckTestSuite);
-    alias LocalStateDataT = Tuple!(UpdateTimeoutData, NextPullRequestMutantData,
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData,
             PullRequestData, ResetOldMutantData, NextSchemataData, ContinuesCheckTestSuiteData);
 
     private {
         Fsm fsm;
         Global global;
-        TypeDataMap!(LocalStateDataT, UpdateTimeout, NextPullRequestMutant,
+        TypeDataMap!(LocalStateDataT, UpdateTimeout, CheckPullRequestMutant,
                 PullRequest, ResetOldMutant, NextSchemata, ContinuesCheckTestSuite) local;
         bool isRunning_ = true;
         bool isDone = false;
@@ -412,10 +414,10 @@ struct TestDriver {
         this.global.timeoutFsm = TimeoutFsm(data.kinds);
         this.global.hardcodedTimeout = !global.data.conf.mutationTesterRuntime.isNull;
         local.get!PullRequest.constraint = global.data.conf.constraint;
-        local.get!PullRequest.seed = global.data.conf.pullRequestSeed;
         local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
         local.get!ResetOldMutant.resetPercentage = global.data.conf.oldMutantPercentage;
         this.global.testCmds = global.data.conf.mutationTester;
+        this.global.mutationOrder = global.data.conf.mutationOrder;
 
         this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
         this.runner = TestRunner.make(global.data.conf.testPoolSize);
@@ -456,7 +458,7 @@ struct TestDriver {
                 (ResetOldMutant a) => fsm(UpdateTimeout.init), (Cleanup a) {
             if (self.local.get!PullRequest.constraint.empty)
                 return fsm(NextSchemata.init);
-            return fsm(NextPullRequestMutant.init);
+            return fsm(CheckPullRequestMutant.init);
         }, (CheckMutantsLeft a) {
             if (a.allMutantsTested)
                 return fsm(SaveMutationScore.init);
@@ -491,10 +493,10 @@ struct TestDriver {
                 return fsm(PropagateCoverage.init);
             return fsm(LoadSchematas.init);
         }, (PropagateCoverage a) => LoadSchematas.init,
-                (LoadSchematas a) => fsm(ResetOldMutant.init), (NextPullRequestMutant a) {
+                (LoadSchematas a) => fsm(ResetOldMutant.init), (CheckPullRequestMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(Done.init);
-            return fsm(MutationTest.init);
+            return fsm(NextMutant.init);
         }, (NextSchemata a) {
             if (a.hasSchema)
                 return fsm(SchemataTest(a.schemataId));
@@ -562,7 +564,7 @@ nothrow:
         logger.info("Initializing worklist").collectException;
         spinSql!(() {
             global.data.db.updateWorklist(global.data.kinds,
-                Mutation.Status.unknown, 100, global.data.conf.mutationOrder);
+                Mutation.Status.unknown, 100, global.mutationOrder);
         });
 
         // detect if the system is overloaded before trying to do something
@@ -951,11 +953,14 @@ nothrow:
 
     void opCall(PullRequest data) {
         import std.algorithm : sort;
-        import std.random : Mt19937_64;
+        import my.set;
         import dextool.plugin.mutate.backend.database : MutationStatusId;
         import dextool.plugin.mutate.backend.type : SourceLoc;
-        import my.set;
 
+        // deterministic testing of mutants and prioritized by their size.
+        global.mutationOrder = MutationOrder.bySize;
+
+        // make sure they are unique.
         Set!MutationStatusId mutantIds;
 
         foreach (kv; local.get!PullRequest.constraint.value.byKeyValue) {
@@ -973,8 +978,9 @@ nothrow:
                 });
 
                 const preCnt = mutantIds.length;
-                foreach (v; mutants)
+                foreach (v; mutants) {
                     mutantIds.add(v);
+                }
 
                 logger.infof(mutantIds.length - preCnt > 0, "Found %s mutant(s) to test (%s:%s)",
                         mutantIds.length - preCnt, kv.key, l.value).collectException;
@@ -983,14 +989,17 @@ nothrow:
 
         logger.infof(!mutantIds.empty, "Found %s mutants in the diff",
                 mutantIds.length).collectException;
+        spinSql!(() {
+            foreach (id; mutantIds.toArray.sort) {
+                // using 100000 to make a pull request mutant very high prio
+                global.data.db.addToWorklist(id, 100000, MutationOrder.bySize);
+            }
+        });
 
-        const seed = local.get!PullRequest.seed;
-        logger.infof("Using random seed %s when choosing the mutants to test",
-                seed).collectException;
-        auto rng = Mt19937_64(seed);
-        local.get!NextPullRequestMutant.mutants = vector(
-                mutantIds.toArray.sort.randomCover(rng).array);
-        logger.trace("Test sequence ", local.get!NextPullRequestMutant.mutants).collectException;
+        local.get!CheckPullRequestMutant.startWorklistCnt = spinSql!(() {
+            return global.data.db.getWorklistCount;
+        });
+        local.get!CheckPullRequestMutant.stopAfter = mutantIds.length;
 
         if (mutantIds.empty) {
             logger.warning("None of the locations specified with -L exists").collectException;
@@ -1106,48 +1115,21 @@ nothrow:
         runner.timeout = calculateTimeout(global.timeoutFsm.output.iter, global.testSuiteRuntime);
     }
 
-    void opCall(ref NextPullRequestMutant data) {
-        global.nextMutant = MutationEntry.init;
-        data.noUnknownMutantsLeft.get = true;
-
-        while (!local.get!NextPullRequestMutant.mutants.empty) {
-            const id = local.get!NextPullRequestMutant.mutants.front;
-            const status = spinSql!(() => global.data.db.getMutationStatus(id));
-
-            if (status.isNull)
-                continue;
-
-            if (status.get == Mutation.Status.alive)
-                stopCheck.incrAliveMutants;
-
-            if (status.get != Mutation.Status.unknown) {
-                local.get!NextPullRequestMutant.mutants.popFront;
-                continue;
-            }
-
-            const info = spinSql!(() => global.data.db.getMutantsInfo(global.data.kinds, [
-                        id
-                    ]));
-            if (info.empty)
-                continue;
-
-            global.nextMutant = spinSql!(() => global.data.db.getMutation(info[0].id));
-            data.noUnknownMutantsLeft.get = false;
-            break;
-        }
+    void opCall(ref CheckPullRequestMutant data) {
+        const left = spinSql!(() { return global.data.db.getWorklistCount; });
+        data.noUnknownMutantsLeft.get = (
+                local.get!CheckPullRequestMutant.startWorklistCnt - left) >= local
+            .get!CheckPullRequestMutant.stopAfter;
 
         logger.infof(stopCheck.aliveMutants > 0, "Found %s/%s alive mutants",
                 stopCheck.aliveMutants, global.data.conf.maxAlive.get).collectException;
-
-        if (stopCheck.isAliveTested)
-            data.noUnknownMutantsLeft.get = true;
     }
 
     void opCall(ref NextMutant data) {
         global.nextMutant = MutationEntry.init;
 
         auto next = spinSql!(() {
-            return global.data.db.nextMutation(global.data.kinds, global.data.conf.mutationOrder);
+            return global.data.db.nextMutation(global.data.kinds, global.mutationOrder);
         });
 
         data.noUnknownMutantsLeft.get = next.st == NextMutationEntry.Status.done;
@@ -1377,6 +1359,9 @@ nothrow:
             global.data.db.updateMutation(result.id, result.profile);
             global.data.db.updateMutationTestCases(result.id, result.testCases);
             global.data.db.removeFromWorklist(result.id);
+
+            if (result.status == Mutation.Status.alive)
+                stopCheck.incrAliveMutants;
         }
 
         spinSql!(() @trusted {

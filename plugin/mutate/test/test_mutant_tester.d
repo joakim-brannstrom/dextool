@@ -1043,7 +1043,7 @@ class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
                 `info:.*alive`,
                 `info:.*Found 2/3 alive mutants`,
                 `info:.*alive`,
-                `info:.*Found 3/3 alive mutants`,
+                `info:.*Done`,
                 ]).shouldBeIn(r.output);
         // dfmt on
     }
@@ -1058,37 +1058,38 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
         import std.array : array;
         import std.path : relativePath;
         import std.string : startsWith;
+        import std.file : copy;
 
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        const dbPath = (testEnv.outdir ~ defaultDb).toString;
+        copy(dbPath, dbPath ~ ".bak");
 
         // dfmt off
-        auto r = () { return dextool_test.makeDextool(testEnv)
+        auto r = () {
+            copy(dbPath ~ ".bak", dbPath);
+            return dextool_test.makeDextool(testEnv)
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
-            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--db", dbPath])
             .addPostArg(["--mutant", "all"])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", "/bin/true"])
             .addPostArg(["--test-timeout", "10000"])
             .addPostArg(["--max-alive", "10"])
-            .addPostArg(["--pull-request-seed", "42"])
             .addPostArg(["-L", programCode.relativePath(workDir.toString) ~ ":8-18"])
             .run;
         };
         // dfmt on
 
-        const pass1 = r().output.filter!(a => a.startsWith("trace: Test sequence")).array;
-        const pass2 = r().output.filter!(a => a.startsWith("trace: Test sequence")).array;
+        const pass1 = r().output.filter!(a => a.startsWith("info: from")).array;
+        const pass2 = r().output.filter!(a => a.startsWith("info: from")).array;
 
-        pass1.length.should == 1;
-        pass2.length.should == 1;
-
-        pass1[0].should == pass2[0];
+        pass1.should == pass2;
     }
 
     override string programFile() {

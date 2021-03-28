@@ -391,9 +391,6 @@ struct ArgParser {
             string[] testConstraint;
             int maxAlive = -1;
 
-            // set the seed here so if the user specify the CLI the rolling
-            // seed is overridden.
-            mutationTest.pullRequestSeed += Clock.currTime.isoWeek + Clock.currTime.year;
             mutationTest.loadThreshold.get = totalCPUs + 1;
 
             data.toolMode = ToolMode.test_mutants;
@@ -417,7 +414,6 @@ struct ArgParser {
                    "m|mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &workArea.rawRoot,
-                   "pull-request-seed", "seed used when randomly choosing mutants to test in a pull request", &mutationTest.pullRequestSeed,
                    "schema-check", "sanity check a schemata before it is used", &mutationTest.sanityCheckSchemata,
                    "schema-log", "write mutant schematan to a separate file for later inspection", &mutationTest.logSchemata,
                    "schema-min-mutants", "mini number of mutants per schema", mutationTest.minMutantsPerSchema.getPtr,

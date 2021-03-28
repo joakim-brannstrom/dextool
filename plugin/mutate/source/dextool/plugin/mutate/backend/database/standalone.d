@@ -63,8 +63,7 @@ struct Database {
      */
     void updateWorklist(const Mutation.Kind[] kinds, const Mutation.Status status,
             const long basePrio = 100, const MutationOrder userOrder = MutationOrder.random) @trusted {
-        const order = userOrder == MutationOrder.random
-            ? format!":base_prio + t1.prio + abs(random() %% %s)"(100) : ":base_prio";
+        const order = fromOrder(userOrder);
 
         const sql = format!"INSERT OR IGNORE INTO %s (id,prio)
             SELECT t1.id,%s FROM %s t0, %s t1 WHERE t0.kind IN (%(%s,%)) AND
@@ -79,11 +78,15 @@ struct Database {
     }
 
     /// Add a mutant to the worklist.
-    void addToWorklist(const MutationStatusId id, const long prio = 0) @trusted {
-        const sql = format!"INSERT OR IGNORE INTO %1$s (id,prio) VALUES(:id,%2$s)"(
-                mutantWorklistTable, prio);
+    void addToWorklist(const MutationStatusId id, const long basePrio = 0,
+            const MutationOrder userOrder = MutationOrder.consecutive) @trusted {
+        const order = fromOrder(userOrder);
+        const sql = format!"INSERT OR REPLACE INTO %s (id,prio)
+            SELECT t1.id,%s FROM %s t1 WHERE t1.id = :id
+            "(mutantWorklistTable, order, mutationStatusTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
+        stmt.get.bind(":base_prio", basePrio);
         stmt.get.execute;
     }
 
@@ -2330,4 +2333,15 @@ MarkedMutant make(MarkedMutantTbl m) {
             m.checksum1), m.mutationId.MutationId, SourceLoc(m.line, m.column),
             m.path.Path, m.toStatus.to!(Mutation.Status), m.time,
             m.rationale.Rationale, m.mutText);
+}
+
+string fromOrder(const MutationOrder userOrder) {
+    final switch (userOrder) {
+    case MutationOrder.random:
+        return ":base_prio + t1.prio + abs(random() % 100)";
+    case MutationOrder.consecutive:
+        return ":base_prio";
+    case MutationOrder.bySize:
+        return ":base_prio + t1.prio";
+    }
 }
