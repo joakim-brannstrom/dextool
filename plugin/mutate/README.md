@@ -49,7 +49,7 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
 * 🐇 Does automatic handling of infinite loops (timeout).
 * 🐇 Uses coverage information to only test mutants in functions/methods
   covered by the test suite.
-* 🐇 Uses [mutant schemata](doc/design/notes/schemata.md) to compile and link 
+* 🐇 Uses [mutant schemata](doc/design/notes/schemata.md) to compile and link
   once per SUT, rather than once per mutant.
 * 🔨 Works with all C/C++ versions.
 * 🔨 Works with C++ templates.

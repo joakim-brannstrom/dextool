@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2018, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2018-2021, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -59,11 +59,12 @@ struct Database {
         return Database(initializeDB(db));
     }
 
-    /// Add all mutants with the specific status to the worklist.
+    /** Add all mutants with the specific status to the worklist.
+     */
     void updateWorklist(const Mutation.Kind[] kinds, const Mutation.Status status,
-            const long prio = 100, const MutationOrder userOrder = MutationOrder.random) @trusted {
+            const long basePrio = 100, const MutationOrder userOrder = MutationOrder.random) @trusted {
         const order = userOrder == MutationOrder.random
-            ? format!"%s + abs(random() %% %s)"(prio, 100) : prio.to!string;
+            ? format!":base_prio + t1.prio + abs(random() %% %s)"(100) : ":base_prio";
 
         const sql = format!"INSERT OR IGNORE INTO %s (id,prio)
             SELECT t1.id,%s FROM %s t0, %s t1 WHERE t0.kind IN (%(%s,%)) AND
@@ -73,6 +74,7 @@ struct Database {
                 mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
+        stmt.get.bind(":base_prio", basePrio);
         stmt.get.execute;
     }
 
@@ -1168,19 +1170,23 @@ struct Database {
         }
 
         static immutable insert_cmut_sql = format("INSERT OR IGNORE INTO %s
-            (status,exit_code,compile_time_ms,test_time_ms,test_cnt,update_ts,added_ts,checksum0,checksum1)
-            VALUES(:st,0,0,0,0,:update_ts,:added_ts,:c0,:c1)",
+            (status,exit_code,compile_time_ms,test_time_ms,test_cnt,update_ts,added_ts,checksum0,checksum1,prio)
+            VALUES(:st,0,0,0,0,:update_ts,:added_ts,:c0,:c1,:prio)",
                 mutationStatusTable);
         auto cmut_stmt = db.prepare(insert_cmut_sql);
         const ts = Clock.currTime.toSqliteDateTime;
         cmut_stmt.get.bind(":st", Mutation.Status.unknown);
         cmut_stmt.get.bind(":update_ts", ts);
         cmut_stmt.get.bind(":added_ts", ts);
-        foreach (cm; mps.map!(a => a.cms).joiner) {
-            cmut_stmt.get.bind(":c0", cast(long) cm.id.c0);
-            cmut_stmt.get.bind(":c1", cast(long) cm.id.c1);
-            cmut_stmt.get.execute;
-            cmut_stmt.get.reset;
+        foreach (mp; mps) {
+            const prio = (mp.offset.begin < mp.offset.end) ? mp.offset.end - mp.offset.begin : 0;
+            foreach (cm; mp.cms) {
+                cmut_stmt.get.bind(":c0", cast(long) cm.id.c0);
+                cmut_stmt.get.bind(":c1", cast(long) cm.id.c1);
+                cmut_stmt.get.bind(":prio", prio);
+                cmut_stmt.get.execute;
+                cmut_stmt.get.reset;
+            }
         }
 
         static immutable insert_m_sql = format("INSERT OR IGNORE INTO %s
