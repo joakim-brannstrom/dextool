@@ -62,7 +62,16 @@ struct Database {
             const MutationOrder userOrder = MutationOrder.random) @trusted {
         import dextool.plugin.mutate.backend.type;
 
-        const order = userOrder == MutationOrder.random ? "100" : "1";
+        const order = () {
+            final switch (userOrder) {
+            case MutationOrder.random:
+                return "100";
+            case MutationOrder.consecutive:
+                return "1";
+            case MutationOrder.bySize:
+                return "1";
+            }
+        }();
 
         typeof(return) rval;
 

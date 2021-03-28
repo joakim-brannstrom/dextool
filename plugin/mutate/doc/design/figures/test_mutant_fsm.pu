@@ -37,7 +37,7 @@ ContCheckTestSuite --> Cleanup : ok
 ContCheckTestSuite --> Error : fail
 
 Cleanup --> NextSchemata
-Cleanup --> NextPullRequestMutant : hasConstraint
+Cleanup --> CheckPullRequestMutant : hasConstraint
 
 CheckMutantsLeft --> SaveMutationScore : allTested
 CheckMutantsLeft --> MeasureTestSuite : !allTested
@@ -60,8 +60,8 @@ ResetOldMutant --> UpdateTimeout
 CheckStopCond --> UpdateTimeout
 CheckStopCond --> Done : runtime>max
 
-NextPullRequestMutant --> MutationTest
-NextPullRequestMutant --> Done : allTested
+CheckPullRequestMutant --> NextMutant
+CheckPullRequestMutant --> Done : allTested
 
 NextSchemata --> SchemataTest : hasSchema
 NextSchemata --> Done : !hasSchema && user

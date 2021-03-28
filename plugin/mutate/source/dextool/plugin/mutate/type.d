@@ -39,6 +39,7 @@ enum MutationKind {
 enum MutationOrder {
     random,
     consecutive,
+    bySize,
 }
 
 /// The kind of report to generate to the user
