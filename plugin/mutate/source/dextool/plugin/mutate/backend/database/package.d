@@ -85,7 +85,7 @@ struct Database {
             t3.id = t4.id AND
             t0.mp_id == t1.id AND
             t1.file_id == t2.id
-            ORDER BY prio DESC LIMIT %6$s)
+            ORDER BY t4.prio DESC LIMIT %6$s)
             ORDER BY RANDOM() LIMIT 1", mutationTable, mutationPointTable,
                 filesTable, mutationStatusTable, mutantWorklistTable, order);
         auto stmt = db.prepare(sql);
