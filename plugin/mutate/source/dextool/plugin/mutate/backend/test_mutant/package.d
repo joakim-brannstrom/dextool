@@ -1355,7 +1355,6 @@ nothrow:
 
             updateMutantStatus(*global.data.db, result.id, result.status,
                     result.exitStatus, global.timeoutFsm.output.iter);
-            global.data.db.updateMutation(result.id, cnt_action);
             global.data.db.updateMutation(result.id, result.profile);
             global.data.db.updateMutationTestCases(result.id, result.testCases);
             global.data.db.removeFromWorklist(result.id);

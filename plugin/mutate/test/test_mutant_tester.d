@@ -856,67 +856,6 @@ class ShallRetestOldestMutant : SimpleFixture {
     }
 }
 
-class ShallUpdateMutationCounter : DatabaseFixture {
-    override void test() {
-        import dextool.plugin.mutate.backend.database.type;
-        import dextool.plugin.mutate.backend.type;
-
-        mixin(EnvSetup(globalTestdir));
-        auto db = precondition(testEnv);
-
-        // arrange
-        const mid = MutationId(2);
-        const mst_id = db.getMutationStatusId(mid).get;
-
-        // act. should be the highest count not oldest
-        db.updateMutation(MutationId(10), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
-        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
-        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
-
-        // assert
-        auto hardest = db.getHardestToKillMutant([EnumMembers!(Mutation.Kind)],
-                Mutation.Status.killed, 1);
-        hardest.length.should == 1;
-        auto hr = hardest[0];
-        mst_id.should == hr.statusId;
-    }
-}
-
-class ShallResetMutationCounter : DatabaseFixture {
-    override void test() {
-        import dextool.plugin.mutate.backend.database.standalone;
-        import dextool.plugin.mutate.backend.database.type;
-        import dextool.plugin.mutate.backend.type;
-
-        mixin(EnvSetup(globalTestdir));
-        auto db = precondition(testEnv);
-
-        // arrange
-        const mid = MutationId(2);
-        const mst_id = db.getMutationStatusId(mid).get;
-        db.updateMutation(MutationId(10), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
-        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
-        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null);
-
-        // act
-        db.updateMutation(mid, Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 1.dur!"seconds"), null, Database.CntAction.reset);
-
-        // assert
-        auto hardest = db.getHardestToKillMutant([EnumMembers!(Mutation.Kind)],
-                Mutation.Status.killed, 1);
-        hardest.length.should == 1;
-        auto hr = hardest[0];
-        mst_id.should.not == hr.statusId;
-    }
-}
-
 class ShallStopAtMaxRuntime : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));

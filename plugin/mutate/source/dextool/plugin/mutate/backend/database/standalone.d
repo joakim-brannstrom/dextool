@@ -359,24 +359,13 @@ struct Database {
      *  tcs = test cases that killed the mutant
      *  counter = how to act with the counter
      */
-    void updateMutation(const MutationId id, const Mutation.Status st, const ExitStatus ecode,
-            const MutantTimeProfile p, const(TestCase)[] tcs, CntAction counter = CntAction.incr) @trusted {
+    void updateMutation(const MutationId id, const Mutation.Status st,
+            const ExitStatus ecode, const MutantTimeProfile p, const(TestCase)[] tcs) @trusted {
         static immutable sql = "UPDATE %s SET
-            status=:st,compile_time_ms=:compile,test_time_ms=:test,update_ts=:update_ts,%s
-            WHERE
-            id IN (SELECT st_id FROM %s WHERE id = :id)";
+            status=:st,compile_time_ms=:compile,test_time_ms=:test,update_ts=:update_ts
+            WHERE id IN (SELECT st_id FROM %s WHERE id = :id)";
 
-        auto stmt = () {
-            final switch (counter) {
-            case CntAction.incr:
-                return db.prepare(format!sql(mutationStatusTable,
-                        "test_cnt=test_cnt+1", mutationTable));
-            case CntAction.reset:
-                return db.prepare(format!sql(mutationStatusTable,
-                        "test_cnt=0", mutationTable));
-            }
-        }();
-
+        auto stmt = db.prepare(format!sql(mutationStatusTable, mutationTable));
         stmt.get.bind(":st", cast(long) st);
         stmt.get.bind(":id", id.get);
         stmt.get.bind(":compile", p.compile.total!"msecs");
@@ -397,50 +386,17 @@ struct Database {
      *  counter = how to act with the counter
      */
     void updateMutation(const MutationStatusId id, const Mutation.Status st,
-            const ExitStatus ecode, const MutantTimeProfile p, CntAction counter = CntAction.incr) @trusted {
+            const ExitStatus ecode, const MutantTimeProfile p) @trusted {
         static immutable sql = "UPDATE %s SET
-            status=:st,compile_time_ms=:compile,test_time_ms=:test,update_ts=:update_ts,%s
-            WHERE
-            id = :id";
+            status=:st,compile_time_ms=:compile,test_time_ms=:test,update_ts=:update_ts
+            WHERE id = :id";
 
-        auto stmt = () {
-            final switch (counter) {
-            case CntAction.incr:
-                return db.prepare(format!sql(mutationStatusTable,
-                        "test_cnt=test_cnt+1"));
-            case CntAction.reset:
-                return db.prepare(format!sql(mutationStatusTable, "test_cnt=0"));
-            }
-        }();
-
+        auto stmt = db.prepare(format!sql(mutationStatusTable));
         stmt.get.bind(":id", id.get);
         stmt.get.bind(":st", cast(long) st);
         stmt.get.bind(":compile", p.compile.total!"msecs");
         stmt.get.bind(":test", p.test.total!"msecs");
         stmt.get.bind(":update_ts", Clock.currTime.toSqliteDateTime);
-        stmt.get.execute;
-    }
-
-    /** Update the counter of how many times the mutants has been alive.
-     *
-     * Params:
-     *  id = ID of the mutant
-     *  counter = how to act with the counter
-     */
-    void updateMutation(const MutationStatusId id, const CntAction counter) @trusted {
-        static immutable sql = "UPDATE %s SET %s WHERE id = :id";
-
-        auto stmt = () {
-            final switch (counter) {
-            case CntAction.incr:
-                return db.prepare(format!sql(mutationStatusTable,
-                        "test_cnt=test_cnt+1"));
-            case CntAction.reset:
-                return db.prepare(format!sql(mutationStatusTable, "test_cnt=0"));
-            }
-        }();
-
-        stmt.get.bind(":id", id.get);
         stmt.get.execute;
     }
 
@@ -780,9 +736,9 @@ struct Database {
     }
 
     /// Returns: the `nr` mutant with the highest count that has not been killed and existed in the system the longest.
-    MutationStatus[] getHardestToKillMutant(const(Mutation.Kind)[] kinds,
+    MutationStatus[] getHighestPrioMutant(const(Mutation.Kind)[] kinds,
             const Mutation.Status status, const long nr) @trusted {
-        const sql = format("SELECT t0.id,t0.status,t0.test_cnt,t0.update_ts,t0.added_ts
+        const sql = format("SELECT t0.id,t0.status,t0.prio,t0.update_ts,t0.added_ts
             FROM %s t0, %s t1
             WHERE
             t0.update_ts IS NOT NULL AND
@@ -790,11 +746,7 @@ struct Database {
             t1.st_id = t0.id AND
             t1.kind IN (%(%s,%)) AND
             t1.st_id NOT IN (SELECT st_id FROM %s WHERE nomut != 0)
-            ORDER BY
-            t0.test_cnt DESC,
-            t0.added_ts ASC,
-            t0.update_ts ASC
-            LIMIT :limit",
+            ORDER BY t0.prio DESC LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a), srcMetadataTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
@@ -813,7 +765,7 @@ struct Database {
             app.put(MutationStatus(
                 MutationStatusId(res.peek!long(0)),
                 res.peek!long(1).to!(Mutation.Status),
-                res.peek!long(2).MutantTestCount,
+                res.peek!long(2).MutantPrio,
                 res.peek!string(3).fromSqLiteDateTime,
                 added,
             ));
@@ -1173,8 +1125,8 @@ struct Database {
         }
 
         static immutable insert_cmut_sql = format("INSERT OR IGNORE INTO %s
-            (status,exit_code,compile_time_ms,test_time_ms,test_cnt,update_ts,added_ts,checksum0,checksum1,prio)
-            VALUES(:st,0,0,0,0,:update_ts,:added_ts,:c0,:c1,:prio)",
+            (status,exit_code,compile_time_ms,test_time_ms,update_ts,added_ts,checksum0,checksum1,prio)
+            VALUES(:st,0,0,0,:update_ts,:added_ts,:c0,:c1,:prio)",
                 mutationStatusTable);
         auto cmut_stmt = db.prepare(insert_cmut_sql);
         const ts = Clock.currTime.toSqliteDateTime;

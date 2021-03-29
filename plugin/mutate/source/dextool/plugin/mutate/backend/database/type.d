@@ -143,13 +143,15 @@ struct MutationStatusTime {
     SysTime updated;
 }
 
+alias MutantPrio = NamedType!(long, Tag!"MutantPriority", long.init, TagStringable);
+
 struct MutationStatus {
     import std.datetime : SysTime;
     import std.typecons : Nullable;
 
     MutationStatusId statusId;
     Mutation.Status status;
-    MutantTestCount testCnt;
+    MutantPrio prio;
     SysTime updated;
     Nullable!SysTime added;
     ExitStatus exitStatus;

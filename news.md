@@ -22,6 +22,11 @@ New features for dextool mutate
  * Prioritize mutants to test based on how much they affect the source code in
    order to quicker give actionable feedback to the user. Based on the
    assumption that a *large* mutant that survive is *important* to kill.
+ * Change high interest mutants to reporting those that affect the most src
+   code and has survive. Previously it was those that had survived the most
+   test suite executions but this was never used by the users. The hope is that
+   those that are reported as high interest are actually *useful*, interesting
+   to look at and kill.
 
 Fixes for dextool mutate
 
