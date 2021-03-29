@@ -13,9 +13,11 @@ module dextool.plugin.mutate.backend.report.plain;
 
 import logger = std.experimental.logger;
 import std.array : empty;
+import std.conv : to;
 import std.exception : collectException;
-import std.typecons : Yes, No;
 import std.path : buildPath;
+import std.stdio : stdout, File, writeln, writefln;
+import std.typecons : Yes, No;
 
 import dextool.type;
 
@@ -82,8 +84,6 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
     }
 
     void mutationKindEvent(const MutationKind[] kind_) {
-        import std.stdio : writefln;
-
         writefln("Mutation operators: %(%s, %)", kind_);
     }
 
@@ -202,8 +202,6 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
     }
 
     void locationStatEvent() {
-        import std.stdio : writeln;
-
         if (ReportSection.tc_map in sections && testCaseMutationKilled.length != 0) {
             logger.info("Test Case Kill Map");
 
@@ -231,7 +229,6 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
     }
 
     void statEvent(ref Database db) {
-        import std.stdio : stdout, File, writeln, writefln;
         import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap, reportTestCaseStats,
             reportMutationTestCaseSuggestion, reportDeadTestCases, toTable,
             reportMutationScoreHistory;
@@ -308,6 +305,8 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
             logger.info("Summary");
             auto summary = reportStatistics(db, kinds);
             writeln(summary.toString);
+
+            syncStatus(db, kinds);
         }
 
         writeln;
@@ -317,8 +316,6 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 private:
 
 Table!2 toTable(MutationScoreHistory data) {
-    import std.conv : to;
-
     Table!2 tbl;
     tbl.heading = ["Date", "Score"];
     foreach (a; data.data) {
@@ -327,4 +324,32 @@ Table!2 toTable(MutationScoreHistory data) {
     }
 
     return tbl;
+}
+
+void syncStatus(ref Database db, const(Mutation.Kind)[] kinds) {
+    import std.algorithm : sort;
+    import std.typecons : tuple;
+    import dextool.plugin.mutate.backend.report.analyzers : reportSyncStatus;
+
+    auto status = reportSyncStatus(db, kinds, 1);
+    if (status.mutants.empty)
+        return;
+
+    if (status.mutants[0].updated > status.code && status.mutants[0].updated > status.test) {
+        return;
+    }
+
+    logger.info("Sync Status");
+
+    Table!2 tbl;
+    tbl.heading = ["Type", "Updated"];
+    foreach (r; [
+            tuple("Test", status.test), tuple("Code", status.code),
+            tuple("Coverage", status.coverage),
+            tuple("Oldest Mutant", status.mutants[0].updated)
+        ].sort!((a, b) => a[1] < b[1])) {
+        typeof(tbl).Row row = [r[0], r[1].to!string];
+        tbl.put(row);
+    }
+    writeln(tbl);
 }
