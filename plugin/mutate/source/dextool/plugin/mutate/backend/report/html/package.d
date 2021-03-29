@@ -207,8 +207,8 @@ struct FileIndex {
         addContent((string tag) => makeStats(db, kinds, tag, content), "Overview", "#overview");
         navbarItems ~= NavbarItem("Files", "#files"); // add files here to force it to always be after the overview
 
-        addContent((string tag) => makeLongTermView(db, kinds, tag, content),
-                "Long Term View", "#long_term_view");
+        addContent((string tag) => makeHighInterestMutants(db, kinds, tag,
+                content), "High Interest", "#high_interest");
 
         if (!diff.empty) {
             addSubPage(() => makeDiffView(db, conf, humanReadableKinds, kinds,

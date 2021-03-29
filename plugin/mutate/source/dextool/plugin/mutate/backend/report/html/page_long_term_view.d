@@ -18,25 +18,20 @@ import arsd.dom : Document, Element, require, Table, RawSource, Link;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : MutantSample, reportSelectedAliveMutants;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
-    tmplDefaultTable, dashboardCss;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable;
 import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 import dextool.type : AbsolutePath;
 
-void makeLongTermView(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
-    DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id",
-            tag[1 .. $]), "High Interest Mutants");
-    toHtml(reportSelectedAliveMutants(db, kinds, 5), root);
-}
-
-private:
-
-void toHtml(const MutantSample sample, Element root) {
+void makeHighInterestMutants(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
     import std.path : buildPath;
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
+
+    DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id",
+            tag[1 .. $]), "High Interest Mutants");
+    const sample = reportSelectedAliveMutants(db, kinds, 5);
 
     if (sample.highestPrio.length != 0) {
         root.addChild("p", format("This list the %s mutants that affect the most source code and has survived.",
@@ -55,23 +50,6 @@ void toHtml(const MutantSample sample, Element root) {
             r.addChild("td", mutst.added.isNull ? "unknown" : mutst.added.get.toString);
             r.addChild("td", mutst.updated.toString);
             r.addChild("td", mutst.prio.get.to!string);
-        }
-    }
-
-    if (sample.oldest.length != 0) {
-        root.addChild("p", format("This list is the %s oldest mutants based on when they where last updated",
-                sample.oldest.length));
-
-        auto tbl_container = root.addChild("div").addClass("tbl_container");
-        auto tbl = tmplDefaultTable(tbl_container, ["Link", "Updated"]);
-
-        foreach (const mutst; sample.oldest) {
-            auto mut = sample.mutants[mutst.id];
-            auto r = tbl.appendRow();
-            r.addChild("td").addChild("a", format("%s:%s", mut.file,
-                    mut.sloc.line)).href = format("%s#%s", buildPath(HtmlStyle.fileDir,
-                    pathToHtmlLink(mut.file)), mut.id.get);
-            r.addChild("td", mutst.updated.toString);
         }
     }
 }

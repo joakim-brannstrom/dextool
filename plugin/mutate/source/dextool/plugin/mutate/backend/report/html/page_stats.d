@@ -18,13 +18,14 @@ import arsd.dom : Element, Link;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : MutationStat, reportStatistics;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable, PieGraph;
+import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable,
+    PieGraph, TimeScalePointGraph;
 import dextool.plugin.mutate.backend.type : Mutation;
-import dextool.plugin.mutate.type : MutationKind;
 
 void makeStats(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Overview");
     overallStat(reportStatistics(db, kinds), root.addChild("div"));
+    syncStatus(db, kinds, root);
 }
 
 private:
@@ -71,4 +72,41 @@ void overallStat(const MutationStat s, Element base) {
         p.appendText(" The suppressed/total is how much it has increased.");
         p.appendHtml(" You <b>should</b> react if it is high.");
     }
+}
+
+void syncStatus(ref Database db, const(Mutation.Kind)[] kinds, Element root) {
+    import std.datetime : SysTime;
+    import my.optional;
+    import dextool.plugin.mutate.backend.database : spinSql, TestFile;
+
+    auto test = spinSql!(() => db.getNewestTestFile);
+    auto code = spinSql!(() => db.getNewestFile);
+    auto cov = spinSql!(() => db.getCoverageTimeStamp);
+    auto oldest = spinSql!(() => db.getOldestMutants(kinds, 100));
+
+    auto ts = TimeScalePointGraph("SyncStatus");
+
+    if (test.hasValue) {
+        ts.put("Test", TimeScalePointGraph.Point(test.orElse(TestFile.init).timeStamp, 1.6));
+        ts.setColor("Test", "lightBlue");
+    }
+    if (code.hasValue) {
+        ts.put("Code", TimeScalePointGraph.Point(code.orElse(SysTime.init), 1.4));
+        ts.setColor("Code", "lightGreen");
+    }
+    if (cov.hasValue) {
+        ts.put("Coverage", TimeScalePointGraph.Point(cov.orElse(SysTime.init), 1.2));
+        ts.setColor("Coverage", "purple");
+    }
+    if (oldest.length != 0) {
+        double y = 0.8;
+        foreach (v; oldest) {
+            ts.put("Mutant", TimeScalePointGraph.Point(v.updated, y));
+            y += 0.3 / oldest.length;
+        }
+        ts.setColor("Mutant", "red");
+    }
+    ts.html(root, TimeScalePointGraph.Width(50));
+
+    root.addChild("p").appendHtml("<i>sync status</i> is how old the information about mutants and their status is compared to when the tests or source code where last changed");
 }
