@@ -917,27 +917,27 @@ class MutantSample {
     MutationStatusTime[] oldest;
 
     /// The mutant that has survived the longest in the system.
-    MutationStatus[] hardestToKill;
+    MutationStatus[] highestPrio;
 
     /// The latest mutants that where added and survived.
     MutationStatusTime[] latest;
 }
 
 /// Returns: samples of mutants that are of high interest to the user.
-MutantSample reportSelectedAliveMutants(ref Database db,
-        const(Mutation.Kind)[] kinds, long history_nr) {
+MutantSample reportSelectedAliveMutants(ref Database db, const(Mutation.Kind)[] kinds,
+        long historyNr) {
     auto profile = Profile(ReportSection.mut_recommend_kill);
 
     auto rval = new typeof(return);
 
-    rval.hardestToKill = db.getHardestToKillMutant(kinds, Mutation.Status.alive, history_nr);
-    foreach (const mutst; rval.hardestToKill) {
+    rval.highestPrio = db.getHighestPrioMutant(kinds, Mutation.Status.alive, historyNr);
+    foreach (const mutst; rval.highestPrio) {
         auto ids = db.getMutationIds(kinds, [mutst.statusId]);
         if (ids.length != 0)
             rval.mutants[mutst.statusId] = db.getMutation(ids[0]);
     }
 
-    rval.oldest = db.getOldestMutants(kinds, history_nr);
+    rval.oldest = db.getOldestMutants(kinds, historyNr);
     foreach (const mutst; rval.oldest) {
         auto ids = db.getMutationIds(kinds, [mutst.id]);
         if (ids.length != 0)

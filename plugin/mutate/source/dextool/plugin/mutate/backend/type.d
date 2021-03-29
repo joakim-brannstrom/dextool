@@ -399,12 +399,6 @@ struct TestGroup {
     }
 }
 
-/// Number of times a mutant has been tested.
-struct MutantTestCount {
-    long value;
-    alias value this;
-}
-
 /** A source code token.
  *
  * The source can contain invalid UTF-8 chars therefor every token has to be

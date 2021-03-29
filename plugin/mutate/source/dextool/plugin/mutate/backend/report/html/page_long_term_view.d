@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.report.html.page_long_term_view;
 
 import logger = std.experimental.logger;
+import std.conv : to;
 import std.format : format;
 
 import arsd.dom : Document, Element, require, Table, RawSource, Link;
@@ -37,15 +38,15 @@ void toHtml(const MutantSample sample, Element root) {
     import std.path : buildPath;
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
 
-    if (sample.hardestToKill.length != 0) {
-        root.addChild("p", format("This list the %s mutants that have survived the most test runs.",
-                sample.hardestToKill.length));
+    if (sample.highestPrio.length != 0) {
+        root.addChild("p", format("This list the %s mutants that affect the most source code and has survived.",
+                sample.highestPrio.length));
         auto tbl_container = root.addChild("div").addClass("tbl_container");
         auto tbl = tmplDefaultTable(tbl_container, [
-                "Link", "Discovered", "Last Updated", "Survived"
+                "Link", "Discovered", "Last Updated", "Priority"
                 ]);
 
-        foreach (const mutst; sample.hardestToKill) {
+        foreach (const mutst; sample.highestPrio) {
             const mut = sample.mutants[mutst.statusId];
             auto r = tbl.appendRow();
             r.addChild("td").addChild("a", format("%s:%s", mut.file,
@@ -53,7 +54,7 @@ void toHtml(const MutantSample sample, Element root) {
                     pathToHtmlLink(mut.file)), mut.id.get);
             r.addChild("td", mutst.added.isNull ? "unknown" : mutst.added.get.toString);
             r.addChild("td", mutst.updated.toString);
-            r.addChild("td", format("%s times", mutst.testCnt));
+            r.addChild("td", mutst.prio.get.to!string);
         }
     }
 
