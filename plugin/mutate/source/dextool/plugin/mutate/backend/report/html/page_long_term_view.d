@@ -16,14 +16,11 @@ import std.format : format;
 import arsd.dom : Document, Element, require, Table, RawSource, Link;
 
 import dextool.plugin.mutate.backend.database : Database;
-import dextool.plugin.mutate.backend.report.analyzers : MutantSample, reportSelectedAliveMutants;
+import dextool.plugin.mutate.backend.report.analyzers : reportSelectedAliveMutants;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable;
 import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation;
-import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind;
-import dextool.type : AbsolutePath;
 
 void makeHighInterestMutants(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
     import std.path : buildPath;
