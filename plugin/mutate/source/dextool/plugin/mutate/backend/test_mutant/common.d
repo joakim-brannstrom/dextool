@@ -510,6 +510,13 @@ struct TestStopCheck {
     import my.optional;
     import dextool.plugin.mutate.config : ConfigMutationTest;
 
+    enum HaltReason {
+        none,
+        maxRuntime,
+        aliveTested,
+        overloaded,
+    }
+
     private {
         typeof(ConfigMutationTest.loadBehavior) loadBehavior;
         typeof(ConfigMutationTest.loadThreshold) baseLoadThreshold;
@@ -543,17 +550,17 @@ struct TestStopCheck {
     }
 
     /// A halt conditions has occured. Mutation testing should stop.
-    bool isHalt() @safe nothrow {
+    HaltReason isHalt() @safe nothrow {
         if (isMaxRuntime)
-            return true;
+            return HaltReason.maxRuntime;
 
         if (isAliveTested)
-            return true;
+            return HaltReason.aliveTested;
 
         if (loadBehavior == ConfigMutationTest.LoadBehavior.halt && load15 > baseLoadThreshold.get)
-            return true;
+            return HaltReason.overloaded;
 
-        return false;
+        return HaltReason.none;
     }
 
     /// The system is overloaded and the user has configured the tool to slowdown.
