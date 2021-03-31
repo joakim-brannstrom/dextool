@@ -1143,11 +1143,22 @@ nothrow:
     }
 
     void opCall(ref CheckStopCond data) {
-        data.halt = stopCheck.isHalt;
-        logger.infof(stopCheck.isMaxRuntime, stopCheck.maxRuntimeToString).collectException;
-        logger.infof(stopCheck.isAliveTested, "Alive mutants threshold reached").collectException;
-        if (global.data.conf.loadBehavior == ConfigMutationTest.LoadBehavior.halt)
-            logger.info(stopCheck.isOverloaded, stopCheck.overloadToString).collectException;
+        const halt = stopCheck.isHalt;
+        data.halt = halt != TestStopCheck.HaltReason.none;
+
+        final switch (halt) with (TestStopCheck.HaltReason) {
+        case none:
+            break;
+        case maxRuntime:
+            logger.info(stopCheck.maxRuntimeToString).collectException;
+            break;
+        case aliveTested:
+            logger.info("Alive mutants threshold reached").collectException;
+            break;
+        case overloaded:
+            logger.info(stopCheck.overloadToString).collectException;
+            break;
+        }
         logger.warning(data.halt, "Halting").collectException;
     }
 

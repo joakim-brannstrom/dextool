@@ -23,6 +23,7 @@ import std.range : take, retro, only;
 import std.typecons : Flag, Yes, No, Tuple, Nullable, tuple;
 
 import my.named_type;
+import my.optional;
 
 import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId, MarkedMutant;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
@@ -1382,4 +1383,29 @@ unittest {
 
     res.data[0].score.get.shouldEqual(7.5);
     res.data[1].score.get.shouldEqual(5.0);
+}
+
+/** Sync status is how old the information about mutants and their status is
+ * compared to when the tests or source code where last changed.
+ */
+struct SyncStatus {
+    import dextool.plugin.mutate.backend.database : MutationStatusTime;
+
+    SysTime test;
+    SysTime code;
+    SysTime coverage;
+    MutationStatusTime[] mutants;
+}
+
+SyncStatus reportSyncStatus(ref Database db, const(Mutation.Kind)[] kinds, const long nrMutants) {
+    import std.datetime : Clock;
+    import dextool.plugin.mutate.backend.database : TestFile, TestFileChecksum, TestFilePath;
+
+    typeof(return) rval;
+    rval.test = spinSql!(() => db.getNewestTestFile)
+        .orElse(TestFile(TestFilePath.init, TestFileChecksum.init, Clock.currTime)).timeStamp;
+    rval.code = spinSql!(() => db.getNewestFile).orElse(Clock.currTime);
+    rval.coverage = spinSql!(() => db.getCoverageTimeStamp).orElse(Clock.currTime);
+    rval.mutants = spinSql!(() => db.getOldestMutants(kinds, nrMutants));
+    return rval;
 }

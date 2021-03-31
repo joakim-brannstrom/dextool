@@ -16,7 +16,8 @@ import std.format : format;
 import arsd.dom : Element, Link;
 
 import dextool.plugin.mutate.backend.database : Database;
-import dextool.plugin.mutate.backend.report.analyzers : MutationStat, reportStatistics;
+import dextool.plugin.mutate.backend.report.analyzers : MutationStat,
+    reportStatistics, reportSyncStatus, SyncStatus;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable,
     PieGraph, TimeScalePointGraph;
@@ -25,7 +26,7 @@ import dextool.plugin.mutate.backend.type : Mutation;
 void makeStats(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Overview");
     overallStat(reportStatistics(db, kinds), root.addChild("div"));
-    syncStatus(db, kinds, root);
+    syncStatus(reportSyncStatus(db, kinds, 100), root);
 }
 
 private:
@@ -74,35 +75,23 @@ void overallStat(const MutationStat s, Element base) {
     }
 }
 
-void syncStatus(ref Database db, const(Mutation.Kind)[] kinds, Element root) {
-    import std.datetime : SysTime;
-    import my.optional;
-    import dextool.plugin.mutate.backend.database : spinSql, TestFile;
-
-    auto test = spinSql!(() => db.getNewestTestFile);
-    auto code = spinSql!(() => db.getNewestFile);
-    auto cov = spinSql!(() => db.getCoverageTimeStamp);
-    auto oldest = spinSql!(() => db.getOldestMutants(kinds, 100));
-
+void syncStatus(SyncStatus status, Element root) {
     auto ts = TimeScalePointGraph("SyncStatus");
 
-    if (test.hasValue) {
-        ts.put("Test", TimeScalePointGraph.Point(test.orElse(TestFile.init).timeStamp, 1.6));
-        ts.setColor("Test", "lightBlue");
-    }
-    if (code.hasValue) {
-        ts.put("Code", TimeScalePointGraph.Point(code.orElse(SysTime.init), 1.4));
-        ts.setColor("Code", "lightGreen");
-    }
-    if (cov.hasValue) {
-        ts.put("Coverage", TimeScalePointGraph.Point(cov.orElse(SysTime.init), 1.2));
-        ts.setColor("Coverage", "purple");
-    }
-    if (oldest.length != 0) {
+    ts.put("Test", TimeScalePointGraph.Point(status.test, 1.6));
+    ts.setColor("Test", "lightBlue");
+
+    ts.put("Code", TimeScalePointGraph.Point(status.code, 1.4));
+    ts.setColor("Code", "lightGreen");
+
+    ts.put("Coverage", TimeScalePointGraph.Point(status.coverage, 1.2));
+    ts.setColor("Coverage", "purple");
+
+    if (status.mutants.length != 0) {
         double y = 0.8;
-        foreach (v; oldest) {
+        foreach (v; status.mutants) {
             ts.put("Mutant", TimeScalePointGraph.Point(v.updated, y));
-            y += 0.3 / oldest.length;
+            y += 0.3 / status.mutants.length;
         }
         ts.setColor("Mutant", "red");
     }

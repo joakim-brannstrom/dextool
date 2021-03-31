@@ -525,7 +525,7 @@ nothrow:
     }
 
     void opCall(ref OverloadCheck data) {
-        data.halt = stopCheck.isHalt;
+        data.halt = stopCheck.isHalt != TestStopCheck.HaltReason.none;
         data.sleep = stopCheck.isOverloaded;
 
         if (data.sleep) {
