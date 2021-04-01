@@ -62,7 +62,7 @@ struct BuildAdmin {
     }
 
     auto mutations(MutationKind[] v) nothrow {
-        import dextool.plugin.mutate.backend.utility;
+        import dextool.plugin.mutate.backend.mutation_type : toInternal;
 
         return mutationsSubKind(toInternal(v));
     }

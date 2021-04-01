@@ -68,10 +68,9 @@ struct BuildTestMutant {
     }
 
     auto mutations(MutationKind[] v) nothrow {
-        import dextool.plugin.mutate.backend.utility : toInternal;
+        import dextool.plugin.mutate.backend.mutation_type : toInternal;
 
         logger.infof("mutation operators: %(%s, %)", v).collectException;
-
         data.kinds = toInternal(v);
         return this;
     }

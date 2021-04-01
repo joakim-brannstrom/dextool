@@ -36,9 +36,10 @@ import dextool.plugin.mutate.backend.utility : Profile;
 @safe:
 
 void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf, FilesysIO fio) {
-    import dextool.plugin.mutate.backend.utility;
+    import dextool.plugin.mutate.backend.utility : Profile;
+    import dextool.plugin.mutate.backend.mutation_type : toInternal;
 
-    const kinds = dextool.plugin.mutate.backend.utility.toInternal(userKinds);
+    const kinds = toInternal(userKinds);
 
     auto a = new ReportPlain(kinds, conf, fio);
 

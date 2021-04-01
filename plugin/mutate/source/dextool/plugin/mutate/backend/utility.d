@@ -25,9 +25,6 @@ import dextool.type : Path, AbsolutePath;
 public import my.hash : toBytes;
 
 public import dextool.plugin.mutate.backend.type;
-public import dextool.plugin.mutate.backend.mutation_type;
-public import dextool.clang_extensions : OpKind;
-public import dextool.plugin.mutate.backend.interface_ : Blob;
 
 /// Execution profile result gathered from analysers.
 private shared ProfileResults gProfile;

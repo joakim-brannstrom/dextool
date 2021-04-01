@@ -18,19 +18,20 @@ import dextool.type;
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
+import dextool.plugin.mutate.backend.mutation_type : toInternal, toUser;
 import dextool.plugin.mutate.backend.report.type : SimpleWriter, ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize;
 import dextool.plugin.mutate.backend.type : Mutation;
-import dextool.plugin.mutate.type : MutationKind, ReportSection;
-import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.backend.utility : Profile;
+import dextool.plugin.mutate.config : ConfigReport;
+import dextool.plugin.mutate.type : MutationKind, ReportSection;
 
 @safe:
 
 void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf, FilesysIO fio) {
     import dextool.plugin.mutate.backend.utility;
 
-    const kinds = dextool.plugin.mutate.backend.utility.toInternal(userKinds);
+    const kinds = toInternal(userKinds);
 
     auto a = new ReportCompiler(kinds, conf.reportSection, fio);
 
