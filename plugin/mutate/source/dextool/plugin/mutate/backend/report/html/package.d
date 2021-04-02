@@ -41,10 +41,11 @@ version (unittest) {
 
 void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf,
         FilesysIO fio, ref Diff diff) {
-    import dextool.plugin.mutate.backend.utility;
     import dextool.plugin.mutate.backend.database : FileMutantRow;
+    import dextool.plugin.mutate.backend.mutation_type : toInternal;
+    import dextool.plugin.mutate.backend.utility : Profile;
 
-    const kinds = dextool.plugin.mutate.backend.utility.toInternal(userKinds);
+    const kinds = toInternal(userKinds);
 
     auto fps = new ReportHtml(kinds, conf, fio, diff);
 

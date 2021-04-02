@@ -52,16 +52,16 @@ version (unittest) {
 
 /** Analyze the files in `frange` for mutations.
  */
-ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userKinds, ConfigAnalyze conf_analyze,
+ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userKinds, ConfigAnalyze confAnalyze,
         ConfigCompiler conf_compiler, ParsedCompileCommandRange frange,
         ValidateLoc valLoc, FilesysIO fio) @trusted {
     import dextool.plugin.mutate.backend.diff_parser : diffFromStdin, Diff;
-    import dextool.plugin.mutate.backend.utility;
+    import dextool.plugin.mutate.backend.mutation_type : toInternal;
 
     auto fileFilter = () {
         try {
-            return FileFilter(fio.getOutputDir, conf_analyze.unifiedDiffFromStdin,
-                    conf_analyze.unifiedDiffFromStdin ? diffFromStdin : Diff.init);
+            return FileFilter(fio.getOutputDir, confAnalyze.unifiedDiffFromStdin,
+                    confAnalyze.unifiedDiffFromStdin ? diffFromStdin : Diff.init);
         } catch (Exception e) {
             logger.info(e.msg);
             logger.warning("Unable to parse diff");
@@ -70,13 +70,13 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
     }();
 
     bool shouldAnalyze(AbsolutePath p) {
-        return conf_analyze.fileMatcher.match(p.toString) && fileFilter.shouldAnalyze(p);
+        return confAnalyze.fileMatcher.match(p.toString) && fileFilter.shouldAnalyze(p);
     }
 
     auto pool = () {
-        if (conf_analyze.poolSize == 0)
+        if (confAnalyze.poolSize == 0)
             return new TaskPool();
-        return new TaskPool(conf_analyze.poolSize);
+        return new TaskPool(confAnalyze.poolSize);
     }();
 
     // if a dependency of a root file has been changed.
@@ -84,14 +84,14 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
 
     // will only be used by one thread at a time.
     auto store = spawn(&storeActor, dbPath, cast(shared) fio.dup,
-            cast(shared) conf_analyze, cast(immutable) changedDeps.byKeyValue
+            cast(shared) confAnalyze, cast(immutable) changedDeps.byKeyValue
             .filter!(a => !a.value)
             .map!(a => a.key)
             .array);
 
     try {
-        pool.put(task!testPathActor(conf_analyze.testPaths,
-                conf_analyze.testFileMatcher, fio.dup, store));
+        pool.put(task!testPathActor(confAnalyze.testPaths,
+                confAnalyze.testFileMatcher, fio.dup, store));
     } catch (Exception e) {
         logger.trace(e);
         logger.warning(e.msg);
@@ -112,12 +112,12 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             ) {
         try {
             if (auto v = fio.toRelativeRoot(f.cmd.absoluteFile) in changedDeps) {
-                if (!(*v || conf_analyze.forceSaveAnalyze))
+                if (!(*v || confAnalyze.forceSaveAnalyze))
                     continue;
             }
 
             //logger.infof("%s sending", f.cmd.absoluteFile);
-            pool.put(task!analyzeActor(kinds, f, valLoc.dup, fio.dup, conf_compiler, conf_analyze, store));
+            pool.put(task!analyzeActor(kinds, f, valLoc.dup, fio.dup, conf_compiler, confAnalyze, store));
             taskCnt++;
         } catch (Exception e) {
             logger.trace(e);
@@ -136,7 +136,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
     // wait for the store actor to finish
     receiveOnly!StoreDoneMsg;
 
-    if (conf_analyze.profile)
+    if (confAnalyze.profile)
         try {
             import std.stdio : writeln;
 

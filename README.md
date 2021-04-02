@@ -30,7 +30,7 @@ To build and run dextool, you will need the following packages:
  * libclang-xyz-dev >= 4.0
  * [cmake](https://cmake.org/download) >= 3.5
  * [sqlite3](https://sqlite.org/download.html) >= 3.24.0
- * [D compiler](https://dlang.org/download.html) (dmd >= 2.092.1 or ldc >= 1.22.0)
+ * [D compiler](https://dlang.org/download.html) (dmd >= 2.094.2 or ldc >= 1.22.0)
 
 Most of them can be installed using your package manager.
 
