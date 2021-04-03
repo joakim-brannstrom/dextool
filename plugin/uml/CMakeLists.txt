@@ -26,7 +26,7 @@ build_d_executable(
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
+    "dextool_dextool;dextool_cpptooling;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
 )
 
 collect_binary_in_root(${EXE_NAME})
@@ -39,7 +39,7 @@ list(APPEND SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/unittest/plantuml.d
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
-compile_d_unittest(uml "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_mylib;dextool_sumtype")
+compile_d_unittest(uml "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpptooling;dextool_mylib;dextool_sumtype")
 
 setup_integration_testing_env()
 

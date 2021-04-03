@@ -23,7 +23,7 @@ struct RawConfiguration {
     Nullable!XmlConfig xmlConfig;
 
     string[] fileExclude;
-    string[] fileRestrict;
+    string[] fileInclude;
     string[] testDoubleInclude;
     Path[] inFiles;
     string[] cflags;
@@ -51,7 +51,7 @@ struct RawConfiguration {
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "config", "Use configuration file", &config,
                    "file-exclude", "Exclude files from generation matching the regex", &fileExclude,
-                   "file-restrict", "Restrict the scope of the test double to those files matching the regex", &fileRestrict,
+                   "file-include", "Include the scope of the test double to those files matching the regex", &fileInclude,
                    "header", "Prepend generated files with the string", &header,
                    "header-file", "Prepend generated files with the header read from the file", &headerFile,
                    "help-regex", "Extended help for regex's used as parameters", &helpRegex,
@@ -123,9 +123,9 @@ Information about --file-exclude.
   The regex must fully match the filename the AST node is located in.
   If it matches all data from the file is excluded from the generated code.
 
-Information about --file-restrict.
+Information about --file-include.
   The regex must fully match the filename the AST node is located in.
-  Only symbols from files matching the restrict affect the generated test double.
+  Only symbols from files matching the include affect the generated test double.
 ");
         }
     }

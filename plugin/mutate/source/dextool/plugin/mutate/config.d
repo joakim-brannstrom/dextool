@@ -83,7 +83,7 @@ struct ConfigAnalyze {
     /// User input of includes before they are adjusted to relative root
     string[] rawInclude;
 
-    /// The constructed glob filter which based on rawExclude and rawRestrict.
+    /// The constructed glob filter which based on rawExclude and rawinclude.
     GlobFilter fileMatcher;
 
     /// The size of the thread pool which affects how many files are analyzed in parallel.
@@ -119,7 +119,7 @@ struct ConfigAnalyze {
     /// User input of includes before they are adjusted to relative root
     string[] rawTestInclude;
 
-    /// The constructed glob filter which based on rawExclude and rawRestrict.
+    /// The constructed glob filter which based on rawExclude and rawinclude.
     GlobFilter testFileMatcher;
 
     /// If coverage maps should be generated and saved.
@@ -280,7 +280,7 @@ struct ConfigWorkArea {
     /// User input of includes before they are adjusted to relative root
     string[] rawInclude;
 
-    /// The constructed glob filter which based on rawExclude and rawRestrict.
+    /// The constructed glob filter which based on rawExclude and rawinclude.
     /// Only mutants whose location match will be generated.
     GlobFilter mutantMatcher;
 }

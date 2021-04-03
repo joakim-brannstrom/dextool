@@ -40,7 +40,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextool(testEnv)
         .addInputArg(testData ~ "dev/bug_wchar.hpp")
-        .addArg(["--file-restrict", ".*bug_wchar.hpp"])
+        .addArg(["--file-include", ".*bug_wchar.hpp"])
         .addArg("--free-func")
         .run;
     makeCompare(testEnv)
@@ -265,12 +265,11 @@ unittest {
         .run;
 }
 
-@(testId ~ "Test --file-restrict")
+@(testId ~ "Test --file-include")
 unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextool(testEnv).addInputArg(testData ~ "dev/param_restrict.hpp")
-        .addArg(["--file-restrict", ".*/" ~ (testData ~ "dev").toString])
-        .addArg("--file-restrict=.*/b.hpp")
+        .addArg("--file-include=.*/b.hpp")
         .addFlag(["-I", (testData ~ "dev/extra").toString])
         .run;
     makeCompile(testEnv)
@@ -286,7 +285,7 @@ unittest {
     makeDextool(testEnv).addInputArg(testData ~ "compile_db/single_file_main.hpp")
         .addArg("--free-func")
         .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
-        .addArg("--file-restrict=.*/single_file.hpp")
+        .addArg("--file-include=.*/single_file.hpp")
         .run;
     dextool_test.makeCompile(testEnv, "g++")
         .addArg(["-I", (testData ~ "compile_db/dir1").toString])

@@ -17,7 +17,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextool(testEnv)
         .addInputArg(pluginTestData ~ "stage_3/pretty_print.hpp")
-        .addArg(["--file-restrict", (pluginTestData ~ "stage_3").toString ~ ".*"])
+        .addArg(["--file-include", (pluginTestData ~ "stage_3").toString ~ ".*"])
         .run;
     dextool_test.makeCompile(testEnv, "g++")
         .addInclude(pluginTestData ~ "stage_3")

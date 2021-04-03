@@ -20,8 +20,6 @@ import dextool.compilation_db;
 import dextool.io : WriteStrategy;
 import dextool.type;
 
-import dextool.plugin.types;
-
 import dextool.plugin.fuzzer.type;
 
 import dextool.plugin.fuzzer.frontend.raw_args : RawConfiguration, XmlConfig, Symbols;
@@ -50,6 +48,7 @@ private struct FileData {
 class FuzzerFrontend : Controller, Parameter, Product, Transform {
     import std.regex : regex, Regex;
     import std.typecons : Flag;
+    import my.filter : ReFilter;
     import dextool.compilation_db : CompileCommandFilter;
     import dextool.type : Path;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
@@ -67,8 +66,9 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
         Path output_dir;
 
         /// Used to match symbols by their location.
-        Regex!char[] exclude;
-        Regex!char[] restrict;
+        string[] exclude;
+        string[] include;
+        ReFilter fileFilter;
 
         /// Data produced by the generatore intented to be written to specified file.
         FileData[] file_data;
@@ -81,7 +81,7 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
         // dfmt off
         auto r = new FuzzerFrontend(Path(args.out_))
             .argFileExclude(args.fileExclude)
-            .argFileRestrict(args.fileRestrict)
+            .argFileInclude(args.fileInclude)
             .argXmlConfig(args.xmlConfig);
         // dfmt on
         return r;
@@ -92,18 +92,14 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
     }
 
     auto argFileExclude(string[] a) {
-        import std.array : array;
-        import std.algorithm : map;
-
-        this.exclude = a.map!(a => regex(a)).array();
+        this.exclude = a;
+        fileFilter = ReFilter(include, exclude);
         return this;
     }
 
-    auto argFileRestrict(string[] a) {
-        import std.array : array;
-        import std.algorithm : map;
-
-        this.restrict = a.map!(a => regex(a)).array();
+    auto argFileInclude(string[] a) {
+        this.include = a;
+        fileFilter = ReFilter(include, exclude);
         return this;
     }
 
@@ -139,18 +135,9 @@ class FuzzerFrontend : Controller, Parameter, Product, Transform {
     // -- Controller --
 
     @safe bool doSymbolAtLocation(const string filename, const string symbol) {
-        import dextool.plugin.regex_matchers : matchAny;
-
-        // if there are no filter registered then it automatically passes.
-
-        bool restrict_pass = restrict.length == 0 || matchAny(filename, restrict);
-        debug logger.tracef(!restrict_pass,
-                "--file-restrict skipping: %s in %s", symbol, filename);
-
-        bool exclude_pass = exclude.length == 0 || !matchAny(filename, exclude);
-        debug logger.tracef(!exclude_pass, "--file-exclude skipping: %s in %s", symbol, filename);
-
-        return restrict_pass && exclude_pass;
+        return fileFilter.match(filename, (string s, string type) {
+            logger.tracef("matcher --file-%s removed %s for symbol %s. Skipping", s, symbol, type);
+        });
     }
 
     bool doSymbol(string symbol) {

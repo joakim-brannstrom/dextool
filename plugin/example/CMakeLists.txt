@@ -23,7 +23,7 @@ build_d_executable(
     -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
     -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source"
     ""
-    "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
+    "dextool_dextool;dextool_cpptooling;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
 )
 
 collect_binary_in_root(${EXE_NAME})

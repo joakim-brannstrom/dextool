@@ -1,7 +1,5 @@
 # vim: filetype=cmake
 
-include(dextool_plugin_utility.cmake)
-
 add_subdirectory(analyze)
 add_subdirectory(ctestdouble)
 add_subdirectory(cpptestdouble)

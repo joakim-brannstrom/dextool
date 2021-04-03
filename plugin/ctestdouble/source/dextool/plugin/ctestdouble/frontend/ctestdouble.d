@@ -13,13 +13,12 @@ import logger = std.experimental.logger;
 import std.algorithm : find, map;
 import std.array : array, empty;
 import std.range : drop;
-import std.typecons : Nullable;
+import std.typecons : Nullable, Tuple;
 
 import cpptooling.type;
 import dextool.compilation_db;
 import dextool.type;
 
-import dextool.plugin.types;
 import dextool.plugin.ctestdouble.backend.cvariant : Controller, Parameters, Products;
 import dextool.plugin.ctestdouble.frontend.types;
 import dextool.plugin.ctestdouble.frontend.xml;
@@ -36,7 +35,7 @@ struct RawConfiguration {
     Nullable!XmlConfig xmlConfig;
 
     string[] fileExclude;
-    string[] fileRestrict;
+    string[] fileInclude;
     string[] testDoubleInclude;
     Path[] inFiles;
     string[] cflags;
@@ -74,7 +73,7 @@ struct RawConfiguration {
                    "compile-db", &compileDb,
                    "config", &config,
                    "file-exclude", &fileExclude,
-                   "file-restrict", &fileRestrict,
+                   "file-include", &fileInclude,
                    "gen-post-incl", &genPostInclude,
                    "gen-pre-incl", &generatePreInclude,
                    "gmock", &gmock,
@@ -129,7 +128,7 @@ struct RawConfiguration {
         logger.tracef("args:
 --header            :%s
 --header-file       :%s
---file-restrict     :%s
+--file-include      :%s
 --prefix            :%s
 --gmock             :%s
 --out               :%s
@@ -148,7 +147,7 @@ struct RawConfiguration {
 --config            :%s
 CFLAGS              :%s
 
-xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
+xmlConfig           :%s", header, headerFile, fileInclude, prefix, gmock,
                 out_, fileExclude, mainName, stripInclude,
                 mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude, help, locationAsComment,
                 testDoubleInclude, !generateZeroGlobals, config, cflags, xmlConfig);
@@ -156,7 +155,7 @@ xmlConfig           :%s", header, headerFile, fileRestrict, prefix, gmock,
 }
 
 // dfmt off
-static auto ctestdouble_opt = CliOptionParts(
+static auto ctestdouble_opt = Tuple!(string, "usage", string, "optional", string, "others")(
     "usage:
  dextool ctestdouble [options] [--in=] [-- CFLAGS]",
     // -------------
@@ -168,7 +167,7 @@ static auto ctestdouble_opt = CliOptionParts(
  --gen-pre-incl     Generate a pre include header file if it doesn't exist and use it
  --gen-post-incl    Generate a post include header file if it doesn't exist and use it
  --loc-as-comment   Generate a comment containing the location the symbol was derived from.
-                    Makes it easier to correctly define excludes/restricts
+                    Makes it easier to correctly define excludes/includes
  --header=s         Prepend generated files with the string
  --header-file=f    Prepend generated files with the header read from the file
  --no-zeroglobals   Turn off generation of the default implementation that zeroes globals
@@ -179,7 +178,7 @@ static auto ctestdouble_opt = CliOptionParts(
  --out=dir          directory for generated files [default: ./]
  --compile-db=      Retrieve compilation parameters from the file
  --file-exclude=    Exclude files from generation matching the regex
- --file-restrict=   Restrict the scope of the test double to those files
+ --file-include=    Restrict the scope of the test double to those files
                     matching the regex
  --td-include=      User supplied includes used instead of those found
 
@@ -200,9 +199,9 @@ Information about --file-exclude.
   The regex must fully match the filename the AST node is located in.
   If it matches all data from the file is excluded from the generated code.
 
-Information about --file-restrict.
+Information about --file-include.
   The regex must fully match the filename the AST node is located in.
-  Only symbols from files matching the restrict affect the generated test double.
+  Only symbols from files matching the include affect the generated test double.
 
 EXAMPLES
 
@@ -242,9 +241,10 @@ struct FileData {
 class CTestDoubleVariant : Controller, Parameters, Products {
     import std.regex : regex, Regex;
     import std.typecons : Flag;
+    import my.filter : ReFilter;
+    import dsrcgen.cpp : CppModule, CppHModule;
     import dextool.compilation_db : CompileCommandFilter;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
-    import dsrcgen.cpp : CppModule, CppHModule;
 
     private {
         static const hdrExt = ".hpp";
@@ -280,8 +280,9 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         FilterSymbol restrict_symbols;
         FilterSymbol exclude_symbols;
 
-        Regex!char[] exclude;
-        Regex!char[] restrict;
+        string[] exclude;
+        string[] include;
+        ReFilter fileFilter;
 
         /// Data produced by the generatore intented to be written to specified file.
         FileData[] file_data;
@@ -302,7 +303,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
             .argPostInclude(args.genPostInclude)
             .argForceTestDoubleIncludes(args.testDoubleInclude)
             .argFileExclude(args.fileExclude)
-            .argFileRestrict(args.fileRestrict)
+            .argFileInclude(args.fileInclude)
             .argCustomHeader(args.header, args.headerFile)
             .argGenerateZeroGlobals(args.generateZeroGlobals)
             .argXmlConfig(args.xmlConfig)
@@ -343,12 +344,14 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     auto argFileExclude(string[] a) {
-        this.exclude = a.map!(a => regex(a)).array();
+        this.exclude = a;
+        fileFilter = ReFilter(include, exclude);
         return this;
     }
 
-    auto argFileRestrict(string[] a) {
-        this.restrict = a.map!(a => regex(a)).array();
+    auto argFileInclude(string[] a) {
+        this.include = a;
+        fileFilter = ReFilter(include, exclude);
         return this;
     }
 
@@ -481,26 +484,9 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
-        import dextool.plugin.regex_matchers : matchAny;
-
-        bool restrict_pass = true;
-        bool exclude_pass = true;
-
-        if (restrict.length > 0) {
-            restrict_pass = matchAny(filename, restrict);
-            debug {
-                logger.tracef(!restrict_pass, "--file-restrict skipping %s", info);
-            }
-        }
-
-        if (exclude.length > 0) {
-            exclude_pass = !matchAny(filename, exclude);
-            debug {
-                logger.tracef(!exclude_pass, "--file-exclude skipping %s", info);
-            }
-        }
-
-        return restrict_pass && exclude_pass;
+        return fileFilter.match(filename, (string s, string type) {
+            logger.tracef("matcher --file-%s removed %s. Skipping", s, type);
+        });
     }
 
     bool doSymbol(string symbol) {

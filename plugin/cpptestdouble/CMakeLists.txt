@@ -26,7 +26,7 @@ build_d_executable(
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_dextool;dextool_cpptooling;dextool_plugin_utility;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
+    "dextool_dextool;dextool_cpptooling;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
 )
 
 collect_binary_in_root(${EXE_NAME})

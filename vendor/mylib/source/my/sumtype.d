@@ -77,3 +77,61 @@ unittest {
     someType.match!(restrictTo!(Foo0, Foo1, Foo2, Foo3, val => {}),
             restrictTo!(Bar0, Bar1, Bar2, val => {}), _ => {});
 }
+
+/// For ignoring types.
+void ignore(T)(T) {
+}
+
+// TODO: why doesn't this work?
+//void ignore(T)(auto ref T) {}
+
+@("shall ignore the type")
+unittest {
+    static struct A {
+    }
+
+    static struct B {
+    }
+
+    static struct C {
+    }
+
+    SumType!(A, B, C) obj;
+
+    ignore(A.init);
+
+    //You can instantiate it explicitly to ignore a specific type:
+    obj.match!(ignore!A, (B b) {}, (C c) {});
+
+    //// Or you can use it as a catch-all handler:
+    obj.match!((A a) {}, ignore);
+}
+
+/** All return types from `Args`.
+ */
+template AllReturn(Args...) if (Args.length >= 1) {
+    import std.meta : AliasSeq;
+    import std.traits : ReturnType;
+
+    static if (Args.length == 1) {
+        alias AllReturn = ReturnType!(Args[0]);
+    } else {
+        alias AllReturn = AliasSeq!(ReturnType!(Args[0]), AllReturn!(Args[1 .. $]));
+    }
+}
+
+alias SumTypeFromReturn(T...) = SumType!(AllReturn!T);
+
+@("shall make a sumtype from the return types")
+unittest {
+    int fn1() {
+        return 0;
+    }
+
+    double fn2() {
+        return 0.0;
+    }
+
+    SumTypeFromReturn!(fn1, fn2) obj;
+    obj.match!((int x) {}, (double x) {});
+}

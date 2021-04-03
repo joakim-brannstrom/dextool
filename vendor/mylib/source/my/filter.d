@@ -5,15 +5,20 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module my.filter;
 
+import std.algorithm : filter;
+import std.array : array, empty;
+
 import logger = std.experimental.logger;
 
 @safe:
 
-/** Filter strings by first cutting out a region (include) and then selectively
- * remove (exclude) from that region.
+/** Filter strings by first cutting out regions (include) and then selectively
+ * remove (exclude) from region.
+ *
+ * It assumes that if `include` is empty everything should match.
  *
  * I often use this in my programs to allow a user to specify what files to
- * process and the have some control over what to exclude.
+ * process and have some control over what to exclude.
  *
  * `--re-include` and `--re-exclude` is a suggestion for parameters to use with
  * `getopt`.
@@ -21,7 +26,7 @@ import logger = std.experimental.logger;
 struct ReFilter {
     import std.regex : Regex, regex, matchFirst;
 
-    Regex!char includeRe;
+    Regex!char[] includeRe;
     Regex!char[] excludeRe;
 
     /**
@@ -31,8 +36,9 @@ struct ReFilter {
      *  include = regular expression.
      *  exclude = regular expression.
      */
-    this(string include, string[] exclude) {
-        includeRe = regex(include, "i");
+    this(string[] include, string[] exclude) {
+        foreach (r; include)
+            includeRe ~= regex(r, "i");
         foreach (r; exclude)
             excludeRe ~= regex(r, "i");
     }
@@ -40,13 +46,28 @@ struct ReFilter {
     /**
      * Returns: true if `s` matches `ìncludeRe` and NOT matches any of `excludeRe`.
      */
-    bool match(string s) {
-        if (matchFirst(s, includeRe).empty)
+    bool match(string s, void delegate(string s, string type) @safe logFailed = null) {
+        const inclPassed = () {
+            if (includeRe.empty)
+                return true;
+            foreach (ref re; includeRe) {
+                if (!matchFirst(s, re).empty)
+                    return true;
+            }
             return false;
+        }();
+        if (!inclPassed) {
+            if (logFailed !is null)
+                logFailed(s, "include");
+            return false;
+        }
 
         foreach (ref re; excludeRe) {
-            if (!matchFirst(s, re).empty)
+            if (!matchFirst(s, re).empty) {
+                if (logFailed !is null)
+                    logFailed(s, "exclude");
                 return false;
+            }
         }
 
         return true;
@@ -55,14 +76,25 @@ struct ReFilter {
 
 /// Example:
 unittest {
-    import std.algorithm : filter;
-    import std.array : array;
-
-    auto r = ReFilter("foo.*", [".*bar.*", ".*batman"]);
-
+    auto r = ReFilter(["foo.*"], [".*bar.*", ".*batman"]);
     assert(["foo", "foobar", "foo smurf batman", "batman", "fo",
             "foo mother"].filter!(a => r.match(a)).array == [
             "foo", "foo mother"
+            ]);
+}
+
+@("shall match everything by default")
+unittest {
+    ReFilter r;
+    assert(["foo", "foobar"].filter!(a => r.match(a)).array == ["foo", "foobar"]);
+}
+
+@("shall exclude the specified items")
+unittest {
+    auto r = ReFilter(null, [".*bar.*", ".*batman"]);
+    assert(["foo", "foobar", "foo smurf batman", "batman", "fo",
+            "foo mother"].filter!(a => r.match(a)).array == [
+            "foo", "fo", "foo mother"
             ]);
 }
 
@@ -89,19 +121,24 @@ struct GlobFilter {
     }
 
     /**
+     * Params:
+     *  logFailed = called when `s` fails matching.
+     *
      * Returns: true if `s` matches `ìncludeRe` and NOT matches any of `excludeRe`.
      */
-    bool match(string s) {
+    bool match(string s, void delegate(string s, string[] filters) @safe logFailed = null) {
         import std.algorithm : canFind;
         import std.path : globMatch;
 
-        if (!canFind!((a, b) => globMatch(b, a))(include, s)) {
-            debug logger.tracef("%s did not match any of %s", s, include);
+        if (!include.empty && !canFind!((a, b) => globMatch(b, a))(include, s)) {
+            if (logFailed !is null)
+                logFailed(s, include);
             return false;
         }
 
         if (canFind!((a, b) => globMatch(b, a))(exclude, s)) {
-            debug logger.tracef("%s did match one of %s", s, exclude);
+            if (logFailed !is null)
+                logFailed(s, exclude);
             return false;
         }
 
