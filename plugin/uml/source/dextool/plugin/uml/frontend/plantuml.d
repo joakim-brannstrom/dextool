@@ -26,7 +26,7 @@ struct RawConfiguration {
     string[] cflags;
     string[] compileDb;
     string[] fileExclude;
-    string[] fileRestrict;
+    string[] fileInclude;
     string[] inFiles;
     string componentStrip;
     string filePrefix = "view_";
@@ -61,7 +61,7 @@ struct RawConfiguration {
                    "comp-strip", &componentStrip,
                    "file-exclude", &fileExclude,
                    "file-prefix", &filePrefix,
-                   "file-restrict", &fileRestrict,
+                   "file-include", &fileInclude,
                    "gen-dot", &generateDot,
                    "gen-style-incl", &generateStyleInclude,
                    "in", &inFiles,
@@ -99,7 +99,7 @@ struct RawConfiguration {
 static auto plantuml_opt = CliOptionParts(
     "usage:
  dextool uml [options] [--compile-db=...] [--file-exclude=...] [--in=...] [--] [CFLAGS...]
- dextool uml [options] [--compile-db=...] [--file-restrict=...] [--in=...] [--] [CFLAGS...]",
+ dextool uml [options] [--compile-db=...] [--file-include=...] [--in=...] [--] [CFLAGS...]",
     // -------------
     " --out=dir           directory for generated files [default: ./]
  --file-prefix=p     Prefix used when generating test artifacts [default: view_]
@@ -117,7 +117,7 @@ static auto plantuml_opt = CliOptionParts(
  --in=               Input files to parse
  --compile-db=j      Retrieve compilation parameters from the file
  --file-exclude=     Exclude files from generation matching the regex
- --file-restrict=    Restrict the scope of the test double to those files
+ --file-include=     Include the scope of the test double to those files
                      matching the regex
 
 REGEX
@@ -127,9 +127,9 @@ Information about --file-exclude.
   The regex must fully match the filename the AST node is located in.
   If it matches all data from the file is excluded from the generated code.
 
-Information about --file-restrict.
+Information about --file-include.
   The regex must fully match the filename the AST node is located in.
-  Only symbols from files matching the restrict affect the generated test double.
+  Only symbols from files matching the include affect the generated test double.
 "
 );
 // dfmt on
@@ -142,6 +142,7 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     import std.string : toLower;
     import std.regex : regex, Regex;
     import std.typecons : Flag, Yes, No;
+    import my.filter : ReFilter;
     import cpptooling.type : FilePrefix;
     import dextool.type : Path;
     import dextool.utility;
@@ -177,25 +178,13 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     immutable Flag!"doGenDot" do_gen_dot;
     immutable Flag!"doComponentByFile" do_comp_by_file;
 
-    Regex!char[] exclude;
-    Regex!char[] restrict;
+    ReFilter fileFilter;
     Regex!char comp_strip;
 
     /// Data produced by the generator intended to be written to specified file.
     FileData[] fileData;
 
     static auto makeVariant(ref RawConfiguration parsed) {
-        import std.algorithm : map;
-        import std.array : array;
-
-        Regex!char[] exclude = parsed.fileExclude.map!(a => regex(a)).array();
-        Regex!char[] restrict = parsed.fileRestrict.map!(a => regex(a)).array();
-        Regex!char comp_strip;
-
-        if (parsed.componentStrip.length != 0) {
-            comp_strip = regex(parsed.componentStrip);
-        }
-
         auto gen_class_method = cast(Flag!"genClassMethod") parsed.classMethod;
         auto gen_class_param_dep = cast(Flag!"genClassParamDependency") parsed.classParamDep;
         auto gen_class_inherit_dep = cast(Flag!"genClassInheritDependency") parsed.classInheritDep;
@@ -209,9 +198,12 @@ class PlantUMLFrontend : Controller, Parameters, Products {
                 Path(parsed.out_), gen_style_incl, gen_dot, gen_class_method,
                 gen_class_param_dep, gen_class_inherit_dep, gen_class_member_dep, do_comp_by_file);
 
-        variant.exclude = exclude;
-        variant.restrict = restrict;
-        variant.comp_strip = comp_strip;
+        variant.fileFilter = ReFilter(parsed.fileInclude, parsed.fileExclude);
+        variant.comp_strip = () {
+            if (parsed.componentStrip.length != 0)
+                return regex(parsed.componentStrip);
+            return Regex!char.init;
+        }();
 
         return variant;
     }
@@ -246,26 +238,9 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
-        import dextool.plugin.regex_matchers : matchAny;
-
-        bool restrict_pass = true;
-        bool exclude_pass = true;
-
-        if (restrict.length > 0) {
-            restrict_pass = matchAny(filename, restrict);
-            debug {
-                logger.tracef(!restrict_pass, "--file-restrict skipping %s", info);
-            }
-        }
-
-        if (exclude.length > 0) {
-            exclude_pass = !matchAny(filename, exclude);
-            debug {
-                logger.tracef(!exclude_pass, "--file-exclude skipping %s", info);
-            }
-        }
-
-        return restrict_pass && exclude_pass;
+        return fileFilter.match(filename, (string s, string type) {
+            logger.tracef("matcher --file-%s removed %s. Skipping", s, type);
+        });
     }
 
     Flag!"genStyleInclFile" genStyleInclFile() {

@@ -50,7 +50,7 @@ struct RawConfiguration {
     string[] cflags;
     string[] compileDb;
     string[] fileExclude;
-    string[] fileRestrict;
+    string[] fileInclude;
     string[] testDoubleInclude;
 
     string[] originalFlags;
@@ -73,7 +73,7 @@ struct RawConfiguration {
                    "compile-db", "Retrieve compilation parameters from the file", &compileDb,
                    "config", "Use configuration file", &config,
                    "file-exclude", "Exclude files from generation matching the regex", &fileExclude,
-                   "file-restrict", "Restrict the scope of the test double to those files matching the regex.", &fileRestrict,
+                   "file-include", "Include the scope of the test double to those files matching the regex.", &fileInclude,
                    "free-func", "Generate test doubles of free functions", &doFreeFuncs,
                    "gen-post-incl", "Generate a post include header file if it doesn't exist and use it", &genPostInclude,
                    "gen-pre-incl", "Generate a pre include header file if it doesn't exist and use it", &generatePreInclude,
@@ -152,9 +152,9 @@ Information about --file-exclude.
   The regex must fully match the filename the AST node is located in.
   If it matches all data from the file is excluded from the generated code.
 
-Information about --file-restrict.
+Information about --file-include.
   The regex must fully match the filename the AST node is located in.
-  Only symbols from files matching the restrict affect the generated test double.
+  Only symbols from files matching the include affect the generated test double.
 
 Information about --in.
   When it is used in conjuction with a compile commands database it is used to also find the flags.

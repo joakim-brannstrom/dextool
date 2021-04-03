@@ -46,11 +46,12 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     import std.string : toLower;
     import std.regex : regex, Regex;
     import std.typecons : Flag;
+    import dsrcgen.cpp;
+    import my.filter : ReFilter;
     import dextool.compilation_db : CompileCommandFilter;
     import cpptooling.type : StubPrefix, MainInterface;
     import dextool.utility;
     import cpptooling.testdouble.header_filter : TestDoubleIncludes, LocationType;
-    import dsrcgen.cpp;
 
     private {
         StubPrefix prefix;
@@ -71,8 +72,9 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
         Nullable!XmlConfig xmlConfig;
         CompileCommandFilter compiler_flag_filter;
 
-        Regex!char[] exclude;
-        Regex!char[] restrict;
+        string[] exclude;
+        string[] include;
+        ReFilter fileFilter;
 
         /// Data produced by the generatore intented to be written to specified file.
         FileData[] file_data;
@@ -92,7 +94,7 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
             .argPostInclude(args.genPostInclude)
             .argForceTestDoubleIncludes(args.testDoubleInclude)
             .argFileExclude(args.fileExclude)
-            .argFileRestrict(args.fileRestrict)
+            .argFileInclude(args.fileInclude)
             .argCustomHeader(args.header, args.headerFile)
             .argXmlConfig(args.xmlConfig)
             .systemCompiler(args.systemCompiler);
@@ -115,12 +117,14 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     }
 
     auto argFileExclude(string[] a) {
-        this.exclude = a.map!(a => regex(a)).array();
+        this.exclude = a;
+        fileFilter = ReFilter(include, exclude);
         return this;
     }
 
-    auto argFileRestrict(string[] a) {
-        this.restrict = a.map!(a => regex(a)).array();
+    auto argFileInclude(string[] a) {
+        this.include = a;
+        fileFilter = ReFilter(include, exclude);
         return this;
     }
 
@@ -233,26 +237,9 @@ class CppTestDoubleVariant : Controller, Parameters, Products {
     // -- Controller --
 
     bool doFile(in string filename, in string info) {
-        import dextool.plugin.regex_matchers : matchAny;
-
-        bool restrict_pass = true;
-        bool exclude_pass = true;
-
-        if (restrict.length > 0) {
-            restrict_pass = matchAny(filename, restrict);
-            debug {
-                logger.tracef(!restrict_pass, "--file-restrict skipping %s", info);
-            }
-        }
-
-        if (exclude.length > 0) {
-            exclude_pass = !matchAny(filename, exclude);
-            debug {
-                logger.tracef(!exclude_pass, "--file-exclude skipping %s", info);
-            }
-        }
-
-        return restrict_pass && exclude_pass;
+        return fileFilter.match(filename, (string s, string type) {
+            logger.tracef("matcher --file-%s removed %s. Skipping", s, type);
+        });
     }
 
     bool doGoogleMock() {
