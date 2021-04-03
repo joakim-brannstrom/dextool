@@ -1,0 +1,15 @@
+name "generate_clang_ast_nodes"
+description "Tools for developers of dextool"
+authors "Joakim Brännström"
+copyright "Copyright © 2019, Joakim Brännström"
+license "BSL-1.0"
+
+targetPath "build"
+
+lflags "-L/usr/lib/llvm-10/lib"
+libs  ":libclang.so.1"
+
+targetType "executable"
+sourcePaths "source" "../../libclang/source"
+sourceFiles "../source/libclang_ast/ast/nodes.d"
+importPaths "../../libclang/source" "../source"

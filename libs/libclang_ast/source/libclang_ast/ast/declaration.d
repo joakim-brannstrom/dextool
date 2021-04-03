@@ -10,12 +10,12 @@ one at http://mozilla.org/MPL/2.0/.
 DO NOT EDIT. THIS FILE IS GENERATED.
 See the generator script source/devtool/generator_clang_ast_nodes.d
 */
-module cpptooling.analyzer.clang.ast.declaration;
-import cpptooling.analyzer.clang.ast.node : Node;
+module libclang_ast.ast.declaration;
+import libclang_ast.ast.node : Node;
 
 abstract class Declaration : Node {
     import clang.Cursor : Cursor;
-    import cpptooling.analyzer.clang.ast : Visitor;
+    import libclang_ast.ast : Visitor;
 
     Cursor cursor;
     alias cursor this;
@@ -25,9 +25,9 @@ abstract class Declaration : Node {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -39,9 +39,9 @@ final class UnexposedDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -53,9 +53,9 @@ final class StructDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -67,9 +67,9 @@ final class UnionDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -81,9 +81,9 @@ final class ClassDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -95,9 +95,9 @@ final class EnumDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -109,9 +109,9 @@ final class FieldDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -123,9 +123,9 @@ final class EnumConstantDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -137,9 +137,9 @@ final class FunctionDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -151,9 +151,9 @@ final class VarDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -165,9 +165,9 @@ final class ParmDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -179,9 +179,9 @@ final class ObjCInterfaceDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -193,9 +193,9 @@ final class ObjCCategoryDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -207,9 +207,9 @@ final class ObjCProtocolDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -221,9 +221,9 @@ final class ObjCPropertyDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -235,9 +235,9 @@ final class ObjCIvarDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -249,9 +249,9 @@ final class ObjCInstanceMethodDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -263,9 +263,9 @@ final class ObjCClassMethodDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -277,9 +277,9 @@ final class ObjCImplementationDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -291,9 +291,9 @@ final class ObjCCategoryImplDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -305,9 +305,9 @@ final class TypedefDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -319,9 +319,9 @@ final class CxxMethod : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -333,9 +333,9 @@ final class Namespace : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -347,9 +347,9 @@ final class LinkageSpec : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -361,9 +361,9 @@ final class Constructor : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -375,9 +375,9 @@ final class Destructor : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -389,9 +389,9 @@ final class ConversionFunction : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -403,9 +403,9 @@ final class TemplateTypeParameter : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -417,9 +417,9 @@ final class NonTypeTemplateParameter : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -431,9 +431,9 @@ final class TemplateTemplateParameter : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -445,9 +445,9 @@ final class FunctionTemplate : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -459,9 +459,9 @@ final class ClassTemplate : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -473,9 +473,9 @@ final class ClassTemplatePartialSpecialization : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -487,9 +487,9 @@ final class NamespaceAlias : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -501,9 +501,9 @@ final class UsingDirective : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -515,9 +515,9 @@ final class TypeAliasDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -529,9 +529,9 @@ final class ObjCSynthesizeDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -543,9 +543,9 @@ final class ObjCDynamicDecl : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -557,8 +557,8 @@ final class CxxAccessSpecifier : Declaration {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }

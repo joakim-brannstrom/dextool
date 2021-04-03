@@ -10,12 +10,12 @@ one at http://mozilla.org/MPL/2.0/.
 DO NOT EDIT. THIS FILE IS GENERATED.
 See the generator script source/devtool/generator_clang_ast_nodes.d
 */
-module cpptooling.analyzer.clang.ast.directive;
-import cpptooling.analyzer.clang.ast.node : Node;
+module libclang_ast.ast.expression;
+import libclang_ast.ast.node : Node;
 
-abstract class Directive : Node {
+abstract class Expression : Node {
     import clang.Cursor : Cursor;
-    import cpptooling.analyzer.clang.ast : Visitor;
+    import libclang_ast.ast : Visitor;
 
     Cursor cursor;
     alias cursor this;
@@ -25,13 +25,13 @@ abstract class Directive : Node {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpParallelDirective : Directive {
+final class UnexposedExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -39,13 +39,13 @@ final class OmpParallelDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpSimdDirective : Directive {
+final class DeclRefExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -53,13 +53,13 @@ final class OmpSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpForDirective : Directive {
+final class MemberRefExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -67,13 +67,13 @@ final class OmpForDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpSectionsDirective : Directive {
+final class CallExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -81,13 +81,13 @@ final class OmpSectionsDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpSectionDirective : Directive {
+final class ObjCMessageExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -95,13 +95,13 @@ final class OmpSectionDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpSingleDirective : Directive {
+final class BlockExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -109,13 +109,13 @@ final class OmpSingleDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpParallelForDirective : Directive {
+final class IntegerLiteral : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -123,13 +123,13 @@ final class OmpParallelForDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpParallelSectionsDirective : Directive {
+final class FloatingLiteral : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -137,13 +137,13 @@ final class OmpParallelSectionsDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTaskDirective : Directive {
+final class ImaginaryLiteral : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -151,13 +151,13 @@ final class OmpTaskDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpMasterDirective : Directive {
+final class StringLiteral : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -165,13 +165,13 @@ final class OmpMasterDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpCriticalDirective : Directive {
+final class CharacterLiteral : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -179,13 +179,13 @@ final class OmpCriticalDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTaskyieldDirective : Directive {
+final class ParenExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -193,13 +193,13 @@ final class OmpTaskyieldDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpBarrierDirective : Directive {
+final class UnaryOperator : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -207,13 +207,13 @@ final class OmpBarrierDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTaskwaitDirective : Directive {
+final class ArraySubscriptExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -221,13 +221,13 @@ final class OmpTaskwaitDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpFlushDirective : Directive {
+final class BinaryOperator : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -235,13 +235,13 @@ final class OmpFlushDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpOrderedDirective : Directive {
+final class CompoundAssignOperator : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -249,13 +249,13 @@ final class OmpOrderedDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpAtomicDirective : Directive {
+final class ConditionalOperator : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -263,13 +263,13 @@ final class OmpAtomicDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpForSimdDirective : Directive {
+final class CStyleCastExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -277,13 +277,13 @@ final class OmpForSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpParallelForSimdDirective : Directive {
+final class CompoundLiteralExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -291,13 +291,13 @@ final class OmpParallelForSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetDirective : Directive {
+final class InitListExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -305,13 +305,13 @@ final class OmpTargetDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTeamsDirective : Directive {
+final class AddrLabelExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -319,13 +319,13 @@ final class OmpTeamsDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTaskgroupDirective : Directive {
+final class StmtExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -333,13 +333,13 @@ final class OmpTaskgroupDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpCancellationPointDirective : Directive {
+final class GenericSelectionExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -347,13 +347,13 @@ final class OmpCancellationPointDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpCancelDirective : Directive {
+final class GnuNullExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -361,13 +361,13 @@ final class OmpCancelDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetDataDirective : Directive {
+final class CxxStaticCastExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -375,13 +375,13 @@ final class OmpTargetDataDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTaskLoopDirective : Directive {
+final class CxxDynamicCastExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -389,13 +389,13 @@ final class OmpTaskLoopDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTaskLoopSimdDirective : Directive {
+final class CxxReinterpretCastExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -403,13 +403,13 @@ final class OmpTaskLoopSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpDistributeDirective : Directive {
+final class CxxConstCastExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -417,13 +417,13 @@ final class OmpDistributeDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetEnterDataDirective : Directive {
+final class CxxFunctionalCastExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -431,13 +431,13 @@ final class OmpTargetEnterDataDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetExitDataDirective : Directive {
+final class CxxTypeidExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -445,13 +445,13 @@ final class OmpTargetExitDataDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetParallelDirective : Directive {
+final class CxxBoolLiteralExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -459,13 +459,13 @@ final class OmpTargetParallelDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetParallelForDirective : Directive {
+final class CxxNullPtrLiteralExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -473,13 +473,13 @@ final class OmpTargetParallelForDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetUpdateDirective : Directive {
+final class CxxThisExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -487,13 +487,13 @@ final class OmpTargetUpdateDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpDistributeParallelForDirective : Directive {
+final class CxxThrowExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -501,13 +501,13 @@ final class OmpDistributeParallelForDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpDistributeParallelForSimdDirective : Directive {
+final class CxxNewExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -515,13 +515,13 @@ final class OmpDistributeParallelForSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpDistributeSimdDirective : Directive {
+final class CxxDeleteExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -529,13 +529,13 @@ final class OmpDistributeSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetParallelForSimdDirective : Directive {
+final class UnaryExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -543,13 +543,13 @@ final class OmpTargetParallelForSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetSimdDirective : Directive {
+final class ObjCStringLiteral : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -557,13 +557,13 @@ final class OmpTargetSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTeamsDistributeDirective : Directive {
+final class ObjCEncodeExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -571,13 +571,13 @@ final class OmpTeamsDistributeDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTeamsDistributeSimdDirective : Directive {
+final class ObjCSelectorExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -585,13 +585,13 @@ final class OmpTeamsDistributeSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTeamsDistributeParallelForSimdDirective : Directive {
+final class ObjCProtocolExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -599,13 +599,13 @@ final class OmpTeamsDistributeParallelForSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTeamsDistributeParallelForDirective : Directive {
+final class ObjCBridgedCastExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -613,13 +613,13 @@ final class OmpTeamsDistributeParallelForDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetTeamsDirective : Directive {
+final class PackExpansionExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -627,13 +627,13 @@ final class OmpTargetTeamsDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetTeamsDistributeDirective : Directive {
+final class SizeOfPackExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -641,13 +641,13 @@ final class OmpTargetTeamsDistributeDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetTeamsDistributeParallelForDirective : Directive {
+final class LambdaExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -655,13 +655,13 @@ final class OmpTargetTeamsDistributeParallelForDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetTeamsDistributeParallelForSimdDirective : Directive {
+final class ObjCBoolLiteralExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -669,13 +669,13 @@ final class OmpTargetTeamsDistributeParallelForSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class OmpTargetTeamsDistributeSimdDirective : Directive {
+final class ObjCSelfExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -683,8 +683,36 @@ final class OmpTargetTeamsDistributeSimdDirective : Directive {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class OmpArraySectionExpr : Expression {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCAvailabilityCheckExpr : Expression {
+    import clang.Cursor : Cursor;
+
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(Visitor v) @safe const {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
     }
 }

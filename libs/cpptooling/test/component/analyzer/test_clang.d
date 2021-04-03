@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2017-2021, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -16,16 +16,16 @@ import std.typecons : Yes;
 import test.clang_util;
 import blob_model;
 
-import cpptooling.analyzer.clang.ast;
-import cpptooling.analyzer.clang.context : ClangContext;
-import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+import libclang_ast.ast;
+import libclang_ast.context : ClangContext;
+import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 
 version (unittest) {
     import unit_threaded : shouldEqual, shouldBeFalse, shouldBeTrue;
 }
 
 final class TestVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;

@@ -55,9 +55,9 @@ Nullable!AbsolutePath findFile(Path f, ParseFlags.Include[] includes, AbsolutePa
  * Returns: The first CompileCommand object which _probably_ has the flags needed to parse fname.
  */
 Nullable!IncludeResult findCompileCommandFromIncludes(ParsedCompileCommand[] compdb, Path fname) @trusted {
-    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
-    import cpptooling.analyzer.clang.context : ClangContext;
-    import cpptooling.analyzer.clang.include_visitor : hasInclude;
+    import libclang_ast.check_parse_result : hasParseErrors, logDiagnostic;
+    import libclang_ast.context : ClangContext;
+    import libclang_ast.include_visitor : hasInclude;
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
 

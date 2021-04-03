@@ -47,7 +47,7 @@ import dextool.plugin.cpptestdouble.backend.visitor : AnalyzeData, CppTUVisitor;
  */
 struct Backend {
     import std.typecons : Nullable;
-    import cpptooling.analyzer.clang.context : ClangContext;
+    import libclang_ast.context : ClangContext;
     import cpptooling.data : CppRoot;
     import cpptooling.data.symbol : Container;
     import dextool.type : ExitStatusType;

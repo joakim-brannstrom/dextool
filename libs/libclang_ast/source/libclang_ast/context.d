@@ -1,12 +1,17 @@
 /**
-Date: 2015-2016, Joakim Brännström
+Date: 2015-2021, Joakim Brännström
 License: MPL-2, Mozilla Public License 2.0
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
-module cpptooling.analyzer.clang.context;
+module libclang_ast.context;
 
 import std.typecons : Flag;
 import logger = std.experimental.logger;
+
+import clang.c.Index : CXUnsavedFile;
+
+public import my.path : Path;
+public import blob_model : BlobVfs;
 
 version (unittest) {
     import unit_threaded : Name, shouldEqual;
@@ -119,8 +124,6 @@ struct ClangContext {
             vfs.openFromFile(uri);
         }
 
-        import cpptooling.utility.virtualfilesystem : toClangFiles;
-
         auto files = vfs.toClangFiles;
 
         return TranslationUnit.parse(index, sourceFilename, args, files);
@@ -132,4 +135,21 @@ struct ClangContext {
     import std.typecons : Yes;
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+}
+
+/** Convert to an array that can be passed on to clang to use as in-memory source code.
+ *
+ * Trusted: operates on files handled by a VirtualFileSystem that ensues that
+ * they exists. The VFS has taken care of validating the files.
+ */
+CXUnsavedFile[] toClangFiles(ref BlobVfs vfs) @trusted {
+    import std.algorithm : map;
+    import std.array : array;
+    import std.string : toStringz;
+
+    return vfs.uris.map!((a) {
+        auto s = vfs.get(a).content[];
+        auto fname = (cast(string) a).toStringz;
+        return CXUnsavedFile(fname, cast(char*) s.ptr, s.length);
+    }).array();
 }

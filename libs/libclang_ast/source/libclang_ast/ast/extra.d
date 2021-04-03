@@ -10,12 +10,12 @@ one at http://mozilla.org/MPL/2.0/.
 DO NOT EDIT. THIS FILE IS GENERATED.
 See the generator script source/devtool/generator_clang_ast_nodes.d
 */
-module cpptooling.analyzer.clang.ast.preprocessor;
-import cpptooling.analyzer.clang.ast.node : Node;
+module libclang_ast.ast.extra;
+import libclang_ast.ast.node : Node;
 
-abstract class Preprocessor : Node {
+abstract class Extra : Node {
     import clang.Cursor : Cursor;
-    import cpptooling.analyzer.clang.ast : Visitor;
+    import libclang_ast.ast : Visitor;
 
     Cursor cursor;
     alias cursor this;
@@ -25,13 +25,13 @@ abstract class Preprocessor : Node {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class PreprocessingDirective : Preprocessor {
+final class ModuleImportDecl : Extra {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -39,13 +39,13 @@ final class PreprocessingDirective : Preprocessor {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class MacroDefinition : Preprocessor {
+final class TypeAliasTemplateDecl : Extra {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -53,13 +53,13 @@ final class MacroDefinition : Preprocessor {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class MacroExpansion : Preprocessor {
+final class StaticAssert : Extra {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -67,13 +67,13 @@ final class MacroExpansion : Preprocessor {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
-final class InclusionDirective : Preprocessor {
+final class FriendDecl : Extra {
     import clang.Cursor : Cursor;
 
     this(Cursor cursor) @safe {
@@ -81,8 +81,8 @@ final class InclusionDirective : Preprocessor {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }

@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2017-2021, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -9,16 +9,17 @@ one at http://mozilla.org/MPL/2.0/.
 
 This file contains a visitor to extract the include directives.
 */
-module cpptooling.analyzer.clang.include_visitor;
+module libclang_ast.include_visitor;
 
 import std.typecons : Nullable;
 import std.algorithm : until, filter;
 
+import my.path : Path;
+
 import clang.Cursor : Cursor;
 import clang.c.Index;
 
-import cpptooling.analyzer.clang.cursor_visitor;
-import dextool.type : Path;
+import libclang_ast.cursor_visitor;
 
 /** Extract the filenames from all `#include` preprocessor macros that are
  * found in the AST.

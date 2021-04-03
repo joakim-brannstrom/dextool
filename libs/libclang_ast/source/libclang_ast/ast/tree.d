@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2021, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module cpptooling.analyzer.clang.ast.tree;
+module libclang_ast.ast.tree;
 
 import logger = std.experimental.logger;
 
@@ -15,17 +15,17 @@ import clang.Cursor : Cursor;
 
 import clang.c.Index : CXCursorKind;
 
-import cpptooling.analyzer.clang.ast.attribute;
-import cpptooling.analyzer.clang.ast.declaration;
-import cpptooling.analyzer.clang.ast.directive;
-import cpptooling.analyzer.clang.ast.expression;
-import cpptooling.analyzer.clang.ast.extra;
-import cpptooling.analyzer.clang.ast.preprocessor;
-import cpptooling.analyzer.clang.ast.reference;
-import cpptooling.analyzer.clang.ast.statement;
-import cpptooling.analyzer.clang.ast.translationunit;
+import libclang_ast.ast.attribute;
+import libclang_ast.ast.declaration;
+import libclang_ast.ast.directive;
+import libclang_ast.ast.expression;
+import libclang_ast.ast.extra;
+import libclang_ast.ast.preprocessor;
+import libclang_ast.ast.reference;
+import libclang_ast.ast.statement;
+import libclang_ast.ast.translationunit;
 
-import cpptooling.analyzer.clang.ast.nodes : makeNodeClassName;
+import libclang_ast.ast.nodes : makeNodeClassName;
 
 version (unittest) {
     import unit_threaded : shouldEqual, shouldBeTrue;
@@ -84,7 +84,7 @@ void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
  */
 void dispatch(VisitorT)(ref const(Cursor) cursor, VisitorT visitor) @safe {
     import clang.Visitor : Visitor;
-    import cpptooling.analyzer.clang.ast.nodes;
+    import libclang_ast.ast.nodes;
     import std.conv : to;
 
     // expecting ignoreCursors to be dextool.set.Set.
@@ -152,8 +152,8 @@ case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); bre
 
 @("shall route nodes visits to the base node of each group")
 @safe unittest {
-    import cpptooling.analyzer.clang.ast : Visitor;
-    import cpptooling.analyzer.clang.ast.nodes;
+    import libclang_ast.ast : Visitor;
+    import libclang_ast.ast.nodes;
 
     final class TestVisitor : Visitor {
         alias visit = Visitor.visit;

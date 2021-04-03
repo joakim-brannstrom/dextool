@@ -10,6 +10,7 @@ set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool/source
 -I${CMAKE_SOURCE_DIR}/libs/dsrcgen/source
 -I${CMAKE_SOURCE_DIR}/libs/libclang/source
+-I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
 -I${CMAKE_SOURCE_DIR}/plugin/source
 -I${CMAKE_SOURCE_DIR}/source
 -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
@@ -25,7 +26,7 @@ build_d_executable(
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_dextool;dextool_cpptooling;dextool_colorlog;dextool_mylib;dextool_sumtype"
+    "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_colorlog;dextool_mylib;dextool_sumtype"
 )
 
 collect_binary_in_root(${EXE_NAME})
@@ -33,11 +34,6 @@ collect_binary_in_root(${EXE_NAME})
 install(TARGETS ${EXE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
 list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/standard.d)
-
-list(APPEND SRC_FILES
-    ${CMAKE_CURRENT_LIST_DIR}/test/ut_main.d
-)
-compile_d_unittest(fuzzer "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpptooling;dextool_blob_model;dextool_mylib;dextool_sumtype")
 
 set(dextoolfuzz_SRC
     ${CMAKE_CURRENT_LIST_DIR}/support/afl_integration.cpp

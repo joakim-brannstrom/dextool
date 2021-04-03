@@ -10,12 +10,12 @@ one at http://mozilla.org/MPL/2.0/.
 DO NOT EDIT. THIS FILE IS GENERATED.
 See the generator script source/devtool/generator_clang_ast_nodes.d
 */
-module cpptooling.analyzer.clang.ast.attribute;
-import cpptooling.analyzer.clang.ast.node : Node;
+module libclang_ast.ast.attribute;
+import libclang_ast.ast.node : Node;
 
 abstract class Attribute : Node {
     import clang.Cursor : Cursor;
-    import cpptooling.analyzer.clang.ast : Visitor;
+    import libclang_ast.ast : Visitor;
 
     Cursor cursor;
     alias cursor this;
@@ -25,9 +25,9 @@ abstract class Attribute : Node {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -39,9 +39,9 @@ final class UnexposedAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -53,9 +53,9 @@ final class IbActionAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -67,9 +67,9 @@ final class IbOutletAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -81,9 +81,9 @@ final class IbOutletCollectionAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -95,9 +95,9 @@ final class CxxFinalAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -109,9 +109,9 @@ final class CxxOverrideAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -123,9 +123,9 @@ final class AnnotateAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -137,9 +137,9 @@ final class AsmLabelAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -151,9 +151,9 @@ final class PackedAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -165,9 +165,9 @@ final class PureAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -179,9 +179,9 @@ final class ConstAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -193,9 +193,9 @@ final class NoDuplicateAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -207,9 +207,9 @@ final class CudaConstantAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -221,9 +221,9 @@ final class CudaDeviceAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -235,9 +235,9 @@ final class CudaGlobalAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -249,9 +249,9 @@ final class CudaHostAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -263,9 +263,9 @@ final class CudaSharedAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -277,9 +277,9 @@ final class VisibilityAttr : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -291,9 +291,9 @@ final class DllExport : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -305,8 +305,8 @@ final class DllImport : Attribute {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor, v);
     }
 }

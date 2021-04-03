@@ -15,7 +15,7 @@ import dsrcgen.cpp : CppModule, CppHModule;
 
 import dextool.type : Path, DextoolVersion;
 import cpptooling.data.symbol;
-import cpptooling.analyzer.clang.ast : Visitor;
+import libclang_ast.ast : Visitor;
 import cpptooling.testdouble.header_filter : LocationType;
 import cpptooling.type : MainName, StubPrefix, CustomHeader, MainNs, MainInterface;
 
@@ -262,12 +262,11 @@ private:
 final class CVisitor : Visitor {
     import std.typecons : scoped;
 
-    import cpptooling.analyzer.clang.ast : VarDecl, FunctionDecl,
-        TranslationUnit, generateIndentIncrDecr;
+    import libclang_ast.ast : VarDecl, FunctionDecl, TranslationUnit, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl, analyzeVarDecl;
     import cpptooling.data : CppRoot;
     import cpptooling.data.symbol : Container;
-    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+    import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;

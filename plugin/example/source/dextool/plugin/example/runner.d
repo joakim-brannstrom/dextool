@@ -59,7 +59,7 @@ ExitStatusType runPlugin(string[] args) {
     const auto cflags = prependDefaultFlags(pargs.cflags, PreferLang.cpp);
 
     import std.typecons : Yes;
-    import cpptooling.analyzer.clang.context : ClangContext;
+    import libclang_ast.context : ClangContext;
 
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     auto visitor = new TUVisitor;
@@ -122,7 +122,7 @@ struct RawConfiguration {
     }
 }
 
-import cpptooling.analyzer.clang.ast : Visitor;
+import libclang_ast.ast : Visitor;
 
 /** A basic visitor showing all the main categories of nodes.
 
@@ -141,9 +141,9 @@ override void visit(const WhileStmt) {...}
 ---
 */
 final class TUVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
     import cpptooling.data.symbol : Container;
-    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+    import libclang_ast.cursor_logger : logNode, mixinNodeLog;
     import dsrcgen.cpp;
 
     alias visit = Visitor.visit;

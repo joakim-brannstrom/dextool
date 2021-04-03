@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2017-2021, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -20,10 +20,10 @@ import blob_model;
 // TODO this is a mega import. Reduce it
 import cpptooling.data;
 
-import cpptooling.analyzer.clang.ast;
+import libclang_ast.ast;
 import cpptooling.analyzer.clang.analyze_helper;
-import cpptooling.analyzer.clang.context : ClangContext;
-import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+import libclang_ast.context : ClangContext;
+import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol : Container;
 import cpptooling.data.representation;
@@ -36,7 +36,7 @@ writelnUt(visitor.container.toString);
 */
 
 final class TestVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;

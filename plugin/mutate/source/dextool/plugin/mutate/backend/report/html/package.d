@@ -370,7 +370,7 @@ struct FileCtx {
 auto tokenize(AbsolutePath base_dir, Path f) @trusted {
     import std.path : buildPath;
     import std.typecons : Yes;
-    import cpptooling.analyzer.clang.context;
+    import libclang_ast.context;
     static import dextool.plugin.mutate.backend.utility;
 
     const fpath = buildPath(base_dir, f).Path.AbsolutePath;

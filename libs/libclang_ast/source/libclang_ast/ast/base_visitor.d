@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2021, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -10,9 +10,9 @@ one at http://mozilla.org/MPL/2.0/.
 DO NOT EDIT. THIS FILE IS GENERATED.
 See the generator script source/devtool/generator_clang_ast_nodes.d
 */
-module cpptooling.analyzer.clang.ast.base_visitor;
+module libclang_ast.ast.base_visitor;
 abstract class Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
 @safe:
 

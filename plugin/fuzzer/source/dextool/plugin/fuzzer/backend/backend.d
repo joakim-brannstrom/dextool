@@ -22,7 +22,7 @@ import dextool.type : Path, AbsolutePath;
 import cpptooling.data.type : LocationTag, Location;
 
 struct Backend {
-    import cpptooling.analyzer.clang.context : ClangContext;
+    import libclang_ast.context : ClangContext;
     import cpptooling.data.symbol : Container;
     import cpptooling.testdouble.header_filter : GenericTestDoubleIncludes, LocationType;
     import dextool.type : ExitStatusType;

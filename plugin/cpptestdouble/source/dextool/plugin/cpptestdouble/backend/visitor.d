@@ -13,7 +13,7 @@ import logger = std.experimental.logger;
 
 import dextool.type : Path;
 
-import cpptooling.analyzer.clang.ast : Visitor;
+import libclang_ast.ast : Visitor;
 import cpptooling.data : CppRoot, CppClass, CppMethod, CppCtor, CppDtor,
     CFunction, CppNamespace, LocationTag, Location;
 import cpptooling.data.symbol : USRType;
@@ -50,13 +50,13 @@ alias CppTUVisitor = CppVisitor!(VisitorKind.root);
 final class CppVisitor(VisitorKind RootT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
-    import cpptooling.analyzer.clang.ast : UnexposedDecl, VarDecl, FunctionDecl,
-        ClassDecl, Namespace, TranslationUnit, generateIndentIncrDecr, StructDecl;
+    import libclang_ast.ast : UnexposedDecl, VarDecl, FunctionDecl, ClassDecl,
+        Namespace, TranslationUnit, generateIndentIncrDecr, StructDecl;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl, analyzeVarDecl;
     import cpptooling.data : CppRoot, CxGlobalVariable, CppNsStack,
         CxReturnType, CppNs, TypeKindVariable;
     import cpptooling.data.symbol : Container;
-    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+    import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
 

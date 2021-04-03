@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.analyze.visitor;
 
-import cpptooling.analyzer.clang.ast : Visitor;
+import libclang_ast.ast : Visitor;
 import dextool.type : AbsolutePath;
 
 @safe:
@@ -18,10 +18,10 @@ import dextool.type : AbsolutePath;
 */
 final class TUVisitor : Visitor {
     import std.string : startsWith;
-    import cpptooling.analyzer.clang.ast;
-    import cpptooling.data.symbol : Container;
-    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import dsrcgen.cpp;
+    import libclang_ast.ast;
+    import libclang_ast.cursor_logger : logNode, mixinNodeLog;
+    import cpptooling.data.symbol : Container;
 
     alias visit = Visitor.visit;
 

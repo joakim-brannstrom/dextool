@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2017-2021, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 This file contains convenient functions for logging some meta data about a
 cursor for debugging purpose.
 */
-module cpptooling.analyzer.clang.cursor_logger;
+module libclang_ast.cursor_logger;
 
 import clang.Cursor : Cursor;
 import clang.Visitor : Visitor;
