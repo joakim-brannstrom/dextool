@@ -20,8 +20,6 @@ import dextool.compilation_db;
 import dextool.io : WriteStrategy;
 import dextool.type;
 
-import dextool.plugin.types;
-
 import dextool.plugin.fuzzer.type;
 
 import dextool.plugin.fuzzer.frontend.raw_args : RawConfiguration, XmlConfig, Symbols;

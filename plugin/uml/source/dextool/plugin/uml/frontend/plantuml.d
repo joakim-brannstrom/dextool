@@ -11,14 +11,12 @@ Generate PlantUML diagrams of C/C++ source code.
 */
 module dextool.plugin.frontend.plantuml;
 
-import std.typecons : Flag, Yes, No;
-
+import std.typecons : Flag, Yes, No, Tuple;
 import logger = std.experimental.logger;
 
 import dextool.compilation_db;
 import dextool.type;
 
-import dextool.plugin.types;
 import dextool.plugin.backend.plantuml : Controller, Parameters, Products;
 import cpptooling.data : CppRoot, CppNamespace, CppClass;
 
@@ -96,7 +94,7 @@ struct RawConfiguration {
 }
 
 // dfmt off
-static auto plantuml_opt = CliOptionParts(
+static auto plantuml_opt = Tuple!(string, "usage", string, "optional", string, "others")(
     "usage:
  dextool uml [options] [--compile-db=...] [--file-exclude=...] [--in=...] [--] [CFLAGS...]
  dextool uml [options] [--compile-db=...] [--file-include=...] [--in=...] [--] [CFLAGS...]",
@@ -145,7 +143,6 @@ class PlantUMLFrontend : Controller, Parameters, Products {
     import my.filter : ReFilter;
     import cpptooling.type : FilePrefix;
     import dextool.type : Path;
-    import dextool.utility;
 
     import dsrcgen.plantuml;
 

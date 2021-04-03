@@ -18,7 +18,7 @@ unittest {
     makeDextool(testEnv)
         .addInputArg(testData ~ "compile_db/single_file_main.c")
         .addArg(["--compile-db", (testData ~ "compile_db/single_file_db.json").toString])
-        .addArg("--file-restrict=.*/single_file.h")
+        .addArg("--file-include=.*/single_file.h")
         .run;
     dextool_test.makeCompile(testEnv, "g++")
         .outputToDefaultBinary

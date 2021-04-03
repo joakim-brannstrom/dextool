@@ -13,13 +13,12 @@ import logger = std.experimental.logger;
 import std.algorithm : find, map;
 import std.array : array, empty;
 import std.range : drop;
-import std.typecons : Nullable;
+import std.typecons : Nullable, Tuple;
 
 import cpptooling.type;
 import dextool.compilation_db;
 import dextool.type;
 
-import dextool.plugin.types;
 import dextool.plugin.ctestdouble.backend.cvariant : Controller, Parameters, Products;
 import dextool.plugin.ctestdouble.frontend.types;
 import dextool.plugin.ctestdouble.frontend.xml;
@@ -156,7 +155,7 @@ xmlConfig           :%s", header, headerFile, fileInclude, prefix, gmock,
 }
 
 // dfmt off
-static auto ctestdouble_opt = CliOptionParts(
+static auto ctestdouble_opt = Tuple!(string, "usage", string, "optional", string, "others")(
     "usage:
  dextool ctestdouble [options] [--in=] [-- CFLAGS]",
     // -------------

@@ -145,10 +145,9 @@ struct Generator {
     import cpptooling.data : CppRoot;
 
     private static struct Modules {
-        import dextool.plugin.utility : MakerInitializingClassMembers;
-
-        // add a static c'tor
-        mixin MakerInitializingClassMembers!Modules;
+        static Modules make() @safe {
+            return Modules(new CppModule, new CppModule, new CppModule, new CppModule);
+        }
 
         CppModule hdr;
         CppModule impl;

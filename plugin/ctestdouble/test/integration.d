@@ -233,8 +233,8 @@ unittest {
     mixin(envSetup(globalTestdir));
     makeDextool(testEnv)
         .addInputArg(testData ~ "stage_2/param_restrict.h")
-        .addArg(["--file-restrict", ".*/param_restrict.h"])
-        .addArg(["--file-restrict", ".*/include/b.h"])
+        .addArg(["--file-include", ".*/param_restrict.h"])
+        .addArg(["--file-include", ".*/include/b.h"])
         .addIncludeFlag(testData ~ "stage_2/include")
         .addDefineFlag("TEST_INCLUDE")
         .run;

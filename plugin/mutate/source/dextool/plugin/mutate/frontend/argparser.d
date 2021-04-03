@@ -643,7 +643,7 @@ void updateCompileDb(ref ConfigCompileDb db, string[] compileDbs) {
 /** Print a help message conveying how files in the compilation database will
  * be analyzed.
  *
- * It must be enough information that the user can adjust `--out` and `--restrict`.
+ * It must be enough information that the user can adjust `--out` and `--include`.
  */
 void printFileAnalyzeHelp(ref ArgParser ap) @safe {
     static void printPath(string user, string real_) {

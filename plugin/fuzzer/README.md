@@ -29,7 +29,7 @@ Find a file in the compile_commands.json that include zlib.h. Any file will do.
 For this example compress.c suffices.
 
 ```sh
-dextool fuzzer --compile-db compile_commands.json --out dextool --in $(readlink -f compress.c) --file-restrict '.*/zlib\.h'
+dextool fuzzer --compile-db compile_commands.json --out dextool --in $(readlink -f compress.c) --file-include '.*/zlib\.h'
 ```
 
 Modify to add `filter="exclude"` to all symbols.
@@ -42,7 +42,7 @@ Example:
 Rerun dextool with the new configuration file.
 
 ```sh
-dextool fuzzer --compile-db compile_commands.json --out dextool --config dextool/dextool_config.xml --in $(readlink -f compress.c) --file-restrict '.*/zlib\.h'
+dextool fuzzer --compile-db compile_commands.json --out dextool --config dextool/dextool_config.xml --in $(readlink -f compress.c) --file-include '.*/zlib\.h'
 ```
 
 Let us now choose a couple of functions to fuzz.
