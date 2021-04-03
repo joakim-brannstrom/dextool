@@ -1,6 +1,12 @@
-// run with rdmd -Ilibclang -Isource source/devtool/generate_clang_ast_nodes.d
+#!/usr/bin/env dub
+/+ dub.sdl:
+name "generate_clang_ast_nodes"
+lflags "-L/usr/lib/llvm-10/lib"
+libs  ":libclang.so.1"
+sourcePaths "source" "../libs/libclang/source"
++/
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2021, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -8,21 +14,13 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 */
-module generate_clang_ast_nodes;
+module app;
 
 import std.format : format;
 import std.stdio : File;
 import std.string : toLower, toUpper;
-import std.typecons : Unique;
 
-import cpptooling.analyzer.clang.ast.nodes;
-
-version (unittest) {
-    import std.algorithm : map, splitter;
-    import std.array : array;
-    import std.string : strip;
-    import unit_threaded : shouldEqual;
-}
+import libclang_ast.ast.nodes;
 
 void main(string[] args) {
     generateNodeCode(AttributeSeq, "Attribute");
@@ -70,12 +68,12 @@ one at http://mozilla.org/MPL/2.0/.
 DO NOT EDIT. THIS FILE IS GENERATED.
 See the generator script source/devtool/generator_clang_ast_nodes.d
 */
-module cpptooling.analyzer.clang.ast.%s;
-import cpptooling.analyzer.clang.ast.node : Node;
+module libclang_ast.ast.%s;
+import libclang_ast.ast.node : Node;
 
 abstract class %s : Node {
     import clang.Cursor : Cursor;
-    import cpptooling.analyzer.clang.ast : Visitor;
+    import libclang_ast.ast : Visitor;
 
     Cursor cursor;
     alias cursor this;
@@ -85,8 +83,8 @@ abstract class %s : Node {
     }
 
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        static import libclang_ast.ast;
+        libclang_ast.ast.accept(cursor, v);
     }
 }
 
@@ -95,16 +93,15 @@ abstract class %s : Node {
 
     string name_lower = name.toLower;
 
-    Unique!File file;
-    file = Unique!File(new File("source/cpptooling/analyzer/clang/ast/" ~ name_lower ~ ".d", "w"));
+    auto file = File("../source/libclang_ast/ast/" ~ name_lower ~ ".d", "w");
     file.write(format(template_, name_lower, name, generateNodes(seq.dup, name)));
 }
 
 template generateNodeAccept() {
     enum generateNodeAccept = q{
     override void accept(Visitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
-        cpptooling.analyzer.clang.ast.accept(cursor, v);
+        static import libclang_ast.ast;
+        libclang_ast.ast.accept(cursor, v);
     }
 };
 }
@@ -142,8 +139,8 @@ unittest {
             }
 
             override void accept(Visitor v) @safe const {
-                static import cpptooling.analyzer.clang.ast;
-                cpptooling.analyzer.clang.ast.accept(cursor, v);
+                static import libclang_ast.ast;
+                libclang_ast.ast.accept(cursor, v);
             }
         }}.splitter('\n')
     .map!(a => a.strip));
@@ -180,8 +177,8 @@ unittest {
             }
 
             override void accept(Visitor v) @safe const {
-                static import cpptooling.analyzer.clang.ast;
-                cpptooling.analyzer.clang.ast.accept(cursor, v);
+                static import libclang_ast.ast;
+                libclang_ast.ast.accept(cursor, v);
             }
         }
 
@@ -192,8 +189,8 @@ unittest {
             }
 
             override void accept(Visitor v) @safe const {
-                static import cpptooling.analyzer.clang.ast;
-                cpptooling.analyzer.clang.ast.accept(cursor, v);
+                static import libclang_ast.ast;
+                libclang_ast.ast.accept(cursor, v);
             }
         }
     }.splitter('\n')
@@ -203,7 +200,7 @@ unittest {
 
 void generateVisitorCode(ARGS...)(ARGS args) {
     immutable template_ = `/**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2021, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -214,9 +211,9 @@ one at http://mozilla.org/MPL/2.0/.
 DO NOT EDIT. THIS FILE IS GENERATED.
 See the generator script source/devtool/generator_clang_ast_nodes.d
 */
-module cpptooling.analyzer.clang.ast.base_visitor;
+module libclang_ast.ast.base_visitor;
 abstract class Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
 @safe:
 
@@ -234,8 +231,7 @@ abstract class Visitor {
 }
 `;
 
-    Unique!File file;
-    file = Unique!File(new File("source/cpptooling/analyzer/clang/ast/base_visitor.d", "w"));
+    auto file = File("../source/libclang_ast/ast/base_visitor.d", "w");
 
     string visits;
     foreach (arg; args) {
@@ -265,7 +261,6 @@ string generateVisit(string Base, immutable(string)[] E) {
 }
 
 unittest {
-    // @Name("Should be the mixin string of declarations in CXCursorKind")
     class Declaration {
     }
 
