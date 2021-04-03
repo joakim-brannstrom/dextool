@@ -1,4 +1,4 @@
-/**
+/**cpptooling.analyzer.clang
 Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
@@ -691,8 +691,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
 struct Analyze {
     import std.regex : Regex, regex, matchFirst;
     import std.typecons : Yes;
-    import cpptooling.analyzer.clang.context : ClangContext;
-    import cpptooling.utility.virtualfilesystem;
+    import libclang_ast.context : ClangContext;
 
     static struct Config {
         bool forceSystemIncludes;
@@ -771,7 +770,7 @@ struct Analyze {
         import dextool.plugin.mutate.backend.analyze.pass_filter;
         import dextool.plugin.mutate.backend.analyze.pass_mutant;
         import dextool.plugin.mutate.backend.analyze.pass_schemata;
-        import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
+        import libclang_ast.check_parse_result : hasParseErrors, logDiagnostic;
 
         logger.info("Analyzing ", fileToAnalyze);
         RefCounted!(Ast) ast;
@@ -954,7 +953,7 @@ unittest {
 
 /// Stream of tokens excluding comment tokens.
 class TokenStreamImpl : TokenStream {
-    import cpptooling.analyzer.clang.context : ClangContext;
+    import libclang_ast.context : ClangContext;
     import dextool.plugin.mutate.backend.type : Token;
     import dextool.plugin.mutate.backend.utility : tokenize;
 

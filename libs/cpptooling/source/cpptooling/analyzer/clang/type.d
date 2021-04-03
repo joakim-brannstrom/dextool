@@ -44,8 +44,9 @@ import clang.c.Index : CXTypeKind, CXCursorKind;
 import clang.Cursor : Cursor;
 import clang.Type : Type;
 
+import libclang_ast.cursor_logger : logNode;
+
 public import cpptooling.data.kind_type;
-import cpptooling.analyzer.clang.cursor_logger : logNode;
 import cpptooling.analyzer.clang.type_logger : logType;
 import cpptooling.data : SimpleFmt, TypeId, TypeIdLR;
 import cpptooling.data : Location, LocationTag;
@@ -1498,7 +1499,7 @@ body {
 
     auto handleTypedef(ref Nullable!TypeResults rval) {
         import std.algorithm : until;
-        import cpptooling.analyzer.clang.cursor_visitor : visitBreathFirst;
+        import libclang_ast.cursor_visitor : visitBreathFirst;
 
         // example of tree analyzed:
         // VarDecl -> TypedefDecl

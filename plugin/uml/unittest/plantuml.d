@@ -17,8 +17,8 @@ import clang.TranslationUnit : TranslationUnit;
 
 import dextool.type;
 import cpptooling.data : TypeKind, USRType;
-import cpptooling.analyzer.clang.ast : ClangAST;
-import cpptooling.analyzer.clang.context;
+import libclang_ast.ast : ClangAST;
+import libclang_ast.context;
 import cpptooling.data.symbol : Container;
 import dextool.plugin.frontend.plantuml : Lookup;
 import dextool.plugin.backend.plantuml;
@@ -103,7 +103,7 @@ class Backend {
 
 void actTwoFiles(BackendT)(ref TranslationUnit tu0, ref TranslationUnit tu1, ref BackendT be)
         if (is(BackendT == typeof(scoped!Backend()))) {
-    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors;
+    import libclang_ast.check_parse_result : hasParseErrors;
 
     tu0.hasParseErrors.shouldBeFalse;
     tu1.hasParseErrors.shouldBeFalse;

@@ -11,7 +11,7 @@ module dextool.plugin.fuzzer.backend.analyzer;
 
 import logger = std.experimental.logger;
 
-import cpptooling.analyzer.clang.ast : Visitor;
+import libclang_ast.ast : Visitor;
 import cpptooling.data : CppRoot, CppClass, CppMethod, CppCtor, CppDtor,
     CFunction, CppNamespace, USRType, Language, LocationTag, Location;
 
@@ -85,12 +85,12 @@ private LanguageAnalyzeState mergeLanguage(LanguageAnalyzeState st,
 final class TUVisitor : Visitor {
     import std.typecons : scoped, NullableRef;
 
-    import cpptooling.analyzer.clang.ast : UnexposedDecl, FunctionDecl,
-        TranslationUnit, generateIndentIncrDecr, LinkageSpec;
+    import libclang_ast.ast : UnexposedDecl, FunctionDecl, TranslationUnit,
+        generateIndentIncrDecr, LinkageSpec;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl;
     import cpptooling.data : CxReturnType;
     import cpptooling.data.symbol : Container;
-    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+    import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
 

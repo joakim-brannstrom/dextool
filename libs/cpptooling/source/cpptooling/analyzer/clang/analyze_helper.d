@@ -23,10 +23,10 @@ import clang.c.Index : CX_CXXAccessSpecifier, CX_StorageClass, CXLanguageKind;
 import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 
-import cpptooling.analyzer.clang.ast : ClassTemplate,
-    ClassTemplatePartialSpecialization, Constructor, CxxMethod, ClassDecl,
-    CxxBaseSpecifier, Destructor, FieldDecl, FunctionDecl, StructDecl,
-    TranslationUnit, UnionDecl, VarDecl, Visitor;
+import libclang_ast.ast : ClassTemplate, ClassTemplatePartialSpecialization,
+    Constructor, CxxMethod, ClassDecl, CxxBaseSpecifier,
+    Destructor, FieldDecl, FunctionDecl, StructDecl, TranslationUnit, UnionDecl, VarDecl, Visitor;
+
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
     TypeResult, TypeResults, logTypeResult;
 import cpptooling.analyzer.clang.store : put;
@@ -536,10 +536,10 @@ auto analyzeTranslationUnit(const(TranslationUnit) tu, ref Container container, 
  */
 final class ClassVisitor : Visitor {
     import clang.Cursor : Cursor;
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
     import cpptooling.data;
     import cpptooling.data.symbol : Container;
-    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+    import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
 

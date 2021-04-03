@@ -4,6 +4,8 @@ set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/check_parse_result.d
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/context.d
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/cursor_logger.d
+    ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/include_visitor.d
+    ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/cursor_visitor.d
 
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/ast/attribute.d
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/ast/base_visitor.d

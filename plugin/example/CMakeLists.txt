@@ -15,6 +15,7 @@ build_d_executable(
     -I${CMAKE_SOURCE_DIR}/libs/dsrcgen/source
     -I${CMAKE_SOURCE_DIR}/libs/clang/source
     -I${CMAKE_SOURCE_DIR}/libs/libclang/source
+    -I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
     -I${CMAKE_SOURCE_DIR}/plugin/source
     -J${CMAKE_SOURCE_DIR}/libs/clang/resources
     -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source
@@ -23,7 +24,7 @@ build_d_executable(
     -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
     -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source"
     ""
-    "dextool_dextool;dextool_cpptooling;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
+    "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
 )
 
 collect_binary_in_root(${EXE_NAME})

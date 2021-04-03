@@ -14,10 +14,6 @@ int main(string[] args) {
     writeln(`Running unit tests`);
     //dfmt off
     return args.runTests!(
-                          "cpptooling.analyzer.clang.ast",
-                          "cpptooling.analyzer.clang.ast.node",
-                          "cpptooling.analyzer.clang.ast.visitor",
-                          "cpptooling.analyzer.clang.context",
                           "cpptooling.analyzer.clang.type",
                           "cpptooling.data.representation",
                           "cpptooling.data.symbol.container",

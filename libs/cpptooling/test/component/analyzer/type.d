@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016-2017, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) 2016-2021, Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -20,10 +20,10 @@ import blob_model;
 
 import cpptooling.data;
 
-import cpptooling.analyzer.clang.ast;
+import libclang_ast.ast;
 import cpptooling.analyzer.clang.analyze_helper;
-import cpptooling.analyzer.clang.context : ClangContext;
-import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+import libclang_ast.context : ClangContext;
+import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 import cpptooling.analyzer.clang.type;
 import cpptooling.data.symbol : Container;
 import cpptooling.data : TypeKindVariable, VariadicType, Location, USRType, toStringDecl;
@@ -34,7 +34,7 @@ writelnUt(visitor.container.toString);
 */
 
 final class TestVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;
@@ -86,7 +86,7 @@ final class TestVisitor : Visitor {
 }
 
 final class AllFuncVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;
@@ -118,7 +118,7 @@ final class AllFuncVisitor : Visitor {
 }
 
 final class TestRecordVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;
@@ -152,7 +152,7 @@ final class TestRecordVisitor : Visitor {
 }
 
 final class TestDeclVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;
@@ -177,7 +177,7 @@ final class TestDeclVisitor : Visitor {
 }
 
 final class TestFunctionBodyVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;
@@ -214,7 +214,7 @@ final class TestFunctionBodyVisitor : Visitor {
 
         logNode(ref_, indent);
 
-        import cpptooling.analyzer.clang.ast.tree : dispatch;
+        import libclang_ast.ast.tree : dispatch;
 
         dispatch!Visitor(ref_, this);
     }
@@ -228,7 +228,7 @@ final class TestFunctionBodyVisitor : Visitor {
 }
 
 final class TestUnionVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;
@@ -265,7 +265,7 @@ final class TestUnionVisitor : Visitor {
 }
 
 final class ClassVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;

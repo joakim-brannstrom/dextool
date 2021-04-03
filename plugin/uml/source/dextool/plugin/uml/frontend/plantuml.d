@@ -331,7 +331,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
 
     import cpptooling.data : CppRoot;
     import cpptooling.data.symbol : Container;
-    import cpptooling.analyzer.clang.context : ClangContext;
+    import libclang_ast.context : ClangContext;
 
     import dextool.clang : reduceMissingFiles;
     import dextool.io : writeFileData;

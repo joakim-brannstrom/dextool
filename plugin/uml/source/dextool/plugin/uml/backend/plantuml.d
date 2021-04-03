@@ -32,7 +32,7 @@ import dsrcgen.plantuml;
 
 import dextool.type;
 import cpptooling.type : FilePrefix;
-import cpptooling.analyzer.clang.ast : Visitor;
+import libclang_ast.ast : Visitor;
 import cpptooling.data : TypeKind, TypeAttr, resolveCanonicalType, USRType,
     TypeKindAttr, CxParam, CxReturnType, TypeKindVariable;
 import cpptooling.data.symbol.types : FullyQualifiedNameType;
@@ -1027,11 +1027,11 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     import std.array : Appender;
     import std.typecons : scoped, NullableRef;
 
-    import cpptooling.analyzer.clang.ast : ClassDecl, CxxBaseSpecifier, Constructor,
-        Destructor, CxxMethod, FieldDecl, CxxAccessSpecifier, generateIndentIncrDecr;
+    import libclang_ast.ast : ClassDecl, CxxBaseSpecifier, Constructor, Destructor,
+        CxxMethod, FieldDecl, CxxAccessSpecifier, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeRecord, analyzeConstructor, analyzeDestructor,
         analyzeCxxMethod, analyzeFieldDecl, analyzeCxxBaseSpecified, toAccessType;
-    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+    import libclang_ast.cursor_logger : logNode, mixinNodeLog;
     import cpptooling.data : CppNsStack, CppNs, AccessType, CppAccess, MemberVirtualType;
 
     import cpptooling.data.class_classification : ClassificationState = State;
@@ -1198,11 +1198,11 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
     import std.range : chain, only, dropOne, ElementType;
     import std.typecons : scoped, NullableRef;
 
-    import cpptooling.analyzer.clang.ast : TranslationUnit, UnexposedDecl,
-        VarDecl, FunctionDecl, ClassDecl, Namespace, generateIndentIncrDecr;
+    import libclang_ast.ast : TranslationUnit, UnexposedDecl, VarDecl,
+        FunctionDecl, ClassDecl, Namespace, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl,
         analyzeVarDecl, analyzeRecord, analyzeTranslationUnit;
-    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+    import libclang_ast.cursor_logger : logNode, mixinNodeLog;
     import cpptooling.data : CppNsStack, CppNs;
 
     alias visit = Visitor.visit;

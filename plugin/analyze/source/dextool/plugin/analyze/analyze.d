@@ -165,7 +165,7 @@ void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
     import std.typecons : Yes;
     import std.exception : collectException;
     import dextool.utility : analyzeFile;
-    import cpptooling.analyzer.clang.context : ClangContext;
+    import libclang_ast.context : ClangContext;
 
     try {
         logger.infof("File %d/%d ", file_idx + 1, total_files);
@@ -307,7 +307,7 @@ struct AnalyzeBuilder {
  * TODO reduce null checks. It is a sign of weakness in the design.
  */
 struct AnalyzeCollection {
-    import cpptooling.analyzer.clang.ast.declaration;
+    import libclang_ast.ast.declaration;
 
     McCabeResult mcCabeResult;
     private McCabe mcCabe;

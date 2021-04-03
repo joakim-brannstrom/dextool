@@ -7,7 +7,7 @@ This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
 
-Extensions to the visitor in `cpptooling.analyzer.clang.ast`.
+Extensions to the visitor in `libclang_ast.ast`.
 
 Intende to move this code to clang_extensions if this approach to extending the
 clang AST works well.
@@ -15,19 +15,19 @@ clang AST works well.
 module dextool.plugin.mutate.backend.analyze.extensions;
 
 import clang.Cursor : Cursor;
-import cpptooling.analyzer.clang.ast : Visitor;
+import libclang_ast.ast : Visitor;
 
 import my.set;
 
 static import dextool.clang_extensions;
 
-static import cpptooling.analyzer.clang.ast;
+static import libclang_ast.ast;
 
 /**
  * the ignoreCursors solution is not particularly principaled. It is an ugly hack that should be moved to the core AST `Visitor` and thus completely h
  */
 class ExtendedVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
     import dextool.clang_extensions;
 
     alias visit = Visitor.visit;
@@ -58,56 +58,55 @@ class ExtendedVisitor : Visitor {
 // using dispatch because the wrapped cursor has to be re-visited as its
 // original `type`. Not just the colored `IfStmt` node.
 
-final class IfStmtInit : cpptooling.analyzer.clang.ast.Statement {
+final class IfStmtInit : libclang_ast.ast.Statement {
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     void accept(ExtendedVisitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.dispatch(cursor, v);
+        libclang_ast.ast.dispatch(cursor, v);
     }
 }
 
-final class IfStmtCond : cpptooling.analyzer.clang.ast.Expression {
+final class IfStmtCond : libclang_ast.ast.Expression {
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     void accept(ExtendedVisitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.dispatch(cursor, v);
+        libclang_ast.ast.dispatch(cursor, v);
     }
 }
 
-final class IfStmtThen : cpptooling.analyzer.clang.ast.Statement {
+final class IfStmtThen : libclang_ast.ast.Statement {
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     void accept(ExtendedVisitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.dispatch(cursor, v);
+        libclang_ast.ast.dispatch(cursor, v);
     }
 }
 
-final class IfStmtElse : cpptooling.analyzer.clang.ast.Statement {
+final class IfStmtElse : libclang_ast.ast.Statement {
     this(Cursor cursor) @safe {
         super(cursor);
     }
 
     void accept(ExtendedVisitor v) @safe const {
-        static import cpptooling.analyzer.clang.ast;
+        static import libclang_ast.ast;
 
-        cpptooling.analyzer.clang.ast.dispatch(cursor, v);
+        libclang_ast.ast.dispatch(cursor, v);
     }
 }
 
-void accept(T)(const(cpptooling.analyzer.clang.ast.IfStmt) n, T v)
-        if (is(T : ExtendedVisitor)) {
+void accept(T)(const(libclang_ast.ast.IfStmt) n, T v) if (is(T : ExtendedVisitor)) {
     import dextool.clang_extensions;
 
     auto stmt = getIfStmt(n.cursor);

@@ -113,7 +113,7 @@ void rndSleep(Duration min_, int span) nothrow @trusted {
  *      most one per line.
  */
 auto tokenize(Flag!"splitMultiLineTokens" splitTokens = No.splitMultiLineTokens)(
-        ref from.cpptooling.analyzer.clang.context.ClangContext ctx, Path file) @trusted {
+        ref from.libclang_ast.context.ClangContext ctx, Path file) @trusted {
     import std.range : enumerate;
 
     auto tu = ctx.makeTranslationUnit(file);

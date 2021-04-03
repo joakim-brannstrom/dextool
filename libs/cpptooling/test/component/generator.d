@@ -22,7 +22,7 @@ import dextool.utility;
 import cpptooling.data;
 import cpptooling.data.symbol : Container;
 
-import cpptooling.analyzer.clang.ast : Visitor, ClangAST;
+import libclang_ast.ast : Visitor, ClangAST;
 
 import cpptooling.generator.gtest;
 import cpptooling.generator.gmock;
@@ -32,8 +32,8 @@ version (unittest) {
 }
 
 final class TestVisitor : Visitor {
-    import cpptooling.analyzer.clang.ast;
-    import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+    import libclang_ast.ast;
+    import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 
     alias visit = Visitor.visit;
     mixin generateIndentIncrDecr;

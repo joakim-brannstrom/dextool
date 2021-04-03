@@ -12,6 +12,7 @@ set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool_clang_extensions/source
 -I${CMAKE_SOURCE_DIR}/libs/dsrcgen/source
 -I${CMAKE_SOURCE_DIR}/libs/libclang/source
+-I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
 -I${CMAKE_SOURCE_DIR}/plugin/source
 -I${CMAKE_SOURCE_DIR}/source
 -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
@@ -28,7 +29,7 @@ build_d_executable(
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_dextool;dextool_cpptooling;dextool_clang_extensions;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
+    "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_clang_extensions;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
 )
 
 collect_binary_in_root(${EXE_NAME})

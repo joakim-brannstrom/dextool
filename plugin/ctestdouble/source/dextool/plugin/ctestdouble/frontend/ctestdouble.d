@@ -617,7 +617,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] userCflags,
         CompileCommandDB compile_db, Path[] inFiles) {
     import std.typecons : Yes;
 
-    import cpptooling.analyzer.clang.context : ClangContext;
+    import libclang_ast.context : ClangContext;
     import dextool.clang : reduceMissingFiles;
     import dextool.compilation_db : limitOrAllRange, parse, prependFlags,
         addCompiler, replaceCompiler, addSystemIncludes, fileRange;

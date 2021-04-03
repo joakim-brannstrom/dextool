@@ -27,8 +27,7 @@ import clang.Eval : Eval;
 import clang.Type : Type;
 import clang.c.Index : CXTypeKind, CXCursorKind, CXEvalResultKind, CXTokenKind;
 
-import cpptooling.analyzer.clang.cursor_visitor;
-import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
+import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 
 import dextool.clang_extensions : getUnderlyingExprNode;
 
@@ -48,7 +47,7 @@ alias accept = dextool.plugin.mutate.backend.analyze.extensions.accept;
 /** Translate a clang AST to a mutation AST.
  */
 ClangResult toMutateAst(const Cursor root, FilesysIO fio) @safe {
-    import cpptooling.analyzer.clang.ast : ClangAST;
+    import libclang_ast.ast;
 
     auto visitor = new BaseVisitor(fio);
     scope (exit)
@@ -395,7 +394,7 @@ Location toLocation(ref const Cursor c) {
  */
 final class BaseVisitor : ExtendedVisitor {
     import clang.c.Index : CXCursorKind, CXTypeKind;
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
     import dextool.clang_extensions : getExprOperator, OpKind;
     import my.set;
 
@@ -626,7 +625,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     // TODO overlapping logic with Expression. deduplicate
     override void visit(const DeclRefExpr v) @trusted {
-        import cpptooling.analyzer.clang.ast : dispatch;
+        import libclang_ast.ast : dispatch;
         import clang.SourceRange : intersects;
 
         mixin(mixinNodeLog!());
@@ -1041,7 +1040,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     /// Returns: true if it added a binary operator, false otherwise.
     private bool visitBinaryOp(ref OperatorCursor op, const CXCursorKind cKind) @trusted {
-        import cpptooling.analyzer.clang.ast : dispatch;
+        import libclang_ast.ast : dispatch;
 
         auto astOp = cast(analyze.BinaryOp) op.astOp;
         if (astOp is null)
@@ -1120,7 +1119,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     /// Returns: true if it added a binary operator, false otherwise.
     private bool visitUnaryOp(ref OperatorCursor op, CXCursorKind cKind) @trusted {
-        import cpptooling.analyzer.clang.ast : dispatch;
+        import libclang_ast.ast : dispatch;
 
         auto astOp = cast(analyze.UnaryOp) op.astOp;
         if (astOp is null)
@@ -1211,7 +1210,7 @@ final class BaseVisitor : ExtendedVisitor {
 }
 
 final class EnumVisitor : ExtendedVisitor {
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = ExtendedVisitor.visit;
 
@@ -1269,7 +1268,7 @@ final class EnumVisitor : ExtendedVisitor {
 
 final class FindVisitor(T) : ExtendedVisitor {
     import clang.c.Index : CXCursorKind, CXTypeKind;
-    import cpptooling.analyzer.clang.ast;
+    import libclang_ast.ast;
 
     alias visit = ExtendedVisitor.visit;
 
