@@ -12,6 +12,7 @@ import std.typecons : Flag, Yes;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
+import my.sumtype;
 
 import dextool.type : Path, DextoolVersion;
 import cpptooling.data.symbol;
@@ -165,7 +166,7 @@ struct Generator {
 
     /** Filter and aggregate data for future processing.
      */
-    void aggregate(ref CppRoot root, ref const(Container) container) {
+    void aggregate(ref CppRoot root, ref Container container) {
         import cpptooling.data.symbol.types : USRType;
 
         rawFilter(root, ctrl, products, filtered, (USRType usr) => container.find!LocationTag(usr));
@@ -181,7 +182,7 @@ struct Generator {
      * Code generation is a straight up translation.
      * Logical decisions should have been handled in earlier stages.
      */
-    void process(ref const(Container) container) {
+    void process(ref Container container) {
         logger.tracef("Filtered:\n%s\n", filtered.toString());
 
         auto implementation = makeImplementation(filtered, ctrl, params, container);
@@ -289,7 +290,7 @@ final class CVisitor : Visitor {
         this.root = CppRoot.make;
     }
 
-    override void visit(const(VarDecl) v) @trusted {
+    override void visit(const VarDecl v) @trusted {
         import cpptooling.data : TypeKindVariable;
         import clang.c.Index : CX_StorageClass;
 
@@ -305,7 +306,7 @@ final class CVisitor : Visitor {
         }
     }
 
-    override void visit(const(FunctionDecl) v) {
+    override void visit(const FunctionDecl v) {
         import cpptooling.data.type : CxReturnType;
 
         mixin(mixinNodeLog!());
@@ -318,7 +319,7 @@ final class CVisitor : Visitor {
         }
     }
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(const TranslationUnit v) {
         import cpptooling.analyzer.clang.type : makeLocation;
 
         mixin(mixinNodeLog!());
@@ -334,7 +335,7 @@ final class CVisitor : Visitor {
         v.accept(this);
     }
 
-    void toString(Writer)(scope Writer w) @safe const {
+    void toString(Writer)(scope Writer w) @safe {
         import std.format : FormatSpec;
         import std.range.primitives : put;
 
@@ -346,7 +347,7 @@ final class CVisitor : Visitor {
         container.toString(w, FormatSpec!char("%s"));
     }
 
-    override string toString() const {
+    override string toString() {
         import std.exception : assumeUnique;
 
         char[] buf;
@@ -449,10 +450,10 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
     // dfmt off
     input.funcRange
         // by definition static functions can't be replaced by test doubles
-        .filter!(a => a.storageClass != StorageClass.Static)
+        .filter!(a => a.payload.storageClass != StorageClass.Static)
         // ask controller if the user wants to generate a test double function for the symbol.
         // note: using the fact that C do NOT have name mangling.
-        .filter!(a => ctrl.doSymbol(a.name))
+        .filter!(a => ctrl.doSymbol(a.payload.name))
         // ask controller if to generate a test double for the function
         .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name))(lookup)
         // pass on location as a product to be used to calculate #include
@@ -479,7 +480,7 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
  * Make a google mock if asked by the user.
  */
 auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
-        const ref Container container) {
+        ref Container container) @trusted {
     import std.algorithm : filter;
     import std.array : array;
     import cpptooling.data : CppNamespace, CppNs, CppClassName, CppInherit,
@@ -490,10 +491,10 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
     import dextool.plugin.ctestdouble.backend.global : makeGlobalInterface,
         makeZeroGlobal, filterMutable;
 
-    auto impl = ImplData.make;
+    ImplData impl = ImplData.make;
     impl.root.merge(root, MergeMode.shallow);
 
-    impl.globals = impl.globalRange.filterMutable(container).array();
+    impl.globals = impl.globalRange.filterMutable(container).array;
 
     const has_mutable_globals = impl.globals.length != 0;
     const has_functions = !root.funcRange.empty;
@@ -555,7 +556,7 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
     return impl;
 }
 
-void generate(ref ImplData data, Controller ctrl, Parameters params, ref const Container container,
+void generate(ref ImplData data, Controller ctrl, Parameters params, ref Container container,
         CppModule hdr, CppModule impl, CppModule globals, CppModule gmock) {
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
@@ -596,16 +597,17 @@ void generate(ref ImplData data, Controller ctrl, Parameters params, ref const C
 
 /// Generate the global definitions and macros for initialization.
 void generateGlobal(RangeT)(RangeT r, Controller ctrl, Parameters params,
-        const ref Container container, CppModule globals) {
-    void generateDefinitions(ref CxGlobalVariable global, Flag!"locationAsComment" loc_as_comment,
-            string prefix, ref const(Container) container, CppModule code)
-    in {
-        import std.algorithm : among;
-        import cpptooling.data : TypeKind;
+        ref Container container, CppModule globals) {
+    import cpptooling.data : TypeKind, Void;
 
-        assert(!global.type.kind.info.kind.among(TypeKind.Info.Kind.ctor, TypeKind.Info.Kind.dtor));
+    void generateDefinitions(ref CxGlobalVariable global, Flag!"locationAsComment" loc_as_comment,
+            string prefix, ref Container container, CppModule code)
+    in {
+        global.type.kind.info.match!(restrictTo!(TypeKind.CtorInfo, TypeKind.DtorInfo, (_) {
+                assert(0, "wrong type");
+            }), (_) {});
     }
-    body {
+    do {
         import std.algorithm : map, joiner;
         import std.format : format;
         import std.string : toUpper;
@@ -627,34 +629,25 @@ void generateGlobal(RangeT)(RangeT r, Controller ctrl, Parameters params,
 
     void generatePreProcessor(ref CxGlobalVariable global, string prefix, CppModule code) {
         import std.string : toUpper;
-        import cpptooling.data : TypeKind, toStringDecl;
+        import cpptooling.data : toStringDecl;
 
         auto d_name = E((prefix ~ "Init_").toUpper ~ global.name);
         auto ifndef = code.IFNDEF(d_name);
 
-        // example: #define TEST_INIT_extern_a int extern_a[4]
-        final switch (global.type.kind.info.kind) with (TypeKind.Info) {
-        case Kind.array:
-        case Kind.func:
-        case Kind.funcPtr:
-        case Kind.funcSignature:
-        case Kind.pointer:
-        case Kind.primitive:
-        case Kind.record:
-        case Kind.simple:
-        case Kind.typeRef:
+        void handler() {
             ifndef.define(d_name ~ E(global.type.toStringDecl(global.name)));
-            break;
-        case Kind.ctor:
-            // a C test double shold never have preprocessor macros for a C++ ctor
-            assert(false);
-        case Kind.dtor:
-            // a C test double shold never have preprocessor macros for a C++ dtor
-            assert(false);
-        case Kind.null_:
-            logger.error("Type of global definition is null. Identifier ", global.name);
-            break;
         }
+
+        // example: #define TEST_INIT_extern_a int extern_a[4]
+        global.type.kind.info.match!(restrictTo!(TypeKind.ArrayInfo, TypeKind.FuncInfo,
+                TypeKind.FuncPtrInfo, TypeKind.FuncSignatureInfo, TypeKind.PointerInfo, TypeKind.PrimitiveInfo,
+                TypeKind.RecordInfo, TypeKind.SimpleInfo, TypeKind.TypeRefInfo, (a) {
+                handler;
+            }), restrictTo!(TypeKind.CtorInfo, TypeKind.DtorInfo, (a) {
+                assert(0, "unexpected c++ code in preprocessor macros");
+            }), (Void a) {
+            logger.error("Type of global definition is null. Identifier ", global.name);
+        });
     }
 
     auto global_macros = globals.base;
@@ -699,8 +692,8 @@ void generateNsTestDoubleHdr(LookupT, KindLookupT)(ref CppNamespace ns, Flag!"lo
     }
 }
 
-void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl, CppModule mutable_extern_hook,
-        ref ImplData data, StubPrefix prefix, ref const Container container) {
+void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl,
+        CppModule mutable_extern_hook, ref ImplData data, StubPrefix prefix, ref Container container) {
     import dextool.plugin.ctestdouble.backend.global : generateGlobalExterns,
         generateInitGlobalsToZero;
     import dextool.plugin.ctestdouble.backend.adapter : generateClassImplAdapter = generateImpl;

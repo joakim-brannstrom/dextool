@@ -9,11 +9,13 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.ctestdouble.backend.global;
 
+import dsrcgen.cpp : CppModule;
+import my.sumtype;
+
 import cpptooling.type : StubPrefix;
 import cpptooling.data : CppClass, CppClassName, CppInherit, CppVariable,
-    CxGlobalVariable, TypeKindAttr, USRType, TypeKind;
+    CxGlobalVariable, TypeKindAttr, USRType, TypeKind, Void;
 import cpptooling.data.symbol : Container;
-import dsrcgen.cpp : CppModule;
 
 import logger = std.experimental.logger;
 
@@ -29,30 +31,21 @@ struct MutableGlobal {
 }
 
 /// Recursive lookup until the underlying type is found.
-TypeKind resolveTypedef(TypeKind type, const ref Container container) @safe nothrow {
+TypeKind resolveTypedef(TypeKind type, ref Container container) @trusted nothrow {
     TypeKind rval = type;
     auto found = typeof(container.find!TypeKind(USRType.init)).init;
 
-    switch (type.info.kind) with (TypeKind.Info) {
-    case Kind.typeRef:
-        found = container.find!TypeKind(type.info.canonicalRef);
-        break;
-    default:
-        break;
-    }
+    type.info.match!((TypeKind.TypeRefInfo t) {
+        found = container.find!TypeKind(t.canonicalRef);
+    }, (_) {});
 
-    foreach (item; found) {
+    foreach (item; found)
         rval = item;
-    }
 
-    if (rval.info.kind == TypeKind.Info.Kind.typeRef) {
-        return resolveTypedef(rval, container);
-    }
-
-    return rval;
+    return rval.info.match!((TypeKind.TypeRefInfo t) => resolveTypedef(rval, container), _ => rval);
 }
 
-auto filterMutable(RangeT)(RangeT range, const ref Container container) {
+auto filterMutable(RangeT)(RangeT range, ref Container container) {
     import std.algorithm : filter, map;
     import std.range : ElementType;
     import std.range : tee;
@@ -60,20 +53,18 @@ auto filterMutable(RangeT)(RangeT range, const ref Container container) {
     static bool isNotConst(ref ElementType!RangeT element) {
         auto info = element.type.kind.info;
 
-        switch (info.kind) with (TypeKind.Info) {
-        case Kind.funcPtr:
-            goto case;
-        case Kind.pointer:
+        bool handler(T)(ref T info) {
             // every pointer have at least one attribute.
             // because the attribute is for the pointer itself.
             assert(info.attrs.length != 0);
             return !info.attrs[$ - 1].isConst;
-        default:
-            break;
         }
 
-        return !element.type.attr.isConst;
+        return info.match!((const TypeKind.FuncPtrInfo t) => handler(t),
+                (const TypeKind.PointerInfo t) => handler(t), _ => !element.type.attr.isConst);
     }
+
+    resolveTypedef(range.front.type.kind, container);
 
     return range.filter!(a => isNotConst(a))
         .map!(a => MutableGlobal(a, resolveTypedef(a.type.kind, container)));
@@ -83,7 +74,7 @@ auto filterMutable(RangeT)(RangeT range, const ref Container container) {
  *
  * The range must NOT contain any const globals.
  */
-CppClass makeGlobalInterface(RangeT)(RangeT range, const CppClassName main_if) @safe {
+CppClass makeGlobalInterface(RangeT)(RangeT range, CppClassName main_if) @safe {
     import std.algorithm : filter, map;
     import cpptooling.data;
     import cpptooling.data : makeSimple;
@@ -92,7 +83,7 @@ CppClass makeGlobalInterface(RangeT)(RangeT range, const CppClassName main_if) @
     globals_if.put(CppDtor(makeUniqueUSR, CppMethodName("~" ~ globals_if.name),
             CppAccess(AccessType.Public), CppVirtualMethod(MemberVirtualType.Virtual)));
 
-    const void_ = CxReturnType(makeSimple("void"));
+    auto void_ = CxReturnType(makeSimple("void"));
 
     foreach (a; range) {
         auto method = CppMethod(a.usr.get, CppMethodName(a.name), CxParam[].init,
@@ -105,8 +96,8 @@ CppClass makeGlobalInterface(RangeT)(RangeT range, const CppClassName main_if) @
 }
 
 /// The range must NOT contain any const globals.
-CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
-        const StubPrefix prefix, CppInherit inherit) @safe {
+CppClass makeZeroGlobal(RangeT)(RangeT range, CppClassName main_if,
+        StubPrefix prefix, CppInherit inherit) @safe {
     import std.algorithm : filter, map;
     import cpptooling.data : TypeKind, isIncompleteArray, makeSimple;
     import cpptooling.data;
@@ -120,7 +111,7 @@ CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
             CppMethodName("~" ~ globals_if.name), CppAccess(AccessType.Public),
             CppVirtualMethod(MemberVirtualType.Virtual)));
 
-    const void_ = CxReturnType(makeSimple("void"));
+    auto void_ = CxReturnType(makeSimple("void"));
 
     foreach (a; range) {
         auto method = CppMethod(a.usr.get, CppMethodName(a.name), CxParam[].init,
@@ -138,7 +129,7 @@ CppClass makeZeroGlobal(RangeT)(RangeT range, const CppClassName main_if,
  * It thus emulates what the compiler do with the .bss-segment during cbegin.
  */
 void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
-        const StubPrefix prefix, LookupGlobalT lookup) @safe {
+        StubPrefix prefix, LookupGlobalT lookup) @safe {
     import std.typecons : No;
     import std.variant : visit;
     import cpptooling.data : CppMethod, CppMethodOp, CppCtor, CppDtor;
@@ -157,8 +148,8 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
         impl.sep(2);
     }
 
-    void genMethod(const ref CppClass c, const ref CppMethod m,
-            const StubPrefix prefix, CppModule impl, ref bool need_memzero) {
+    void genMethod(ref CppClass c, ref CppMethod m, StubPrefix prefix,
+            CppModule impl, ref bool need_memzero) {
         import std.range : takeOne;
 
         static import std.format;
@@ -168,42 +159,31 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
         auto body_ = impl.method_body("void", c.name, m.name, No.isConst);
         auto global = lookup(m.name);
 
-        switch (global.underlying.info.kind) with (TypeKind.Info) {
-        case Kind.array:
-            if (isIncompleteArray(global.underlying.info.indexes)) {
+        global.underlying.info.match!((TypeKind.ArrayInfo t) {
+            if (isIncompleteArray(t.indexes)) {
                 body_.stmt(E("void** ptr") = E("(void**) &" ~ fqn));
                 body_.stmt("*ptr = 0");
             } else {
                 // c-style cast needed. the compiler warnings about throwning away the const qualifiers otherwise.
                 body_.stmt(E(prefix ~ "memzero")(std.format.format("(void*)(%s), %s",
-                        fqn, E("sizeof")(fqn))));
+                    fqn, E("sizeof")(fqn))));
                 need_memzero = true;
             }
-            break;
-
-        case Kind.primitive:
-            if (global.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+        }, (TypeKind.PrimitiveInfo t) {
+            global.type.kind.info.match!((TypeKind.TypeRefInfo t) {
                 // may be a typedef of an array which is classified as a
                 // prmitive. This is a bug. Fix clang/type.d to resolve the
                 // intermediate node as an array.
                 body_.stmt(E(prefix ~ "memzero")(std.format.format("&%s, %s",
-                        fqn, E("sizeof")(fqn))));
+                fqn, E("sizeof")(fqn))));
                 need_memzero = true;
-            } else {
-                body_.stmt(E(fqn) = E(0));
-            }
-            break;
-
-        case Kind.funcPtr:
-            goto case;
-        case Kind.pointer:
+            }, (_) { body_.stmt(E(fqn) = E(0)); });
+        }, (TypeKind.FuncPtrInfo t) { body_.stmt(E(fqn) = E(0)); }, (TypeKind.PointerInfo t) {
             body_.stmt(E(fqn) = E(0));
-            break;
-
-        default:
+        }, (_) {
             body_.stmt(E(prefix ~ "memzero")(std.format.format("&%s, %s", fqn, E("sizeof")(fqn))));
             need_memzero = true;
-        }
+        });
 
         impl.sep(2);
     }
@@ -244,10 +224,10 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
         // dfmt off
         () @trusted{
             m.visit!(
-                (const CppMethod m) => genMethod(c, m, prefix, impl, need_memzero),
-                (const CppMethodOp m) => noop,
-                (const CppCtor m) => genCtor(c.name, impl),
-                (const CppDtor m) => genDtor(c.name, impl));
+                (CppMethod m) => genMethod(c, m, prefix, impl, need_memzero),
+                (CppMethodOp m) => noop,
+                (CppCtor m) => genCtor(c.name, impl),
+                (CppDtor m) => genDtor(c.name, impl));
         }();
         // dfmt on
     }
@@ -257,35 +237,25 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
     }
 }
 
-string variableToString(const CppVariable name, const TypeKindAttr type) @safe pure {
-    import cpptooling.data : TypeKind, toStringDecl;
+string variableToString(CppVariable name, TypeKindAttr type) @safe pure {
+    import cpptooling.data : toStringDecl;
 
     // example: extern int extern_a[4];
-    final switch (type.kind.info.kind) with (TypeKind.Info) {
-    case Kind.array:
-    case Kind.funcPtr:
-    case Kind.pointer:
-    case Kind.primitive:
-    case Kind.record:
-    case Kind.simple:
-    case Kind.typeRef:
-        return type.toStringDecl(name);
-    case Kind.func:
-    case Kind.funcSignature:
-    case Kind.ctor:
-    case Kind.dtor:
-        assert(false);
-    case Kind.null_:
-        debug {
-            logger.errorf("Variable has type null_. USR:%s name:%s", type.kind.usr, name);
-        }
-        break;
-    }
-
-    return null;
+    return type.kind.info.match!(restrictTo!(TypeKind.ArrayInfo, TypeKind.FuncPtrInfo,
+            TypeKind.PointerInfo, TypeKind.PrimitiveInfo, TypeKind.RecordInfo,
+            TypeKind.SimpleInfo, TypeKind.TypeRefInfo, (a) {
+            return type.toStringDecl(name);
+        }), restrictTo!(TypeKind.FuncInfo, TypeKind.FuncSignatureInfo,
+            TypeKind.CtorInfo, TypeKind.DtorInfo, (a) {
+            assert(0);
+            return string.init;
+        }), (Void a) {
+        debug logger.errorf("Variable has type null_. USR:%s name:%s", type.kind.usr, name);
+        return string.init;
+    });
 }
 
-void generateGlobalExterns(RangeT)(RangeT range, CppModule impl, ref const Container container) {
+void generateGlobalExterns(RangeT)(RangeT range, CppModule impl, ref Container container) {
     import std.algorithm : map, joiner;
 
     auto externs = impl.base;

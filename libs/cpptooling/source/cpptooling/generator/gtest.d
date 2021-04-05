@@ -15,8 +15,10 @@ module cpptooling.generator.gtest;
 import std.range : isInputRange;
 
 import dsrcgen.cpp : CppModule, E;
+import sumtype;
+import my.path : Path;
 
-import dextool.type : Path, DextoolVersion;
+import dextool.type : DextoolVersion;
 
 import cpptooling.data : CppClass, FullyQualifiedNameType, TypeKindVariable;
 import cpptooling.data.symbol : Container;
@@ -47,8 +49,8 @@ auto generateGtestHdr(Path if_file, Path incl_guard, DextoolVersion ver,
  * Optimized compares using == for primitive types except floats.
  * Google tests internal helper for all others.
  */
-void generateGtestPrettyEqual(T)(T members, const FullyQualifiedNameType name,
-        string guard_prefix, ref const Container container, CppModule m) {
+void generateGtestPrettyEqual(T)(T members, FullyQualifiedNameType name,
+        string guard_prefix, ref Container container, CppModule m) {
     import std.algorithm : map, among;
     import std.ascii : isAlphaNum;
     import std.conv : to;
@@ -64,21 +66,20 @@ void generateGtestPrettyEqual(T)(T members, const FullyQualifiedNameType name,
     }
 
     static void fieldCompare(string field, TypeKind canonical_t, CppModule code) {
-        if (canonical_t.info.kind == TypeKind.Info.Kind.primitive) {
-            auto info = cast(TypeKind.PrimitiveInfo) canonical_t.info;
+        canonical_t.info.match!((TypeKind.PrimitiveInfo t) {
             // reuse google tests internal helper for floating points because it does an ULP*4
-            if (info.fmt.typeId.among("float", "double", "long double")) {
+            if (t.fmt.typeId.among("float", "double", "long double")) {
                 // long double do not work with the template thus reducing to a double
                 code.stmt(format(
-                        `acc = acc && ::testing::internal::CmpHelperFloatingPointEQ<%s>("", "", lhs.%s, rhs.%s)`,
-                        info.fmt.typeId == "long double" ? "double" : info.fmt.typeId, field, field));
+                    `acc = acc && ::testing::internal::CmpHelperFloatingPointEQ<%s>("", "", lhs.%s, rhs.%s)`,
+                    t.fmt.typeId == "long double" ? "double" : t.fmt.typeId, field, field));
             } else {
                 code.stmt(E("acc") = E("acc && " ~ format("lhs.%s == rhs.%s", field, field)));
             }
-        } else {
+        }, (_) {
             code.stmt(format(`acc = acc && ::testing::internal::CmpHelperEQ("", "", lhs.%s, rhs.%s)`,
-                    field, field));
-        }
+                field, field));
+        });
     }
 
     auto ifndef = m.IFNDEF(format("%s_NO_CMP_%s", guard_prefix.toUpper,
@@ -95,19 +96,19 @@ void generateGtestPrettyEqual(T)(T members, const FullyQualifiedNameType name,
         auto canonical_t = resolveTypeRef(kind, &findType);
 
         // a constant array compares element vise. For now can only handle one dimensional arrays
-        if (canonical_t.info.kind == TypeKind.Info.Kind.array
-                && !isIncompleteArray(canonical_t.info.indexes)
-                && canonical_t.info.indexes.length == 1) {
-            auto elem_t = findType(canonical_t.info.element).front;
-            auto canonical_elem_t = resolveTypeRef(elem_t, &findType);
-            auto loop = func.for_("unsigned int dextool_i = 0",
-                    "dextool_i < " ~ canonical_t.info.indexes[0].to!string, "++dextool_i");
-            fieldCompare(mem.name ~ "[dextool_i]", canonical_elem_t, loop);
-            with (loop.if_("!acc"))
-                return_("false");
-        } else {
-            fieldCompare(mem.name, canonical_t, func);
-        }
+        canonical_t.info.match!((TypeKind.ArrayInfo t) {
+            if (!isIncompleteArray(t.indexes) && t.indexes.length == 1) {
+                auto elem_t = findType(t.element).front;
+                auto canonical_elem_t = resolveTypeRef(elem_t, &findType);
+                auto loop = func.for_("unsigned int dextool_i = 0",
+                    "dextool_i < " ~ t.indexes[0].to!string, "++dextool_i");
+                fieldCompare(mem.name ~ "[dextool_i]", canonical_elem_t, loop);
+                with (loop.if_("!acc"))
+                    return_("false");
+            } else {
+                fieldCompare(mem.name, canonical_t, func);
+            }
+        }, (_) { fieldCompare(mem.name, canonical_t, func); });
     }
 
     func.return_("acc");
@@ -120,7 +121,7 @@ void generateGtestPrettyEqual(T)(T members, const FullyQualifiedNameType name,
  *  src = POD to generate the pretty printer for.
  *  m = module to generate code in.
  */
-void generateGtestPrettyPrintHdr(const FullyQualifiedNameType name, CppModule m) {
+void generateGtestPrettyPrintHdr(FullyQualifiedNameType name, CppModule m) {
     import std.format : format;
 
     m.func("void", "PrintTo", format("const %s& %s, ::std::ostream* %s", name,
@@ -138,7 +139,7 @@ void generateGtestPrettyPrintHdr(const FullyQualifiedNameType name, CppModule m)
  *  name = fqn name of the type that have the members
  *  m = module to generate code in.
  */
-void generateGtestPrettyPrintImpl(T)(T members, const FullyQualifiedNameType name, CppModule m)
+void generateGtestPrettyPrintImpl(T)(T members, FullyQualifiedNameType name, CppModule m)
         if (isInputRange!T) {
     import std.algorithm;
     import std.format : format;

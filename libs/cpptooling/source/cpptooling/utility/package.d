@@ -11,5 +11,4 @@ module cpptooling.utility;
 
 public import cpptooling.utility.dedup;
 public import cpptooling.utility.sort;
-public import taggedalgebraic;
 public import cpptooling.utility.virtualfilesystem;

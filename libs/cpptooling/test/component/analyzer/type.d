@@ -17,6 +17,7 @@ import std.variant : visit;
 import unit_threaded;
 import test.clang_util;
 import blob_model;
+import my.sumtype;
 
 import cpptooling.data;
 
@@ -137,7 +138,7 @@ final class TestRecordVisitor : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(ClassDecl) v) {
+    override void visit(const(ClassDecl) v) @trusted {
         mixin(mixinNodeLog!());
 
         record = analyzeRecord(v, container, indent);
@@ -337,7 +338,9 @@ unittest {
         // assert
         checkForCompilerErrors(tu).shouldBeFalse;
         visitor.found.shouldBeTrue;
-        visitor.funcs[0].type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.func);
+        visitor.funcs[0].type.kind.info.match!(ignore!(TypeKind.FuncInfo), (_) {
+            assert(0, "wrong type");
+        });
         (cast(string) visitor.funcs[0].name).shouldEqual("fun");
 
         foreach (param; visitor.funcs[0].params) {
@@ -349,13 +352,17 @@ unittest {
                      (VariadicType v) => type = type);
         // dfmt on
 
-            type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
+            type.kind.info.match!(ignore!(TypeKind.PrimitiveInfo), (_) {
+                assert(0, "wrong type");
+            });
         }
 
         // do not try and verify the string representation of the type.
         // It may be platform and compiler specific.
         // For example is signed char -> char.
-        visitor.funcs[0].returnType.kind.info.kind.shouldEqual(TypeKind.Info.Kind.primitive);
+        visitor.funcs[0].returnType.kind.info.match!(ignore!(TypeKind.PrimitiveInfo), (_) {
+            assert(0, "wrong type");
+        });
     }
 }
 
@@ -456,18 +463,25 @@ const void* const func(const MadeUp** const zzzz, const Struct** const yyyy);
 
     { // assert that the found funcs is a func
         auto res = visitor.container.find!TypeKind(visitor.funcs[0].type.kind.usr).front;
-        res.info.kind.shouldEqual(TypeKind.Info.Kind.func);
+        res.info.match!(ignore!(TypeKind.FuncInfo), (_) {
+            assert(0, "wrong type");
+        });
     }
 
     auto param0 = visitor.container.find!TypeKind(
-            visitor.funcs[0].type.kind.info.params[0].usr).front;
+            visitor.funcs[0].type.kind.info.match!(a => a.params[0].usr, _ => USRType.init)).front;
     // assert that the found funcs first parameter is a pointer
-    param0.info.kind.shouldEqual(TypeKind.Info.Kind.pointer);
+    param0.info.match!(ignore!(TypeKind.PointerInfo), (_) {
+        assert(0, "wrong type");
+    });
 
     { // assert that the type pointed at is a typedef
-        auto res = visitor.container.find!TypeKind(param0.info.pointee).front;
+        auto res = visitor.container.find!TypeKind(param0.info.match!(a => a.pointee,
+                _ => USRType.init)).front;
         res.usr.to!string().shouldNotEqual("File:issue.hpp Line:7 Column:45§1zzzz");
-        res.info.kind.shouldEqual(TypeKind.Info.Kind.typeRef);
+        res.info.match!(ignore!(TypeKind.TypeRefInfo), (_) {
+            assert(0, "wrong type");
+        });
     }
 }
 
@@ -519,19 +533,26 @@ fun_ptr *f;
     // act
     auto ast = ClangAST!(typeof(visitor))(tu.cursor);
     ast.accept(visitor);
+    import std.stdio;
+
+    writeln(visitor.container.toString);
 
     // assert
     checkForCompilerErrors(tu).shouldBeFalse;
     { // ptr to typedef
         auto r = visitor.container.find!TypeKind(
                 USRType("File:issue.hpp Line:3 Column:9§1y")).front;
-        r.info.kind.shouldEqual(TypeKind.Info.Kind.pointer);
+        r.info.match!(ignore!(TypeKind.PointerInfo), (_) {
+            assert(0, "wrong type");
+        });
     }
 
     { // ptr to typedef of func prototype
         auto r = visitor.container.find!TypeKind(
                 USRType("File:issue.hpp Line:6 Column:10§1f")).front;
-        r.info.kind.shouldEqual(TypeKind.Info.Kind.funcPtr);
+        r.info.match!(ignore!(TypeKind.FuncPtrInfo), (_) {
+            assert(0, "wrong type");
+        });
     }
 }
 
@@ -646,7 +667,9 @@ struct A {
     // assert
     checkForCompilerErrors(tu).shouldBeFalse;
     visitor.records.length.shouldEqual(1);
-    visitor.records[0].type.kind.info.kind.shouldEqual(TypeKind.Info.Kind.record);
+    visitor.records[0].type.kind.info.match!(ignore!(TypeKind.RecordInfo), (_) {
+        assert(0, "wrong type");
+    });
 }
 
 @("shall be the first level of typedef as the typeref")
@@ -702,12 +725,15 @@ void my_func(myString3 s);
     auto type2 = visitor.container.find!TypeKind(USRType("c:issue.hpp@T@myString3"));
     type2.length.shouldEqual(1);
     auto type = type2.front;
-    type.info.kind.shouldEqual(TypeKind.Info.Kind.typeRef);
+    type.info.match!(ignore!(TypeKind.TypeRefInfo), (_) {
+        assert(0, "wrong type");
+    });
 
     // should NOT point to myString1
     // can't test the USR more specific because it is different on different
     // systems.
-    (USRType(type.info.canonicalRef.dup)).shouldNotEqual(USRType("c:issue.hpp@T@myString1"));
+    type.info.match!(a => a.canonicalRef, _ => USRType.init)
+        .shouldNotEqual(USRType("c:issue.hpp@T@myString1"));
 }
 
 @("shall derive the constness of the return type")
@@ -738,8 +764,12 @@ class Class {
         {
             auto type2 = visitor.container.find!TypeKind(USRType("c:@S@Class@F@fun#"));
             type2.length.shouldEqual(1);
-            type2.front.info.kind.shouldEqual(TypeKind.Info.Kind.func);
-            type2.front.info.returnAttr.isConst.shouldBeTrue;
+            type2.front.info.match!(ignore!(TypeKind.FuncInfo), (_) {
+                assert(0, "wrong type");
+            });
+            type2.front.info.match!(a => a.returnAttr.isConst.shouldBeTrue, (_) {
+                assert(0, "wrong type");
+            });
         }
     }
 }

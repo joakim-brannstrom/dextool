@@ -10,8 +10,9 @@ one at http://mozilla.org/MPL/2.0/.
 module cpptooling.data.symbol.container;
 
 import std.typecons : Flag, Yes, No;
-
 import logger = std.experimental.logger;
+
+import sumtype;
 
 //TODO move TypeKind to .data
 import cpptooling.data.kind_type : TypeKind, Void;
@@ -36,7 +37,7 @@ version (unittest) {
     out (result) {
         assert(payload !is null);
     }
-    body {
+    do {
         return *payload;
     }
 
@@ -57,7 +58,7 @@ private struct FastLookup(T, K) {
     T*[] instances;
     T*[K] lookup;
 
-    invariant() {
+    invariant () {
         assert(instances.length == lookup.length);
     }
 
@@ -65,11 +66,11 @@ private struct FastLookup(T, K) {
      *
      * The callers responsiblity to ensure uniqueness.  If broken, assert.
      */
-    ref T put(T instance, in K key)
+    ref T put(T instance, in K key) @trusted
     in {
         assert((key in lookup) is null);
     }
-    body {
+    do {
         auto heap = new T;
         *heap = instance;
 
@@ -79,28 +80,22 @@ private struct FastLookup(T, K) {
         return *heap;
     }
 
-    auto find(in K key) const {
+    auto find(K key) {
         import std.range : only, dropOne;
 
         auto item = key in lookup;
         if (item is null) {
-            return only(FindResult!(const(T))(null)).dropOne;
+            return only(FindResult!(T)(null)).dropOne;
         }
 
-        return only(FindResult!(const(T))(*item));
+        return only(FindResult!(T)(*item));
     }
 
-    auto lookupRange() @trusted const {
+    auto lookupRange() @trusted {
         return lookup.byKeyValue();
     }
 
     auto opSlice() @safe pure nothrow {
-        import std.algorithm : map;
-
-        return instances.map!(a => *a);
-    }
-
-    auto opSlice() @safe pure nothrow const {
         import std.algorithm : map;
 
         return instances.map!(a => *a);
@@ -148,8 +143,8 @@ private @safe struct DeclLocation {
      *
      * Priority is definition -> declaration.
      */
-    auto any() pure nothrow const @nogc {
-        auto rval = only(const(LocationTag).init).dropOne;
+    auto any() pure nothrow @nogc {
+        auto rval = only(LocationTag.init).dropOne;
 
         if (hasDefinition) {
             rval = only(definition_.get);
@@ -160,11 +155,11 @@ private @safe struct DeclLocation {
         return rval;
     }
 
-    @property ref const(LocationTag) definition() pure nothrow const @nogc {
+    @property LocationTag definition() pure nothrow @nogc {
         return definition_.get;
     }
 
-    @property ref const(LocationTag) definition(inout LocationTag d) {
+    @property LocationTag definition(inout LocationTag d) {
         // It is NOT this functions responsiblity to detect multiple
         // definitions. Detecting involves logic, error reporting etc that is
         // not suitable to put here.
@@ -173,11 +168,11 @@ private @safe struct DeclLocation {
         return definition_.get;
     }
 
-    @property ref const(LocationTag) declaration() pure nothrow const @nogc {
+    @property LocationTag declaration() pure nothrow @nogc {
         return first_decl.get;
     }
 
-    @property ref const(LocationTag) declaration(inout LocationTag d) {
+    @property LocationTag declaration(inout LocationTag d) {
         if (first_decl.isNull) {
             first_decl = d;
         }
@@ -185,11 +180,11 @@ private @safe struct DeclLocation {
         return first_decl.get;
     }
 
-    bool hasDefinition() pure nothrow const @nogc {
+    bool hasDefinition() pure nothrow @nogc {
         return !definition_.isNull && definition_.get.kind != LocationTag.Kind.noloc;
     }
 
-    bool hasDeclaration() pure nothrow const @nogc {
+    bool hasDeclaration() pure nothrow @nogc {
         return !first_decl.isNull && first_decl.get.kind != LocationTag.Kind.noloc;
     }
 
@@ -220,11 +215,11 @@ struct Container {
      * Params:
      *   usr = key to look for.
      */
-    auto find(T)(USRType usr) const if (is(T == TypeKind))
+    auto find(T)(USRType usr) if (is(T == TypeKind))
     out (result) {
         logger.tracef("Find %susr:%s", result.length == 0 ? "failed, " : "", cast(string) usr);
     }
-    body {
+    do {
         return types.find(usr);
     }
 
@@ -235,28 +230,27 @@ struct Container {
      * Params:
      *   usr = key to look for.
      */
-    auto find(T)(USRType usr) const if (is(T == LocationTag))
+    auto find(T)(USRType usr) if (is(T == LocationTag))
     out (result) {
         logger.tracef("Find %susr:%s", result.length == 0 ? "failed, " : "", cast(string) usr);
     }
-    body {
+    do {
         return locations.find(usr);
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) {
         import std.algorithm : map, copy;
         import std.ascii : newline;
         import std.format : formattedWrite, formatValue;
         import std.range.primitives : put;
-        import std.conv : to;
         import cpptooling.data : splitTypeId, LocationTag;
 
         // avoid allocating
 
         put(w, "types [");
         foreach (a; types[]) {
-            formattedWrite(w, "\n  %s %s -> %s", a.info.kind.to!string(),
-                    cast(string) a.usr, a.splitTypeId);
+            formattedWrite(w, "\n  %s %s -> %s", a.info.match!(a => typeof(a)
+                    .stringof), cast(string) a.usr, a.splitTypeId);
         }
         put(w, "]\n");
         put(w, "locations [");
@@ -276,7 +270,7 @@ struct Container {
         put(w, "]");
     }
 
-    string toString() @safe const {
+    string toString() @safe {
         import std.exception : assumeUnique;
         import std.format : FormatSpec;
 
@@ -299,7 +293,7 @@ struct Container {
     in {
         assert(value.usr.length > 0);
     }
-    body {
+    do {
         if (value.usr in types.lookup) {
             return;
         }
@@ -307,10 +301,10 @@ struct Container {
         auto latest = types.put(value, value.usr);
 
         debug {
-            import std.conv : to;
             import cpptooling.data : TypeKind, toStringDecl, TypeAttr, LocationTag, Location;
 
-            logger.tracef("Stored kind:%s usr:%s repr:%s", latest.info.kind.to!string,
+            logger.tracef("Stored kind:%s usr:%s repr:%s",
+                    latest.info.match!(a => typeof(a).stringof),
                     cast(string) latest.usr, latest.toStringDecl(TypeAttr.init, "x"));
         }
     }
@@ -397,8 +391,8 @@ unittest {
     }
 
     cont.toString.shouldEqual(`types [
-  null_ key0 -> TypeIdLR("", "")
-  null_ key1 -> TypeIdLR("", "")]
+  Void key0 -> TypeIdLR("", "")
+  Void key1 -> TypeIdLR("", "")]
 locations [
   key1 ->
     File:file1 Line:1 Column:2

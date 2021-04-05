@@ -252,7 +252,7 @@ void translate(CppRoot root, ref Container container, Controller ctrl,
 /** Translate namspaces and the content to test double implementations.
  */
 CppNamespace translate(CppNamespace input, ref ImplData data,
-        const ref Container container, Controller ctrl, Parameters params) {
+        ref Container container, Controller ctrl, Parameters params) {
     import std.algorithm : map, filter, each;
     import std.array : empty;
     import cpptooling.data : CppNsStack, CppNs, mergeClassInherit, FullyQualifiedNameType;
@@ -300,8 +300,8 @@ CppNamespace translate(CppNamespace input, ref ImplData data,
 }
 
 void translateToTestDoubleForFreeFunctions(InT, OutT)(ref InT input, ref ImplData data,
-        Flag!"doGoogleMock" do_gmock, const CppNsStack reside_in_ns,
-        MainNs main_ns, MainInterface main_if, ref OutT ns) {
+        Flag!"doGoogleMock" do_gmock, CppNsStack reside_in_ns, MainNs main_ns,
+        MainInterface main_if, ref OutT ns) {
     import std.algorithm : each;
     import dextool.plugin.backend.cpptestdouble.adapter : makeAdapter, makeSingleton;
     import cpptooling.data : CppNs, CppClassName;
@@ -426,7 +426,7 @@ void postProcess(Controller ctrl, Parameters params, Products prods,
                 params.getToolVersion, params.getCustomHeader));
     }
 
-    const auto f_gmock_hdr = transf.createHeaderFile("_gmock");
+    const f_gmock_hdr = transf.createHeaderFile("_gmock");
     if (gen_data.gmocks.length != 0 || gen_data.gtestPPHdr.length != 0) {
         prods.putFile(f_gmock_hdr, outputHdr(mock_incls, f_gmock_hdr,
                 params.getToolVersion, params.getCustomHeader));
@@ -449,7 +449,7 @@ void postProcess(Controller ctrl, Parameters params, Products prods,
     }
 }
 
-string makeGtestFileName(Transform transf, const CppNs[] nesting, const CppClassName name) {
+string makeGtestFileName(Transform transf, CppNs[] nesting, CppClassName name) {
     import std.algorithm : joiner, map;
     import std.conv : text;
     import std.format : format;

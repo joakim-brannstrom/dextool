@@ -44,7 +44,7 @@ void generateFuncImpl(CFunction f, CppModule impl) {
 /** Create a C++ interface of funcs in range to allow the user to supply an
  * implementation.
  */
-CppClass makeFuncInterface(Tr)(Tr r, const CppClassName main_if) {
+CppClass makeFuncInterface(Tr)(Tr r, CppClassName main_if) {
     import cpptooling.data.type : CppNs;
 
     return makeFuncInterface(r, main_if, CppNsStack(CppNs[].init));
@@ -58,7 +58,7 @@ CppClass makeFuncInterface(Tr)(Tr r, const CppClassName main_if) {
  *  name = the name of the class.
  *  ns = namespace the class reside in
  */
-CppClass makeFuncInterface(Tr)(Tr r, const CppClassName name, const CppNsStack ns) {
+CppClass makeFuncInterface(Tr)(Tr r, CppClassName name, CppNsStack ns) @trusted {
     import cpptooling.data.representation;
     import std.array : array;
 
@@ -67,7 +67,7 @@ CppClass makeFuncInterface(Tr)(Tr r, const CppClassName name, const CppNsStack n
             CppAccess(AccessType.Public), CppVirtualMethod(MemberVirtualType.Virtual)));
 
     foreach (f; r) {
-        auto params = f.paramRange().array();
+        auto params = f.paramRange().array;
         if (f.isVariadic) {
             params = params[0 .. $ - 1];
         }

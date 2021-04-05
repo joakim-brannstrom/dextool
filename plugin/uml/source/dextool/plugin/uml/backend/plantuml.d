@@ -29,6 +29,7 @@ import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
 
 import dsrcgen.plantuml;
+import sumtype;
 
 import dextool.type;
 import cpptooling.type : FilePrefix;
@@ -69,7 +70,7 @@ version (unittest) {
 
 /// Parameters used during generation.
 /// Important aspact that they do NOT change, therefore it is pure.
-@safe pure const interface Parameters {
+@safe pure interface Parameters {
     import std.typecons : Flag;
 
     static struct Files {
@@ -260,7 +261,7 @@ private size_t[] nameIndexSortedRange(T, alias sortNameBy)(T arr) pure {
     return index;
 }
 
-private auto nameSortedRange(T, alias sortNameBy)(const T t) pure {
+private auto nameSortedRange(T, alias sortNameBy)(T t) pure {
     import std.algorithm : map;
     import std.array : array;
 
@@ -397,7 +398,7 @@ class UMLClassDiagram {
      * diagram.relateTo(Key("foo")).put(Key("bar"), Relate.Kind.Associate);
      * ---
      */
-    const(Relate) relateTo(Key k) pure const
+    Relate relateTo(Key k) pure
     in {
         assert(k in classes);
         assert((cast(Relate.Key) k) in relate_to);
@@ -407,7 +408,7 @@ class UMLClassDiagram {
     }
 
     /// Returns: Flat array of all relations of type FROM-KIND-TO-COUNT.
-    auto relateToFlatArray() pure const @trusted {
+    auto relateToFlatArray() pure @trusted {
         import std.algorithm : map, joiner;
         import std.array : array;
 
@@ -416,11 +417,11 @@ class UMLClassDiagram {
 
     private static struct KeyClass {
         Key key;
-        const(Class) value;
+        Class value;
     }
 
     /// Returns: An array of the key/values.
-    KeyClass[] asArray() const pure nothrow @trusted {
+    KeyClass[] asArray() pure nothrow @trusted {
         import std.array : array;
         import std.algorithm : map;
 
@@ -434,7 +435,7 @@ class UMLClassDiagram {
     }
 
     /// Returns: An array of the key/values sorted on key.
-    auto nameSortedRange() const pure @trusted {
+    auto nameSortedRange() pure @trusted {
         static string sortClassNameBy(T)(ref T a) {
             return a.value.displayName;
         }
@@ -442,7 +443,7 @@ class UMLClassDiagram {
         return .nameSortedRange!(typeof(this), sortClassNameBy)(this);
     }
 
-    private string[] classesToStringArray() const pure @trusted {
+    private string[] classesToStringArray() pure @trusted {
         import std.algorithm : map, joiner;
         import std.array : array;
         import std.ascii : newline;
@@ -465,14 +466,14 @@ class UMLClassDiagram {
         // dfmt on
     }
 
-    private string[] relateToStringArray() const pure @trusted {
+    private string[] relateToStringArray() pure @trusted {
         import std.algorithm : map, joiner;
         import std.array : array;
 
         return relate_to.byKeyValue.map!(a => a.value.toStringArray(a.key)).joiner().array();
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char) {
         import std.ascii : newline;
         import std.format : formattedWrite;
         import std.range.primitives : put;
@@ -491,7 +492,7 @@ class UMLClassDiagram {
         put(w, "} // UML Class Diagram");
     }
 
-    override string toString() @safe pure const {
+    override string toString() @safe pure {
         import std.exception : assumeUnique;
         import std.format : FormatSpec;
 
@@ -596,7 +597,7 @@ class UMLComponentDiagram {
      * diagram.relateTo(Key("foo")).put(Key("bar"), Relate.Kind.Associate);
      * ---
      */
-    const(Relate) relateTo(Key k) pure const @safe
+    Relate relateTo(Key k) pure @safe
     in {
         assert(k in components);
         assert((cast(Relate.Key) k) in relate_to);
@@ -606,7 +607,7 @@ class UMLComponentDiagram {
     }
 
     /// Return: Flat array of all relations of type FROM-KIND-TO-COUNT.
-    auto relateToFlatArray() pure const @trusted {
+    auto relateToFlatArray() pure @trusted {
         import std.algorithm : map, joiner;
         import std.array : array;
 
@@ -615,11 +616,11 @@ class UMLComponentDiagram {
 
     private static struct KeyComponent {
         Key key;
-        const(Component) value;
+        Component value;
     }
 
     /// Returns: Flat array of all relations of type FROM-KIND-TO-COUNT.
-    KeyComponent[] asArray() const pure nothrow @trusted {
+    KeyComponent[] asArray() pure nothrow @trusted {
         import std.array : array;
         import std.algorithm : map;
 
@@ -633,7 +634,7 @@ class UMLComponentDiagram {
     }
 
     /// Returns: An array of the key/values sorted on key.
-    auto nameSortedRange() const pure @trusted {
+    auto nameSortedRange() pure @trusted {
         static string sortComponentNameBy(T)(ref T a) {
             return cast(string) a.value.displayName;
         }
@@ -641,7 +642,7 @@ class UMLComponentDiagram {
         return .nameSortedRange!(typeof(this), sortComponentNameBy)(this);
     }
 
-    private string[] componentsToStringArray() const pure @trusted {
+    private string[] componentsToStringArray() pure @trusted {
         import std.algorithm : map, joiner;
         import std.ascii : newline;
         import std.array : array;
@@ -657,7 +658,7 @@ class UMLComponentDiagram {
         // dfmt on
     }
 
-    private string[] relateToStringArray() const pure @trusted {
+    private string[] relateToStringArray() pure @trusted {
         import std.algorithm : map, joiner;
         import std.array : array;
 
@@ -665,7 +666,7 @@ class UMLComponentDiagram {
     }
 
     /// String representation of the Component Diagram.
-    void toString(Writer)(scope Writer w) @safe const {
+    void toString(Writer)(scope Writer w) @safe {
         import std.ascii : newline;
         import std.format : formattedWrite;
         import std.range.primitives : put;
@@ -685,7 +686,7 @@ class UMLComponentDiagram {
     }
 
     ///
-    override string toString() @safe const {
+    override string toString() @safe {
         import std.exception : assumeUnique;
 
         char[] buf;
@@ -1063,7 +1064,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         Flag!"hasMember" hasMember;
     }
 
-    this(TypeKindAttr type, const(CppNs)[] reside_in_ns, ControllerT ctrl,
+    this(TypeKindAttr type, CppNs[] reside_in_ns, ControllerT ctrl,
             ref ReceiveT recv, ref Container container, in uint indent) {
         this.ctrl = ctrl;
         this.recv = &recv;
@@ -1078,7 +1079,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     }
 
     /// Nested class definitions.
-    override void visit(const(ClassDecl) v) @trusted {
+    override void visit(const ClassDecl v) @trusted {
         mixin(mixinNodeLog!());
         logger.info("class: ", v.cursor.spelling);
 
@@ -1101,7 +1102,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     }
 
     /// Analyze the inheritance(s).
-    override void visit(const(CxxBaseSpecifier) v) {
+    override void visit(const CxxBaseSpecifier v) {
         import cpptooling.data : TypeKind;
 
         mixin(mixinNodeLog!());
@@ -1122,7 +1123,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result);
     }
 
-    override void visit(const(Constructor) v) {
+    override void visit(const Constructor v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeConstructor(v, *container, indent);
@@ -1135,7 +1136,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result, access);
     }
 
-    override void visit(const(Destructor) v) {
+    override void visit(const Destructor v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeDestructor(v, *container, indent);
@@ -1150,7 +1151,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result, access);
     }
 
-    override void visit(const(CxxMethod) v) {
+    override void visit(const CxxMethod v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeCxxMethod(v, *container, indent);
@@ -1170,7 +1171,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result, access);
     }
 
-    override void visit(const(FieldDecl) v) {
+    override void visit(const FieldDecl v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeFieldDecl(v, *container, indent);
@@ -1187,7 +1188,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result, access);
     }
 
-    override void visit(const(CxxAccessSpecifier) v) @trusted {
+    override void visit(const CxxAccessSpecifier v) @trusted {
         mixin(mixinNodeLog!());
         access = CppAccess(toAccessType(v.cursor.access.accessSpecifier));
     }
@@ -1224,7 +1225,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         this.container = &container;
     }
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
 
@@ -1232,7 +1233,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(result);
     }
 
-    override void visit(const(UnexposedDecl) v) {
+    override void visit(const UnexposedDecl v) {
         mixin(mixinNodeLog!());
 
         // An unexposed may be:
@@ -1243,7 +1244,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(VarDecl) v) {
+    override void visit(const VarDecl v) {
         mixin(mixinNodeLog!());
 
         auto result = () @trusted { return analyzeVarDecl(v, container, indent); }();
@@ -1255,7 +1256,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(result);
     }
 
-    override void visit(const(FunctionDecl) v) {
+    override void visit(const FunctionDecl v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeFunctionDecl(v, container, indent);
@@ -1269,7 +1270,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(result);
     }
 
-    override void visit(const(ClassDecl) v) @trusted {
+    override void visit(const ClassDecl v) @trusted {
         mixin(mixinNodeLog!());
         logger.info("class: ", v.cursor.spelling);
 
@@ -1291,7 +1292,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(r_classification);
     }
 
-    override void visit(const(Namespace) v) {
+    override void visit(const Namespace v) {
         mixin(mixinNodeLog!());
 
         () @trusted { ns_stack ~= CppNs(v.cursor.spelling); }();
@@ -1346,7 +1347,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CxxBaseSpecifierResult) result) {
+    void put(ref TypeKindAttr src, ref CxxBaseSpecifierResult result) {
         import std.algorithm : map, joiner;
         import std.conv : text;
         import std.range : chain, only, retro;
@@ -1365,7 +1366,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
     }
 
     /// Reconstruct the function signature as a UML comment.
-    void put(ref const(TypeKindAttr) src, ref const(CxxMethodResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref CxxMethodResult result, in CppAccess access) {
         import std.algorithm : filter;
         import std.traits : ReturnType;
         import std.range : chain, only;
@@ -1402,7 +1403,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref ConstructorResult result, in CppAccess access) {
         import std.algorithm : filter;
         import std.traits : ReturnType;
 
@@ -1434,7 +1435,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(DestructorResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref DestructorResult result, in CppAccess access) {
         import cpptooling.data : CppDtor;
 
         if (genClassMethod) {
@@ -1444,7 +1445,7 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref FieldDeclResult result, in CppAccess access) {
         import std.algorithm : filter;
 
         if (genClassMemberDependency) {
@@ -1457,12 +1458,12 @@ private struct TransformToClassDiagram(ControllerT, LookupT) {
         }
     }
 
-    void put(ref const(ClassClassificationResult) result) {
+    void put(ref ClassClassificationResult result) {
         auto key = makeClassKey(result.type.kind.usr);
         uml.set(key, result.classification);
     }
 
-    void put(ref const(RecordResult) src, const(CppNs)[] reside_in) {
+    void put(ref RecordResult src, CppNs[] reside_in) {
         import std.algorithm : map, joiner;
         import std.conv : text;
         import std.range : chain, only;
@@ -1574,15 +1575,13 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
      *  target = cache to put the values into
      *  lookup = type supporting lookups via USR for the TypeKind
      */
-    static void putToCache(Range, T)(USRType src, Range range, ref T target, LookupT lookup) @safe
-            if (is(ElementType!Range == TypeKindAttr)
-                || is(ElementType!Range == const(TypeKindAttr))) {
+    static void putToCache(Range, T)(USRType src, Range range, ref T target, LookupT lookup) @trusted {
         import std.algorithm : filter;
 
         // dfmt off
         foreach(a; range
             // remove primitive types
-            .filter!(a => a.kind.info.kind != TypeKind.Info.Kind.primitive)
+            .filter!(a => a.kind.info.match!((TypeKind.PrimitiveInfo) => false, _ => true))
             .map!(a => resolveCanonicalType(a.kind, a.attr, lookup))
             .joiner
             .map!(a => a.kind.usr)
@@ -1594,8 +1593,8 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
     }
 
     /// ditto
-    static void putParamsToCache(T)(ref const(TypeKindAttr) src,
-            const(CxParam)[] params, ref T target, LookupT lookup) @safe {
+    static void putParamsToCache(T)(ref TypeKindAttr src, CxParam[] params,
+            ref T target, LookupT lookup) @trusted {
         // dfmt off
         auto range = params
             // returns a bunch of ranges of the unpacked parameters
@@ -1672,7 +1671,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         }
     }
 
-    void put(ref const(TranslationUnitResult) result) {
+    void put(ref TranslationUnitResult result) {
         import std.algorithm : map, filter, cache;
         import std.range : enumerate, only;
         import std.typecons : tuple;
@@ -1707,41 +1706,41 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         dcache.doRemoval;
     }
 
-    void put(ref const(RecordResult) result) {
+    void put(ref RecordResult result) {
         src_cache ~= result.type.kind.usr;
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref ConstructorResult result, in CppAccess access) {
         putParamsToCache(src, result.params, dcache, lookup);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CxxMethodResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref CxxMethodResult result, in CppAccess access) {
         import std.range : only;
 
         putParamsToCache(src, result.params, dcache, lookup);
-        putToCache(src.kind.usr, only((cast(const TypeKindAttr) result.returnType)), dcache, lookup);
+        putToCache(src.kind.usr, only((result.returnType)), dcache, lookup);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref FieldDeclResult result, in CppAccess access) {
         import std.range : only;
 
         putToCache(src.kind.usr, only(result.type), dcache, lookup);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(ClassClassificationResult) result) {
+    void put(ref TypeKindAttr src, ref ClassClassificationResult result) {
         import std.range : only;
 
         // called when creating a relation for a nested class
         putToCache(src.kind.usr, only(result.type), dcache, lookup);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CxxBaseSpecifierResult) result) {
+    void put(ref TypeKindAttr src, ref CxxBaseSpecifierResult result) {
         auto r0 = lookup.kind(result.canonicalUSR).map!(a => TypeKindAttr(a.get, TypeAttr.init));
 
         putToCache(src.kind.usr, r0, dcache, lookup);
     }
 
-    void put(ref const(VarDeclResult) result) {
+    void put(ref VarDeclResult result) {
         import std.range : only;
 
         // primitive types do not have a location
@@ -1752,17 +1751,16 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         }
     }
 
-    void put(ref const(FunctionDeclResult) result) {
+    void put(ref FunctionDeclResult result) {
         import std.range : only;
 
         src_cache ~= result.type.kind.usr;
 
         putParamsToCache(result.type, result.params, dcache, lookup);
-        putToCache(result.type.kind.usr,
-                only(cast(const TypeKindAttr) result.returnType), dcache, lookup);
+        putToCache(result.type.kind.usr, only(result.returnType), dcache, lookup);
     }
 
-    void putSrc(ref const(LocationTag) src) @safe {
+    void putSrc(ref LocationTag src) @safe {
         string location = src.file;
 
         if (src.kind == LocationTag.Kind.noloc || !ctrl.doFile(location, location)) {
@@ -1774,7 +1772,7 @@ private @safe struct TransformToComponentDiagram(ControllerT, LookupT) {
         diagram.put(key.key, cast(UMLComponentDiagram.Location) location);
     }
 
-    void putDest(ref const(LocationTag) src, ref const(LocationTag) dest, Relate.Kind kind) {
+    void putDest(LocationTag src, LocationTag dest, Relate.Kind kind) {
         auto src_ = makeComponentKey(src.file, ctrl);
         auto dest_ = makeComponentKey(dest.file, ctrl);
 
@@ -1824,40 +1822,40 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
         to_component.finalize();
     }
 
-    void put(ref const(TranslationUnitResult) result) {
+    void put(ref TranslationUnitResult result) {
         to_component.put(result);
     }
 
-    void put(ref const(RecordResult) result, const(CppNs)[] reside_in) {
+    void put(ref RecordResult result, CppNs[] reside_in) {
         to_class.put(result, reside_in);
         to_component.put(result);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CxxBaseSpecifierResult) result) {
+    void put(ref TypeKindAttr src, ref CxxBaseSpecifierResult result) {
         to_class.put(src, result);
         to_component.put(src, result);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(CxxMethodResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref CxxMethodResult result, in CppAccess access) {
         to_class.put(src, result, access);
         to_component.put(src, result, access);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(ConstructorResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref ConstructorResult result, in CppAccess access) {
         to_class.put(src, result, access);
         to_component.put(src, result, access);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(DestructorResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref DestructorResult result, in CppAccess access) {
         to_class.put(src, result, access);
     }
 
-    void put(ref const(TypeKindAttr) src, ref const(FieldDeclResult) result, in CppAccess access) {
+    void put(ref TypeKindAttr src, ref FieldDeclResult result, in CppAccess access) {
         to_class.put(src, result, access);
         to_component.put(src, result, access);
     }
 
-    void put(ref const(ClassClassificationResult) result) {
+    void put(ref ClassClassificationResult result) {
         to_class.put(result);
     }
 
@@ -1865,17 +1863,17 @@ class TransformToDiagram(ControllerT, ParametersT, LookupT) {
      *
      * Propagate the classification and relation of the root->nested.
      */
-    void put(ref const(TypeKindAttr) src, ref const(ClassClassificationResult) result) {
+    void put(ref TypeKindAttr src, ref ClassClassificationResult result) {
         to_component.put(src, result);
         // only needs result
         to_class.put(result);
     }
 
-    void put(ref const(VarDeclResult) result) {
+    void put(ref VarDeclResult result) {
         to_component.put(result);
     }
 
-    void put(ref const(FunctionDeclResult) result) {
+    void put(ref FunctionDeclResult result) {
         to_component.put(result);
     }
 }
@@ -1994,101 +1992,74 @@ auto getClassMemberRelation(LookupT)(TypeKindAttr type, LookupT lookup) {
 
     auto r = ClassRelate(Relate.Kind.None, Relate.Key(""), UMLClassDiagram.DisplayName(""));
 
-    final switch (type.kind.info.kind) with (TypeKind.Info) {
-    case Kind.typeRef:
-        auto tref = lookup.kind(type.kind.info.canonicalRef);
-        foreach (t; tref.filter!(a => a.info.kind == Kind.record)) {
+    type.kind.info.match!((TypeKind.TypeRefInfo info) {
+        auto tref = lookup.kind(info.canonicalRef);
+        foreach (t; tref.filter!(a => a.info.match!((TypeKind.RecordInfo a) => true, _ => false))) {
             auto rel_type = Relate.Kind.Aggregate;
             if (type.attr.isPtr || type.attr.isRef) {
                 rel_type = Relate.Kind.Compose;
             }
             r = ClassRelate(rel_type, t.usr,
-                    cast(UMLClassDiagram.DisplayName) type.kind.toStringDecl(TypeAttr.init));
-        }
-        break;
-    case Kind.record:
-        r = ClassRelate(Relate.Kind.Aggregate, type.kind.usr,
                 cast(UMLClassDiagram.DisplayName) type.kind.toStringDecl(TypeAttr.init));
-        break;
-    case Kind.array:
-        auto element = lookup.kind(type.kind.info.element);
-        foreach (e; element.filter!(a => a.info.kind == Kind.record)) {
+        }
+    }, (TypeKind.RecordInfo info) {
+        r = ClassRelate(Relate.Kind.Aggregate, type.kind.usr,
+            cast(UMLClassDiagram.DisplayName) type.kind.toStringDecl(TypeAttr.init));
+    }, (TypeKind.ArrayInfo info) {
+        auto element = lookup.kind(info.element);
+        foreach (e; element.filter!(a => a.info.match!((TypeKind.RecordInfo a) => true, _ => false))) {
             auto rel_type = Relate.Kind.Aggregate;
             if (type.attr.isPtr || type.attr.isRef) {
                 rel_type = Relate.Kind.Compose;
             }
             r = ClassRelate(rel_type, e.usr,
-                    cast(UMLClassDiagram.DisplayName) type.kind.toStringDecl(TypeAttr.init));
+                cast(UMLClassDiagram.DisplayName) type.kind.toStringDecl(TypeAttr.init));
         }
-        break;
-    case Kind.pointer:
-        auto pointee = lookup.kind(type.kind.info.pointee);
-        foreach (p; pointee.filter!(a => a.info.kind == Kind.record)) {
+    }, (TypeKind.PointerInfo info) {
+        auto pointee = lookup.kind(info.pointee);
+        foreach (p; pointee.filter!(a => a.info.match!((TypeKind.RecordInfo a) => true, _ => false))) {
             string display = p.toStringDecl(TypeAttr.init);
             r = ClassRelate(Relate.Kind.Compose, p.usr, cast(UMLClassDiagram.DisplayName) display);
         }
-        break;
-    case Kind.primitive:
-    case Kind.simple:
-    case Kind.func:
-    case Kind.funcPtr:
-    case Kind.funcSignature:
-    case Kind.ctor:
-    case Kind.dtor:
-    case Kind.null_:
-        break;
-    }
+    }, (_) {});
 
     return r;
 }
 
 private ClassRelate getTypeRelation(LookupT)(TypeKindAttr tk, LookupT lookup) {
     import std.algorithm : filter;
-    import cpptooling.data : TypeKind, TypeAttr, toStringDecl;
+    import cpptooling.data : TypeKind, TypeAttr, toStringDecl, Void;
 
     auto r = ClassRelate(Relate.Kind.None, Relate.Key(""), UMLClassDiagram.DisplayName(""));
 
-    final switch (tk.kind.info.kind) with (TypeKind.Info) {
-    case Kind.typeRef:
-        auto tref = lookup.kind(tk.kind.info.canonicalRef);
-        foreach (t; tref.filter!(a => a.info.kind == Kind.record)) {
+    tk.kind.info.match!((TypeKind.TypeRefInfo info) {
+        auto tref = lookup.kind(info.canonicalRef);
+        foreach (t; tref.filter!(a => a.info.match!((TypeKind.RecordInfo a) => true, _ => false))) {
             r = ClassRelate(Relate.Kind.Associate, Relate.Key(t.usr),
-                    cast(UMLClassDiagram.DisplayName) t.toStringDecl(TypeAttr.init));
+                cast(UMLClassDiagram.DisplayName) t.toStringDecl(TypeAttr.init));
         }
-        break;
-    case Kind.record:
+    }, (TypeKind.RecordInfo t) {
         r = ClassRelate(Relate.Kind.Associate, tk.kind.usr,
-                cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init));
-        break;
-    case Kind.array:
-        auto element = lookup.kind(tk.kind.info.element);
-        foreach (e; element.filter!(a => a.info.kind == Kind.record)) {
+            cast(UMLClassDiagram.DisplayName) tk.kind.toStringDecl(TypeAttr.init));
+    }, (TypeKind.ArrayInfo t) {
+        auto element = lookup.kind(t.element);
+        foreach (e; element.filter!(a => a.info.match!((TypeKind.RecordInfo a) => true, _ => false))) {
             r = ClassRelate(Relate.Kind.Associate, e.usr,
-                    cast(UMLClassDiagram.DisplayName) e.toStringDecl(TypeAttr.init));
+                cast(UMLClassDiagram.DisplayName) e.toStringDecl(TypeAttr.init));
         }
-        break;
-    case Kind.pointer:
-        auto pointee = lookup.kind(tk.kind.info.pointee);
-        foreach (p; pointee.filter!(a => a.info.kind == Kind.record)) {
+    }, (TypeKind.PointerInfo t) {
+        auto pointee = lookup.kind(t.pointee);
+        foreach (p; pointee.filter!(a => a.info.match!((TypeKind.RecordInfo a) => true, _ => false))) {
             string display = p.toStringDecl(TypeAttr.init);
             r = ClassRelate(Relate.Kind.Associate, Relate.Key(p.usr),
-                    cast(UMLClassDiagram.DisplayName) display);
+                cast(UMLClassDiagram.DisplayName) display);
         }
-        break;
-    case Kind.primitive:
-    case Kind.simple:
-    case Kind.func:
-    case Kind.funcPtr:
-    case Kind.funcSignature:
-    case Kind.ctor:
-    case Kind.dtor:
-    case Kind.null_:
-    }
+    }, (_) {});
 
     return r;
 }
 
-private auto getClassMethodRelation(LookupT)(const(CxParam)[] params, LookupT lookup) {
+private auto getClassMethodRelation(LookupT)(CxParam[] params, LookupT lookup) {
     import std.array : array;
     import std.algorithm : among, map, filter;
     import std.variant : visit;
@@ -2165,7 +2136,7 @@ void generate(UMLClassDiagram uml_class, UMLComponentDiagram uml_comp,
  * definitions it makes it easier for GraphViz to generate a not-so-muddy
  * image.
  */
-private void generate(UMLClassDiagram.Key key, const UMLClassDiagram.Class c, PlantumlModule m) @safe {
+private void generate(UMLClassDiagram.Key key, UMLClassDiagram.Class c, PlantumlModule m) @safe {
     import std.algorithm : each;
     import dsrcgen.plantuml : addSpot;
 
@@ -2247,7 +2218,7 @@ private void generateDotRelate(T)(T relate_range, ulong color_idx, PlantumlModul
 }
 
 private void generate(UMLComponentDiagram.Key key,
-        const UMLComponentDiagram.Component component, PlantumlModule m) @safe {
+        UMLComponentDiagram.Component component, PlantumlModule m) @safe {
     import std.algorithm : map;
     import std.conv : text;
     import std.path : buildNormalizedPath, relativePath;

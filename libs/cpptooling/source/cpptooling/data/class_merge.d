@@ -26,7 +26,7 @@ alias LookupT = typeof(only(NullableRef!(CppClass).init)) delegate(FullyQualifie
  *  LookupT = a callback that takes a FullyQualifiedNameType and returns a
  *      range with zero or one elements of type NullableRef!CppClass.
  */
-CppClass mergeClassInherit(ref CppClass class_, const ref Container container, LookupT lookup) {
+CppClass mergeClassInherit(ref CppClass class_, ref Container container, LookupT lookup) {
     import std.algorithm : each;
 
     if (class_.inheritRange.length == 0) {
@@ -48,14 +48,14 @@ bool isMethodOrOperator(T)(T method) @trusted {
     import cpptooling.data.representation : CppMethod, CppMethodOp, CppCtor, CppDtor;
 
     // dfmt off
-    return method.visit!((const CppMethod a) => true,
-                         (const CppMethodOp a) => true,
-                         (const CppCtor a) => false,
-                         (const CppDtor a) => false);
+    return method.visit!((CppMethod a) => true,
+                         (CppMethodOp a) => true,
+                         (CppCtor a) => false,
+                         (CppDtor a) => false);
     // dfmt on
 }
 
-CppClass.CppFunc[] getMethods(const ref CppClass c, const ref Container container, LookupT lookup) @safe {
+CppClass.CppFunc[] getMethods(ref CppClass c, ref Container container, LookupT lookup) @safe {
     import std.array : array, appender;
     import std.algorithm : cache, copy, each, filter, joiner, map;
     import std.range : chain;

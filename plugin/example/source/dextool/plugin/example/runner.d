@@ -20,6 +20,8 @@ module dextool.plugin.runner;
 import std.stdio;
 import logger = std.experimental.logger;
 
+import sumtype;
+
 import dextool.type : ExitStatusType, Path, AbsolutePath;
 
 /** _main_ plugin function.
@@ -197,11 +199,12 @@ final class TUVisitor : Visitor {
 
                 // a function must return something when the return value isn't
                 // void.
-                if (res.returnType.kind.info.kind == TypeKind.Info.Kind.primitive
-                        && res.returnType.toStringDecl("") != "void") {
-                    // try to instantiate and return a value of the return type
-                    return_(E(res.returnType.toStringDecl(""))(""));
-                }
+                res.returnType.kind.info.match!((TypeKind.PrimitiveInfo t) {
+                    if (res.returnType.toStringDecl("") != "void") {
+                        // try to instantiate and return a value of the return type
+                        return_(E(res.returnType.toStringDecl(""))(""));
+                    }
+                }, (_) {});
             }
         }
 

@@ -13,8 +13,10 @@ module dextool.plugin.fuzzer.backend.generate_cpp;
 
 import logger = std.experimental.logger;
 
-import cpptooling.data : CppRoot, CFunction, USRType, CxParam, CppVariable, CppNs, Language;
 import dsrcgen.cpp : CppModule, E, Et;
+import sumtype;
+
+import cpptooling.data : CppRoot, CFunction, USRType, CxParam, CppVariable, CppNs, Language;
 
 import dextool.plugin.fuzzer.type : Param, Symbol;
 import dextool.plugin.fuzzer.backend.type;
@@ -123,17 +125,17 @@ void generateFuncParamFuzzer(ParamsT)(CFunction f, ParamsT param_limits,
         type.attr.isRef = No.isRef;
         type.attr.isFuncPtr = No.isFuncPtr;
 
-        if (type.kind.info.kind == TypeKind.Info.Kind.pointer) {
+        type.kind.info.match!((TypeKind.PointerInfo t) {
             rval.success = false;
             param_id ~= rval.name;
             m.comment("Unable to fuzz a pointer. Use a custom fuzz function. Example:");
             m.comment(`<fuzz use="my_fuzz" include="my_include.hpp"/>`);
             m.stmt(E(type.toStringDecl(rval.name)) = E(0));
-        } else {
+        }, (_) {
             rval.success = true;
             param_id ~= rval.name;
             m.stmt(type.toStringDecl(rval.name));
-        }
+        });
 
         return rval;
     }

@@ -29,7 +29,7 @@ import dextool.plugin.cpptestdouble.backend.type : Code, GeneratedData,
  *      - adapter registering a test double instance
  */
 void generate(ref ImplData impl, Controller ctrl, Parameters params,
-        ref GeneratedData gen_data, ref const Container container) {
+        ref GeneratedData gen_data, ref Container container) {
     import std.algorithm : filter;
     import std.path : baseName;
     import cpptooling.generator.includes : generateIncludes;
@@ -52,14 +52,14 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
     auto ns_data = GenerateNamespaceData(
         () { return gen_data.make(Code.Kind.hdr).cpp.base.noIndent; },
         () { return gen_data.make(Code.Kind.impl).cpp.base.noIndent; },
-        (const CppNs[] ns, const CppClassName name) { return gen_data.makeMock(ns, name).cpp.base.noIndent; },
-        (const CppNs[] ns, const CppClassName name) { return gen_data.makeGtestPrettyPrintHdr(ns, name).cpp; },
-        (const CppNs[] ns, const CppClassName name) { return gen_data.makeGtestPrettyPrintImpl(ns, name).cpp; },
+        (CppNs[] ns, CppClassName name) { return gen_data.makeMock(ns, name).cpp.base.noIndent; },
+        (CppNs[] ns, CppClassName name) { return gen_data.makeGtestPrettyPrintHdr(ns, name).cpp; },
+        (CppNs[] ns, CppClassName name) { return gen_data.makeGtestPrettyPrintImpl(ns, name).cpp; },
         );
     // dfmt on
 
     foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
-        auto mock_ns = ns_data.gmock(cast(const CppNs[]) a.resideInNs, a.name)
+        auto mock_ns = ns_data.gmock(a.resideInNs, a.name)
             .base.namespace(params.getMainNs).noIndent;
         generateGmock(a, mock_ns);
     }
@@ -85,8 +85,8 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
 private:
 
 alias LazyModule = CppModule delegate() @safe;
-alias LazyMockModule = CppModule delegate(const CppNs[] ns, const CppClassName name) @safe;
-alias LazyGtestModule = CppModule delegate(const CppNs[] ns, const CppClassName name) @safe;
+alias LazyMockModule = CppModule delegate(CppNs[] ns, CppClassName name) @safe;
+alias LazyGtestModule = CppModule delegate(CppNs[] ns, CppClassName name) @safe;
 
 /// Lazily create the modules when they are needed.
 /// Be wary that each time a LazyModule is called it may generate code.
@@ -94,11 +94,10 @@ alias LazyGtestModule = CppModule delegate(const CppNs[] ns, const CppClassName 
     this(LazyModule hdr, LazyModule impl, LazyMockModule gmock,
             LazyGtestModule gtestPPHdr, LazyGtestModule gtestPPImpl) {
         this.hdr = () => hdr().base.noIndent;
-        this.gmock = (const CppNs[] ns, const CppClassName name) => gmock(ns, name).base.noIndent;
+        this.gmock = (CppNs[] ns, CppClassName name) => gmock(ns, name).base.noIndent;
 
-        this.gtestPPHdr = (const CppNs[] ns, const CppClassName name) => gtestPPHdr(ns, name).base;
-        this.gtestPPImpl = (const CppNs[] ns, const CppClassName name) => gtestPPImpl(ns, name)
-            .base;
+        this.gtestPPHdr = (CppNs[] ns, CppClassName name) => gtestPPHdr(ns, name).base;
+        this.gtestPPImpl = (CppNs[] ns, CppClassName name) => gtestPPImpl(ns, name).base;
 
         this.impl_ = impl;
         // never escapes the instances. Assuming it is basically "moved".
@@ -146,7 +145,7 @@ private:
  * instance.
  */
 void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
-        GenerateNamespaceData gen_data, ref const Container container) {
+        GenerateNamespaceData gen_data, ref Container container) {
     import std.algorithm : filter;
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
@@ -166,15 +165,15 @@ void generateForEach(ref ImplData impl, ref CppNamespace ns, Parameters params,
             return gen_data.impl().namespace(ns.name).noIndent;
         }
 
-        auto gmockMod(const CppNs[] nesting, const CppClassName name) {
+        auto gmockMod(CppNs[] nesting, CppClassName name) {
             return gen_data.gmock(nesting, name).namespace(ns.name).noIndent;
         }
 
-        auto gtestModHdr(const CppNs[] nesting, const CppClassName name) {
+        auto gtestModHdr(CppNs[] nesting, CppClassName name) {
             return gen_data.gtestPPHdr(nesting, name).namespace(ns.name).noIndent;
         }
 
-        auto gtestModImpl(const CppNs[] nesting, const CppClassName name) {
+        auto gtestModImpl(CppNs[] nesting, CppClassName name) {
             return gen_data.gtestPPImpl(nesting, name).namespace(ns.name).noIndent;
         }
 

@@ -41,6 +41,9 @@ import logger = std.experimental.logger;
 
 public import cpptooling.data.type;
 
+import sumtype;
+import my.sumtype;
+
 import cpptooling.data.kind_type;
 import cpptooling.data.symbol.types : USRType;
 
@@ -73,19 +76,19 @@ USRType makeUniqueUSR() @safe nothrow {
     return USRType(text(nextUniqueID));
 }
 
-void funcToString(Writer, Char)(const(CppClass.CppFunc) func, scope Writer w, in Char[] fmt) @trusted {
+void funcToString(Writer, Char)(CppClass.CppFunc func, scope Writer w, in Char[] fmt) @trusted {
     import std.format : formattedWrite;
     import std.variant : visit;
 
     //dfmt off
-    func.visit!((const(CppMethod) a) => formattedWrite(w, fmt, a),
-                (const(CppMethodOp) a) => formattedWrite(w, fmt, a),
-                (const(CppCtor) a) => formattedWrite(w, fmt, a),
-                (const(CppDtor) a) => formattedWrite(w, fmt, a));
+    func.visit!((CppMethod a) => formattedWrite(w, fmt, a),
+                (CppMethodOp a) => formattedWrite(w, fmt, a),
+                (CppCtor a) => formattedWrite(w, fmt, a),
+                (CppDtor a) => formattedWrite(w, fmt, a));
     //dfmt on
 }
 
-string funcToString(const(CppClass.CppFunc) func) @safe {
+string funcToString(CppClass.CppFunc func) @safe {
     import std.exception : assumeUnique;
 
     char[] buf;
@@ -98,14 +101,14 @@ string funcToString(const(CppClass.CppFunc) func) @safe {
     return trustedUnique(buf);
 }
 
-string methodNameToString(const(CppClass.CppFunc) func) @trusted {
+string methodNameToString(CppClass.CppFunc func) @trusted {
     import std.variant : visit;
 
     //dfmt off
-    return func.visit!((const(CppMethod) a) => a.name,
-                       (const(CppMethodOp) a) => a.name,
-                       (const(CppCtor) a) => a.name,
-                       (const(CppDtor) a) => a.name);
+    return func.visit!((CppMethod a) => a.name,
+                       (CppMethodOp a) => a.name,
+                       (CppCtor a) => a.name.get,
+                       (CppDtor a) => a.name);
     //dfmt on
 }
 
@@ -139,7 +142,7 @@ string paramNameToString(CxParam p, string id = "") @trusted {
 /// OutputRange.
 private string standardToString() {
     return q{
-    string toString()() const {
+    string toString()() {
         import std.format : FormatSpec;
         import std.exception : assumeUnique;
 
@@ -185,21 +188,15 @@ private template mixinUniqueId(IDType) if (is(IDType == size_t) || is(IDType == 
     }
 
     int opCmp(T : typeof(this))(auto ref const T rhs) const {
-        return this.id_ < rhs.id();
+        return this.id_ < rhs.id_;
     }
 
     bool opEquals(T : typeof(this))(auto ref const T rhs) const {
-        return this.id_ == rhs.id();
+        return this.id_ == rhs.id_;
     }
 
-    static if (__VERSION__ < 2084) {
-        size_t toHash() @trusted pure nothrow const scope {
-            return id_.hashOf;
-        }
-    } else {
-        size_t toHash() @safe pure nothrow const @nogc scope {
-            return id_.hashOf;
-        }
+    size_t toHash() @safe pure nothrow const @nogc scope {
+        return id_.hashOf;
     }
 
     void unsafeForceID(IDType id) {
@@ -220,7 +217,7 @@ private template mixinCommentHelper() {
         return this;
     }
 
-    auto comments() @safe pure nothrow const @nogc {
+    string[] comments() @safe pure nothrow @nogc {
         return comments_;
     }
 
@@ -255,19 +252,19 @@ string toInternal(TypeKindVariable tk) @trusted {
 }
 
 /// Join a range of CxParams to a string separated by ", ".
-string joinParams(const(CxParam)[] r) @safe {
+string joinParams(CxParam[] r) @safe {
     import std.algorithm : joiner, map;
     import std.conv : text;
     import std.range : enumerate;
 
-    static string getTypeName(const CxParam p, ulong uid) @trusted {
+    static string getTypeName(CxParam p, ulong uid) @trusted {
         import std.variant : visit;
 
         // dfmt off
         auto x = p.visit!(
-            (const TypeKindVariable t) {return t.type.toStringDecl(t.name);},
-            (const TypeKindAttr t) { return t.toStringDecl("x" ~ text(uid)); },
-            (const VariadicType a) { return "..."; }
+            (TypeKindVariable t) {return t.type.toStringDecl(t.name);},
+            (TypeKindAttr t) { return t.toStringDecl("x" ~ text(uid)); },
+            (VariadicType a) { return "..."; }
             );
         // dfmt on
         return x;
@@ -288,14 +285,14 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
     import std.conv : text;
     import std.range : enumerate;
 
-    static string getName(const CxParam p, ulong uid) @trusted {
+    static string getName(CxParam p, ulong uid) @trusted {
         import std.variant : visit;
 
         // dfmt off
         return p.visit!(
-            (const TypeKindVariable tk) {return tk.name;},
-            (const TypeKindAttr t) { return "x" ~ text(uid); },
-            (const VariadicType a) { return ""; }
+            (TypeKindVariable tk) {return tk.name;},
+            (TypeKindAttr t) { return "x" ~ text(uid); },
+            (VariadicType a) { return ""; }
             );
         // dfmt on
     }
@@ -311,7 +308,7 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
 }
 
 /// Join a range of CxParams to a string of the parameter types separated by ", ".
-string joinParamTypes(const(CxParam)[] r) @safe {
+string joinParamTypes(CxParam[] r) @safe {
     import std.algorithm : joiner, map;
     import std.conv : text;
     import std.range : enumerate;
@@ -326,28 +323,28 @@ string joinParamTypes(const(CxParam)[] r) @safe {
 }
 
 /// Get the name of a C++ method.
-string getName()(ref const(CppClass.CppFunc) method) @trusted {
+string getName()(ref CppClass.CppFunc method) @trusted {
     import std.variant : visit;
 
     // dfmt off
     return method.visit!(
-                         (const CppMethod m) => m.name,
-                         (const CppMethodOp m) => "",
-                         (const CppCtor m) => m.name,
-                         (const CppDtor m) => m.name);
+                         (CppMethod m) => m.name,
+                         (CppMethodOp m) => "",
+                         (CppCtor m) => m.name.get,
+                         (CppDtor m) => m.name);
     // dfmt on
 }
 
 /// Get the name of a parameter or the default.
-string getName(const CxParam p, string default_) @safe {
-    static string getName(const CxParam p, string default_) @trusted {
+string getName(CxParam p, string default_) @safe {
+    static string getName(CxParam p, string default_) @trusted {
         import std.variant : visit;
 
         // dfmt off
         return p.visit!(
-            (const TypeKindVariable tk) {return tk.name;},
-            (const TypeKindAttr t) { return default_; },
-            (const VariadicType a) { return default_; }
+            (TypeKindVariable tk) {return tk.name;},
+            (TypeKindAttr t) { return default_; },
+            (VariadicType a) { return default_; }
             );
         // dfmt on
     }
@@ -356,13 +353,12 @@ string getName(const CxParam p, string default_) @safe {
 }
 
 /// Get the parameter type as a string.
-string getType(const CxParam p) @trusted {
+string getType(CxParam p) @trusted {
     import std.variant : visit;
 
-    return p.visit!((const TypeKindVariable t) { return t.type.toStringDecl; },
-            (const TypeKindAttr t) { return t.toStringDecl; }, (const VariadicType a) {
-        return "...";
-    });
+    return p.visit!((TypeKindVariable t) { return t.type.toStringDecl; }, (TypeKindAttr t) {
+        return t.toStringDecl;
+    }, (VariadicType a) { return "..."; });
 }
 
 /// Make a variadic parameter.
@@ -384,31 +380,31 @@ struct UnpackParamResult {
 }
 
 /// Unpack a CxParam.
-UnpackParamResult unpackParam(ref const(CxParam) p) @safe {
+UnpackParamResult unpackParam(CxParam p) @safe {
     import std.variant : visit;
 
     UnpackParamResult rval;
 
     // dfmt off
     () @trusted {
-        p.visit!((const TypeKindVariable v) => rval.type = v.type,
-                 (const TypeKindAttr v) => rval.type = v,
-                 (const VariadicType v) { rval.isVariadic = true; return rval.type; });
+        p.visit!((TypeKindVariable v) => rval.type = v.type,
+                 (TypeKindAttr v) => rval.type = v,
+                 (VariadicType v) { rval.isVariadic = true; return rval.type; });
     }();
     // dfmt on
 
     return rval;
 }
 
-private void assertVisit(ref const(CxParam) p) @trusted {
+private void assertVisit(CxParam p) @trusted {
     import std.variant : visit;
 
     // dfmt off
     p.visit!(
-        (const TypeKindVariable v) { assert(v.name.length > 0);
+        (TypeKindVariable v) { assert(v.name.length > 0);
                                      assert(v.type.toStringDecl.length > 0);},
-        (const TypeKindAttr v)     { assert(v.toStringDecl.length > 0); },
-        (const VariadicType v)     {});
+        (TypeKindAttr v)     { assert(v.toStringDecl.length > 0); },
+        (VariadicType v)     {});
     // dfmt on
 }
 
@@ -446,53 +442,43 @@ struct CxGlobalVariable {
         this(usr, TypeKindVariable(type, name));
     }
 
-const:
+    string toString() @trusted {
+        import std.format : FormatSpec;
 
-    mixin(standardToString);
+        char[] buf;
+        buf.reserve(100);
+        auto fmt = FormatSpec!char("%s");
+        toString((const(char)[] s) { buf ~= s; }, fmt);
+
+        return cast(string) buf;
+    }
 
     /// If formatSpec is "%u" then the USR will be put as a comment.
-    void toString(Writer, Char)(scope Writer sink, FormatSpec!Char fmt)
-    in {
-        import std.algorithm : among;
-
-        // see switch stmt in body for explanation.
-        assert(!variable.type.kind.info.kind.among(TypeKind.Info.Kind.ctor,
-                TypeKind.Info.Kind.dtor));
-    }
-    body {
-        import std.algorithm : map, copy;
-        import std.ascii : newline;
+    void toString(Writer, Char)(scope Writer sink, FormatSpec!Char fmt) {
         import std.format : formattedWrite;
         import std.range : put;
-        import cpptooling.data : TypeKind;
+        import cpptooling.data : TypeKind, Void;
 
-        final switch (variable.type.kind.info.kind) with (TypeKind.Info) {
-        case Kind.record:
-        case Kind.func:
-        case Kind.funcPtr:
-        case Kind.funcSignature:
-        case Kind.primitive:
-        case Kind.simple:
-        case Kind.typeRef:
-        case Kind.array:
-        case Kind.pointer:
+        void handler() @trusted {
             formattedWrite(sink, "%s;", variable.type.toStringDecl(variable.name));
             if (!usr.isNull && fmt.spec == 'u') {
                 put(sink, " // ");
                 put(sink, usr);
             }
-            break;
-        case Kind.ctor:
-            logger.error("Assumption broken. A global variable with the type of a Constructor");
-            break;
-        case Kind.dtor:
-            logger.error("Assumption broken. A global variable with the type of a Destructor");
-            break;
-        case Kind.null_:
-            logger.error("Type of global variable is null. Identifier ",
-                    variable.name);
-            break;
         }
+
+        variable.type.kind.info.match!((TypeKind.RecordInfo t) => handler,
+                (TypeKind.FuncInfo t) => handler, (TypeKind.FuncPtrInfo t) => handler,
+                (TypeKind.FuncSignatureInfo t) => handler, (TypeKind.PrimitiveInfo t) => handler,
+                (TypeKind.SimpleInfo t) => handler, (TypeKind.TypeRefInfo t) => handler,
+                (TypeKind.ArrayInfo t) => handler,
+                (TypeKind.PointerInfo t) => handler, (TypeKind.CtorInfo) {
+            logger.error("Assumption broken. A global variable with the type of a Constructor");
+        }, (TypeKind.DtorInfo) {
+            logger.error("Assumption broken. A global variable with the type of a Destructor");
+        }, (Void) {
+            logger.error("Type of global variable is null. Identifier ", variable.name);
+        });
     }
 
 @safe pure nothrow:
@@ -512,11 +498,11 @@ const:
 
 struct CppMethodGeneric {
     template Parameters() {
-        void put(const CxParam p) {
+        void put(CxParam p) {
             params_ ~= p;
         }
 
-        auto paramRange() const @nogc @safe pure nothrow {
+        auto paramRange() @nogc @safe pure nothrow {
             return params_;
         }
 
@@ -531,7 +517,7 @@ struct CppMethodGeneric {
     template BaseProperties() {
         import std.typecons : Nullable;
 
-        const pure @nogc nothrow {
+        pure @nogc nothrow {
             bool isVirtual() {
                 import std.algorithm : among;
 
@@ -570,8 +556,8 @@ struct CppMethodGeneric {
      * Expecting them to be set in c'tors.
      */
     template MethodProperties() {
-        const pure @nogc nothrow {
-            bool isConst() {
+        pure @nogc nothrow {
+            bool isConst() const {
                 return isConst_;
             }
 
@@ -632,22 +618,21 @@ struct CFunction {
         StorageClass storageClass_;
     }
 
-    invariant () {
-        if (!usr.isNull) {
-            assert(usr.get.length > 0);
-            assert(name_.length > 0);
-            assert(returnType_.toStringDecl.length > 0);
-
-            foreach (p; params) {
-                assertVisit(p);
-            }
-        }
-    }
+    //invariant () {
+    //    if (!usr.isNull) {
+    //        assert(usr.get.length > 0);
+    //        assert(name_.length > 0);
+    //        assert(returnType_.toStringDecl.length > 0);
+    //
+    //        foreach (p; params) {
+    //            assertVisit(p);
+    //        }
+    //    }
+    //}
 
     /// C function representation.
-    this(const USRType usr, const CFunctionName name, const CxParam[] params_,
-            const CxReturnType return_type, const VariadicType is_variadic,
-            const StorageClass storage_class) @safe {
+    this(USRType usr, CFunctionName name, CxParam[] params_, CxReturnType return_type,
+            VariadicType is_variadic, StorageClass storage_class) @safe {
         this.usr = usr;
         this.name_ = name;
         this.returnType_ = return_type;
@@ -656,27 +641,27 @@ struct CFunction {
 
         this.params = params_.dup;
 
-        setUniqueId(format("%s(%s)", name, params.joinParamTypes));
+        //setUniqueId(format("%s(%s)", name, params.joinParamTypes));
     }
 
     /// Function with no parameters.
-    this(USRType usr, const CFunctionName name, const CxReturnType return_type) @safe {
+    this(USRType usr, CFunctionName name, CxReturnType return_type) @safe {
         this(usr, name, CxParam[].init, return_type, VariadicType.no, StorageClass.None);
     }
 
     /// Function with no parameters and returning void.
-    this(USRType usr, const CFunctionName name) @safe {
+    this(USRType usr, CFunctionName name) @safe {
         auto void_ = CxReturnType(makeSimple("void"));
         this(usr, name, CxParam[].init, void_, VariadicType.no, StorageClass.None);
     }
 
-    void toString(Writer, Char)(scope Writer sink, FormatSpec!Char fmt) const {
+    void toString(Writer, Char)(scope Writer sink, FormatSpec!Char fmt) @trusted {
         import std.conv : to;
         import std.format : formattedWrite;
         import std.range : put;
 
-        formattedWrite(sink, "%s %s(%s); // %s", returnType.toStringDecl, name,
-                paramRange.joinParams, to!string(storageClass));
+        formattedWrite(sink, "%s %s(%s); // %s", returnType_.toStringDecl,
+                name_, params.joinParams, to!string(storageClass_));
 
         if (!usr.isNull && fmt.spec == 'u') {
             put(sink, " ");
@@ -684,11 +669,18 @@ struct CFunction {
         }
     }
 
-@safe const:
+    string toString() @trusted {
+        import std.format : FormatSpec;
 
-    mixin(standardToString);
+        char[] buf;
+        buf.reserve(100);
+        auto fmt = FormatSpec!char("%s");
+        toString((const(char)[] s) { buf ~= s; }, fmt);
 
-nothrow pure @nogc:
+        return cast(string) buf;
+    }
+
+@safe nothrow pure @nogc:
 
     /// A range over the parameters of the function.
     auto paramRange() {
@@ -743,7 +735,7 @@ struct CppCtor {
         }
     }
 
-    this(const USRType usr, const CppMethodName name, const CxParam[] params, const CppAccess access) @safe {
+    this(USRType usr, CppMethodName name, CxParam[] params, CppAccess access) @safe {
         this.usr = usr;
         this.name_ = name;
         this.accessType_ = access;
@@ -752,7 +744,7 @@ struct CppCtor {
         setUniqueId(format("%s(%s)", name_, paramRange.joinParamTypes));
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) {
         import std.format : formattedWrite;
         import std.range.primitives : put;
 
@@ -769,7 +761,6 @@ struct CppCtor {
     mixin mixinUniqueId!size_t;
     mixin CppMethodGeneric.Parameters;
 
-const:
     mixin(standardToString);
 
     auto accessType() {
@@ -793,8 +784,7 @@ struct CppDtor {
         }
     }
 
-    this(const USRType usr, const CppMethodName name, const CppAccess access,
-            const CppVirtualMethod virtual) @safe {
+    this(USRType usr, CppMethodName name, CppAccess access, CppVirtualMethod virtual) @safe {
         this.usr = usr;
         this.classification_ = virtual;
         this.accessType_ = access;
@@ -803,7 +793,7 @@ struct CppDtor {
         setUniqueId(name_.get);
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) {
         import std.format : formattedWrite;
 
         helperPutComments(w);
@@ -836,8 +826,8 @@ struct CppMethod {
         }
     }
 
-    this(const USRType usr, const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
-            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
+    this(USRType usr, CppMethodName name, CxParam[] params, CxReturnType return_type,
+            CppAccess access, CppConstMethod const_, CppVirtualMethod virtual) @safe {
         this.usr = usr;
         this.classification_ = virtual;
         this.accessType_ = access;
@@ -851,19 +841,19 @@ struct CppMethod {
     }
 
     /// Function with no parameters.
-    this(USRType usr, const CppMethodName name, const CxReturnType return_type,
-            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
+    this(USRType usr, CppMethodName name, CxReturnType return_type,
+            CppAccess access, CppConstMethod const_, CppVirtualMethod virtual) @safe {
         this(usr, name, CxParam[].init, return_type, access, const_, virtual);
     }
 
     /// Function with no parameters and returning void.
-    this(USRType usr, const CppMethodName name, const CppAccess access, const CppConstMethod const_ = CppConstMethod(false),
-            const CppVirtualMethod virtual = CppVirtualMethod(MemberVirtualType.Normal)) @safe {
+    this(USRType usr, CppMethodName name, CppAccess access, CppConstMethod const_ = CppConstMethod(false),
+            CppVirtualMethod virtual = CppVirtualMethod(MemberVirtualType.Normal)) @safe {
         auto void_ = CxReturnType(makeSimple("void"));
         this(usr, name, CxParam[].init, void_, access, const_, virtual);
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) @safe const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) @safe {
         import std.format : formattedWrite;
         import std.range.primitives : put;
 
@@ -908,8 +898,8 @@ struct CppMethodOp {
         }
     }
 
-    this(const USRType usr, const CppMethodName name, const CxParam[] params, const CxReturnType return_type,
-            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
+    this(USRType usr, CppMethodName name, CxParam[] params, CxReturnType return_type,
+            CppAccess access, CppConstMethod const_, CppVirtualMethod virtual) @safe {
         this.usr = usr;
         this.classification_ = virtual;
         this.accessType_ = access;
@@ -923,20 +913,19 @@ struct CppMethodOp {
     }
 
     /// Operator with no parameters.
-    this(const USRType usr, const CppMethodName name, const CxReturnType return_type,
-            const CppAccess access, const CppConstMethod const_, const CppVirtualMethod virtual) @safe {
+    this(USRType usr, CppMethodName name, CxReturnType return_type,
+            CppAccess access, CppConstMethod const_, CppVirtualMethod virtual) @safe {
         this(usr, name, CxParam[].init, return_type, access, const_, virtual);
     }
 
     /// Operator with no parameters and returning void.
-    this(const USRType usr, const CppMethodName name, const CppAccess access,
-            const CppConstMethod const_ = CppConstMethod(false),
-            const CppVirtualMethod virtual = CppVirtualMethod(MemberVirtualType.Normal)) @safe {
+    this(USRType usr, CppMethodName name, CppAccess access, CppConstMethod const_ = CppConstMethod(false),
+            CppVirtualMethod virtual = CppVirtualMethod(MemberVirtualType.Normal)) @safe {
         auto void_ = CxReturnType(makeSimple("void"));
         this(usr, name, CxParam[].init, void_, access, const_, virtual);
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) {
         import std.format : formattedWrite;
         import std.range.primitives : put;
 
@@ -963,8 +952,6 @@ struct CppMethodOp {
     mixin CppMethodGeneric.StringHelperVirtual;
     mixin CppMethodGeneric.BaseProperties;
     mixin CppMethodGeneric.MethodProperties;
-
-const:
 
     mixin(standardToString);
 
@@ -1001,7 +988,7 @@ struct CppInherit {
         this.access_ = access;
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) {
         import std.conv : to;
         import std.format : formattedWrite;
         import std.range.primitives : put;
@@ -1025,8 +1012,6 @@ struct CppInherit {
         return ns;
     }
 
-const:
-
     mixin(standardToString);
 
     auto name() {
@@ -1037,7 +1022,7 @@ const:
         return access_;
     }
 
-    FullyQualifiedNameType fullyQualifiedName() const {
+    FullyQualifiedNameType fullyQualifiedName() {
         //TODO optimize by only calculating once.
         import std.algorithm : map, joiner;
         import std.range : chain, only;
@@ -1083,7 +1068,7 @@ struct CppClass {
         TypeKindVariable[] members_priv;
     }
 
-    this(const CppClassName name, const CppInherit[] inherits, const CppNsStack ns) @safe
+    this(CppClassName name, CppInherit[] inherits, CppNsStack ns) @safe
     out {
         assert(name_.length > 0);
     }
@@ -1104,7 +1089,7 @@ struct CppClass {
     }
 
     //TODO remove
-    this(const CppClassName name, const CppInherit[] inherits) @safe
+    this(CppClassName name, CppInherit[] inherits) @safe
     out {
         assert(name_.length > 0);
     }
@@ -1113,7 +1098,7 @@ struct CppClass {
     }
 
     //TODO remove
-    this(const CppClassName name) @safe
+    this(CppClassName name) @safe
     out {
         assert(name_.length > 0);
     }
@@ -1122,7 +1107,7 @@ struct CppClass {
     }
 
     // TODO remove @safe. it isn't a requirement that the user provided Writer is @safe.
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const @safe {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) @safe {
         import std.algorithm : copy, joiner, map, each;
         import std.ascii : newline;
         import std.conv : to;
@@ -1288,8 +1273,6 @@ struct CppClass {
         inherits_ ~= inh;
     }
 
-const:
-
     auto inheritRange() @nogc {
         return inherits_;
     }
@@ -1361,13 +1344,6 @@ const:
 
     auto commentRange() @nogc {
         return comments;
-    }
-
-    invariant () {
-        //assert(usr.isNull || usr.length > 0);
-        foreach (i; inherits_) {
-            assert(i.name.length > 0);
-        }
     }
 
     bool isVirtual() {
@@ -1448,8 +1424,8 @@ enum MergeMode {
 
         CppClass[] classes;
         CppNamespace[] namespaces;
-        RedBlackTree!(SortByString!CxGlobalVariable, "a.id < b.id") globals;
-        RedBlackTree!(SortByString!CFunction, "a.id < b.id") funcs;
+        RedBlackTree!(SortByString!CxGlobalVariable, (a, b) => a.id < b.id) globals;
+        RedBlackTree!(SortByString!CFunction, (a, b) => a.id < b.id) funcs;
     }
 
     static auto makeAnonymous() nothrow {
@@ -1464,7 +1440,7 @@ enum MergeMode {
         return rval;
     }
 
-    this(const CppNsStack stack) nothrow {
+    this(CppNsStack stack) nothrow {
         import std.algorithm : joiner;
         import std.container : make;
         import std.digest.crc : crc32Of;
@@ -1489,10 +1465,9 @@ enum MergeMode {
             // anonymous namespace
             this.setUniqueId(makeUniqueUSR);
         }
-
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) {
         import std.algorithm : map, joiner;
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -1536,7 +1511,7 @@ enum MergeMode {
 
         foreach (kind; AliasSeq!("funcRange", "globalRange")) {
             foreach (ref item; __traits(getMember, other_ns, kind)) {
-                put(item);
+                put(item.payload);
             }
         }
 
@@ -1661,8 +1636,6 @@ enum MergeMode {
         return globals[];
     }
 
-const:
-
     mixin(standardToString);
 
     /// If the namespace is anonymous, aka has no name.
@@ -1733,7 +1706,7 @@ struct CppRoot {
     }
 
     /// Returns: An initialized CppRootX
-    static auto make() @safe {
+    static CppRoot make() @safe {
         import std.container : make;
 
         CppRoot r;
@@ -1744,7 +1717,7 @@ struct CppRoot {
     }
 
     /// Recrusive stringify the content for human readability.
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) {
         import std.ascii : newline;
         import std.meta : AliasSeq;
         import std.range : put;
@@ -1770,7 +1743,7 @@ struct CppRoot {
 
         foreach (kind; AliasSeq!("funcRange", "globalRange")) {
             foreach (ref item; __traits(getMember, root, kind)) {
-                put(item);
+                put(item.payload);
             }
         }
 
@@ -1883,7 +1856,7 @@ struct CppRoot {
     }
 
     /// Cast to string representation
-    T opCast(T : string)() const {
+    T opCast(T : string)() {
         return this.toString;
     }
 

@@ -48,7 +48,6 @@ set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source
 -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
--I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
@@ -56,9 +55,9 @@ compile_d_static_lib(dextool_cpptooling
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_clang;dextool_dextool;dextool_libclang_ast;dextool_dsrcgen;dextool_libclang;dextool_taggedalgebraic;dextool_blob_model;dextool_mylib;dextool_sumtype")
+    "dextool_clang;dextool_dextool;dextool_libclang_ast;dextool_dsrcgen;dextool_libclang;dextool_blob_model;dextool_mylib;dextool_sumtype")
 
 list(APPEND SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/ut_main.d")
-compile_d_unittest(dextool_cpptooling "${SRC_FILES}" "${flags}" "" "dextool_clang;dextool_dextool;dextool_libclang_ast;dextool_libclang;dextool_dsrcgen;dextool_blob_model;dextool_mylib;dextool_sumtype;dextool_taggedalgebraic")
+compile_d_unittest(dextool_cpptooling "${SRC_FILES}" "${flags}" "" "dextool_clang;dextool_dextool;dextool_libclang_ast;dextool_libclang;dextool_dsrcgen;dextool_blob_model;dextool_mylib;dextool_sumtype")
 
 add_subdirectory(test)

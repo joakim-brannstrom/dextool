@@ -13,6 +13,8 @@ import std.traits;
 import std.typecons : Tuple, Flag, Nullable;
 import logger = std.experimental.logger;
 
+import sumtype;
+
 import cpptooling.data.symbol.types : USRType;
 import cpptooling.data.type : LocationTag;
 
@@ -35,14 +37,14 @@ struct TypeResults {
 
 /** Merge rhs into lhs.
  */
-ref TypeResults mergeExtra(ref return TypeResults lhs, const ref TypeResults rhs) {
+ref TypeResults mergeExtra(ref return TypeResults lhs, ref TypeResults rhs) {
     lhs.extra ~= rhs.extra;
     return lhs;
 }
 
 /// Pretty loggning with indentation.
-void logTypeAttr(const ref TypeAttr attr, const uint indent = 0,
-        in uint extra_space = 0, in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
+void logTypeAttr(TypeAttr attr, const uint indent = 0, in uint extra_space = 0,
+        in string func = __FUNCTION__, in uint line = __LINE__) @safe pure {
     import std.array : array;
     import std.range : repeat;
     import logger = std.experimental.logger;
@@ -64,7 +66,7 @@ void logTypeAttr(const ref TypeAttr attr, const uint indent = 0,
 }
 
 /// Pretty loggning with indentation.
-void logTypeResult(ref const(TypeResult) result, in uint indent,
+void logTypeResult(const TypeResult result, in uint indent,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure nothrow {
     import std.array : array;
     import std.conv : to;
@@ -76,26 +78,26 @@ void logTypeResult(ref const(TypeResult) result, in uint indent,
     debug {
         string indent_ = repeat(' ', indent).array();
         string extra;
-        switch (result.type.kind.info.kind) with (TypeKind.Info) {
-            case Kind.typeRef:
-                extra = "|ex ref:" ~ result.type.kind.info.typeRef ~ "|ex canonical:" ~ result.type.kind.info.canonicalRef;
-                break;
-            case Kind.funcPtr:
-            case Kind.pointer:
-                extra = "|ex usr:" ~ result.type.kind.info.pointee;
-                break;
-            case Kind.array:
-                extra = "|ex elem:" ~ result.type.kind.info.element;
-                break;
-            default:
-        }
+        result.type.kind.info.match!((const TypeKind.TypeRefInfo t) {
+                extra = "|ex ref:" ~ t.typeRef ~ "|ex canonical:" ~ t.canonicalRef;
+                                     },
+                                     (const TypeKind.FuncPtrInfo t) {
+                extra = "|ex usr:" ~ t.pointee;
+                                     },
+                                     (const TypeKind.PointerInfo t) {
+                extra = "|ex usr:" ~ t.pointee;
+                                     },
+                                     (const TypeKind.ArrayInfo t) {
+                extra = "|ex elem:" ~ t.element;
+                                     },
+                                     (_) {});
 
         logger.logf!(-1, "", "", "", "")
             (logger.LogLevel.trace,
              "%d%s %s|%s|repr:%s|loc:%s %s|usr:%s|%s%s [%s:%d]",
              indent,
              indent_,
-             to!string(result.type.kind.info.kind),
+             result.type.kind.info.match!(a => typeof(a).stringof),
              result.type.kind.splitTypeId,
              result.type.toStringDecl("x"),
              (result.location.kind == LocationTag.Kind.loc) ? (result.location.file.length == 0 ? "no" : "yes") : "noloc",
@@ -106,19 +108,16 @@ void logTypeResult(ref const(TypeResult) result, in uint indent,
              func,
              line);
 
-        switch (result.type.kind.info.kind) with (TypeKind.Info) {
-            case Kind.func:
-                foreach (r; result.type.kind.info.params) {
+        result.type.kind.info.match!((const TypeKind.FuncInfo t) {
+                foreach (r; t.params) {
                     logTypeAttr(r.attr, indent, 1, func, line);
                 }
-                break;
-            case Kind.pointer:
-                foreach (r; result.type.kind.info.attrs) {
+                                     },
+                                     (const TypeKind.PointerInfo t) {
+                foreach (r; t.attrs) {
                     logTypeAttr(r, indent, 1, func, line);
                 }
-                break;
-            default:
-        }
+                                     }, (_) {});
     }
     } catch (Exception ex) {
     }
@@ -126,13 +125,12 @@ void logTypeResult(ref const(TypeResult) result, in uint indent,
 }
 
 /// Pretty loggning with indentation.
-void logTypeResult(ref const(TypeResults) results, in uint indent = 0,
+void logTypeResult(const TypeResults results, in uint indent = 0,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure nothrow {
-    import std.range : chain, only;
-
     // dfmt off
     debug {
-        foreach (const ref result; chain(only(results.primary), results.extra)) {
+        logTypeResult(results.primary, indent, func, line);
+        foreach (ref result; results.extra) {
             logTypeResult(result, indent, func, line);
         }
     }
@@ -140,7 +138,7 @@ void logTypeResult(ref const(TypeResults) results, in uint indent = 0,
 }
 
 /// Pretty loggning with indentation.
-void logTypeResult(ref const(Nullable!TypeResults) results, in uint indent = 0,
+void logTypeResult(const Nullable!TypeResults results, in uint indent = 0,
         in string func = __FUNCTION__, in uint line = __LINE__) @safe pure nothrow {
     debug {
         if (!results.isNull) {
@@ -150,11 +148,11 @@ void logTypeResult(ref const(Nullable!TypeResults) results, in uint indent = 0,
 }
 
 //TODO remove, this is not good. keep it focused on SimleInfo.
-TypeKindAttr makeSimple(string txt, TypeAttr attr = TypeAttr.init) pure @safe nothrow {
+TypeKindAttr makeSimple(string txt, TypeAttr attr = TypeAttr.init) pure @trusted nothrow {
     import cpptooling.data : SimpleFmt, TypeId;
 
     TypeKind t;
-    t.info = TypeKind.SimpleInfo(SimpleFmt(TypeId(txt)));
+    t.info = TypeKind.Info(TypeKind.SimpleInfo(SimpleFmt(TypeId(txt))));
 
     return TypeKindAttr(t, attr);
 }
@@ -187,7 +185,7 @@ private auto toCvPtrQ(T)(ref T app, const(TypeAttr)[] attrs) {
  *
  * trusted: shouldn't be needed but because of changes to dmd-2.094.0
  */
-auto toStringDecl(const TypeKind t, const TypeAttr ta, string id) @safe pure {
+auto toStringDecl(const TypeKind t, TypeAttr ta, string id) @safe pure {
     import std.array : appender, Appender;
     import cpptooling.data;
 
@@ -204,30 +202,14 @@ auto toStringDecl(const TypeKind t, const TypeAttr ta, string id) @safe pure {
         fmt.toString(&txt, &txt, ta.isConst ? CvQ.const_ : CvQ(), data1, id);
     }
 
-    // TODO sort them by alphabetic order
-
-    final switch (t.info.kind) with (TypeKind.Info) {
-    case Kind.primitive:
-        auto info = cast(const TypeKind.PrimitiveInfo) t.info;
-        oneArg(info.fmt, ta, DeclId(id));
-        break;
-    case Kind.record:
-        auto info = cast(const TypeKind.RecordInfo) t.info;
-        oneArg(info.fmt, ta, DeclId(id));
-        break;
-    case Kind.simple:
-        auto info = cast(const TypeKind.SimpleInfo) t.info;
-        oneArg(info.fmt, ta, DeclId(id));
-        break;
-    case Kind.typeRef:
-        auto info = cast(const TypeKind.TypeRefInfo) t.info;
-        oneArg(info.fmt, ta, DeclId(id));
-        break;
-    case Kind.array:
-        auto info = cast(const TypeKind.ArrayInfo) t.info;
+    t.info.match!((const TypeKind.PrimitiveInfo t) => oneArg(t.fmt, ta,
+            DeclId(id)), (const TypeKind.RecordInfo t) => oneArg(t.fmt, ta,
+            DeclId(id)), (const TypeKind.SimpleInfo t) => oneArg(t.fmt, ta,
+            DeclId(id)), (const TypeKind.TypeRefInfo t) => oneArg(t.fmt, ta,
+            DeclId(id)), (const TypeKind.ArrayInfo t) {
         ArraySize sz;
 
-        foreach (a; info.indexes) {
+        foreach (a; t.indexes) {
             if (a.isNull) {
                 sz ~= ArraySize.Size();
             } else {
@@ -235,51 +217,32 @@ auto toStringDecl(const TypeKind t, const TypeAttr ta, string id) @safe pure {
             }
         }
 
-        info.fmt.toString(&txt, &txt, ta.isConst ? CvQ.const_ : CvQ(), DeclId(id), sz);
-        break;
-    case Kind.func:
-        auto info = cast(const TypeKind.FuncInfo) t.info;
-        info.fmt.toString(&txt, &txt, DeclId(id));
-        break;
-    case Kind.funcSignature:
-        auto info = cast(const TypeKind.FuncSignatureInfo) t.info;
-        info.fmt.toString(&txt, &txt);
-        break;
-    case Kind.funcPtr:
+        t.fmt.toString(&txt, &txt, ta.isConst ? CvQ.const_ : CvQ(), DeclId(id), sz);
+    }, (const TypeKind.FuncInfo t) => t.fmt.toString(&txt, &txt, DeclId(id)),
+            (const TypeKind.FuncSignatureInfo t) => t.fmt.toString(&txt,
+                &txt), (const TypeKind.FuncPtrInfo t) {
         auto ptrs = appender!(CvPtrQ[])();
-        toCvPtrQ(ptrs, t.info.attrs);
+        toCvPtrQ(ptrs, t.attrs);
 
-        auto info = cast(const TypeKind.FuncPtrInfo) t.info;
-        twoArg(info.fmt, ta, DeclId(id), ptrs.data);
-        break;
-    case Kind.pointer:
+        twoArg(t.fmt, ta, DeclId(id), ptrs.data);
+    }, (const TypeKind.PointerInfo t) {
         auto ptrs = appender!(CvPtrQ[])();
-        toCvPtrQ(ptrs, t.info.attrs);
+        toCvPtrQ(ptrs, t.attrs);
 
-        auto info = cast(const TypeKind.PointerInfo) t.info;
-        twoArg(info.fmt, ta, DeclId(id), ptrs.data);
-        break;
-    case Kind.ctor:
-        auto info = cast(const TypeKind.CtorInfo) t.info;
-        info.fmt.toString(&txt, DeclId(id));
-        break;
-    case Kind.dtor:
-        auto info = cast(const TypeKind.DtorInfo) t.info;
-        info.fmt.toString(&txt, DeclId(id));
-        break;
-    case Kind.null_:
+        twoArg(t.fmt, ta, DeclId(id), ptrs.data);
+    }, (const TypeKind.CtorInfo t) => t.fmt.toString(&txt, DeclId(id)),
+            (const TypeKind.DtorInfo t) => t.fmt.toString(&txt, DeclId(id)), (Void t) {
         debug {
             logger.error("Type is null. Identifier ", id);
         }
         txt(id);
-        break;
-    }
+    });
 
     return buf.data.idup;
 }
 
 /// ditto
-auto toStringDecl(const TypeKind t, const TypeAttr ta) {
+auto toStringDecl(const TypeKind t, const TypeAttr ta) @safe {
     import std.string : strip;
 
     // TODO consider changing the implementation of to NOT take an id.
@@ -288,22 +251,22 @@ auto toStringDecl(const TypeKind t, const TypeAttr ta) {
 }
 
 /// if a type can be cast to a TypeKindAttr.
-auto toStringDecl(T)(const T value, string id)
+auto toStringDecl(T)(T value, string id) @safe
         if (is(typeof(cast(TypeKindAttr) value) == TypeKindAttr)) {
-    return (cast(TypeKindAttr) value).kind.toStringDecl(value.attr, id);
+    return (cast(const TypeKindAttr) value).kind.toStringDecl(value.attr, id);
 }
 
 /// ditto
-auto toStringDecl(T)(const T value)
+auto toStringDecl(T)(T value) @safe
         if (is(typeof(cast(TypeKindAttr) value) == TypeKindAttr)) {
-    return (cast(TypeKindAttr) value).kind.toStringDecl(value.attr);
+    return (cast(const TypeKindAttr) value).kind.toStringDecl(value.attr);
 }
 
 /** Split the TypeId from the formatter in a Left/Right.
  *
  * TODO duplicate code between this and toStringDecl.
  */
-auto splitTypeId(ref const TypeKind t) @safe pure {
+auto splitTypeId(const TypeKind t) @safe pure {
     import std.array : appender, Appender;
     import cpptooling.data;
 
@@ -319,28 +282,14 @@ auto splitTypeId(ref const TypeKind t) @safe pure {
         bufWr.put(s);
     }
 
-    final switch (t.info.kind) with (TypeKind.Info) {
-    case Kind.primitive:
-        auto info = cast(const TypeKind.PrimitiveInfo) t.info;
-        rval.left = info.fmt.typeId;
-        break;
-    case Kind.record:
-        auto info = cast(const TypeKind.RecordInfo) t.info;
-        rval.left = info.fmt.typeId;
-        break;
-    case Kind.simple:
-        auto info = cast(const TypeKind.SimpleInfo) t.info;
-        rval.left = info.fmt.typeId;
-        break;
-    case Kind.typeRef:
-        auto info = cast(const TypeKind.TypeRefInfo) t.info;
-        rval.left = info.fmt.typeId;
-        break;
-    case Kind.array:
-        auto info = cast(const TypeKind.ArrayInfo) t.info;
+    t.info.match!((const TypeKind.PrimitiveInfo t) { rval.left = t.fmt.typeId; },
+            (const TypeKind.RecordInfo t) { rval.left = t.fmt.typeId; },
+            (const TypeKind.SimpleInfo t) { rval.left = t.fmt.typeId; },
+            (const TypeKind.TypeRefInfo t) { rval.left = t.fmt.typeId; },
+            (const TypeKind.ArrayInfo t) {
         ArraySize sz;
 
-        foreach (a; info.indexes) {
+        foreach (a; t.indexes) {
             if (a.isNull) {
                 sz ~= ArraySize.Size();
             } else {
@@ -348,51 +297,33 @@ auto splitTypeId(ref const TypeKind t) @safe pure {
             }
         }
 
-        info.fmt.toString(&wl, &wr, CvQ(), DeclId(null), sz);
+        t.fmt.toString(&wl, &wr, CvQ(), DeclId(null), sz);
         rval = TypeIdLR(Left(bufWl.data.idup), Right(bufWr.data.idup));
-        break;
-    case Kind.funcSignature:
-        auto info = cast(const TypeKind.FuncSignatureInfo) t.info;
-        info.fmt.toString(&wl, &wr);
+    }, (const TypeKind.FuncSignatureInfo t) {
+        t.fmt.toString(&wl, &wr);
         rval = TypeIdLR(Left(bufWl.data.idup), Right(bufWr.data.idup));
-        break;
-    case Kind.func:
-        auto info = cast(const TypeKind.FuncInfo) t.info;
-        info.fmt.toString(&wl, &wr, DeclId(null));
+    }, (const TypeKind.FuncInfo t) {
+        t.fmt.toString(&wl, &wr, DeclId(null));
         rval = TypeIdLR(Left(bufWl.data.idup), Right(bufWr.data.idup));
-        break;
-    case Kind.funcPtr:
+    }, (const TypeKind.FuncPtrInfo t) {
         auto ptrs = appender!(CvPtrQ[])();
-        toCvPtrQ(ptrs, t.info.attrs);
+        toCvPtrQ(ptrs, t.attrs);
 
-        auto info = cast(const TypeKind.FuncPtrInfo) t.info;
-        info.fmt.toString(&wl, &wr, CvQ(), ptrs.data, DeclId(null));
+        t.fmt.toString(&wl, &wr, CvQ(), ptrs.data, DeclId(null));
         rval = TypeIdLR(Left(bufWl.data.idup), Right(bufWr.data.idup));
-        break;
-    case Kind.pointer:
+    }, (const TypeKind.PointerInfo t) {
         auto ptrs = appender!(CvPtrQ[])();
-        toCvPtrQ(ptrs, t.info.attrs);
+        toCvPtrQ(ptrs, t.attrs);
 
-        auto info = cast(const TypeKind.PointerInfo) t.info;
-        info.fmt.toString(&wl, &wr, CvQ(), ptrs.data, DeclId(null));
+        t.fmt.toString(&wl, &wr, CvQ(), ptrs.data, DeclId(null));
         rval = TypeIdLR(Left(bufWl.data.idup), Right(bufWr.data.idup));
-        break;
-    case Kind.ctor:
-        // have no TypeId
-        break;
-    case Kind.dtor:
-        // have no TypeId
-        break;
-    case Kind.null_:
-        debug logger.error("Type is null");
-        break;
-    }
+    }, (_) {});
 
     return rval;
 }
 
 /// ditto
-auto splitTypeId(ref const TypeKind t, const uint indent = 0) @safe pure
+auto splitTypeId(const TypeKind t, in uint indent = 0) @safe pure
 out (result) {
     import std.conv : to;
 
@@ -400,6 +331,6 @@ out (result) {
         logger.trace(result.to!string(), indent);
     }
 }
-body {
+do {
     return splitTypeId(t);
 }
