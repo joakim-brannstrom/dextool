@@ -13,20 +13,17 @@ import std.traits : isSomeString;
 import std.typecons : Flag;
 import std.variant : Algebraic;
 
-import taggedalgebraic;
-
 public import cpptooling.data.symbol.types : USRType;
 import cpptooling.data.kind_type : TypeKind, TypeAttr, TypeKindAttr, TypeResult, toStringDecl;
 
 static import cpptooling.data.class_classification;
 
 /// Convert a namespace stack to a string separated by ::.
-string toStringNs(T : const(Tx), Tx)(T ns) @safe
-        if (is(Tx == CppNsStack) || is(Tx == CppNs[])) {
+string toStringNs(T)(T ns) @safe if (is(Tx == CppNsStack) || is(Tx == CppNs[])) {
     import std.algorithm : map;
     import std.array : join;
 
-    return (cast(const CppNs[]) ns).map!(a => cast(string) a).join("::");
+    return (cast(CppNs[]) ns).map!(a => cast(string) a).join("::");
 }
 
 /// Locaiton of a symbol.
@@ -54,7 +51,7 @@ struct Location {
     }
 
     /// Location as File Line Column
-    string toString() @safe pure const {
+    string toString() @safe pure {
         import std.exception : assumeUnique;
         import std.format : FormatSpec;
 
@@ -70,7 +67,7 @@ struct Location {
     }
 
     /// ditto
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char formatSpec) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char formatSpec) {
         import std.format : formatValue;
         import std.range.primitives : put;
 
@@ -83,7 +80,7 @@ struct Location {
     }
 
     ///
-    T opCast(T : string)() @safe pure const nothrow {
+    T opCast(T : string)() @safe pure nothrow {
         return toString();
     }
 }
@@ -93,8 +90,6 @@ struct Location {
  * Either a:
  *  - no location.
  *  - location with data.
- *
- * Using a TaggedAlgebraic to allow adding more types in the future.
  */
 struct LocationTag {
     import std.format : FormatSpec;
@@ -125,7 +120,7 @@ struct LocationTag {
         this(Location(file, line, column));
     }
 
-    string toString() @safe pure const {
+    string toString() @safe pure {
         import std.exception : assumeUnique;
         import std.format : FormatSpec;
 
@@ -140,7 +135,7 @@ struct LocationTag {
         return trustedUnique(buf);
     }
 
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char formatSpec) const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char formatSpec) {
         import std.format : formatValue;
         import std.range.primitives : put;
 
@@ -155,7 +150,7 @@ struct LocationTag {
     }
 }
 
-auto toString(const ref LocationTag data) @safe pure {
+auto toString(LocationTag data) @safe pure {
     static import std.format;
 
     final switch (data.kind) {
@@ -205,7 +200,7 @@ struct CppNsStack {
         payload = payload[0 .. $ - 1];
     }
 
-    bool empty() @safe pure nothrow const @nogc {
+    bool empty() @safe pure nothrow @nogc {
         return payload.length == 0;
     }
 }
@@ -259,7 +254,7 @@ struct CppAccess {
     AccessType payload;
     alias payload this;
 
-    T opCast(T)() const if (isSomeString!T) {
+    T opCast(T)() if (isSomeString!T) {
         import std.conv : to;
 
         return payload.to!T();

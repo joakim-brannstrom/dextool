@@ -112,8 +112,8 @@ struct Code {
 
 struct Mock {
     // Use to generate a unique filename.
-    const CppClassName name;
-    const CppNs[] nesting;
+    CppClassName name;
+    CppNs[] nesting;
 
     CppModule cpp;
     alias cpp this;
@@ -121,8 +121,8 @@ struct Mock {
 
 struct GtestPrettyPrint {
     // Use to generate a unique filename.
-    const CppClassName name;
-    const CppNs[] nesting;
+    CppClassName name;
+    CppNs[] nesting;
 
     CppModule cpp;
     alias cpp this;
@@ -154,7 +154,7 @@ struct GeneratedData {
         return m;
     }
 
-    auto makeMock(const CppNs[] ns, const CppClassName name) {
+    auto makeMock(CppNs[] ns, CppClassName name) {
         auto m = Mock(name, ns);
         m.cpp = (new CppModule).noIndent;
         gmocks ~= m;
@@ -162,7 +162,7 @@ struct GeneratedData {
         return m;
     }
 
-    auto makeGtestPrettyPrintHdr(const CppNs[] ns, const CppClassName name) {
+    auto makeGtestPrettyPrintHdr(CppNs[] ns, CppClassName name) {
         auto m = GtestPrettyPrint(name, ns);
         m.cpp = (new CppModule).noIndent;
         gtestPPHdr ~= m;
@@ -170,7 +170,7 @@ struct GeneratedData {
         return m;
     }
 
-    auto makeGtestPrettyPrintImpl(const CppNs[] ns, const CppClassName name) {
+    auto makeGtestPrettyPrintImpl(CppNs[] ns, CppClassName name) {
         auto m = GtestPrettyPrint(name, ns);
         m.cpp = (new CppModule).noIndent;
         gtestPPImpl ~= m;

@@ -55,11 +55,11 @@ body {
 
     //dfmt off
     return func.visit!(
-        (const CppMethod a) => InData(a.classification(), MethodKind.Method),
-        (const CppMethodOp a) => InData(a.classification(), MethodKind.Method),
+        (CppMethod a) => InData(a.classification(), MethodKind.Method),
+        (CppMethodOp a) => InData(a.classification(), MethodKind.Method),
         // A ctor can't be anything else than Normal
-        (const CppCtor a) => InData(MemberVirtualType.Normal, MethodKind.Ctor),
-        (const CppDtor a) => InData(a.classification(), MethodKind.Dtor));
+        (CppCtor a) => InData(MemberVirtualType.Normal, MethodKind.Ctor),
+        (CppDtor a) => InData(a.classification(), MethodKind.Dtor));
     //dfmt on
 }
 
@@ -158,7 +158,7 @@ State classifyClass(in State current, in MethodKind method_kind,
 }
 
 /// ditto
-State classifyClass(in State current, const CppClass.CppFunc p, Flag!"hasMember" hasMember) @safe {
+State classifyClass(State current, CppClass.CppFunc p, Flag!"hasMember" hasMember) @safe {
     auto data = toInData(p);
     return classifyClass(current, data.t, data.value, hasMember);
 }

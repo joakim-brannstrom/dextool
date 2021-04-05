@@ -18,16 +18,15 @@ import std.traits;
 import std.typecons : Nullable, Flag;
 import logger = std.experimental.logger;
 
-public import taggedalgebraic : Void;
+import my.sumtype;
 
 import cpptooling.data.symbol.types : USRType;
 
 version (unittest) {
-    import unit_threaded : Name, shouldEqual;
-} else {
-    private struct Name {
-        string name_;
-    }
+    import unit_threaded : shouldEqual;
+}
+
+struct Void {
 }
 
 alias ArrayInfoIndex = Nullable!long;
@@ -40,7 +39,7 @@ struct FuncInfoParam {
 }
 
 /// Convert an array of indexes to a string representation
-string toRepr(const(ArrayInfoIndex[]) indexes) @safe pure {
+string toRepr(ArrayInfoIndex[] indexes) @safe pure {
     import std.algorithm : map, joiner;
     import std.conv : text;
 
@@ -53,7 +52,7 @@ string toRepr(const(ArrayInfoIndex[]) indexes) @safe pure {
     // dfmt on
 }
 
-bool isIncompleteArray(const(ArrayInfoIndex)[] indexes) @safe pure nothrow @nogc {
+bool isIncompleteArray(ArrayInfoIndex[] indexes) @safe pure nothrow @nogc {
     foreach (index; indexes) {
         if (index.isNull)
             return true;
@@ -66,7 +65,6 @@ bool isIncompleteArray(const(ArrayInfoIndex)[] indexes) @safe pure nothrow @nogc
  */
 struct TypeKind {
     import std.traits : isSomeString;
-    import taggedalgebraic : TaggedAlgebraic;
     import cpptooling.data.kind_type_format;
 
     this(T)(T info, USRType usr) @safe if (!is(T == TypeKind)) {
@@ -79,52 +77,17 @@ struct TypeKind {
     }
 
     invariant {
-        final switch (this.info.kind) with (TypeKind.Info) {
-        case Kind.ctor:
-            // Assuming that a ctor or dtor must always have a id, otherwise
-            // unusable
-            goto case;
-        case Kind.dtor:
-            assert(info.id.length > 0);
-            break;
-        case Kind.array:
-        case Kind.func:
-        case Kind.funcSignature:
-        case Kind.primitive:
-        case Kind.record:
-        case Kind.simple:
-        case Kind.typeRef:
-            break;
-        case Kind.funcPtr:
-            assert(info.attrs.length > 0);
-            break;
-        case Kind.pointer:
-            assert(info.attrs.length > 0);
-            break;
-        case Kind.null_:
-            break;
-        }
+        info.match!((const TypeKind.CtorInfo t) => assert(t.id.length > 0),
+                (const TypeKind.DtorInfo t) => assert(t.id.length > 0),
+                (const TypeKind.FuncPtrInfo t) => assert(t.attrs.length > 0),
+                (const TypeKind.PointerInfo t) => assert(t.attrs.length > 0), (_) {
+        });
     }
 
     /// Formatting information needed to reproduce the type and identifier.
-    static @safe pure nothrow @nogc union InternalInfo {
-        Void null_;
-        PrimitiveInfo primitive;
-        SimpleInfo simple;
-        ArrayInfo array;
-
-        FuncInfo func;
-        FuncPtrInfo funcPtr;
-        FuncSignatureInfo funcSignature;
-
-        RecordInfo record;
-        CtorInfo ctor;
-        DtorInfo dtor;
-        PointerInfo pointer;
-        TypeRefInfo typeRef;
-    }
-
-    alias Info = TaggedAlgebraic!InternalInfo;
+    alias Info = SumType!(ArrayInfo, CtorInfo, DtorInfo, FuncInfo, FuncPtrInfo,
+            FuncSignatureInfo, PointerInfo, PrimitiveInfo, RecordInfo,
+            SimpleInfo, TypeRefInfo, Void,);
 
     Info info;
     USRType usr;
@@ -282,7 +245,7 @@ pure @safe nothrow @nogc:
     Flag!"isDefinition" isDefinition;
 
     /// Returns: a string range of the attributes
-    auto stringRange() const {
+    auto stringRange() {
         import std.range : chain, only;
         import std.algorithm : filter;
 
@@ -297,7 +260,7 @@ pure @safe nothrow @nogc:
     }
 
     ///
-    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt = "%s") const {
+    void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt = "%s") {
         import std.algorithm : joiner, copy;
 
         // dfmt off
@@ -307,7 +270,7 @@ pure @safe nothrow @nogc:
         // dfmt on
     }
 
-    string toString() @safe pure const {
+    string toString() @safe pure {
         import std.exception : assumeUnique;
         import std.format : FormatSpec;
 
@@ -346,36 +309,20 @@ auto resolveCanonicalType(LookupT)(TypeKind type, TypeAttr attr, LookupT lookup)
         if (__traits(hasMember, LookupT, "kind")) {
     import std.algorithm : among;
     import std.range : only, dropOne;
-    import cpptooling.data : TypeKindAttr;
+    import cpptooling.data : TypeKindAttr, TypeKind, Void;
 
     auto rval = only(TypeKindAttr.init).dropOne;
     auto found = typeof(lookup.kind(USRType.init)).init;
 
-    final switch (type.info.kind) with (TypeKind.Info) {
-    case Kind.array:
-        found = lookup.kind(type.info.element);
-        break;
-    case Kind.funcPtr:
-        found = lookup.kind(type.info.pointee);
-        break;
-    case Kind.pointer:
-        found = lookup.kind(type.info.pointee);
-        break;
-    case Kind.typeRef:
-        found = lookup.kind(type.info.canonicalRef);
-        break;
-    case Kind.ctor:
-    case Kind.dtor:
-    case Kind.func:
-    case Kind.funcSignature:
-    case Kind.primitive:
-    case Kind.record:
-    case Kind.simple:
-        rval = only(TypeKindAttr(type, attr));
-        break;
-    case Kind.null_:
-        break;
-    }
+    type.info.match!((TypeKind.ArrayInfo t) { found = lookup.kind(t.element); },
+            (TypeKind.FuncPtrInfo t) { found = lookup.kind(t.pointee); }, (TypeKind.PointerInfo t) {
+        found = lookup.kind(t.pointee);
+    }, (TypeKind.TypeRefInfo t) { found = lookup.kind(t.canonicalRef); },
+            restrictTo!(TypeKind.CtorInfo, TypeKind.DtorInfo,
+                TypeKind.FuncInfo, TypeKind.FuncSignatureInfo,
+                TypeKind.PrimitiveInfo, TypeKind.RecordInfo, TypeKind.SimpleInfo, (t) {
+                rval = only(TypeKindAttr(type, attr));
+            }), (Void t) {});
 
     foreach (item; found) {
         rval = only(TypeKindAttr(item.get, attr));
@@ -396,19 +343,13 @@ auto resolveCanonicalType(LookupT)(TypeKind type, TypeAttr attr, LookupT lookup)
  *
  * Returns: TypeKind of the canonical type.
  */
-TypeKind resolveTypeRef(LookupT)(const TypeKind type, LookupT lookup) {
-    import std.algorithm : among;
-    import std.range : only, dropOne;
-    import cpptooling.data : TypeKindAttr;
-
-    if (type.info.kind == TypeKind.Info.Kind.typeRef) {
-        foreach (a; lookup(type.info.canonicalRef)) {
-            TypeKind t = a;
-            return t;
+TypeKind resolveTypeRef(LookupT)(TypeKind type, LookupT lookup) {
+    return type.info.match!((TypeKind.TypeRefInfo t) {
+        foreach (a; lookup(t.canonicalRef)) {
+            return a;
         }
-    }
-
-    return type;
+        return type;
+    }, _ => type);
 }
 
 /** Resolve the pointe type.
@@ -427,34 +368,15 @@ auto resolvePointeeType(LookupT)(TypeKind type, TypeAttr attr, LookupT lookup)
         if (__traits(hasMember, LookupT, "kind")) {
     import std.algorithm : among;
     import std.range : only, dropOne;
-    import cpptooling.data : TypeKindAttr;
+    import cpptooling.data : TypeKindAttr, Void;
 
     auto rval = only(TypeKindAttr.init).dropOne;
     auto found = typeof(lookup.kind(USRType.init)).init;
 
-    final switch (type.info.kind) with (TypeKind.Info) {
-    case Kind.array:
-        found = lookup.kind(type.info.element);
-        break;
-    case Kind.funcPtr:
-        found = lookup.kind(type.info.pointee);
-        break;
-    case Kind.pointer:
-        found = lookup.kind(type.info.pointee);
-        break;
-    case Kind.typeRef:
-    case Kind.ctor:
-    case Kind.dtor:
-    case Kind.func:
-    case Kind.funcSignature:
-    case Kind.primitive:
-    case Kind.record:
-    case Kind.simple:
-        rval = only(TypeKindAttr(type, attr));
-        break;
-    case Kind.null_:
-        break;
-    }
+    type.info.match!((TypeKind.ArrayInfo t) { found = lookup.kind(t.element); },
+            (TypeKind.FuncPtrInfo t) { found = lookup.kind(t.pointee); }, (TypeKind.PointerInfo t) {
+        found = lookup.kind(t.pointee);
+    }, (Void t) {}, (_) { rval = only(TypeKindAttr(type, attr)); });
 
     foreach (item; found) {
         rval = only(TypeKindAttr(item.get, attr));

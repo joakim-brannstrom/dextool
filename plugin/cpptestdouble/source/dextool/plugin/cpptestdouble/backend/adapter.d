@@ -9,6 +9,7 @@ import std.typecons : Yes, No;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
+import sumtype;
 
 import cpptooling.type : MainNs, MainInterface;
 
@@ -111,7 +112,7 @@ void generateImpl(CppClass c, CppModule impl) {
 
     // C'tor is expected to have N params.
     // One of them must be named inst.
-    static void genCtor(const ref CppClass c, const ref CppCtor m, CppModule impl) {
+    static void genCtor(CppClass c, CppCtor m, CppModule impl) {
         // dfmt off
         TypeKindVariable p0 = () @trusted {
             import std.array;
@@ -132,18 +133,18 @@ void generateImpl(CppClass c, CppModule impl) {
         impl.sep(2);
     }
 
-    static void genOp(const ref CppClass c, const ref CppMethodOp m, CppModule impl) {
+    static void genOp(CppClass c, CppMethodOp m, CppModule impl) {
         // not applicable
     }
 
-    static void genDtor(const ref CppClass c, const ref CppDtor m, CppModule impl) {
+    static void genDtor(CppClass c, CppDtor m, CppModule impl) {
         with (impl.dtor_body(c.name)) {
             stmt("test_double_inst = 0");
         }
         impl.sep(2);
     }
 
-    static void genMethod(const ref CppClass c, const ref CppMethod m, CppModule impl) {
+    static void genMethod(CppClass c, CppMethod m, CppModule impl) {
         import std.range : takeOne;
 
         string params = m.paramRange().joinParams();
@@ -160,10 +161,10 @@ void generateImpl(CppClass c, CppModule impl) {
         // dfmt off
         () @trusted{
             m.visit!(
-                (const CppMethod m) => genMethod(c, m, impl),
-                (const CppMethodOp m) => genOp(c, m, impl),
-                (const CppCtor m) => genCtor(c, m, impl),
-                (const CppDtor m) => genDtor(c, m, impl));
+                (CppMethod m) => genMethod(c, m, impl),
+                (CppMethodOp m) => genOp(c, m, impl),
+                (CppCtor m) => genCtor(c, m, impl),
+                (CppDtor m) => genDtor(c, m, impl));
         }();
         // dfmt on
     }
@@ -181,9 +182,8 @@ void generateSingleton(CppNamespace in_ns, CppModule impl) {
 
     foreach (g; in_ns.globalRange()) {
         auto stmt = E(g.type.toStringDecl(g.name));
-        if (g.type.kind.info.kind == TypeKind.Info.Kind.pointer) {
-            stmt = E("0");
-        }
+        g.type.kind.info.match!((TypeKind.PointerInfo t) { stmt = E("0"); }, (_) {
+        });
         ns.stmt(stmt);
     }
 }

@@ -344,37 +344,20 @@ bool sliceContains(T)(const string[] log, const T gold_lines) if (isInputRange!T
 deprecated("to be removed") auto runDextool(T)(in T input,
         const ref TestEnv testEnv, in string[] pre_args, in string[] flags) {
     import std.traits : isArray;
+    import dextool_test.builders;
 
-    string[] args;
-    args ~= testEnv.dextool.toString;
-    args ~= pre_args.dup;
-    args ~= ["--out", testEnv.outdir.toString];
+    auto d0 = BuildDextoolRun(testEnv.dextool.toString, testEnv.outdir.toString).addArg(
+            pre_args).addArg(["--out", testEnv.outdir.toString]).addFlag(flags);
 
     static if (isArray!T) {
         foreach (f; input) {
-            args ~= ["--in", f.toString];
+            d0.addArg(["--in", f.toString]);
         }
     } else {
-        args ~= ["--in", input.toString];
+        d0.addArg(["--in", input.toString]);
     }
 
-    if (flags.length > 0) {
-        args ~= "--";
-        args ~= flags.dup;
-    }
-
-    import std.datetime;
-
-    StopWatch sw;
-    sw.start;
-    auto output = execute(args);
-    sw.stop;
-    logger.info("Dextool execution time was ms: " ~ sw.peek().msecs.text);
-    logger.info(output.output);
-
-    if (output.status != 0) {
-        throw new ErrorLevelException(output.status, output.output);
-    }
+    auto output = d0.run;
 
     return output.output;
 }

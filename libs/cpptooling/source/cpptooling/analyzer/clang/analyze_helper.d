@@ -19,6 +19,9 @@ import std.traits : Unqual;
 import std.typecons : tuple, Flag, Yes, No, Nullable;
 import std.meta : staticIndexOf;
 
+import sumtype;
+import my.sumtype;
+
 import clang.c.Index : CX_CXXAccessSpecifier, CX_StorageClass, CXLanguageKind;
 import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
@@ -28,7 +31,7 @@ import libclang_ast.ast : ClassTemplate, ClassTemplatePartialSpecialization,
     Destructor, FieldDecl, FunctionDecl, StructDecl, TranslationUnit, UnionDecl, VarDecl, Visitor;
 
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
-    TypeResult, TypeResults, logTypeResult;
+    TypeResult, TypeResults, logTypeResult, TypeAttr;
 import cpptooling.analyzer.clang.store : put;
 import cpptooling.data : AccessType, VariadicType, CxParam, TypeKindVariable,
     CppVariable, LocationTag, Location, CxReturnType,
@@ -84,10 +87,9 @@ private CxParam[] toCxParam(ref TypeKind kind, ref Container container) @safe {
     import std.algorithm : map;
     import std.range : chain, zip, tee;
     import std.string : strip;
-
     import cpptooling.data.kind_type;
 
-    auto tr_params = kind.info.params;
+    auto tr_params = kind.info.match!((a => a.params), _ => (FuncInfoParam[]).init);
 
     // dfmt off
     auto params = zip(// range 1
@@ -104,9 +106,9 @@ private CxParam[] toCxParam(ref TypeKind kind, ref Container container) @safe {
                   return CxParam(VariadicType.yes);
               } else if (a[1].id.strip.length == 0) {
                   //TODO fix the above workaround with strip by fixing type.d
-                  return CxParam(TypeKindAttr(a[0], a[1].attr));
+                  return CxParam(TypeKindAttr(a[0].get, a[1].attr));
               } else {
-                  return CxParam(TypeKindVariable(TypeKindAttr(a[0], a[1].attr), CppVariable(a[1].id)));
+                  return CxParam(TypeKindVariable(TypeKindAttr(a[0].get, a[1].attr), CppVariable(a[1].id)));
               }
               });
     // dfmt on
@@ -177,11 +179,11 @@ struct FunctionDeclResult {
     Language language;
 }
 
-FunctionDeclResult analyzeFunctionDecl(const(FunctionDecl) v, ref Container container, in uint indent) @safe {
+FunctionDeclResult analyzeFunctionDecl(const FunctionDecl v, ref Container container, in uint indent) @safe {
     return analyzeFunctionDecl(v.cursor, container, indent);
 }
 
-FunctionDeclResult analyzeFunctionDecl(const(Cursor) c_in, ref Container container, in uint indent) @safe
+FunctionDeclResult analyzeFunctionDecl(const Cursor c_in, ref Container container, in uint indent) @safe
 in {
     import clang.c.Index : CXCursorKind;
 
@@ -200,32 +202,35 @@ body {
     // hint, start reading the function from the bottom up.
     // design is pipe and data transformation
 
-    Nullable!TypeResults extractAndStoreRawType(const(Cursor) c) @safe {
+    Nullable!TypeResults extractAndStoreRawType(const Cursor c) @safe {
         auto tr = () @trusted { return retrieveType(c, container, indent); }();
         if (tr.isNull) {
             return tr;
         }
 
-        assert(tr.get.primary.type.kind.info.kind.among(TypeKind.Info.Kind.func,
-                TypeKind.Info.Kind.typeRef, TypeKind.Info.Kind.simple));
+        tr.get.primary.type.kind.info.match!(ignore!(TypeKind.FuncInfo),
+                ignore!(TypeKind.TypeRefInfo), ignore!(TypeKind.SimpleInfo),
+                _ => assert(0, "wrong type"));
         put(tr, container, indent);
 
         return tr;
     }
 
-    Nullable!TypeResults lookupRefToConcreteType(Nullable!TypeResults tr) @safe {
+    Nullable!TypeResults lookupRefToConcreteType(Nullable!TypeResults tr) @trusted {
         if (tr.isNull) {
             return tr;
         }
 
-        if (tr.get.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
+        tr.get.primary.type.kind.info.match!((TypeKind.TypeRefInfo t) {
             // replace typeRef kind with the func
-            auto kind = container.find!TypeKind(tr.get.primary.type.kind.info.canonicalRef).front;
-            tr.get.primary.type.kind = kind;
-        }
+            auto kind = container.find!TypeKind(t.canonicalRef).front;
+            tr.get.primary.type.kind = kind.get;
+        }, (_) {});
 
         logTypeResult(tr, indent);
-        assert(tr.get.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
+        tr.get.primary.type.kind.info.match!(ignore!(TypeKind.FuncInfo), (_) {
+            assert(0, "wrong type");
+        });
 
         return tr;
     }
@@ -253,9 +258,8 @@ body {
     }
 
     FunctionDeclResult composeFunc(ComposeData data) @safe {
-        Nullable!CFunction rval;
-
-        auto return_type = container.find!TypeKind(data.tr.primary.type.kind.info.return_);
+        auto return_type = container.find!TypeKind(
+                data.tr.primary.type.kind.info.match!(a => a.return_, _ => USRType.init));
         if (return_type.length == 0) {
             return FunctionDeclResult.init;
         }
@@ -272,8 +276,9 @@ body {
             }();
         }
 
+        auto attrs = data.tr.primary.type.kind.info.match!(a => a.returnAttr, _ => TypeAttr.init);
         return FunctionDeclResult(Yes.isValid, data.tr.primary.type, data.name,
-                TypeKindAttr(return_type.front, data.tr.primary.type.kind.info.returnAttr), is_variadic,
+                TypeKindAttr(return_type.front.get, attrs), is_variadic,
                 data.storageClass, params, data.loc, data.is_definition, data.language);
     }
 
@@ -305,18 +310,18 @@ struct VarDeclResult {
 }
 
 /// Analyze a variable declaration
-VarDeclResult analyzeVarDecl(const(VarDecl) v, ref Container container, in uint indent) @safe {
+VarDeclResult analyzeVarDecl(const VarDecl v, ref Container container, in uint indent) @safe {
     return analyzeVarDecl(v.cursor, container, indent);
 }
 
 /// ditto
-VarDeclResult analyzeVarDecl(const(Cursor) v, ref Container container, in uint indent) @safe
+VarDeclResult analyzeVarDecl(const Cursor v, ref Container container, in uint indent) @safe
 in {
     import clang.c.Index : CXCursorKind;
 
     assert(v.kind == CXCursorKind.varDecl);
 }
-body {
+do {
     import clang.Cursor : Cursor;
     import cpptooling.analyzer.clang.type : retrieveType;
     import cpptooling.data : CppVariable;
@@ -400,14 +405,16 @@ CxxMethodResult analyzeCxxMethod(const(CxxMethod) v, ref Container container, in
 /// ditto
 CxxMethodResult analyzeCxxMethod(const(Cursor) v, ref Container container, in uint indent) @safe {
     auto type = () @trusted { return retrieveType(v, container, indent); }();
-    assert(type.get.primary.type.kind.info.kind == TypeKind.Info.Kind.func);
+    type.get.primary.type.kind.info.match!(ignore!(TypeKind.FuncInfo), (_) {
+        assert(0, "wrong type");
+    });
     put(type, container, indent);
 
     auto name = CppMethodName(v.spelling);
     auto params = toCxParam(type.get.primary.type.kind, container);
     auto return_type = CxReturnType(TypeKindAttr(container.find!TypeKind(
-            type.get.primary.type.kind.info.return_).front,
-            type.get.primary.type.kind.info.returnAttr));
+            type.get.primary.type.kind.info.match!(a => a.return_, _ => USRType.init)).front.get,
+            type.get.primary.type.kind.info.match!(a => a.returnAttr, _ => TypeAttr.init)));
     auto is_virtual = classify(v);
 
     return CxxMethodResult(type.get.primary.type, name, params,
@@ -478,9 +485,9 @@ auto analyzeCxxBaseSpecified(const(CxxBaseSpecifier) v, ref Container container,
     auto access = CppAccess(toAccessType(() @trusted { return v.cursor.access; }().accessSpecifier));
     auto usr = type.get.primary.type.kind.usr;
 
-    if (type.get.primary.type.kind.info.kind == TypeKind.Info.Kind.typeRef) {
-        usr = type.get.primary.type.kind.info.canonicalRef;
-    }
+    type.get.primary.type.kind.info.match!((TypeKind.TypeRefInfo t) {
+        usr = t.canonicalRef;
+    }, (_) {});
 
     CppNs[] namespace;
     auto c_ref = v.cursor.referenced;
@@ -553,7 +560,7 @@ final class ClassVisitor : Visitor {
         CppAccess accessType;
     }
 
-    this(T)(const(T) decl, const(CppNsStack) reside_in_ns, RecordResult result,
+    this(T)(const T decl, CppNsStack reside_in_ns, RecordResult result,
             ref Container container, const uint indent)
             if (is(T == ClassDecl) || is(T == StructDecl)) {
         this.container = &container;

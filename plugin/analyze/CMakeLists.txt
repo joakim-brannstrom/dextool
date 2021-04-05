@@ -19,7 +19,6 @@ set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source
 -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
--I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources
 "
 )

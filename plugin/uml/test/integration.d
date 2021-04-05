@@ -70,6 +70,10 @@ TestParams genTestComponentParams(string f, const ref TestEnv testEnv) {
 /// Returns: the output (stdout) from dextool.
 string runTestFile(const ref TestParams p, ref TestEnv testEnv,
         Flag!"sortLines" sortLines = Yes.sortLines) {
+    import std.algorithm : joiner;
+    import std.array : array;
+    import std.utf : toUTF8;
+
     logger.info("Input: ", p.input_ext);
     auto output = runDextool(p.input_ext, testEnv, p.dexParams ~ p.dexDiagramParams, p.dexFlags);
 
@@ -83,7 +87,7 @@ string runTestFile(const ref TestParams p, ref TestEnv testEnv,
         // dfmt on
     }
 
-    return output;
+    return output.joiner("\n").array.toUTF8;
 }
 
 // BEGIN Test of single file analyze of Class Diagrams #######################

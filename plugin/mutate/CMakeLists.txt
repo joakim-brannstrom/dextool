@@ -55,7 +55,6 @@ set(dextool_mutate_analyze_flags
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/proc/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
--I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources
 -version=SqliteEnableColumnMetadata
 -version=SqliteEnableUnlockNotify
@@ -81,7 +80,6 @@ set(flags "
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/proc/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
--I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source
 -I${CMAKE_SOURCE_DIR}/vendor/toml/src
 -I${CMAKE_SOURCE_DIR}/vendor/undead/src
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources

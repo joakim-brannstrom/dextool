@@ -8,6 +8,7 @@ module dextool.plugin.ctestdouble.backend.adapter;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
+import sumtype;
 
 import cpptooling.type : StubPrefix;
 import cpptooling.data : CppClass, CppClassName, CppNamespace, CppNs;
@@ -182,7 +183,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
         }
     }
 
-    void genCtor(const ref CppClass adapter, const ref CppCtor m, CppModule impl) {
+    void genCtor(CppClass adapter, CppCtor m, CppModule impl) {
         import cpptooling.data : paramNameToString;
         import cpptooling.data : TypeKind;
 
@@ -222,11 +223,11 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
         impl.sep(2);
     }
 
-    static void genOp(const ref CppClass adapter, const ref CppMethodOp m, CppModule impl) {
+    static void genOp(CppClass adapter, CppMethodOp m, CppModule impl) {
         // not applicable
     }
 
-    void genDtor(const ref CppClass adapter, const ref CppDtor m, CppModule impl) {
+    void genDtor(CppClass adapter, CppDtor m, CppModule impl) {
         AdapterKind kind;
         if (auto l = lookup(m.usr.get)) {
             kind = *l;
@@ -251,7 +252,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
         impl.sep(2);
     }
 
-    static void genMethod(const ref CppClass adapter, const ref CppMethod m, CppModule impl) {
+    static void genMethod(CppClass adapter, CppMethod m, CppModule impl) {
         import std.range : takeOne;
         import std.typecons : Yes, No;
         import cpptooling.data : toStringDecl;
@@ -270,10 +271,10 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
         // dfmt off
         () @trusted{
             m.visit!(
-                (const CppMethod m) => genMethod(adapter, m, impl),
-                (const CppMethodOp m) => genOp(adapter, m, impl),
-                (const CppCtor m) => genCtor(adapter, m, impl),
-                (const CppDtor m) => genDtor(adapter, m, impl));
+                (CppMethod m) => genMethod(adapter, m, impl),
+                (CppMethodOp m) => genOp(adapter, m, impl),
+                (CppCtor m) => genCtor(adapter, m, impl),
+                (CppDtor m) => genDtor(adapter, m, impl));
         }();
         // dfmt on
     }
@@ -282,6 +283,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
 /// A singleton to allow the adapter to setup "a" connection.
 void generateSingleton(CppNamespace in_ns, CppModule impl) {
     import std.ascii : newline;
+    import std.algorithm : map;
     import cpptooling.data;
     import dsrcgen.cpp : E;
 
@@ -289,11 +291,10 @@ void generateSingleton(CppNamespace in_ns, CppModule impl) {
     ns.suppressIndent(1);
     impl.sep(2);
 
-    foreach (g; in_ns.globalRange()) {
+    foreach (g; in_ns.globalRange.map!(a => a.payload)) {
         auto stmt = E(g.type.toStringDecl(g.name));
-        if (g.type.kind.info.kind == TypeKind.Info.Kind.pointer) {
-            stmt = E("0");
-        }
+        g.type.kind.info.match!((const TypeKind.PointerInfo t) { stmt = E("0"); }, (_) {
+        });
         ns.stmt(stmt);
     }
 }

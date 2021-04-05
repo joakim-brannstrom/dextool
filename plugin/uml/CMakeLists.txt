@@ -40,7 +40,7 @@ list(APPEND SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/unittest/plantuml.d
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
-compile_d_unittest(uml "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_mylib;dextool_sumtype;dextool_taggedalgebraic")
+compile_d_unittest(uml "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_mylib;dextool_sumtype")
 
 setup_integration_testing_env()
 
