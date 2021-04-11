@@ -27,6 +27,7 @@ import clang.Eval : Eval;
 import clang.Type : Type;
 import clang.c.Index : CXTypeKind, CXCursorKind, CXEvalResultKind, CXTokenKind;
 
+import libclang_ast.ast : Visitor;
 import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 
 import dextool.clang_extensions : getUnderlyingExprNode;
@@ -308,67 +309,6 @@ Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
     exprPoint;
     opPoint;
     sidesPoint;
-    return typeof(return)(res);
-}
-
-struct CaseStmtCursor {
-    analyze.Location branch;
-    analyze.Location insideBranch;
-
-    Cursor inner;
-}
-
-Nullable!CaseStmtCursor caseStmtCursor(T)(T node) {
-    import dextool.clang_extensions : getCaseStmt;
-
-    auto mp = getCaseStmt(node.cursor);
-    if (!mp.isValid)
-        return typeof(return)();
-
-    auto path = node.cursor.location.path.Path;
-    if (path.empty)
-        return typeof(return)();
-
-    auto extent = node.cursor.extent;
-
-    CaseStmtCursor res;
-    res.inner = mp.subStmt;
-
-    auto sr = res.inner.extent;
-
-    auto insideLoc = SourceLocRange(SourceLoc(sr.start.line, sr.start.column),
-            SourceLoc(sr.end.line, sr.end.column));
-    auto offs = Interval(sr.start.offset, sr.end.offset);
-    if (res.inner.kind == CXCursorKind.caseStmt) {
-        auto colon = mp.colonLocation;
-        insideLoc.begin = SourceLoc(colon.line, colon.column + 1);
-        insideLoc.end = insideLoc.begin;
-
-        // a case statement with fallthrough. the only point to inject a bomb
-        // is directly after the semicolon
-        offs.begin = colon.offset + 1;
-        offs.end = offs.begin;
-    } else if (res.inner.kind != CXCursorKind.compoundStmt) {
-        offs.end = findTokenOffset(node.cursor.translationUnit.cursor.tokens,
-                offs, CXTokenKind.punctuation);
-    }
-
-    void subStmt() {
-        res.insideBranch = analyze.Location(path, offs, insideLoc);
-    }
-
-    void stmt() {
-        auto loc = extent.start;
-        auto loc_end = extent.end;
-        // reuse the end from offs because it covers either only the
-        // fallthrough OR also the end semicolon
-        auto stmt_offs = Interval(extent.start.offset, offs.end);
-        res.branch = analyze.Location(path, stmt_offs, SourceLocRange(SourceLoc(loc.line,
-                loc.column), SourceLoc(loc_end.line, loc_end.column)));
-    }
-
-    stmt;
-    subStmt;
     return typeof(return)(res);
 }
 
@@ -880,72 +820,11 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const CaseStmt v) {
         mixin(mixinNodeLog!());
-
-        if (isDirectParent(CXCursorKind.caseStmt)) {
-            // the previous case statement was a fallthrough.
-            rewriteCaseToFallthrough(ast, nstack[$ - 2].data);
-        }
-
-        auto res = caseStmtCursor(v);
-        if (res.isNull) {
-            pushStack(ast.make!(analyze.Block), v);
-            v.accept(this);
-            return;
-        }
-
-        auto branch = ast.make!(analyze.Branch);
-        nstack.back.children ~= branch;
-        pushStack(branch, res.get.branch, v.cursor.kind);
-
-        // create a node depth that diverge from the clang AST wherein the
-        // inside of a case stmt is modelled as a block.
-        incr;
-        scope (exit)
-            decr;
-
-        auto inner = ast.make!(analyze.Block);
-        branch.children ~= inner;
-        branch.inside = inner;
-        pushStack(inner, res.get.insideBranch, v.cursor.kind);
-
-        dispatch(res.get.inner, this);
+        v.accept(this);
     }
 
     override void visit(const DefaultStmt v) {
         mixin(mixinNodeLog!());
-
-        if (isDirectParent(CXCursorKind.caseStmt)) {
-            // the previous case statement was a fallthrough.
-            rewriteCaseToFallthrough(ast, nstack[$ - 2].data);
-        }
-
-        auto branch = ast.make!(analyze.Branch);
-        pushStack(branch, v);
-
-        incr;
-        scope (exit)
-            decr;
-
-        auto loc = () {
-            auto loc = ast.location(branch);
-            auto l = analyze.Location(loc.file, loc.interval, loc.sloc);
-
-            const default_ = "default:";
-            if ((l.interval.end - l.interval.begin) < default_.length) {
-                return l;
-            }
-            l.interval.begin += default_.length;
-            l.sloc.begin.column += default_.length;
-            return l;
-        }();
-
-        auto inside = ast.make!(analyze.Block);
-        branch.inside = inside;
-        branch.children ~= inside;
-        pushStack(inside, loc, v.cursor.kind);
-
-        branch.children = [inside];
-
         v.accept(this);
     }
 
@@ -990,7 +869,23 @@ final class BaseVisitor : ExtendedVisitor {
         auto n = ast.make!(analyze.BranchBundle);
         pushStack(n, v);
         v.accept(this);
-        rewriteSwitch(ast, n);
+
+        auto caseVisitor = new FindVisitor!CaseStmt;
+        v.accept(caseVisitor);
+
+        if (caseVisitor.node is null) {
+            logger.warning(
+                    "switch without any case statements may result in a high number of mutant scheman that do not compile");
+        } else {
+            incr;
+            scope (exit)
+                decr;
+            auto block = ast.make!(analyze.Block);
+            auto l = ast.location(n);
+            l.interval.end = l.interval.begin;
+            pushStack(block, l, CXCursorKind.unexposedDecl);
+            rewriteSwitch(ast, n, block, caseVisitor.node.cursor.toLocation);
+        }
     }
 
     override void visit(const IfStmt v) @trusted {
@@ -1266,199 +1161,40 @@ final class EnumVisitor : ExtendedVisitor {
     }
 }
 
-final class FindVisitor(T) : ExtendedVisitor {
-    import clang.c.Index : CXCursorKind, CXTypeKind;
+/// Find first occurences of the node type `T`.
+final class FindVisitor(T) : Visitor {
     import libclang_ast.ast;
 
-    alias visit = ExtendedVisitor.visit;
+    alias visit = Visitor.visit;
 
-    T node;
+    const(T)[] nodes;
+
+    const(T) node() @safe pure nothrow const @nogc {
+        if (nodes.empty)
+            return null;
+        return nodes[0];
+    }
+
+    //uint indent;
+    //override void incr() @safe {
+    //    ++indent;
+    //}
+    //
+    //override void decr() @safe {
+    //    --indent;
+    //}
+
+    override void visit(const Statement v) {
+        //mixin(mixinNodeLog!());
+        if (nodes.empty)
+            v.accept(this);
+    }
 
     override void visit(const T v) @trusted {
-        node = cast() v;
+        //mixin(mixinNodeLog!());
+        if (nodes.empty)
+            nodes = [v];
     }
-}
-
-/** Rewrite the node to correctly represent a case statement as a fallthrough.
- *
- * - Branch
- *      - Block
- *
- * to a Branch which only covers the `case X:` and an empty block
- */
-void rewriteCaseToFallthrough(ref analyze.Ast ast, analyze.Node node) {
-    if (node.kind != analyze.Kind.Branch) {
-        return;
-    }
-
-    auto branch = cast(analyze.Branch) node;
-
-    auto loc = ast.location(branch);
-    auto iloc = ast.location(branch.inside);
-
-    loc.interval.end = iloc.interval.begin;
-    loc.sloc.end = iloc.sloc.begin;
-    ast.put(branch, loc);
-
-    iloc.interval.end = iloc.interval.begin;
-    iloc.sloc.end = iloc.sloc.begin;
-    ast.put(branch.inside, iloc);
-}
-
-/** Rewrite the structure of a switch statement from:
- * BranchBundle
- *  - Branch
- *      - Block
- *          - Node
- *  - Node
- *
- * to:
- * BranchBundle
- *  - Branch
- *      - Block
- *          - Node
- *          - Node
- *
- * TODO: This function now "works" but probably contains redundant
- * functionality and is inefficient. Simplify the implementation.
- */
-void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root) {
-    import std.array : appender;
-    import my.container.vector;
-
-    //logger.trace("before rewrite:\n", ast.toString);
-
-    // flatten the case branches and their interior one level to handle e.g.
-    // case with fallthrough.
-    static analyze.Node[] flatten(analyze.Node[] nodes) @trusted {
-        auto app = appender!(analyze.Node[])();
-        foreach (n; nodes) {
-            app.put(n);
-            //logger.tracef("%s children %s", n.kind, n.children.map!(a => a.kind));
-            if (n.kind == analyze.Kind.Branch) {
-                // the expected case, one child with one block.
-                // for a nested
-                if (n.children.length == 1 && n.children[0].kind == analyze.Kind.Block) {
-                    app.put(flatten(n.children[0].children));
-                    n.children[0].children = null;
-                } else if (n.children.length > 1 && n.children[0].kind == analyze.Kind.Block) {
-                    app.put(n.children[0].children);
-                    app.put(n.children[1 .. $]);
-
-                    n.children[0].children = null;
-                    n.children = n.children[0 .. 1];
-                } else {
-                    app.put(n.children);
-                    n.children = null;
-                }
-            }
-        }
-        //logger.info(app.data.map!(a => format("%s (%X)", a.kind, cast(void*) a)));
-        return app.data;
-    }
-
-    // change loc of `n`s end to be that of its largest child, nested.
-    void expandLoc(analyze.Node n) {
-        // largest node of the parent.
-        auto largest = (analyze.Node root) {
-            auto currLoc = ast.location(root);
-            foreach (n; BreathFirstRange(root)) {
-                auto l = ast.location(n);
-                if (l.interval.end > currLoc.interval.end) {
-                    currLoc = l;
-                }
-            }
-            return currLoc;
-        }(n);
-
-        void updateLoc(analyze.Node n, analyze.Location newLoc) {
-            auto loc = ast.location(n);
-            loc.interval.end = newLoc.interval.end;
-            loc.sloc.end = newLoc.sloc.end;
-            ast.put(n, loc);
-        }
-
-        if (auto b = cast(analyze.Branch) n) {
-            updateLoc(n, largest);
-            updateLoc(b.inside, largest);
-        } else {
-            updateLoc(n, largest);
-        }
-    }
-
-    // contract all locs of `n` to not go over the boundary `bottom`.
-    static void contractLocRecursive(ref analyze.Ast ast, analyze.Node root, Location bottom) {
-        void contract(analyze.Node n) {
-            auto l = ast.location(n);
-            if (l.interval.end > bottom.interval.begin) {
-                l.interval.end = bottom.interval.begin;
-                l.sloc.end = bottom.sloc.begin;
-                ast.put(n, l);
-            }
-        }
-
-        contract(root);
-        foreach (c; root.children) {
-            contractLocRecursive(ast, c, bottom);
-        }
-    }
-
-    // remove the expression nodes of the switch statement.
-    static analyze.Node[] popUntilBranch(analyze.Node[] nodes) {
-        foreach (i; 0 .. nodes.length) {
-            if (nodes[i].kind == analyze.Kind.Branch) {
-                return nodes[i .. $];
-            }
-        }
-        return null;
-    }
-
-    auto nodes = popUntilBranch(root.children);
-    if (nodes is null) {
-        // the switch is in such a state that any mutation of it will
-        // result in unknown problems. just drop its content all together
-        // and thus blocking mutations of it.
-        root.children = null;
-        return;
-    }
-    nodes = flatten(nodes);
-
-    Vector!(analyze.Node) rootChildren;
-    analyze.Node curr = nodes[0];
-    auto merge = appender!(analyze.Node[])();
-
-    void updateNode(analyze.Node n) {
-        if (curr.children.length >= 1 && curr.children[0].kind == analyze.Kind.Block) {
-            curr.children[0].children = merge.data.dup;
-        } else {
-            curr.children = merge.data.dup;
-        }
-        merge.clear;
-
-        expandLoc(curr);
-        rootChildren.put(curr);
-        curr = n;
-    }
-
-    foreach (n; nodes[1 .. $]) {
-        if (n.kind == analyze.Kind.Branch) {
-            updateNode(n);
-        } else {
-            merge.put(n);
-        }
-    }
-
-    if (!merge.data.empty) {
-        updateNode(curr);
-    }
-
-    if (rootChildren.length > 1) {
-        foreach (i; 0 .. rootChildren.length - 1) {
-            contractLocRecursive(ast, rootChildren[i], ast.location(rootChildren[i + 1]));
-        }
-    }
-
-    root.children = rootChildren[];
 }
 
 /** Rewrite the position of a condition to perfectly match the parenthesis.
@@ -1498,6 +1234,27 @@ void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
         a.schemaBlacklist = true;
         break;
     }
+}
+
+void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root,
+        analyze.Block block, Location firstCase) {
+    import std.range : enumerate;
+    import std.typecons : tuple;
+
+    Node[] beforeCase = root.children;
+    Node[] rest;
+
+    foreach (n; root.children
+            .map!(a => tuple!("node", "loc")(a, ast.location(a)))
+            .enumerate
+            .filter!(a => a.value.loc.interval.begin > firstCase.interval.begin)) {
+        beforeCase = root.children[0 .. n.index];
+        rest = root.children[n.index .. $];
+        break;
+    }
+
+    root.children = beforeCase ~ block;
+    block.children = rest;
 }
 
 enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind.char16,

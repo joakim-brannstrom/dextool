@@ -412,11 +412,12 @@ As discussed in [@thesis1] a specialized mutation for DC/C results in:
 The intention is to be at least equivalent to a coverage tools report for
 decision/condition coverage.
 
-[@thesis1] name this mutation operator as DCC.
+[@thesis1] names this mutation operator DCC.
 
-The difference between DCC and DCR is that the *bomb* for case statements is
-replaced by statement deletion in DCR. The intention is to require the test
-suite to *prove* that it verifies the behavior and not just visit the branch.
+The difference between DCC and DCR is that DCR ignores introducing any mutants
+in case branches. DCR instead focus on only D/C and relies on the fact that
+there are other mutant operators that can e.g. delete statements (SDL) or
+change them.
 
 ### Decision Coverage
 

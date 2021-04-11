@@ -7,9 +7,9 @@ int fn(int x) { return x; }
 int test_switch(int x) {
     switch (x) {
     case 0:
-        return 2;
+        break;
     case 1: {
-        return 3;
+        break;
     }
     case 5:
         fn(2);

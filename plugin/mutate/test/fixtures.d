@@ -137,6 +137,12 @@ set -e
 ", programBin);
     }
 
+    auto makeDextoolAnalyze(ref TestEnv testEnv) {
+        return .makeDextoolAnalyze(testEnv).addPostArg([
+                "--schema-min-mutants", "0"
+                ]);
+    }
+
     auto runDextoolTest(ref TestEnv testEnv) {
         // dfmt off
         return dextool_test.makeDextool(testEnv)
