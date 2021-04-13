@@ -41,6 +41,10 @@ Fixes for dextool mutate
    bit unnecessary because SDL will delete individual statements in the
    branches thus well. It doesnt't really give that much to be able to delete
    whole branches.
+ * Not all mutant schematan for binary operators where generated which meant
+   that speedup opportunities where lost. With this fix all binary operators
+   should have a schema generated for them which speeds up dcr, ror, aor mutant
+   operators.
 
 # v3.0.0 Nice Weather
 

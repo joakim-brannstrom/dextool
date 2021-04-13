@@ -626,6 +626,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
                     v.schema.generate, v.mutants.toArray));
         } catch (Exception e) {
         }
+        accept(n, this);
     }
 }
 
@@ -819,7 +820,10 @@ class BinaryOpVisitor : DepthFirstVisitor {
             // dfmt on
         }
 
-        mutants.add(opMutants ~ lhsMutants ~ rhsMutants ~ exprMutants);
+        mutants.add(opMutants);
+        mutants.add(lhsMutants);
+        mutants.add(rhsMutants);
+        mutants.add(exprMutants);
     }
 }
 
