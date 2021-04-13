@@ -35,6 +35,12 @@ Fixes for dextool mutate
    path for headers included from the current directory (`#include "foo.hpp"`).
  * Fix bug where a mutant that span multiple lines in the html report is shown
    on one line. It makes it hard to read.
+ * Removed delete of case branches in switch statements. The language C/C++ and
+   the Clang AST make it hard to generate correct mutants and schematan. The
+   effort needed to make it work in all cases is still great. It is further a
+   bit unnecessary because SDL will delete individual statements in the
+   branches thus well. It doesnt't really give that much to be able to delete
+   whole branches.
 
 # v3.0.0 Nice Weather
 

@@ -63,7 +63,7 @@ struct Values2 {
     int value() { return x; }
 };
 
-int a_switch(Values2 x) {
+int a_switch_with_return(Values2 x) {
     // should not be removed because it has return
     switch (x.value()) {
     case 5:
@@ -71,7 +71,10 @@ int a_switch(Values2 x) {
     case 6:
         return 2;
     }
+    return 0;
+}
 
+int a_switch_with_assign(Values2 x) {
     int rval;
     switch (x.value()) {
     case 0:
@@ -88,6 +91,22 @@ int a_switch(Values2 x) {
         break;
     }
     return rval;
+}
+
+void dummy(const char c) {}
+
+void a_switch_with_calls(const char ch) {
+    switch (ch) {
+    case '\t':
+        dummy(ch);
+        break;
+    case '\n':
+    case '\r':
+        dummy(ch);
+        break;
+    default:
+        break;
+    }
 }
 
 int a_binary_unary_inside_if(int x) {

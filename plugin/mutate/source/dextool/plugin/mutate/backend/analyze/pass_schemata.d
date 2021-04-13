@@ -346,11 +346,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
-    override void visit(BranchBundle n) @trusted {
-        visitBlock!BlockChain(n);
-        accept(n, this);
-    }
-
     override void visit(Call n) {
         // a call is always
         // | `-Expr
@@ -488,6 +483,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     override void visit(Condition n) {
         visitCondition(n);
+        accept(n, this);
+    }
+
+    override void visit(BranchBundle n) @trusted {
+        visitBlock!BlockChain(n);
         accept(n, this);
     }
 

@@ -512,12 +512,12 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
         // assert
         testConsecutiveSparseOrder!Re([
             "Score:.*0.6",
-            "Total:.*9",
-            "Alive:.*5",
+            "Total:.*8",
+            "Alive:.*4",
             "Killed:.*4",
             "Timeout:.*0",
             "Killed by compiler:.*0",
-            "Suppressed .nomut.:.*3 .0.3",
+            "Suppressed .nomut.:.*2 .0.25",
         ]).shouldBeIn(plain.output);
     }
 }
@@ -541,15 +541,14 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
 
-        // assert
         testConsecutiveSparseOrder!SubStr([
             "Mutation Score <b>0</b>",
             "Total",
-            "9",
+            "8",
             "Killed by compiler",
             "0",
             "NoMut",
-            "5",
+            "4",
             "NoMut/total",
             "0.5",
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "index.html")).byLineCopy.array);
