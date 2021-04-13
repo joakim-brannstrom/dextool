@@ -148,6 +148,49 @@ class ShallOnlyGenerateValidSdlSchemas : SchemataFixutre {
             `from 'r = e' to ''`,
             `from`, `x++;`, `to ''`,
             `from`, `x++;`, `to ''`,
+        ]).shouldBeIn(r.output);
+        // dfmt on
+    }
+}
+
+class ShallOnlyGenerateValidSdlSchemas2 : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_sdl2.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "sdl"]).addFlag("-std=c++11").run;
+
+        // dfmt off
+        //testAnyOrder!SubStr([
+        //]).shouldBeIn(r.output);
+        // dfmt on
+    }
+}
+
+class ShallOnlyGenerateValidSdlUoiSchemas : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_sdl3.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+
+        auto r = runDextoolTest(testEnv).addPostArg([
+                "--mutant", "sdl", "--mutant", "uoi"
+                ]).addFlag("-std=c++11").run;
+
+        // dfmt off
+        testAnyOrder!SubStr([
+            `from '!x' to '!!x'`,
             `from 'y++' to ''`,
             `from 'y = 2' to ''`,
             `from 'y += 5' to ''`,
