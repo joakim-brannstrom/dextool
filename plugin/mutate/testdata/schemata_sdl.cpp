@@ -109,20 +109,6 @@ void a_switch_with_calls(const char ch) {
     }
 }
 
-int a_binary_unary_inside_if(int x) {
-    int y = x;
-    if (x == 2) {
-        y++;
-    }
-    if (x == 3) {
-        y = 2;
-    }
-    if (x == 4) {
-        y += 5;
-    }
-    return y;
-}
-
 enum class MobType { Unknown, Rabbit, RabbitWere, Snake, OrcWeak, OrcStrong, Player };
 
 inline std::string to_string(MobType type) {

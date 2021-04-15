@@ -332,8 +332,8 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Expr n) {
-        accept(n, this);
         visitBlock!ExpressionChain(n);
+        accept(n, this);
     }
 
     override void visit(Block n) {
@@ -341,7 +341,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
-    override void visit(Loop n) @trusted {
+    override void visit(Loop n) {
         visitBlock!BlockChain(n);
         accept(n, this);
     }
@@ -415,8 +415,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(OpNegate n) {
-        import dextool.plugin.mutate.backend.mutation_type.uoi : uoiLvalueMutationsRaw;
-
         visitUnaryOp(n);
         accept(n, this);
     }
@@ -594,33 +592,31 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitUnaryOp(T)(T n) {
-        if (n.blacklist || n.schemaBlacklist)
+        if (n.blacklist || n.schemaBlacklist || n.operator.blacklist || n.operator.schemaBlacklist)
             return;
 
-        auto loc = ast.location(n.operator);
-        auto locExpr = ast.location(n);
-        if (loc.interval.isZero || locExpr.interval.isZero)
+        auto loc = ast.location(n);
+        if (loc.interval.isZero)
             return;
 
         auto mutants = index.get(loc.file, loc.interval);
-
         if (mutants.empty)
             return;
 
         auto fin = fio.makeInput(loc.file);
-        auto schema = ExpressionChain(fin.content[locExpr.interval.begin .. locExpr.interval.end]);
+        auto schema = ExpressionChain(fin.content[loc.interval.begin .. loc.interval.end]);
+
         foreach (const mutant; mutants) {
             schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang)
-                    .mutate(fin.content[loc.interval.begin .. loc.interval.end]),
-                    fin.content[loc.interval.end .. locExpr.interval.end]);
+                    .mutate(fin.content[loc.interval.begin .. loc.interval.end]));
         }
 
-        result.putFragment(loc.file, rewrite(locExpr, schema.generate, mutants));
+        result.putFragment(loc.file, rewrite(loc, schema.generate, mutants));
     }
 
     private void visitBinaryOp(T)(T n) @trusted {
         try {
-            auto v = scoped!BinaryOpVisitor(ast, &index, fio, n);
+            auto v = scoped!BinaryOpVisitor(ast, &index, fio);
             v.startVisit(n);
             result.putFragment(v.rootLoc.file, rewrite(v.rootLoc,
                     v.schema.generate, v.mutants.toArray));
@@ -648,7 +644,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
     ExpressionChain schema;
     Set!CodeMutant mutants;
 
-    this(T)(RefCounted!Ast ast, CodeMutantIndex* index, FilesysIO fio, T root) {
+    this(RefCounted!Ast ast, CodeMutantIndex* index, FilesysIO fio) {
         this.ast = ast;
         this.index = index;
         this.fio = fio;
@@ -751,7 +747,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
     }
 
     private void visitBinaryOp(T)(T n) {
-        if (n.blacklist || n.schemaBlacklist)
+        if (n.blacklist || n.schemaBlacklist || n.operator.blacklist || n.operator.schemaBlacklist)
             return;
 
         auto locExpr = ast.location(n);
@@ -762,8 +758,6 @@ class BinaryOpVisitor : DepthFirstVisitor {
         }
 
         auto left = contentOrNull(root.begin, locExpr.interval.begin, content);
-
-        // must check otherwise it crash on intervals that have zero length e.g. [9, 9].
         auto right = contentOrNull(locExpr.interval.end, root.end, content);
 
         auto opMutants = index.get(locOp.file, locOp.interval);

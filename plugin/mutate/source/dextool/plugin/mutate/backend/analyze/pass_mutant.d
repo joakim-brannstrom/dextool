@@ -643,10 +643,8 @@ class MutantVisitor : DepthFirstVisitor {
 
     private void visitUnaryOp(T)(T n) {
         auto loc = ast.location(n);
-        auto locExpr = ast.location(n.expr);
-        auto locOp = ast.location(n.operator);
 
-        Mutation.Kind[] expr, op;
+        Mutation.Kind[] expr;
 
         {
             import dextool.plugin.mutate.backend.mutation_type.uoi;
@@ -658,7 +656,6 @@ class MutantVisitor : DepthFirstVisitor {
         }
 
         put(loc, expr, n.blacklist);
-        put(locOp, op, n.operator.blacklist);
     }
 
     private void visitComparisonBinaryOp(T)(T n) {
