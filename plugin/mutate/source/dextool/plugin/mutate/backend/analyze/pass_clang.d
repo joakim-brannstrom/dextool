@@ -888,6 +888,16 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
+    override void visit(const ConditionalOperator v) {
+        // ternery operator. It is hard to create a schema that have the
+        // correct type on both rhs and lhs. for now just block scheman inside
+        // ternery.
+        auto n = ast.make!(analyze.Poision);
+        n.schemaBlacklist = true;
+        pushStack(n, v);
+        v.accept(this);
+    }
+
     override void visit(const IfStmt v) @trusted {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.BranchBundle), v);
