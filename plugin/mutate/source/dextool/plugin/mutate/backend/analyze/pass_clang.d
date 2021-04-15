@@ -914,9 +914,15 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const IfStmtCond v) {
         mixin(mixinNodeLog!());
+        import dextool.plugin.mutate.backend.analyze.ast : makeUniqueTypeId;
 
         auto n = ast.make!(analyze.Condition);
         pushStack(n, v);
+        // add a fejk boolean type because a condition is always true/false
+        auto ty = ast.make!(analyze.BooleanType)(analyze.Range.makeBoolean);
+        auto tyId = makeUniqueTypeId;
+        ast.types.require(tyId, ty);
+        ast.put(n, tyId);
 
         if (!visitOp(v, v.cursor.kind)) {
             v.accept(this);

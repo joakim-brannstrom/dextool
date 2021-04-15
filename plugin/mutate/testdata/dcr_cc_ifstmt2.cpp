@@ -4,7 +4,7 @@
 
 #include <cstddef>
 
-bool isPredicateFunc(int x, int y, void* p) {
+bool isPredicateFunc(int x, int y, bool p) {
     if (p)
         return x != 0;
     if (p)

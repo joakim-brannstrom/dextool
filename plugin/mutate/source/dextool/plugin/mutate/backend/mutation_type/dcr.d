@@ -30,8 +30,11 @@ Mutation.Kind[] dcrMutations(DcrInfo info) @safe {
     case Kind.Call:
         goto case;
     case Kind.Expr:
+        // conservative only replace an expr if it is a boolean.
         // replace the functions body with return true/false;
-        goto case;
+        if (info.ty !is null && info.ty.kind == TypeKind.boolean)
+            rval = [dcrTrue, dcrFalse];
+        break;
     case Kind.OpAnd:
         goto case;
     case Kind.OpOr:

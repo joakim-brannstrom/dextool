@@ -252,6 +252,13 @@ class AstPrintVisitor : DepthFirstVisitor {
             }
         }
 
+        if (auto tmp = cast(BinaryOp) n) {
+            if (tmp.lhs !is null)
+                formattedWrite(buf, " l:%s", tmp.lhs.id);
+            if (tmp.rhs !is null)
+                formattedWrite(buf, " r:%s", tmp.rhs.id);
+        }
+
         if (auto l = ast.location(n)) {
             formattedWrite(buf, " <%s:%s>", l.file.color(Color.cyan), l.posToString);
         }
