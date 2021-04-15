@@ -676,6 +676,10 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const Constructor v) @trusted {
         mixin(mixinNodeLog!());
 
+        auto n = ast.make!(analyze.Poision);
+        n.schemaBlacklist = isConstExpr(v.cursor);
+        pushStack(n, v);
+
         // skip all "= default"
         if (!v.cursor.isDefaulted)
             v.accept(this);
@@ -683,6 +687,10 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const Destructor v) @trusted {
         mixin(mixinNodeLog!());
+
+        auto n = ast.make!(analyze.Poision);
+        n.schemaBlacklist = isConstExpr(v.cursor);
+        pushStack(n, v);
 
         // skip all "= default"
         if (!v.cursor.isDefaulted)
