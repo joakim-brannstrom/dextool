@@ -330,3 +330,23 @@ class ShallGenerateValidSchemaForSwitch : SchemataFixutre {
                 r.output);
     }
 }
+
+class ShallGenerateValidSchemaForBinOp : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_binop.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+                "--mutant", "all"
+                ]).run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+
+        testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
+                r.output);
+    }
+}

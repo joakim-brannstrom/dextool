@@ -190,7 +190,7 @@ unittest {
         "from 'x' to 'false'",
         "from 'y' to 'true'",
         "from 'y' to 'false'",
-    ]).shouldBeIn(r.output);
+    ]).shouldNotBeIn(r.output);
 }
 
 // shall produce 6 predicate and 8 clause mutations for an expression of
