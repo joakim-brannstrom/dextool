@@ -133,11 +133,11 @@ unittest {
         .addArg(["--mutant", "dcr"])
         .run;
     testConsecutiveSparseOrder!SubStr([
-        "from 'return false' to 'return true'",
-        "from 'return true' to 'return false'",
-        "from 'return false' to 'return true'",
-        "from 'return false' to 'return true'",
-        "from 'return true' to 'return false'",
+        "from 'false' to 'true'",
+        "from 'true' to 'false'",
+        "from 'false' to 'true'",
+        "from 'false' to 'true'",
+        "from 'true' to 'false'",
     ]).shouldBeIn(r.output);
 }
 
@@ -169,8 +169,8 @@ unittest {
         .addArg(["--mutant", "dcr"])
         .run;
     testAnyOrder!SubStr([
-        "from 'return fun(x)' to 'return true'",
-        "from 'return fun(x)' to 'return false'",
+        "from 'fun(x)' to 'true'",
+        "from 'fun(x)' to 'false'",
     ]).shouldBeIn(r.output);
 }
 

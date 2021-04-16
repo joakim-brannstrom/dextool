@@ -446,8 +446,7 @@ class MutantVisitor : DepthFirstVisitor {
         // TODO: is this needed? I do not think so considering the rest of the
         // code.
 
-        if (isParent(Kind.Function) && ast.type(n) is null
-                && !isParent(Kind.Return) && isDirectParent(Kind.Block)) {
+        if (isParent(Kind.Function) && !isParent(Kind.Return) && isDirectParent(Kind.Block)) {
             // the check for Return blocks all SDL when an exception is thrown.
             //
             // the check isDirectParent(Kind.Block) is to only delete function
@@ -460,6 +459,10 @@ class MutantVisitor : DepthFirstVisitor {
             auto loc = ast.location(n);
             put(loc, stmtDelMutations(n.kind), n.blacklist);
         }
+        if (isDirectParent(Kind.Return) && isParentBoolFunc) {
+            auto loc = ast.location(n);
+            put(loc, dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);
+        }
 
         // should call visitOp
         accept(n, this);
@@ -467,15 +470,13 @@ class MutantVisitor : DepthFirstVisitor {
 
     override void visit(Return n) {
         auto ty = closestFuncType;
-        auto loc = ast.location(n);
 
         if (ty !is null && ty.kind == TypeKind.top) {
+            auto loc = ast.location(n);
             // only function with return type void (top, no type) can be
             // deleted without introducing undefined behavior.
             put(loc, stmtDelMutations(n.kind), n.blacklist);
         }
-
-        put(loc, dcrMutations(DcrInfo(n.kind, ty)), n.blacklist);
 
         accept(n, this);
     }

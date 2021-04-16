@@ -234,8 +234,8 @@ struct Mutation {
         // uoi
         uoiDel,
         // dcr for return types
-        dcrReturnTrue,
-        dcrReturnFalse,
+        dcrReturnTrue, // unused
+        dcrReturnFalse, // unused
         // aors variant
         aorsMul,
         aorsDiv,

@@ -69,8 +69,6 @@ unittest {
     testAnyOrder!Re([
         `.*4.*dcrTrue`,
         `.*10.*dcrFalse`,
-        `.*4.*dcrReturnTrue`,
-        `.*10.*dcrReturnFalse`,
     ]).shouldBeIn(r.output);
 }
 
