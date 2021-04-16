@@ -561,9 +561,11 @@ nothrow:
 
     void opCall(ref Initialize data) {
         logger.info("Initializing worklist").collectException;
+        // need to use 10000 because in an untested code base it is not
+        // uncommon for mutants being in the thousands.
         spinSql!(() {
             global.data.db.updateWorklist(global.data.kinds,
-                Mutation.Status.unknown, 100, global.mutationOrder);
+                Mutation.Status.unknown, 10000, global.mutationOrder);
         });
 
         // detect if the system is overloaded before trying to do something
