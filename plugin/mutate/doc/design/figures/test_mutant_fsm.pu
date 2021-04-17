@@ -39,11 +39,8 @@ ContCheckTestSuite --> Error : fail
 Cleanup --> NextSchemata
 Cleanup --> CheckPullRequestMutant : hasConstraint
 
-CheckMutantsLeft --> SaveMutationScore : allTested
 CheckMutantsLeft --> MeasureTestSuite : !allTested
-
-SaveMutationScore --> Done : !resetOld
-SaveMutationScore --> MeasureTestSuite : resetOld
+CheckMutantsLeft --> Done : !resetOld && allTested
 
 MeasureTestSuite --> Error : unreliable
 MeasureTestSuite --> Coverage : useCov
@@ -80,7 +77,8 @@ CheckTimeout --> Done : unchanged
 CheckTimeout --> UpdateTimeout : changed
 
 Done --> SchemataPruneUsed
-SchemataPruneUsed --> Stop
+SchemataPruneUsed --> SaveMutationScore
+SaveMutationScore --> Stop
 
 Error --> Stop
 @enduml
