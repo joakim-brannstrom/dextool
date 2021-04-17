@@ -459,14 +459,11 @@ struct TestDriver {
                 return fsm(NextSchemata.init);
             return fsm(CheckPullRequestMutant.init);
         }, (CheckMutantsLeft a) {
-            if (a.allMutantsTested)
-                return fsm(SaveMutationScore.init);
-            return fsm(MeasureTestSuite.init);
-        }, (SaveMutationScore a) {
-            if (self.global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
+            if (a.allMutantsTested
+                && self.global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
                 return fsm(Done.init);
             return fsm(MeasureTestSuite.init);
-        }, (PreCompileSut a) {
+        }, (SaveMutationScore a) { return fsm(Stop.init); }, (PreCompileSut a) {
             if (a.compilationError)
                 return fsm(Error.init);
             if (self.global.data.conf.testCommandDir.empty)
@@ -530,7 +527,7 @@ struct TestDriver {
             if (a.timeoutUnchanged)
                 return fsm(Done.init);
             return fsm(UpdateTimeout.init);
-        }, (SchemataPruneUsed a) => fsm(Stop.init),
+        }, (SchemataPruneUsed a) => SaveMutationScore.init,
                 (Done a) => fsm(SchemataPruneUsed.init),
                 (Error a) => fsm(Stop.init), (Stop a) => fsm(a));
 
@@ -902,6 +899,9 @@ nothrow:
         import dextool.plugin.mutate.backend.database.type : MutationScore;
         import dextool.plugin.mutate.backend.report.analyzers : reportScore;
 
+        if (spinSql!(() => global.data.db.unknownSrcMutants(global.data.kinds)).count != 0)
+            return;
+
         const score = reportScore(*global.data.db, global.data.kinds).score;
 
         // 10000 mutation scores is only ~80kbyte. Should be enough entries
@@ -939,8 +939,8 @@ nothrow:
         }
 
         if (!cmds.data.empty) {
-            this.global.testCmds ~= cmds.data;
-            this.runner.put(this.global.testCmds);
+            global.testCmds ~= cmds.data;
+            runner.put(this.global.testCmds);
             logger.infof("Found test commands in %s:",
                     global.data.conf.testCommandDir).collectException;
             foreach (c; cmds.data) {
