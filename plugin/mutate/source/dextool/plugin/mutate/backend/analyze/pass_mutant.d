@@ -763,10 +763,10 @@ class MutantVisitor : DepthFirstVisitor {
 class DeleteBlockVisitor : DepthFirstVisitor {
     RefCounted!Ast ast;
 
-    // if the analyzer has determined that this node in the tree can be removed
-    // with SDL. Note though that it doesn't know anything about the parent
-    // node.
-    bool canRemove = true;
+    private {
+        bool hasReturn;
+        bool hasInnerNodes;
+    }
 
     alias visit = DepthFirstVisitor.visit;
 
@@ -774,27 +774,26 @@ class DeleteBlockVisitor : DepthFirstVisitor {
         this.ast = ast;
     }
 
+    // if the analyzer has determined that this node in the tree can be removed
+    // with SDL. Note though that it doesn't know anything about the parent
+    // node.
+    bool canRemove() {
+        return !hasReturn && hasInnerNodes;
+    }
+
     /// The node to start analysis from.
     void startVisit(Node n) {
         auto l = ast.location(n);
+        hasInnerNodes = !n.children.empty;
 
-        if (l.interval.end.among(l.interval.begin, l.interval.begin + 1)) {
-            // it is an empty block so deleting it is an equivalent mutant.
-            canRemove = false;
-        } else if (l.interval.begin < l.interval.end) {
+        if (hasInnerNodes && l.interval.begin < l.interval.end)
             visit(n);
-        } else {
-            // something is wrong with the location.... this should never
-            // happen.
-            canRemove = false;
-        }
     }
 
     override void visit(Return n) {
-        if (n.children.empty) {
+        if (n.children.empty)
             accept(n, this);
-        } else {
-            canRemove = false;
-        }
+        else
+            hasReturn = true;
     }
 }
