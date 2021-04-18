@@ -737,8 +737,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
 
         if (!visitOp(v, v.cursor.kind)) {
-            pushStack(ast.make!(analyze.Call), v);
-            v.accept(this);
+            visitCall(v);
         }
     }
 
@@ -1126,6 +1125,22 @@ final class BaseVisitor : ExtendedVisitor {
 
         v.accept(this);
     }
+
+    private void visitCall(T)(ref const T v) @trusted {
+        auto n = ast.make!(analyze.Call);
+        pushStack(n, v);
+
+        auto ty = deriveType(ast.get, v.cursor.type);
+        ty.put(ast);
+        if (ty.type !is null) {
+            ast.put(n, ty.id);
+        }
+        if (ty.symbol !is null) {
+            ast.put(n, ty.symId);
+        }
+
+        v.accept(this);
+    }
 }
 
 final class EnumVisitor : ExtendedVisitor {
@@ -1312,6 +1327,9 @@ struct DeriveTypeResult {
 
 DeriveTypeResult deriveType(ref Ast ast, Type cty) {
     DeriveTypeResult rval;
+
+    if (!cty.isValid)
+        return rval;
 
     auto ctydecl = cty.declaration;
     if (ctydecl.isValid) {
