@@ -327,3 +327,5 @@ struct DepFile {
     Path file;
     Checksum checksum;
 }
+
+alias ToolVersion = NamedType!(long, Tag!"ToolVersion", long.init, TagStringable, Comparable);

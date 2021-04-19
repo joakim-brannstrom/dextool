@@ -80,6 +80,7 @@ immutable nomutDataTable = "nomut_data";
 immutable nomutTable = "nomut";
 immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable runtimeHistoryTable = "test_cmd_runtime_history";
+immutable dextoolVersionTable = "dextool_version";
 immutable schemaVersionTable = "schema_version";
 immutable schemataFragmentTable = "schemata_fragment";
 immutable schemataMutantTable = "schemata_mutant";
@@ -235,6 +236,12 @@ struct NomutDataTbl {
 struct VersionTbl {
     @ColumnName("version")
     long version_;
+}
+
+@TableName(dextoolVersionTable)
+struct DextoolVersionTable {
+    /// checksum is 64bit.
+    long checksum;
 }
 
 @TableName(filesTable)
@@ -485,13 +492,6 @@ struct SchemataTable {
     // used to detect if a fragment has been removed because its related file
     // was changed.
     long fragments;
-
-    // runtime generated constant that make it possible to "prune" old
-    // schematas automatically. it assumes that each new version of dextool may
-    // contain updates to the schematas thus the old schemats should be
-    // removed.
-    @ColumnName("version")
-    long version_;
 }
 
 @TableName(schemataUsedTable)
@@ -734,7 +734,7 @@ void upgradeV0(ref Miniorm db) {
             SchemataMutantTable,
             SchemataUsedTable, MutantWorklistTbl, RuntimeHistoryTable,
             MutationScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable, CoverageInfoTable,
-            CoverageTimeTtampTable, DependencyFileTable, DependencyRootTable));
+            CoverageTimeTtampTable, DependencyFileTable, DependencyRootTable, DextoolVersionTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1249,6 +1249,23 @@ void upgradeV19(ref Miniorm db) {
         long id;
     }
 
+    @TableName(schemataTable)
+    struct SchemataTable {
+        long id;
+
+        // number of fragments the schemata consist of.
+        // used to detect if a fragment has been removed because its related file
+        // was changed.
+        long fragments;
+
+        // runtime generated constant that make it possible to "prune" old
+        // schematas automatically. it assumes that each new version of dextool may
+        // contain updates to the schematas thus the old schemats should be
+        // removed.
+        @ColumnName("version")
+        long version_;
+    }
+
     db.run(buildSchema!(SchemataTable, SchemataMutantTable, InvalidSchemataTable));
 }
 
@@ -1534,6 +1551,12 @@ void upgradeV36(ref Miniorm db) {
         FROM %s t",
             newTbl, mutationStatusTable));
     replaceTbl(db, newTbl, mutationStatusTable);
+}
+
+// 2021-04-18
+void upgradeV37(ref Miniorm db) {
+    db.run(format("DELETE FROM %s", schemataTable));
+    db.run(buildSchema!(DextoolVersionTable, SchemataTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
