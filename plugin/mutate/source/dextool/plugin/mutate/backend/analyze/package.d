@@ -29,6 +29,8 @@ import my.named_type;
 import my.optional;
 import my.set;
 
+import dextool.utility : dextoolBinaryId;
+
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB,
     ParsedCompileCommandRange, ParsedCompileCommand, ParseFlags, SystemIncludePath;
 import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
@@ -36,7 +38,7 @@ import dextool.plugin.mutate.backend.analyze.pass_schemata : SchemataResult;
 import dextool.plugin.mutate.backend.database : Database, LineMetadata,
     MutationPointEntry2, DepFile;
 import dextool.plugin.mutate.backend.database.type : MarkedMutant, TestFile,
-    TestFilePath, TestFileChecksum;
+    TestFilePath, TestFileChecksum, ToolVersion;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
@@ -370,8 +372,13 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         // A file is at most saved one time to the database.
         Set!AbsolutePath savedFiles;
 
-        // schematan for an old version where removed.
-        NamedType!(bool, Tag!"SchemataRemovedVersion", false) oldVersion;
+        const isToolVersionDifferent = () nothrow{
+            try {
+                return db.isToolVersionDifferent(ToolVersion(dextoolBinaryId));
+            } catch (Exception e) {
+            }
+            return true;
+        }();
 
         auto getFileId = nullableCache!(string, FileId, (string p) => db.getFileId(p.Path))(256,
                 30.dur!"seconds");
@@ -403,7 +410,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     .byKey
                     .filter!(a => a !in savedFiles)
                     .filter!(a => getFileDbChecksum(fio.toRelativeRoot(a)) == getFileFsChecksum(a)
-                        && !confAnalyze.forceSaveAnalyze)) {
+                        && !confAnalyze.forceSaveAnalyze && !isToolVersionDifferent)) {
                 logger.info("Unchanged ".color(Color.yellow), f);
                 savedFiles.add(f);
             }
@@ -411,7 +418,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
             // only saves mutation points to a file one time.
             {
                 auto app = appender!(MutationPointEntry2[])();
-                bool isChanged;
+                bool isChanged = isToolVersionDifferent;
                 foreach (mp; result.mutationPoints
                         .map!(a => tuple!("data", "file")(a, fio.toAbsoluteRoot(a.file)))
                         .filter!(a => a.file !in savedFiles)) {
@@ -450,7 +457,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 // trigger isChanged to be true.
                 db.dependencyApi.set(fio.toRelativeRoot(result.root), result.dependencies);
 
-                if (isChanged || oldVersion.get) {
+                if (isChanged) {
                     foreach (a; result.coverage.byKeyValue) {
                         const fid = getFileId(fio.toRelativeRoot(result.fileId[a.key]));
                         if (!fid.isNull) {
@@ -551,7 +558,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         }
 
         void addRoots() {
-            if (confAnalyze.forceSaveAnalyze)
+            if (confAnalyze.forceSaveAnalyze || isToolVersionDifferent)
                 return;
 
             // add root files and their dependencies that has not been analyzed because nothing has changed.
@@ -603,12 +610,10 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
 
             {
                 auto trans = db.transaction;
-
-                if (confAnalyze.prune) {
-                    auto profile = Profile("prune old schemas");
-                    logger.info("Prune database of schemata created by an old version");
-                    oldVersion = db.pruneOldSchemas;
-                }
+                auto profile = Profile("prune old schemas");
+                logger.info("Prune database of schemata created by an old version");
+                if (db.pruneOldSchemas(ToolVersion(dextoolBinaryId)).get)
+                    logger.info("Done".color.fggreen);
                 trans.commit;
             }
 
@@ -652,6 +657,9 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 updateMarkedMutants(db);
                 printLostMarkings(db.getLostMarkings);
 
+                logger.info("Updating tool version");
+                db.updateToolVersion(ToolVersion(dextoolBinaryId));
+
                 logger.info("Committing changes");
                 trans.commit;
                 logger.info("Ok".color(Color.green));
@@ -659,7 +667,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
 
             fastDbOff();
 
-            if (oldVersion.get) {
+            if (isToolVersionDifferent) {
                 auto profile = Profile("compact");
                 logger.info("Compacting the database");
                 db.vacuum;
@@ -1149,7 +1157,16 @@ bool[Path] dependencyAnalyze(const AbsolutePath dbPath, FilesysIO fio) @trusted 
         foreach (a; db.dependencyApi.getAll)
             dbDeps[a.file] = a.checksum;
 
+        const isToolVersionDifferent = db.isToolVersionDifferent(ToolVersion(dextoolBinaryId));
         bool isChanged(T)(T f) {
+            if (isToolVersionDifferent) {
+                // because the tool version is updated then all files need to
+                // be re-analyzed. an update can mean that scheman are
+                // improved, mutants has been changed/removed etc. it is
+                // unknown. the only way to be sure is to re-analyze all files.
+                return true;
+            }
+
             if (f.rootCs != getFileFsChecksum(fio.toAbsoluteRoot(f.root)))
                 return true;
 

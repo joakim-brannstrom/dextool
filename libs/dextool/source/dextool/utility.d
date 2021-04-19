@@ -107,7 +107,7 @@ long dextoolBinaryId() @trusted {
 
     if (dextoolBinaryId_ == 0) {
         BuildChecksum64 h;
-        foreach (c; File(thisExePath).byChunk(4096)) {
+        foreach (c; File(thisExePath).byChunk(8196)) {
             h.put(c);
         }
         dextoolBinaryId_ = h.finish.toLong;

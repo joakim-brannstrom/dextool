@@ -36,6 +36,7 @@ import miniorm : Miniorm, select, insert, insertOrReplace, delete_,
     insertOrIgnore, toSqliteDateTime, fromSqLiteDateTime, Bind;
 import my.named_type;
 import my.optional;
+import my.term_color;
 
 import dextool.type : AbsolutePath, Path, ExitStatusType;
 
@@ -57,6 +58,20 @@ struct Database {
      */
     static auto make(string db) @safe {
         return Database(initializeDB(db));
+    }
+
+    bool isToolVersionDifferent(ToolVersion compareTo) @trusted {
+        foreach (a; db.run(select!DextoolVersionTable)) {
+            return a.checksum != compareTo.get;
+        }
+        // if there is no tool version recorded then assume it is different.
+        return true;
+    }
+
+    /// Update the version of the tool.
+    void updateToolVersion(const ToolVersion tv) @trusted {
+        db.run(delete_!DextoolVersionTable);
+        db.run(insert!DextoolVersionTable, DextoolVersionTable(tv.get));
     }
 
     /** Add all mutants with the specific status to the worklist.
@@ -1852,7 +1867,6 @@ struct Database {
     Nullable!SchemataId putSchemata(SchemataChecksum cs,
             const SchemataFragment[] fragments, MutationStatusId[] mutants) @trusted {
         import std.range : enumerate;
-        import dextool.utility : dextoolBinaryId;
 
         const schemId = cast(long) cs.value.c0;
 
@@ -1868,12 +1882,10 @@ struct Database {
             return typeof(return)();
 
         {
-            static immutable sql = format!"INSERT INTO %1$s VALUES(:id, :nr, :version)"(
-                    schemataTable);
+            static immutable sql = format!"INSERT INTO %1$s VALUES(:id, :nr)"(schemataTable);
             auto stmt = db.prepare(sql);
             stmt.get.bind(":id", cast(long) cs.value.c0);
             stmt.get.bind(":nr", cast(long) fragments.length);
-            stmt.get.bind(":version", dextoolBinaryId);
             stmt.get.execute;
         }
 
@@ -1898,44 +1910,17 @@ struct Database {
     }
 
     /// Prunes the database of schemas that where created by an older version.
-    NamedType!(bool, Tag!"SchemataRemovedVersion", false) pruneOldSchemas() @trusted {
-        import dextool.utility : dextoolBinaryId;
-
-        typeof(return) removedVersion;
-
-        auto remove = () {
-            auto remove = appender!(long[])();
-
-            // remove those that where created by another version of the tool
-            static immutable sqlVersion = format!"SELECT t0.id
-            FROM %1$s t0
-            WHERE t0.version != :v
-            "(schemataTable);
-            auto stmt = db.prepare(sqlVersion);
-            stmt.get.bind(":v", dextoolBinaryId);
-            foreach (a; stmt.get.execute) {
-                remove.put(a.peek!long(0));
-                removedVersion.get = true;
-            }
-
-            return remove.data;
-        }();
-
-        static immutable sql = format!"DELETE FROM %1$s WHERE id=:id"(schemataTable);
-        auto stmt = db.prepare(sql);
-        foreach (a; remove) {
-            stmt.get.bind(":id", a);
-            stmt.get.execute;
-            stmt.get.reset;
+    NamedType!(bool, Tag!"SchemataRemovedVersion", false) pruneOldSchemas(ToolVersion current) @trusted {
+        if (isToolVersionDifferent(current)) {
+            db.run(delete_!SchemataTable);
+            return typeof(return)(true);
         }
 
-        return removedVersion;
+        return typeof(return)(false);
     }
 
     /// Prunes the database of schemas that are unusable.
     void pruneSchemas() @trusted {
-        import dextool.utility : dextoolBinaryId;
-
         auto remove = () {
             auto remove = appender!(long[])();
 
