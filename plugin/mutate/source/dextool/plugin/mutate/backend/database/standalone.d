@@ -1910,13 +1910,8 @@ struct Database {
     }
 
     /// Prunes the database of schemas that where created by an older version.
-    NamedType!(bool, Tag!"SchemataRemovedVersion", false) pruneOldSchemas(ToolVersion current) @trusted {
-        if (isToolVersionDifferent(current)) {
-            db.run(delete_!SchemataTable);
-            return typeof(return)(true);
-        }
-
-        return typeof(return)(false);
+    void deleteAllSchemas() @trusted {
+        db.run(delete_!SchemataTable);
     }
 
     /// Prunes the database of schemas that are unusable.

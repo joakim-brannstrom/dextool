@@ -611,9 +611,10 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
             {
                 auto trans = db.transaction;
                 auto profile = Profile("prune old schemas");
-                logger.info("Prune database of schemata created by an old version");
-                if (db.pruneOldSchemas(ToolVersion(dextoolBinaryId)).get)
-                    logger.info("Done".color.fggreen);
+                if (isToolVersionDifferent) {
+                    logger.info("Prune database of schematan created by the old version");
+                    db.deleteAllSchemas;
+                }
                 trans.commit;
             }
 
@@ -657,8 +658,10 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 updateMarkedMutants(db);
                 printLostMarkings(db.getLostMarkings);
 
-                logger.info("Updating tool version");
-                db.updateToolVersion(ToolVersion(dextoolBinaryId));
+                if (isToolVersionDifferent) {
+                    logger.info("Updating tool version");
+                    db.updateToolVersion(ToolVersion(dextoolBinaryId));
+                }
 
                 logger.info("Committing changes");
                 trans.commit;
