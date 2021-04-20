@@ -1559,6 +1559,12 @@ void upgradeV37(ref Miniorm db) {
     db.run(buildSchema!(DextoolVersionTable, SchemataTable));
 }
 
+// 2021-04-19
+void upgradeV38(ref Miniorm db) {
+    db.run(format("DROP TABLE %s", schemataTable));
+    db.run(buildSchema!(SchemataTable));
+}
+
 void replaceTbl(ref Miniorm db, string src, string dst) {
     db.run("DROP TABLE " ~ dst);
     db.run(format("ALTER TABLE %s RENAME TO %s", src, dst));
