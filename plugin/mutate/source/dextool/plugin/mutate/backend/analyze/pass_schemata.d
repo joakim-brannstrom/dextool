@@ -353,7 +353,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
         // must check if the Expr is in a block. That means that it should be
         // deleted as a statement.
         if (isDirectParent(ExpressionKind)) {
-            if (nstack.length >= 3 && nstack[$ - 2].data.kind == Kind.Block)
+            if (isDirectParent(Kind.Return))
+                visitBlock!ExpressionChain(n);
+            else if (nstack.length >= 3 && nstack[$ - 2].data.kind == Kind.Block)
                 visitBlock!BlockChain(n);
             else
                 visitBlock!ExpressionChain(n);

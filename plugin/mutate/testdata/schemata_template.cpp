@@ -2,15 +2,12 @@
 /// @date 2021
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
-bool fn(int argc) { return argc == 42; }
+#include <string>
 
-bool a_fn(const int* x) { return fn(*x); }
+template <typename T> void aTemplate(T x) { T y = x + "foo"; }
 
 int main(int argc, char** argv) {
-    int x = 42;
-    x = x + argc;
-    x = x + argc;
-    x = x + argc;
-
-    return fn(argc);
+    aTemplate(std::string{"a"});
+    aTemplate(std::string{"a"} + std::string{"b"});
+    return 0;
 }
