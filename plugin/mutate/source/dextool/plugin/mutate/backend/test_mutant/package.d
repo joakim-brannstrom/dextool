@@ -1026,15 +1026,6 @@ nothrow:
 
         const tester = () {
             try {
-                // need to measure the test suite single threaded to get the "worst"
-                // test case execution time because if multiple instances are running
-                // on the same computer the available CPU resources are variable. This
-                // reduces the number of mutants marked as timeout. Further
-                // improvements in the future could be to check the loadavg and let it
-                // affect the number of threads.
-                runner.poolSize = 1;
-                scope (exit)
-                    runner.poolSize = global.data.conf.testPoolSize;
                 return measureTestCommand(runner, max(1, cast(int)(3 - measures.length)));
             } catch (Exception e) {
                 logger.error(e.msg).collectException;
