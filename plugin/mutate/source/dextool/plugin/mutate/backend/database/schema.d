@@ -66,6 +66,7 @@ import miniorm : Miniorm, TableName, buildSchema, ColumnParam, TableForeignKey,
 immutable allTestCaseTable = "all_test_case";
 immutable depFileTable = "dependency_file";
 immutable depRootTable = "rel_dependency_root";
+immutable dextoolVersionTable = "dextool_version";
 immutable filesTable = "files";
 immutable killedTestCaseTable = "killed_test_case";
 immutable markedMutantTable = "marked_mutant";
@@ -80,7 +81,6 @@ immutable nomutDataTable = "nomut_data";
 immutable nomutTable = "nomut";
 immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable runtimeHistoryTable = "test_cmd_runtime_history";
-immutable dextoolVersionTable = "dextool_version";
 immutable schemaVersionTable = "schema_version";
 immutable schemataFragmentTable = "schemata_fragment";
 immutable schemataMutantTable = "schemata_mutant";
@@ -1563,6 +1563,12 @@ void upgradeV37(ref Miniorm db) {
 void upgradeV38(ref Miniorm db) {
     db.run(format("DROP TABLE %s", schemataTable));
     db.run(buildSchema!(SchemataTable));
+}
+
+// 2021-04-23
+void upgradeV39(ref Miniorm db) {
+    // this is just to force a re-measure of the test suite.
+    db.run(format("DELETE FROM %s", runtimeHistoryTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
