@@ -481,9 +481,13 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const FunctionTemplate v) {
         mixin(mixinNodeLog!());
-        // by adding the node it is possible to search for it in cstack
-        auto n = ast.make!(analyze.Poision);
+        auto n = ast.make!(analyze.Function);
+        // it is too uncertain to inject mutant schematan inside a template
+        // because the types are not known which lead to a high probability
+        // that the schemata code will fail to compile.
+        n.schemaBlacklist = true;
         pushStack(n, v);
+
         v.accept(this);
     }
 
