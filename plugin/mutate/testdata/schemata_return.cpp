@@ -4,6 +4,8 @@
 
 bool fn(int argc) { return argc == 42; }
 
+bool a_fn(const int* x) { return fn(*x); }
+
 int main(int argc, char** argv) {
     int x = 42;
     x = x + argc;
