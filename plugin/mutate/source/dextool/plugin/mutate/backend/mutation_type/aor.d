@@ -13,6 +13,7 @@ import std.algorithm : filter, among;
 import std.array : array;
 import std.range : only;
 import std.typecons : Tuple;
+import logger = std.experimental.logger;
 
 import dextool.plugin.mutate.backend.type;
 import dextool.clang_extensions : OpKind;
@@ -70,10 +71,16 @@ auto aorMutations(AorInfo info) @safe {
     default:
     }
 
-    // modulo do not work when either side is a floating point.
     if (info.lhs is null || info.rhs is null) {
-        // do nothing
+        // block aor when the type is unknown. It is better to only mutate when
+        // it is certain to be a "good" mutant.
+        rval = typeof(rval).init;
+    } else if (info.lhs.kind.among(TypeKind.unordered, TypeKind.bottom)
+            || info.rhs.kind.among(TypeKind.unordered, TypeKind.bottom)) {
+        // block aor when the type is a pointer
+        rval = typeof(rval).init;
     } else if (info.lhs.kind == TypeKind.continues || info.rhs.kind == TypeKind.continues) {
+        // modulo do not work when either side is a floating point.
         rval.op = rval.op.filter!(a => !a.among(Mutation.Kind.aorRem,
                 Mutation.Kind.aorRemAssign)).array;
     }

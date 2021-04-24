@@ -963,6 +963,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     /// Returns: true if it added a binary operator, false otherwise.
     private bool visitBinaryOp(ref OperatorCursor op, const CXCursorKind cKind) @trusted {
+        import std.range : only;
         import libclang_ast.ast : dispatch;
 
         auto astOp = cast(analyze.BinaryOp) op.astOp;
@@ -997,12 +998,14 @@ final class BaseVisitor : ExtendedVisitor {
                 astOp.lhs = b;
                 auto ty = deriveCursorType(ast, op.lhs);
                 ty.put(ast);
-                if (ty.type !is null) {
+                if (ty.type !is null)
                     ast.put(b, ty.id);
-                }
-                if (ty.symbol !is null) {
+                if (ty.symbol !is null)
                     ast.put(b, ty.symId);
-                }
+                // can't do schemata AOR if it is an enum because e.g. `/` do
+                // not work
+                if (ty.isEnum)
+                    astOp.schemaBlacklist = true;
             }
         }
         if (op.rhs.isValid) {
@@ -1019,22 +1022,24 @@ final class BaseVisitor : ExtendedVisitor {
                 astOp.rhs = b;
                 auto ty = deriveCursorType(ast, op.rhs);
                 ty.put(ast);
-                if (ty.type !is null) {
+                if (ty.type !is null)
                     ast.put(b, ty.id);
-                }
-                if (ty.symbol !is null) {
+                if (ty.symbol !is null)
                     ast.put(b, ty.symId);
-                }
+                // can't do schemata AOR if it is an enum because e.g. `/` do
+                // not work
+                if (ty.isEnum)
+                    astOp.schemaBlacklist = true;
             }
         }
 
-        // TODO: this is crude and shouldn't be here as a check but we must
-        // block aor/rorp schematan when the type is a pointer.
-        foreach (_; getChildrenTypes(ast, astOp).filter!(a => a.among(TypeKind.unordered,
-                TypeKind.bottom))) {
-            foreach (c; BreathFirstRange(astOp))
-                c.schemaBlacklist = true;
-            break;
+        // the schemata blocking need to be in pass_clang because it is
+        // language dependent.  block e.g. aor/rorp schematan when either side
+        // is a pointer pointer.
+        foreach (a; only(astOp.lhs, astOp.rhs).map!(a => ast.type(a))
+                .filter!(a => a !is null)
+                .filter!(a => a.kind.among(TypeKind.unordered, TypeKind.bottom))) {
+            astOp.schemaBlacklist = true;
         }
 
         return true;
@@ -1336,12 +1341,7 @@ DeriveTypeResult deriveType(ref Ast ast, Type cty) {
     if (!cty.isValid)
         return rval;
 
-    auto ctydecl = cty.declaration;
-    if (ctydecl.isValid) {
-        rval.id = make!(analyze.TypeId)(ctydecl);
-    } else {
-        rval.id = make!(analyze.TypeId)(cty.cursor);
-    }
+    rval.id = make!(analyze.TypeId)(cty.cursor);
 
     if (cty.isEnum) {
         rval.type = ast.make!(analyze.DiscreteType)(analyze.Range.makeInf);
@@ -1373,6 +1373,8 @@ struct DeriveCursorTypeResult {
     Cursor expr;
     DeriveTypeResult typeResult;
     alias typeResult this;
+
+    bool isEnum;
 }
 
 /** Analyze a cursor to derive the type of it and if it has a concrete value
@@ -1386,7 +1388,7 @@ DeriveCursorTypeResult deriveCursorType(ref Ast ast, const Cursor baseCursor) {
         return DeriveCursorTypeResult.init;
 
     auto rval = DeriveCursorTypeResult(c);
-    auto cty = c.type.canonicalType;
+    auto cty = c.type;
     rval.typeResult = deriveType(ast, cty);
 
     // evaluate the cursor to add a value for the symbol
@@ -1408,6 +1410,7 @@ DeriveCursorTypeResult deriveCursorType(ref Ast ast, const Cursor baseCursor) {
     }
 
     if (cty.isEnum) {
+        rval.isEnum = true;
         // TODO: check if c.eval give the same result. If so it may be easier
         // to remove this special case of an enum because it is covered by the
         // generic branch for discretes.
@@ -1556,11 +1559,4 @@ struct BlackList {
     bool inside(const Path file, const Interval i) {
         return macros.overlap(file, i);
     }
-}
-
-/// Returns: the types of the children
-auto getChildrenTypes(ref Ast ast, Node parent) {
-    return BreathFirstRange(parent).map!(a => ast.type(a))
-        .filter!(a => a !is null)
-        .map!(a => a.kind);
 }
