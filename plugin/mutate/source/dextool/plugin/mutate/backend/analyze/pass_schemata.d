@@ -287,6 +287,34 @@ class CodeMutantIndex {
     }
 }
 
+struct FragmentBuilder {
+    BlockChain schema;
+    Appender!(CodeMutant[]) mutants;
+    Interval interval;
+    const(ubyte)[] content;
+}
+
+struct MutantHelper {
+    this(ref FragmentBuilder fragment, Interval offs) {
+        pre = () {
+            if (offs.begin <= fragment.interval.begin)
+                return null;
+            const d = offs.begin - fragment.interval.begin;
+            return fragment.content[0 .. d];
+        }();
+
+        post = () {
+            if (offs.end >= fragment.interval.end)
+                return null;
+            const d = offs.end - fragment.interval.begin;
+            return fragment.content[d .. $];
+        }();
+    }
+
+    const(ubyte)[] pre;
+    const(ubyte)[] post;
+}
+
 class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
@@ -296,6 +324,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     FilesysIO fio;
 
     private {
+        bool saveFragment;
+        FragmentBuilder fragment;
+
         Stack!(Node) nstack;
         uint depth;
     }
@@ -331,88 +362,115 @@ class CppSchemataVisitor : DepthFirstVisitor {
         --depth;
     }
 
+    override void visit(Function n) @trusted {
+        auto firstBlock = () {
+            foreach (c; n.children.filter!(a => a.kind == Kind.Block))
+                return c;
+            return null;
+        }();
+
+        if (firstBlock is null) {
+            accept(n, this);
+            return;
+        }
+
+        auto loc = ast.location(firstBlock);
+
+        if (!saveFragment && !loc.interval.isZero) {
+            saveFragment = true;
+            auto fin = fio.makeInput(loc.file);
+
+            fragment = FragmentBuilder.init;
+            fragment.interval = loc.interval;
+            fragment.content = () {
+                // must be at least length 1 because ChainT look at the last
+                // value
+                if (loc.interval.begin >= loc.interval.end)
+                    return " ".rewrite;
+                return fin.content[loc.interval.begin .. loc.interval.end];
+            }();
+            fragment.schema = BlockChain(fragment.content);
+        }
+
+        accept(n, this);
+
+        if (saveFragment) {
+            result.putFragment(loc.file, rewrite(loc, fragment.schema.generate,
+                    fragment.mutants.data));
+
+            fragment = FragmentBuilder.init;
+            saveFragment = false;
+        }
+    }
+
     override void visit(Expr n) {
-        visitBlock!ExpressionChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(Block n) {
-        visitBlock!(BlockChain)(n);
+        visitBlock(n, true);
         accept(n, this);
     }
 
     override void visit(Loop n) {
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(Call n) {
-        // a call is always
-        // | `-Expr
-        // |   |-Call
-        // must check if the Expr is in a block. That means that it should be
-        // deleted as a statement.
-        if (isDirectParent(ExpressionKind)) {
-            if (isDirectParent(Kind.Return))
-                visitBlock!ExpressionChain(n);
-            else if (nstack.length >= 3 && nstack[$ - 2].data.kind == Kind.Block)
-                visitBlock!BlockChain(n);
-            else
-                visitBlock!ExpressionChain(n);
-        } else {
-            visitBlock!BlockChain(n);
-        }
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(Return n) {
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(BinaryOp n) {
         // these are operators such as x += 2
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(OpAssign n) {
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(OpAssignAdd n) {
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(OpAssignAndBitwise n) {
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(OpAssignDiv n) {
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(OpAssignMod n) {
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(OpAssignMul n) {
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(OpAssignOrBitwise n) {
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
     override void visit(OpAssignSub n) {
-        visitBlock!BlockChain(n);
+        visitBlock(n);
         accept(n, this);
     }
 
@@ -487,19 +545,19 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(BranchBundle n) @trusted {
-        visitBlock!BlockChain(n);
+        visitBlock(n, true);
         accept(n, this);
     }
 
     override void visit(Branch n) {
         if (n.inside !is null) {
-            visitBlock!BlockChain(n.inside);
+            visitBlock(n.inside, true);
         }
         accept(n, this);
     }
 
     private void visitCondition(T)(T n) @trusted {
-        if (n.blacklist || n.schemaBlacklist)
+        if (!saveFragment || n.blacklist || n.schemaBlacklist)
             return;
 
         // The schematas from the code below are only needed for e.g. function
@@ -508,10 +566,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         auto loc = ast.location(n);
         auto mutants = index.get(loc.file, loc.interval);
 
-        if (loc.interval.isZero)
-            return;
-
-        if (mutants.empty)
+        if (loc.interval.isZero || mutants.empty)
             return;
 
         auto fin = fio.makeInput(loc.file);
@@ -519,109 +574,82 @@ class CppSchemataVisitor : DepthFirstVisitor {
         if (content.empty)
             return;
 
-        auto schema = ExpressionChain(content);
+        auto helper = MutantHelper(fragment, loc.interval);
+
         foreach (const mutant; mutants) {
-            // dfmt off
-            schema.put(mutant.id.c0,
-                makeMutation(mutant.mut.kind, ast.lang).mutate(fin.content[loc.interval.begin .. loc.interval.end]),
-                );
-            // dfmt on
+            fragment.schema.put(mutant.id.c0, helper.pre,
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(
+                        fin.content[loc.interval.begin .. loc.interval.end]), helper.post);
         }
 
-        result.putFragment(loc.file, rewrite(loc, schema.generate, mutants));
+        fragment.mutants.put(mutants);
     }
 
-    private void visitBlock(ChainT, T)(T n) {
-        import dextool.plugin.mutate.backend.analyze.ast : Location;
-
-        if (n.blacklist || n.schemaBlacklist)
+    private void visitBlock(T)(T n, bool requireSyntaxBlock = false) {
+        if (!saveFragment || n.blacklist || n.schemaBlacklist)
             return;
 
         auto loc = ast.location(n);
-        if (loc.interval.isZero)
-            return;
-
         auto offs = loc.interval;
         auto mutants = index.get(loc.file, offs);
 
-        if (mutants.empty)
+        if (loc.interval.isZero || mutants.empty)
             return;
 
         auto fin = fio.makeInput(loc.file);
 
-        const doWrap = !isDirectParent(Kind.Block);
-
-        static if (is(ChainT == BlockChain)) {
-            // have to extend the interval of the block to generate valid code for
-            // if-else branches.
-            // if (x) x = false; else x = true;
-            // mutated to
-            // if (x) {....} else {....}
-            // note how the ";" are removed too.
-            if (doWrap && (offs.end + 1 < fin.content.length)
-                    && fin.content[offs.end] == cast(ubyte) ';') {
-                offs.end++;
-                loc.interval = offs;
-            }
-        }
+        auto helper = MutantHelper(fragment, loc.interval);
 
         auto content = () {
-            // must be at least length 1 because ChainT look at the last value
-            //
-            // switch statements with fallthrough case-branches have an
-            // offs.begin == offs.end
-            if (offs.begin >= offs.end) {
-                return " ".rewrite;
-            }
             // this is just defensive code. not proven to be a problem.
-            if (any!(a => a >= fin.content.length)(only(offs.begin, offs.end))) {
+            if (any!(a => a >= fin.content.length)(only(offs.begin, offs.end)))
                 return " ".rewrite;
-            }
             return fin.content[offs.begin .. offs.end];
         }();
 
-        static if (is(ChainT == ExpressionChain)) {
-            if (content.empty || content[0] == ' ')
-                return;
-        }
-
-        auto schema = ChainT(content, doWrap);
         foreach (const mutant; mutants) {
-            schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang).mutate(content));
+            auto mut = () {
+                auto mut = makeMutation(mutant.mut.kind, ast.lang).mutate(content);
+                if (mut.empty && requireSyntaxBlock)
+                    return "{}".rewrite;
+                return mut;
+            }();
+            fragment.schema.put(mutant.id.c0, helper.pre, mut, helper.post);
         }
 
-        result.putFragment(loc.file, rewrite(loc, schema.generate, mutants));
+        fragment.mutants.put(mutants);
     }
 
     private void visitUnaryOp(T)(T n) {
-        if (n.blacklist || n.schemaBlacklist || n.operator.blacklist || n.operator.schemaBlacklist)
+        if (!saveFragment || n.blacklist || n.schemaBlacklist
+                || n.operator.blacklist || n.operator.schemaBlacklist)
             return;
 
         auto loc = ast.location(n);
-        if (loc.interval.isZero)
-            return;
-
         auto mutants = index.get(loc.file, loc.interval);
-        if (mutants.empty)
+
+        if (loc.interval.isZero || mutants.empty)
             return;
 
         auto fin = fio.makeInput(loc.file);
-        auto schema = ExpressionChain(fin.content[loc.interval.begin .. loc.interval.end]);
+        auto helper = MutantHelper(fragment, loc.interval);
 
         foreach (const mutant; mutants) {
-            schema.put(mutant.id.c0, makeMutation(mutant.mut.kind, ast.lang)
-                    .mutate(fin.content[loc.interval.begin .. loc.interval.end]));
+            fragment.schema.put(mutant.id.c0, helper.pre,
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(
+                        fin.content[loc.interval.begin .. loc.interval.end]), helper.post);
         }
 
-        result.putFragment(loc.file, rewrite(loc, schema.generate, mutants));
+        fragment.mutants.put(mutants);
     }
 
     private void visitBinaryOp(T)(T n) @trusted {
         try {
-            auto v = scoped!BinaryOpVisitor(ast, &index, fio);
-            v.startVisit(n);
-            result.putFragment(v.rootLoc.file, rewrite(v.rootLoc,
-                    v.schema.generate, v.mutants.toArray));
+            if (saveFragment) {
+                scope v = new BinaryOpVisitor(ast, &index, fio, &fragment);
+                v.startVisit(n);
+                fragment.mutants.put(v.mutants.toArray);
+            }
         } catch (Exception e) {
         }
         accept(n, this);
@@ -633,6 +661,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
     RefCounted!Ast ast;
     CodeMutantIndex* index;
+    FragmentBuilder* fragment;
     FilesysIO fio;
 
     // the root of the expression that is being mutated
@@ -643,13 +672,13 @@ class BinaryOpVisitor : DepthFirstVisitor {
     const(ubyte)[] content;
 
     /// The resulting fragments of the expression.
-    ExpressionChain schema;
     Set!CodeMutant mutants;
 
-    this(RefCounted!Ast ast, CodeMutantIndex* index, FilesysIO fio) {
+    this(RefCounted!Ast ast, CodeMutantIndex* index, FilesysIO fio, FragmentBuilder* fragment) {
         this.ast = ast;
         this.index = index;
         this.fio = fio;
+        this.fragment = fragment;
     }
 
     void startVisit(T)(T n) {
@@ -665,8 +694,6 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         if (content.empty)
             return;
-
-        schema = ExpressionChain(content[root.begin .. root.end]);
 
         visit(n);
     }
@@ -775,44 +802,58 @@ class BinaryOpVisitor : DepthFirstVisitor {
         if (opMutants.empty && lhsMutants.empty && rhsMutants.empty && exprMutants.empty)
             return;
 
+        auto helper = MutantHelper(*fragment, locExpr.interval);
+
         foreach (const mutant; opMutants) {
             // dfmt off
-            schema.
+            fragment.schema.
                 put(mutant.id.c0,
+                    helper.pre,
                     left,
                     content[locExpr.interval.begin .. locOp.interval.begin],
                     makeMutation(mutant.mut.kind, ast.lang).mutate(content[locOp.interval.begin .. locOp.interval.end]),
                     content[locOp.interval.end .. locExpr.interval.end],
-                    right);
+                    right,
+                    helper.post
+                    );
             // dfmt on
         }
 
         foreach (const mutant; lhsMutants) {
             // dfmt off
-            schema.put(mutant.id.c0,
+            fragment.schema.put(mutant.id.c0,
+                helper.pre,
                 left,
                 makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
                 content[offsLhs.end .. locExpr.interval.end],
-                right);
+                right,
+                helper.post
+                );
             // dfmt on
         }
 
         foreach (const mutant; rhsMutants) {
             // dfmt off
-            schema.put(mutant.id.c0,
+            fragment.schema.put(mutant.id.c0,
+                helper.pre,
                 left,
                 content[locExpr.interval.begin .. offsRhs.begin],
                 makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
-                right);
+                right,
+                helper.post
+                );
             // dfmt on
         }
 
         foreach (const mutant; exprMutants) {
             // dfmt off
-            schema.put(mutant.id.c0,
+            fragment.schema.put(mutant.id.c0,
+                helper.pre,
                 left,
                 makeMutation(mutant.mut.kind, ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
-                right);
+                right,
+                helper.post
+                );
             // dfmt on
         }
 
@@ -859,68 +900,6 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
     return SchemataChecksum(toChecksum(h));
 }
 
-/** Accumulate multiple modifications for an expression to then generate a via
- * ternery operator that activate one mutant if necessary.
- *
- * A id can only be added once to the chain. This ensure that there are no
- * duplications. This can happen when e.g. adding rorFalse and dcrFalse to an
- * expression group. They both result in the same source code mutation thus
- * only one of them is actually needed. This deduplications this case.
- */
-struct ExpressionChain {
-    alias Mutant = Tuple!(ulong, "id", const(ubyte)[], "value");
-    Appender!(Mutant[]) mutants;
-    Set!ulong mutantIds;
-    const(ubyte)[] original;
-
-    this(const(ubyte)[] original, bool wrap = false) {
-        this.original = original;
-    }
-
-    bool empty() @safe pure nothrow const @nogc {
-        return mutants.data.empty;
-    }
-
-    /// Returns: `value`
-    const(ubyte)[] put(ulong id, const(ubyte)[] value) {
-        // expressions cannot be empty
-        if (!value.empty && value[0] != ' ' && id !in mutantIds) {
-            mutantIds.add(id);
-            mutants.put(Mutant(id, value));
-        }
-        return value;
-    }
-
-    /// Returns: the merge of `values`
-    const(ubyte)[] put(T...)(ulong id, auto ref T values) {
-        auto app = appender!(const(ubyte)[])();
-        static foreach (a; values) {
-            app.put(a);
-        }
-        return this.put(id, app.data);
-    }
-
-    /// Returns: the generated chain that can replace the original expression.
-    const(ubyte)[] generate() {
-        auto app = appender!(const(ubyte)[])();
-        app.put("(".rewrite);
-
-        foreach (const mutant; mutants.data) {
-            app.put(format!"(%s == "(schemataMutantIdentifier).rewrite);
-            app.put(mutant.id.checksumToId.to!string.rewrite);
-            app.put("u".rewrite);
-            app.put(") ? (".rewrite);
-            app.put(mutant.value);
-            app.put(") : ".rewrite);
-        }
-        app.put("(".rewrite);
-        app.put(original);
-        app.put("))".rewrite);
-
-        return app.data;
-    }
-}
-
 /** Accumulate block modification of the program to then generate a
  * if-statement chain that activates them if the mutant is set. The last one is
  * the original.
@@ -935,11 +914,9 @@ struct BlockChain {
     Set!ulong mutantIds;
     Appender!(Mutant[]) mutants;
     const(ubyte)[] original;
-    bool wrap;
 
-    this(const(ubyte)[] original, bool wrap) {
+    this(const(ubyte)[] original) {
         this.original = original;
-        this.wrap = wrap;
     }
 
     bool empty() @safe pure nothrow const @nogc {
@@ -969,9 +946,6 @@ struct BlockChain {
         auto app = appender!(const(ubyte)[])();
         bool isFirst = true;
 
-        if (wrap)
-            app.put("{".rewrite);
-
         foreach (const mutant; mutants.data) {
             if (isFirst) {
                 app.put("if (".rewrite);
@@ -999,9 +973,6 @@ struct BlockChain {
             app.put(";".rewrite);
         }
         app.put("}".rewrite);
-
-        if (wrap)
-            app.put("}".rewrite);
 
         return app.data;
     }
