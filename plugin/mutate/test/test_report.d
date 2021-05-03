@@ -615,14 +615,14 @@ class ShallReportHtmlNoMutSummary : LinesWithNoMut {
 }
 
 class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
+    import dextool.plugin.mutate.backend.type : TestCase;
+
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
         auto ids = getAllMutationIds(db);
-
-        import dextool.plugin.mutate.backend.type : TestCase;
 
         // Arrange
         const tc1 = TestCase("tc_1");
@@ -742,5 +742,36 @@ class ShallReportMutationScoreTrend : SimpleAnalyzeFixture {
             .addArg(["--style", "json"])
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
+    }
+}
+
+class ShallChangeNrOfHighInterestMutantsShown : SimpleAnalyzeFixture {
+    import dextool.plugin.mutate.backend.type : TestCase;
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+        foreach (id; getAllMutationIds(db))
+            db.updateMutation(id, Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), []);
+
+        auto r = makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .addArg(["--high-interest-mutants-nr", "10"])
+            .run;
+
+        testConsecutiveSparseOrder!SubStr([
+            "High Interest Mutants",
+            "report_one_ror_mutation_point",
+            "report_one_ror_mutation_point",
+            "report_one_ror_mutation_point",
+            "report_one_ror_mutation_point",
+            "report_one_ror_mutation_point",
+            "report_one_ror_mutation_point",
+            "report_one_ror_mutation_point",
+        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "index.html")).byLineCopy.array);
     }
 }
