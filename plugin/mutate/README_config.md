@@ -612,7 +612,7 @@ includes are extracted from the compiler.
 [mutant_test]
 ```
 Configuration of the test phase. This contains the most options because it is
-also the one that has to be flexible.
+also the one that has to be highly flexible.
 
 `build_cmd`: Program/script used to build the application. Will be called to
 compile both the original program (sanity check) and to compile the program
@@ -665,6 +665,19 @@ anything has changed in the test suite. The re-test, if activated, of old
 mutants will only be done if there is nothing else to be done.
 
 `parallel_test`: How many test binaries to run in parallel.
+
+```toml
+[report]
+```
+Configuration of the generated reports.
+
+`style`: The default report style to use when none is specified via the CLI.
+
+`sections`: An array of the default sections to use when none are specified via
+the CLI.
+
+`high_interest_mutants_nr`: The number of mutants to show in the high interest
+mutants section.
 
 # Resources
 

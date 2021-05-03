@@ -302,6 +302,9 @@ struct ArgParser {
                 [EnumMembers!ReportSection].map!(a => a.to!string)));
         app.put(format!"sections = [%(%s, %)]"(report.reportSection.map!(a => a.to!string)));
         app.put(null);
+        app.put("# how many mutants to show in the high interest section");
+        app.put("# high_interest_mutants_nr = 5");
+        app.put(null);
 
         app.put("[test_group]");
         app.put(null);
@@ -458,6 +461,7 @@ struct ArgParser {
                    "db", db_help, &db,
                    "diff-from-stdin", "report alive mutants in the areas indicated as changed in the diff", &report.unifiedDiff,
                    "exclude", exclude_help, &workArea.rawExclude,
+                   "high-interest-mutants-nr", "nr of mutants to show in the section", report.highInterestMutantsNr.getPtr,
                    "include", include_help, &workArea.rawInclude,
                    "logdir", "Directory to write log files to (default: .)", &logDir,
                    "m|mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
@@ -470,13 +474,11 @@ struct ArgParser {
                    );
             // dfmt on
 
-            if (logDir.empty) {
+            if (logDir.empty)
                 logDir = ".";
-            }
             report.logDir = logDir.Path.AbsolutePath;
-            if (!sections.empty) {
+            if (!sections.empty)
                 report.reportSection = sections;
-            }
 
             updateCompileDb(compileDb, compileDbs);
         }
@@ -955,6 +957,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
             logger.error(e.msg);
         }
     };
+    callbacks["report.high_interest_mutants_nr"] = (ref ArgParser c, ref TOMLValue v) {
+        c.report.highInterestMutantsNr.get = cast(uint) v.integer;
+    };
 
     void iterSection(ref ArgParser c, string sectionName) {
         if (auto section = sectionName in doc) {
@@ -1221,6 +1226,19 @@ sections = ["all_mut", "summary"]
     ap.report.reportSection.shouldEqual([
             ReportSection.all_mut, ReportSection.summary
             ]);
+}
+
+@("shall parse the number of high interest mutants")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[report]
+high_interest_mutants_nr = 10
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.report.highInterestMutantsNr.get.shouldEqual(10);
 }
 
 /// Minimal config to setup path to config file.

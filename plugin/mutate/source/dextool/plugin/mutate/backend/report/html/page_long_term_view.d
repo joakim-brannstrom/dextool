@@ -21,14 +21,16 @@ import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, D
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable;
 import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.config : ConfigReport;
 
-void makeHighInterestMutants(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
+void makeHighInterestMutants(ref Database db, const(Mutation.Kind)[] kinds,
+        typeof(ConfigReport.highInterestMutantsNr) showInterestingMutants, string tag, Element root) @trusted {
     import std.path : buildPath;
     import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
 
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id",
             tag[1 .. $]), "High Interest Mutants");
-    const sample = reportSelectedAliveMutants(db, kinds, 5);
+    const sample = reportSelectedAliveMutants(db, kinds, showInterestingMutants.get);
 
     if (sample.highestPrio.length != 0) {
         root.addChild("p", format("This list the %s mutants that affect the most source code and has survived.",

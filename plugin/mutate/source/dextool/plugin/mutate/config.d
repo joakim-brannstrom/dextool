@@ -60,6 +60,8 @@ struct ConfigReport {
 
     /// If profiling data should be printed.
     bool profile;
+
+    NamedType!(uint, Tag!"HighInterestMutantsNr", uint.init, TagStringable) highInterestMutantsNr = 5;
 }
 
 /// Configuration data for the compile_commands.json
