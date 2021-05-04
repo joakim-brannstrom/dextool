@@ -10,15 +10,16 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 This file extract information about the LLVM installation.
 */
 import std.algorithm;
+import std.conv : to;
 import std.file;
 import std.path;
 import std.process;
 import std.range;
 import std.stdio;
 import std.string;
-import std.variant;
 import std.typecons;
 import std.utf;
+import std.variant;
 
 int main(string[] args) {
     if (args.length != 2) {
@@ -31,6 +32,7 @@ int main(string[] args) {
     cmds["ldflags"] = &llvmLdflags;
     cmds["libs"] = &llvmLibs;
     cmds["version"] = &llvmVersion;
+    cmds["major_version"] = &llvmMajorVersion;
     cmds["cpp-flags"] = &llvmCppFlags;
     cmds["libdir"] = &llvmLibdir;
     cmds["libclang"] = &llvmLibClang;
@@ -47,11 +49,11 @@ int main(string[] args) {
 }
 
 string llvmPrintCandidates() {
-    return llvmCmd(true);
+    return llvmCmd(true).cmd;
 }
 
 string llvmLdflags() {
-    return execute([llvmCmd, "--ldflags"]).output.strip;
+    return execute([llvmCmd.cmd, "--ldflags"]).output.strip;
 }
 
 string[] osSpecificLinkerFlag() {
@@ -75,9 +77,9 @@ string llvmLibs() {
         // differentiate between finding the llvm lib and the system
         // dependencies. also because llvm-config print a newline for each CLI
         // parameter which results in broken cmake files.
-        const s0 = execute([llvmCmd, "--libs"]).output.strip;
+        const s0 = execute([llvmCmd.cmd, "--libs"]).output.strip;
         // prepend with space so it can always be appended
-        const s1 = " " ~ (execute([llvmCmd, "--system-libs"]).output.strip);
+        const s1 = " " ~ (execute([llvmCmd.cmd, "--system-libs"]).output.strip);
         const s = s0 ~ s1;
 
         if (s0.length != 0)
@@ -91,31 +93,36 @@ string llvmLibs() {
 }
 
 string llvmVersion() {
-    import std.regex;
+    auto llvm = llvmCmd();
+    return format!"LLVM_%s_%s_%s"(llvm.v.major, llvm.v.minor, llvm.v.bugFix);
+}
 
-    immutable re_NUM = "[0-9]+";
+string llvmMajorVersion() {
+    auto llvm = llvmCmd();
 
-    const llvm_conf = execute([llvmCmd, "--version"]).output.strip;
+    int[int] versionToBinding;
+    versionToBinding[4] = 8;
+    versionToBinding[5] = 8;
+    versionToBinding[6] = 8;
+    versionToBinding[7] = 8;
+    versionToBinding[8] = 8;
+    versionToBinding[9] = 9;
+    versionToBinding[10] = 10;
+    versionToBinding[11] = 11;
 
-    if (llvm_conf.length == 0) {
-        // a sane default
-        return "LLVM_4_0_0";
-    }
-
-    auto parts = matchAll(llvm_conf, re_NUM).map!(a => a.hit).array;
-    if (parts.length < 3)
-        parts ~= "0";
-
-    return "LLVM_" ~ parts.joiner("_").toUTF8;
+    if (auto v = llvm.v.major in versionToBinding)
+        return (*v).to!string;
+    // assume latest supported
+    return versionToBinding.byKey.array.maxElement.to!string;
 }
 
 string llvmCppFlags() {
-    const flags = execute([llvmCmd, "--cxxflags"]);
+    const flags = execute([llvmCmd.cmd, "--cxxflags"]);
     return flags.output.strip;
 }
 
 string llvmLibdir() {
-    return execute([llvmCmd, "--libdir"]).output.strip;
+    return execute([llvmCmd.cmd, "--libdir"]).output.strip;
 }
 
 string llvmLibClang() {
@@ -164,6 +171,7 @@ string[] llvmSearchPaths() {
     return [
         llvmLibdir,
         // Ubuntu
+        "/usr/lib/llvm-11/lib",
         "/usr/lib/llvm-10/lib",
         "/usr/lib/llvm-9/lib",
         "/usr/lib/llvm-8/lib",
@@ -183,10 +191,11 @@ string[] llvmSearchPaths() {
 
 /** Find a suitable llvm-config to use.
 
-  The primary is llvm-config. But not all systems have one installed but rather specific llvm-config for matching the lib version.
-  As fallback try to use the "latest" llvm-config.
+  The primary is llvm-config. But not all systems have one installed but rather
+  specific llvm-config for matching the lib version.  As fallback try to use
+  the "latest" llvm-config.
   */
-string llvmCmd(bool print_candidates = false) {
+Llvm llvmCmd(bool print_candidates = false) {
     import std.regex : regex, matchFirst;
 
     immutable llvm_cmd = "llvm-config";
@@ -195,14 +204,14 @@ string llvmCmd(bool print_candidates = false) {
     Llvm makeLlvm(string s) {
         auto m = matchFirst(s, reVersion);
         if (m.empty)
-            return Llvm(SemVer.init, s);
-        return Llvm(SemVer.make(m["nr"]), s);
+            return Llvm(s, SemVer.init);
+        return Llvm(s, SemVer.make(m["nr"]));
     }
 
     // try to see if it works as-is.
     try {
         if (execute([llvm_cmd, "-h"]).status == 0)
-            return llvm_cmd;
+            return Llvm(llvm_cmd);
     } catch (Exception e) {
     }
 
@@ -227,14 +236,15 @@ string llvmCmd(bool print_candidates = false) {
         writeln("Using:");
     }
 
+    auto rval = Llvm(llvm_cmd);
     foreach (a; candidates)
-        return a.cmd;
-    return llvm_cmd;
+        return a;
+    return rval;
 }
 
 struct Llvm {
-    SemVer v;
     string cmd;
+    SemVer v;
 }
 
 /// Semantic version
@@ -246,11 +256,11 @@ struct SemVer {
     }
 
     int minor() {
-        return value[0];
+        return value[1];
     }
 
     int bugFix() {
-        return value[0];
+        return value[2];
     }
 
     int opCmp(ref const typeof(this) rhs) const {

@@ -14,7 +14,7 @@ build_d_executable(
     -I${CMAKE_SOURCE_DIR}/libs/dextool/source
     -I${CMAKE_SOURCE_DIR}/libs/dsrcgen/source
     -I${CMAKE_SOURCE_DIR}/libs/clang/source
-    -I${CMAKE_SOURCE_DIR}/libs/libclang/source
+    -I${LIBCLANG_INC}
     -I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
     -I${CMAKE_SOURCE_DIR}/plugin/source
     -J${CMAKE_SOURCE_DIR}/libs/clang/resources

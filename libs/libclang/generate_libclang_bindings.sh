@@ -10,7 +10,7 @@ if [ $# -eq 0 ]; then
 fi
 
 cwd=$(pwd)
-pushd "$1"/clang-c > /dev/null
+pushd "$1"/clang-c
 dstep ./*.h \
   -I"$1" \
   --public-submodules \
@@ -23,8 +23,7 @@ dstep ./*.h \
   --skip clang_findReferencesInFileWithBlock \
   --skip clang_findIncludesInFileWithBlock \
   --rename-enum-members
-
-popd > /dev/null
+popd
 
 rm -rf c
 cp -r $1/clang-c c

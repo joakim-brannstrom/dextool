@@ -40,7 +40,7 @@ set(SRC_FILES
     )
 
 set(flags
-    "-I${CMAKE_SOURCE_DIR}/libs/libclang/source -I${CMAKE_SOURCE_DIR}/libs/clang/source -I${CMAKE_SOURCE_DIR}/vendor/mylib/source"
+    "-I${LIBCLANG_INC} -I${CMAKE_SOURCE_DIR}/libs/clang/source -I${CMAKE_SOURCE_DIR}/vendor/mylib/source"
     )
 
 compile_d_static_lib(dextool_clang_extensions

@@ -46,6 +46,11 @@ execute_process(COMMAND ${LLVM_CMD} version
     RESULT_VARIABLE llvm_config_VERSION_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+execute_process(COMMAND ${LLVM_CMD} major_version
+    OUTPUT_VARIABLE llvm_config_MAJOR_VERSION
+    RESULT_VARIABLE llvm_config_MAJOR_VERSION_status
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 execute_process(COMMAND ${LLVM_CMD} cpp-flags
     OUTPUT_VARIABLE llvm_config_CPPFLAGS
     RESULT_VARIABLE llvm_config_INCLUDE_status
@@ -67,6 +72,7 @@ execute_process(COMMAND ${LLVM_CMD} libclang-flags
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 message(STATUS "llvm-config VERSION: ${llvm_config_VERSION}")
+message(STATUS "llvm-config MAJOR_VERSION: ${llvm_config_MAJOR_VERSION}")
 message(STATUS "llvm-config LIBDIR: ${llvm_config_LIBDIR}")
 message(STATUS "llvm-config LDFLAGS: ${llvm_config_LDFLAGS}")
 message(STATUS "llvm-config INCLUDE: ${llvm_config_CPPFLAGS}")
@@ -108,6 +114,8 @@ function(try_llvm_config_find)
     endif()
 
     set(LIBLLVM_VERSION "${llvm_config_VERSION}" CACHE STRING "libLLVM version")
+
+    set(LIBLLVM_MAJOR_VERSION "${llvm_config_MAJOR_VERSION}" CACHE STRING "libLLVM major version")
 
     set(LIBLLVM_LIBS "${llvm_config_LIBS}" CACHE STRING "Linker libraries for libLLVM")
 
