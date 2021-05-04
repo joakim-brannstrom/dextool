@@ -20,7 +20,7 @@ set(flags "-I${CMAKE_SOURCE_DIR}/source
 -I${CMAKE_SOURCE_DIR}/libs/cpptooling/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool/source
 -I${CMAKE_SOURCE_DIR}/libs/dsrcgen/source
--I${CMAKE_SOURCE_DIR}/libs/libclang/source
+-I${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
 -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source

@@ -2109,7 +2109,7 @@ body {
     // a good file to see what the types are:
     // https://github.com/llvm-mirror/clang/blob/master/include/clang/AST/BuiltinTypes.def
 
-    final switch (kind) with (CXTypeKind) {
+    switch (kind) with (CXTypeKind) {
     case invalid:
         break;
     case unexposed:
@@ -2327,8 +2327,8 @@ body {
 
     case oclIntelSubgroupAVCImeDualRefStreamin:
 
-    case extVector:
         break;
+    default:
     }
 
     return r;

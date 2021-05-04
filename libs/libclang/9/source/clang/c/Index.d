@@ -4319,7 +4319,7 @@ enum CXPrintingPolicyProperty
     suppressTemplateArgsInCXXConstructors = 11,
     bool_ = 12,
     restrict = 13,
-    alignof = 14,
+    alignof_ = 14,
     underscoreAlignof = 15,
     useVoidForZeroParams = 16,
     terseOutput = 17,
