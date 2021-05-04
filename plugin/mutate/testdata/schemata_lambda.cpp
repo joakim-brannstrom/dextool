@@ -11,4 +11,19 @@ void renderOcean() {
     };
 }
 
+struct TestCase {};
+
+template <int&... ExplicitParameterBarrier, typename Factory>
+void RegisterTest(void*, Factory factory) {
+    TestCase* a = factory();
+}
+
+void fun(int x) {
+    RegisterTest(nullptr, [x] {
+        int y;
+        y = x;
+        return new TestCase();
+    });
+}
+
 int main(int argc, char** argv) { return 0; }

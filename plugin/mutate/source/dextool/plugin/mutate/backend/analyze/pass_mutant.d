@@ -459,6 +459,7 @@ class MutantVisitor : DepthFirstVisitor {
             auto loc = ast.location(n);
             put(loc, stmtDelMutations(n.kind), n.blacklist);
         }
+
         if (isDirectParent(Kind.Return) && isParentBoolFunc) {
             auto loc = ast.location(n);
             put(loc, dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);

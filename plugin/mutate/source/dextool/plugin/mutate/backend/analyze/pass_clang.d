@@ -761,7 +761,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const LambdaExpr v) @trusted {
+    override void visit(const LambdaExpr v) {
         mixin(mixinNodeLog!());
 
         // model C++ lambdas as functions. It should be enough to know that it
@@ -1075,12 +1075,10 @@ final class BaseVisitor : ExtendedVisitor {
                 astOp.expr = b;
                 auto ty = deriveCursorType(ast, op.lhs);
                 ty.put(ast);
-                if (ty.type !is null) {
+                if (ty.type !is null)
                     ast.put(b, ty.id);
-                }
-                if (ty.symbol !is null) {
+                if (ty.symbol !is null)
                     ast.put(b, ty.symId);
-                }
             }
         }
         if (op.rhs.isValid) {
@@ -1097,12 +1095,10 @@ final class BaseVisitor : ExtendedVisitor {
                 astOp.expr = b;
                 auto ty = deriveCursorType(ast, op.rhs);
                 ty.put(ast);
-                if (ty.type !is null) {
+                if (ty.type !is null)
                     ast.put(b, ty.id);
-                }
-                if (ty.symbol !is null) {
+                if (ty.symbol !is null)
                     ast.put(b, ty.symId);
-                }
             }
         }
 
@@ -1124,9 +1120,8 @@ final class BaseVisitor : ExtendedVisitor {
             n.return_ = fRetval;
             ast.put(fRetval, rty.id);
         }
-        if (rty.symbol !is null) {
+        if (rty.symbol !is null)
             ast.put(fRetval, rty.symId);
-        }
 
         v.accept(this);
     }
@@ -1137,12 +1132,10 @@ final class BaseVisitor : ExtendedVisitor {
 
         auto ty = deriveType(ast.get, v.cursor.type);
         ty.put(ast);
-        if (ty.type !is null) {
+        if (ty.type !is null)
             ast.put(n, ty.id);
-        }
-        if (ty.symbol !is null) {
+        if (ty.symbol !is null)
             ast.put(n, ty.symId);
-        }
 
         v.accept(this);
     }
