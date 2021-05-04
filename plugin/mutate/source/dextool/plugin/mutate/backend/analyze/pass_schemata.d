@@ -367,6 +367,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Function n) @trusted {
+        if (saveFragment) {
+            accept(n, this);
+            return;
+        }
+
         auto firstBlock = () {
             foreach (c; n.children.filter!(a => a.kind == Kind.Block))
                 return c;
@@ -380,7 +385,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
         auto loc = ast.location(firstBlock);
 
-        if (!saveFragment && !loc.interval.isZero) {
+        if (!loc.interval.isZero) {
             saveFragment = true;
             auto fin = fio.makeInput(loc.file);
 
