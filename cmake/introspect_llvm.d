@@ -99,7 +99,21 @@ string llvmVersion() {
 
 string llvmMajorVersion() {
     auto llvm = llvmCmd();
-    return llvm.v.major.to!string;
+
+    int[int] versionToBinding;
+    versionToBinding[4] = 8;
+    versionToBinding[5] = 8;
+    versionToBinding[6] = 8;
+    versionToBinding[7] = 8;
+    versionToBinding[8] = 8;
+    versionToBinding[9] = 9;
+    versionToBinding[10] = 10;
+    versionToBinding[11] = 11;
+
+    if (auto v = llvm.v.major in versionToBinding)
+        return (*v).to!string;
+    // assume latest supported
+    return versionToBinding.byKey.array.maxElement.to!string;
 }
 
 string llvmCppFlags() {

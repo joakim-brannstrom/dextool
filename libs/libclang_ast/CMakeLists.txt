@@ -26,7 +26,7 @@ set(SRC_FILES
 
 set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source
 -I${CMAKE_SOURCE_DIR}/libs/clang/source
--I${CMAKE_SOURCE_DIR}/libs/libclang/source
+-I${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src

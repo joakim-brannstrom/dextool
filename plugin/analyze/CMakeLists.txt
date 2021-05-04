@@ -11,7 +11,7 @@ set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool_clang_extensions/source
 -I${CMAKE_SOURCE_DIR}/libs/dsrcgen/source
--I${CMAKE_SOURCE_DIR}/libs/libclang/source
+-I${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
 -I${CMAKE_SOURCE_DIR}/plugin/source
 -I${CMAKE_SOURCE_DIR}/source
