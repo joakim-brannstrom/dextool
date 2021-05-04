@@ -300,13 +300,17 @@ struct MutantHelper {
             if (offs.begin <= fragment.interval.begin)
                 return null;
             const d = offs.begin - fragment.interval.begin;
+            if (d > fragment.content.length)
+                return fragment.content;
             return fragment.content[0 .. d];
         }();
 
         post = () {
-            if (offs.end >= fragment.interval.end)
+            if (offs.end <= fragment.interval.begin)
                 return null;
             const d = offs.end - fragment.interval.begin;
+            if (d > fragment.content.length)
+                return fragment.content;
             return fragment.content[d .. $];
         }();
     }
