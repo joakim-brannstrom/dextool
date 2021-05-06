@@ -27,6 +27,17 @@ New features for dextool mutate
    test suite executions but this was never used by the users. The hope is that
    those that are reported as high interest are actually *useful*, interesting
    to look at and kill.
+   Also allows the number of high interest mutants that are shown to be
+   changed.
+ * Automatically force a re-analyze of all files when a new version of the tool
+   is installed and `dextool mutate analyze` is executed.
+ * Automatically save the mutation score after each test run when all mutants
+   are tested. This is then used to plot a trend.
+ * The HTML report and console print a SyncStatus. It shows how "in sync" the
+   tested mutants are with the code changes and test suite changes.
+   The further apart they are the less "trustworthy" is the report. Because
+   lets say the test suite is changed to now kill a mutant that is marked as
+   alive.
 
 Fixes for dextool mutate
 
@@ -45,6 +56,26 @@ Fixes for dextool mutate
    that speedup opportunities where lost. With this fix all binary operators
    should have a schema generated for them which speeds up dcr, ror, aor mutant
    operators.
+ * Fix the size of the database when schematas are saved by compressing them on
+   the fly. Reduced the size up to 90% of a database.
+ * Add support for C++17 structural binding in schematas.
+ * Enable scheman which mutate const variables in C/C++.
+ * Fix mutation of C++ lamba expressions.
+ * Fix libclang bindings. The enum CXCursorKind is **not** backward or forward
+   compatible. Because of this dextool now have a binding for each version it
+   supports. What happend where that the analyzed AST could, if the wrong
+   binding is used, contain seemingly random nodes which mean that the
+   mutations where waaaay off.
+ * Fix schematas inside return-statements and when a condition contain pointers.
+ * Measuring the runtime of the test suite is now done multithreaded. It is too
+   slow and pessimistic to do single threaded. It was previously changed to
+   single threaded because the load of the host computer could vary and lead to
+   falsely classify mutants as timeout. But with the feature `--load-behavior
+   slowdown` this is no longer a problem. Thus changing back to multithreaded
+   to speedup both the start and overall mutation testing.
+ * Remove returnFalse/returnTrue mutants because they are redundant, overlap
+   with normal true/false.
+ * Stop generating the equivalent mutant sdl when it deletes empty scopes.
 
 # v3.0.0 Nice Weather
 
