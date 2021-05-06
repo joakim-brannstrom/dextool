@@ -667,7 +667,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
 
         // extract the boundaries of the enum to update the type db.
-        auto vis = new EnumVisitor(ast.get, indent);
+        scope vis = new EnumVisitor(ast.get, indent);
         vis.visit(v);
         ast.types.set(vis.id, vis.toType);
     }
