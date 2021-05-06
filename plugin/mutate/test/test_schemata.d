@@ -311,6 +311,31 @@ class ShallGenerateValidSchemataWithLambda : SchemataFixutre {
     }
 }
 
+class ShallGenerateValidSchemataWithStructBind : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_struct_bind.cpp").toString;
+    }
+
+    override string scriptBuild() {
+        return "#!/bin/bash
+set -e
+g++ -std=c++17 -fsyntax-only -c %s -o %s
+";
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++17").run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+
+        testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
+                r.output);
+    }
+}
+
 class ShallGenerateValidSchemaForSwitch : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_switch.cpp").toString;
