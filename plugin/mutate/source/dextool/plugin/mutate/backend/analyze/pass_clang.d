@@ -519,24 +519,7 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitVar(T)(T v) @trusted {
-        //auto bar = ast.make!(analyze.VarDecl);
-        //bar.isConst = true;
-        //logger.tracef("%x", cast(void*) bar);
-
         auto n = ast.make!(analyze.VarDecl);
-
-        auto ty = v.cursor.type;
-        if (ty.isValid) {
-            n.isConst = ty.isConst;
-
-            // block schematas if the visitor is inside a const declared
-            // variable. a schemata is dependent on a runtime variable but a
-            // const declaration requires its expression to be resolved at
-            // compile time. Thus if a schema mutant is injected inside this
-            // part of the tree it will result in a schema that do not compile.
-            n.schemaBlacklist = ty.isConst;
-        }
-
         pushStack(n, v);
     }
 
