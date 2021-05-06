@@ -1571,6 +1571,15 @@ void upgradeV39(ref Miniorm db) {
     db.run(format("DELETE FROM %s", runtimeHistoryTable));
 }
 
+// 2021-05-06
+void upgradeV40(ref Miniorm db) {
+    // force an upgrade because after this release all scheman will be zipped.
+    db.run(format("DELETE FROM %s", schemataFragmentTable));
+    db.run(format("DELETE FROM %s", schemataMutantTable));
+    db.run(format("DELETE FROM %s", schemataTable));
+    db.run(format("DELETE FROM %s", schemataUsedTable));
+}
+
 void replaceTbl(ref Miniorm db, string src, string dst) {
     db.run("DROP TABLE " ~ dst);
     db.run(format("ALTER TABLE %s RENAME TO %s", src, dst));

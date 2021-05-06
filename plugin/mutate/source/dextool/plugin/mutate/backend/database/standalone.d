@@ -1769,6 +1769,8 @@ struct Database {
     }
 
     Nullable!Schemata getSchemata(SchemataId id) @trusted {
+        import std.zlib : uncompress;
+
         static immutable sql = format!"SELECT
             t1.path, t0.text, t0.offset_begin, t0.offset_end
             FROM %1$s t0, %2$s t1
@@ -1784,8 +1786,10 @@ struct Database {
 
         auto app = appender!(SchemataFragment[])();
         foreach (a; stmt.get.execute) {
-            app.put(SchemataFragment(a.peek!string(0).Path,
-                    Offset(a.peek!uint(2), a.peek!uint(3)), a.peek!(ubyte[])(1)));
+            auto raw = a.peek!(ubyte[])(1);
+            auto offset = Offset(a.peek!uint(2), a.peek!uint(3));
+            app.put(SchemataFragment(a.peek!string(0).Path, offset,
+                    cast(const(ubyte)[]) uncompress(raw, offset.end - offset.begin)));
         }
 
         if (!app.data.empty) {
@@ -1867,6 +1871,7 @@ struct Database {
     Nullable!SchemataId putSchemata(SchemataChecksum cs,
             const SchemataFragment[] fragments, MutationStatusId[] mutants) @trusted {
         import std.range : enumerate;
+        import std.zlib : compress;
 
         const schemId = cast(long) cs.value.c0;
 
@@ -1898,8 +1903,8 @@ struct Database {
             }
 
             db.run(insert!SchemataFragmentTable, SchemataFragmentTable(0,
-                    schemId, cast(long) fileId.get, f.index, f.value.text,
-                    f.value.offset.begin, f.value.offset.end));
+                    schemId, cast(long) fileId.get, f.index,
+                    compress(f.value.text), f.value.offset.begin, f.value.offset.end));
         }
 
         // relate mutants to this schemata.
