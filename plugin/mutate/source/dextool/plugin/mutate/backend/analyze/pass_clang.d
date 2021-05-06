@@ -463,6 +463,28 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(const DeclStmt v) {
+        mixin(mixinNodeLog!());
+
+        // this, in clang-11, is one of the patterns in the AST when struct
+        // binding is used:
+        // declStmt
+        //   | unexposedDecl
+        //     | unexposedDecl
+        //       | unexposedDecl
+        //       | unexposedDecl
+        //       | unexposedDecl
+        //       | unexposedDecl
+        //         | callExpr
+        // it can't be assumed to be the only one.
+        // by injecting a Poision node for a DeclStmt it signal that there are
+        // hidden traps thus any mutation and schemata should be careful.
+        auto n = ast.make!(analyze.Poision);
+        pushStack(n, v);
+
+        v.accept(this);
+    }
+
     override void visit(const ClassTemplate v) {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
