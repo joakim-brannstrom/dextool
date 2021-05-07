@@ -1,8 +1,8 @@
 # Dextool Mutate
 
-Dextool's plugin for mutation testing of C/C++ projects. It can help you design
-new tests and evaluate the quality of existing tests by measuring their ability
-to detect artificially injected faults.
+Dextool Mutate is a mutation testing tool for C/C++. It can help you
+design new tests and evaluate the quality of existing tests by measuring their 
+ability to detect artificially injected faults.
 
 Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
 
@@ -12,13 +12,10 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
    for how to build and install dextool.
  * See [config options](README_config.md) for detailed explanations of the
    configuration options.
- * See [continues integration](README_ci.md) contains a guide for how to
-   integrate dextool mutate.
+ * See [continues integration](README_ci.md) for how to integrate dextool mutate.
  * See [parallel](README_parallel.md) for how to run multiple workers in parallel.
- * See [embedded systems](README_embedded.md) for configuration and guides for
-   using dextool mutate for embedded systems.
- * See [mutation operators](doc/design/mutations.md) for the in depth details
-   of the mutants that dextool generate.
+ * See [embedded systems](README_embedded.md) for how to use the tool in an embedded systems environment.
+ * See [mutation operators](doc/design/mutations.md) for in depth details of the generated mutants.
  * See [apply mutation testing](README_tutorial.md) for how to apply mutation
    testing on a project.
  * See [fmt tutorial](README_tutorial_fmt.md) for a practical example of
@@ -35,8 +32,7 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
 * 💪 Detects "useless" test cases that do not kill any mutants.
 * 💪 Detects "redundant" test cases that kill the same mutants.
 * 💪 Detects "redundant" test cases that do not uniquely kill any mutants.
-* 💪 Lists "near" test cases from which a new test can be derived to kill a
-  surviving mutant of interest.
+* 💪 Lists "near" test cases that can be helpful when [closing in for the kill](#kill).
 * 🔄 Supports [change-based mutation testing](README_ci.md#change-based) for
   fast feedback in a pull request workflow.
 * 🐇 Can [continue](README_ci.md#incremental-mutation-test) from where a
@@ -130,13 +126,11 @@ Optional that are good candidates are:
 |                                                                                           |
 \-------------------------------------------------------------------------------------------/
 ```
-Figure: Over view of Dextool Mutate operational phases.
+Figure: Overview of Dextool Mutate's operational phases.
 
-The mutation testing plugin, Dextool Mutate, functions in such a way that the
-user provides a configuration-file where scripts, settings, and different paths
-are specified. The picture above shows the flow for the plugin, where the test
-part of mutation testing, is depicted in a more detailed manner. As shown in
-the image, the plugin is divided into different parts (executable commandos) -
+When using Dextool Mutate, the user starts by providing a configuration-file
+where scripts, settings, and paths are specified. The picture above shows that 
+the flow of the tool is divided into different parts (executable commandos) - 
 analyze, test and report.
 
 ## Test Phase Execution Flow
@@ -177,7 +171,18 @@ analysises is:
 dextool mutate report --style html --section summary --section tc_stat --section tc_killed_no_mutants --section tc_unique --section trend
 ```
 
-## Mark a Mutant as Dont Care <a name="mark-mutant"></a>
+## Closing in for the kill <a name="kill"></a> 🦁
+
+For every killed mutant, a list of its "killer test cases" can be expanded. 
+
+When investigating a surviving mutant; some of the killer test cases in the 
+neighbourhood might be good candidates for improvement or deriving a new test.
+
+Next to the killer test case is a number that tells how many mutants it killed.
+* A low number suggests that the test covers a corner case.
+* A high number suggests that the test covers many aspects.
+
+## Mark a Mutant as Dont Care <a name="mark-mutant"></a> 🤷
 
 There are two ways of marking a mutant to the tool as "don't care". These are
 either via a source code annotation or by attaching a forced mutation status to
