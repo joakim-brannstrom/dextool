@@ -35,6 +35,9 @@ Mutation.Kind[] dcrMutations(DcrInfo info) @safe {
         if (info.ty !is null && info.ty.kind == TypeKind.boolean)
             rval = [dcrTrue, dcrFalse];
         break;
+    case Kind.Condition:
+        rval = [dcrTrue, dcrFalse];
+        break;
     case Kind.OpAnd:
         goto case;
     case Kind.OpOr:
@@ -50,8 +53,6 @@ Mutation.Kind[] dcrMutations(DcrInfo info) @safe {
     case Kind.OpEqual:
         goto case;
     case Kind.OpNotEqual:
-        goto case;
-    case Kind.Condition:
         // pessimistic, no type then do nothing.
         // discrete because it degenerate to a boolean.
         if (info.ty !is null
