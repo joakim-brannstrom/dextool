@@ -40,7 +40,7 @@ class ShallRunAorSchema : SchemataFixutre {
     }
 }
 
-class ShallUseSchemataSanityCheck : SchemataFixutre {
+class ShallUseSchemaSanityCheck : SchemataFixutre {
     override string programFile() {
         return (testData ~ "simple_schemata.cpp").toString;
     }
@@ -137,7 +137,7 @@ class ShallRemoveParenthesisBalanced : SchemataFixutre {
     }
 }
 
-class ShallGenerateValidSchemataForOverload : SchemataFixutre {
+class ShallGenerateValidSchemaForOverload : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_op_overload.cpp").toString;
     }
@@ -158,7 +158,7 @@ class ShallGenerateValidSchemataForOverload : SchemataFixutre {
     }
 }
 
-class ShallGenerateValidSchemataForNestedIf : SchemataFixutre {
+class ShallGenerateValidSchemaForNestedIf : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_nested_if.cpp").toString;
     }
@@ -177,7 +177,7 @@ class ShallGenerateValidSchemataForNestedIf : SchemataFixutre {
     }
 }
 
-class ShallGenerateValidSchemataForEnableIf : SchemataFixutre {
+class ShallGenerateValidSchemaForEnableIf : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_enableif.cpp").toString;
     }
@@ -202,7 +202,7 @@ g++ -std=c++14 %s -o %s
     }
 }
 
-class ShallGenerateValidSchemataForPtr : SchemataFixutre {
+class ShallGenerateValidSchemaForPtr : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_aor.cpp").toString;
     }
@@ -220,7 +220,7 @@ class ShallGenerateValidSchemataForPtr : SchemataFixutre {
     }
 }
 
-class ShallGenerateValidSchemataForConstexpr : SchemataFixutre {
+class ShallGenerateValidSchemaForConstexpr : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_constexpr.cpp").toString;
     }
@@ -238,7 +238,7 @@ class ShallGenerateValidSchemataForConstexpr : SchemataFixutre {
     }
 }
 
-class ShallGenerateValidSchemataForCallInReturn : SchemataFixutre {
+class ShallGenerateValidSchemaForCallInReturn : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_return.cpp").toString;
     }
@@ -256,7 +256,7 @@ class ShallGenerateValidSchemataForCallInReturn : SchemataFixutre {
     }
 }
 
-class ShallGenerateValidSchemataClasses : SchemataFixutre {
+class ShallGenerateValidSchemaClasses : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_classes.cpp").toString;
     }
@@ -274,7 +274,7 @@ class ShallGenerateValidSchemataClasses : SchemataFixutre {
     }
 }
 
-class ShallGenerateValidSchemataArraySub : SchemataFixutre {
+class ShallGenerateValidSchemaArraySub : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_array_subscript.cpp").toString;
     }
@@ -293,7 +293,7 @@ class ShallGenerateValidSchemataArraySub : SchemataFixutre {
     }
 }
 
-class ShallGenerateValidSchemataWithLambda : SchemataFixutre {
+class ShallGenerateValidSchemaWithLambda : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_lambda.cpp").toString;
     }
@@ -311,7 +311,7 @@ class ShallGenerateValidSchemataWithLambda : SchemataFixutre {
     }
 }
 
-class ShallGenerateValidSchemataWithStructBind : SchemataFixutre {
+class ShallGenerateValidSchemaWithStructBind : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_struct_bind.cpp").toString;
     }
@@ -379,6 +379,26 @@ class ShallGenerateValidSchemaForBinOp : SchemataFixutre {
 class ShallGenerateValidSchemaForTemplate : SchemataFixutre {
     override string programFile() {
         return (testData ~ "schemata_template.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+                "--mutant", "all"
+                ]).run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+
+        testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
+                r.output);
+    }
+}
+
+class ShallGenerateValidSchemaForTerneryOp : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_ternery.cpp").toString;
     }
 
     override void test() {

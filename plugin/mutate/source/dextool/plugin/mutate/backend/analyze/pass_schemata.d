@@ -566,7 +566,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitCondition(T)(T n) @trusted {
-        if (!saveFragment || n.blacklist || n.schemaBlacklist)
+        if (!saveFragment || n.schemaBlacklist)
             return;
 
         // The schematas from the code below are only needed for e.g. function
@@ -595,7 +595,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBlock(T)(T n, bool requireSyntaxBlock = false) {
-        if (!saveFragment || n.blacklist || n.schemaBlacklist)
+        if (!saveFragment || n.schemaBlacklist)
             return;
 
         auto loc = ast.location(n);
@@ -630,8 +630,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitUnaryOp(T)(T n) {
-        if (!saveFragment || n.blacklist || n.schemaBlacklist
-                || n.operator.blacklist || n.operator.schemaBlacklist)
+        if (!saveFragment || n.schemaBlacklist || n.operator.schemaBlacklist)
             return;
 
         auto loc = ast.location(n);
@@ -785,7 +784,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
     }
 
     private void visitBinaryOp(T)(T n) {
-        if (n.blacklist || n.schemaBlacklist || n.operator.blacklist || n.operator.schemaBlacklist)
+        if (n.schemaBlacklist || n.operator.schemaBlacklist)
             return;
 
         auto locExpr = ast.location(n);
