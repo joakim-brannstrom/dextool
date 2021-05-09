@@ -58,6 +58,7 @@ import std.exception : collectException;
 
 import sumtype;
 
+import my.optional;
 import my.path : AbsolutePath, Path;
 import my.set;
 
@@ -611,6 +612,7 @@ struct MonitorResult {
 struct Monitor {
     import std.array : appender;
     import std.file : isDir;
+    import std.typecons : Tuple, tuple;
     import std.utf : UTFException;
     import my.filter : GlobFilter;
     import my.fswatch;
@@ -619,6 +621,7 @@ struct Monitor {
         Set!AbsolutePath roots;
         FileWatch fw;
         GlobFilter fileFilter;
+        GlobFilter[AbsolutePath] subFilters;
         uint events;
 
         // roots that has been removed that may be re-added later on. the user
@@ -631,31 +634,40 @@ struct Monitor {
      *  roots = directories to recursively monitor
      */
     this(AbsolutePath[] roots, GlobFilter fileFilter, uint events = ContentEvents) {
+        this(roots, fileFilter, null, events);
+    }
+
+    this(AbsolutePath[] roots, GlobFilter fileFilter,
+            GlobFilter[AbsolutePath] subFilters, uint events = ContentEvents) {
         this.roots = toSet(roots);
         this.fileFilter = fileFilter;
+        this.subFilters = subFilters;
         this.events = events;
 
         auto app = appender!(AbsolutePath[])();
         fw = fileWatch();
         foreach (r; roots) {
             app.put(fw.watchRecurse(r, events, (a) {
-                    return isInteresting(fileFilter, a);
+                    return isInteresting(fileFilter, subFilters, a);
                 }));
         }
 
         logger.trace(!app.data.empty, "unable to watch ", app.data);
     }
 
-    static bool isInteresting(GlobFilter fileFilter, string p) nothrow {
-        import my.file;
+    static bool isInteresting(GlobFilter rootFilter, ref GlobFilter[AbsolutePath] subFilters,
+            string p) nothrow {
+        import my.file : existsAnd;
+        import my.filter : closest, GlobFilterClosestMatch;
 
         try {
             const ap = AbsolutePath(p);
 
-            if (existsAnd!isDir(ap)) {
+            if (existsAnd!isDir(ap))
                 return true;
-            }
-            return fileFilter.match(ap);
+            auto f = closest(subFilters, ap).orElse(GlobFilterClosestMatch(rootFilter,
+                    AbsolutePath(".")));
+            return f.match(ap.toString);
         } catch (Exception e) {
             collectException(logger.trace(e.msg));
         }
@@ -677,7 +689,7 @@ struct Monitor {
         {
             auto rm = appender!(AbsolutePath[])();
             foreach (a; monitorRoots.toRange.filter!(a => exists(a))) {
-                fw.watchRecurse(a, events, a => isInteresting(fileFilter, a));
+                fw.watchRecurse(a, events, a => isInteresting(fileFilter, subFilters, a));
                 rm.put(a);
                 rval.put(MonitorResult(MonitorResult.Kind.Create, a));
             }
@@ -706,12 +718,12 @@ struct Monitor {
                     rval.put(MonitorResult(MonitorResult.Kind.CloseNoWrite, x.path));
                 }, (Event.Create x) {
                     rval.put(MonitorResult(MonitorResult.Kind.Create, x.path));
-                    fw.watchRecurse(x.path, events, a => isInteresting(fileFilter, a));
+                    fw.watchRecurse(x.path, events, a => isInteresting(fileFilter, subFilters, a));
                 }, (Event.Modify x) {
                     rval.put(MonitorResult(MonitorResult.Kind.Modify, x.path));
                 }, (Event.MoveSelf x) {
                     rval.put(MonitorResult(MonitorResult.Kind.MoveSelf, x.path));
-                    fw.watchRecurse(x.path, events, a => isInteresting(fileFilter, a));
+                    fw.watchRecurse(x.path, events, a => isInteresting(fileFilter, subFilters, a));
 
                     if (x.path in roots) {
                         monitorRoots.add(x.path);
@@ -734,7 +746,7 @@ struct Monitor {
             logger.trace(e.msg);
         }
 
-        return rval.data.filter!(a => fileFilter.match(a.path)).array;
+        return rval.data.filter!(a => isInteresting(fileFilter, subFilters, a.path)).array;
     }
 
     /** Collects events from the monitored `roots` over a period.
