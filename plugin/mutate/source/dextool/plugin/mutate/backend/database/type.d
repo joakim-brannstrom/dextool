@@ -13,6 +13,7 @@ import core.time : Duration;
 import std.datetime : SysTime;
 
 import my.named_type;
+import my.hash : Checksum64;
 import sumtype;
 
 import dextool.type : AbsolutePath, Path;
@@ -329,3 +330,6 @@ struct DepFile {
 }
 
 alias ToolVersion = NamedType!(long, Tag!"ToolVersion", long.init, TagStringable, Comparable);
+
+alias ChecksumTestCmdOriginal = NamedType!(Checksum64,
+        Tag!"ChecksumTestCmdOriginal", Checksum64.init, TagStringable);

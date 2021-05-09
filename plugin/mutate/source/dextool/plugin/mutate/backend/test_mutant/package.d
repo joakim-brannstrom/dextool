@@ -11,7 +11,7 @@ module dextool.plugin.mutate.backend.test_mutant;
 
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
-import std.algorithm : map;
+import std.algorithm : map, filter;
 import std.array : empty, array, appender;
 import std.datetime : SysTime, Clock;
 import std.datetime.stopwatch : StopWatch, AutoStart;
@@ -23,6 +23,7 @@ import std.typecons : Nullable, Tuple, Yes;
 import blob_model : Blob;
 import my.container.vector;
 import my.fsm : Fsm, next, act, get, TypeDataMap;
+import my.hash : Checksum64;
 import my.named_type;
 import my.optional;
 import my.set;
@@ -31,7 +32,7 @@ import sumtype;
 static import my.fsm;
 
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
-    NextMutationEntry, spinSql, TestFile;
+    NextMutationEntry, spinSql, TestFile, ChecksumTestCmdOriginal;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner,
@@ -147,16 +148,15 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
 
     auto runTest() @safe {
         auto sw = StopWatch(AutoStart.yes);
-        auto res = runner.run;
+        auto res = runner.run(999.dur!"hours");
         return Rval(res, sw.peek);
     }
 
     static void print(DrainElement[] data) @trusted {
         import std.stdio : stdout, write;
 
-        foreach (l; data) {
+        foreach (l; data)
             write(l.byUTF8);
-        }
         stdout.flush;
     }
 
@@ -176,6 +176,8 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
             case Status.error:
                 failed = true;
                 print(res.result.output);
+                logger.info("failing commands: ", res.result.testCmds);
+                logger.info("exit status: ", res.result.exitStatus.get);
                 break;
             }
             logger.infof("%s: Measured test command runtime %s", i, res.runtime);
@@ -303,6 +305,10 @@ struct TestDriver {
         MutationTestResult[] result;
     }
 
+    static struct MutationTestData {
+        Set!Checksum64 original;
+    }
+
     static struct CheckTimeout {
         bool timeoutUnchanged;
     }
@@ -388,6 +394,9 @@ struct TestDriver {
     static struct PropagateCoverage {
     }
 
+    static struct ChecksumTestCmds {
+    }
+
     alias Fsm = my.fsm.Fsm!(None, Initialize, SanityCheck,
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
@@ -395,15 +404,15 @@ struct TestDriver {
             UpdateTimeout, CheckStopCond, PullRequest, CheckPullRequestMutant, ParseStdin,
             FindTestCmds, ChooseMode, NextSchemata, SchemataTest, LoadSchematas,
             SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck,
-            Coverage, PropagateCoverage, ContinuesCheckTestSuite);
-    alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData,
-            PullRequestData, ResetOldMutantData, NextSchemataData, ContinuesCheckTestSuiteData);
+            Coverage, PropagateCoverage, ContinuesCheckTestSuite, ChecksumTestCmds);
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData, PullRequestData,
+            ResetOldMutantData, NextSchemataData, ContinuesCheckTestSuiteData, MutationTestData);
 
     private {
         Fsm fsm;
         Global global;
-        TypeDataMap!(LocalStateDataT, UpdateTimeout, CheckPullRequestMutant,
-                PullRequest, ResetOldMutant, NextSchemata, ContinuesCheckTestSuite) local;
+        TypeDataMap!(LocalStateDataT, UpdateTimeout, CheckPullRequestMutant, PullRequest,
+                ResetOldMutant, NextSchemata, ContinuesCheckTestSuite, MutationTest) local;
         bool isRunning_ = true;
         bool isDone = false;
     }
@@ -459,8 +468,12 @@ struct TestDriver {
             if (a.allMutantsTested
                 && self.global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
                 return fsm(Done.init);
+            if (self.global.data.conf.testCmdChecksum.get)
+                return fsm(ChecksumTestCmds.init);
             return fsm(MeasureTestSuite.init);
-        }, (SaveMutationScore a) { return fsm(Stop.init); }, (PreCompileSut a) {
+        }, (ChecksumTestCmds a) => MeasureTestSuite.init, (SaveMutationScore a) {
+            return fsm(Stop.init);
+        }, (PreCompileSut a) {
             if (a.compilationError)
                 return fsm(Error.init);
             if (self.global.data.conf.testCommandDir.empty)
@@ -891,6 +904,35 @@ nothrow:
         }
     }
 
+    void opCall(ChecksumTestCmds data) @trusted {
+        import std.file : exists;
+        import my.hash : Checksum64, makeCrc64Iso, checksum;
+        import dextool.plugin.mutate.backend.database.type : ChecksumTestCmdOriginal;
+
+        auto previous = spinSql!(() => db.testCmdApi.original);
+
+        try {
+            Set!Checksum64 current;
+
+            foreach (testCmd; hashFiles(global.testCmds
+                    .filter!(a => !a.empty)
+                    .map!(a => a.value[0]))) {
+                current.add(testCmd.cs);
+
+                if (testCmd.cs !in previous)
+                    spinSql!(() => db.testCmdApi.set(testCmd.file,
+                            ChecksumTestCmdOriginal(testCmd.cs)));
+            }
+
+            foreach (a; previous.setDifference(current).toRange)
+                spinSql!(() => db.testCmdApi.remove(ChecksumTestCmdOriginal(a)));
+
+            local.get!MutationTest.original = current;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
     void opCall(SaveMutationScore data) {
         import dextool.plugin.mutate.backend.database.type : MutationScore;
         import dextool.plugin.mutate.backend.report.analyzers : reportScore;
@@ -1054,11 +1096,14 @@ nothrow:
     }
 
     void opCall(ref MutationTest data) {
-        auto p = () @trusted { return &runner; }();
+        auto runnerPtr = () @trusted { return &runner; }();
+        auto originalPtr = () @trusted {
+            return &local.get!MutationTest.original;
+        }();
 
         try {
             auto g = MutationTestDriver.Global(global.data.filesysIO,
-                    global.data.db, global.nextMutant, p);
+                    global.data.db, global.nextMutant, runnerPtr, originalPtr);
             auto driver = MutationTestDriver(g,
                     MutationTestDriver.TestMutantData(!(global.data.conf.mutationTestCaseAnalyze.empty
                         && global.data.conf.mutationTestCaseBuiltin.empty),
@@ -1186,6 +1231,8 @@ nothrow:
             foreach (a; data.result) {
                 final switch (a.status) with (Mutation.Status) {
                 case unknown:
+                    goto case;
+                case equivalent:
                     goto case;
                 case noCoverage:
                     goto case;

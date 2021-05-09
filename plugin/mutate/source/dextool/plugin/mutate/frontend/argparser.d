@@ -289,6 +289,11 @@ struct ArgParser {
         app.put(format!`continues_check_test_suite_period = %s`(
                 mutationTest.contCheckTestSuitePeriod.get));
         app.put(null);
+        app.put("# Compare the checksum of the test binaries with and without a mutant injected to determine which test binaries need to be executed.");
+        app.put(
+                "# Requires that all `test_cmd`s are binaries, it can not be e.g. make test or scripts.");
+        app.put("# test_cmd_checksum = true");
+        app.put(null);
 
         app.put("[report]");
         app.put(null);
@@ -425,6 +430,7 @@ struct ArgParser {
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
                    "test-cmd", "program used to run the test suite", &mutationTester,
+                   "test-cmd-checksum", "use checksums of the original to avoid running unmodified tests", mutationTest.testCmdChecksum.getPtr,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
                    "use-early-stop", "stop executing tests for a mutant as soon as one kill a mutant to speed-up testing", &mutationTest.useEarlyTestCmdStop,
                    );
@@ -943,6 +949,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["mutant_test.continues_check_test_suite_period"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.contCheckTestSuitePeriod.get = cast(int) v.integer;
     };
+    callbacks["mutant_test.test_cmd_checksum"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.testCmdChecksum.get = v == true;
+    };
 
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
         c.report.reportKind = v.str.to!ReportKind;
@@ -1239,6 +1248,19 @@ high_interest_mutants_nr = 10
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.report.highInterestMutantsNr.get.shouldEqual(10);
+}
+
+@("shall activate test binary checksum")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[mutant_test]
+test_cmd_checksum = true
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.mutationTest.testCmdChecksum.get.shouldBeTrue;
 }
 
 /// Minimal config to setup path to config file.

@@ -37,6 +37,7 @@ import miniorm : Miniorm, select, insert, insertOrReplace, delete_,
 import my.named_type;
 import my.optional;
 import my.term_color;
+import my.set;
 
 import dextool.type : AbsolutePath, Path, ExitStatusType;
 
@@ -874,6 +875,7 @@ struct Database {
     alias killedSrcMutants = countMutants!([Mutation.Status.killed]);
     alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout]);
     alias noCovSrcMutants = countMutants!([Mutation.Status.noCoverage]);
+    alias equivalentMutants = countMutants!([Mutation.Status.equivalent]);
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalSrcMutants = countMutants!([
@@ -2164,8 +2166,12 @@ struct Database {
         return app.data;
     }
 
-    DbDependency dependencyApi() return @trusted {
+    DbDependency dependencyApi() return  {
         return DbDependency(&this);
+    }
+
+    DbTestCmd testCmdApi() return  {
+        return DbTestCmd(&this);
     }
 }
 
@@ -2258,6 +2264,47 @@ struct DbDependency {
         db.run(format!"DELETE FROM %1$s
                WHERE id NOT IN (SELECT dep_id FROM %2$s)"(depFileTable,
                 depRootTable));
+    }
+
+}
+
+struct DbTestCmd {
+    import my.hash : Checksum64;
+
+    private Database* db;
+
+    void set(string testCmd, ChecksumTestCmdOriginal cs) @trusted {
+        static immutable sql = format!"INSERT OR IGNORE INTO %1$s (checksum, cmd) VALUES(:cs, :cmd)"(
+                testCmdOriginalTable);
+
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":cs", cast(long) cs.get.c0);
+        stmt.get.bind(":cmd", testCmd);
+        stmt.get.execute;
+    }
+
+    void removeOriginal(string testCmd) @trusted {
+        static immutable sql = "DELETE FROM " ~ testCmdOriginalTable ~ " WHERE cmd = :cmd";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":cmd", testCmd);
+        stmt.get.execute;
+    }
+
+    void remove(ChecksumTestCmdOriginal cs) @trusted {
+        static immutable sql = "DELETE FROM " ~ testCmdOriginalTable ~ " WHERE checksum = :cs";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":cs", cast(long) cs.get.c0);
+        stmt.get.execute;
+    }
+
+    Set!Checksum64 original() @trusted {
+        static immutable sql = "SELECT checksum FROM " ~ testCmdOriginalTable;
+
+        auto stmt = db.prepare(sql);
+        typeof(return) rval;
+        foreach (ref r; stmt.get.execute)
+            rval.add(Checksum64(cast(ulong) r.peek!long(0)));
+        return rval;
     }
 }
 

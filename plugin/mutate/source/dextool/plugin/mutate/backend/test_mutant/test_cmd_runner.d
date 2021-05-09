@@ -27,6 +27,7 @@ import std.typecons : Tuple;
 
 import my.named_type;
 import my.path : AbsolutePath, Path;
+import my.set;
 import proc;
 
 import dextool.plugin.mutate.type : ShellCommand;
@@ -107,19 +108,33 @@ struct TestRunner {
     }
 
     void put(ShellCommand sh) pure nothrow {
-        commands ~= TestCmd(sh, 0);
+        if (!sh.value.empty)
+            commands ~= TestCmd(sh, 0);
     }
 
-    void put(ShellCommand[] sh) pure nothrow {
-        foreach (a; sh)
-            commands ~= TestCmd(a, 0);
+    void put(ShellCommand[] shs) pure nothrow {
+        foreach (a; shs)
+            put(a);
     }
 
-    TestResult run(string[string] localEnv = null) {
-        return this.run(timeout_, localEnv);
+    TestCmd[] testCmds() @safe pure nothrow @nogc {
+        return commands;
     }
 
-    TestResult run(Duration timeout, string[string] localEnv = null) {
+    TestResult run() {
+        return this.run(timeout_, null, SkipTests.init);
+    }
+
+    TestResult run(SkipTests skipTests) {
+        return this.run(timeout_, null, skipTests);
+    }
+
+    TestResult run(string[string] localEnv) {
+        return this.run(timeout_, localEnv, SkipTests.init);
+    }
+
+    TestResult run(Duration timeout, string[string] localEnv = null,
+            SkipTests skipTests = SkipTests.init) {
         import core.thread : Thread;
         import core.time : dur;
         import std.range : enumerate;
@@ -160,6 +175,7 @@ struct TestRunner {
                 break;
             case RunResult.Status.timeout:
                 result.status = TestResult.Status.timeout;
+                result.testCmds ~= res.cmd;
                 break;
             case RunResult.Status.error:
                 result.status = TestResult.Status.error;
@@ -196,7 +212,7 @@ struct TestRunner {
         auto mtx = new Mutex;
         auto condDone = new Condition(mtx);
         earlyStopSignal.reset;
-        TestTask*[] tasks = startTests(timeout, env_, mtx, condDone);
+        TestTask*[] tasks = startTests(timeout, env_, skipTests, mtx, condDone);
         TestResult rval;
         auto output = appender!(DrainElement[])();
         while (!tasks.empty) {
@@ -215,10 +231,11 @@ struct TestRunner {
         return rval;
     }
 
-    private auto startTests(Duration timeout, string[string] env, Mutex mtx, Condition condDone) @trusted {
+    private auto startTests(Duration timeout, string[string] env,
+            SkipTests skipTests, Mutex mtx, Condition condDone) @trusted {
         auto tasks = appender!(TestTask*[])();
 
-        foreach (c; commands) {
+        foreach (c; commands.filter!(a => a.cmd.value[0]!in skipTests.get)) {
             auto t = task!spawnRunTest(c.cmd, timeout, env, earlyStopSignal, mtx, condDone);
             tasks.put(t);
             pool.put(t);
@@ -237,6 +254,8 @@ struct TestRunner {
     }
 }
 
+alias SkipTests = NamedType!(Set!string, Tag!"SkipTests", Set!string.init, TagStringable);
+
 /// The result of running the tests.
 struct TestResult {
     enum Status {
@@ -247,13 +266,13 @@ struct TestResult {
         /// At least one test command timed out.
         timeout,
         /// Something happend when the test command executed thus the result should not be used.
-        error,
+        error
     }
 
     Status status;
     ExitStatus exitStatus;
 
-    /// all test commands that found the mutant.
+    /// all test commands that found the mutant, aka exist status != 0.
     ShellCommand[] testCmds;
 
     /// Output from all the test binaries and command.

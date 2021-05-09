@@ -90,6 +90,7 @@ immutable srcCovInfoTable = "src_cov_info";
 immutable srcCovTable = "src_cov_instr";
 immutable srcCovTimeStampTable = "src_cov_timestamp";
 immutable srcMetadataTable = "src_metadata";
+immutable testCmdOriginalTable = "test_cmd_original";
 immutable testFilesTable = "test_files";
 
 private immutable invalidSchemataTable = "invalid_schemata";
@@ -370,7 +371,10 @@ struct AllTestCaseTbl {
 @TableConstraint("checksum UNIQUE (checksum0, checksum1)")
 struct MutationStatusTbl {
     long id;
+
+    /// Mutation.Status
     long status;
+
     @ColumnName("exit_code")
     int exitCode;
 
@@ -617,6 +621,14 @@ struct DependencyRootTable {
     long fileId;
 }
 
+@TableName(testCmdOriginalTable)
+@TablePrimaryKey("checksum")
+@TableConstraint("unique_ UNIQUE (cmd)")
+struct TestCmdOriginalTable {
+    long checksum;
+    string cmd;
+}
+
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
         db.run(delete_!VersionTbl);
@@ -733,8 +745,9 @@ void upgradeV0(ref Miniorm db) {
             NomutDataTbl, SchemataTable, SchemataFragmentTable,
             SchemataMutantTable,
             SchemataUsedTable, MutantWorklistTbl, RuntimeHistoryTable,
-            MutationScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable, CoverageInfoTable,
-            CoverageTimeTtampTable, DependencyFileTable, DependencyRootTable, DextoolVersionTable));
+            MutationScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
+            CoverageInfoTable, CoverageTimeTtampTable,
+            DependencyFileTable, DependencyRootTable, DextoolVersionTable, TestCmdOriginalTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1578,6 +1591,11 @@ void upgradeV40(ref Miniorm db) {
     db.run(format("DELETE FROM %s", schemataMutantTable));
     db.run(format("DELETE FROM %s", schemataTable));
     db.run(format("DELETE FROM %s", schemataUsedTable));
+}
+
+// 2021-05-09
+void upgradeV41(ref Miniorm db) {
+    db.run(buildSchema!(TestCmdOriginalTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

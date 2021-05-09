@@ -608,3 +608,22 @@ struct TestStopCheck {
         return format!"Max runtime of %s reached at %s"(maxRuntime, Clock.currTime);
     }
 }
+
+struct HashFile {
+    import my.hash : Checksum64;
+
+    Checksum64 cs;
+    Path file;
+}
+
+auto hashFiles(RangeT)(RangeT files) {
+    import my.hash : makeCrc64Iso, checksum;
+    import my.file : existsAnd, isFile;
+
+    return files.filter!(a => existsAnd!isFile(Path(a)))
+        .map!((a) {
+            auto p = AbsolutePath(a);
+            auto cs = checksum!makeCrc64Iso(p);
+            return HashFile(cs, Path(a));
+        });
+}

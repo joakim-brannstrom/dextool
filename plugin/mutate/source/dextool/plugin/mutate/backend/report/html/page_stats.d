@@ -55,6 +55,7 @@ void overallStat(const MutationStat s, Element base) {
     foreach (const d; [
             tuple("Total", s.total),
             tuple("Killed by compiler", cast(long) s.killedByCompiler),
+            tuple("Equivalent", s.equivalent),
             tuple("Worklist", cast(long) s.worklist),
         ]) {
         tbl.appendRow(d[0], d[1]);

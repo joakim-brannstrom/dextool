@@ -414,6 +414,7 @@ struct MutationScore {
     long timeout;
     long total;
     long noCoverage;
+    long equivalent;
     MutantTimeProfile totalTime;
 
     // Nr of mutants that are alive but tagged with nomut.
@@ -435,6 +436,7 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     const aliveNomut = spinSql!(() { return db.aliveNoMutSrcMutants(kinds, file); });
     const killed = spinSql!(() { return db.killedSrcMutants(kinds, file); });
     const timeout = spinSql!(() { return db.timeoutSrcMutants(kinds, file); });
+    const equivalent = spinSql!(() => db.equivalentMutants(kinds, file));
     const total = spinSql!(() { return db.totalSrcMutants(kinds, file); });
 
     typeof(return) rval;
@@ -444,6 +446,7 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     rval.total = total.count;
     rval.aliveNoMut = aliveNomut.count;
     rval.noCoverage = noCov.count;
+    rval.equivalent = equivalent.count;
     rval.totalTime = total.time;
 
     return rval;
@@ -477,6 +480,10 @@ struct MutationStat {
 
     long timeout() @safe pure nothrow const @nogc {
         return scoreData.timeout;
+    }
+
+    long equivalent() @safe pure nothrow const @nogc {
+        return scoreData.equivalent;
     }
 
     long total() @safe pure nothrow const @nogc {
@@ -541,6 +548,8 @@ struct MutationStat {
         }
         formattedWrite(w, "%-*s %s\n", align_, "Alive:", alive);
         formattedWrite(w, "%-*s %s\n", align_, "Killed:", killed);
+        if (equivalent > 0)
+            formattedWrite(w, "%-*s %s\n", align_, "Equivalent:", equivalent);
         formattedWrite(w, "%-*s %s\n", align_, "Timeout:", timeout);
         formattedWrite(w, "%-*s %s\n", align_, "Killed by compiler:", killedByCompiler);
         if (worklist > 0) {
@@ -1209,6 +1218,8 @@ struct EstimateScore {
             case killed:
                 goto case;
             case timeout:
+                goto case;
+            case equivalent:
                 return 1.0;
             }
         }();
