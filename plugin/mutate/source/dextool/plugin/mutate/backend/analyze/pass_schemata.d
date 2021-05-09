@@ -69,13 +69,17 @@ SchemataResult toSchemata(RefCounted!Ast ast, FilesysIO fio, CodeMutantsResult c
 
 @safe:
 
-/// Converts a checksum to a 32-bit ID that can be used to activate a mutant.
+/** Converts a checksum to a 32-bit ID that can be used to activate a mutant.
+ *
+ * Guaranteed that zero is never used. It is reserved for no mutant.
+ */
 uint checksumToId(Checksum cs) @safe pure nothrow @nogc {
     return checksumToId(cs.c0);
 }
 
 uint checksumToId(ulong cs) @safe pure nothrow @nogc {
-    return cast(uint) cs;
+    auto r = cast(uint) cs;
+    return r == 0 ? 1 : r;
 }
 
 /// Language generic schemata result.
@@ -916,6 +920,14 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
  * duplications. This can happen when e.g. adding rorFalse and dcrFalse to an
  * expression group. They both result in the same source code mutation thus
  * only one of them is actually needed. This deduplications this case.
+ *
+ * This assume that id `0` means "no mutant". The generated schema has as the
+ * first branch id `0` on the assumption that this is the hot path/common case
+ * and the branch predictor assume that the first branch is taken. All schemas
+ * also have an else which contains the same code. This is just a defensive
+ * measure in case something funky happens. Maybe it should be an assert? Who
+ * knows but for now it is a duplicated because that will always work on all
+ * platforms.
  */
 struct BlockChain {
     alias Mutant = Tuple!(ulong, "id", const(ubyte)[], "value");
@@ -952,15 +964,20 @@ struct BlockChain {
     /// Returns: the generated chain that can replace the original expression.
     const(ubyte)[] generate() {
         auto app = appender!(const(ubyte)[])();
-        bool isFirst = true;
+
+        void addOriginal() {
+            app.put(original);
+            if (!original.empty && original[$ - 1] != cast(ubyte) ';') {
+                app.put(";".rewrite);
+            }
+        }
+
+        app.put(format!"if (%s == 0) {"(schemataMutantIdentifier).rewrite);
+        addOriginal;
+        app.put("}".rewrite);
 
         foreach (const mutant; mutants.data) {
-            if (isFirst) {
-                app.put("if (".rewrite);
-            } else {
-                app.put(" else if (".rewrite);
-            }
-            isFirst = false;
+            app.put(" else if (".rewrite);
 
             app.put(format!"%s == "(schemataMutantIdentifier).rewrite);
             app.put(mutant.id.checksumToId.to!string.rewrite);
@@ -976,10 +993,7 @@ struct BlockChain {
         }
 
         app.put("else {".rewrite);
-        app.put(original);
-        if (!original.empty && original[$ - 1] != cast(ubyte) ';') {
-            app.put(";".rewrite);
-        }
+        addOriginal;
         app.put("}".rewrite);
 
         return app.data;
