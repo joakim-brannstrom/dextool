@@ -535,6 +535,10 @@ struct TestDriver {
     }
 
 nothrow:
+    ref Database db() {
+        return *global.data.db;
+    }
+
     void execute() {
         try {
             execute_(this);
@@ -561,8 +565,8 @@ nothrow:
         // need to use 10000 because in an untested code base it is not
         // uncommon for mutants being in the thousands.
         spinSql!(() {
-            global.data.db.updateWorklist(global.data.kinds,
-                Mutation.Status.unknown, 10000, global.mutationOrder);
+            db.updateWorklist(global.data.kinds, Mutation.Status.unknown,
+                10000, global.mutationOrder);
         });
 
         // detect if the system is overloaded before trying to do something
@@ -599,10 +603,8 @@ nothrow:
         auto failed = appender!(string[])();
         auto checksumFailed = appender!(string[])();
         auto writePermissionFailed = appender!(string[])();
-        foreach (file; spinSql!(() { return global.data.db.getFiles; })) {
-            auto db_checksum = spinSql!(() {
-                return global.data.db.getFileChecksum(file);
-            });
+        foreach (file; spinSql!(() { return db.getFiles; })) {
+            auto db_checksum = spinSql!(() { return db.getFileChecksum(file); });
 
             try {
                 auto abs_f = AbsolutePath(buildPath(global.data.filesysIO.getOutputDir, file));
@@ -672,7 +674,7 @@ nothrow:
 
         enum forceCheckEach = 1.dur!"hours";
 
-        const wlist = spinSql!(() => global.data.db.getWorklistCount);
+        const wlist = spinSql!(() => db.getWorklistCount);
         if (local.get!ContinuesCheckTestSuite.lastWorklistCnt == 0) {
             // first time, just initialize.
             local.get!ContinuesCheckTestSuite.lastWorklistCnt = wlist;
@@ -707,10 +709,9 @@ nothrow:
             logger.warning("Continues sanity check of the test suite has failed.").collectException;
             logger.infof("Rolling back the status of the last %s mutants to status unknown.",
                     period).collectException;
-            foreach (a; spinSql!(() => global.data.db.getLatestMutants(global.data.kinds,
-                    max(diffCnt, period)))) {
-                spinSql!(() => global.data.db.updateMutation(a.id,
-                        Mutation.Status.unknown, ExitStatus(0), MutantTimeProfile.init));
+            foreach (a; spinSql!(() => db.getLatestMutants(global.data.kinds, max(diffCnt, period)))) {
+                spinSql!(() => db.updateMutation(a.id, Mutation.Status.unknown,
+                        ExitStatus(0), MutantTimeProfile.init));
             }
         }
     }
@@ -761,7 +762,7 @@ nothrow:
         // the test cases before anything has potentially changed.
         auto old_tcs = spinSql!(() {
             Set!string old_tcs;
-            foreach (tc; global.data.db.getDetectedTestCases) {
+            foreach (tc; db.getDetectedTestCases) {
                 old_tcs.add(tc.name);
             }
             return old_tcs;
@@ -771,32 +772,31 @@ nothrow:
             final switch (global.data.conf.onRemovedTestCases) with (
                 ConfigMutationTest.RemovedTestCases) {
             case doNothing:
-                global.data.db.addDetectedTestCases(data.foundTestCases);
+                db.addDetectedTestCases(data.foundTestCases);
                 break;
             case remove:
                 bool update;
                 // change all mutants which, if a test case is removed, no
                 // longer has a test case that kills it to unknown status
-                foreach (id; global.data.db.setDetectedTestCases(data.foundTestCases)) {
-                    if (!global.data.db.hasTestCases(id)) {
+                foreach (id; db.setDetectedTestCases(data.foundTestCases)) {
+                    if (!db.hasTestCases(id)) {
                         update = true;
-                        global.data.db.updateMutationStatus(id,
-                                Mutation.Status.unknown, ExitStatus(0));
+                        db.updateMutationStatus(id, Mutation.Status.unknown, ExitStatus(0));
                     }
                 }
                 if (update) {
-                    global.data.db.updateWorklist(global.data.kinds, Mutation.Status.unknown);
+                    db.updateWorklist(global.data.kinds, Mutation.Status.unknown);
                 }
                 break;
             }
         }
 
         auto found_tcs = spinSql!(() @trusted {
-            auto tr = global.data.db.transaction;
+            auto tr = db.transaction;
             transaction();
 
             Set!string found_tcs;
-            foreach (tc; global.data.db.getDetectedTestCases) {
+            foreach (tc; db.getDetectedTestCases) {
                 found_tcs.add(tc.name);
             }
 
@@ -810,10 +810,10 @@ nothrow:
                 && global.data.conf.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
             logger.info("Adding alive mutants to worklist").collectException;
             spinSql!(() {
-                global.data.db.updateWorklist(global.data.kinds, Mutation.Status.alive);
+                db.updateWorklist(global.data.kinds, Mutation.Status.alive);
                 // if these mutants are covered by the tests then they will be
                 // removed from the worklist in PropagateCoverage.
-                global.data.db.updateWorklist(global.data.kinds, Mutation.Status.noCoverage);
+                db.updateWorklist(global.data.kinds, Mutation.Status.noCoverage);
             });
         }
     }
@@ -834,15 +834,14 @@ nothrow:
         if (global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing) {
             return;
         }
-        if (spinSql!(() { return global.data.db.getWorklistCount; }) != 0) {
+        if (spinSql!(() { return db.getWorklistCount; }) != 0) {
             // do not re-test any old mutants if there are still work to do in the worklist.
             return;
         }
 
-        const oldestMutant = spinSql!(() => global.data.db.getOldestMutants(global.data.kinds, 1));
-        const newestTest = spinSql!(() => global.data.db.getNewestTestFile).orElse(
-                TestFile.init).timeStamp;
-        const newestFile = spinSql!(() => global.data.db.getNewestFile).orElse(SysTime.init);
+        const oldestMutant = spinSql!(() => db.getOldestMutants(global.data.kinds, 1));
+        const newestTest = spinSql!(() => db.getNewestTestFile).orElse(TestFile.init).timeStamp;
+        const newestFile = spinSql!(() => db.getNewestFile).orElse(SysTime.init);
         if (!oldestMutant.empty && oldestMutant[0].updated > newestTest
                 && oldestMutant[0].updated > newestFile) {
             // only re-test old mutants if needed.
@@ -860,7 +859,7 @@ nothrow:
             }
 
             const total = spinSql!(() {
-                return global.data.db.totalSrcMutants(global.data.kinds).count;
+                return db.totalSrcMutants(global.data.kinds).count;
             });
             const rval = cast(long)(1 + total * local.get!ResetOldMutant.resetPercentage.get
                     / 100.0);
@@ -868,7 +867,7 @@ nothrow:
         }();
 
         auto oldest = spinSql!(() {
-            return global.data.db.getOldestMutants(global.data.kinds, testCnt);
+            return db.getOldestMutants(global.data.kinds, testCnt);
         });
 
         logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
@@ -876,7 +875,7 @@ nothrow:
             foreach (const old; oldest.enumerate) {
                 logger.infof("%s Last updated %s", old.index + 1,
                     old.value.updated).collectException;
-                global.data.db.addToWorklist(old.value.id);
+                db.addToWorklist(old.value.id);
             }
         });
     }
@@ -886,7 +885,7 @@ nothrow:
     }
 
     void opCall(ref CheckMutantsLeft data) {
-        spinSql!(() { global.timeoutFsm.execute(*global.data.db); });
+        spinSql!(() { global.timeoutFsm.execute(db); });
 
         data.allMutantsTested = global.timeoutFsm.output.done;
 
@@ -899,25 +898,22 @@ nothrow:
         import dextool.plugin.mutate.backend.database.type : MutationScore;
         import dextool.plugin.mutate.backend.report.analyzers : reportScore;
 
-        if (spinSql!(() => global.data.db.unknownSrcMutants(global.data.kinds)).count != 0)
+        if (spinSql!(() => db.unknownSrcMutants(global.data.kinds)).count != 0)
             return;
 
-        const score = reportScore(*global.data.db, global.data.kinds).score;
+        const score = reportScore(db, global.data.kinds).score;
 
         // 10000 mutation scores is only ~80kbyte. Should be enough entries
         // without taking up unresonable amount of space.
         spinSql!(() @trusted {
-            auto t = global.data.db.transaction;
-            global.data.db.putMutationScore(MutationScore(Clock.currTime,
-                typeof(MutationScore.score)(score)));
-            global.data.db.trimMutationScore(10000);
+            auto t = db.transaction;
+            db.putMutationScore(MutationScore(Clock.currTime, typeof(MutationScore.score)(score)));
+            db.trimMutationScore(10000);
             t.commit;
         });
     }
 
     void opCall(ref PreCompileSut data) {
-        import std.stdio : write;
-        import colorlog : color, Color;
         import proc;
 
         logger.info("Checking the build command").collectException;
@@ -965,7 +961,7 @@ nothrow:
         Set!MutationStatusId mutantIds;
 
         foreach (kv; local.get!PullRequest.constraint.value.byKeyValue) {
-            const file_id = spinSql!(() => global.data.db.getFileId(kv.key));
+            const file_id = spinSql!(() => db.getFileId(kv.key));
             if (file_id.isNull) {
                 logger.infof("The file %s do not exist in the database. Skipping...",
                         kv.key).collectException;
@@ -974,7 +970,7 @@ nothrow:
 
             foreach (l; kv.value) {
                 auto mutants = spinSql!(() {
-                    return global.data.db.getMutationsOnLine(global.data.kinds,
+                    return db.getMutationsOnLine(global.data.kinds,
                         file_id.get, SourceLoc(l.value, 0));
                 });
 
@@ -993,19 +989,19 @@ nothrow:
         spinSql!(() {
             foreach (id; mutantIds.toArray.sort) {
                 // using 100000 to make a pull request mutant very high prio
-                global.data.db.addToWorklist(id, 100000, MutationOrder.bySize);
+                db.addToWorklist(id, 100000, MutationOrder.bySize);
             }
         });
 
         local.get!CheckPullRequestMutant.startWorklistCnt = spinSql!(() {
-            return global.data.db.getWorklistCount;
+            return db.getWorklistCount;
         });
         local.get!CheckPullRequestMutant.stopAfter = mutantIds.length;
 
         if (mutantIds.empty) {
             logger.warning("None of the locations specified with -L exists").collectException;
             logger.info("Available files are:").collectException;
-            foreach (f; spinSql!(() => global.data.db.getFiles))
+            foreach (f; spinSql!(() => db.getFiles))
                 logger.info(f).collectException;
         }
     }
@@ -1022,7 +1018,7 @@ nothrow:
         logger.infof("Measuring the runtime of the test command(s):\n%(%s\n%)",
                 global.testCmds).collectException;
 
-        auto measures = spinSql!(() => global.data.db.getTestCmdRuntimes);
+        auto measures = spinSql!(() => db.getTestCmdRuntimes);
 
         const tester = () {
             try {
@@ -1049,8 +1045,8 @@ nothrow:
             global.testSuiteRuntime = t;
 
             spinSql!(() @trusted {
-                auto t = global.data.db.transaction;
-                global.data.db.setTestCmdRuntimes(measures);
+                auto t = db.transaction;
+                db.setTestCmdRuntimes(measures);
                 t.commit;
             });
         } else {
@@ -1092,7 +1088,7 @@ nothrow:
     }
 
     void opCall(UpdateTimeout) {
-        spinSql!(() { global.timeoutFsm.execute(*global.data.db); });
+        spinSql!(() { global.timeoutFsm.execute(db); });
 
         const lastIter = local.get!UpdateTimeout.lastTimeoutIter;
 
@@ -1108,7 +1104,7 @@ nothrow:
     }
 
     void opCall(ref CheckPullRequestMutant data) {
-        const left = spinSql!(() { return global.data.db.getWorklistCount; });
+        const left = spinSql!(() { return db.getWorklistCount; });
         data.noUnknownMutantsLeft.get = (
                 local.get!CheckPullRequestMutant.startWorklistCnt - left) >= local
             .get!CheckPullRequestMutant.stopAfter;
@@ -1121,7 +1117,7 @@ nothrow:
         global.nextMutant = MutationEntry.init;
 
         auto next = spinSql!(() {
-            return global.data.db.nextMutation(global.data.kinds, global.mutationOrder);
+            return db.nextMutation(global.data.kinds, global.mutationOrder);
         });
 
         data.noUnknownMutantsLeft.get = next.st == NextMutationEntry.Status.done;
@@ -1165,7 +1161,7 @@ nothrow:
             const id = schematas[0];
             schematas = schematas[1 .. $];
             const mutants = spinSql!(() {
-                return global.data.db.schemataMutantsCount(id, global.data.kinds);
+                return db.schemataMutantsCount(id, global.data.kinds);
             });
 
             logger.infof("Schema %s has %s mutants (threshold %s)", id.get,
@@ -1246,7 +1242,7 @@ nothrow:
             }
 
             if (remove) {
-                spinSql!(() { global.data.db.markUsed(data.id); });
+                spinSql!(() { db.markUsed(data.id); });
             }
 
         } catch (Exception e) {
@@ -1257,13 +1253,13 @@ nothrow:
 
     void opCall(SchemataPruneUsed data) {
         try {
-            const removed = global.data.db.pruneUsedSchemas;
+            const removed = db.pruneUsedSchemas;
 
             if (removed != 0) {
                 logger.infof("Removed %s schemas from the database", removed);
                 // vacuum the database because schemas take up a significant
                 // amount of space.
-                global.data.db.vacuum;
+                db.vacuum;
             }
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
@@ -1276,9 +1272,9 @@ nothrow:
         }
 
         auto app = appender!(SchemataId[])();
-        foreach (id; spinSql!(() { return global.data.db.getSchematas(); })) {
+        foreach (id; spinSql!(() { return db.getSchematas(); })) {
             if (spinSql!(() {
-                    return global.data.db.schemataMutantsCount(id, global.data.kinds);
+                    return db.schemataMutantsCount(id, global.data.kinds);
                 }) >= schemataMutantsThreshold(global.data.conf.minMutantsPerSchema.get, 0, 0)) {
                 app.put(id);
             }
@@ -1294,10 +1290,8 @@ nothrow:
     void opCall(ref Coverage data) {
         import dextool.plugin.mutate.backend.test_mutant.coverage;
 
-        auto tracked = spinSql!(() => global.data.db.getLatestTimeStampOfTestOrSut).orElse(
-                SysTime.init);
-        auto covTimeStamp = spinSql!(() => global.data.db.getCoverageTimeStamp).orElse(
-                SysTime.init);
+        auto tracked = spinSql!(() => db.getLatestTimeStampOfTestOrSut).orElse(SysTime.init);
+        auto covTimeStamp = spinSql!(() => db.getCoverageTimeStamp).orElse(SysTime.init);
 
         if (tracked < covTimeStamp) {
             logger.info("Coverage information is up to date").collectException;
@@ -1328,12 +1322,12 @@ nothrow:
 
     void opCall(PropagateCoverage data) {
         void propagate() @trusted {
-            auto trans = global.data.db.transaction;
+            auto trans = db.transaction;
 
-            auto noCov = global.data.db.getNotCoveredMutants;
+            auto noCov = db.getNotCoveredMutants;
             foreach (id; noCov) {
-                global.data.db.updateMutationStatus(id, Mutation.Status.noCoverage, ExitStatus(0));
-                global.data.db.removeFromWorklist(id);
+                db.updateMutationStatus(id, Mutation.Status.noCoverage, ExitStatus(0));
+                db.removeFromWorklist(id);
             }
 
             trans.commit;
@@ -1356,25 +1350,25 @@ nothrow:
 
             global.estimate.update(result.status);
 
-            updateMutantStatus(*global.data.db, result.id, result.status,
-                    result.exitStatus, global.timeoutFsm.output.iter);
-            global.data.db.updateMutation(result.id, result.profile);
-            global.data.db.updateMutationTestCases(result.id, result.testCases);
-            global.data.db.removeFromWorklist(result.id);
+            updateMutantStatus(db, result.id, result.status, result.exitStatus,
+                    global.timeoutFsm.output.iter);
+            db.updateMutation(result.id, result.profile);
+            db.updateMutationTestCases(result.id, result.testCases);
+            db.removeFromWorklist(result.id);
 
             if (result.status == Mutation.Status.alive)
                 stopCheck.incrAliveMutants;
         }
 
         spinSql!(() @trusted {
-            auto t = global.data.db.transaction;
+            auto t = db.transaction;
             foreach (a; results) {
                 statusUpdate(a);
             }
             t.commit;
         });
 
-        const left = spinSql!(() { return global.data.db.getWorklistCount; });
+        const left = spinSql!(() { return db.getWorklistCount; });
         logger.infof("%s mutants left to test. Estimated mutation score %.3s (error %.3s)", left,
                 global.estimate.value.get, global.estimate.error.get).collectException;
     }
