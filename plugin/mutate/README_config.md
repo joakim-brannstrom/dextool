@@ -656,15 +656,53 @@ see if the new test cases kill any of those that previously survived.
 `detected_dropped_test_case`: Configures what dextool should do with the stored
 information about a test case which it detects has been removed. Either just
 leave it as it is or remove it. If the test case is removed all mutants that
-the test case uniquelly killed will be reset to `unknown` statues which will
+the test case uniquely killed will be reset to `unknown` statues which will
 trigger them to be re-tested.
 
 `oldest_mutants`: The tool is unaware of the tests and if they have changed.
 This is a configuration that tell the tool to re-test old mutants to see if
 anything has changed in the test suite. The re-test, if activated, of old
-mutants will only be done if there is nothing else to be done.
+mutants will only be done if there is nothing else to be done (the worklist is
+empty).
 
-`parallel_test`: How many test binaries to run in parallel.
+`oldest_mutants_percentage`: Instead of hard coding a specific number of
+mutants this allows you to configure a percentage of the total number to test.
+This is the recommended way of configuring re-test of old mutants because then
+you do not need to tune it when the SUT grow in size.
+
+`parallel_test`: How many test binaries to run in parallel. If this option
+isn't set then dextool mutate will run as many as you have virtual cores.
+
+`use_early_stop`: The tool will stop executing test binaries as soon as one
+reports failed. This is useful if you have many test binaries because it cuts
+down on the test time. It is highly recommended to activate this option, which
+is why it is active by default. Note though that the report section
+`dead_test_case` and `overlap` will be less accurate because, obviously, not
+all test binaries are executed for each mutant but rather a subset. This can be
+alleviated somewhat by executing tests in random order. For google test this is
+`--gtest_shuffle`.
+
+`use_schemata`: Schemata is a technique that inject multiple mutants at the
+same time in the SUT with code that allow them to be toggled one at a time.
+This make it possible to compile once and have hundreds of mutants in the binary
+at the same time. In short it cuts down on the compile+link time. It is highly
+recommended to enable this option because mutation testing becomes 50-10000%
+times faster.
+
+`check_schemata`: This option check that there are no errors with the schema by
+executing the test suite once, after the schema is injected. The test suite
+should, if everything worked as expected, signal PASSED/no failure. If it
+failed in any way it means that there is a bug in the schema generator and it
+isn't just.
+
+`continues_check_test_suite`: This option activates a test suite check that is
+ran periodically. It try to execute the test suite with zero mutants. If it
+ever fails it means that there is something wrong with the computer the tool is
+executing on and it will revert the previously gathered results and stop. This
+can happen when e.g. the disk becomes full.
+
+`continues_check_test_suite_period`: Configures how often to run the check,
+every X mutant.
 
 ```toml
 [report]
