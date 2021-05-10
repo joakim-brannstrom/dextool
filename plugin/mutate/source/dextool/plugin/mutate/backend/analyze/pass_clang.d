@@ -541,8 +541,7 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitVar(T)(T v) @trusted {
-        auto n = ast.make!(analyze.VarDecl);
-        pushStack(n, v);
+        pushStack(ast.make!(analyze.VarDecl), v);
     }
 
     override void visit(const Directive v) {
@@ -1263,6 +1262,7 @@ void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
     import sumtype;
     import dextool.plugin.mutate.backend.analyze.ast : TypeId, VarDecl, Kind;
 
+    // set the type of the Condition to the first expression with a type.
     foreach (ty; BreathFirstRange(root).map!(a => ast.typeId(a))
             .filter!(a => a.hasValue)) {
         sumtype.match!((Some!TypeId a) => ast.put(root, a), (None a) {})(ty);
@@ -1271,7 +1271,7 @@ void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
 
     foreach (a; BreathFirstRange(root).filter!(a => a.kind == Kind.VarDecl)) {
         ast.put(root, ast.location(a));
-        root.schemaBlacklist = true;
+        // can't delete the VarDecl explicitly because the code will not compile
         a.schemaBlacklist = true;
         break;
     }
