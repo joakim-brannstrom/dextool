@@ -906,6 +906,10 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const ConditionalOperator v) {
         mixin(mixinNodeLog!());
+        // need to push a node because a ternery can contain function calls.
+        // Without a node for the op it seems like it is in the body, which it
+        // isn't, and then can be removed.
+        pushStack(ast.make!(analyze.Poision), v);
         v.accept(this);
     }
 
