@@ -421,9 +421,6 @@ struct TestDriver {
         this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
         this.runner = TestRunner.make(global.data.conf.testPoolSize);
         this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
-        // using an unreasonable timeout to make it possible to analyze for
-        // test cases and measure the test suite.
-        this.runner.timeout = 999.dur!"hours";
         this.runner.put(data.conf.mutationTester);
 
         // TODO: allow a user, as is for test_cmd, to specify an array of
@@ -737,7 +734,9 @@ nothrow:
 
         TestCase[] found;
         try {
-            auto res = runTester(runner);
+            // using an unreasonable timeout to make it possible to analyze for
+            // test cases and measure the test suite.
+            auto res = runTester(runner, 999.dur!"hours");
             auto analyze = testCaseAnalyzer.analyze(res.output, Yes.allFound);
 
             analyze.match!((TestCaseAnalyzer.Success a) { found = a.found; },
@@ -762,9 +761,8 @@ nothrow:
         // the test cases before anything has potentially changed.
         auto old_tcs = spinSql!(() {
             Set!string old_tcs;
-            foreach (tc; db.getDetectedTestCases) {
+            foreach (tc; db.getDetectedTestCases)
                 old_tcs.add(tc.name);
-            }
             return old_tcs;
         });
 
@@ -796,9 +794,8 @@ nothrow:
             transaction();
 
             Set!string found_tcs;
-            foreach (tc; db.getDetectedTestCases) {
+            foreach (tc; db.getDetectedTestCases)
                 found_tcs.add(tc.name);
-            }
 
             tr.commit;
             return found_tcs;

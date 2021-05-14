@@ -454,20 +454,14 @@ struct TestResult {
 
 /** Run the test suite to verify a mutation.
  *
- * Params:
- *  compile_p = compile command
- *  tester_p = test command
- *  timeout = kill the test command and mark mutant as timeout if the runtime exceed this value.
- *  fio = i/o
- *
  * Returns: the result of testing the mutant.
  */
-TestResult runTester(ref TestRunner runner) nothrow {
+TestResult runTester(Args...)(ref TestRunner runner, auto ref Args args) nothrow {
     import proc;
 
     TestResult rval;
     try {
-        auto res = runner.run;
+        auto res = runner.run(args);
         rval.output = res.output;
         rval.exitStatus = res.exitStatus;
         rval.testCmds = res.testCmds;

@@ -319,11 +319,10 @@ nothrow:
             scope (exit)
                 () { remove(covMapFname.toString); }();
 
-            runner.env[dextoolCovMapKey] = covMapFname.toString;
-            scope (exit)
-                runner.env.remove(dextoolCovMapKey);
+            string[string] env;
+            env[dextoolCovMapKey] = covMapFname.toString;
 
-            auto res = runner.run;
+            auto res = runner.run(env);
             if (res.status != TestResult.Status.passed) {
                 logger.info(
                         "An error occurred when executing instrumented binaries to gather coverage information");

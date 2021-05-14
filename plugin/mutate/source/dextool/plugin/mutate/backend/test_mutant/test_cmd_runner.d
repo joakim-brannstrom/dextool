@@ -51,10 +51,10 @@ struct TestRunner {
         alias TestCmd = Tuple!(ShellCommand, "cmd", double, "kills");
         TestCmd[] commands;
         long nrOfRuns;
-    }
 
-    /// Environment to set when executing either binaries or the command.
-    string[string] env;
+        /// Environment to set when executing either binaries or the command.
+        string[string] env;
+    }
 
     static auto make(int poolSize) {
         return TestRunner(poolSize);
@@ -67,6 +67,14 @@ struct TestRunner {
 
     ~this() {
         pool.stop;
+    }
+
+    string[string] getDefaultEnv() @safe pure nothrow @nogc {
+        return env;
+    }
+
+    void defaultEnv(string[string] env) @safe pure nothrow @nogc {
+        this.env = env;
     }
 
     /** Stop executing tests as soon as one detects a failure.
