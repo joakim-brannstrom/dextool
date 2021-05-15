@@ -303,6 +303,7 @@ nothrow:
     }
 
     void opCall(ref Run data) @trusted {
+        import std.datetime : dur;
         import std.file : remove;
         import std.range : repeat;
         import my.random;
@@ -319,11 +320,10 @@ nothrow:
             scope (exit)
                 () { remove(covMapFname.toString); }();
 
-            runner.env[dextoolCovMapKey] = covMapFname.toString;
-            scope (exit)
-                runner.env.remove(dextoolCovMapKey);
+            string[string] env;
+            env[dextoolCovMapKey] = covMapFname.toString;
 
-            auto res = runner.run;
+            auto res = runner.run(999.dur!"hours", env);
             if (res.status != TestResult.Status.passed) {
                 logger.info(
                         "An error occurred when executing instrumented binaries to gather coverage information");

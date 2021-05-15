@@ -40,6 +40,9 @@ exclude = [ "deps/*", "test/*"]
 # remove files from the database that are no longer found during analysis.
 prune = true
 
+# minimum number of mutants per schema.
+# min_mutants_per_schema = 3
+
 # maximum number of mutants per schema (zero means no limit).
 # mutants_per_schema = 1000
 
@@ -116,7 +119,7 @@ test_cmd = "./build/rl_test"
 analyze_using_builtin = ["gtest"]
 
 # determine in what order mutants are chosen
-# available options are: "random" "consecutive"
+# available options are: "random" "consecutive" "bySize"
 # order = "random"
 
 # how to behave when new test cases are found
@@ -161,6 +164,10 @@ continues_check_test_suite = true
 # How often the test suite check is performed
 continues_check_test_suite_period = 100
 
+# Compare the checksum of the test binaries with and without a mutant injected to determine which test binaries need to be executed.
+# Requires that all `test_cmd`s are binaries, it can not be e.g. make test or scripts.
+test_cmd_checksum = true
+
 [report]
 
 # default style to use
@@ -168,8 +175,11 @@ continues_check_test_suite_period = 100
 style = "plain"
 
 # default report sections when no --section is specified
-# available options are: ["alive", "killed", "all_mut", "summary", "mut_stat", "tc_killed", "tc_stat", "tc_map", "tc_suggestion", "tc_killed_no_mutants", "tc_full_overlap", "tc_full_overlap_with_mutation_id", "tc_groups", "tc_min_set", "tc_similarity", "tc_groups_similarity", "treemap", "mut_recommend_kill", "diff", "tc_unique", "marked_mutants", "score_history"]
+# available options are: ["alive", "killed", "all_mut", "summary", "mut_stat", "tc_killed", "tc_stat", "tc_map", "tc_suggestion", "tc_killed_no_mutants", "tc_full_overlap", "tc_full_overlap_with_mutation_id", "tc_groups", "tc_min_set", "tc_similarity", "tc_groups_similarity", "treemap", "mut_recommend_kill", "diff", "tc_unique", "marked_mutants", "trend"]
 sections = ["summary"]
+
+# how many mutants to show in the high interest section
+# high_interest_mutants_nr = 5
 
 [test_group]
 

@@ -256,6 +256,8 @@ struct ConfigMutationTest {
     /// Continuesly run the test suite to see that the test suite is OK when no mutants are injected.
     NamedType!(bool, Tag!"ContinuesCheckTestSuite", bool.init, TagStringable) contCheckTestSuite;
     NamedType!(int, Tag!"ContinuesCheckTestSuitePeriod", int.init, TagStringable) contCheckTestSuitePeriod = 100;
+
+    NamedType!(bool, Tag!"TestCmdChecksum", bool.init, TagStringable) testCmdChecksum;
 }
 
 /// Settings for the administration mode

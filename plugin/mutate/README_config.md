@@ -704,6 +704,17 @@ can happen when e.g. the disk becomes full.
 `continues_check_test_suite_period`: Configures how often to run the check,
 every X mutant.
 
+`test_cmd_checksum`: Compare the checksum of the test binaries with and without
+a mutant injected to determine which test binaries need to be executed. Only
+those that are different are executed because well, those where affected by the
+mutant. If no test binary is changed when the mutant is injected then the
+mutant is an equivalent mutant because the compiler managed to "optimize away"
+the modification. This option is recommended to activate because it cuts down
+on the test time and allows the tool to find equivalent mutants. But to use it
+it means that all `test_cmd` must binaries, it can not be e.g. "make test".
+This is obvious when you think about it because "make test" is never changed
+when a mutant is injected.
+
 ```toml
 [report]
 ```

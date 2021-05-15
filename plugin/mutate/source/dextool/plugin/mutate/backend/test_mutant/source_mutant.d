@@ -13,22 +13,24 @@ module dextool.plugin.mutate.backend.test_mutant.source_mutant;
 
 import core.time : Duration;
 import logger = std.experimental.logger;
-import std.algorithm : sort, map;
+import std.algorithm : sort, map, filter;
 import std.array : empty, array;
 import std.exception : collectException;
 import std.path : buildPath;
 
 import my.fsm : next, act, get, TypeDataMap;
+import my.hash : Checksum64;
 import my.named_type;
+import my.set;
 import proc : DrainElement;
 import sumtype;
 
 static import my.fsm;
 
-import dextool.plugin.mutate.backend.database : Database, MutationEntry;
+import dextool.plugin.mutate.backend.database : Database, MutationEntry, ChecksumTestCmdOriginal;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
 import dextool.plugin.mutate.backend.test_mutant.common;
-import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner;
+import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, SkipTests;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : ShellCommand;
@@ -51,6 +53,8 @@ struct MutationTestDriver {
 
         /// Runs the test commands.
         TestRunner* runner;
+
+        Set!Checksum64* originalTestCmd;
 
         /// File to mutate.
         AbsolutePath mutateFile;
@@ -89,6 +93,10 @@ struct MutationTestDriver {
 
     static struct TestMutant {
         NamedType!(bool, Tag!"HasTestOutput", bool.init, TagStringable, ImplicitConvertable) hasTestOutput;
+        NamedType!(bool, Tag!"IsEquivalent", bool.init, TagStringable) equivalent;
+    }
+
+    static struct MarkEquivalent {
     }
 
     static struct RestoreCode {
@@ -120,8 +128,8 @@ struct MutationTestDriver {
     static struct NoResult {
     }
 
-    alias Fsm = my.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode,
-            TestCaseAnalyze, StoreResult, Done, FilesysError, NoResultRestoreCode, NoResult);
+    alias Fsm = my.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode, TestCaseAnalyze,
+            StoreResult, Done, FilesysError, NoResultRestoreCode, NoResult, MarkEquivalent);
     alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData);
 
     private {
@@ -151,6 +159,8 @@ struct MutationTestDriver {
                 return fsm(NoResultRestoreCode.init);
             return fsm(TestMutant.init);
         }, (TestMutant a) {
+            if (a.equivalent.get)
+                return fsm(MarkEquivalent.init);
             if (self.global.testResult.status == Mutation.Status.killed
                 && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && a.hasTestOutput) {
                 return fsm(TestCaseAnalyze.init);
@@ -160,7 +170,7 @@ struct MutationTestDriver {
             if (a.unstableTests)
                 return fsm(NoResultRestoreCode.init);
             return fsm(RestoreCode.init);
-        }, (RestoreCode a) {
+        }, (MarkEquivalent a) => RestoreCode.init, (RestoreCode a) {
             if (a.filesysError)
                 return fsm(FilesysError.init);
             return fsm(StoreResult.init);
@@ -276,13 +286,39 @@ nothrow:
             successCompile = success;
         },);
 
+        auto skipTests = () @trusted nothrow{
+            if (global.originalTestCmd.empty)
+                return Set!string.init;
+            Set!string rval;
+
+            try {
+                foreach (f; global.runner
+                        .testCmds
+                        .map!(a => a.cmd.value[0])
+                        .hashFiles
+                        .filter!(a => a.cs in *global.originalTestCmd)) {
+                    rval.add(f.file);
+                }
+            } catch (Exception e) {
+                logger.info(e.msg).collectException;
+            }
+
+            return rval;
+        }();
+
         global.swCompile.stop;
         global.swTest.start;
 
         if (!successCompile)
             return;
 
-        global.testResult = runTester(*global.runner);
+        if (!skipTests.empty && !global.originalTestCmd.empty) {
+            logger.infof("%s/%s test_cmd unaffected by mutant",
+                    skipTests.length, global.originalTestCmd.length).collectException;
+            logger.trace(skipTests.toRange).collectException;
+            data.equivalent.get = skipTests.length == global.originalTestCmd.length;
+        }
+        global.testResult = runTester(*global.runner, SkipTests(skipTests));
 
         data.hasTestOutput.get = !global.testResult.output.empty;
     }
@@ -310,6 +346,11 @@ nothrow:
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
+    }
+
+    void opCall(MarkEquivalent data) {
+        global.testResult.output = null;
+        global.testResult.status = typeof(global.testResult.status).equivalent;
     }
 
     void opCall(StoreResult data) {

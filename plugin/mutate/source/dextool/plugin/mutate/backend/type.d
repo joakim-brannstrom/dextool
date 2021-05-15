@@ -261,6 +261,8 @@ struct Mutation {
         timeout,
         /// not covered by the tests
         noCoverage,
+        ///
+        equivalent
     }
 
     Kind kind;

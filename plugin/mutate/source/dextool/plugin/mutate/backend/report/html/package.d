@@ -783,6 +783,10 @@ MetaSpan.StatusColor pickColor(const FileMutant m,
         if (status > MetaSpan.StatusColor.unknown)
             status = MetaSpan.StatusColor.unknown;
         break;
+    case Mutation.Status.equivalent:
+        if (status > MetaSpan.StatusColor.unknown)
+            status = MetaSpan.StatusColor.unknown;
+        break;
     }
     return status;
 }

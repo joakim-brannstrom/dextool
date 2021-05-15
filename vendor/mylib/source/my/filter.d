@@ -7,8 +7,10 @@ module my.filter;
 
 import std.algorithm : filter;
 import std.array : array, empty;
-
 import logger = std.experimental.logger;
+
+import my.optional;
+import my.path;
 
 @safe:
 
@@ -157,4 +159,38 @@ unittest {
             "foo mother"].filter!(a => r.match(a)).array == [
             "foo", "foo mother"
             ]);
+}
+
+struct GlobFilterClosestMatch {
+    GlobFilter filter;
+    AbsolutePath base;
+
+    bool match(string s, void delegate(string s, string[] filters) @safe logFailed = null) {
+        import std.path : relativePath;
+
+        return filter.match(s.relativePath(base.toString), logFailed);
+    }
+}
+
+/** The closest matching filter.
+ *
+ * Use for example as:
+ * ```
+ * closest(filters, p).orElse(GlobFilterClosestMatch(defaultFilter, AbsolutePath("."))).match(p);
+ * ```
+ */
+Optional!GlobFilterClosestMatch closest(GlobFilter[AbsolutePath] filters, AbsolutePath p) {
+    import std.path : rootName;
+
+    if (filters.empty)
+        return typeof(return)(None.init);
+
+    const root = p.toString.rootName;
+    while (p != root) {
+        p = p.dirName;
+        if (auto v = p in filters)
+            return some(GlobFilterClosestMatch(*v, p));
+    }
+
+    return typeof(return)(None.init);
 }

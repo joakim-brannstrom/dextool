@@ -1,3 +1,17 @@
+# v3.2.0 Topaz
+
+New features for dextool mutate
+
+ * Speedup execution of tests by only running those that are affected by the
+   mutant when running the *slow* source code modification engine. This is done
+   by saving the checksum of all `test_cmd` after `build_cmd` is executed and
+   no mutant is inserted. When a mutant is later on inserted the resulting
+   `test_cmd`s are compared to the unmodified. Only those that are different
+   are classified as *affected* and thus need to be executed. If no `test_cmd`
+   is *affected* by the inserted mutant the mutation is classified as
+   equivalent. Set `test_cmd_checksum` to true to activate the feature. It is
+   by default turned off.
+
 # v3.1.0 Drizzle
 
 New features for dextool mutate

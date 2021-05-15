@@ -454,20 +454,14 @@ struct TestResult {
 
 /** Run the test suite to verify a mutation.
  *
- * Params:
- *  compile_p = compile command
- *  tester_p = test command
- *  timeout = kill the test command and mark mutant as timeout if the runtime exceed this value.
- *  fio = i/o
- *
  * Returns: the result of testing the mutant.
  */
-TestResult runTester(ref TestRunner runner) nothrow {
+TestResult runTester(Args...)(ref TestRunner runner, auto ref Args args) nothrow {
     import proc;
 
     TestResult rval;
     try {
-        auto res = runner.run;
+        auto res = runner.run(args);
         rval.output = res.output;
         rval.exitStatus = res.exitStatus;
         rval.testCmds = res.testCmds;
@@ -613,4 +607,23 @@ struct TestStopCheck {
     string maxRuntimeToString() @safe const {
         return format!"Max runtime of %s reached at %s"(maxRuntime, Clock.currTime);
     }
+}
+
+struct HashFile {
+    import my.hash : Checksum64;
+
+    Checksum64 cs;
+    Path file;
+}
+
+auto hashFiles(RangeT)(RangeT files) {
+    import my.hash : makeCrc64Iso, checksum;
+    import my.file : existsAnd, isFile;
+
+    return files.filter!(a => existsAnd!isFile(Path(a)))
+        .map!((a) {
+            auto p = AbsolutePath(a);
+            auto cs = checksum!makeCrc64Iso(p);
+            return HashFile(cs, Path(a));
+        });
 }

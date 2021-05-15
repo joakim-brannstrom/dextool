@@ -1107,3 +1107,43 @@ exit 1
                 ]).shouldBeIn(r.output);
     }
 }
+
+class ShallDetectAndReportEquivalent : SimpleFixture {
+    override string scriptTest() {
+        return "#!/bin/bash
+exit 1
+";
+    }
+
+    override void test() {
+        import my.file;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+
+        // dfmt off
+        auto r0 = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg("--dry-run")
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--mutant", "all"])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
+            .addPostArg(["--test-timeout", "10000"])
+            .addPostArg("--test-cmd-checksum")
+            .run;
+        // dfmt on
+
+        testConsecutiveSparseOrder!SubStr(["equivalent"]).shouldBeIn(r0.output);
+
+        auto r1 = makeDextoolReport(testEnv, testData.dirName).addPostArg([
+                "--mutant", "all"
+                ]).run;
+
+        testConsecutiveSparseOrder!Re(["Equivalent:.*4"]).shouldBeIn(r1.output);
+    }
+}

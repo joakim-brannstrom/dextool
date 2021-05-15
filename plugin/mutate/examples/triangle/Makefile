@@ -21,7 +21,7 @@ TEST   := $(MAKEFILE_DIR)/test/test_triangle.c
 MUTATION_DB := dextool_mutate.sqlite3
 MUTATION_REPORT := html
 
-DEXTOOL     ?= dextool
+DEXTOOL ?= dextool
 
 #
 # Make targets

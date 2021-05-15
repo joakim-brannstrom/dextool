@@ -468,11 +468,10 @@ nothrow:
             logger.info(e.msg).collectException;
         }
 
-        runner.env[schemataMutantEnvKey] = data.inject.injectId.to!string;
-        scope (exit)
-            runner.env.remove(schemataMutantEnvKey);
+        auto env = runner.getDefaultEnv;
+        env[schemataMutantEnvKey] = data.inject.injectId.to!string;
 
-        auto res = runTester(*runner);
+        auto res = runTester(*runner, env);
         data.result.profile = MutantTimeProfile(compileTime, sw.peek);
         // the first tested mutant also get the compile time of the schema.
         compileTime = Duration.zero;

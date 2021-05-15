@@ -39,8 +39,11 @@ ContCheckTestSuite --> Error : fail
 Cleanup --> NextSchemata
 Cleanup --> CheckPullRequestMutant : hasConstraint
 
-CheckMutantsLeft --> MeasureTestSuite : !allTested
+CheckMutantsLeft --> ChecksumTestCmds : checksum
+CheckMutantsLeft --> MeasureTestSuite : !allTested || resetOld
 CheckMutantsLeft --> Done : !resetOld && allTested
+
+ChecksumTestCmds --> MeasureTestSuite
 
 MeasureTestSuite --> Error : unreliable
 MeasureTestSuite --> Coverage : useCov
