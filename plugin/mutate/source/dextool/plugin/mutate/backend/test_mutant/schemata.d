@@ -133,8 +133,7 @@ struct SchemataTestDriver {
 
     static struct TestCaseAnalyzeData {
         TestCaseAnalyzer* testCaseAnalyzer;
-        DrainElement[] output;
-        TestCase[] testCmds;
+        DrainElement[][ShellCommand] output;
     }
 
     static struct TestCaseAnalyze {
@@ -481,8 +480,6 @@ nothrow:
         data.result.exitStatus = res.exitStatus;
         data.hasTestOutput = !res.output.empty;
         local.get!TestCaseAnalyze.output = res.output;
-        local.get!TestCaseAnalyze.testCmds = res.testCmds.map!(
-                a => TestCase(a.toShortString)).array;
 
         logger.infof("%s:%s (%s)", data.result.status,
                 data.result.exitStatus.get, data.result.profile).collectException;
@@ -492,31 +489,29 @@ nothrow:
 
     void opCall(ref TestCaseAnalyze data) {
         scope (exit)
-            () {
             local.get!TestCaseAnalyze.output = null;
-            local.get!TestCaseAnalyze.testCmds = null;
-        }();
 
-        try {
-            auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(
-                    local.get!TestCaseAnalyze.output);
+        foreach (testCmd; local.get!TestCaseAnalyze.output.byKeyValue) {
+            try {
+                auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(testCmd.value);
 
-            analyze.match!((TestCaseAnalyzer.Success a) {
-                data.result.testCases = a.failed ~ local.get!TestCaseAnalyze.testCmds;
-            }, (TestCaseAnalyzer.Unstable a) {
-                logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
-                logger.info(
-                    "As configured the result is ignored which will force the mutant to be re-tested");
-                data.unstableTests = true;
-            }, (TestCaseAnalyzer.Failed a) {
-                logger.warning("The parser that analyze the output from test case(s) failed");
-            });
-
-            logger.infof(!data.result.testCases.empty, `killed by [%-(%s, %)]`,
-                    data.result.testCases.sort.map!"a.name").collectException;
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
+                analyze.match!((TestCaseAnalyzer.Success a) {
+                    data.result.testCases ~= a.failed ~ TestCase(testCmd.key.toShortString);
+                }, (TestCaseAnalyzer.Unstable a) {
+                    logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
+                    logger.info(
+                        "As configured the result is ignored which will force the mutant to be re-tested");
+                    data.unstableTests = true;
+                }, (TestCaseAnalyzer.Failed a) {
+                    logger.warning("The parser that analyze the output from test case(s) failed");
+                });
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+            }
         }
+
+        logger.infof(!data.result.testCases.empty, `killed by [%-(%s, %)]`,
+                data.result.testCases.sort.map!"a.name").collectException;
     }
 
     void opCall(StoreResult data) {

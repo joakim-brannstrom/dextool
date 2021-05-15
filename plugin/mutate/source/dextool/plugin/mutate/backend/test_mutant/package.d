@@ -11,7 +11,7 @@ module dextool.plugin.mutate.backend.test_mutant;
 
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
-import std.algorithm : map, filter;
+import std.algorithm : map, filter, joiner;
 import std.array : empty, array, appender;
 import std.datetime : SysTime, Clock;
 import std.datetime.stopwatch : StopWatch, AutoStart;
@@ -152,11 +152,15 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
         return Rval(res, sw.peek);
     }
 
-    static void print(DrainElement[] data) @trusted {
+    static void print(TestRunResult res) @trusted {
         import std.stdio : stdout, write;
 
-        foreach (l; data)
-            write(l.byUTF8);
+        foreach (kv; res.output.byKeyValue) {
+            logger.info("test_cmd: ", kv.key);
+            foreach (l; kv.value)
+                write(l.byUTF8);
+        }
+
         stdout.flush;
     }
 
@@ -175,8 +179,8 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
                 goto case;
             case Status.error:
                 failed = true;
-                print(res.result.output);
-                logger.info("failing commands: ", res.result.testCmds);
+                print(res.result);
+                logger.info("failing commands: ", res.result.output.byKey);
                 logger.info("exit status: ", res.result.exitStatus.get);
                 break;
             }
@@ -257,11 +261,11 @@ struct TestDriver {
     }
 
     static struct AnalyzeTestCmdForTestCase {
-        TestCase[] foundTestCases;
+        TestCase[][ShellCommand] foundTestCases;
     }
 
     static struct UpdateAndResetAliveMutants {
-        TestCase[] foundTestCases;
+        TestCase[][ShellCommand] foundTestCases;
     }
 
     static struct ResetOldMutant {
@@ -742,29 +746,35 @@ nothrow:
     }
 
     void opCall(ref AnalyzeTestCmdForTestCase data) {
-        import std.datetime.stopwatch : StopWatch;
-        import dextool.plugin.mutate.backend.type : TestCase;
-
-        TestCase[] found;
+        TestCase[][ShellCommand] found;
         try {
+            runner.captureAll(true);
+            scope (exit)
+                runner.captureAll(false);
+
             // using an unreasonable timeout to make it possible to analyze for
             // test cases and measure the test suite.
             auto res = runTester(runner, 999.dur!"hours");
-            auto analyze = testCaseAnalyzer.analyze(res.output, Yes.allFound);
 
-            analyze.match!((TestCaseAnalyzer.Success a) { found = a.found; },
-                    (TestCaseAnalyzer.Unstable a) {
-                logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
-                found = a.found;
-            }, (TestCaseAnalyzer.Failed a) {
-                logger.warning("The parser that analyze the output for test case(s) failed");
-            });
-            found ~= global.testCmds.map!(a => TestCase(a.toShortString)).array;
+            foreach (testCmd; res.output.byKeyValue) {
+                auto analyze = testCaseAnalyzer.analyze(testCmd.value, Yes.allFound);
+
+                analyze.match!((TestCaseAnalyzer.Success a) {
+                    found[testCmd.key] = a.found ~ TestCase(testCmd.key.toShortString);
+                }, (TestCaseAnalyzer.Unstable a) {
+                    logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
+                    found[testCmd.key] = a.found ~ TestCase(testCmd.key.toShortString);
+                }, (TestCaseAnalyzer.Failed a) {
+                    logger.warning("The parser that analyze the output for test case(s) failed");
+                });
+
+            }
+
+            warnIfConflictingTestCaseIdentifiers(found.byValue.joiner.array);
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
 
-        warnIfConflictingTestCaseIdentifiers(found);
         data.foundTestCases = found;
     }
 
@@ -783,13 +793,13 @@ nothrow:
             final switch (global.data.conf.onRemovedTestCases) with (
                 ConfigMutationTest.RemovedTestCases) {
             case doNothing:
-                db.addDetectedTestCases(data.foundTestCases);
+                db.addDetectedTestCases(data.foundTestCases.byValue.joiner.array);
                 break;
             case remove:
                 bool update;
                 // change all mutants which, if a test case is removed, no
                 // longer has a test case that kills it to unknown status
-                foreach (id; db.setDetectedTestCases(data.foundTestCases)) {
+                foreach (id; db.setDetectedTestCases(data.foundTestCases.byValue.joiner.array)) {
                     if (!db.hasTestCases(id)) {
                         update = true;
                         db.updateMutationStatus(id, Mutation.Status.unknown, ExitStatus(0));

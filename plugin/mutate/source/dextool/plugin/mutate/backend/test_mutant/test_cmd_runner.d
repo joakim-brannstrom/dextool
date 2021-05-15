@@ -55,6 +55,8 @@ struct TestRunner {
 
         /// Environment to set when executing either binaries or the command.
         string[string] env;
+
+        bool captureAllOutput;
     }
 
     static auto make(int poolSize) {
@@ -85,6 +87,10 @@ struct TestRunner {
      */
     void useEarlyStop(bool v) @safe nothrow {
         this.earlyStopSignal = new Signal(v);
+    }
+
+    void captureAll(bool v) @safe pure nothrow @nogc {
+        this.captureAllOutput = v;
     }
 
     bool empty() @safe pure nothrow const @nogc {
@@ -157,7 +163,7 @@ struct TestRunner {
             return null;
         }
 
-        void processDone(TestTask* t, ref TestResult result, ref Appender!(DrainElement[]) output) {
+        void processDone(TestTask* t, ref TestResult result) {
             auto res = t.yieldForce;
 
             result.exitStatus = mergeExitStatus(result.exitStatus, res.exitStatus);
@@ -169,13 +175,14 @@ struct TestRunner {
                 }
                 if (res.exitStatus.get != 0) {
                     incrCmdKills(res.cmd);
-                    result.testCmds ~= res.cmd;
+                    result.output[res.cmd] = res.output;
+                } else if (captureAllOutput && res.exitStatus.get == 0) {
+                    result.output[res.cmd] = res.output;
                 }
-                output.put(res.output);
                 break;
             case RunResult.Status.timeout:
                 result.status = TestResult.Status.timeout;
-                result.testCmds ~= res.cmd;
+                result.output[res.cmd] = res.output;
                 break;
             case RunResult.Status.error:
                 result.status = TestResult.Status.error;
@@ -214,11 +221,10 @@ struct TestRunner {
         earlyStopSignal.reset;
         TestTask*[] tasks = startTests(timeout, env_, skipTests, mtx, condDone);
         TestResult rval;
-        auto output = appender!(DrainElement[])();
         while (!tasks.empty) {
             auto t = findDone(tasks);
             if (t !is null) {
-                processDone(t, rval, output);
+                processDone(t, rval);
                 .destroy(t);
             } else {
                 synchronized (mtx) {
@@ -227,7 +233,6 @@ struct TestRunner {
             }
         }
 
-        rval.output = output.data;
         return rval;
     }
 
@@ -272,11 +277,8 @@ struct TestResult {
     Status status;
     ExitStatus exitStatus;
 
-    /// all test commands that found the mutant, aka exist status != 0.
-    ShellCommand[] testCmds;
-
-    /// Output from all the test binaries and command.
-    DrainElement[] output;
+    /// Output from all test binaries and command with exist status != 0.
+    DrainElement[][ShellCommand] output;
 }
 
 /// Finds all executables in a directory tree.
@@ -414,12 +416,14 @@ unittest {
     }();
 
     auto runner = TestRunner.make(0);
+    runner.captureAll(true);
     runner.put([script, "foo", "0"].ShellCommand);
     runner.put([script, "foo", "0"].ShellCommand);
     auto res = runner.run(5.dur!"seconds");
 
-    res.output.filter!(a => !a.empty).count.shouldEqual(2);
-    res.output.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(2);
+    res.output.byKey.count.shouldEqual(1);
+    res.output.byValue.filter!"!a.empty".count.shouldEqual(1);
+    res.output.byValue.joiner.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
     res.status.shouldEqual(TestResult.Status.passed);
 }
 
@@ -437,8 +441,8 @@ unittest {
     runner.put([script, "foo", "1"].ShellCommand);
     auto res = runner.run(5.dur!"seconds");
 
-    res.output.filter!(a => !a.empty).count.shouldEqual(2);
-    res.output.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(2);
+    res.output.byKey.count.shouldEqual(1);
+    res.output.byValue.joiner.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
     res.status.shouldEqual(TestResult.Status.failed);
 }
 
@@ -456,8 +460,9 @@ unittest {
     runner.put([script, "foo", "0", "timeout"].ShellCommand);
     auto res = runner.run(1.dur!"seconds");
 
-    res.output.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
     res.status.shouldEqual(TestResult.Status.timeout);
+    res.output.byKey.count.shouldEqual(1);
+    res.output.byValue.joiner.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
 }
 
 /// Thread safe signal.
