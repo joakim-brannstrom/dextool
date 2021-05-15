@@ -3,20 +3,32 @@
 # base path (absolute or relative) to look for C/C++ files to mutate.
 root = "."
 
-# files and/or directories (relative to root) to be the **only** sources to mutate.
-restrict = ["src", "inc"]
+# only those files that fully match the glob filter will be mutated.
+# glob filter are relative to root.
+include = ["src/*", "inc/*"]
+exclude = []
 
 [generic]
 
 # default mutants to test if none is specified by --mutant
 # note that this affects the analyze phase thus the --mutant argument must be one of those specified here
-# available options are: ["all", "ror", "rorp", "lcr", "aor", "uoi", "abs", "sdl", "dcc", "dcr", "lcrb"]
+# available options are: ["all", "ror", "rorp", "lcr", "aor", "uoi", "sdl", "dcr", "lcrb", "aors"]
 mutants = ["lcr", "lcrb", "sdl", "uoi", "dcr"]
+
+# Use coverage to reduce the tested mutants
+use_coverage = true
+
+# Default is to inject the runtime in all roots. A root is a file either provided by --in
+# or a file in compile_commands.json.
+# If specified then the coverage and schemata runtime is only injected in these files.
+# paths are relative to root.
+# inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]
 
 [analyze]
 
-# files and/or directories (relative to root) to be excluded from analysis.
-# exclude = []
+# glob filter which include/exclude matched files (relative to root) from analysis.
+include = ["*"]
+exclude = []
 
 # number of threads to be used for analysis (default is the number of cores).
 # threads = 8
@@ -24,8 +36,20 @@ mutants = ["lcr", "lcrb", "sdl", "uoi", "dcr"]
 # remove files from the database that are no longer found during analysis.
 prune = true
 
+# minimum number of mutants per schema.
+# min_mutants_per_schema = 3
+
 # maximum number of mutants per schema (zero means no limit).
-# mutants_per_schema = 100
+# mutants_per_schema = 1000
+
+# checksum the files in this directories and warn if a mutation status is older
+# than the newest file. The path can be a file or a directory. Directories
+# are traveresed. All paths are relative to root.
+# test_paths = ["test/suite1", "test/mytest.cpp"]
+
+# glob filter which include/exclude matched test files (relative to root) from analysis.
+# test_include = ["*/*.ext"]
+# test_exclude = []
 
 [database]
 
@@ -43,6 +67,10 @@ extra_flags = ["-Iinc"]
 # system include paths to use instead of the ones in compile_commands.json
 # use_compiler_system_includes = "/path/to/c++"
 
+# allow compilation errors.
+# This is useful to active when clang complain about e.g. gcc specific builtins
+# allow_errors = true
+
 [compile_commands]
 
 # files and/or directories to look for compile_commands.json.
@@ -57,7 +85,7 @@ extra_flags = ["-Iinc"]
 [mutant_test]
 
 # command to build the program **and** test suite.
-build_cmd = ["make", "test_triangle"]
+build_cmd = ["make test_triangle"]
 
 # at least one of test_cmd_dir (recommended) or test_cmd needs to be specified.
 
@@ -71,6 +99,7 @@ build_cmd = ["make", "test_triangle"]
 # the arguments for test_cmd can be an array of multiple test commands
 # 1. ["test1.sh", "test2.sh"]
 # 2. [["test1.sh", "-x"], "test2.sh"]
+# 3. [["/bin/make", "test"]]
 # test_cmd = ["./test.sh"]
 test_cmd = ["./test_triangle"]
 
@@ -86,8 +115,9 @@ test_cmd = ["./test_triangle"]
 # built-in analyzer of output from testing frameworks to find failing test cases
 analyze_using_builtin = ["makefile"]
 
-# determine in what order mutations are chosen
-# order = "random" "consecutive"
+# determine in what order mutants are chosen
+# available options are: "random" "consecutive" "bySize"
+# order = "random"
 
 # how to behave when new test cases are found
 # available options are: "doNothing" "resetAlive"
@@ -123,6 +153,18 @@ use_schemata = true
 # it is a slowdown but nice robustness that is usually worth having
 check_schemata = true
 
+# Enable continues sanity check of the build environment and test suite.
+# Run the test suite every 100 mutant to see that the test suite is OK when no mutants are injected.
+# If the test suite fails the previous 100 mutants will be reverted and mutation testing stops.
+continues_check_test_suite = true
+
+# How often the test suite check is performed
+continues_check_test_suite_period = 100
+
+# Compare the checksum of the test binaries with and without a mutant injected to determine which test binaries need to be executed.
+# Requires that all `test_cmd`s are binaries, it can not be e.g. make test or scripts.
+test_cmd_checksum = true
+
 [report]
 
 # default style to use
@@ -130,8 +172,11 @@ check_schemata = true
 style = "plain"
 
 # default report sections when no --section is specified
-# available options are: ["alive", "killed", "all_mut", "summary", "mut_stat", "tc_killed", "tc_stat", "tc_map", "tc_suggestion", "tc_killed_no_mutants", "tc_full_overlap", "tc_full_overlap_with_mutation_id", "tc_groups", "tc_min_set", "tc_similarity", "tc_groups_similarity", "treemap", "mut_recommend_kill", "diff", "tc_unique", "marked_mutants", "score_history"]
+# available options are: ["alive", "killed", "all_mut", "summary", "mut_stat", "tc_killed", "tc_stat", "tc_map", "tc_suggestion", "tc_killed_no_mutants", "tc_full_overlap", "tc_full_overlap_with_mutation_id", "tc_groups", "tc_min_set", "tc_similarity", "tc_groups_similarity", "treemap", "mut_recommend_kill", "diff", "tc_unique", "marked_mutants", "trend"]
 sections = ["summary"]
+
+# how many mutants to show in the high interest section
+# high_interest_mutants_nr = 5
 
 [test_group]
 
