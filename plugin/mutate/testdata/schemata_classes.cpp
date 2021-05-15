@@ -37,6 +37,45 @@ public:
     virtual ~Class3() = default;
 };
 
+/// Description
+class Class4 {
+public:
+    Class4() = default;
+    Class4(const Class4& other) = default;
+    Class4(Class4&&) = default;
+    Class4& operator=(const Class4& other) = default;
+    Class4& operator=(Class4&& other) noexcept = default;
+    ~Class4() = default;
+
+    void method1();
+    void method2() const;
+    void method3();
+
+private:
+    int x;
+    Class4* child;
+};
+
+void Class4::method1() { x = 42; }
+
+void Class4::method2() const { auto y = x + 42; }
+
+void Class4::method3() {
+    auto& x2 = x;
+
+    while (x2 < 42) {
+        x2++;
+
+        if (child->x >= 42) {
+            if (child->x == 43) {
+                x2 += 4;
+                break;
+            }
+            return;
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     int x = 42;
     x = x + argc;
