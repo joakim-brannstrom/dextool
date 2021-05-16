@@ -22,6 +22,12 @@ Fixes for dextool mutate
    lead to a memory explosion and consequential crash of the tool because it
    ran out of memory. This has now been fixed by introducing a configuration
    option (`max_test_cmd_output`) and default limit of 10 Mbyte.
+ * Fix console spam when the plugin compile the software under test. The spam
+   is replaced by a timestamp that is printed once every minute to indicate to
+   a CI service that it is alive and to the user how long it has been
+   compiling. If the compilation fail it will automatically re-start but this
+   time print all output to the console for the user to understand what went
+   wrong.
 
 # v3.1.0 Drizzle
 
