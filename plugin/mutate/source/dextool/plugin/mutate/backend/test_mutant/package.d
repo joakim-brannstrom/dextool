@@ -707,7 +707,8 @@ nothrow:
         local.get!ContinuesCheckTestSuite.lastWorklistCnt = wlist;
         local.get!ContinuesCheckTestSuite.lastCheck = Clock.currTime + forceCheckEach;
 
-        compile(global.data.conf.mutationCompile, global.data.conf.buildCmdTimeout, true).match!(
+        compile(global.data.conf.mutationCompile,
+                global.data.conf.buildCmdTimeout, PrintCompileOnFailure(true)).match!(
                 (Mutation.Status a) { data.ok = false; }, (bool success) {
             data.ok = success;
         });
@@ -968,7 +969,8 @@ nothrow:
         import proc;
 
         logger.info("Checking the build command").collectException;
-        compile(global.data.conf.mutationCompile, global.data.conf.buildCmdTimeout, true).match!(
+        compile(global.data.conf.mutationCompile,
+                global.data.conf.buildCmdTimeout, PrintCompileOnFailure(true)).match!(
                 (Mutation.Status a) { data.compilationError = true; }, (bool success) {
             data.compilationError = !success;
         });

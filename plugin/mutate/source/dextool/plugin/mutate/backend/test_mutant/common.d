@@ -415,26 +415,53 @@ class AutoCleanup {
 }
 
 alias CompileResult = SumType!(Mutation.Status, bool);
+alias PrintCompileOnFailure = NamedType!(bool, Tag!"CompileActionOnFailure",
+        bool.init, TagStringable, ImplicitConvertable);
 
-CompileResult compile(ShellCommand cmd, Duration timeout, bool printToStdout = false) @trusted nothrow {
+CompileResult compile(ShellCommand cmd, Duration timeout, PrintCompileOnFailure printOnFailure) @trusted nothrow {
     import proc;
-    import std.stdio : write;
+    import std.datetime : Clock;
+    import std.stdio : write, writeln;
 
-    try {
+    const auto started = Clock.currTime;
+    // every minute print something to indicate that the process is still
+    // alive. Otherwise e.g. Jenkins may determine that it is dead.
+    auto nextTick = Clock.currTime + 1.dur!"minutes";
+    void tick() {
+        const now = Clock.currTime;
+        if (now > nextTick) {
+            nextTick = now + 1.dur!"minutes";
+            writeln("compiling... ", now - started);
+        }
+    }
+
+    int runCompilation(bool print) {
         auto p = () {
             if (cmd.value.length == 1) {
                 return pipeShell(cmd.value[0]).sandbox.timeout(timeout).rcKill;
             }
             return pipeProcess(cmd.value).sandbox.timeout(timeout).rcKill;
         }();
+
+        ulong bytes;
         foreach (a; p.process.drain) {
-            if (!a.empty && printToStdout) {
+            if (!a.empty && print) {
                 write(a.byUTF8);
+            } else if (!print) {
+                tick();
             }
         }
-        if (p.wait != 0) {
+
+        return p.wait;
+    }
+
+    try {
+        auto exitStatus = runCompilation(false);
+        if (exitStatus != 0 && printOnFailure)
+            exitStatus = runCompilation(true);
+
+        if (exitStatus != 0)
             return CompileResult(Mutation.Status.killedByCompiler);
-        }
     } catch (Exception e) {
         logger.warning("Unknown error when executing the build command").collectException;
         logger.warning(cmd.value).collectException;

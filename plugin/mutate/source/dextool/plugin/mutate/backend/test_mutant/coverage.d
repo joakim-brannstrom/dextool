@@ -288,14 +288,15 @@ nothrow:
     }
 
     void opCall(ref Compile data) {
-        import dextool.plugin.mutate.backend.test_mutant.common : compile;
+        import dextool.plugin.mutate.backend.test_mutant.common : compile, PrintCompileOnFailure;
 
         try {
             logger.info("Compiling instrumented source code");
 
-            compile(buildCmd, buildCmdTimeout, true).match!((Mutation.Status a) {
-                data.error = true;
-            }, (bool success) { data.error = !success; });
+            compile(buildCmd, buildCmdTimeout, PrintCompileOnFailure(true)).match!(
+                    (Mutation.Status a) { data.error = true; }, (bool success) {
+                data.error = !success;
+            });
         } catch (Exception e) {
             data.error = true;
             logger.warning(e.msg).collectException;
