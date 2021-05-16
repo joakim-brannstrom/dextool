@@ -43,8 +43,8 @@ import dextool.type : AbsolutePath, Path, ExitStatusType;
 
 import dextool.plugin.mutate.backend.database.schema;
 import dextool.plugin.mutate.backend.database.type;
-import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum, Language, Offset;
-import dextool.plugin.mutate.type : MutationOrder;
+import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum, Language, Offset, TestCase;
+import dextool.plugin.mutate.type : MutationOrder, ShellCommand;
 
 /** Database wrapper with minimal dependencies.
  */
@@ -2173,6 +2173,10 @@ struct Database {
     DbTestCmd testCmdApi() return  {
         return DbTestCmd(&this);
     }
+
+    DbTestCase testCaseApi() return {
+        return DbTestCase(&this);
+    }
 }
 
 /** Dependencies between root and those files that should trigger a re-analyze
@@ -2270,7 +2274,6 @@ struct DbDependency {
 
 struct DbTestCmd {
     import my.hash : Checksum64;
-    import dextool.plugin.mutate.type : ShellCommand;
 
     private Database* db;
 
@@ -2322,6 +2325,108 @@ struct DbTestCmd {
         foreach (ref r; stmt.get.execute)
             rval.add(Checksum64(cast(ulong) r.peek!long(0)));
         return rval;
+    }
+}
+
+struct DbTestCase {
+    private Database* db;
+
+    void updateMutationTestCases(const MutationStatusId statusId, TestCase[][ShellCommand] killing) @trusted {
+        if (killing.length == 0)
+            return;
+
+        //try {
+        //    static immutable remove_old_sql = format!"DELETE FROM %s WHERE st_id=:id"(
+        //            killedTestCaseTable);
+        //    auto stmt = db.prepare(remove_old_sql);
+        //    stmt.get.bind(":id", statusId.get);
+        //    stmt.get.execute;
+        //} catch (Exception e) {
+        //}
+        //
+        //static immutable add_if_non_exist_tc_sql = format!"INSERT INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)"(
+        //        allTestCaseTable, allTestCaseTable);
+        //auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
+        //
+        //static immutable add_new_sql = format!"INSERT OR IGNORE INTO %s (st_id, tc_id, location) SELECT :st_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc"(
+        //        killedTestCaseTable, allTestCaseTable);
+        //auto stmt_insert = db.prepare(add_new_sql);
+        //foreach (const tc; tcs) {
+        //    try {
+        //        stmt_insert_tc.get.reset;
+        //        stmt_insert_tc.get.bind(":name1", tc.name);
+        //        stmt_insert_tc.get.bind(":name2", tc.name);
+        //        stmt_insert_tc.get.execute;
+        //
+        //        stmt_insert.get.reset;
+        //        stmt_insert.get.bind(":st_id", statusId.get);
+        //        stmt_insert.get.bind(":loc", tc.location);
+        //        stmt_insert.get.bind(":tc", tc.name);
+        //        stmt_insert.get.execute;
+        //    } catch (Exception e) {
+        //        logger.warning(e.msg);
+        //    }
+        //}
+    }
+
+    /** Set detected test cases.
+     *
+     * This will replace those that where previously stored.
+     *
+     * Returns: ID of affected mutants.
+     */
+    MutationStatusId[] set(TestCase[][ShellCommand] cmds) @trusted {
+        if (cmds.empty)
+            return null;
+
+        auto ids = appender!(MutationStatusId[])();
+
+        auto allCurrentTc = db.run(select!AllTestCaseTbl).array;
+        auto allCurrentTcSet = allCurrentTc.map!(a => a.name).toSet;
+
+        static immutable testCaseToIdSql = format!"SELECT DISTINCT t1.st_id FROM %1$s t1, %2$s t2
+            WHERE t1.tc_id = t2.id AND t2.name = :name
+            "(killedTestCaseTable, allTestCaseTable);
+        {
+            auto stmt = db.prepare(testCaseToIdSql);
+            foreach (tc; all)
+            stmt.get.bind()
+        }
+
+        //static immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
+        //internalAddDetectedTestCases(tcs, tmp_name);
+        //
+        //static immutable mut_st_id = format!"SELECT DISTINCT t1.st_id
+        //    FROM %s t0, %s t1
+        //    WHERE
+        //    t0.name NOT IN (SELECT name FROM %s) AND
+        //    t0.id = t1.tc_id"(allTestCaseTable,
+        //        killedTestCaseTable, tmp_name);
+        //auto stmt = db.prepare(mut_st_id);
+        //foreach (res; stmt.get.execute) {
+        //    ids.put(res.peek!long(0).MutationStatusId);
+        //}
+        //
+        //static immutable remove_old_sql = format!"DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)"(
+        //        allTestCaseTable, tmp_name);
+        //db.run(remove_old_sql);
+        //
+        //db.run(format!"DROP TABLE %s"(tmp_name));
+        //
+        //return ids.data;
+    }
+
+    /** Add test cases to those that have been detected.
+     *
+     * They will be added if they are unique.
+     */
+    void add(TestCase[][ShellCommand] cmds) @trusted {
+        //if (tcs.length == 0)
+        //    return;
+        //
+        //static immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
+        //internalAddDetectedTestCases(tcs, tmp_name);
+        //db.run(format!"DROP TABLE %s"(tmp_name));
     }
 }
 
