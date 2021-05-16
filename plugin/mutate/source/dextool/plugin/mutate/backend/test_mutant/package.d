@@ -504,10 +504,7 @@ struct TestDriver {
         }, (FindTestCmds a) { return fsm(ChooseMode.init); }, (ChooseMode a) {
             if (!self.local.get!PullRequest.constraint.empty)
                 return fsm(PullRequest.init);
-            if (!self.global.data.conf.mutationTestCaseAnalyze.empty
-                || !self.global.data.conf.mutationTestCaseBuiltin.empty)
-                return fsm(AnalyzeTestCmdForTestCase.init);
-            return fsm(CheckMutantsLeft.init);
+            return fsm(AnalyzeTestCmdForTestCase.init);
         }, (PullRequest a) => fsm(CheckMutantsLeft.init), (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
