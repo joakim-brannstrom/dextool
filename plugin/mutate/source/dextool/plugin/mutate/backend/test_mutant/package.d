@@ -795,61 +795,86 @@ nothrow:
     void opCall(UpdateAndResetAliveMutants data) {
         import std.traits : EnumMembers;
 
-        // the test cases before anything has potentially changed.
-        auto old_tcs = spinSql!(() {
-            Set!string old_tcs;
-            foreach (tc; db.getDetectedTestCases)
-                old_tcs.add(tc.name);
-            return old_tcs;
-        });
+        void updateTestCase() {
+            // the test cases before anything has potentially changed.
+            auto old_tcs = spinSql!(() {
+                Set!string old_tcs;
+                foreach (tc; db.getDetectedTestCases)
+                    old_tcs.add(tc.name);
+                return old_tcs;
+            });
 
-        void transaction() @safe {
-            final switch (global.data.conf.onRemovedTestCases) with (
-                ConfigMutationTest.RemovedTestCases) {
-            case doNothing:
-                db.addDetectedTestCases(data.foundTestCases.byValue.joiner.array);
-                break;
-            case remove:
-                bool update;
-                // change all mutants which, if a test case is removed, no
-                // longer has a test case that kills it to unknown status
-                foreach (id; db.setDetectedTestCases(data.foundTestCases.byValue.joiner.array)) {
-                    if (!db.hasTestCases(id)) {
-                        update = true;
-                        db.updateMutationStatus(id, Mutation.Status.unknown, ExitStatus(0));
+            void transaction() @safe {
+                final switch (global.data.conf.onRemovedTestCases) with (
+                    ConfigMutationTest.RemovedTestCases) {
+                case doNothing:
+                    db.addDetectedTestCases(data.foundTestCases.byValue.joiner.array);
+                    break;
+                case remove:
+                    bool update;
+                    // change all mutants which, if a test case is removed, no
+                    // longer has a test case that kills it to unknown status
+                    foreach (id; db.setDetectedTestCases(data.foundTestCases.byValue.joiner.array)) {
+                        if (!db.hasTestCases(id)) {
+                            update = true;
+                            db.updateMutationStatus(id, Mutation.Status.unknown, ExitStatus(0));
+                        }
                     }
+                    if (update) {
+                        db.updateWorklist(global.data.kinds, Mutation.Status.unknown);
+                    }
+                    break;
                 }
-                if (update) {
-                    db.updateWorklist(global.data.kinds, Mutation.Status.unknown);
-                }
-                break;
+            }
+
+            auto found_tcs = spinSql!(() @trusted {
+                auto tr = db.transaction;
+                transaction();
+
+                Set!string found_tcs;
+                foreach (tc; db.getDetectedTestCases)
+                    found_tcs.add(tc.name);
+
+                tr.commit;
+                return found_tcs;
+            });
+
+            printDroppedTestCases(old_tcs, found_tcs);
+
+            if (hasNewTestCases(old_tcs, found_tcs)
+                    && global.data.conf.onNewTestCases == ConfigMutationTest
+                    .NewTestCases.resetAlive) {
+                logger.info("Adding alive mutants to worklist").collectException;
+                spinSql!(() {
+                    db.updateWorklist(global.data.kinds, Mutation.Status.alive);
+                    // if these mutants are covered by the tests then they will be
+                    // removed from the worklist in PropagateCoverage.
+                    db.updateWorklist(global.data.kinds, Mutation.Status.noCoverage);
+                });
             }
         }
 
-        auto found_tcs = spinSql!(() @trusted {
-            auto tr = db.transaction;
-            transaction();
+        void updateTestCmd() {
+            auto previous = spinSql!(() @trusted => db.testCmdApi.getTestCmds);
+            auto cmds = data.foundTestCases.byKey.map!(a => a.toShortString).toSet;
 
-            Set!string found_tcs;
-            foreach (tc; db.getDetectedTestCases)
-                found_tcs.add(tc.name);
+            spinSql!(() @trusted {
+                auto trans = db.transaction;
+                foreach (a; cmds.setDifference(previous).toRange) {
+                    logger.info("found new test command: ", a);
+                    db.testCmdApi.addTestCmd(a);
+                }
 
-            tr.commit;
-            return found_tcs;
-        });
-
-        printDroppedTestCases(old_tcs, found_tcs);
-
-        if (hasNewTestCases(old_tcs, found_tcs)
-                && global.data.conf.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
-            logger.info("Adding alive mutants to worklist").collectException;
-            spinSql!(() {
-                db.updateWorklist(global.data.kinds, Mutation.Status.alive);
-                // if these mutants are covered by the tests then they will be
-                // removed from the worklist in PropagateCoverage.
-                db.updateWorklist(global.data.kinds, Mutation.Status.noCoverage);
+                foreach (a; previous.setDifference(cmds).toRange) {
+                    logger.info("detected removed test command: ", a);
+                    db.testCmdApi.removeTestCmd(a);
+                }
+                trans.commit;
             });
         }
+
+        updateTestCase();
+        updateTestCmd();
     }
 
     void opCall(ResetOldMutant data) {

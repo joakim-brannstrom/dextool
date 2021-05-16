@@ -2270,8 +2270,25 @@ struct DbDependency {
 
 struct DbTestCmd {
     import my.hash : Checksum64;
+    import dextool.plugin.mutate.type : ShellCommand;
 
     private Database* db;
+
+    void addTestCmd(string testCmd) @trusted {
+        static immutable sql = format!"INSERT OR IGNORE INTO %1$s (cmd) VALUES(:cmd)"(testCmdTable);
+
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":cmd", testCmd);
+        stmt.get.execute;
+    }
+
+    void removeTestCmd(string testCmd) @trusted {
+        db.run(delete_!TestCmdTable.where("cmd=:cmd", Bind("cmd")), testCmd);
+    }
+
+    Set!string getTestCmds() @trusted {
+        return db.run(select!TestCmdTable).map!(a => a.cmd).toSet;
+    }
 
     void set(string testCmd, ChecksumTestCmdOriginal cs) @trusted {
         static immutable sql = format!"INSERT OR IGNORE INTO %1$s (checksum, cmd) VALUES(:cs, :cmd)"(
