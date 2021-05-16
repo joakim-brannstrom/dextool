@@ -40,9 +40,12 @@ version (unittest) {
 @safe:
 
 struct TestRunner {
+    alias MaxCaptureBytes = NamedType!(ulong, Tag!"MaxOutputCaptureBytes",
+            ulong.init, TagStringable);
+
     private {
         alias TestTask = Task!(spawnRunTest, ShellCommand, Duration,
-                string[string], Signal, Mutex, Condition);
+                string[string], MaxCaptureBytes, Signal, Mutex, Condition);
         TaskPool pool;
         Duration timeout_;
 
@@ -55,6 +58,11 @@ struct TestRunner {
 
         /// Environment to set when executing either binaries or the command.
         string[string] env;
+
+        bool captureAllOutput;
+
+        /// max bytes to save from a test case.
+        MaxCaptureBytes maxOutput = 10 * 1024 * 1024;
     }
 
     static auto make(int poolSize) {
@@ -78,6 +86,10 @@ struct TestRunner {
         this.env = env;
     }
 
+    void maxOutputCapture(MaxCaptureBytes bytes) @safe pure nothrow @nogc {
+        this.maxOutput = bytes;
+    }
+
     /** Stop executing tests as soon as one detects a failure.
      *
      * This lose some information about the test cases but mean that mutation
@@ -85,6 +97,10 @@ struct TestRunner {
      */
     void useEarlyStop(bool v) @safe nothrow {
         this.earlyStopSignal = new Signal(v);
+    }
+
+    void captureAll(bool v) @safe pure nothrow @nogc {
+        this.captureAllOutput = v;
     }
 
     bool empty() @safe pure nothrow const @nogc {
@@ -157,7 +173,7 @@ struct TestRunner {
             return null;
         }
 
-        void processDone(TestTask* t, ref TestResult result, ref Appender!(DrainElement[]) output) {
+        void processDone(TestTask* t, ref TestResult result) {
             auto res = t.yieldForce;
 
             result.exitStatus = mergeExitStatus(result.exitStatus, res.exitStatus);
@@ -169,13 +185,14 @@ struct TestRunner {
                 }
                 if (res.exitStatus.get != 0) {
                     incrCmdKills(res.cmd);
-                    result.testCmds ~= res.cmd;
+                    result.output[res.cmd] = res.output;
+                } else if (captureAllOutput && res.exitStatus.get == 0) {
+                    result.output[res.cmd] = res.output;
                 }
-                output.put(res.output);
                 break;
             case RunResult.Status.timeout:
                 result.status = TestResult.Status.timeout;
-                result.testCmds ~= res.cmd;
+                result.output[res.cmd] = res.output;
                 break;
             case RunResult.Status.error:
                 result.status = TestResult.Status.error;
@@ -214,11 +231,10 @@ struct TestRunner {
         earlyStopSignal.reset;
         TestTask*[] tasks = startTests(timeout, env_, skipTests, mtx, condDone);
         TestResult rval;
-        auto output = appender!(DrainElement[])();
         while (!tasks.empty) {
             auto t = findDone(tasks);
             if (t !is null) {
-                processDone(t, rval, output);
+                processDone(t, rval);
                 .destroy(t);
             } else {
                 synchronized (mtx) {
@@ -227,7 +243,6 @@ struct TestRunner {
             }
         }
 
-        rval.output = output.data;
         return rval;
     }
 
@@ -236,7 +251,8 @@ struct TestRunner {
         auto tasks = appender!(TestTask*[])();
 
         foreach (c; commands.filter!(a => a.cmd.value[0]!in skipTests.get)) {
-            auto t = task!spawnRunTest(c.cmd, timeout, env, earlyStopSignal, mtx, condDone);
+            auto t = task!spawnRunTest(c.cmd, timeout, env, maxOutput,
+                    earlyStopSignal, mtx, condDone);
             tasks.put(t);
             pool.put(t);
         }
@@ -272,11 +288,8 @@ struct TestResult {
     Status status;
     ExitStatus exitStatus;
 
-    /// all test commands that found the mutant, aka exist status != 0.
-    ShellCommand[] testCmds;
-
-    /// Output from all the test binaries and command.
-    DrainElement[] output;
+    /// Output from all test binaries and command with exist status != 0.
+    DrainElement[][ShellCommand] output;
 }
 
 /// Finds all executables in a directory tree.
@@ -296,7 +309,7 @@ string[] findExecutables(AbsolutePath root) @trusted {
 }
 
 RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env,
-        Signal earlyStop, Mutex mtx, Condition condDone) @trusted nothrow {
+        TestRunner.MaxCaptureBytes maxOutputCapture, Signal earlyStop, Mutex mtx, Condition condDone) @trusted nothrow {
     import std.algorithm : copy;
     static import std.process;
 
@@ -323,9 +336,11 @@ RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env,
         auto p = pipeProcess(cmd.value, std.process.Redirect.all, env).sandbox.timeout(timeout)
             .rcKill;
         auto output = appender!(DrainElement[])();
+        ulong outputBytes;
         foreach (a; p.process.drain) {
-            if (!a.empty) {
+            if (!a.empty && (outputBytes + a.data.length) < maxOutputCapture.get) {
                 output.put(a);
+                outputBytes += a.data.length;
             }
             if (earlyStop.isActive) {
                 debug logger.tracef("Early stop detected. Stopping %s (%s)", cmd, Clock.currTime);
@@ -414,12 +429,14 @@ unittest {
     }();
 
     auto runner = TestRunner.make(0);
+    runner.captureAll(true);
     runner.put([script, "foo", "0"].ShellCommand);
     runner.put([script, "foo", "0"].ShellCommand);
     auto res = runner.run(5.dur!"seconds");
 
-    res.output.filter!(a => !a.empty).count.shouldEqual(2);
-    res.output.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(2);
+    res.output.byKey.count.shouldEqual(1);
+    res.output.byValue.filter!"!a.empty".count.shouldEqual(1);
+    res.output.byValue.joiner.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
     res.status.shouldEqual(TestResult.Status.passed);
 }
 
@@ -437,8 +454,8 @@ unittest {
     runner.put([script, "foo", "1"].ShellCommand);
     auto res = runner.run(5.dur!"seconds");
 
-    res.output.filter!(a => !a.empty).count.shouldEqual(2);
-    res.output.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(2);
+    res.output.byKey.count.shouldEqual(1);
+    res.output.byValue.joiner.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
     res.status.shouldEqual(TestResult.Status.failed);
 }
 
@@ -456,8 +473,33 @@ unittest {
     runner.put([script, "foo", "0", "timeout"].ShellCommand);
     auto res = runner.run(1.dur!"seconds");
 
-    res.output.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
     res.status.shouldEqual(TestResult.Status.timeout);
+    res.output.byKey.count.shouldEqual(1);
+    res.output.byValue.joiner.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
+}
+
+@("shall only capture at most ")
+unittest {
+    import std.algorithm : sum;
+
+    immutable script = makeUnittestScript("script_");
+    scope (exit)
+        () {
+        if (exists(script))
+            remove(script);
+    }();
+
+    auto runner = TestRunner.make(0);
+    runner.put([script, "my_output", "1"].ShellCommand);
+
+    // capture up to default max.
+    auto res = runner.run(1.dur!"seconds");
+    res.output.byValue.joiner.map!(a => a.data.length).sum.shouldEqual(10);
+
+    // reduce max and then nothing is captured because the minimum output is 9 byte
+    runner.maxOutputCapture(TestRunner.MaxCaptureBytes(4));
+    res = runner.run(1.dur!"seconds");
+    res.output.byValue.joiner.map!(a => a.data.length).sum.shouldEqual(0);
 }
 
 /// Thread safe signal.

@@ -294,6 +294,10 @@ struct ArgParser {
                 "# Requires that all `test_cmd`s are binaries, it can not be e.g. make test or scripts.");
         app.put("# test_cmd_checksum = true");
         app.put(null);
+        app.put("# Max output to capture from a test case. Useful when e.g. a test case goes into an infinite loop and spew out Gbyte of text.");
+        app.put("# Unit is Mbyte");
+        app.put("# max_test_cmd_output = 10");
+        app.put(null);
 
         app.put("[report]");
         app.put(null);
@@ -952,6 +956,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["mutant_test.test_cmd_checksum"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.testCmdChecksum.get = v == true;
     };
+    callbacks["mutant_test.max_test_cmd_output"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.maxTestCaseOutput.get = v.integer;
+    };
 
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
         c.report.reportKind = v.str.to!ReportKind;
@@ -1261,6 +1268,19 @@ test_cmd_checksum = true
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.mutationTest.testCmdChecksum.get.shouldBeTrue;
+}
+
+@("shall parse the max Mb to capture")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[mutant_test]
+max_test_cmd_output = 42
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.mutationTest.maxTestCaseOutput.get.shouldEqual(42);
 }
 
 /// Minimal config to setup path to config file.

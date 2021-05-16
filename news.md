@@ -12,6 +12,13 @@ New features for dextool mutate
    equivalent. Set `test_cmd_checksum` to true to activate the feature. It is
    by default turned off.
 
+Fixes for dextool mutate
+
+ * The captured output from the test cases wasn't possible to limit which could
+   lead to a memory explosion and consequential crash of the tool because it
+   ran out of memory. This has now been fixed by introducing a configuration
+   option (`max_test_cmd_output`) and default limit of 10 Mbyte.
+
 # v3.1.0 Drizzle
 
 New features for dextool mutate

@@ -327,24 +327,23 @@ nothrow:
         scope (exit)
             global.testResult.output = null;
 
-        try {
-            auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(
-                    global.testResult.output);
+        foreach (testCmd; global.testResult.output.byKeyValue) {
+            try {
+                auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(testCmd.value);
 
-            analyze.match!((TestCaseAnalyzer.Success a) {
-                global.testCases = a.failed;
-                global.testCases ~= global.testResult.testCmds.map!(a => TestCase(a.toShortString))
-                    .array;
-            }, (TestCaseAnalyzer.Unstable a) {
-                logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
-                logger.info(
-                    "As configured the result is ignored which will force the mutant to be re-tested");
-                data.unstableTests = true;
-            }, (TestCaseAnalyzer.Failed a) {
-                logger.warning("The parser that analyze the output from test case(s) failed");
-            });
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
+                analyze.match!((TestCaseAnalyzer.Success a) {
+                    global.testCases ~= a.failed ~ TestCase(testCmd.key.toShortString);
+                }, (TestCaseAnalyzer.Unstable a) {
+                    logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
+                    logger.info(
+                        "As configured the result is ignored which will force the mutant to be re-tested");
+                    data.unstableTests = true;
+                }, (TestCaseAnalyzer.Failed a) {
+                    logger.warning("The parser that analyze the output from test case(s) failed");
+                });
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+            }
         }
     }
 
