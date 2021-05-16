@@ -281,7 +281,8 @@ nothrow:
 
     void opCall(ref TestMutant data) {
         bool successCompile;
-        compile(local.get!TestMutant.buildCmd, local.get!TestMutant.buildCmdTimeout).match!(
+        compile(local.get!TestMutant.buildCmd,
+                local.get!TestMutant.buildCmdTimeout, PrintCompileOnFailure(false)).match!(
                 (Mutation.Status a) { global.testResult.status = a; }, (bool success) {
             successCompile = success;
         },);
