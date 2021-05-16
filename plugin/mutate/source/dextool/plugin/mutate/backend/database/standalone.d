@@ -1284,7 +1284,7 @@ struct Database {
         } catch (Exception e) {
         }
 
-        static immutable add_if_non_exist_tc_sql = format!"INSERT INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)"(
+        static immutable add_if_non_exist_tc_sql = format!"INSERT OR IGNORE INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)"(
                 allTestCaseTable, allTestCaseTable);
         auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
 
@@ -1384,7 +1384,7 @@ struct Database {
         //While it may not be the most performant method possible in all cases,
         //it should work in basically every database engine ever that attempts
         //to implement ANSI 92 SQL
-        const add_missing_sql = format!"INSERT INTO %s (name) SELECT t1.name FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL"(
+        const add_missing_sql = format!"INSERT OR IGNORE INTO %s (name) SELECT t1.name FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL"(
                 allTestCaseTable, tmp_tbl, allTestCaseTable);
         db.run(add_missing_sql);
     }
