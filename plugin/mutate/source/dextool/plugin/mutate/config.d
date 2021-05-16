@@ -165,7 +165,7 @@ struct ConfigMutationTest {
     Duration buildCmdTimeout = 30.dur!"minutes";
 
     /// In what order to choose mutants to test.
-    MutationOrder mutationOrder;
+    MutationOrder mutationOrder = MutationOrder.bySize;
     bool dryRun;
 
     /// How to behave when new test cases are detected.

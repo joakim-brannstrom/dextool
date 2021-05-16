@@ -11,6 +11,10 @@ New features for dextool mutate
    is *affected* by the inserted mutant the mutation is classified as
    equivalent. Set `test_cmd_checksum` to true to activate the feature. It is
    by default turned off.
+ * Changed the default test order of mutants to `bySize` after a thorough
+   testing phase. It means that the mutants are tested in random order but
+   weighted by how much they affect the program (SUT). This mean that e.g.
+   large *sdl* mutants will be prioritized above *aor* mutants.
 
 Fixes for dextool mutate
 
