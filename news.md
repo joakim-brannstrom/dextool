@@ -28,6 +28,7 @@ Fixes for dextool mutate
    compiling. If the compilation fail it will automatically re-start but this
    time print all output to the console for the user to understand what went
    wrong.
+ * Fix lockup when there are test cases with the same name.
 
 # v3.1.0 Drizzle
 
