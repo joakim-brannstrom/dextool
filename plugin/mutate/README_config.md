@@ -715,6 +715,12 @@ it means that all `test_cmd` must binaries, it can not be e.g. "make test".
 This is obvious when you think about it because "make test" is never changed
 when a mutant is injected.
 
+`max_test_cmd_output`: Limits the number of mbytes captured from the `test_cmd`
+executions. The limit is per `test_cmd`. This is used to prevent e.g.
+`test_cmd`s that execute in an infinite loop and spew out Gbyte of output from
+consuming all the available memory which lead to a crash of the plugin.  The
+default limit is 10 Mbyte. It should be enough for most reasonable `test_cmd`s.
+
 ```toml
 [report]
 ```

@@ -258,6 +258,8 @@ struct ConfigMutationTest {
     NamedType!(int, Tag!"ContinuesCheckTestSuitePeriod", int.init, TagStringable) contCheckTestSuitePeriod = 100;
 
     NamedType!(bool, Tag!"TestCmdChecksum", bool.init, TagStringable) testCmdChecksum;
+
+    NamedType!(long, Tag!"MaxTestCaseOutputCaptureMbyte", int.init, TagStringable) maxTestCaseOutput = 10;
 }
 
 /// Settings for the administration mode

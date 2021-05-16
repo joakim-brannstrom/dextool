@@ -40,9 +40,12 @@ version (unittest) {
 @safe:
 
 struct TestRunner {
+    alias MaxCaptureBytes = NamedType!(ulong, Tag!"MaxOutputCaptureBytes",
+            ulong.init, TagStringable);
+
     private {
         alias TestTask = Task!(spawnRunTest, ShellCommand, Duration,
-                string[string], Signal, Mutex, Condition);
+                string[string], MaxCaptureBytes, Signal, Mutex, Condition);
         TaskPool pool;
         Duration timeout_;
 
@@ -57,6 +60,9 @@ struct TestRunner {
         string[string] env;
 
         bool captureAllOutput;
+
+        /// max bytes to save from a test case.
+        MaxCaptureBytes maxOutput = 10 * 1024 * 1024;
     }
 
     static auto make(int poolSize) {
@@ -78,6 +84,10 @@ struct TestRunner {
 
     void defaultEnv(string[string] env) @safe pure nothrow @nogc {
         this.env = env;
+    }
+
+    void maxOutputCapture(MaxCaptureBytes bytes) @safe pure nothrow @nogc {
+        this.maxOutput = bytes;
     }
 
     /** Stop executing tests as soon as one detects a failure.
@@ -241,7 +251,8 @@ struct TestRunner {
         auto tasks = appender!(TestTask*[])();
 
         foreach (c; commands.filter!(a => a.cmd.value[0]!in skipTests.get)) {
-            auto t = task!spawnRunTest(c.cmd, timeout, env, earlyStopSignal, mtx, condDone);
+            auto t = task!spawnRunTest(c.cmd, timeout, env, maxOutput,
+                    earlyStopSignal, mtx, condDone);
             tasks.put(t);
             pool.put(t);
         }
@@ -298,7 +309,7 @@ string[] findExecutables(AbsolutePath root) @trusted {
 }
 
 RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env,
-        Signal earlyStop, Mutex mtx, Condition condDone) @trusted nothrow {
+        TestRunner.MaxCaptureBytes maxOutputCapture, Signal earlyStop, Mutex mtx, Condition condDone) @trusted nothrow {
     import std.algorithm : copy;
     static import std.process;
 
@@ -325,9 +336,11 @@ RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env,
         auto p = pipeProcess(cmd.value, std.process.Redirect.all, env).sandbox.timeout(timeout)
             .rcKill;
         auto output = appender!(DrainElement[])();
+        ulong outputBytes;
         foreach (a; p.process.drain) {
-            if (!a.empty) {
+            if (!a.empty && (outputBytes + a.data.length) < maxOutputCapture.get) {
                 output.put(a);
+                outputBytes += a.data.length;
             }
             if (earlyStop.isActive) {
                 debug logger.tracef("Early stop detected. Stopping %s (%s)", cmd, Clock.currTime);
@@ -463,6 +476,30 @@ unittest {
     res.status.shouldEqual(TestResult.Status.timeout);
     res.output.byKey.count.shouldEqual(1);
     res.output.byValue.joiner.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
+}
+
+@("shall only capture at most ")
+unittest {
+    import std.algorithm : sum;
+
+    immutable script = makeUnittestScript("script_");
+    scope (exit)
+        () {
+        if (exists(script))
+            remove(script);
+    }();
+
+    auto runner = TestRunner.make(0);
+    runner.put([script, "my_output", "1"].ShellCommand);
+
+    // capture up to default max.
+    auto res = runner.run(1.dur!"seconds");
+    res.output.byValue.joiner.map!(a => a.data.length).sum.shouldEqual(10);
+
+    // reduce max and then nothing is captured because the minimum output is 9 byte
+    runner.maxOutputCapture(TestRunner.MaxCaptureBytes(4));
+    res = runner.run(1.dur!"seconds");
+    res.output.byValue.joiner.map!(a => a.data.length).sum.shouldEqual(0);
 }
 
 /// Thread safe signal.

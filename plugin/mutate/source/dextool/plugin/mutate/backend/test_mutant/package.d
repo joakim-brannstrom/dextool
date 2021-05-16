@@ -434,6 +434,8 @@ struct TestDriver {
         this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
         this.runner = TestRunner.make(global.data.conf.testPoolSize);
         this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
+        this.runner.maxOutputCapture(TestRunner.MaxCaptureBytes(
+                global.data.conf.maxTestCaseOutput.get * 1024 * 1024));
         this.runner.put(data.conf.mutationTester);
 
         // TODO: allow a user, as is for test_cmd, to specify an array of
