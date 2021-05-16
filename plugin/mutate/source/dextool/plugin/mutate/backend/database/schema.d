@@ -91,6 +91,7 @@ immutable srcCovTable = "src_cov_instr";
 immutable srcCovTimeStampTable = "src_cov_timestamp";
 immutable srcMetadataTable = "src_metadata";
 immutable testCmdOriginalTable = "test_cmd_original";
+immutable testCmdTable = "test_cmd";
 immutable testFilesTable = "test_files";
 
 private immutable invalidSchemataTable = "invalid_schemata";
@@ -629,6 +630,13 @@ struct TestCmdOriginalTable {
     string cmd;
 }
 
+@TableName(testCmdTable)
+@TableConstraint("unique_ UNIQUE (cmd)")
+struct TestCmdTable {
+    long id;
+    string cmd;
+}
+
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
         db.run(delete_!VersionTbl);
@@ -747,7 +755,8 @@ void upgradeV0(ref Miniorm db) {
             SchemataUsedTable, MutantWorklistTbl, RuntimeHistoryTable,
             MutationScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
             CoverageInfoTable, CoverageTimeTtampTable,
-            DependencyFileTable, DependencyRootTable, DextoolVersionTable, TestCmdOriginalTable));
+            DependencyFileTable, DependencyRootTable, DextoolVersionTable,
+            TestCmdOriginalTable, TestCmdTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1596,6 +1605,11 @@ void upgradeV40(ref Miniorm db) {
 // 2021-05-09
 void upgradeV41(ref Miniorm db) {
     db.run(buildSchema!(TestCmdOriginalTable));
+}
+
+// 2021-05-16
+void upgradeV42(ref Miniorm db) {
+    db.run(buildSchema!(TestCmdTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
