@@ -53,8 +53,9 @@ int main(string[] args) {
     const tmpFile = confFile ~ ".tmp";
     auto fout = File(tmpFile, "w");
 
+    bool doInjection = true;
     foreach (l; File(confFile).byLineCopy) {
-        if (l.startsWith("test_cmd")) {
+        if (l.startsWith("test_cmd") && doInjection) {
             fout.writefln(`test_cmd = [%-(%s, %)]`, cmds.data.map!(a => format(`[%(%s, %)]`, a)));
             writeln("Updated test_cmd");
             if (!failing.data.empty) {
@@ -62,6 +63,7 @@ int main(string[] args) {
                         failing.data.map!(a => format(`[%(%s, %)]`, a)));
                 writeln("Failing ", failing.data);
             }
+            doInjection = false;
         } else {
             fout.writeln(l);
         }
