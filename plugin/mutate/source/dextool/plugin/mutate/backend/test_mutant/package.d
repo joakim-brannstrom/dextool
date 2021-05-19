@@ -215,6 +215,12 @@ struct TestDriver {
     /// parallel.
     uint maxParallelInstances;
 
+    // need to use 10000 because in an untested code base it is not
+    // uncommon for mutants being in the thousands.
+    enum long unknownWeight = 10000;
+    // using a factor 1000 to make a pull request mutant very high prio
+    enum long pullRequestWeight = unknownWeight * 1000;
+
     static struct Global {
         DriverData data;
 
@@ -450,8 +456,7 @@ struct TestDriver {
         this.stopCheck = TestStopCheck(global.data.conf);
 
         this.maxParallelInstances = () {
-            if (global.mutationOrder.among(MutationOrder.random,
-                    MutationOrder.bySize) && global.data.conf.constraint.empty)
+            if (global.mutationOrder.among(MutationOrder.random, MutationOrder.bySize))
                 return 100;
             return 1;
         }();
@@ -589,11 +594,9 @@ nothrow:
 
     void opCall(ref Initialize data) {
         logger.info("Initializing worklist").collectException;
-        // need to use 10000 because in an untested code base it is not
-        // uncommon for mutants being in the thousands.
         spinSql!(() {
             db.updateWorklist(global.data.kinds, Mutation.Status.unknown,
-                10000, global.mutationOrder);
+                unknownWeight, global.mutationOrder);
         });
 
         // detect if the system is overloaded before trying to do something
@@ -1020,6 +1023,7 @@ nothrow:
 
         // deterministic testing of mutants and prioritized by their size.
         global.mutationOrder = MutationOrder.bySize;
+        maxParallelInstances = 1;
 
         // make sure they are unique.
         Set!MutationStatusId mutantIds;
@@ -1052,8 +1056,7 @@ nothrow:
                 mutantIds.length).collectException;
         spinSql!(() {
             foreach (id; mutantIds.toArray.sort) {
-                // using 100000 to make a pull request mutant very high prio
-                db.addToWorklist(id, 100000, MutationOrder.bySize);
+                db.addToWorklist(id, pullRequestWeight, MutationOrder.bySize);
             }
         });
 
@@ -1184,7 +1187,7 @@ nothrow:
         global.nextMutant = MutationEntry.init;
 
         auto next = spinSql!(() {
-            return db.nextMutation(global.data.kinds, maxParallelInstances, global.mutationOrder);
+            return db.nextMutation(global.data.kinds, maxParallelInstances);
         });
 
         data.noUnknownMutantsLeft.get = next.st == NextMutationEntry.Status.done;
