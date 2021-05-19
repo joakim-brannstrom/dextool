@@ -50,26 +50,23 @@ struct Database {
     /** Get the next mutation from the worklist to test by the highest
      * priority.
      *
-     * TODO: assuming that there are no more than 100 instances running in
-     * parallel.
-     *
      * The chosen point is randomised.
      *
      * Params:
      *  kind = kind of mutation to retrieve.
      */
     NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds,
-            const MutationOrder userOrder = MutationOrder.random) @trusted {
+            const uint maxParallel, const MutationOrder userOrder = MutationOrder.random) @trusted {
         import dextool.plugin.mutate.backend.type;
 
         const order = () {
             final switch (userOrder) {
             case MutationOrder.random:
-                return "100";
+                return maxParallel.to!string;
             case MutationOrder.consecutive:
                 return "1";
             case MutationOrder.bySize:
-                return "1";
+                return maxParallel.to!string;
             }
         }();
 
