@@ -11,7 +11,7 @@ module dextool.plugin.mutate.backend.test_mutant;
 
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
-import std.algorithm : map, filter, joiner;
+import std.algorithm : map, filter, joiner, among;
 import std.array : empty, array, appender;
 import std.datetime : SysTime, Clock;
 import std.datetime.stopwatch : StopWatch, AutoStart;
@@ -210,6 +210,10 @@ struct TestDriver {
 
     /// Stop conditions (most of them)
     TestStopCheck stopCheck;
+
+    /// assuming that there are no more than 100 instances running in
+    /// parallel.
+    uint maxParallelInstances;
 
     static struct Global {
         DriverData data;
@@ -444,6 +448,13 @@ struct TestDriver {
                 global.data.conf.mutationTestCaseAnalyze, global.data.autoCleanup);
 
         this.stopCheck = TestStopCheck(global.data.conf);
+
+        this.maxParallelInstances = () {
+            if (global.mutationOrder.among(MutationOrder.random,
+                    MutationOrder.bySize) && global.data.conf.constraint.empty)
+                return 100;
+            return 1;
+        }();
 
         if (logger.globalLogLevel == logger.LogLevel.trace)
             fsm.logger = (string s) { logger.trace(s); };
@@ -1173,7 +1184,7 @@ nothrow:
         global.nextMutant = MutationEntry.init;
 
         auto next = spinSql!(() {
-            return db.nextMutation(global.data.kinds, global.mutationOrder);
+            return db.nextMutation(global.data.kinds, maxParallelInstances, global.mutationOrder);
         });
 
         data.noUnknownMutantsLeft.get = next.st == NextMutationEntry.Status.done;
