@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.test_mutant.schemata;
 
 import logger = std.experimental.logger;
-import std.algorithm : sort, map, filter;
+import std.algorithm : sort, map, filter, among;
 import std.array : empty, array, appender;
 import std.conv : to;
 import std.datetime : Duration;
@@ -180,7 +180,7 @@ struct SchemataTestDriver {
             roots.add(p);
         }
 
-        if (logger.globalLogLevel == logger.LogLevel.trace)
+        if (logger.globalLogLevel.among(logger.LogLevel.trace, logger.LogLevel.all))
             fsm.logger = (string s) { logger.trace(s); };
     }
 

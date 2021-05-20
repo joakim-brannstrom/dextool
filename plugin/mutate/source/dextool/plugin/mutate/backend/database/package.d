@@ -55,20 +55,8 @@ struct Database {
      * Params:
      *  kind = kind of mutation to retrieve.
      */
-    NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds,
-            const uint maxParallel, const MutationOrder userOrder = MutationOrder.random) @trusted {
+    NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds, const uint maxParallel) @trusted {
         import dextool.plugin.mutate.backend.type;
-
-        const order = () {
-            final switch (userOrder) {
-            case MutationOrder.random:
-                return maxParallel.to!string;
-            case MutationOrder.consecutive:
-                return "1";
-            case MutationOrder.bySize:
-                return maxParallel.to!string;
-            }
-        }();
 
         typeof(return) rval;
 
@@ -93,7 +81,7 @@ struct Database {
             t1.file_id == t2.id
             ORDER BY t4.prio DESC LIMIT %6$s)
             ORDER BY RANDOM() LIMIT 1", mutationTable, mutationPointTable,
-                filesTable, mutationStatusTable, mutantWorklistTable, order);
+                filesTable, mutationStatusTable, mutantWorklistTable, maxParallel);
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;
         if (res.empty) {

@@ -13,7 +13,7 @@ module dextool.plugin.mutate.backend.test_mutant.source_mutant;
 
 import core.time : Duration;
 import logger = std.experimental.logger;
-import std.algorithm : sort, map, filter;
+import std.algorithm : sort, map, filter, among;
 import std.array : empty, array;
 import std.exception : collectException;
 import std.path : buildPath;
@@ -146,7 +146,7 @@ struct MutationTestDriver {
         this.global = global;
         this.local = LocalStateDataT(l1, l2);
 
-        if (logger.globalLogLevel == logger.LogLevel.trace)
+        if (logger.globalLogLevel.among(logger.LogLevel.trace, logger.LogLevel.all))
             fsm.logger = (string s) { logger.trace(s); };
     }
 
