@@ -461,7 +461,7 @@ struct TestDriver {
             return 1;
         }();
 
-        if (logger.globalLogLevel == logger.LogLevel.trace)
+        if (logger.globalLogLevel.among(logger.LogLevel.trace, logger.LogLevel.all))
             fsm.logger = (string s) { logger.trace(s); };
     }
 
