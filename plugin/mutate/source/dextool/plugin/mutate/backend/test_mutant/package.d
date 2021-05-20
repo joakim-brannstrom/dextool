@@ -1055,14 +1055,11 @@ nothrow:
         logger.infof(!mutantIds.empty, "Found %s mutants in the diff",
                 mutantIds.length).collectException;
         spinSql!(() {
-            foreach (id; mutantIds.toArray.sort) {
+            foreach (id; mutantIds.toArray.sort)
                 db.addToWorklist(id, pullRequestWeight, MutationOrder.bySize);
-            }
         });
 
-        local.get!CheckPullRequestMutant.startWorklistCnt = spinSql!(() {
-            return db.getWorklistCount;
-        });
+        local.get!CheckPullRequestMutant.startWorklistCnt = spinSql!(() => db.getWorklistCount);
         local.get!CheckPullRequestMutant.stopAfter = mutantIds.length;
 
         if (mutantIds.empty) {
