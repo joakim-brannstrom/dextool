@@ -29,7 +29,7 @@ __attribute__((constructor, weak)) void dextool_init_covmap(void) {
         return;
     gDEXTOOL_COVMAP = addr;
     gDEXTOOL_COVMAP_FD = fd;
-    *(gDEXTOOL_COVMAP) = 1; // successfully initialized
+    *(gDEXTOOL_COVMAP) = 1; /* successfully initialized */
 }
 
 __attribute__((weak)) void dextool_cov(unsigned int x) {
