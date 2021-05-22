@@ -618,7 +618,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
             // by making the mailbox size follow the number of workers the overall
             // behavior will slow down if saving to the database is too slow. This
             // avoids excessive or even fatal memory usage.
-            setMaxMailboxSize(thisTid, conf.analyze.poolSize + 2, OnCrowding.block);
+            setMaxMailboxSize(thisTid, 2, OnCrowding.block);
 
             fastDbOn();
 
