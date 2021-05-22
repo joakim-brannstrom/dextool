@@ -29,6 +29,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
 import dextool.plugin.mutate.backend.type : Mutation, Language;
 import dextool.plugin.mutate.type : ShellCommand, UserRuntime;
+import dextool.plugin.mutate.config : ConfigCoverage;
 
 @safe:
 
@@ -107,16 +108,16 @@ struct CoverageDriver {
         Set!AbsolutePath roots;
     }
 
-    this(FilesysIO fio, Database* db, TestRunner* runner, UserRuntime[] userRuntimeCtrl,
-            ShellCommand buildCmd, Duration buildCmdTimeout, bool log) {
+    this(FilesysIO fio, Database* db, TestRunner* runner, ConfigCoverage conf,
+            ShellCommand buildCmd, Duration buildCmdTimeout) {
         this.fio = fio;
         this.db = db;
         this.runner = runner;
         this.buildCmd = buildCmd;
         this.buildCmdTimeout = buildCmdTimeout;
-        this.log = log;
+        this.log = conf.log;
 
-        foreach (a; userRuntimeCtrl) {
+        foreach (a; conf.userRuntimeCtrl) {
             auto p = fio.toAbsoluteRoot(a.file);
             roots.add(p);
             lang[p] = a.lang;

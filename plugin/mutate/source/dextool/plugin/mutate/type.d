@@ -203,3 +203,13 @@ struct UserRuntime {
     Path file;
     Language lang;
 }
+
+enum SchemaRuntime : ubyte {
+    inject,
+    library,
+}
+
+enum CoverageRuntime : ubyte {
+    inject,
+    library,
+}
