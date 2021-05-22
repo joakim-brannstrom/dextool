@@ -147,8 +147,10 @@ struct ArgParser {
         app.put(null);
 
         app.put("[schema]");
+        app.put(null);
         app.put("# Use scheman to reduce the compile+link time");
         app.put("use = true");
+        app.put(null);
         app.put("# how to add the schema runtime to the SUT");
         app.put(format!"# available options are: %s"(
                 [EnumMembers!SchemaRuntime].map!(a => a.to!string)));
@@ -174,6 +176,7 @@ struct ArgParser {
         app.put(null);
 
         app.put("[coverage]");
+        app.put(null);
         app.put("# Use coverage to reduce the tested mutants");
         app.put("use = true");
         app.put(null);
