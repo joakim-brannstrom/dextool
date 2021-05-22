@@ -8,7 +8,9 @@ static unsigned int gDEXTOOL_MUTID;
 
 __attribute__((constructor, weak)) void dextool_init_mutid(void) {
     gDEXTOOL_MUTID = 0;
-    const char* c = getenv("DEXTOOL_MUTID");
+    const char* c;
+
+    c = getenv("DEXTOOL_MUTID");
     if (c == NULL)
         return;
     for (; *c != '\0'; ++c) {
