@@ -538,9 +538,8 @@ dextool mutate admin --init
 try to be self explaining. This section is thus focused on explaining the
 different categories (`[....]`).
 
-```toml
-[workarea]
-```
+## [workarea]
+
 Configuration of the directories that dextool is allowed to change files in.
 
 `root`: Defines the root directory that all phases of mutation testing will use.
@@ -557,34 +556,75 @@ inside the same root. To discover all available mutants, C++ templates, the
 analyser must analyze test cases because templates are instantiated there. But
 it is obviously so that the tests should not be mutated. By configuring this
 option to `include=["src/*"]` it means that only the mutants inside
-`{root}/src` are saved in the database. This can be combinded with `exclude` to
+`{root}/src` are saved in the database. This can be combined with `exclude` to
 remove e.g. files inside `src` for this example.
 
-```toml
-[generic]
-```
+## [generic]
+
 Generic options that affect all phases that. The most important to configure
 here is the mutation operators to use (`mutants`). It affects what mutants are
 saved in the database, which ones are mutated and reported.
 
-`use_coverage`: An additional pass will be executed when either the program or
-the tests changes. This pass instrument the source code to see which functions
-are covered by the tests. Any mutants that is in a function that is not covered
+## [schema]
+
+Schemata is a technique that inject multiple mutants at the same time in the
+SUT with code that allow them to be toggled one at a time. This make it
+possible to compile once and have hundreds of mutants in the binary at the same
+time. In short it cuts down on the compile+link time. It is highly recommended
+to enable this option because mutation testing becomes 50-10000% times faster
+(depending on the test suite runtime).
+
+`use`: activate use of schematan.
+
+`runtime`: The option `inject` mean that dextool inject the runtime needed for
+mutation testing in all roots or those specified by `inject_runtime_impl`. This
+is a nice and automated process. If this doesn't work because you are running
+on an embedded system and need a modified schema runtime, linking errors etc
+then you can opt to use the `library` option. It means that you precompile the
+runtime and manually link with the library. Dextool will do no magic.
+
+`check_schemata`: This option check that there are no errors with the schema by
+executing the test suite once, after the schema is injected. The test suite
+should, if everything worked as expected, signal PASSED/no failure. If it
+failed in any way it means that there is a bug in the schema generator and it
+isn't just.
+
+`mutants_per_schema`: The approximate max number of mutants a schema should
+contain. Some compiles fail to compile when the source code is too big. This
+allows you to control how many mutants are injected.
+
+`min_mutants_per_schema`: Minimum number of mutants a schema must contain for it to be used.
+
+`inject_runtime_impl`: Inject the runtime in only these files.
+
+## [coverage]
+
+An additional pass will be executed when either the program or the tests
+changes. This pass instrument the source code to see which functions are
+covered by the tests. Any mutants that is in a function that is not covered
 will be marked as alive. It is because for the test suite to even have a chance
 of killing a mutant it must execute the function/method the mutant reside in.
-This option can greately speed up the testing of all mutants.
+This option can greatly speed up the testing of all mutants.
 
+`use`: activate use of coverage.
 It is strongly recommended to also track the test files such that the coverage
-is automatically updated when the tests are changed.
+is automatically updated when the tests are changed (`generic.test_paths`).
 
-```toml
-[database]
-```
+`runtime`: The option `inject` mean that dextool inject the runtime needed for
+mutation testing in all roots or those specified by `inject_runtime_impl`. This
+is a nice and automated process. If this doesn't work because you are running
+on an embedded system and need a modified schema runtime, linking errors etc
+then you can opt to use the `library` option. It means that you precompile the
+runtime and manually link with the library. Dextool will do no magic.
+
+`inject_runtime_impl`: Inject the runtime in only these files.
+
+## [database]
+
 Database options.
 
-```toml
-[compiler]
-```
+## [compiler]
+
 Options for the compiler such as extra flags to add or if a specific compiler
 should be used instead of the one found in the `compile_commands.json` file.
 
@@ -595,9 +635,8 @@ to a C++ stdlib that isn't compatible with clang which would lead to a total
 analysis failure. By *fooling* dextool to instead derived the system includes
 from another compiler it is still possible to complete the analysis phase.
 
-```toml
-[compile_commands]
-```
+## [compile_commands]
+
 Configuration of which `compile_commands.json` to use and how it should be
 filtered.
 
@@ -608,9 +647,8 @@ that only exist in GCC.
 need to know where the compiler "start" in the argument list because the system
 includes are extracted from the compiler.
 
-```toml
-[mutant_test]
-```
+## [mutant_test]
+
 Configuration of the test phase. This contains the most options because it is
 also the one that has to be highly flexible.
 
@@ -682,19 +720,6 @@ all test binaries are executed for each mutant but rather a subset. This can be
 alleviated somewhat by executing tests in random order. For google test this is
 `--gtest_shuffle`.
 
-`use_schemata`: Schemata is a technique that inject multiple mutants at the
-same time in the SUT with code that allow them to be toggled one at a time.
-This make it possible to compile once and have hundreds of mutants in the binary
-at the same time. In short it cuts down on the compile+link time. It is highly
-recommended to enable this option because mutation testing becomes 50-10000%
-times faster.
-
-`check_schemata`: This option check that there are no errors with the schema by
-executing the test suite once, after the schema is injected. The test suite
-should, if everything worked as expected, signal PASSED/no failure. If it
-failed in any way it means that there is a bug in the schema generator and it
-isn't just.
-
 `continues_check_test_suite`: This option activates a test suite check that is
 ran periodically. It try to execute the test suite with zero mutants. If it
 ever fails it means that there is something wrong with the computer the tool is
@@ -721,9 +746,8 @@ executions. The limit is per `test_cmd`. This is used to prevent e.g.
 consuming all the available memory which lead to a crash of the plugin.  The
 default limit is 10 Mbyte. It should be enough for most reasonable `test_cmd`s.
 
-```toml
-[report]
-```
+## [report]
+
 Configuration of the generated reports.
 
 `style`: The default report style to use when none is specified via the CLI.

@@ -34,7 +34,9 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, Checksum;
-import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand, UserRuntime;
+import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand,
+    UserRuntime, SchemaRuntime;
+import dextool.plugin.mutate.config : ConfigSchema;
 
 @safe:
 
@@ -78,6 +80,8 @@ struct SchemataTestDriver {
         Set!AbsolutePath roots;
 
         TestStopCheck stopCheck;
+
+        SchemaRuntime runtime;
     }
 
     static struct None {
@@ -160,8 +164,8 @@ struct SchemataTestDriver {
     }
 
     this(FilesysIO fio, TestRunner* runner, Database* db, TestCaseAnalyzer* testCaseAnalyzer,
-            UserRuntime[] userRuntimeCtrl, SchemataId id, TestStopCheck stopCheck,
-            Mutation.Kind[] kinds, ShellCommand buildCmd, Duration buildCmdTimeout, bool log) {
+            ConfigSchema conf, SchemataId id, TestStopCheck stopCheck,
+            Mutation.Kind[] kinds, ShellCommand buildCmd, Duration buildCmdTimeout) {
         this.fio = fio;
         this.runner = runner;
         this.db = db;
@@ -170,12 +174,13 @@ struct SchemataTestDriver {
         this.kinds = kinds;
         this.buildCmd = buildCmd;
         this.buildCmdTimeout = buildCmdTimeout;
-        this.log = log;
+        this.log = conf.log;
+        this.runtime = conf.runtime;
 
         this.local.get!TestCaseAnalyze.testCaseAnalyzer = testCaseAnalyzer;
         this.local.get!TestMutant.hasTestCaseOutputAnalyzer = !testCaseAnalyzer.empty;
 
-        foreach (a; userRuntimeCtrl) {
+        foreach (a; conf.userRuntimeCtrl) {
             auto p = fio.toAbsoluteRoot(a.file);
             roots.add(p);
         }
@@ -188,7 +193,9 @@ struct SchemataTestDriver {
         self.fsm.next!((None a) => fsm(Initialize.init), (Initialize a) {
             if (a.error)
                 return fsm(Done.init);
-            return fsm(InitializeRoots.init);
+            if (self.runtime == SchemaRuntime.inject)
+                return fsm(InitializeRoots.init);
+            return fsm(InjectSchema.init);
         }, (InitializeRoots a) {
             if (a.hasRoot)
                 return fsm(InjectSchema.init);

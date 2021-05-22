@@ -308,7 +308,7 @@ ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
     printFileAnalyzeHelp(conf);
 
     return runAnalyzer(conf.db, conf.data.mutation, conf.analyze,
-            conf.compiler, dacc.frange, dacc.validateLoc, dacc.io);
+            conf.compiler, conf.schema, conf.coverage, dacc.frange, dacc.validateLoc, dacc.io);
 }
 
 ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {
@@ -322,8 +322,8 @@ ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {
 ExitStatusType modeTestMutants(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : makeTestMutant;
 
-    return makeTestMutant.config(conf.mutationTest)
-        .mutations(conf.data.mutation).run(conf.db, dacc.io);
+    return makeTestMutant.config(conf.mutationTest).mutations(conf.data.mutation)
+        .config(conf.coverage).config(conf.schema).run(conf.db, dacc.io);
 }
 
 ExitStatusType modeReport(ref ArgParser conf, ref DataAccess dacc) {

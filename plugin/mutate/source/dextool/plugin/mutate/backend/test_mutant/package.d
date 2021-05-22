@@ -59,12 +59,24 @@ struct BuildTestMutant {
         Mutation.Kind[] kinds;
         FilesysIO filesys_io;
         ConfigMutationTest config;
+        ConfigSchema schemaConf;
+        ConfigCoverage covConf;
     }
 
     private InternalData data;
 
     auto config(ConfigMutationTest c) @trusted nothrow {
         data.config = c;
+        return this;
+    }
+
+    auto config(ConfigSchema c) @trusted nothrow {
+        data.schemaConf = c;
+        return this;
+    }
+
+    auto config(ConfigCoverage c) @trusted nothrow {
+        data.covConf = c;
         return this;
     }
 
@@ -89,15 +101,14 @@ struct BuildTestMutant {
 
     private ExitStatusType internalRun(ref Database db, FilesysIO fio) {
         // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
-        auto db_ref = () @trusted { return &db; }();
+        auto dbPtr = () @trusted { return &db; }();
 
         auto cleanup = new AutoCleanup;
         scope (exit)
             cleanup.cleanup;
 
-        auto driver_data = DriverData(db_ref, fio, data.kinds, cleanup, data.config);
-
-        auto test_driver = TestDriver(driver_data);
+        auto test_driver = TestDriver(dbPtr, fio, data.kinds, cleanup,
+                data.config, data.covConf, data.schemaConf);
 
         while (test_driver.isRunning) {
             test_driver.execute;
@@ -105,14 +116,6 @@ struct BuildTestMutant {
 
         return test_driver.status;
     }
-}
-
-struct DriverData {
-    Database* db;
-    FilesysIO filesysIO;
-    Mutation.Kind[] kinds;
-    AutoCleanup autoCleanup;
-    ConfigMutationTest conf;
 }
 
 struct MeasureTestDurationResult {
@@ -202,6 +205,15 @@ struct TestDriver {
     import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
     import dextool.plugin.mutate.type : MutationOrder;
 
+    Database* db;
+    FilesysIO filesysIO;
+    Mutation.Kind[] kinds;
+    AutoCleanup autoCleanup;
+
+    ConfigMutationTest conf;
+    ConfigSchema schemaConf;
+    ConfigCoverage covConf;
+
     /// Runs the test commands.
     TestRunner runner;
 
@@ -221,30 +233,26 @@ struct TestDriver {
     // using a factor 1000 to make a pull request mutant very high prio
     enum long pullRequestWeight = unknownWeight * 1000;
 
-    static struct Global {
-        DriverData data;
+    TimeoutFsm timeoutFsm;
 
-        TimeoutFsm timeoutFsm;
+    /// The time it takes to execute the test suite when no mutant is injected.
+    Duration testSuiteRuntime;
 
-        /// The time it takes to execute the test suite when no mutant is injected.
-        Duration testSuiteRuntime;
+    /// the next mutant to test, if there are any.
+    MutationEntry nextMutant;
 
-        /// the next mutant to test, if there are any.
-        MutationEntry nextMutant;
+    // when the user manually configure the timeout it means that the
+    // timeout algorithm should not be used.
+    bool hardcodedTimeout;
 
-        // when the user manually configure the timeout it means that the
-        // timeout algorithm should not be used.
-        bool hardcodedTimeout;
+    /// Test commands to execute.
+    ShellCommand[] testCmds;
 
-        /// Test commands to execute.
-        ShellCommand[] testCmds;
+    /// mutation score estimation
+    EstimateScore estimate;
 
-        /// mutation score estimation
-        EstimateScore estimate;
-
-        // The order to test mutants. It is either affected by the user directly or if pull request mode is activated.
-        MutationOrder mutationOrder;
-    }
+    // The order to test mutants. It is either affected by the user directly or if pull request mode is activated.
+    MutationOrder mutationOrder;
 
     static struct UpdateTimeoutData {
         long lastTimeoutIter;
@@ -424,39 +432,46 @@ struct TestDriver {
 
     private {
         Fsm fsm;
-        Global global;
         TypeDataMap!(LocalStateDataT, UpdateTimeout, CheckPullRequestMutant, PullRequest,
                 ResetOldMutant, NextSchemata, ContinuesCheckTestSuite, MutationTest) local;
         bool isRunning_ = true;
         bool isDone = false;
     }
 
-    this(DriverData data) {
-        this.global = Global(data);
-        this.global.timeoutFsm = TimeoutFsm(data.kinds);
-        this.global.hardcodedTimeout = !global.data.conf.mutationTesterRuntime.isNull;
-        local.get!PullRequest.constraint = global.data.conf.constraint;
-        local.get!ResetOldMutant.maxReset = global.data.conf.oldMutantsNr;
-        local.get!ResetOldMutant.resetPercentage = global.data.conf.oldMutantPercentage;
-        this.global.testCmds = global.data.conf.mutationTester;
-        this.global.mutationOrder = global.data.conf.mutationOrder;
+    this(Database* db, FilesysIO filesysIO, Mutation.Kind[] kinds, AutoCleanup autoCleanup,
+            ConfigMutationTest conf, ConfigCoverage coverage, ConfigSchema schema) {
+        this.db = db;
+        this.filesysIO = filesysIO;
+        this.kinds = kinds;
+        this.autoCleanup = autoCleanup;
+        this.conf = conf;
+        this.covConf = coverage;
+        this.schemaConf = schema;
 
-        this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
-        this.runner = TestRunner.make(global.data.conf.testPoolSize);
-        this.runner.useEarlyStop(global.data.conf.useEarlyTestCmdStop);
-        this.runner.maxOutputCapture(TestRunner.MaxCaptureBytes(
-                global.data.conf.maxTestCaseOutput.get * 1024 * 1024));
-        this.runner.put(data.conf.mutationTester);
+        this.timeoutFsm = TimeoutFsm(kinds);
+        this.hardcodedTimeout = !conf.mutationTesterRuntime.isNull;
+        local.get!PullRequest.constraint = conf.constraint;
+        local.get!ResetOldMutant.maxReset = conf.oldMutantsNr;
+        local.get!ResetOldMutant.resetPercentage = conf.oldMutantPercentage;
+        this.testCmds = conf.mutationTester;
+        this.mutationOrder = conf.mutationOrder;
+
+        this.runner.useEarlyStop(conf.useEarlyTestCmdStop);
+        this.runner = TestRunner.make(conf.testPoolSize);
+        this.runner.useEarlyStop(conf.useEarlyTestCmdStop);
+        this.runner.maxOutputCapture(
+                TestRunner.MaxCaptureBytes(conf.maxTestCaseOutput.get * 1024 * 1024));
+        this.runner.put(conf.mutationTester);
 
         // TODO: allow a user, as is for test_cmd, to specify an array of
         // external analyzers.
-        this.testCaseAnalyzer = TestCaseAnalyzer(global.data.conf.mutationTestCaseBuiltin,
-                global.data.conf.mutationTestCaseAnalyze, global.data.autoCleanup);
+        this.testCaseAnalyzer = TestCaseAnalyzer(conf.mutationTestCaseBuiltin,
+                conf.mutationTestCaseAnalyze, autoCleanup);
 
-        this.stopCheck = TestStopCheck(global.data.conf);
+        this.stopCheck = TestStopCheck(conf);
 
         this.maxParallelInstances = () {
-            if (global.mutationOrder.among(MutationOrder.random, MutationOrder.bySize))
+            if (mutationOrder.among(MutationOrder.random, MutationOrder.bySize))
                 return 100;
             return 1;
         }();
@@ -476,7 +491,7 @@ struct TestDriver {
         }, (SanityCheck a) {
             if (a.sanityCheckFailed)
                 return fsm(Error.init);
-            if (self.global.data.conf.unifiedDiffFromStdin)
+            if (self.conf.unifiedDiffFromStdin)
                 return fsm(ParseStdin.init);
             return fsm(PreCompileSut.init);
         }, (ParseStdin a) => fsm(PreCompileSut.init), (AnalyzeTestCmdForTestCase a) => fsm(
@@ -487,10 +502,10 @@ struct TestDriver {
                 return fsm(NextSchemata.init);
             return fsm(CheckPullRequestMutant.init);
         }, (CheckMutantsLeft a) {
-            if (a.allMutantsTested
-                && self.global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
+            if (a.allMutantsTested && self.conf.onOldMutants == ConfigMutationTest
+                .OldMutant.nothing)
                 return fsm(Done.init);
-            if (self.global.data.conf.testCmdChecksum.get)
+            if (self.conf.testCmdChecksum.get)
                 return fsm(ChecksumTestCmds.init);
             return fsm(MeasureTestSuite.init);
         }, (ChecksumTestCmds a) => MeasureTestSuite.init, (SaveMutationScore a) {
@@ -498,20 +513,20 @@ struct TestDriver {
         }, (PreCompileSut a) {
             if (a.compilationError)
                 return fsm(Error.init);
-            if (self.global.data.conf.testCommandDir.empty)
+            if (self.conf.testCommandDir.empty)
                 return fsm(ChooseMode.init);
             return fsm(FindTestCmds.init);
         }, (FindTestCmds a) { return fsm(ChooseMode.init); }, (ChooseMode a) {
             if (!self.local.get!PullRequest.constraint.empty)
                 return fsm(PullRequest.init);
-            if (!self.global.data.conf.mutationTestCaseAnalyze.empty
-                || !self.global.data.conf.mutationTestCaseBuiltin.empty)
+            if (!self.conf.mutationTestCaseAnalyze.empty
+                || !self.conf.mutationTestCaseBuiltin.empty)
                 return fsm(AnalyzeTestCmdForTestCase.init);
             return fsm(CheckMutantsLeft.init);
         }, (PullRequest a) => fsm(CheckMutantsLeft.init), (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
-            if (self.global.data.conf.useCoverage)
+            if (self.covConf.use)
                 return fsm(Coverage.init);
             return fsm(LoadSchematas.init);
         }, (Coverage a) {
@@ -567,9 +582,6 @@ struct TestDriver {
     }
 
 nothrow:
-    ref Database db() {
-        return *global.data.db;
-    }
 
     void execute() {
         try {
@@ -595,14 +607,12 @@ nothrow:
     void opCall(ref Initialize data) {
         logger.info("Initializing worklist").collectException;
         spinSql!(() {
-            db.updateWorklist(global.data.kinds, Mutation.Status.unknown,
-                unknownWeight, global.mutationOrder);
+            db.updateWorklist(kinds, Mutation.Status.unknown, unknownWeight, mutationOrder);
         });
 
         // detect if the system is overloaded before trying to do something
         // slow such as compiling the SUT.
-        if (global.data.conf.loadBehavior == ConfigMutationTest.LoadBehavior.halt
-                && stopCheck.isHalt) {
+        if (conf.loadBehavior == ConfigMutationTest.LoadBehavior.halt && stopCheck.isHalt) {
             data.halt = true;
         }
     }
@@ -612,13 +622,12 @@ nothrow:
     }
 
     void opCall(Done data) {
-        global.data.autoCleanup.cleanup;
         logger.info("Done!").collectException;
         isDone = true;
     }
 
     void opCall(Error data) {
-        global.data.autoCleanup.cleanup;
+        autoCleanup.cleanup;
     }
 
     void opCall(ref SanityCheck data) {
@@ -637,8 +646,8 @@ nothrow:
             auto db_checksum = spinSql!(() { return db.getFileChecksum(file); });
 
             try {
-                auto abs_f = AbsolutePath(buildPath(global.data.filesysIO.getOutputDir, file));
-                auto f_checksum = checksum(global.data.filesysIO.makeInput(abs_f).content[]);
+                auto abs_f = AbsolutePath(buildPath(filesysIO.getOutputDir, file));
+                auto f_checksum = checksum(filesysIO.makeInput(abs_f).content[]);
                 if (db_checksum != f_checksum) {
                     checksumFailed.put(abs_f);
                 }
@@ -686,8 +695,7 @@ nothrow:
     }
 
     void opCall(ref OverloadCheck data) {
-        if (global.data.conf.loadBehavior == ConfigMutationTest.LoadBehavior.slowdown
-                && stopCheck.isOverloaded) {
+        if (conf.loadBehavior == ConfigMutationTest.LoadBehavior.slowdown && stopCheck.isOverloaded) {
             data.sleep = true;
             logger.info(stopCheck.overloadToString).collectException;
             stopCheck.pause;
@@ -699,7 +707,7 @@ nothrow:
 
         data.ok = true;
 
-        if (!global.data.conf.contCheckTestSuite)
+        if (!conf.contCheckTestSuite)
             return;
 
         enum forceCheckEach = 1.dur!"hours";
@@ -712,7 +720,7 @@ nothrow:
             return;
         }
 
-        const period = global.data.conf.contCheckTestSuitePeriod.get;
+        const period = conf.contCheckTestSuitePeriod.get;
         const diffCnt = local.get!ContinuesCheckTestSuite.lastWorklistCnt - wlist;
         if (!(wlist % period == 0 || diffCnt >= period
                 || Clock.currTime > local.get!ContinuesCheckTestSuite.lastCheck))
@@ -721,8 +729,7 @@ nothrow:
         local.get!ContinuesCheckTestSuite.lastWorklistCnt = wlist;
         local.get!ContinuesCheckTestSuite.lastCheck = Clock.currTime + forceCheckEach;
 
-        compile(global.data.conf.mutationCompile,
-                global.data.conf.buildCmdTimeout, PrintCompileOnFailure(true)).match!(
+        compile(conf.mutationCompile, conf.buildCmdTimeout, PrintCompileOnFailure(true)).match!(
                 (Mutation.Status a) { data.ok = false; }, (bool success) {
             data.ok = success;
         });
@@ -740,7 +747,7 @@ nothrow:
             logger.warning("Continues sanity check of the test suite has failed.").collectException;
             logger.infof("Rolling back the status of the last %s mutants to status unknown.",
                     period).collectException;
-            foreach (a; spinSql!(() => db.getLatestMutants(global.data.kinds, max(diffCnt, period)))) {
+            foreach (a; spinSql!(() => db.getLatestMutants(kinds, max(diffCnt, period)))) {
                 spinSql!(() => db.updateMutation(a.id, Mutation.Status.unknown,
                         ExitStatus(0), MutantTimeProfile.init));
             }
@@ -753,7 +760,7 @@ nothrow:
 
         try {
             auto constraint = local.get!PullRequest.constraint;
-            foreach (pkv; diffFromStdin.toRange(global.data.filesysIO.getOutputDir)) {
+            foreach (pkv; diffFromStdin.toRange(filesysIO.getOutputDir)) {
                 constraint.value[pkv.key] ~= pkv.value.toRange.map!(a => Line(a)).array;
             }
             local.get!PullRequest.constraint = constraint;
@@ -807,8 +814,7 @@ nothrow:
         });
 
         void transaction() @safe {
-            final switch (global.data.conf.onRemovedTestCases) with (
-                ConfigMutationTest.RemovedTestCases) {
+            final switch (conf.onRemovedTestCases) with (ConfigMutationTest.RemovedTestCases) {
             case doNothing:
                 db.addDetectedTestCases(data.foundTestCases.byValue.joiner.array);
                 break;
@@ -823,7 +829,7 @@ nothrow:
                     }
                 }
                 if (update) {
-                    db.updateWorklist(global.data.kinds, Mutation.Status.unknown);
+                    db.updateWorklist(kinds, Mutation.Status.unknown);
                 }
                 break;
             }
@@ -844,13 +850,13 @@ nothrow:
         printDroppedTestCases(old_tcs, found_tcs);
 
         if (hasNewTestCases(old_tcs, found_tcs)
-                && global.data.conf.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
+                && conf.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
             logger.info("Adding alive mutants to worklist").collectException;
             spinSql!(() {
-                db.updateWorklist(global.data.kinds, Mutation.Status.alive);
+                db.updateWorklist(kinds, Mutation.Status.alive);
                 // if these mutants are covered by the tests then they will be
                 // removed from the worklist in PropagateCoverage.
-                db.updateWorklist(global.data.kinds, Mutation.Status.noCoverage);
+                db.updateWorklist(kinds, Mutation.Status.noCoverage);
             });
         }
     }
@@ -868,7 +874,7 @@ nothrow:
             }
         }
 
-        if (global.data.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing) {
+        if (conf.onOldMutants == ConfigMutationTest.OldMutant.nothing) {
             return;
         }
         if (spinSql!(() { return db.getWorklistCount; }) != 0) {
@@ -876,7 +882,7 @@ nothrow:
             return;
         }
 
-        const oldestMutant = spinSql!(() => db.getOldestMutants(global.data.kinds, 1));
+        const oldestMutant = spinSql!(() => db.getOldestMutants(kinds, 1));
         const newestTest = spinSql!(() => db.getNewestTestFile).orElse(TestFile.init).timeStamp;
         const newestFile = spinSql!(() => db.getNewestFile).orElse(SysTime.init);
         if (!oldestMutant.empty && oldestMutant[0].updated > newestTest
@@ -895,17 +901,13 @@ nothrow:
                 return local.get!ResetOldMutant.maxReset;
             }
 
-            const total = spinSql!(() {
-                return db.totalSrcMutants(global.data.kinds).count;
-            });
+            const total = spinSql!(() { return db.totalSrcMutants(kinds).count; });
             const rval = cast(long)(1 + total * local.get!ResetOldMutant.resetPercentage.get
                     / 100.0);
             return rval;
         }();
 
-        auto oldest = spinSql!(() {
-            return db.getOldestMutants(global.data.kinds, testCnt);
-        });
+        auto oldest = spinSql!(() { return db.getOldestMutants(kinds, testCnt); });
 
         logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
         spinSql!(() {
@@ -918,15 +920,15 @@ nothrow:
     }
 
     void opCall(Cleanup data) {
-        global.data.autoCleanup.cleanup;
+        autoCleanup.cleanup;
     }
 
     void opCall(ref CheckMutantsLeft data) {
-        spinSql!(() { global.timeoutFsm.execute(db); });
+        spinSql!(() { timeoutFsm.execute(*db); });
 
-        data.allMutantsTested = global.timeoutFsm.output.done;
+        data.allMutantsTested = timeoutFsm.output.done;
 
-        if (global.timeoutFsm.output.done) {
+        if (timeoutFsm.output.done) {
             logger.info("All mutants are tested").collectException;
         }
     }
@@ -941,8 +943,7 @@ nothrow:
         try {
             Set!Checksum64 current;
 
-            foreach (testCmd; hashFiles(global.testCmds
-                    .filter!(a => !a.empty)
+            foreach (testCmd; hashFiles(testCmds.filter!(a => !a.empty)
                     .map!(a => a.value[0]))) {
                 current.add(testCmd.cs);
 
@@ -964,10 +965,10 @@ nothrow:
         import dextool.plugin.mutate.backend.database.type : MutationScore;
         import dextool.plugin.mutate.backend.report.analyzers : reportScore;
 
-        if (spinSql!(() => db.unknownSrcMutants(global.data.kinds)).count != 0)
+        if (spinSql!(() => db.unknownSrcMutants(kinds)).count != 0)
             return;
 
-        const score = reportScore(db, global.data.kinds).score;
+        const score = reportScore(*db, kinds).score;
 
         // 10000 mutation scores is only ~80kbyte. Should be enough entries
         // without taking up unresonable amount of space.
@@ -983,8 +984,7 @@ nothrow:
         import proc;
 
         logger.info("Checking the build command").collectException;
-        compile(global.data.conf.mutationCompile,
-                global.data.conf.buildCmdTimeout, PrintCompileOnFailure(true)).match!(
+        compile(conf.mutationCompile, conf.buildCmdTimeout, PrintCompileOnFailure(true)).match!(
                 (Mutation.Status a) { data.compilationError = true; }, (bool success) {
             data.compilationError = !success;
         });
@@ -992,20 +992,19 @@ nothrow:
 
     void opCall(FindTestCmds data) {
         auto cmds = appender!(ShellCommand[])();
-        foreach (root; global.data.conf.testCommandDir) {
+        foreach (root; conf.testCommandDir) {
             try {
                 cmds.put(findExecutables(root.AbsolutePath)
-                        .map!(a => ShellCommand([a] ~ global.data.conf.testCommandDirFlag)));
+                        .map!(a => ShellCommand([a] ~ conf.testCommandDirFlag)));
             } catch (Exception e) {
                 logger.warning(e.msg).collectException;
             }
         }
 
         if (!cmds.data.empty) {
-            global.testCmds ~= cmds.data;
-            runner.put(this.global.testCmds);
-            logger.infof("Found test commands in %s:",
-                    global.data.conf.testCommandDir).collectException;
+            testCmds ~= cmds.data;
+            runner.put(this.testCmds);
+            logger.infof("Found test commands in %s:", conf.testCommandDir).collectException;
             foreach (c; cmds.data) {
                 logger.info(c).collectException;
             }
@@ -1022,7 +1021,7 @@ nothrow:
         import dextool.plugin.mutate.backend.type : SourceLoc;
 
         // deterministic testing of mutants and prioritized by their size.
-        global.mutationOrder = MutationOrder.bySize;
+        mutationOrder = MutationOrder.bySize;
         maxParallelInstances = 1;
 
         // make sure they are unique.
@@ -1038,8 +1037,7 @@ nothrow:
 
             foreach (l; kv.value) {
                 auto mutants = spinSql!(() {
-                    return db.getMutationsOnLine(global.data.kinds,
-                        file_id.get, SourceLoc(l.value, 0));
+                    return db.getMutationsOnLine(kinds, file_id.get, SourceLoc(l.value, 0));
                 });
 
                 const preCnt = mutantIds.length;
@@ -1074,13 +1072,13 @@ nothrow:
         import std.algorithm : max, sum;
         import dextool.plugin.mutate.backend.database.type : TestCmdRuntime;
 
-        if (!global.data.conf.mutationTesterRuntime.isNull) {
-            global.testSuiteRuntime = global.data.conf.mutationTesterRuntime.get;
+        if (!conf.mutationTesterRuntime.isNull) {
+            testSuiteRuntime = conf.mutationTesterRuntime.get;
             return;
         }
 
         logger.infof("Measuring the runtime of the test command(s):\n%(%s\n%)",
-                global.testCmds).collectException;
+                testCmds).collectException;
 
         auto measures = spinSql!(() => db.getTestCmdRuntimes);
 
@@ -1106,7 +1104,7 @@ nothrow:
             // A proper fix requires an update of the sampler in runTester.
             auto t = mean < 1.dur!"seconds" ? 1.dur!"seconds" : mean;
             logger.info("Test command runtime: ", t).collectException;
-            global.testSuiteRuntime = t;
+            testSuiteRuntime = t;
 
             spinSql!(() @trusted {
                 auto t = db.transaction;
@@ -1127,12 +1125,11 @@ nothrow:
         }();
 
         try {
-            auto g = MutationTestDriver.Global(global.data.filesysIO,
-                    global.data.db, global.nextMutant, runnerPtr, originalPtr);
+            auto g = MutationTestDriver.Global(filesysIO, db, nextMutant, runnerPtr, originalPtr);
             auto driver = MutationTestDriver(g,
-                    MutationTestDriver.TestMutantData(!(global.data.conf.mutationTestCaseAnalyze.empty
-                        && global.data.conf.mutationTestCaseBuiltin.empty),
-                        global.data.conf.mutationCompile, global.data.conf.buildCmdTimeout),
+                    MutationTestDriver.TestMutantData(!(conf.mutationTestCaseAnalyze.empty
+                        && conf.mutationTestCaseBuiltin.empty),
+                        conf.mutationCompile, conf.buildCmdTimeout),
                     MutationTestDriver.TestCaseAnalyzeData(&testCaseAnalyzer));
 
             while (driver.isRunning) {
@@ -1151,23 +1148,23 @@ nothrow:
     }
 
     void opCall(ref CheckTimeout data) {
-        data.timeoutUnchanged = global.hardcodedTimeout || global.timeoutFsm.output.done;
+        data.timeoutUnchanged = hardcodedTimeout || timeoutFsm.output.done;
     }
 
     void opCall(UpdateTimeout) {
-        spinSql!(() { global.timeoutFsm.execute(db); });
+        spinSql!(() { timeoutFsm.execute(*db); });
 
         const lastIter = local.get!UpdateTimeout.lastTimeoutIter;
 
-        if (lastIter != global.timeoutFsm.output.iter) {
+        if (lastIter != timeoutFsm.output.iter) {
             logger.infof("Changed the timeout from %s to %s (iteration %s)",
-                    calculateTimeout(lastIter, global.testSuiteRuntime),
-                    calculateTimeout(global.timeoutFsm.output.iter, global.testSuiteRuntime),
-                    global.timeoutFsm.output.iter).collectException;
-            local.get!UpdateTimeout.lastTimeoutIter = global.timeoutFsm.output.iter;
+                    calculateTimeout(lastIter, testSuiteRuntime),
+                    calculateTimeout(timeoutFsm.output.iter, testSuiteRuntime),
+                    timeoutFsm.output.iter).collectException;
+            local.get!UpdateTimeout.lastTimeoutIter = timeoutFsm.output.iter;
         }
 
-        runner.timeout = calculateTimeout(global.timeoutFsm.output.iter, global.testSuiteRuntime);
+        runner.timeout = calculateTimeout(timeoutFsm.output.iter, testSuiteRuntime);
     }
 
     void opCall(ref CheckPullRequestMutant data) {
@@ -1177,20 +1174,20 @@ nothrow:
             .get!CheckPullRequestMutant.stopAfter;
 
         logger.infof(stopCheck.aliveMutants > 0, "Found %s/%s alive mutants",
-                stopCheck.aliveMutants, global.data.conf.maxAlive.get).collectException;
+                stopCheck.aliveMutants, conf.maxAlive.get).collectException;
     }
 
     void opCall(ref NextMutant data) {
-        global.nextMutant = MutationEntry.init;
+        nextMutant = MutationEntry.init;
 
         auto next = spinSql!(() {
-            return db.nextMutation(global.data.kinds, maxParallelInstances);
+            return db.nextMutation(kinds, maxParallelInstances);
         });
 
         data.noUnknownMutantsLeft.get = next.st == NextMutationEntry.Status.done;
 
         if (!next.entry.isNull)
-            global.nextMutant = next.entry.get;
+            nextMutant = next.entry.get;
     }
 
     void opCall(HandleTestResult data) {
@@ -1220,7 +1217,7 @@ nothrow:
     void opCall(ref NextSchemata data) {
         auto schematas = local.get!NextSchemata.schematas;
 
-        const threshold = schemataMutantsThreshold(global.data.conf.minMutantsPerSchema.get,
+        const threshold = schemataMutantsThreshold(schemaConf.minMutantsPerSchema.get,
                 local.get!NextSchemata.invalidSchematas, local.get!NextSchemata.totalSchematas);
 
         while (!schematas.empty && !data.hasSchema) {
@@ -1228,7 +1225,7 @@ nothrow:
             const id = schematas[0];
             schematas = schematas[1 .. $];
             const mutants = spinSql!(() {
-                return db.schemataMutantsCount(id, global.data.kinds);
+                return db.schemataMutantsCount(id, kinds);
             });
 
             logger.infof("Schema %s has %s mutants (threshold %s)", id.get,
@@ -1244,7 +1241,7 @@ nothrow:
 
         local.get!NextSchemata.schematas = schematas;
 
-        data.stop.get = !data.hasSchema && global.data.conf.stopAfterLastSchema;
+        data.stop.get = !data.hasSchema && schemaConf.stopAfterLastSchema;
     }
 
     void opCall(ref SchemataTest data) {
@@ -1282,10 +1279,8 @@ nothrow:
         }
 
         try {
-            auto driver = SchemataTestDriver(global.data.filesysIO, &runner, global.data.db,
-                    &testCaseAnalyzer, global.data.conf.userRuntimeCtrl, data.id, stopCheck,
-                    global.data.kinds, global.data.conf.mutationCompile,
-                    global.data.conf.buildCmdTimeout, global.data.conf.logSchemata);
+            auto driver = SchemataTestDriver(filesysIO, &runner, db, &testCaseAnalyzer, schemaConf,
+                    data.id, stopCheck, kinds, conf.mutationCompile, conf.buildCmdTimeout);
 
             const saveResultInterval = 20.dur!"minutes";
             auto nextSave = Clock.currTime + saveResultInterval;
@@ -1336,15 +1331,14 @@ nothrow:
     }
 
     void opCall(LoadSchematas data) {
-        if (!global.data.conf.useSchemata) {
+        if (!schemaConf.use) {
             return;
         }
 
         auto app = appender!(SchemataId[])();
         foreach (id; spinSql!(() { return db.getSchematas(); })) {
-            if (spinSql!(() {
-                    return db.schemataMutantsCount(id, global.data.kinds);
-                }) >= schemataMutantsThreshold(global.data.conf.minMutantsPerSchema.get, 0, 0)) {
+            if (spinSql!(() { return db.schemataMutantsCount(id, kinds); }) >= schemataMutantsThreshold(
+                    schemaConf.minMutantsPerSchema.get, 0, 0)) {
                 app.put(id);
             }
         }
@@ -1371,9 +1365,8 @@ nothrow:
         }
 
         try {
-            auto driver = CoverageDriver(global.data.filesysIO, global.data.db, &runner,
-                    global.data.conf.userRuntimeCtrl, global.data.conf.mutationCompile,
-                    global.data.conf.buildCmdTimeout, global.data.conf.logCoverage.get);
+            auto driver = CoverageDriver(filesysIO, db, &runner, covConf,
+                    conf.mutationCompile, conf.buildCmdTimeout);
             while (driver.isRunning) {
                 driver.execute;
             }
@@ -1417,10 +1410,10 @@ nothrow:
                 return Database.CntAction.reset;
             }();
 
-            global.estimate.update(result.status);
+            estimate.update(result.status);
 
-            updateMutantStatus(db, result.id, result.status, result.exitStatus,
-                    global.timeoutFsm.output.iter);
+            updateMutantStatus(*db, result.id, result.status,
+                    result.exitStatus, timeoutFsm.output.iter);
             db.updateMutation(result.id, result.profile);
             db.updateMutationTestCases(result.id, result.testCases);
             db.removeFromWorklist(result.id);
@@ -1438,8 +1431,8 @@ nothrow:
         });
 
         const left = spinSql!(() { return db.getWorklistCount; });
-        logger.infof("%s mutants left to test. Estimated mutation score %.3s (error %.3s)", left,
-                global.estimate.value.get, global.estimate.error.get).collectException;
+        logger.infof("%s mutants left to test. Estimated mutation score %.3s (error %.3s)",
+                left, estimate.value.get, estimate.error.get).collectException;
     }
 }
 

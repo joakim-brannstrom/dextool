@@ -45,7 +45,7 @@ import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
 import dextool.plugin.mutate.backend.utility : checksum, Checksum, getProfileResult, Profile;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.type : MutationKind;
-import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze;
+import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze, ConfigSchema, ConfigCoverage;
 import dextool.type : ExitStatusType, AbsolutePath, Path;
 
 version (unittest) {
@@ -54,16 +54,17 @@ version (unittest) {
 
 /** Analyze the files in `frange` for mutations.
  */
-ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userKinds, ConfigAnalyze confAnalyze,
-        ConfigCompiler conf_compiler, ParsedCompileCommandRange frange,
-        ValidateLoc valLoc, FilesysIO fio) @trusted {
+ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userKinds,
+        ConfigAnalyze analyzeConf, ConfigCompiler compilerConf,
+        ConfigSchema schemaConf, ConfigCoverage covConf,
+        ParsedCompileCommandRange frange, ValidateLoc valLoc, FilesysIO fio) @trusted {
     import dextool.plugin.mutate.backend.diff_parser : diffFromStdin, Diff;
     import dextool.plugin.mutate.backend.mutation_type : toInternal;
 
     auto fileFilter = () {
         try {
-            return FileFilter(fio.getOutputDir, confAnalyze.unifiedDiffFromStdin,
-                    confAnalyze.unifiedDiffFromStdin ? diffFromStdin : Diff.init);
+            return FileFilter(fio.getOutputDir, analyzeConf.unifiedDiffFromStdin,
+                    analyzeConf.unifiedDiffFromStdin ? diffFromStdin : Diff.init);
         } catch (Exception e) {
             logger.info(e.msg);
             logger.warning("Unable to parse diff");
@@ -72,13 +73,13 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
     }();
 
     bool shouldAnalyze(AbsolutePath p) {
-        return confAnalyze.fileMatcher.match(p.toString) && fileFilter.shouldAnalyze(p);
+        return analyzeConf.fileMatcher.match(p.toString) && fileFilter.shouldAnalyze(p);
     }
 
     auto pool = () {
-        if (confAnalyze.poolSize == 0)
+        if (analyzeConf.poolSize == 0)
             return new TaskPool();
-        return new TaskPool(confAnalyze.poolSize);
+        return new TaskPool(analyzeConf.poolSize);
     }();
 
     // if a dependency of a root file has been changed.
@@ -86,14 +87,15 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
 
     // will only be used by one thread at a time.
     auto store = spawn(&storeActor, dbPath, cast(shared) fio.dup,
-            cast(shared) confAnalyze, cast(immutable) changedDeps.byKeyValue
+            cast(shared) StoreConfig(analyzeConf, schemaConf, covConf),
+            cast(immutable) changedDeps.byKeyValue
             .filter!(a => !a.value)
             .map!(a => a.key)
             .array);
 
     try {
-        pool.put(task!testPathActor(confAnalyze.testPaths,
-                confAnalyze.testFileMatcher, fio.dup, store));
+        pool.put(task!testPathActor(analyzeConf.testPaths,
+                analyzeConf.testFileMatcher, fio.dup, store));
     } catch (Exception e) {
         logger.trace(e);
         logger.warning(e.msg);
@@ -114,12 +116,12 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             ) {
         try {
             if (auto v = fio.toRelativeRoot(f.cmd.absoluteFile) in changedDeps) {
-                if (!(*v || confAnalyze.forceSaveAnalyze))
+                if (!(*v || analyzeConf.forceSaveAnalyze))
                     continue;
             }
 
             //logger.infof("%s sending", f.cmd.absoluteFile);
-            pool.put(task!analyzeActor(kinds, f, valLoc.dup, fio.dup, conf_compiler, confAnalyze, store));
+            pool.put(task!analyzeActor(kinds, f, valLoc.dup, fio.dup, AnalyzeConfig(compilerConf, analyzeConf, covConf), store));
             taskCnt++;
         } catch (Exception e) {
             logger.trace(e);
@@ -138,7 +140,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
     // wait for the store actor to finish
     receiveOnly!StoreDoneMsg;
 
-    if (confAnalyze.profile)
+    if (analyzeConf.profile)
         try {
             import std.stdio : writeln;
 
@@ -200,15 +202,21 @@ struct AnalyzeCntMsg {
 struct StoreDoneMsg {
 }
 
+struct AnalyzeConfig {
+    ConfigCompiler compiler;
+    ConfigAnalyze analyze;
+    ConfigCoverage coverage;
+}
+
 /// Start an analyze of a file
-void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze, ValidateLoc vloc,
-        FilesysIO fio, ConfigCompiler compilerConf, ConfigAnalyze analyzeConf, Tid storeActor) @trusted nothrow {
+void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze,
+        ValidateLoc vloc, FilesysIO fio, AnalyzeConfig conf, Tid storeActor) @trusted nothrow {
     auto profile = Profile("analyze file " ~ fileToAnalyze.cmd.absoluteFile);
 
     try {
         //logger.infof("%s begin", fileToAnalyze.cmd.absoluteFile);
-        auto analyzer = Analyze(kinds, vloc, fio, Analyze.Config(compilerConf.forceSystemIncludes,
-                analyzeConf.saveCoverage.get, compilerConf.allowErrors.get));
+        auto analyzer = Analyze(kinds, vloc, fio, Analyze.Config(conf.compiler.forceSystemIncludes,
+                conf.coverage.use, conf.compiler.allowErrors.get));
         analyzer.process(fileToAnalyze);
         send(storeActor, cast(immutable) analyzer.result);
         //logger.infof("%s end", fileToAnalyze.cmd.absoluteFile);
@@ -281,14 +289,20 @@ void testPathActor(const AbsolutePath[] userPaths, GlobFilter matcher, FilesysIO
     }
 }
 
+struct StoreConfig {
+    ConfigAnalyze analyze;
+    ConfigSchema schema;
+    ConfigCoverage coverage;
+}
+
 /// Store the result of the analyze.
 void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
-        scope shared ConfigAnalyze confAnalyzeShared, immutable Path[] rootFiles) @trusted nothrow {
+        scope shared StoreConfig confShared, immutable Path[] rootFiles) @trusted nothrow {
     import cachetools : CacheLRU;
     import dextool.cachetools : nullableCache;
     import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
 
-    const confAnalyze = cast() confAnalyzeShared;
+    const conf = cast() confShared;
 
     // The conditions that the storeActor is waiting for receiving the results
     // from the workers.
@@ -308,8 +322,8 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         import my.optional;
         import dextool.plugin.mutate.backend.analyze.pass_schemata : SchemataBuilder;
 
-        typeof(ConfigAnalyze.minMutantsPerSchema) minMutantsPerSchema;
-        typeof(ConfigAnalyze.mutantsPerSchema) mutantsPerSchema;
+        typeof(ConfigSchema.minMutantsPerSchema) minMutantsPerSchema;
+        typeof(ConfigSchema.mutantsPerSchema) mutantsPerSchema;
         SchemataBuilder builder;
 
         void put(FilesysIO fio, SchemataResult.Schemata[AbsolutePath] a) {
@@ -366,7 +380,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         }
     }
 
-    auto schemas = SchemataSaver(confAnalyze.minMutantsPerSchema, confAnalyze.mutantsPerSchema);
+    auto schemas = SchemataSaver(conf.schema.minMutantsPerSchema, conf.schema.mutantsPerSchema);
 
     void helper(FilesysIO fio, ref Database db) nothrow {
         // A file is at most saved one time to the database.
@@ -410,7 +424,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     .byKey
                     .filter!(a => a !in savedFiles)
                     .filter!(a => getFileDbChecksum(fio.toRelativeRoot(a)) == getFileFsChecksum(a)
-                        && !confAnalyze.forceSaveAnalyze && !isToolVersionDifferent)) {
+                        && !conf.analyze.forceSaveAnalyze && !isToolVersionDifferent)) {
                 logger.info("Unchanged ".color(Color.yellow), f);
                 savedFiles.add(f);
             }
@@ -558,7 +572,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         }
 
         void addRoots() {
-            if (confAnalyze.forceSaveAnalyze || isToolVersionDifferent)
+            if (conf.analyze.forceSaveAnalyze || isToolVersionDifferent)
                 return;
 
             // add root files and their dependencies that has not been analyzed because nothing has changed.
@@ -581,7 +595,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         }
 
         void fastDbOn() {
-            if (!confAnalyze.fastDbStore)
+            if (!conf.analyze.fastDbStore)
                 return;
             logger.info(
                     "Turning OFF sqlite3 synchronization protection to improve the write performance");
@@ -592,7 +606,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         }
 
         void fastDbOff() {
-            if (!confAnalyze.fastDbStore)
+            if (!conf.analyze.fastDbStore)
                 return;
             db.run("PRAGMA synchronous = ON");
             db.run("PRAGMA journal_mode = DELETE");
@@ -604,7 +618,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
             // by making the mailbox size follow the number of workers the overall
             // behavior will slow down if saving to the database is too slow. This
             // avoids excessive or even fatal memory usage.
-            setMaxMailboxSize(thisTid, confAnalyze.poolSize + 2, OnCrowding.block);
+            setMaxMailboxSize(thisTid, conf.analyze.poolSize + 2, OnCrowding.block);
 
             fastDbOn();
 
@@ -635,7 +649,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 logger.info("Updating metadata");
                 db.updateMetadata;
 
-                if (confAnalyze.prune) {
+                if (conf.analyze.prune) {
                     pruneFiles();
                     {
                         auto profile = Profile("remove orphaned mutants");

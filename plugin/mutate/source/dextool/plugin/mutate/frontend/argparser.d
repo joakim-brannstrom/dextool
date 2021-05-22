@@ -63,6 +63,8 @@ struct ArgParser {
     ConfigReport report;
     ConfigWorkArea workArea;
     ConfigGenerate generate;
+    ConfigCoverage coverage;
+    ConfigSchema schema;
 
     struct Data {
         AbsolutePath db;
@@ -119,17 +121,6 @@ struct ArgParser {
                 [EnumMembers!MutationKind].map!(a => a.to!string)));
         app.put(format("mutants = [%(%s, %)]", defaultMutants.map!(a => a.to!string)));
         app.put(null);
-        app.put("# Use coverage to reduce the tested mutants");
-        app.put("use_coverage = true");
-        app.put(null);
-        app.put(
-                "# Default is to inject the runtime in all roots. A root is a file either provided by --in");
-        app.put("# or a file in compile_commands.json.");
-        app.put(
-                "# If specified then the coverage and schemata runtime is only injected in these files.");
-        app.put("# paths are relative to root.");
-        app.put(`# inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]`);
-        app.put(null);
 
         app.put("[analyze]");
         app.put(null);
@@ -144,12 +135,6 @@ struct ArgParser {
         app.put("# remove files from the database that are no longer found during analysis.");
         app.put(`prune = true`);
         app.put(null);
-        app.put("# minimum number of mutants per schema.");
-        app.put(format!"# min_mutants_per_schema = %s"(analyze.minMutantsPerSchema.get));
-        app.put(null);
-        app.put("# maximum number of mutants per schema (zero means no limit).");
-        app.put(format!"# mutants_per_schema = %s"(analyze.mutantsPerSchema.get));
-        app.put(null);
         app.put("# checksum the files in this directories and warn if a mutation status is older");
         app.put("# than the newest file. The path can be a file or a directory. Directories");
         app.put("# are traveresed. All paths are relative to root.");
@@ -159,6 +144,51 @@ struct ArgParser {
                 "# glob filter which include/exclude matched test files (relative to root) from analysis.");
         app.put(`# test_include = ["*/*.ext"]`);
         app.put("# test_exclude = []");
+        app.put(null);
+
+        app.put("[schema]");
+        app.put("# Use scheman to reduce the compile+link time");
+        app.put("use = true");
+        app.put("# how to add the schema runtime to the SUT");
+        app.put(format!"# available options are: %s"(
+                [EnumMembers!SchemaRuntime].map!(a => a.to!string)));
+        app.put("# runtime = inject");
+        app.put(null);
+        app.put(
+                "# Default is to inject the runtime in all roots. A root is a file either provided by --in");
+        app.put("# or a file in compile_commands.json.");
+        app.put(
+                "# If specified then the coverage and schemata runtime is only injected in these files.");
+        app.put("# paths are relative to root.");
+        app.put(`# inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]`);
+        app.put(null);
+        app.put("# minimum number of mutants per schema.");
+        app.put(format!"# min_mutants_per_schema = %s"(schema.minMutantsPerSchema.get));
+        app.put(null);
+        app.put("# maximum number of mutants per schema (zero means no limit).");
+        app.put(format!"# mutants_per_schema = %s"(schema.mutantsPerSchema.get));
+        app.put(null);
+        app.put("# sanity check the schemata before it is used by executing the test cases");
+        app.put("# it is a slowdown but nice robustness that is usually worth having");
+        app.put("check_schemata = true");
+        app.put(null);
+
+        app.put("[coverage]");
+        app.put("# Use coverage to reduce the tested mutants");
+        app.put("use = true");
+        app.put(null);
+        app.put("# how to add the coverage runtime to the SUT");
+        app.put(format!"# available options are: %s"(
+                [EnumMembers!CoverageRuntime].map!(a => a.to!string)));
+        app.put("# runtime = inject");
+        app.put(null);
+        app.put(
+                "# Default is to inject the runtime in all roots. A root is a file either provided by --in");
+        app.put("# or a file in compile_commands.json.");
+        app.put(
+                "# If specified then the coverage and schemata runtime is only injected in these files.");
+        app.put("# paths are relative to root.");
+        app.put(`# inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]`);
         app.put(null);
 
         app.put("[database]");
@@ -271,13 +301,6 @@ struct ArgParser {
                 "# This speed up the test phase but the report of test cases killing mutants is less accurate");
         app.put("use_early_stop = true");
         app.put(null);
-        app.put("# reduce the compile and link time when testing mutants");
-        app.put("use_schemata = true");
-        app.put(null);
-        app.put("# sanity check the schemata before it is used by executing the test cases");
-        app.put("# it is a slowdown but nice robustness that is usually worth having");
-        app.put("check_schemata = true");
-        app.put(null);
         app.put(`# Enable continues sanity check of the build environment and test suite.`);
         app.put(
                 `# Run the test suite every 100 mutant to see that the test suite is OK when no mutants are injected.`);
@@ -368,8 +391,8 @@ struct ArgParser {
                    "no-prune", "do not prune the database of files that aren't found during the analyze", &noPrune,
                    "out", out_help, &workArea.rawRoot,
                    "profile", "print performance profile for the analyzers that are part of the report", &analyze.profile,
-                   "schema-min-mutants", "mini number of mutants per schema", analyze.minMutantsPerSchema.getPtr,
-                   "schema-mutants", "number of mutants per schema (soft upper limit)", analyze.mutantsPerSchema.getPtr,
+                   "schema-min-mutants", "mini number of mutants per schema", schema.minMutantsPerSchema.getPtr,
+                   "schema-mutants", "number of mutants per schema (soft upper limit)", schema.mutantsPerSchema.getPtr,
                    "threads", "number of threads to use for analysing files (default: CPU cores available)", &analyze.poolSize,
                    );
             // dfmt on
@@ -420,17 +443,17 @@ struct ArgParser {
                    "include", include_help, &workArea.rawInclude,
                    "load-behavior", "how to behave when the threshold is hit " ~ format("[%(%s|%)]", [EnumMembers!(ConfigMutationTest.LoadBehavior)]), &mutationTest.loadBehavior,
                    "load-threshold", format!"the 15min loadavg threshold (default: %s)"(mutationTest.loadThreshold.get), mutationTest.loadThreshold.getPtr,
-                   "log-coverage", "write the instrumented coverage files to a separate file", mutationTest.logCoverage.getPtr,
+                   "log-coverage", "write the instrumented coverage files to a separate file", &coverage.log,
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
                    "m|mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &workArea.rawRoot,
-                   "schema-check", "sanity check a schemata before it is used", &mutationTest.sanityCheckSchemata,
-                   "schema-log", "write mutant schematan to a separate file for later inspection", &mutationTest.logSchemata,
-                   "schema-min-mutants", "mini number of mutants per schema", mutationTest.minMutantsPerSchema.getPtr,
-                   "schema-only", "stop testing after the last schema has been executed", &mutationTest.stopAfterLastSchema,
-                   "schema-use", "use schematas to speed-up testing", &mutationTest.useSchemata,
+                   "schema-check", "sanity check a schemata before it is used", &schema.sanityCheckSchemata,
+                   "schema-log", "write mutant schematan to a separate file for later inspection", &schema.log,
+                   "schema-min-mutants", "mini number of mutants per schema", schema.minMutantsPerSchema.getPtr,
+                   "schema-only", "stop testing after the last schema has been executed", &schema.stopAfterLastSchema,
+                   "schema-use", "use schematas to speed-up testing", &schema.use,
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,
                    "test-cmd", "program used to run the test suite", &mutationTester,
@@ -786,10 +809,13 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         c.analyze.prune = v == true;
     };
     callbacks["analyze.mutants_per_schema"] = (ref ArgParser c, ref TOMLValue v) {
-        c.analyze.mutantsPerSchema.get = cast(int) v.integer;
+        logger.warning("analyze.mutants_per_schema deprecated. Use schema.mutants_per_schema");
+        c.schema.mutantsPerSchema.get = cast(int) v.integer;
     };
     callbacks["analyze.min_mutants_per_schema"] = (ref ArgParser c, ref TOMLValue v) {
-        c.analyze.minMutantsPerSchema.get = cast(int) v.integer;
+        logger.warning(
+                "analyze.min_mutants_per_schema deprecated. Use schema.min_mutants_per_schema");
+        c.schema.minMutantsPerSchema.get = cast(int) v.integer;
     };
     callbacks["analyze.test_paths"] = (ref ArgParser c, ref TOMLValue v) {
         try {
@@ -824,20 +850,74 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
             c.mutation = v.array.map!(a => a.str.to!MutationKind).array;
         } catch (Exception e) {
             logger.info("Available mutation kinds ", [EnumMembers!MutationKind]);
-            logger.error(e.msg);
+            logger.warning(e.msg);
         }
     };
     callbacks["generic.use_coverage"] = (ref ArgParser c, ref TOMLValue v) {
-        c.analyze.saveCoverage.get = v == true;
-        c.mutationTest.useCoverage.get = v == true;
+        logger.warning("generic.use_coverage is deprecated. Use coverage.use");
+        c.coverage.use = v == true;
     };
     callbacks["generic.inject_runtime_impl"] = (ref ArgParser c, ref TOMLValue v) {
+        logger.warning("generic.use_coverage is deprecated. Use coverage.inject_runtime_impl");
         try {
-            c.mutationTest.userRuntimeCtrl = v.array.map!(a => toUserRuntime(a)).array;
+            c.coverage.userRuntimeCtrl = v.array.map!(a => toUserRuntime(a)).array;
         } catch (Exception e) {
             logger.error("generic.inject_runtime_impl: failed parsing");
             logger.error(e.msg);
         }
+    };
+
+    callbacks["coverage.use"] = (ref ArgParser c, ref TOMLValue v) {
+        c.coverage.use = v == true;
+    };
+    callbacks["coverage.runtime"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.coverage.runtime = v.str.to!CoverageRuntime;
+        } catch (Exception e) {
+            logger.info("Available options for coverage.runtime ", [
+                    EnumMembers!CoverageRuntime
+                    ]);
+            logger.warning(e.msg);
+        }
+    };
+    callbacks["coverage.inject_runtime_impl"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.coverage.userRuntimeCtrl = v.array.map!(a => toUserRuntime(a)).array;
+        } catch (Exception e) {
+            logger.error("coverage.inject_runtime_impl: failed parsing");
+            logger.error(e.msg);
+        }
+    };
+
+    callbacks["schema.use"] = (ref ArgParser c, ref TOMLValue v) {
+        c.schema.use = v == true;
+    };
+    callbacks["schema.runtime"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.schema.runtime = v.str.to!SchemaRuntime;
+        } catch (Exception e) {
+            logger.info("Available options for schema.runtime ", [
+                    EnumMembers!SchemaRuntime
+                    ]);
+            logger.warning(e.msg);
+        }
+    };
+    callbacks["schema.inject_runtime_impl"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.schema.userRuntimeCtrl = v.array.map!(a => toUserRuntime(a)).array;
+        } catch (Exception e) {
+            logger.error("coverage.inject_runtime_impl: failed parsing");
+            logger.error(e.msg);
+        }
+    };
+    callbacks["schema.mutants_per_schema"] = (ref ArgParser c, ref TOMLValue v) {
+        c.schema.mutantsPerSchema.get = cast(int) v.integer;
+    };
+    callbacks["schema.min_mutants_per_schema"] = (ref ArgParser c, ref TOMLValue v) {
+        c.schema.minMutantsPerSchema.get = cast(int) v.integer;
+    };
+    callbacks["schema.check_schemata"] = (ref ArgParser c, ref TOMLValue v) {
+        c.schema.sanityCheckSchemata = v == true;
     };
 
     callbacks["database.db"] = (ref ArgParser c, ref TOMLValue v) {
@@ -942,10 +1022,12 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         c.mutationTest.useEarlyTestCmdStop = v == true;
     };
     callbacks["mutant_test.use_schemata"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.useSchemata = v == true;
+        logger.warning("mutant_test.use_schemata is deprecated. Use schema.use");
+        c.schema.use = v == true;
     };
     callbacks["mutant_test.check_schemata"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.sanityCheckSchemata = v == true;
+        logger.warning("mutant_test.check_schemata is deprecated. Use schema.check_schema");
+        c.schema.sanityCheckSchemata = v == true;
     };
     callbacks["mutant_test.continues_check_test_suite"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.contCheckTestSuite.get = v == true;
@@ -1005,6 +1087,8 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     iterSection(rval, "compile_commands");
     iterSection(rval, "mutant_test");
     iterSection(rval, "report");
+    iterSection(rval, "schema");
+    iterSection(rval, "coverage");
 
     parseTestGroups(rval, doc);
 
@@ -1137,14 +1221,14 @@ use_early_stop = true
     import toml : parseTOML;
 
     immutable txt = `
-[mutant_test]
-use_schemata = true
+[schema]
+use = true
 check_schemata = true
 `;
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
-    ap.mutationTest.useSchemata.shouldBeTrue;
-    ap.mutationTest.sanityCheckSchemata.shouldBeTrue;
+    ap.schema.use.shouldBeTrue;
+    ap.schema.sanityCheckSchemata.shouldBeTrue;
 }
 
 @("shall set the number of mutants per schema")
@@ -1152,12 +1236,12 @@ check_schemata = true
     import toml : parseTOML;
 
     immutable txt = `
-[analyze]
+[schema]
 mutants_per_schema = 200
 `;
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
-    ap.analyze.mutantsPerSchema.get.shouldEqual(200);
+    ap.schema.mutantsPerSchema.get.shouldEqual(200);
 }
 
 @("shall parse if compilation errors are allowed")
@@ -1214,17 +1298,32 @@ mutants = ["lcr"]
     ap.data.mutation.shouldEqual([MutationKind.lcr]);
 }
 
-@("shall parse the files to inject the runtime to")
+@("shall parse the files to inject the schema runtime to")
 @system unittest {
     import toml : parseTOML;
 
     immutable txt = `
-[generic]
+[schema]
 inject_runtime_impl = [["foo", "cpp"]]
 `;
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
-    ap.mutationTest.userRuntimeCtrl.shouldEqual([
+    ap.schema.userRuntimeCtrl.shouldEqual([
+            UserRuntime(Path("foo"), Language.cpp)
+            ]);
+}
+
+@("shall parse the files to inject the coverage runtime to")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[coverage]
+inject_runtime_impl = [["foo", "cpp"]]
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.coverage.userRuntimeCtrl.shouldEqual([
             UserRuntime(Path("foo"), Language.cpp)
             ]);
 }

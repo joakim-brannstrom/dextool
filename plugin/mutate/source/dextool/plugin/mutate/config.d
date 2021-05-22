@@ -106,12 +106,6 @@ struct ConfigAnalyze {
     /// Force the result from the files to always be saved
     bool forceSaveAnalyze;
 
-    /// Number of mutants to at most put in a schema (soft limit)
-    NamedType!(long, Tag!"MutantsPerSchema", long.init, TagStringable) mutantsPerSchema = 1000;
-
-    /// Minimum number of mutants per schema for the schema to be saved in the database.
-    NamedType!(long, Tag!"MinMutantsPerSchema", long.init, TagStringable) minMutantsPerSchema = 3;
-
     /// User file/directories containing tests to checksum and timestamp
     string[] rawTestPaths;
     AbsolutePath[] testPaths;
@@ -123,9 +117,6 @@ struct ConfigAnalyze {
 
     /// The constructed glob filter which based on rawExclude and rawinclude.
     GlobFilter testFileMatcher;
-
-    /// If coverage maps should be generated and saved.
-    NamedType!(bool, Tag!"SaveCoverage", bool.init, TagStringable) saveCoverage;
 }
 
 /// Settings for the compiler
@@ -212,26 +203,8 @@ struct ConfigMutationTest {
     /// The size of the thread pool which affects how many tests are executed in parallel.
     int testPoolSize;
 
-    /// Seed used when randomly choosing mutants to test in a pull request.
-    long pullRequestSeed = 42;
-
     /// If early stopping of test command execution should be used
     bool useEarlyTestCmdStop;
-
-    /// If schematas are used for mutation testing.
-    bool useSchemata;
-
-    /// Sanity check a schemata before it is used.
-    bool sanityCheckSchemata;
-
-    /// If the schematas should be written to a separate file for offline inspection.
-    bool logSchemata;
-
-    /// Stop mutation testing after the last schemata has been executed
-    bool stopAfterLastSchema;
-
-    /// Minimum number of mutants per schema for it to be used.
-    NamedType!(long, Tag!"MinMutantsPerSchema", long.init, TagStringable) minMutantsPerSchema = 3;
 
     enum LoadBehavior {
         nothing,
@@ -243,15 +216,6 @@ struct ConfigMutationTest {
 
     LoadBehavior loadBehavior;
     NamedType!(double, Tag!"LoadThreshold", double.init, TagStringable) loadThreshold;
-
-    /// If coverage data should be gathered and saved.
-    NamedType!(bool, Tag!"UseCoverage", bool.init, TagStringable) useCoverage;
-
-    /// If the generated coverage files should be saved.
-    NamedType!(bool, Tag!"LogCoverage", bool.init, TagStringable) logCoverage;
-
-    /// allows a user to control exactly which files the coverage and schemata runtime is injected in.
-    UserRuntime[] userRuntimeCtrl;
 
     /// Continuesly run the test suite to see that the test suite is OK when no mutants are injected.
     NamedType!(bool, Tag!"ContinuesCheckTestSuite", bool.init, TagStringable) contCheckTestSuite;
@@ -294,4 +258,42 @@ struct ConfigWorkArea {
 /// Configuration of the generate mode.
 struct ConfigGenerate {
     long mutationId;
+}
+
+struct ConfigSchema {
+    bool use;
+
+    SchemaRuntime runtime;
+
+    /// Number of mutants to at most put in a schema (soft limit)
+    NamedType!(long, Tag!"MutantsPerSchema", long.init, TagStringable) mutantsPerSchema = 1000;
+
+    /// Minimum number of mutants per schema for the schema to be saved in the database.
+    NamedType!(long, Tag!"MinMutantsPerSchema", long.init, TagStringable) minMutantsPerSchema = 3;
+
+    /// Sanity check a schemata before it is used.
+    bool sanityCheckSchemata;
+
+    /// If the schematas should be written to a separate file for offline inspection.
+    bool log;
+
+    /// Stop mutation testing after the last schemata has been executed
+    bool stopAfterLastSchema;
+
+    /// allows a user to control exactly which files the coverage and schemata
+    /// runtime is injected in.
+    UserRuntime[] userRuntimeCtrl;
+}
+
+struct ConfigCoverage {
+    bool use;
+
+    CoverageRuntime runtime;
+
+    /// If the generated coverage files should be saved.
+    bool log;
+
+    /// allows a user to control exactly which files the coverage and schemata
+    /// runtime is injected in.
+    UserRuntime[] userRuntimeCtrl;
 }

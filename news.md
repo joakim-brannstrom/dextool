@@ -1,3 +1,13 @@
+# vNext.release
+
+New features for dextool mutate
+
+ * The configuration file for coverage and schema is changed to allow a user to
+   specify that the runtime should not be injected by the tool. The user, you,
+   manually link it. This is because the automatic injection do not always work
+   thus this option fixes the problem by allowing a user to change the build
+   system and link with a pre-compiled version of the runtime.
+
 # v3.2.0 Topaz
 
 New features for dextool mutate
