@@ -28,7 +28,7 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
 import dextool.plugin.mutate.backend.type : Mutation, Language;
-import dextool.plugin.mutate.type : ShellCommand, UserRuntime;
+import dextool.plugin.mutate.type : ShellCommand, UserRuntime, CoverageRuntime;
 import dextool.plugin.mutate.config : ConfigCoverage;
 
 @safe:
@@ -106,6 +106,8 @@ struct CoverageDriver {
 
         // the files to inject the code that setup the coverage map.
         Set!AbsolutePath roots;
+
+        CoverageRuntime runtime;
     }
 
     this(FilesysIO fio, Database* db, TestRunner* runner, ConfigCoverage conf,
@@ -116,6 +118,7 @@ struct CoverageDriver {
         this.buildCmd = buildCmd;
         this.buildCmdTimeout = buildCmdTimeout;
         this.log = conf.log;
+        this.runtime = conf.runtime;
 
         foreach (a; conf.userRuntimeCtrl) {
             auto p = fio.toAbsoluteRoot(a.file);
@@ -128,8 +131,11 @@ struct CoverageDriver {
     }
 
     static void execute_(ref CoverageDriver self) @trusted {
-        self.fsm.next!((None a) => Initialize.init,
-                (Initialize a) => InitializeRoots.init, (InitializeRoots a) {
+        self.fsm.next!((None a) => Initialize.init, (Initialize a) {
+            if (self.runtime == CoverageRuntime.inject)
+                return fsm(InitializeRoots.init);
+            return fsm(SaveOriginal.init);
+        }, (InitializeRoots a) {
             if (a.hasRoot)
                 return fsm(SaveOriginal.init);
             return fsm(Done.init);
