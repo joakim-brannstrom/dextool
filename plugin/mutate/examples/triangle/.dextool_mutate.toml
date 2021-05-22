@@ -15,15 +15,6 @@ exclude = []
 # available options are: ["all", "ror", "rorp", "lcr", "aor", "uoi", "sdl", "dcr", "lcrb", "aors"]
 mutants = ["lcr", "lcrb", "sdl", "uoi", "dcr"]
 
-# Use coverage to reduce the tested mutants
-use_coverage = true
-
-# Default is to inject the runtime in all roots. A root is a file either provided by --in
-# or a file in compile_commands.json.
-# If specified then the coverage and schemata runtime is only injected in these files.
-# paths are relative to root.
-# inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]
-
 [analyze]
 
 # glob filter which include/exclude matched files (relative to root) from analysis.
@@ -36,20 +27,54 @@ exclude = []
 # remove files from the database that are no longer found during analysis.
 prune = true
 
+# checksum the files in this directories and warn if a mutation status is older
+# than the newest file. The path can be a file or a directory. Directories
+# are traveresed. All paths are relative to root.
+test_paths = ["test"]
+
+# glob filter which include/exclude matched test files (relative to root) from analysis.
+# test_include = ["*/*.ext"]
+# test_exclude = []
+
+[schema]
+
+# Use scheman to reduce the compile+link time
+use = true
+
+# how to add the schema runtime to the SUT
+# available options are: ["inject", "library"]
+# runtime = inject
+
+# Default is to inject the runtime in all roots. A root is a file either provided by --in
+# or a file in compile_commands.json.
+# If specified then the coverage and schemata runtime is only injected in these files.
+# paths are relative to root.
+# inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]
+
 # minimum number of mutants per schema.
 # min_mutants_per_schema = 3
 
 # maximum number of mutants per schema (zero means no limit).
 # mutants_per_schema = 1000
 
-# checksum the files in this directories and warn if a mutation status is older
-# than the newest file. The path can be a file or a directory. Directories
-# are traveresed. All paths are relative to root.
-# test_paths = ["test/suite1", "test/mytest.cpp"]
+# sanity check the schemata before it is used by executing the test cases
+# it is a slowdown but nice robustness that is usually worth having
+check_schemata = true
 
-# glob filter which include/exclude matched test files (relative to root) from analysis.
-# test_include = ["*/*.ext"]
-# test_exclude = []
+[coverage]
+
+# Use coverage to reduce the tested mutants
+use = true
+
+# how to add the coverage runtime to the SUT
+# available options are: ["inject", "library"]
+# runtime = inject
+
+# Default is to inject the runtime in all roots. A root is a file either provided by --in
+# or a file in compile_commands.json.
+# If specified then the coverage and schemata runtime is only injected in these files.
+# paths are relative to root.
+# inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]
 
 [database]
 
@@ -117,7 +142,7 @@ analyze_using_builtin = ["makefile"]
 
 # determine in what order mutants are chosen
 # available options are: "random" "consecutive" "bySize"
-# order = "random"
+# order = "bySize"
 
 # how to behave when new test cases are found
 # available options are: "doNothing" "resetAlive"
@@ -146,13 +171,6 @@ oldest_mutants_percentage = 1.0
 # This speed up the test phase but the report of test cases killing mutants is less accurate
 use_early_stop = true
 
-# reduce the compile and link time when testing mutants
-use_schemata = true
-
-# sanity check the schemata before it is used by executing the test cases
-# it is a slowdown but nice robustness that is usually worth having
-check_schemata = true
-
 # Enable continues sanity check of the build environment and test suite.
 # Run the test suite every 100 mutant to see that the test suite is OK when no mutants are injected.
 # If the test suite fails the previous 100 mutants will be reverted and mutation testing stops.
@@ -164,6 +182,10 @@ continues_check_test_suite_period = 100
 # Compare the checksum of the test binaries with and without a mutant injected to determine which test binaries need to be executed.
 # Requires that all `test_cmd`s are binaries, it can not be e.g. make test or scripts.
 test_cmd_checksum = true
+
+# Max output to capture from a test case. Useful when e.g. a test case goes into an infinite loop and spew out Gbyte of text.
+# Unit is Mbyte
+# max_test_cmd_output = 10
 
 [report]
 
