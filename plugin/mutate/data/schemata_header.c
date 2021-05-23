@@ -4,9 +4,17 @@
 #define DEXTOOL_MUTANT_SCHEMATA_INCL_GUARD
 #include <stdlib.h>
 
+#ifdef DEXTOOL_STRONG_ATTR
+#define DEXTOOL_CTOR_ATTR __attribute__((constructor))
+#define DEXTOOL_ATTR
+#else
+#define DEXTOOL_CTOR_ATTR __attribute__((constructor, weak))
+#define DEXTOOL_ATTR __attribute__((weak))
+#endif
+
 static unsigned int gDEXTOOL_MUTID;
 
-__attribute__((constructor, weak)) void dextool_init_mutid(void) {
+DEXTOOL_CTOR_ATTR void dextool_init_mutid(void) {
     gDEXTOOL_MUTID = 0;
     const char* c;
 
@@ -24,7 +32,7 @@ __attribute__((constructor, weak)) void dextool_init_mutid(void) {
 }
 
 #pragma GCC diagnostic ignored "-Wsuggest-attribute=pure"
-__attribute__((weak)) unsigned int dextool_get_mutid(void) { return gDEXTOOL_MUTID; }
+DEXTOOL_ATTR unsigned int dextool_get_mutid(void) { return gDEXTOOL_MUTID; }
 
 #endif /* DEXTOOL_MUTANT_SCHEMATA_INCL_GUARD */
 

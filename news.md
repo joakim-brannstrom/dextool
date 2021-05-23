@@ -7,6 +7,8 @@ New features for dextool mutate
    manually link it. This is because the automatic injection do not always work
    thus this option fixes the problem by allowing a user to change the build
    system and link with a pre-compiled version of the runtime.
+ * Install static libraries of the coverage and schema runtimes. See
+   README_tutorial_autotools.md for an example of how to use them.
 
 # v3.2.0 Topaz
 

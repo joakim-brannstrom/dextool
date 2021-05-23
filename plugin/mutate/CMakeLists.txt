@@ -1,5 +1,7 @@
 # vim: filetype=cmake
 
+## D Code
+
 file(GLOB_RECURSE ANALYZE_SRC ${CMAKE_CURRENT_LIST_DIR}/source/dextool/plugin/mutate/backend/analyze/*.d)
 
 list(APPEND DATABASE_STANDALONE_SRC
@@ -121,6 +123,14 @@ list(APPEND SUT_REUSED_FILES
 compile_d_integration_test(${EXE_NAME} "${TEST_SRC_FILES};${SUT_REUSED_FILES}" "${flags}" "" "dextool_mutate_standalone_database;dextool_dextool_test;dextool_miniorm;dextool_d2sqlite3;dextool_dextool;dextool_mylib;dextool_sumtype" "${TESTDATA_FILES}")
 
 # c/c++ code
+
+add_library(dextool_coverage_runtime data/coverage_mmap.c)
+target_compile_definitions(dextool_coverage_runtime PRIVATE DEXTOOL_STRONG_ATTR)
+
+add_library(dextool_schema_runtime data/schemata_header.c)
+target_compile_definitions(dextool_schema_runtime PRIVATE DEXTOOL_STRONG_ATTR)
+
+install(TARGETS dextool_schema_runtime dextool_coverage_runtime ARCHIVE DESTINATION lib)
 
 add_executable(test_schemata_c_header ${CMAKE_CURRENT_LIST_DIR}/test/test_schemata_c_header.cpp)
 target_include_directories(test_schemata_c_header PRIVATE ${CMAKE_CURRENT_LIST_DIR}/data)

@@ -10,10 +10,18 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#ifdef DEXTOOL_STRONG_ATTR
+#define DEXTOOL_CTOR_ATTR __attribute__((constructor))
+#define DEXTOOL_ATTR
+#else
+#define DEXTOOL_CTOR_ATTR __attribute__((constructor, weak))
+#define DEXTOOL_ATTR __attribute__((weak))
+#endif
+
 static char* gDEXTOOL_COVMAP;
 static int gDEXTOOL_COVMAP_FD;
 
-__attribute__((constructor, weak)) void dextool_init_covmap(void) {
+DEXTOOL_CTOR_ATTR void dextool_init_covmap(void) {
     const char* cov_map_file;
     int fd;
     struct stat sb;
@@ -37,7 +45,7 @@ __attribute__((constructor, weak)) void dextool_init_covmap(void) {
     *(gDEXTOOL_COVMAP) = 1; /* successfully initialized */
 }
 
-__attribute__((weak)) void dextool_cov(unsigned int x) {
+DEXTOOL_ATTR void dextool_cov(unsigned int x) {
     if (gDEXTOOL_COVMAP == NULL)
         return;
     *(gDEXTOOL_COVMAP + x) = 1;
