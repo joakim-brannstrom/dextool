@@ -2038,17 +2038,15 @@ struct Database {
         auto stmt = db.prepare(format!"SELECT count(*) FROM %s"(mutationScoreHistoryTable));
         const sz = stmt.get.execute.oneValue!long;
 
-        if (sz < keep) {
+        if (sz < keep)
             return;
-        }
 
         auto ids = appender!(long[])();
         stmt = db.prepare(format!"SELECT t0.id FROM t0 %s ORDER BY t0.time ASC LIMIT :limit"(
                 mutationScoreHistoryTable));
         stmt.get.bind(":limit", sz - keep);
-        foreach (a; stmt.get.execute) {
+        foreach (a; stmt.get.execute)
             ids.put(a.peek!long(0));
-        }
 
         stmt = db.prepare(format!"DELETE FROM %s WHERE id = :id"(mutationScoreHistoryTable));
         foreach (a; ids.data) {
@@ -2304,6 +2302,49 @@ struct DbTestCmd {
         typeof(return) rval;
         foreach (ref r; stmt.get.execute)
             rval.add(Checksum64(cast(ulong) r.peek!long(0)));
+        return rval;
+    }
+
+    void add(ChecksumTestCmdMutated cs, Mutation.Status status) @trusted {
+        static immutable sql = format!"INSERT OR REPLACE INTO %1$s (checksum,status,timestamp) VALUES(:cs,:status,:ts)"(
+                testCmdMutatedTable);
+
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":cs", cast(long) cs.get.c0);
+        stmt.get.bind(":status", cast(long) status);
+        stmt.get.bind(":ts", Clock.currTime.toSqliteDateTime);
+        stmt.get.execute;
+    }
+
+    /// Trim the saved checksums to only the latest `keep`.
+    void trimMutated(const long keep) @trusted {
+        auto stmt = db.prepare(format!"SELECT count(*) FROM %s"(testCmdMutatedTable));
+        const sz = stmt.get.execute.oneValue!long;
+        if (sz < keep)
+            return;
+
+        auto ids = appender!(long[])();
+        stmt = db.prepare(format!"SELECT checksum FROM %s ORDER BY timestamp ASC LIMIT :limit"(
+                testCmdMutatedTable));
+        stmt.get.bind(":limit", sz - keep);
+        foreach (a; stmt.get.execute)
+            ids.put(a.peek!long(0));
+
+        stmt = db.prepare(format!"DELETE FROM %s WHERE checksum = :cs"(testCmdMutatedTable));
+        foreach (a; ids.data) {
+            stmt.get.bind(":cs", a);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
+    }
+
+    Mutation.Status[Checksum64] mutated() @trusted {
+        static immutable sql = "SELECT checksum,status FROM " ~ testCmdMutatedTable;
+
+        auto stmt = db.prepare(sql);
+        typeof(return) rval;
+        foreach (ref r; stmt.get.execute)
+            rval[Checksum64(cast(ulong) r.peek!long(0))] = r.peek!long(1).to!(Mutation.Status);
         return rval;
     }
 }

@@ -81,7 +81,8 @@ CheckTimeout --> UpdateTimeout : changed
 
 Done --> SchemataPruneUsed
 SchemataPruneUsed --> SaveMutationScore
-SaveMutationScore --> Stop
+SaveMutationScore --> SaveTestBinary
+SaveTestBinary --> Stop
 
 Error --> Stop
 @enduml

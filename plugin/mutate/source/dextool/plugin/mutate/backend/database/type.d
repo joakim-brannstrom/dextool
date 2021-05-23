@@ -333,3 +333,6 @@ alias ToolVersion = NamedType!(long, Tag!"ToolVersion", long.init, TagStringable
 
 alias ChecksumTestCmdOriginal = NamedType!(Checksum64,
         Tag!"ChecksumTestCmdOriginal", Checksum64.init, TagStringable);
+
+alias ChecksumTestCmdMutated = NamedType!(Checksum64,
+        Tag!"ChecksumTestCmdMutated", Checksum64.init, TagStringable);
