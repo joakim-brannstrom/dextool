@@ -739,6 +739,9 @@ on the test time and allows the tool to find equivalent mutants. But to use it
 it means that all `test_cmd` must binaries, it can not be e.g. "make test".
 This is obvious when you think about it because "make test" is never changed
 when a mutant is injected.
+This option also activate a checksum table of `test_cmd` - mutation
+status. If the checksum of the `test_cmd` match what is already known then that
+mutation status is used instead.
 
 `max_test_cmd_output`: Limits the number of mbytes captured from the `test_cmd`
 executions. The limit is per `test_cmd`. This is used to prevent e.g.

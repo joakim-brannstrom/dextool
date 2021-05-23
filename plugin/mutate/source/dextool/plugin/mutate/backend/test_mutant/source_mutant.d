@@ -21,6 +21,7 @@ import std.path : buildPath;
 import my.fsm : next, act, get, TypeDataMap;
 import my.hash : Checksum64;
 import my.named_type;
+import my.optional;
 import my.set;
 import proc : DrainElement;
 import sumtype;
@@ -44,6 +45,9 @@ struct MutationTestDriver {
     import std.datetime.stopwatch : StopWatch;
     import std.typecons : Tuple;
 
+    // Hash of current test binaries
+    HashFile[string] testBinaryHashes;
+
     static struct Global {
         FilesysIO fio;
         Database* db;
@@ -54,7 +58,7 @@ struct MutationTestDriver {
         /// Runs the test commands.
         TestRunner* runner;
 
-        Set!Checksum64* originalTestCmd;
+        TestBinaryDb* testBinaryDb;
 
         /// File to mutate.
         AbsolutePath mutateFile;
@@ -93,14 +97,19 @@ struct MutationTestDriver {
 
     static struct TestMutant {
         NamedType!(bool, Tag!"HasTestOutput", bool.init, TagStringable, ImplicitConvertable) hasTestOutput;
-        NamedType!(bool, Tag!"IsEquivalent", bool.init, TagStringable) equivalent;
+        Optional!(Mutation.Status) calcStatus;
     }
 
-    static struct MarkEquivalent {
+    static struct MarkCalcStatus {
+        Mutation.Status status;
     }
 
     static struct RestoreCode {
         NamedType!(bool, Tag!"FilesysError", bool.init, TagStringable, ImplicitConvertable) filesysError;
+    }
+
+    static struct TestBinaryAnalyze {
+        NamedType!(bool, Tag!"HasTestOutput", bool.init, TagStringable, ImplicitConvertable) hasTestOutput;
     }
 
     static struct TestCaseAnalyzeData {
@@ -128,8 +137,8 @@ struct MutationTestDriver {
     static struct NoResult {
     }
 
-    alias Fsm = my.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode, TestCaseAnalyze,
-            StoreResult, Done, FilesysError, NoResultRestoreCode, NoResult, MarkEquivalent);
+    alias Fsm = my.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode, TestCaseAnalyze, StoreResult, Done,
+            FilesysError, NoResultRestoreCode, NoResult, MarkCalcStatus, TestBinaryAnalyze);
     alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData);
 
     private {
@@ -159,8 +168,10 @@ struct MutationTestDriver {
                 return fsm(NoResultRestoreCode.init);
             return fsm(TestMutant.init);
         }, (TestMutant a) {
-            if (a.equivalent.get)
-                return fsm(MarkEquivalent.init);
+            if (a.calcStatus.hasValue)
+                return fsm(MarkCalcStatus(a.calcStatus.orElse(Mutation.Status.unknown)));
+            return fsm(TestBinaryAnalyze(a.hasTestOutput));
+        }, (TestBinaryAnalyze a) {
             if (self.global.testResult.status == Mutation.Status.killed
                 && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && a.hasTestOutput) {
                 return fsm(TestCaseAnalyze.init);
@@ -170,7 +181,7 @@ struct MutationTestDriver {
             if (a.unstableTests)
                 return fsm(NoResultRestoreCode.init);
             return fsm(RestoreCode.init);
-        }, (MarkEquivalent a) => RestoreCode.init, (RestoreCode a) {
+        }, (MarkCalcStatus a) => RestoreCode.init, (RestoreCode a) {
             if (a.filesysError)
                 return fsm(FilesysError.init);
             return fsm(StoreResult.init);
@@ -279,49 +290,111 @@ nothrow:
         }
     }
 
-    void opCall(ref TestMutant data) {
-        bool successCompile;
-        compile(local.get!TestMutant.buildCmd,
-                local.get!TestMutant.buildCmdTimeout, PrintCompileOnFailure(false)).match!(
-                (Mutation.Status a) { global.testResult.status = a; }, (bool success) {
-            successCompile = success;
-        },);
+    void opCall(ref TestMutant data) @trusted {
+        {
+            scope (exit)
+                global.swCompile.stop;
 
-        auto skipTests = () @trusted nothrow{
-            if (global.originalTestCmd.empty)
-                return Set!string.init;
-            Set!string rval;
+            bool successCompile;
+            compile(local.get!TestMutant.buildCmd,
+                    local.get!TestMutant.buildCmdTimeout, PrintCompileOnFailure(false)).match!(
+                    (Mutation.Status a) { global.testResult.status = a; }, (bool success) {
+                successCompile = success;
+            },);
 
+            if (!successCompile)
+                return;
+        }
+
+        global.swTest.start;
+
+        Set!string skipTests;
+        if (!global.testBinaryDb.empty) {
+            bool allOriginal = true;
+            bool allAlive = true;
+            bool anyKill;
             try {
-                foreach (f; global.runner
-                        .testCmds
-                        .map!(a => a.cmd.value[0])
-                        .hashFiles
-                        .filter!(a => a.cs in *global.originalTestCmd)) {
-                    rval.add(f.file);
+                foreach (f; global.runner.testCmds.map!(a => a.cmd.value[0]).hashFiles) {
+                    testBinaryHashes[f.file] = f;
+
+                    if (f.cs in global.testBinaryDb.original) {
+                        skipTests.add(f.file);
+                    } else {
+                        allOriginal = false;
+                    }
+
+                    if (auto v = f.cs in global.testBinaryDb.mutated) {
+                        allAlive = allAlive && *v == Mutation.Status.alive;
+                        anyKill = anyKill || *v == Mutation.Status.killed;
+
+                        if ((*v).among(Mutation.Status.alive, Mutation.Status.killed))
+                            skipTests.add(f.file);
+                    } else {
+                        allAlive = false;
+                    }
                 }
             } catch (Exception e) {
                 logger.info(e.msg).collectException;
             }
 
-            return rval;
-        }();
+            if (allOriginal) {
+                data.calcStatus = some(Mutation.Status.equivalent);
+            } else if (anyKill) {
+                data.calcStatus = some(Mutation.Status.killed);
+            } else if (allAlive) {
+                data.calcStatus = some(Mutation.Status.alive);
+            }
 
-        global.swCompile.stop;
-        global.swTest.start;
-
-        if (!successCompile)
-            return;
-
-        if (!skipTests.empty && !global.originalTestCmd.empty) {
-            logger.infof("%s/%s test_cmd unaffected by mutant",
-                    skipTests.length, global.originalTestCmd.length).collectException;
-            logger.trace(skipTests.toRange).collectException;
-            data.equivalent.get = skipTests.length == global.originalTestCmd.length;
+            // TODO: prefix with debug after 2021-10-23
+            logger.tracef("allOriginal:%s allAlive:%s anyKill:%s dbLen:%s", allOriginal, allAlive, anyKill,
+                    global.testBinaryDb.mutated.length + global.testBinaryDb.original.length)
+                .collectException;
         }
-        global.testResult = runTester(*global.runner, SkipTests(skipTests));
 
-        data.hasTestOutput.get = !global.testResult.output.empty;
+        if (data.calcStatus.hasValue) {
+            logger.info("Reusing test result").collectException;
+        } else if (!skipTests.empty && !global.testBinaryDb.empty) {
+            logger.infof("%s/%s test_cmd unaffected by mutant", skipTests.length,
+                    global.testBinaryDb.original.length).collectException;
+            logger.trace(skipTests.toRange).collectException;
+        }
+
+        if (!data.calcStatus.hasValue) {
+            global.testResult = runTester(*global.runner, SkipTests(skipTests));
+            data.hasTestOutput.get = !global.testResult.output.empty;
+        }
+    }
+
+    void opCall(TestBinaryAnalyze data) {
+        scope (exit)
+            testBinaryHashes = null;
+
+        // means that the user has configured that it should be used because
+        // then at least original is set.
+        if (!global.testBinaryDb.empty) {
+            final switch (global.testResult.status) with (Mutation) {
+            case Status.alive:
+                foreach (a; testBinaryHashes.byValue)
+                    global.testBinaryDb.add(a.cs, Status.alive);
+                break;
+            case Status.killed:
+                foreach (a; global.testResult.output.byKey.map!(a => a.value[0])) {
+                    if (auto v = a in testBinaryHashes)
+                        global.testBinaryDb.add(v.cs, global.testResult.status);
+                }
+                break;
+            case Status.timeout:
+                goto case;
+            case Status.noCoverage:
+                goto case;
+            case Status.killedByCompiler:
+                goto case;
+            case Status.equivalent:
+                goto case;
+            case Status.unknown:
+                break;
+            }
+        }
     }
 
     void opCall(ref TestCaseAnalyze data) {
@@ -348,9 +421,9 @@ nothrow:
         }
     }
 
-    void opCall(MarkEquivalent data) {
+    void opCall(MarkCalcStatus data) {
         global.testResult.output = null;
-        global.testResult.status = typeof(global.testResult.status).equivalent;
+        global.testResult.status = data.status;
     }
 
     void opCall(StoreResult data) {

@@ -90,6 +90,7 @@ immutable srcCovInfoTable = "src_cov_info";
 immutable srcCovTable = "src_cov_instr";
 immutable srcCovTimeStampTable = "src_cov_timestamp";
 immutable srcMetadataTable = "src_metadata";
+immutable testCmdMutatedTable = "test_cmd_mutated";
 immutable testCmdOriginalTable = "test_cmd_original";
 immutable testFilesTable = "test_files";
 
@@ -629,6 +630,19 @@ struct TestCmdOriginalTable {
     string cmd;
 }
 
+@TableName(testCmdMutatedTable)
+@TablePrimaryKey("checksum")
+struct TestCmdMutatedTable {
+    long checksum;
+
+    /// Mutation.Status
+    long status;
+
+    /// when the measurement was taken.
+    @ColumnName("timestamp")
+    SysTime timeStamp;
+}
+
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     try {
         db.run(delete_!VersionTbl);
@@ -747,7 +761,8 @@ void upgradeV0(ref Miniorm db) {
             SchemataUsedTable, MutantWorklistTbl, RuntimeHistoryTable,
             MutationScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
             CoverageInfoTable, CoverageTimeTtampTable,
-            DependencyFileTable, DependencyRootTable, DextoolVersionTable, TestCmdOriginalTable));
+            DependencyFileTable, DependencyRootTable, DextoolVersionTable,
+            TestCmdOriginalTable, TestCmdMutatedTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1596,6 +1611,11 @@ void upgradeV40(ref Miniorm db) {
 // 2021-05-09
 void upgradeV41(ref Miniorm db) {
     db.run(buildSchema!(TestCmdOriginalTable));
+}
+
+// 2021-05-23
+void upgradeV42(ref Miniorm db) {
+    db.run(buildSchema!(TestCmdMutatedTable));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

@@ -652,3 +652,28 @@ auto hashFiles(RangeT)(RangeT files) {
             return HashFile(cs, Path(a));
         });
 }
+
+/// A runtime database of the current status of the test binaries and their checksum.
+struct TestBinaryDb {
+    import my.hash : Checksum64;
+    import my.set : Set;
+
+    Set!Checksum64 original;
+    Mutation.Status[Checksum64] mutated;
+
+    // last added
+    Mutation.Status[Checksum64] added;
+
+    void add(Checksum64 cs, Mutation.Status status) @safe pure nothrow {
+        added[cs] = status;
+        mutated[cs] = status;
+    }
+
+    void clearAdded() @safe pure nothrow @nogc {
+        added = null;
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return original.empty && mutated.empty;
+    }
+}

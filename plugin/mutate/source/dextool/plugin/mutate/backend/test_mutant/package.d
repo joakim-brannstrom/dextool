@@ -328,7 +328,7 @@ struct TestDriver {
     }
 
     static struct MutationTestData {
-        Set!Checksum64 original;
+        TestBinaryDb testBinaryDb;
     }
 
     static struct CheckTimeout {
@@ -419,6 +419,9 @@ struct TestDriver {
     static struct ChecksumTestCmds {
     }
 
+    static struct SaveTestBinary {
+    }
+
     alias Fsm = my.fsm.Fsm!(None, Initialize, SanityCheck,
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
@@ -426,7 +429,8 @@ struct TestDriver {
             UpdateTimeout, CheckStopCond, PullRequest, CheckPullRequestMutant, ParseStdin,
             FindTestCmds, ChooseMode, NextSchemata, SchemataTest, LoadSchematas,
             SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck,
-            Coverage, PropagateCoverage, ContinuesCheckTestSuite, ChecksumTestCmds);
+            Coverage, PropagateCoverage, ContinuesCheckTestSuite,
+            ChecksumTestCmds, SaveTestBinary);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData, PullRequestData,
             ResetOldMutantData, NextSchemataData, ContinuesCheckTestSuiteData, MutationTestData);
 
@@ -508,9 +512,8 @@ struct TestDriver {
             if (self.conf.testCmdChecksum.get)
                 return fsm(ChecksumTestCmds.init);
             return fsm(MeasureTestSuite.init);
-        }, (ChecksumTestCmds a) => MeasureTestSuite.init, (SaveMutationScore a) {
-            return fsm(Stop.init);
-        }, (PreCompileSut a) {
+        }, (ChecksumTestCmds a) => MeasureTestSuite.init, (SaveMutationScore a) => SaveTestBinary.init,
+                (SaveTestBinary a) => Stop.init, (PreCompileSut a) {
             if (a.compilationError)
                 return fsm(Error.init);
             if (self.conf.testCommandDir.empty)
@@ -955,10 +958,13 @@ nothrow:
             foreach (a; previous.setDifference(current).toRange)
                 spinSql!(() => db.testCmdApi.remove(ChecksumTestCmdOriginal(a)));
 
-            local.get!MutationTest.original = current;
+            local.get!MutationTest.testBinaryDb.original = current;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
+
+        local.get!MutationTest.testBinaryDb.mutated = spinSql!(
+                () @trusted => db.testCmdApi.mutated);
     }
 
     void opCall(SaveMutationScore data) {
@@ -978,6 +984,11 @@ nothrow:
             db.trimMutationScore(10000);
             t.commit;
         });
+    }
+
+    void opCall(SaveTestBinary data) {
+        if (!local.get!MutationTest.testBinaryDb.empty)
+            saveTestBinaryDb(local.get!MutationTest.testBinaryDb);
     }
 
     void opCall(ref PreCompileSut data) {
@@ -1120,12 +1131,13 @@ nothrow:
 
     void opCall(ref MutationTest data) {
         auto runnerPtr = () @trusted { return &runner; }();
-        auto originalPtr = () @trusted {
-            return &local.get!MutationTest.original;
+        auto testBinaryDbPtr = () @trusted {
+            return &local.get!MutationTest.testBinaryDb;
         }();
 
         try {
-            auto g = MutationTestDriver.Global(filesysIO, db, nextMutant, runnerPtr, originalPtr);
+            auto g = MutationTestDriver.Global(filesysIO, db, nextMutant,
+                    runnerPtr, testBinaryDbPtr);
             auto driver = MutationTestDriver(g,
                     MutationTestDriver.TestMutantData(!(conf.mutationTestCaseAnalyze.empty
                         && conf.mutationTestCaseBuiltin.empty),
@@ -1192,6 +1204,8 @@ nothrow:
 
     void opCall(HandleTestResult data) {
         saveTestResult(data.result);
+        if (!local.get!MutationTest.testBinaryDb.empty)
+            saveTestBinaryDb(local.get!MutationTest.testBinaryDb);
     }
 
     void opCall(ref CheckStopCond data) {
@@ -1404,12 +1418,6 @@ nothrow:
         void statusUpdate(MutationTestResult result) @safe {
             import dextool.plugin.mutate.backend.test_mutant.timeout : updateMutantStatus;
 
-            const cnt_action = () {
-                if (result.status == Mutation.Status.alive)
-                    return Database.CntAction.incr;
-                return Database.CntAction.reset;
-            }();
-
             estimate.update(result.status);
 
             updateMutantStatus(*db, result.id, result.status,
@@ -1422,17 +1430,35 @@ nothrow:
                 stopCheck.incrAliveMutants;
         }
 
-        spinSql!(() @trusted {
+        const left = spinSql!(() @trusted {
             auto t = db.transaction;
             foreach (a; results) {
                 statusUpdate(a);
             }
+
+            const left = db.getWorklistCount;
+            t.commit;
+            return left;
+        });
+
+        logger.infof("%s mutants left to test. Estimated mutation score %.3s (error %.3s)",
+                left, estimate.value.get, estimate.error.get).collectException;
+    }
+
+    void saveTestBinaryDb(ref TestBinaryDb testBinaryDb) @safe nothrow {
+        import dextool.plugin.mutate.backend.database.type : ChecksumTestCmdMutated;
+
+        spinSql!(() @trusted {
+            auto t = db.transaction;
+            foreach (a; testBinaryDb.added.byKeyValue) {
+                db.testCmdApi.add(ChecksumTestCmdMutated(a.key), a.value);
+            }
+            // magic number. about 1 Mbyte in the database (8+8+8)*20000
+            db.testCmdApi.trimMutated(20000);
             t.commit;
         });
 
-        const left = spinSql!(() { return db.getWorklistCount; });
-        logger.infof("%s mutants left to test. Estimated mutation score %.3s (error %.3s)",
-                left, estimate.value.get, estimate.error.get).collectException;
+        testBinaryDb.clearAdded;
     }
 }
 

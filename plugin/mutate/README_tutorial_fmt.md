@@ -1,4 +1,4 @@
-# TMutation Testing of fmtlib
+# Mutation Testing of fmtlib
 
 This tutorial demonstrate how to run dextool mutate on fmtlib. fmtlib uses
 cmake as the build system and Googletest for the tests. Both these factors

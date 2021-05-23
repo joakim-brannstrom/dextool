@@ -9,6 +9,10 @@ New features for dextool mutate
    system and link with a pre-compiled version of the runtime.
  * Install static libraries of the coverage and schema runtimes. See
    README_tutorial_autotools.md for an example of how to use them.
+ * Reduce which `test_cmd` are executed when the option `test_cmd_checksum` is
+   activated.  This option also activate a checksum table of `test_cmd` -
+   mutation status. If the checksum of the `test_cmd` match what is already
+   known then that mutation status is used instead.
 
 # v3.2.0 Topaz
 
