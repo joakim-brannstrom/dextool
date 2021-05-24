@@ -308,20 +308,25 @@ nothrow:
 
         Set!string skipTests;
         if (!global.testBinaryDb.empty) {
-            bool allOriginal = true;
-            bool allAlive = true;
+            bool allOriginal = !global.testBinaryDb.original.empty;
+            bool allAlive = !global.testBinaryDb.mutated.empty;
             bool anyKill;
+            bool loopRun;
             try {
                 foreach (f; global.runner.testCmds.map!(a => a.cmd.value[0]).hashFiles) {
-                    testBinaryHashes[f.file] = f;
+                    loopRun = true;
 
                     if (f.cs in global.testBinaryDb.original) {
                         skipTests.add(f.file);
+                        logger.tracef("match original %s %s", f.file, f.cs);
                     } else {
                         allOriginal = false;
+                        testBinaryHashes[f.file] = f;
                     }
 
                     if (auto v = f.cs in global.testBinaryDb.mutated) {
+                        logger.tracef("match mutated %s:%s %s", *v, f.file, f.cs);
+
                         allAlive = allAlive && *v == Mutation.Status.alive;
                         anyKill = anyKill || *v == Mutation.Status.killed;
 
@@ -332,14 +337,20 @@ nothrow:
                     }
                 }
             } catch (Exception e) {
-                logger.info(e.msg).collectException;
+                logger.warning(e.msg).collectException;
             }
 
-            if (allOriginal) {
+            if (!loopRun) {
+                logger.trace("failed to checksum test_cmds: ",
+                        global.runner.testCmds.map!(a => a.cmd)).collectException;
+            } else if (allOriginal) {
                 data.calcStatus = some(Mutation.Status.equivalent);
             } else if (anyKill) {
                 data.calcStatus = some(Mutation.Status.killed);
             } else if (allAlive) {
+                data.calcStatus = some(Mutation.Status.alive);
+            } else if (skipTests.length == global.testBinaryDb.original.length) {
+                // happens when there is a mix of alive or original
                 data.calcStatus = some(Mutation.Status.alive);
             }
 
@@ -350,11 +361,11 @@ nothrow:
         }
 
         if (data.calcStatus.hasValue) {
-            logger.info("Reusing test result").collectException;
+            logger.info("Using mutant status from previous test executions").collectException;
         } else if (!skipTests.empty && !global.testBinaryDb.empty) {
             logger.infof("%s/%s test_cmd unaffected by mutant", skipTests.length,
                     global.testBinaryDb.original.length).collectException;
-            logger.trace(skipTests.toRange).collectException;
+            logger.trace("skipped tests ", skipTests.toRange).collectException;
         }
 
         if (!data.calcStatus.hasValue) {
@@ -372,13 +383,18 @@ nothrow:
         if (!global.testBinaryDb.empty) {
             final switch (global.testResult.status) with (Mutation) {
             case Status.alive:
-                foreach (a; testBinaryHashes.byValue)
-                    global.testBinaryDb.add(a.cs, Status.alive);
+                foreach (a; testBinaryHashes.byKeyValue) {
+                    logger.tracef("save %s -> %s", a.key, Status.alive).collectException;
+                    global.testBinaryDb.add(a.value.cs, Status.alive);
+                }
                 break;
             case Status.killed:
                 foreach (a; global.testResult.output.byKey.map!(a => a.value[0])) {
-                    if (auto v = a in testBinaryHashes)
+                    if (auto v = a in testBinaryHashes) {
+                        logger.tracef("save %s -> %s", a,
+                                global.testResult.status).collectException;
                         global.testBinaryDb.add(v.cs, global.testResult.status);
+                    }
                 }
                 break;
             case Status.timeout:
