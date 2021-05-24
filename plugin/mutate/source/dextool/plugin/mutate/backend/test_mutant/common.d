@@ -21,6 +21,7 @@ import std.typecons : Flag, No;
 
 import blob_model : Blob;
 import my.named_type;
+import my.set;
 import proc : DrainElement;
 import sumtype;
 
@@ -68,6 +69,7 @@ struct TestCaseAnalyzer {
 
     static struct Success {
         TestCase[] failed;
+        TestCase[] testCmd;
         TestCase[] found;
     }
 
@@ -87,7 +89,8 @@ struct TestCaseAnalyzer {
         this.cleanup = cleanup;
     }
 
-    Result analyze(DrainElement[] data, Flag!"allFound" allFound = No.allFound) {
+    Result analyze(ShellCommand testCmd, DrainElement[] data,
+            Flag!"allFound" allFound = No.allFound) {
         import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 
         GatherTestCase gather;
@@ -102,15 +105,16 @@ struct TestCaseAnalyzer {
             }
         }
         if (!builtins.empty) {
-            builtin(data, builtins, gather);
+            builtin(testCmd, data, builtins, gather);
         }
 
         if (!gather.unstable.empty) {
-            return Result(Unstable(gather.unstableAsArray, allFound ? gather.foundAsArray : null));
+            return Result(Unstable(gather.unstable.toArray, allFound ? gather.found.toArray : null));
         }
 
         if (success) {
-            return Result(Success(gather.failedAsArray, allFound ? gather.foundAsArray : null));
+            return Result(Success(gather.failed.toArray,
+                    gather.testCmd.toArray, allFound ? gather.found.toArray : null));
         }
 
         return Result(Failed.init);
@@ -124,7 +128,7 @@ struct TestCaseAnalyzer {
 
 /** Analyze the output from the test suite with one of the builtin analyzers.
  */
-void builtin(DrainElement[] output,
+void builtin(ShellCommand cmd, DrainElement[] output,
         const(TestCaseAnalyzeBuiltin)[] tc_analyze_builtin, ref GatherTestCase app) @safe nothrow {
     import dextool.plugin.mutate.backend.test_mutant.ctest_post_analyze;
     import dextool.plugin.mutate.backend.test_mutant.gtest_post_analyze;
@@ -157,6 +161,8 @@ void builtin(DrainElement[] output,
             case TestCaseAnalyzeBuiltin.makefile:
                 makefile.process(line, app);
                 break;
+            case TestCaseAnalyzeBuiltin.test_cmd:
+                break;
             }
         }
     }
@@ -179,6 +185,9 @@ void builtin(DrainElement[] output,
         case TestCaseAnalyzeBuiltin.ctest:
             break;
         case TestCaseAnalyzeBuiltin.makefile:
+            break;
+        case TestCaseAnalyzeBuiltin.test_cmd:
+            app.reportTestCmd(TestCase(cmd.toShortString));
             break;
         }
     }

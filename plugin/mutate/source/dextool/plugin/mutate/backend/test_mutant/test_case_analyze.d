@@ -18,7 +18,7 @@ struct GatherTestCase {
     import my.set;
 
     /// Test cases reported as failed.
-    long[TestCase] failed;
+    Set!TestCase failed;
 
     /// The unstable test cases.
     Set!TestCase unstable;
@@ -26,43 +26,17 @@ struct GatherTestCase {
     /// Found test cases.
     Set!TestCase found;
 
+    Set!TestCase testCmd;
+
     void merge(GatherTestCase o) @safe nothrow {
-        foreach (kv; o.failed.byKeyValue) {
-            if (auto v = kv.key in failed)
-                (*v) += kv.value;
-            else
-                failed[kv.key] = kv.value;
-        }
-
-        foreach (k; o.found.toRange) {
-            found.add(k);
-        }
-
-        foreach (k; o.unstable.toRange) {
-            unstable.add(k);
-        }
-    }
-
-    TestCase[] failedAsArray() @safe nothrow {
-        return failed.byKey.array;
-    }
-
-    TestCase[] foundAsArray() @safe nothrow {
-        return found.toArray;
-    }
-
-    TestCase[] unstableAsArray() @safe nothrow {
-        return unstable.toArray;
+        failed.add(o.failed);
+        found.add(o.found);
+        unstable.add(o.unstable);
     }
 
     void reportFailed(TestCase tc) @safe nothrow {
         found.add(tc);
-
-        if (auto v = tc in failed) {
-            (*v)++;
-        } else {
-            failed[tc] = 1;
-        }
+        failed.add(tc);
     }
 
     /// A test case that is found
@@ -73,5 +47,10 @@ struct GatherTestCase {
     void reportUnstable(TestCase tc) @safe nothrow {
         found.add(tc);
         unstable.add(tc);
+    }
+
+    void reportTestCmd(TestCase tc) @safe nothrow {
+        testCmd.add(tc);
+        found.add(tc);
     }
 }

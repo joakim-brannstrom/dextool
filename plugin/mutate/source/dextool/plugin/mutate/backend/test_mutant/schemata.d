@@ -495,10 +495,11 @@ nothrow:
 
         foreach (testCmd; local.get!TestCaseAnalyze.output.byKeyValue) {
             try {
-                auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(testCmd.value);
+                auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(testCmd.key,
+                        testCmd.value);
 
                 analyze.match!((TestCaseAnalyzer.Success a) {
-                    data.result.testCases ~= a.failed ~ TestCase(testCmd.key.toShortString);
+                    data.result.testCases ~= a.failed ~ a.testCmd;
                 }, (TestCaseAnalyzer.Unstable a) {
                     logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
                     logger.info(

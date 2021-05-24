@@ -143,6 +143,8 @@ enum TestCaseAnalyzeBuiltin {
     ctest,
     /// Tracker for failing makefile targets
     makefile,
+    /// Only track the test_cmd
+    test_cmd
 }
 
 /// A line in a file.
