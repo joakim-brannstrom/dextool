@@ -1453,8 +1453,8 @@ nothrow:
             foreach (a; testBinaryDb.added.byKeyValue) {
                 db.testCmdApi.add(ChecksumTestCmdMutated(a.key), a.value);
             }
-            // magic number. about 1 Mbyte in the database (8+8+8)*20000
-            db.testCmdApi.trimMutated(20000);
+            // magic number. about 10 Mbyte in the database (8+8+8)*20000
+            db.testCmdApi.trimMutated(200000);
             t.commit;
         });
 
