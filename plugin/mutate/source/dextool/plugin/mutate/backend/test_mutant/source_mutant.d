@@ -293,7 +293,7 @@ nothrow:
     void opCall(ref TestMutant data) @trusted {
         {
             scope (exit)
-                global.swCompile.stop;
+                () { global.swCompile.stop; global.swTest.start; }();
 
             bool successCompile;
             compile(local.get!TestMutant.buildCmd,
@@ -305,8 +305,6 @@ nothrow:
             if (!successCompile)
                 return;
         }
-
-        global.swTest.start;
 
         Set!string skipTests;
         if (!global.testBinaryDb.empty) {
