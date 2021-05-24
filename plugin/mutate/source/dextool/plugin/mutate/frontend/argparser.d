@@ -152,7 +152,7 @@ struct ArgParser {
         app.put("use = true");
         app.put(null);
         app.put("# how to add the schema runtime to the SUT");
-        app.put(format!"# available options are: %s"(
+        app.put(format!"# available options are: %(%s, %)"(
                 [EnumMembers!SchemaRuntime].map!(a => a.to!string)));
         app.put("# runtime = inject");
         app.put(null);
@@ -181,7 +181,7 @@ struct ArgParser {
         app.put("use = true");
         app.put(null);
         app.put("# how to add the coverage runtime to the SUT");
-        app.put(format!"# available options are: %s"(
+        app.put(format!"# available options are: %(%s, %)"(
                 [EnumMembers!CoverageRuntime].map!(a => a.to!string)));
         app.put("# runtime = inject");
         app.put(null);
@@ -264,8 +264,9 @@ struct ArgParser {
         app.put(`# analyze_cmd = "analyze.sh"`);
         app.put(null);
         app.put("# built-in analyzer of output from testing frameworks to find failing test cases");
-        app.put(format("# analyze_using_builtin = [%(%s, %)]",
+        app.put(format("# available options are: [%(%s, %)]",
                 [EnumMembers!TestCaseAnalyzeBuiltin].map!(a => a.to!string)));
+        app.put(`analyze_using_builtin = ["test_cmd"]`);
         app.put(null);
         app.put("# determine in what order mutants are chosen");
         app.put(format("# available options are: %(%s %)",

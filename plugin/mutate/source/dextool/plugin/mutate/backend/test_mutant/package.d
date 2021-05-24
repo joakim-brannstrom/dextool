@@ -784,13 +784,13 @@ nothrow:
             auto res = runTester(runner, 999.dur!"hours");
 
             foreach (testCmd; res.output.byKeyValue) {
-                auto analyze = testCaseAnalyzer.analyze(testCmd.value, Yes.allFound);
+                auto analyze = testCaseAnalyzer.analyze(testCmd.key, testCmd.value, Yes.allFound);
 
                 analyze.match!((TestCaseAnalyzer.Success a) {
-                    found[testCmd.key] = a.found ~ TestCase(testCmd.key.toShortString);
+                    found[testCmd.key] = a.found;
                 }, (TestCaseAnalyzer.Unstable a) {
                     logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
-                    found[testCmd.key] = a.found ~ TestCase(testCmd.key.toShortString);
+                    found[testCmd.key] = a.found;
                 }, (TestCaseAnalyzer.Failed a) {
                     logger.warning("The parser that analyze the output for test case(s) failed");
                 });

@@ -38,9 +38,7 @@ class ShallReportTestCaseKilledMutant : SimpleFixture {
             .run;
         // dfmt on
 
-        testConsecutiveSparseOrder!SubStr([
-                `killed by [Failed 42, build/mutate_tests/dextool_test.test_mutant_tester.ShallReportTestCaseKilledMutant.test/test.sh]`
-                ]).shouldBeIn(r.output);
+        testConsecutiveSparseOrder!SubStr([`killed by [Failed 42]`]).shouldBeIn(r.output);
     }
 }
 
@@ -66,8 +64,9 @@ class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
             .run;
         // dfmt on
 
-        testConsecutiveSparseOrder!SubStr([
-                `killed by [MessageTest.DefaultConstructor, MessageTest.StreamsNullPointer, build/mutate_tests/dextool_test.test_mutant_tester.ShallParseGtestReportForTestCasesThatKilledTheMutant.test/test.sh]`
+        testConsecutiveSparseOrder!SubStr(
+                [
+                `killed by [MessageTest.DefaultConstructor, MessageTest.StreamsNullPointer]`
                 ]).shouldBeIn(r.output);
     }
 
@@ -159,7 +158,7 @@ class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!SubStr([
-                `killed by [build/mutate_tests/dextool_test.test_mutant_tester.ShallParseCTestReportForTestCasesThatKilledTheMutant.test/test.sh, gtest-typed-test_test, gtest_list_tests_unittest, gtest_no_rtti_unittest, gtest_output_test, gtest_unittest, gtest_xml_output_unittest]`
+                `killed by [gtest-typed-test_test, gtest_list_tests_unittest, gtest_no_rtti_unittest, gtest_output_test, gtest_unittest, gtest_xml_output_unittest]`
                 ]).shouldBeIn(r.output);
     }
 

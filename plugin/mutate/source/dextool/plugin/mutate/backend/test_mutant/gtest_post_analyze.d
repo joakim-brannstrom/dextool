@@ -16,6 +16,8 @@ import std.array : empty;
 import std.exception : collectException;
 import std.range : isInputRange, isOutputRange;
 
+import my.set;
+
 import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 import dextool.plugin.mutate.backend.type : TestCase;
 import dextool.type : AbsolutePath;
@@ -169,9 +171,7 @@ unittest {
     GtestParser parser;
     testData1.each!(a => parser.process(a, app));
 
-    shouldEqual(app.failed.byKey.array, [
-            TestCase("MessageTest.DefaultConstructor")
-            ]);
+    shouldEqual(app.failed.toArray, [TestCase("MessageTest.DefaultConstructor")]);
 }
 
 @("shall report the found test cases")
@@ -181,7 +181,7 @@ unittest {
     GtestParser parser;
     testData3.each!(a => parser.process(a, app));
 
-    shouldEqual(app.foundAsArray.sort, [
+    shouldEqual(app.found.toArray.sort, [
             TestCase("Comp.A", ""), TestCase("Comp.B", ""), TestCase("Comp.C",
                 ""), TestCase("Comp.D", ""), TestCase("Comp.E", ""),
             ]);
@@ -194,7 +194,7 @@ unittest {
     GtestParser parser;
     testData4.each!(a => parser.process(a, app));
 
-    shouldEqual(app.failedAsArray.sort, [
+    shouldEqual(app.failed.toArray.sort, [
             TestCase("Foo.A", ""), TestCase("Foo.B", ""), TestCase("Foo.C",
                 ""), TestCase("Foo.D", ""), TestCase("Foo.E", ""),
             ]);
@@ -207,7 +207,7 @@ unittest {
     GtestParser parser;
     testData5.each!(a => parser.process(a, app));
 
-    shouldEqual(app.failedAsArray.sort, [TestCase("FooTest.ShouldFail")]);
+    shouldEqual(app.failed.toArray.sort, [TestCase("FooTest.ShouldFail")]);
 }
 
 @("shall report the failed test cases even though there are junk in the output")
@@ -266,7 +266,7 @@ TestCase(`Unsigned/TypedTestP`),
     // dfmt on
 
     foreach (v; expected) {
-        v.shouldBeIn(app.failed);
+        v.shouldBeIn(app.failed.toArray);
     }
 
     shouldEqual(app.failed.length, expected.length);
@@ -282,7 +282,7 @@ unittest {
     auto expected = [TestCase(`Test.segfault`), TestCase(`Test.next`)];
 
     foreach (v; expected) {
-        v.shouldBeIn(app.failed);
+        v.shouldBeIn(app.failed.toArray);
     }
 
     shouldEqual(app.failed.length, expected.length);
@@ -299,7 +299,7 @@ unittest {
     auto expected = [TestCase(`Test.segfault1`), TestCase(`Test.segfault2`)];
 
     foreach (v; expected) {
-        v.shouldBeIn(app.failed);
+        v.shouldBeIn(app.failed.toArray);
     }
 
     shouldEqual(app.failed.length, expected.length);

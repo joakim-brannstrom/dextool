@@ -15,6 +15,8 @@ import std.exception : collectException;
 import std.range : isInputRange, isOutputRange;
 import logger = std.experimental.logger;
 
+import my.set;
+
 import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 import dextool.plugin.mutate.backend.type : TestCase;
 import dextool.type : AbsolutePath;
@@ -72,7 +74,7 @@ unittest {
     testData2.each!(a => parser.process(a, app));
 
     // dfmt off
-    shouldEqual(app.failedAsArray.sort,
+    shouldEqual(app.failed.toArray.sort,
                 [TestCase("gmock-cardinalities_test")]
                 );
     // dfmt on
@@ -85,7 +87,7 @@ unittest {
     testData1.each!(a => parser.process(a, app));
 
     // dfmt off
-    shouldEqual(app.foundAsArray.sort, [
+    shouldEqual(app.found.toArray.sort, [
                 TestCase("gmock-actions_test"),
                 TestCase("gmock-cardinalities_test"),
                 TestCase("gmock_ex_test")
