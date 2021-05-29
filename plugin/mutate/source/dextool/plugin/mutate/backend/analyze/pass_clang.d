@@ -22,6 +22,8 @@ import my.container.vector : vector, Vector;
 import my.gc.refc : RefCounted;
 import my.optional;
 
+static import colorlog;
+
 import clang.Cursor : Cursor;
 import clang.Eval : Eval;
 import clang.Type : Type;
@@ -44,6 +46,12 @@ import dextool.plugin.mutate.backend.type : Language, SourceLoc, Offset, SourceL
 import analyze = dextool.plugin.mutate.backend.analyze.ast;
 
 alias accept = dextool.plugin.mutate.backend.analyze.extensions.accept;
+
+alias log = colorlog.log!"analyze.pass_clang";
+
+shared static this() {
+    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_clang", "analyze");
+}
 
 /** Translate a clang AST to a mutation AST.
  */
@@ -827,7 +835,7 @@ final class BaseVisitor : ExtendedVisitor {
                 pushStack(n, loc, v.cursor.kind);
             } catch (InvalidPathException e) {
             } catch (Exception e) {
-                logger.trace(e.msg).collectException;
+                log.trace(e.msg).collectException;
             }
 
         v.accept(this);
@@ -889,7 +897,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(caseVisitor);
 
         if (caseVisitor.node is null) {
-            logger.warning(
+            log.warning(
                     "switch without any case statements may result in a high number of mutant scheman that do not compile");
         } else {
             incr;

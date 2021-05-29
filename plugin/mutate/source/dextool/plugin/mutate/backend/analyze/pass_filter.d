@@ -19,16 +19,24 @@ import std.typecons : Tuple;
 
 import blob_model : Blob;
 
+static import colorlog;
+
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Language, Offset, Mutation;
 import dextool.plugin.mutate.backend.analyze.pass_mutant : MutantsResult;
 import dextool.plugin.mutate.backend.generate_mutant : makeMutationText, MakeMutationTextResult;
 
+alias log = colorlog.log!"analyze.pass_filter";
+
+shared static this() {
+    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_filter", "analyze");
+}
+
 @safe:
 
 MutantsResult filterMutants(FilesysIO fio, MutantsResult mutants) {
     foreach (f; mutants.files.map!(a => a.path)) {
-        logger.trace(f);
+        log.trace(f);
         auto file = fio.makeInput(f);
         foreach (r; mutants.getMutationPoints(f)
                 .map!(a => analyzeForUndesiredMutant(file, a, mutants.lang))
@@ -53,7 +61,7 @@ Mutants analyzeForUndesiredMutant(Blob file, Mutants mutants, const Language lan
 
     foreach (k; mutants.kind) {
         if (isEmpty(file, mutants.point.offset)) {
-            logger.tracef("Dropping undesired mutant. Mutant is empty (%s %s %s)",
+            log.tracef("Dropping undesired mutant. Mutant is empty (%s %s %s)",
                     file.uri, mutants.point, k);
             app.put(k);
             continue;
@@ -61,16 +69,16 @@ Mutants analyzeForUndesiredMutant(Blob file, Mutants mutants, const Language lan
 
         auto mutant = makeMutationText(file, mutants.point.offset, k, lang);
         if (isTextuallyEqual(file, mutants.point.offset, mutant.rawMutation)) {
-            logger.tracef("Dropping undesired mutant. Original and mutant is textually equivalent (%s %s %s)",
+            log.tracef("Dropping undesired mutant. Original and mutant is textually equivalent (%s %s %s)",
                     file.uri, mutants.point, k);
             app.put(k);
         } else if (lang.among(Language.assumeCpp, Language.cpp)
                 && isUndesiredCppPattern(file, mutants.point.offset, mutant.rawMutation)) {
-            logger.tracef("Dropping undesired mutant. The mutant is an undesired C++ mutant pattern (%s %s %s)",
+            log.tracef("Dropping undesired mutant. The mutant is an undesired C++ mutant pattern (%s %s %s)",
                     file.uri, mutants.point, k);
             app.put(k);
         } else if (isOnlyWhitespace(file, mutants.point.offset, mutant.rawMutation)) {
-            logger.tracef("Dropping undesired mutant. Both the original and the mutant is only whitespaces (%s %s %s)",
+            log.tracef("Dropping undesired mutant. Both the original and the mutant is only whitespaces (%s %s %s)",
                     file.uri, mutants.point, k);
             app.put(k);
         }

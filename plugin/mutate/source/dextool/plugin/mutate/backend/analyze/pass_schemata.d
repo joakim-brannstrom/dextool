@@ -26,6 +26,8 @@ import my.optional;
 import my.set;
 import sumtype;
 
+static import colorlog;
+
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.analyze.ast : Interval, Location;
@@ -39,6 +41,12 @@ import dextool.plugin.mutate.backend.type : Language, SourceLoc, Offset,
 
 import dextool.plugin.mutate.backend.analyze.ast;
 import dextool.plugin.mutate.backend.analyze.pass_mutant : CodeMutantsResult;
+
+alias log = colorlog.log!"analyze.pass_schema";
+
+shared static this() {
+    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_schema", "analyze");
+}
 
 // constant defined by the schemata that test_mutant uses too
 /// The function that a mutant reads to see if it should activate.

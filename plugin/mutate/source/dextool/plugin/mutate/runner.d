@@ -9,6 +9,18 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.runner;
 
+shared static this() {
+    // the module constructor is placed here to break dependency cycles.
+    import logger = std.experimental.logger;
+    import colorlog;
+
+    make!SimpleLogger(logger.LogLevel.info, "admin");
+    make!SimpleLogger(logger.LogLevel.info, "analyze");
+    make!SimpleLogger(logger.LogLevel.info, "database");
+    make!SimpleLogger(logger.LogLevel.info, "test");
+    make!SimpleLogger(logger.LogLevel.info, "report");
+}
+
 /**
  * Tagging the main entry point to the plugin with @safe to fulfill
  * #SPC-memory_safety

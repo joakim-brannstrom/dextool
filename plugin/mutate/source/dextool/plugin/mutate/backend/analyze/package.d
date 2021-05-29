@@ -29,6 +29,8 @@ import my.named_type;
 import my.optional;
 import my.set;
 
+static import colorlog;
+
 import dextool.utility : dextoolBinaryId;
 
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB,
@@ -52,6 +54,8 @@ version (unittest) {
     import unit_threaded.assertions;
 }
 
+alias log = colorlog.log!"analyze";
+
 /** Analyze the files in `frange` for mutations.
  */
 ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userKinds,
@@ -66,8 +70,8 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             return FileFilter(fio.getOutputDir, analyzeConf.unifiedDiffFromStdin,
                     analyzeConf.unifiedDiffFromStdin ? diffFromStdin : Diff.init);
         } catch (Exception e) {
-            logger.info(e.msg);
-            logger.warning("Unable to parse diff");
+            log.info(e.msg);
+            log.warning("Unable to parse diff");
         }
         return FileFilter.init;
     }();
@@ -97,8 +101,8 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
         pool.put(task!testPathActor(analyzeConf.testPaths,
                 analyzeConf.testFileMatcher, fio.dup, store));
     } catch (Exception e) {
-        logger.trace(e);
-        logger.warning(e.msg);
+        log.trace(e);
+        log.warning(e.msg);
     }
 
     auto kinds = toInternal(userKinds);
@@ -120,12 +124,12 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
                     continue;
             }
 
-            //logger.infof("%s sending", f.cmd.absoluteFile);
+            //log.infof("%s sending", f.cmd.absoluteFile);
             pool.put(task!analyzeActor(kinds, f, valLoc.dup, fio.dup, AnalyzeConfig(compilerConf, analyzeConf, covConf), store));
             taskCnt++;
         } catch (Exception e) {
-            logger.trace(e);
-            logger.warning(e.msg);
+            log.trace(e);
+            log.warning(e.msg);
         }
     }
     // dfmt on
@@ -146,7 +150,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
 
             writeln(getProfileResult.toString);
         } catch (Exception e) {
-            logger.warning("Unable to print the profile data: ", e.msg).collectException;
+            log.warning("Unable to print the profile data: ", e.msg).collectException;
         }
 
     return ExitStatusType.Ok;
@@ -214,23 +218,23 @@ void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze,
     auto profile = Profile("analyze file " ~ fileToAnalyze.cmd.absoluteFile);
 
     try {
-        //logger.infof("%s begin", fileToAnalyze.cmd.absoluteFile);
+        //log.infof("%s begin", fileToAnalyze.cmd.absoluteFile);
         auto analyzer = Analyze(kinds, vloc, fio, Analyze.Config(conf.compiler.forceSystemIncludes,
                 conf.coverage.use, conf.compiler.allowErrors.get));
         analyzer.process(fileToAnalyze);
         send(storeActor, cast(immutable) analyzer.result);
-        //logger.infof("%s end", fileToAnalyze.cmd.absoluteFile);
+        //log.infof("%s end", fileToAnalyze.cmd.absoluteFile);
         return;
     } catch (Exception e) {
-        logger.error(e.msg).collectException;
+        log.error(e.msg).collectException;
     }
 
     // send a dummy result
     try {
-        //logger.infof("%s failed", fileToAnalyze.cmd.absoluteFile);
+        //log.infof("%s failed", fileToAnalyze.cmd.absoluteFile);
         send(storeActor, cast(immutable) new Analyze.Result);
     } catch (Exception e) {
-        logger.error(e.msg).collectException;
+        log.error(e.msg).collectException;
     }
 }
 
@@ -264,24 +268,24 @@ void testPathActor(const AbsolutePath[] userPaths, GlobFilter matcher, FilesysIO
     while (!paths.empty) {
         try {
             if (isDir(paths.front)) {
-                logger.trace("  Test directory ", paths.front);
+                log.trace("  Test directory ", paths.front);
                 foreach (a; dirEntries(paths.front, SpanMode.shallow).map!(
                         a => AbsolutePath(a.name))) {
                     paths.put(a);
                 }
             } else if (isFile(paths.front) && matcher.match(paths.front)) {
-                logger.trace("  Test saved ", paths.front);
+                log.trace("  Test saved ", paths.front);
                 auto t = makeTestFile(paths.front);
                 tfiles.files[t.checksum.get] = t;
             }
         } catch (Exception e) {
-            logger.warning(e.msg).collectException;
+            log.warning(e.msg).collectException;
         }
 
         paths.popFront;
     }
 
-    logger.infof("Found %s test files", tfiles.files.length).collectException;
+    log.infof("Found %s test files", tfiles.files.length).collectException;
 
     try {
         send(storeActor, cast(immutable) tfiles);
@@ -340,11 +344,11 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                         .array;
                     if (!mutants.empty) {
                         const id = db.putSchemata(a.checksum, a.fragments, mutants);
-                        logger.tracef(!id.isNull, "Saving schema %s with %s mutants",
+                        log.tracef(!id.isNull, "Saving schema %s with %s mutants",
                             id.get.get, mutants.length);
                     }
                 } catch (Exception e) {
-                    logger.trace(e.msg);
+                    log.trace(e.msg);
                 }
             }, (None a) {});
         }
@@ -425,7 +429,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     .filter!(a => a !in savedFiles)
                     .filter!(a => getFileDbChecksum(fio.toRelativeRoot(a)) == getFileFsChecksum(a)
                         && !conf.analyze.forceSaveAnalyze && !isToolVersionDifferent)) {
-                logger.info("Unchanged ".color(Color.yellow), f);
+                log.info("Unchanged ".color(Color.yellow), f);
                 savedFiles.add(f);
             }
 
@@ -440,7 +444,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 }
                 foreach (f; result.idFile.byKey.filter!(a => a !in savedFiles)) {
                     isChanged = true;
-                    logger.info("Saving ".color(Color.green), f);
+                    log.info("Saving ".color(Color.green), f);
                     const relp = fio.toRelativeRoot(f);
 
                     // this is critical in order to remove old data about a file.
@@ -497,7 +501,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     const fid = getFileId(fio.toRelativeRoot(result.fileId[localId]));
                     if (fid.isNull && !printed.contains(md.id.get)) {
                         printed.add(md.id.get);
-                        logger.info("File with suppressed mutants (// NOMUT) not in the database: ",
+                        log.info("File with suppressed mutants (// NOMUT) not in the database: ",
                                 result.fileId[localId]).collectException;
                     } else if (!fid.isNull) {
                         app.put(LineMetadata(fid.get, md.line, md.attr));
@@ -514,20 +518,20 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
             foreach (a; db.getTestFiles) {
                 old.add(a.checksum.get);
                 if (a.checksum.get !in result.files) {
-                    logger.info("Removed test file ", a.file.get.toString);
+                    log.info("Removed test file ", a.file.get.toString);
                     db.removeFile(a.file);
                 }
             }
 
             foreach (a; result.files.byValue.filter!(a => a.checksum.get !in old)) {
-                logger.info("Saving test file ", a.file.get.toString);
+                log.info("Saving test file ", a.file.get.toString);
                 db.put(a);
             }
         }
 
         // listen for results from workers until the expected number is processed.
         void recv() {
-            logger.info("Updating files");
+            log.info("Updating files");
             RecvWaiter waiter;
 
             while (waiter.isWaiting) {
@@ -540,19 +544,19 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                         save(a);
                         trans.commit;
 
-                        logger.infof("Analyzed file %s/%s",
-                            waiter.analyzeFileCnt, waiter.analyzeFileWaitCnt);
+                        log.infof("Analyzed file %s/%s", waiter.analyzeFileCnt,
+                            waiter.analyzeFileWaitCnt);
                     }, (immutable TestFileResult a) {
                         auto trans = db.transaction;
                         waiter.isTestFilesDone = true;
                         saveTestResult(a);
                         trans.commit;
 
-                        logger.info("Done analyzing test files in ", a.time);
+                        log.info("Done analyzing test files in ", a.time);
                     });
                 } catch (Exception e) {
-                    logger.trace(e).collectException;
-                    logger.warning(e.msg).collectException;
+                    log.trace(e).collectException;
+                    log.warning(e.msg).collectException;
                 }
             }
         }
@@ -562,11 +566,11 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
 
             auto profile = Profile("prune files");
 
-            logger.info("Pruning the database of dropped files");
+            log.info("Pruning the database of dropped files");
             auto files = db.getFiles.map!(a => fio.toAbsoluteRoot(a)).toSet;
 
             foreach (f; files.setDifference(savedFiles).toRange) {
-                logger.info("Removing ".color(Color.red), f);
+                log.info("Removing ".color(Color.red), f);
                 db.removeFile(fio.toRelativeRoot(f));
             }
         }
@@ -585,8 +589,8 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     savedFiles.add(p);
                     // fejk text for the user to tell them that yes, the files have
                     // been analyzed.
-                    logger.info("Analyzing ", a);
-                    logger.info("Unchanged ".color(Color.yellow), a);
+                    log.info("Analyzing ", a);
+                    log.info("Unchanged ".color(Color.yellow), a);
                 }
             }
             foreach (a; rootFiles.map!(a => db.dependencyApi.get(a)).joiner) {
@@ -597,10 +601,9 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         void fastDbOn() {
             if (!conf.analyze.fastDbStore)
                 return;
-            logger.info(
+            log.info(
                     "Turning OFF sqlite3 synchronization protection to improve the write performance");
-            logger.warning(
-                    "Do NOT interrupt dextool in any way because it may corrupt the database");
+            log.warning("Do NOT interrupt dextool in any way because it may corrupt the database");
             db.run("PRAGMA synchronous = OFF");
             db.run("PRAGMA journal_mode = MEMORY");
         }
@@ -626,7 +629,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 auto trans = db.transaction;
                 auto profile = Profile("prune old schemas");
                 if (isToolVersionDifferent) {
-                    logger.info("Prune database of schematan created by the old version");
+                    log.info("Prune database of schematan created by the old version");
                     db.deleteAllSchemas;
                 }
                 trans.commit;
@@ -643,62 +646,61 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 auto trans = db.transaction;
                 addRoots();
 
-                logger.info("Resetting timeout context");
+                log.info("Resetting timeout context");
                 resetTimeoutContext(db);
 
-                logger.info("Updating metadata");
+                log.info("Updating metadata");
                 db.updateMetadata;
 
                 if (conf.analyze.prune) {
                     pruneFiles();
                     {
                         auto profile = Profile("remove orphaned mutants");
-                        logger.info("Removing orphaned mutants");
+                        log.info("Removing orphaned mutants");
                         db.removeOrphanedMutants;
                     }
                     {
                         auto profile = Profile("prune schemas");
-                        logger.info("Prune the database of unused schemas");
+                        log.info("Prune the database of unused schemas");
                         db.pruneSchemas;
                     }
                     {
                         auto profile = Profile("prune dependencies");
-                        logger.info("Prune dependencies");
+                        log.info("Prune dependencies");
                         db.dependencyApi.cleanup;
                     }
                 }
 
-                logger.info("Updating manually marked mutants");
+                log.info("Updating manually marked mutants");
                 updateMarkedMutants(db);
                 printLostMarkings(db.getLostMarkings);
 
                 if (isToolVersionDifferent) {
-                    logger.info("Updating tool version");
+                    log.info("Updating tool version");
                     db.updateToolVersion(ToolVersion(dextoolBinaryId));
                 }
 
-                logger.info("Committing changes");
+                log.info("Committing changes");
                 trans.commit;
-                logger.info("Ok".color(Color.green));
+                log.info("Ok".color(Color.green));
             }
 
             fastDbOff();
 
             if (isToolVersionDifferent) {
                 auto profile = Profile("compact");
-                logger.info("Compacting the database");
+                log.info("Compacting the database");
                 db.vacuum;
             }
         } catch (Exception e) {
-            logger.error(e.msg).collectException;
-            logger.error("Failed to save the result of the analyze to the database")
-                .collectException;
+            log.error(e.msg).collectException;
+            log.error("Failed to save the result of the analyze to the database").collectException;
         }
 
         try {
             send(ownerTid, StoreDoneMsg.init);
         } catch (Exception e) {
-            logger.errorf("Fatal error. Unable to send %s to the main thread",
+            log.errorf("Fatal error. Unable to send %s to the main thread",
                     StoreDoneMsg.init).collectException;
         }
     }
@@ -708,7 +710,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
         auto db = Database.make(dbPath);
         helper(fio, db);
     } catch (Exception e) {
-        logger.error(e.msg).collectException;
+        log.error(e.msg).collectException;
     }
 }
 
@@ -758,12 +760,12 @@ struct Analyze {
 
         try {
             if (!exists(commandsForFileToAnalyze.cmd.absoluteFile)) {
-                logger.warningf("Failed to analyze %s. Do not exist",
+                log.warningf("Failed to analyze %s. Do not exist",
                         commandsForFileToAnalyze.cmd.absoluteFile);
                 return;
             }
         } catch (Exception e) {
-            logger.warning(e.msg);
+            log.warning(e.msg);
             return;
         }
 
@@ -779,9 +781,9 @@ struct Analyze {
             foreach (f; result.fileId.byValue)
                 analyzeForComments(f, tstream);
         } catch (Exception e) {
-            () @trusted { logger.trace(e); }();
-            logger.info(e.msg);
-            logger.error("failed analyze of ",
+            () @trusted { log.trace(e); }();
+            log.info(e.msg);
+            log.error("failed analyze of ",
                     commandsForFileToAnalyze.cmd.absoluteFile).collectException;
         }
     }
@@ -797,16 +799,16 @@ struct Analyze {
         import dextool.plugin.mutate.backend.analyze.pass_schemata;
         import libclang_ast.check_parse_result : hasParseErrors, logDiagnostic;
 
-        logger.info("Analyzing ", fileToAnalyze);
+        log.info("Analyzing ", fileToAnalyze);
         RefCounted!(Ast) ast;
         {
             auto tu = ctx.makeTranslationUnit(fileToAnalyze,
                     commandsForFileToAnalyze.flags.completeFlags);
             if (tu.hasParseErrors) {
                 logDiagnostic(tu);
-                logger.warningf("Compile error in %s", fileToAnalyze);
+                log.warningf("Compile error in %s", fileToAnalyze);
                 if (!conf.allowErrors) {
-                    logger.warning("Skipping");
+                    log.warning("Skipping");
                     return;
                 }
             }
@@ -814,16 +816,16 @@ struct Analyze {
             auto res = toMutateAst(tu.cursor, fio);
             ast = res.ast;
             saveDependencies(commandsForFileToAnalyze.flags, result.root, res.dependencies);
-            debug logger.trace(ast);
+            log!"analyze.pass_clang".trace(ast);
         }
 
         auto codeMutants = () {
             auto mutants = toMutants(ast, fio, valLoc, kinds);
-            debug logger.trace(mutants);
+            log!"analyze.pass_mutant".trace(mutants);
 
-            debug logger.trace("filter mutants");
+            log!"analyze.pass_filter".trace("filter mutants");
             mutants = filterMutants(fio, mutants);
-            debug logger.trace(mutants);
+            log!"analyze.pass_filter".trace(mutants);
 
             return toCodeMutants(mutants, fio, tstream);
         }();
@@ -831,8 +833,8 @@ struct Analyze {
 
         {
             auto schemas = toSchemata(ast, fio, codeMutants);
-            debug logger.trace(schemas);
-            logger.tracef("path dedup count:%s length_acc:%s", ast.paths.count,
+            log!"analyze.pass_schema".trace(schemas);
+            log.tracef("path dedup count:%s length_acc:%s", ast.paths.count,
                     ast.paths.lengthAccum);
 
             result.schematas = schemas.getSchematas;
@@ -880,7 +882,7 @@ struct Analyze {
                     continue;
 
                 mdata.put(LineMetadata(fid, t.loc.line, LineAttr(NoMut(m["tag"], m["comment"]))));
-                logger.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
+                log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
             }
 
             result.metadata ~= mdata.data;
@@ -902,11 +904,11 @@ struct Analyze {
             try {
                 result.dependencies ~= DepFile(fio.toRelativeRoot(p), checksum(p));
             } catch (Exception e) {
-                logger.trace(e.msg).collectException;
+                log.trace(e.msg).collectException;
             }
         }
 
-        debug logger.trace(result.dependencies);
+        log.trace(result.dependencies);
     }
 
     static class Result {
@@ -1065,7 +1067,7 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
         ];
         tbl.put(r);
     }
-    logger.warning("Marked mutants was lost");
+    log.warning("Marked mutants was lost");
     writeln(tbl);
 }
 
@@ -1204,10 +1206,10 @@ bool[Path] dependencyAnalyze(const AbsolutePath dbPath, FilesysIO fio) @trusted 
             rval[f] = true;
         }
     } catch (Exception e) {
-        logger.warning(e.msg);
+        log.warning(e.msg);
     }
 
-    logger.trace("Dependency analyze: ", rval);
+    log.trace("Dependency analyze: ", rval);
 
     return rval;
 }
