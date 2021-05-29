@@ -18,31 +18,81 @@ This optional main function requires that:
 */
 module dextool.plugin.main.standard;
 
-import colorlog : VerboseMode, confLogger;
+import logger = std.experimental.logger;
+import std.algorithm : filter, among, findAmong, canFind, sort;
+import std.array : array, empty, appender;
+import std.conv : to;
+import std.stdio : writeln;
 
-import dextool.type : ExitStatusType;
+import colorlog : VerboseMode, confLogger, setLogLevel, toLogLevel, RootLogger,
+    SpanMode, getRegisteredLoggers, parseLogNames, NameLevel;
 
 /** Parse the raw command line.
  */
 VerboseMode parseLogLevel(string[] args) {
-    import std.algorithm : findAmong;
-    import std.array : empty;
+    import std.traits : EnumMembers;
 
-    return findAmong(args, ["-d", "--debug"]).empty ? VerboseMode.info : VerboseMode.trace;
+    if (!findAmong(args, ["-d", "--debug"]).empty)
+        return VerboseMode.trace;
+
+    auto verbose = findAmong(args, ["--verbose"]);
+    try {
+        if (verbose.length >= 2)
+            return verbose[1].to!VerboseMode;
+    } catch (Exception e) {
+        logger.warning(e.msg);
+        logger.info("--verbose supports ", [EnumMembers!VerboseMode]);
+    }
+
+    return VerboseMode.info;
+}
+
+NameLevel[] parseLogModules(string[] args, logger.LogLevel defaultLogLvl) {
+    auto modules = findAmong(args, ["--verbose-module"]);
+    try {
+        if (modules.length >= 2)
+            return parseLogNames(modules[1], defaultLogLvl);
+    } catch (Exception e) {
+        logger.info(e.msg);
+    }
+
+    return [NameLevel(RootLogger, defaultLogLvl)];
 }
 
 int main(string[] args) {
-    import std.algorithm : filter, among;
-    import std.array : array;
-    import std.stdio : writeln;
+    if (canFind(args, "--short-plugin-help")) {
+        confLogger(VerboseMode.warning);
+        setLogLevel(RootLogger, logger.LogLevel.warning, SpanMode.depth);
+    } else {
+        const mode = parseLogLevel(args);
+        confLogger(mode);
 
-    confLogger(parseLogLevel(args));
+        const modules = parseLogModules(args, toLogLevel(mode));
+        try {
+            if (modules.empty)
+                setLogLevel([RootLogger], toLogLevel(mode), SpanMode.depth);
+            else
+                setLogLevel(modules, SpanMode.depth);
+        } catch (Exception e) {
+            logger.info(e.msg);
+            logger.info("--verbose-module supports ", getRegisteredLoggers.sort);
+            logger.info("Use comma to separate name=logLevel");
+        }
+    }
 
-    // holds the remining arguments after -d/--debug has bee removed
-    auto remining_args = args.filter!(a => !a.among("-d", "--debug")).array();
+    auto remArgs = appender!(string[])();
+    for (size_t i = 0; i < args.length; ++i) {
+        if (args[i].among("-d", "--debug")) {
+            // skip one
+        } else if (args[i].among("--verbose", "--verbose-module")) {
+            ++i; //skip two
+        } else {
+            remArgs.put(args[i]);
+        }
+    }
 
     // REQUIRED BY PLUGINS USING THIS MAIN
     import dextool.plugin.runner : runPlugin;
 
-    return runPlugin(remining_args);
+    return runPlugin(remArgs.data);
 }
