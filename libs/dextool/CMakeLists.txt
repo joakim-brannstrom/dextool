@@ -19,6 +19,7 @@ set(flags "-I${CMAKE_SOURCE_DIR}/source
 -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
+-I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
@@ -26,7 +27,7 @@ compile_d_static_lib(dextool_dextool
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_libclang_ast;dextool_mylib;dextool_sumtype")
+    "dextool_libclang_ast;dextool_mylib;dextool_sumtype;dextool_colorlog")
 
 add_dependencies(dextool_dextool dextool_embedded_version)
 
@@ -35,4 +36,4 @@ compile_d_unittest(dextool_dextool
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_cpptooling;dextool_libclang")
+    "dextool_cpptooling;dextool_libclang;dextool_colorlog")

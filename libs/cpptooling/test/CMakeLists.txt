@@ -23,9 +23,10 @@ set(flags "-I${CMAKE_SOURCE_DIR}/source
 -I${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
 -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
+-I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
-compile_d_unittest(component "${SRC_FILES}" "${flags}" "" "dextool_cpptooling;dextool_libclang_ast;dextool_blob_model;dextool_mylib;dextool_sumtype")
+compile_d_unittest(component "${SRC_FILES}" "${flags}" "" "dextool_cpptooling;dextool_libclang_ast;dextool_blob_model;dextool_mylib;dextool_sumtype;dextool_colorlog")

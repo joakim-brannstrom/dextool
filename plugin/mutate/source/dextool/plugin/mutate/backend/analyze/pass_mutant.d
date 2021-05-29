@@ -19,6 +19,8 @@ import std.typecons : tuple, Tuple;
 
 import my.gc.refc : RefCounted;
 
+static import colorlog;
+
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.analyze.ast;
@@ -26,6 +28,12 @@ import dextool.plugin.mutate.backend.analyze.internal : TokenStream;
 import dextool.plugin.mutate.backend.analyze.utility;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.type : Language, Offset, Mutation, SourceLocRange, Token;
+
+alias log = colorlog.log!"analyze.pass_mutant";
+
+shared static this() {
+    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_mutant", "analyze");
+}
 
 @safe:
 
@@ -55,7 +63,7 @@ CodeMutantsResult toCodeMutants(MutantsResult mutants, FilesysIO fio, TokenStrea
             //}
 
             if (mp.point.offset.begin > mp.point.offset.end) {
-                logger.warningf("Malformed mutant (begin > end), dropping. %s %s %s %s",
+                log.warningf("Malformed mutant (begin > end), dropping. %s %s %s %s",
                         mp.kind, mp.point.offset, mp.point.sloc, f);
             } else {
                 result.put(f, mp.point.offset, mp.point.sloc, mp.kind);
@@ -142,7 +150,7 @@ class MutantsResult {
             files ~= ElementType!(typeof(files))(absp, cs);
             points[absp] = (Set!(Mutation.Kind)[MutationPoint]).init;
         } catch (Exception e) {
-            logger.warningf("%s: %s", absp, e.msg);
+            log.warningf("%s: %s", absp, e.msg);
         }
     }
 

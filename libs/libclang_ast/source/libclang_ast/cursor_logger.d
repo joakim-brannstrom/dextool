@@ -15,6 +15,8 @@ module libclang_ast.cursor_logger;
 import clang.Cursor : Cursor;
 import clang.Visitor : Visitor;
 
+import colorlog;
+
 /// Log information of a cursor.
 void logNode(ref const Cursor c, const int indent = 0, const string func = __FUNCTION__,
         const uint line = __LINE__) @trusted {
@@ -28,7 +30,7 @@ void logNode(ref const Cursor c, const int indent = 0, const string func = __FUN
     debug {
         string indent_ = repeat(' ', indent).array();
         auto loc = c.location;
-        logger.logf!(-1, "", "", "", "")
+        log!"libclang_ast".logf!(-1, "", "", "", "")
             (logger.LogLevel.trace,
              "%d %s%s|%s|%s|%s:%d:%d [%s:%d]",
              indent,
