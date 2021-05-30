@@ -58,6 +58,7 @@ import std.exception : collectException;
 
 import sumtype;
 
+import my.named_type;
 import my.optional;
 import my.path : AbsolutePath, Path;
 import my.set;
@@ -140,13 +141,13 @@ alias FileChangeEvent = SumType!(Event.Access, Event.Attribute, Event.CloseWrite
         Event.Modify, Event.MoveSelf, Event.Rename, Event.Open, Event.Overflow);
 
 /// Construct a FileWatch.
-auto fileWatch() {
+auto fileWatch(FileWatch.FollowSymlink follow = FileWatch.FollowSymlink.init) {
     int fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
     if (fd == -1) {
         throw new Exception(
                 "inotify_init1 returned invalid file descriptor. Error code " ~ errno.to!string);
     }
-    return FileWatch(fd);
+    return FileWatch(fd, follow);
 }
 
 /// Listens for create/modify/removal of files and directories.
@@ -160,6 +161,8 @@ enum MetadataEvents = IN_ACCESS | IN_ATTRIB | IN_OPEN | IN_CLOSE_NOWRITE | IN_EX
  */
 struct FileWatch {
     import std.functional : toDelegate;
+
+    alias FollowSymlink = NamedType!(bool, Tag!"FollowSymlink", bool.init, TagStringable);
 
     private {
         FdPoller poller;
@@ -175,10 +178,13 @@ struct FileWatch {
         }
 
         FDInfo[int] directoryMap; // map every watch descriptor to a directory
+
+        FollowSymlink follow;
     }
 
-    private this(int fd) {
+    private this(int fd, FollowSymlink follow) {
         this.fd = fd;
+        this.follow = follow;
         poller.put(FdPoll(fd), [PollEvent.in_]);
     }
 
@@ -201,6 +207,12 @@ struct FileWatch {
      * Returns: true if the path was successfully added.
      */
     bool watch(Path path, uint events = ContentEvents) {
+        import my.file : followSymlink;
+        import my.optional;
+
+        if (follow)
+            path = followSymlink(path).orElse(path);
+
         const wd = inotify_add_watch(fd, path.toStringz, events);
         if (wd != -1) {
             const fc = fcntl(fd, F_SETFD, FD_CLOEXEC);
@@ -633,19 +645,21 @@ struct Monitor {
      * Params:
      *  roots = directories to recursively monitor
      */
-    this(AbsolutePath[] roots, GlobFilter fileFilter, uint events = ContentEvents) {
-        this(roots, fileFilter, null, events);
+    this(AbsolutePath[] roots, GlobFilter fileFilter,
+            FileWatch.FollowSymlink follow = FileWatch.FollowSymlink.init,
+            uint events = ContentEvents) {
+        this(roots, fileFilter, null, follow, events);
     }
 
-    this(AbsolutePath[] roots, GlobFilter fileFilter,
-            GlobFilter[AbsolutePath] subFilters, uint events = ContentEvents) {
+    this(AbsolutePath[] roots, GlobFilter fileFilter, GlobFilter[AbsolutePath] subFilters,
+            FileWatch.FollowSymlink follow, uint events = ContentEvents) {
         this.roots = toSet(roots);
         this.fileFilter = fileFilter;
         this.subFilters = subFilters;
         this.events = events;
 
         auto app = appender!(AbsolutePath[])();
-        fw = fileWatch();
+        fw = fileWatch(follow);
         foreach (r; roots) {
             app.put(fw.watchRecurse(r, events, (a) {
                     return isInteresting(fileFilter, subFilters, a);
