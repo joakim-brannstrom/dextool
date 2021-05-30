@@ -363,6 +363,9 @@ final class BaseVisitor : ExtendedVisitor {
     /// in any of them.
     BlackList blacklist;
 
+    /// If >0, all mutants inside a function should be blacklisted from schematan
+    int blacklistFunc;
+
     RefCounted!(analyze.Ast) ast;
     Appender!(Path[]) includes;
 
@@ -628,6 +631,12 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const Statement v) {
         mixin(mixinNodeLog!());
         v.accept(this);
+    }
+
+    override void visit(const LabelRef v) {
+        mixin(mixinNodeLog!());
+        // a label cannot be duplicated thus mutant scheman aren't possible to generate
+        blacklistFunc = true;
     }
 
     override void visit(const ArraySubscriptExpr v) {
@@ -1117,6 +1126,10 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitFunc(T)(ref const T v) @trusted {
+        auto oldBlacklistFn = blacklistFunc;
+        scope (exit)
+            blacklistFunc = oldBlacklistFn;
+
         auto loc = v.cursor.toLocation;
         auto n = ast.make!(analyze.Function);
         n.schemaBlacklist = isConstExpr(v.cursor);
@@ -1135,6 +1148,11 @@ final class BaseVisitor : ExtendedVisitor {
             ast.put(fRetval, rty.symId);
 
         v.accept(this);
+
+        if (blacklistFunc != 0) {
+            foreach (c; BreathFirstRange(n))
+                c.schemaBlacklist = true;
+        }
     }
 
     private void visitCall(T)(ref const T v) @trusted {
