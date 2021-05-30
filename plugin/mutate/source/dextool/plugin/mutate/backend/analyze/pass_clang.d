@@ -50,7 +50,7 @@ alias accept = dextool.plugin.mutate.backend.analyze.extensions.accept;
 alias log = colorlog.log!"analyze.pass_clang";
 
 shared static this() {
-    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_clang", "analyze");
+    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_clang");
 }
 
 /** Translate a clang AST to a mutation AST.

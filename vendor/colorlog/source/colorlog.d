@@ -8,7 +8,9 @@ Handles console logging in pretty colors.
 The module disables colors when stdout and stderr isn't a TTY that support
 colors. This is to avoid ASCII escape sequences in piped output.
 
-The logger named "_" is the default parent. It is, by default, not set to anything.
+The loggers use strings (their name) to form a hierarchy. Such that "a" is the
+root and "a.b" is a child of "a". This can be used by you to change the log
+level of a "sub tree" (`SpanMode.depth`).
 */
 module colorlog;
 
@@ -20,7 +22,8 @@ import std.stdio : writefln, stderr, stdout;
 
 public import my.term_color;
 
-enum RootLogger = "_";
+/// The parent of all loggers.
+immutable RootLogger = "";
 
 /// The verbosity level of the logging to use.
 enum VerboseMode {
@@ -54,11 +57,9 @@ void confLogger(VerboseMode mode) @safe {
         logger.sharedLog = new SimpleLogger(logger.LogLevel.info);
         break;
     case VerboseMode.trace:
-        logger.globalLogLevel = logger.LogLevel.all;
         logger.sharedLog = new DebugLogger(logger.LogLevel.all);
         break;
     case VerboseMode.warning:
-        logger.globalLogLevel = logger.LogLevel.warning;
         logger.sharedLog = new SimpleLogger(logger.LogLevel.info);
         break;
     }
@@ -66,6 +67,15 @@ void confLogger(VerboseMode mode) @safe {
     () @trusted { register(logger.sharedLog, RootLogger); }();
 }
 
+/** Default logger with low clutter in the console which mean it is suitable
+ * for use with user interfacing log messages.
+ *
+ * Automatically colors the log messages depending on their severity.
+ *
+ * As you may note the time is not printed. It isn't particularly useful for a
+ * user of your program as a CLI. A user would just be annoyed. But for e.g. a
+ * system log it may be. In that case, use another logger than this one.
+ */
 class SimpleLogger : logger.Logger {
     this(const LogLevel lvl = LogLevel.warning) @safe {
         super(lvl);
@@ -96,6 +106,15 @@ class SimpleLogger : logger.Logger {
     }
 }
 
+/** Logger focused on debugging a program with colorization of the severity.
+ *
+ * The logger print the `file:line` at the end of the message to make it easier
+ * to read a log.  By doing so this logger can be used to print e.g. an
+ * indented AST and still keep the `file:line`.
+ *
+ * Same motivation here as the `SimpleLogger` when it comes to the timestamp.
+ * It isn't particularly useful for what the logger is intended to be used for.
+ */
 class DebugLogger : logger.Logger {
     this(const logger.LogLevel lvl = LogLevel.trace) @safe {
         super(lvl);
@@ -133,17 +152,15 @@ string mixinModuleLogger(logger.LogLevel defaultLogLvl = logger.LogLevel.all) @s
 }
 
 /// Register a logger for the module and make it configurable from "outside" via the registry.
-void register(logger.Logger logger, string name = __MODULE__, string parent = RootLogger) {
+void register(logger.Logger logger, string name = __MODULE__) {
     synchronized (poolLock) {
-        loggerParent[name] = parent;
         loggers[name] = cast(shared) logger;
     }
 }
 
 /// Create a logger for the module and make it configurable from "outside" via the registry.
-void make(LoggerT)(const logger.LogLevel lvl = logger.LogLevel.all,
-        string name = __MODULE__, string parent = RootLogger) @trusted {
-    register(new LoggerT(lvl), name, parent);
+void make(LoggerT)(const logger.LogLevel lvl = logger.LogLevel.all, string name = __MODULE__) @trusted {
+    register(new LoggerT(lvl), name);
 }
 
 /// Returns: the name of all registered loggers.
@@ -163,7 +180,6 @@ string[] getRegisteredLoggers() @trusted {
 void clearAllLoggers() @trusted {
     synchronized (poolLock) {
         loggers = null;
-        loggerParent = null;
     }
 }
 
@@ -187,23 +203,11 @@ void setLogLevel(const string name, const logger.LogLevel lvl, const SpanMode sp
     }
 
     static void depth(string startName, const logger.LogLevel lvl) {
-        import std.algorithm : filter, map;
-        import my.set;
+        import std.algorithm : filter, startsWith;
 
-        Set!string visited;
-        auto queue = [startName];
-
-        while (!queue.empty) {
-            const curr = queue[0];
-            foreach (a; (cast() loggerParent).byKeyValue
-                    .filter!(a => a.value == curr)
-                    .filter!(a => a.key !in visited)) {
-                setSingle(a.key, lvl);
-                queue ~= a.key;
-                visited.add(a.key);
-            }
-
-            queue = queue[0 .. $ - 1];
+        auto loggersU = cast(logger.Logger[string]) loggers;
+        foreach (a; loggersU.byKeyValue.filter!(a => a.key.startsWith(startName))) {
+            a.value.logLevel = lvl;
         }
     }
 
@@ -335,17 +339,17 @@ unittest {
     scope (exit)
         clearAllLoggers;
     make!TestLogger(logger.LogLevel.warning);
-    make!TestLogger(logger.LogLevel.warning, "test", __MODULE__);
+    make!TestLogger(logger.LogLevel.warning, __MODULE__ ~ ".b");
 
     setLogLevel(__MODULE__, logger.LogLevel.trace);
 
     logSlow.trace("hej");
-    logSlow!"test".trace("hej");
+    logSlow!(__MODULE__ ~ ".b").trace("hej");
 
     synchronized (poolLock) {
         assert(!((cast(TestLogger) loggers[__MODULE__]).lastMsg.empty),
                 "message found when it shouldn't");
-        assert(((cast(TestLogger) loggers["test"]).lastMsg.empty),
+        assert(((cast(TestLogger) loggers[__MODULE__ ~ ".b"]).lastMsg.empty),
                 "message found when it shouldn't");
     }
 }
@@ -355,17 +359,17 @@ unittest {
     scope (exit)
         clearAllLoggers;
     make!TestLogger(logger.LogLevel.warning);
-    make!TestLogger(logger.LogLevel.warning, "test", __MODULE__);
+    make!TestLogger(logger.LogLevel.warning, __MODULE__ ~ ".b");
 
     setLogLevel(__MODULE__, logger.LogLevel.trace, SpanMode.depth);
 
     logSlow.trace("hej");
-    logSlow!"test".trace("hej");
+    logSlow!(__MODULE__ ~ ".b").trace("hej");
 
     synchronized (poolLock) {
         assert(!((cast(TestLogger) loggers[__MODULE__]).lastMsg.empty),
                 "message found when it shouldn't");
-        assert(!((cast(TestLogger) loggers["test"]).lastMsg.empty),
+        assert(!((cast(TestLogger) loggers[__MODULE__ ~ ".b"]).lastMsg.empty),
                 "message found when it shouldn't");
     }
 }
@@ -388,7 +392,6 @@ immutable _prefixWidth = 8;
 // Mutex for the logger pool.
 shared Mutex poolLock;
 shared logger.Logger[string] loggers;
-shared string[string] loggerParent;
 
 shared static this() {
     poolLock = cast(shared) new Mutex();

@@ -29,7 +29,7 @@ import dextool.plugin.mutate.backend.generate_mutant : makeMutationText, MakeMut
 alias log = colorlog.log!"analyze.pass_filter";
 
 shared static this() {
-    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_filter", "analyze");
+    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_filter");
 }
 
 @safe:
