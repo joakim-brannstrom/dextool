@@ -218,12 +218,26 @@ void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze,
     auto profile = Profile("analyze file " ~ fileToAnalyze.cmd.absoluteFile);
 
     try {
-        //log.infof("%s begin", fileToAnalyze.cmd.absoluteFile);
+        log.tracef("%s begin", fileToAnalyze.cmd.absoluteFile);
         auto analyzer = Analyze(kinds, vloc, fio, Analyze.Config(conf.compiler.forceSystemIncludes,
                 conf.coverage.use, conf.compiler.allowErrors.get));
         analyzer.process(fileToAnalyze);
-        send(storeActor, cast(immutable) analyzer.result);
-        //log.infof("%s end", fileToAnalyze.cmd.absoluteFile);
+
+        bool onlyValidFiles = true;
+        foreach (a; analyzer.result.idFile.byKey) {
+            if (!isFileSupported(fio, a)) {
+                log.warningf(
+                        "%s: file not supported. It must be in utf-8 format without a BOM marker");
+                onlyValidFiles = false;
+                break;
+            }
+        }
+
+        if (onlyValidFiles)
+            send(storeActor, cast(immutable) analyzer.result);
+        else
+            send(storeActor, cast(immutable) Analyze.Result.init);
+        log.tracef("%s end", fileToAnalyze.cmd.absoluteFile);
         return;
     } catch (Exception e) {
         log.error(e.msg).collectException;
@@ -231,7 +245,7 @@ void analyzeActor(Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze,
 
     // send a dummy result
     try {
-        //log.infof("%s failed", fileToAnalyze.cmd.absoluteFile);
+        log.tracef("%s failed", fileToAnalyze.cmd.absoluteFile);
         send(storeActor, cast(immutable) new Analyze.Result);
     } catch (Exception e) {
         log.error(e.msg).collectException;
@@ -1212,4 +1226,19 @@ bool[Path] dependencyAnalyze(const AbsolutePath dbPath, FilesysIO fio) @trusted 
     log.trace("Dependency analyze: ", rval);
 
     return rval;
+}
+
+/// Only utf-8 files are supported
+bool isFileSupported(FilesysIO fio, AbsolutePath p) @safe {
+    import std.algorithm : among;
+    import std.encoding : getBOM, BOM;
+
+    auto entry = fio.makeInput(p).content.getBOM();
+    const res = entry.schema.among(BOM.utf8, BOM.none);
+
+    if (res == 1)
+        log.warningf("%s has a utf-8 BOM marker. It will make all coverage and scheman fail to compile",
+                p);
+
+    return res != 0;
 }
