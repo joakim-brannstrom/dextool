@@ -13,6 +13,7 @@ import std.path : relativePath, buildPath, dirName;
 public import std.file : attrIsDir, attrIsFile, attrIsSymlink, isFile, isDir, isSymlink;
 
 import my.path;
+import my.optional;
 
 /** A `nothrow` version of `getAttributes` in Phobos.
  *
@@ -241,4 +242,37 @@ AbsolutePath[] whichFromEnv(string envKey, string name) {
 @("shall return all locations of ls by using the environment variable PATH")
 unittest {
     assert(canFind(whichFromEnv("PATH", "mv"), AbsolutePath("/bin/mv")));
+}
+
+/** Follow a symlink until it reaches its target.
+ *
+ * Max depth guard against recursions or self referencing symlinks.
+ */
+Optional!Path followSymlink(Path p, int maxDepth = 100) @safe nothrow {
+    import std.file : readLink;
+
+    try {
+        int depth;
+        for (; depth < maxDepth && existsAnd!isSymlink(p); ++depth) {
+            p = Path(buildPath(p.dirName, readLink(p.toString)));
+        }
+        if (depth < maxDepth)
+            return some(p);
+    } catch (Exception e) {
+    }
+
+    return none!Path;
+}
+
+@("shall not infinite loop over a self referencing symlink")
+unittest {
+    import std.file : remove, symlink;
+    import std.format : format;
+    import std.path : baseName;
+
+    immutable l = format!"%s_%s_link"(__FILE__.baseName, __LINE__);
+    scope (exit)
+        remove(l);
+    symlink(l, l);
+    assert(!followSymlink(Path(l)).hasValue, "should be no value");
 }

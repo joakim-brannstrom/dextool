@@ -40,6 +40,7 @@ unittest {
 }
 
 /// Convert a value to its ubyte representation.
+/// Note: this is very slow. Prefer std.bitmanip.nativeToBigEndian.
 auto toBytes(T)(T v) @trusted pure nothrow @nogc {
     import std.conv : emplace;
 
