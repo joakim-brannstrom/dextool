@@ -32,7 +32,7 @@ import dextool.plugin.mutate.backend.type : Language, Offset, Mutation, SourceLo
 alias log = colorlog.log!"analyze.pass_mutant";
 
 shared static this() {
-    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_mutant", "analyze");
+    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_mutant");
 }
 
 @safe:

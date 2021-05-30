@@ -45,7 +45,7 @@ import dextool.plugin.mutate.backend.analyze.pass_mutant : CodeMutantsResult;
 alias log = colorlog.log!"analyze.pass_schema";
 
 shared static this() {
-    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_schema", "analyze");
+    colorlog.make!(colorlog.SimpleLogger)(logger.LogLevel.info, "analyze.pass_schema");
 }
 
 // constant defined by the schemata that test_mutant uses too
