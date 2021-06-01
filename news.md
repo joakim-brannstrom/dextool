@@ -14,6 +14,12 @@ New features for dextool mutate
    mutation status. If the checksum of the `test_cmd` match what is already
    known then that mutation status is used instead.
 
+Fixes for dextool mutate
+
+ * Fix labels being duplicated in scheman and thus leading to compilation errors.
+ * Fix that a UTF-8 BOM lead to compilation errors. The tool now find and warn about it.
+   It further detect when the source code is in something else than UTF-8 and warn.
+
 # v3.2.0 Topaz
 
 New features for dextool mutate
