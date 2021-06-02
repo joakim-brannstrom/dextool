@@ -227,14 +227,29 @@ void setLogLevel(const string name, const logger.LogLevel lvl, const SpanMode sp
 /// Set the log level for all loggers in `names`.
 void setLogLevel(const string[] names, const logger.LogLevel lvl,
         const SpanMode span = SpanMode.single) @safe {
+    if (names.empty)
+        return;
+
+    logger.globalLogLevel = lvl;
     foreach (a; names)
         setLogLevel(a, lvl, span);
 }
 
 /// Set the log level for all loggers in `names`.
 void setLogLevel(const NameLevel[] names, const SpanMode span = SpanMode.single) @safe {
-    foreach (a; names)
+    import std.algorithm : min;
+
+    if (names.empty)
+        return;
+
+    auto global = logger.LogLevel.off;
+
+    foreach (a; names) {
         setLogLevel(a.name, a.level, span);
+        global = min(a.level, global);
+    }
+
+    logger.globalLogLevel = global;
 }
 
 /** Log a mesage to the specified logger.
