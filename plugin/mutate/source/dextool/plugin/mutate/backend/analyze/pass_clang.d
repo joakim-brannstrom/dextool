@@ -342,6 +342,7 @@ Location toLocation(ref const Cursor c) {
  */
 final class BaseVisitor : ExtendedVisitor {
     import clang.c.Index : CXCursorKind, CXTypeKind;
+    import clang.TranslationUnit : clangTranslationUnit = TranslationUnit;
     import libclang_ast.ast;
     import dextool.clang_extensions : getExprOperator, OpKind;
     import my.set;
@@ -359,10 +360,6 @@ final class BaseVisitor : ExtendedVisitor {
     /// The elements that where removed from the last decrement.
     Vector!(analyze.Node) lastDecr;
 
-    /// List of macro locations which blacklist mutants that would be injected
-    /// in any of them.
-    BlackList blacklist;
-
     /// If >0, all mutants inside a function should be blacklisted from schematan
     int blacklistFunc;
 
@@ -373,6 +370,8 @@ final class BaseVisitor : ExtendedVisitor {
     Set!size_t isVisited;
 
     FilesysIO fio;
+
+    clangTranslationUnit rootTu;
 
     this(FilesysIO fio) nothrow {
         this.fio = fio;
@@ -406,8 +405,24 @@ final class BaseVisitor : ExtendedVisitor {
         cstack.popUntil(indent);
     }
 
-    private void pushStack(analyze.Node n, analyze.Location l, const CXCursorKind cKind) @trusted {
-        n.blacklist = n.blacklist || blacklist.inside(l);
+    // `cursor` must be at least a cursor in the correct file.
+    private bool isBlacklist(Cursor cursor, analyze.Location l) @trusted {
+        import dextool.clang_extensions;
+        import clang.c.Index;
+
+        static bool anyMacro(CXSourceLocation l) {
+            return dex_isInSystemMacro(l) || dex_isMacroArgExpansion(l)
+                || dex_isMacroBodyExpansion(l);
+        }
+
+        auto file = cursor.location.file;
+        return anyMacro(clang_getLocationForOffset(rootTu, file, l.interval.begin))
+            || anyMacro(clang_getLocationForOffset(rootTu, file, l.interval.end));
+    }
+
+    private void pushStack(Cursor cursor, analyze.Node n, analyze.Location l,
+            const CXCursorKind cKind) @trusted {
+        n.blacklist = n.blacklist || isBlacklist(cursor, l);
         n.schemaBlacklist = n.blacklist || n.schemaBlacklist;
         if (!nstack.empty)
             n.schemaBlacklist = n.schemaBlacklist || nstack[$ - 1].data.schemaBlacklist;
@@ -418,24 +433,26 @@ final class BaseVisitor : ExtendedVisitor {
 
     /// Returns: true if it is OK to modify the cursor
     private void pushStack(AstT, ClangT)(AstT n, ClangT c) @trusted {
-        static if (is(ClangT == Cursor))
-            auto loc = c.toLocation;
-        else
-            auto loc = c.cursor.toLocation;
         nstack.back.children ~= n;
-        pushStack(n, loc, c.kind);
+        static if (is(ClangT == Cursor)) {
+            auto loc = c.toLocation;
+            pushStack(c, n, loc, c.kind);
+        } else {
+            auto loc = c.cursor.toLocation;
+            pushStack(c.cursor, n, loc, c.kind);
+        }
     }
 
-    override void visit(const TranslationUnit v) {
+    override void visit(const TranslationUnit v) @trusted {
         import clang.c.Index : CXLanguageKind;
 
         mixin(mixinNodeLog!());
 
+        rootTu = v.cursor.translationUnit;
+
         ast.root = ast.make!(analyze.TranslationUnit);
         auto loc = v.cursor.toLocation;
-        pushStack(ast.root, loc, v.cursor.kind);
-
-        blacklist = BlackList(v.cursor);
+        pushStack(v.cursor, ast.root, loc, v.cursor.kind);
 
         // it is most often invalid
         switch (v.cursor.language) {
@@ -841,7 +858,7 @@ final class BaseVisitor : ExtendedVisitor {
 
                 auto n = ast.make!(analyze.Block);
                 nstack.back.children ~= n;
-                pushStack(n, loc, v.cursor.kind);
+                pushStack(v.cursor, n, loc, v.cursor.kind);
             } catch (InvalidPathException e) {
             } catch (Exception e) {
                 log.trace(e.msg).collectException;
@@ -915,7 +932,7 @@ final class BaseVisitor : ExtendedVisitor {
             auto block = ast.make!(analyze.Block);
             auto l = ast.location(n);
             l.interval.end = l.interval.begin;
-            pushStack(block, l, CXCursorKind.unexposedDecl);
+            pushStack(v.cursor, block, l, CXCursorKind.unexposedDecl);
             rewriteSwitch(ast, n, block, caseVisitor.node.cursor.toLocation);
         }
     }
@@ -976,29 +993,29 @@ final class BaseVisitor : ExtendedVisitor {
             return false;
         }
 
-        if (visitBinaryOp(op.get, cKind))
+        if (visitBinaryOp(v.cursor, op.get, cKind))
             return true;
-        return visitUnaryOp(op.get, cKind);
+        return visitUnaryOp(v.cursor, op.get, cKind);
     }
 
     /// Returns: true if it added a binary operator, false otherwise.
-    private bool visitBinaryOp(ref OperatorCursor op, const CXCursorKind cKind) @trusted {
+    private bool visitBinaryOp(Cursor cursor, ref OperatorCursor op, const CXCursorKind cKind) @trusted {
         import libclang_ast.ast : dispatch;
 
         auto astOp = cast(analyze.BinaryOp) op.astOp;
         if (astOp is null)
             return false;
 
-        const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc) || isParent(CXCursorKind.classTemplate,
+        const blockSchema = op.isOverload || isBlacklist(cursor, op.opLoc) || isParent(CXCursorKind.classTemplate,
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
         astOp.schemaBlacklist = blockSchema;
         astOp.operator = op.operator;
-        astOp.operator.blacklist = blacklist.inside(op.opLoc);
+        astOp.operator.blacklist = isBlacklist(cursor, op.opLoc);
         astOp.operator.schemaBlacklist = blockSchema;
 
         op.put(nstack.back, ast);
-        pushStack(astOp, op.exprLoc, cKind);
+        pushStack(cursor, astOp, op.exprLoc, cKind);
         incr;
         scope (exit)
             decr;
@@ -1061,22 +1078,22 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     /// Returns: true if it added a binary operator, false otherwise.
-    private bool visitUnaryOp(ref OperatorCursor op, CXCursorKind cKind) @trusted {
+    private bool visitUnaryOp(Cursor cursor, ref OperatorCursor op, CXCursorKind cKind) @trusted {
         import libclang_ast.ast : dispatch;
 
         auto astOp = cast(analyze.UnaryOp) op.astOp;
         if (astOp is null)
             return false;
 
-        const blockSchema = op.isOverload || blacklist.blockSchema(op.opLoc) || isParent(CXCursorKind.classTemplate,
+        const blockSchema = op.isOverload || isBlacklist(cursor, op.opLoc) || isParent(CXCursorKind.classTemplate,
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
         astOp.operator = op.operator;
-        astOp.operator.blacklist = blacklist.inside(op.opLoc);
+        astOp.operator.blacklist = isBlacklist(cursor, op.opLoc);
         astOp.operator.schemaBlacklist = blockSchema;
 
         op.put(nstack.back, ast);
-        pushStack(astOp, op.exprLoc, cKind);
+        pushStack(cursor, astOp, op.exprLoc, cKind);
         incr;
         scope (exit)
             decr;
@@ -1134,7 +1151,7 @@ final class BaseVisitor : ExtendedVisitor {
         auto n = ast.make!(analyze.Function);
         n.schemaBlacklist = isConstExpr(v.cursor);
         nstack.back.children ~= n;
-        pushStack(n, loc, v.cursor.kind);
+        pushStack(v.cursor, n, loc, v.cursor.kind);
 
         auto fRetval = ast.make!(analyze.Return);
         auto rty = deriveType(ast.get, v.cursor.func.resultType);
@@ -1499,86 +1516,6 @@ bool isConstExpr(const Cursor c) @trusted {
 
     auto toks = c.tokens;
     return helper(toks);
-}
-
-/** Create an index of all macros that then can be queried to see if a Cursor
- * or Interval overlap a macro.
- */
-struct BlackList {
-    import dextool.plugin.mutate.backend.analyze.utility : Index;
-
-    Index!string macros;
-    /// schemas are blacklisted for these
-    Index!string schemas;
-
-    this(const Cursor root) {
-        Interval[][string] macros;
-        Interval[][string] schemas;
-
-        foreach (c, parent; root.all) {
-            if (!c.kind.among(CXCursorKind.macroExpansion,
-                    CXCursorKind.macroDefinition) || c.isMacroBuiltin)
-                continue;
-
-            auto spelling = c.spelling;
-            // C code almost always implement these as macros. They should not
-            // be blocked from being mutated.
-            if (spelling.among("bool", "TRUE", "FALSE")) {
-                add(c, schemas);
-            } else {
-                add(c, macros);
-            }
-        }
-
-        foreach (k; macros.byKey) {
-            macros[k] = macros[k].sort.array;
-        }
-        foreach (k; schemas.byKey) {
-            schemas[k] = schemas[k].sort.array;
-        }
-
-        this.macros = Index!string(macros);
-        this.schemas = Index!string(schemas);
-    }
-
-    static void add(const Cursor c, ref Interval[][string] idx) {
-        const file = c.location.path;
-        if (file.empty)
-            return;
-        const e = c.extent;
-        const interval = Interval(e.start.offset, e.end.offset);
-        if (auto v = file in idx) {
-            (*v) ~= interval;
-        } else {
-            idx[file] = [interval];
-        }
-    }
-
-    bool blockSchema(analyze.Location l) {
-        return schemas.intersect(l.file, l.interval);
-    }
-
-    bool inside(const Cursor c) {
-        const file = c.location.path.Path;
-        const e = c.extent;
-        const interval = Interval(e.start.offset, e.end.offset);
-        return inside(file, interval);
-    }
-
-    bool inside(analyze.Location l) {
-        return inside(l.file, l.interval);
-    }
-
-    /**
-     * assuming that an invalid mutant is always inside a macro thus only
-     * checking if the `i` is inside. Removing a "block" of code that happens
-     * to contain a macro is totally "ok". It doesn't create any problem.
-     *
-     * Returns: true if `i` is inside a macro interval.
-     */
-    bool inside(const Path file, const Interval i) {
-        return macros.overlap(file, i);
-    }
 }
 
 /// Returns: the types of the children
