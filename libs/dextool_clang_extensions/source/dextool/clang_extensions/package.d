@@ -225,6 +225,24 @@ extern (C++,dextool_clang_extension) {
     }
 
     extern (C++) DXCaseStmt dex_getCaseStmt(const CXCursor cx);
+
+    /// Returns whether Loc is expanded from a macro in a system header.
+    extern (C++) bool dex_isInSystemMacro(const CXSourceLocation location);
+
+    /** Tests whether the given source location represents a macro argument's
+     * expansion into the function-like macro definition.
+     *
+     * Such source locations only appear inside of the expansion locations
+     * representing where a particular function-like macro was expanded.
+     */
+    extern (C++) bool dex_isMacroArgExpansion(const CXSourceLocation location);
+
+    /** Tests whether the given source location represents the expansion of a macro body.
+     *
+     * This is equivalent to testing whether the location is part of a macro
+     * expansion but not the expansion of an argument to a function-like macro.
+     */
+    extern (C++) bool dex_isMacroBodyExpansion(const CXSourceLocation location);
 }
 
 Operator getExprOperator(const CXCursor expr) @trusted {
