@@ -1525,6 +1525,9 @@ struct Blacklist {
         import dextool.clang_extensions;
         import clang.c.Index;
 
+        if (!cursor.isValid)
+            return false;
+
         auto hb = l.file.toHash + l.interval.begin;
         if (auto v = hb in cache_)
             return *v;
@@ -1533,8 +1536,14 @@ struct Blacklist {
             return *v;
 
         auto file = cursor.location.file;
+        if (!file.isValid)
+            return false;
 
-        auto res = dex_isAnyMacro(clang_getLocationForOffset(rootTu, file, l.interval.begin));
+        auto cxLoc = clang_getLocationForOffset(rootTu, file, l.interval.begin);
+        if (cxLoc is CXSourceLocation.init)
+            return false;
+
+        auto res = dex_isAnyMacro(cxLoc);
         cache_[hb] = res;
         if (res)
             return true;
