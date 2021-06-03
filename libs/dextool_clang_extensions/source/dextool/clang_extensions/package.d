@@ -243,6 +243,9 @@ extern (C++,dextool_clang_extension) {
      * expansion but not the expansion of an argument to a function-like macro.
      */
     extern (C++) bool dex_isMacroBodyExpansion(const CXSourceLocation location);
+
+    /// If the location is in any type of macro.
+    extern (C++) bool dex_isAnyMacro(const CXSourceLocation location);
 }
 
 Operator getExprOperator(const CXCursor expr) @trusted {

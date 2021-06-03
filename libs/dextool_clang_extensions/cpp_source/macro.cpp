@@ -53,4 +53,18 @@ bool dex_isMacroBodyExpansion(const CXSourceLocation location) {
     return SM.isMacroBodyExpansion(Loc);
 }
 
+bool dex_isAnyMacro(const CXSourceLocation location) {
+    // from CXSourceLocation.cpp
+    // function
+    // clang_Location_isInSystemHeader(CXSourceLocation location)
+
+    const clang::SourceLocation Loc = clang::SourceLocation::getFromRawEncoding(location.int_data);
+    if (Loc.isInvalid())
+        return false;
+
+    const clang::SourceManager& SM =
+        *static_cast<const clang::SourceManager*>(location.ptr_data[0]);
+    return SM.isInSystemMacro(Loc) || SM.isMacroBodyExpansion(Loc) || SM.isMacroArgExpansion(Loc);
+}
+
 } // namespace dextool_clang_extension

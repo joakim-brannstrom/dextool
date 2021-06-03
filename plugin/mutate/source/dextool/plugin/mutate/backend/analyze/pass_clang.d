@@ -342,7 +342,6 @@ Location toLocation(ref const Cursor c) {
  */
 final class BaseVisitor : ExtendedVisitor {
     import clang.c.Index : CXCursorKind, CXTypeKind;
-    import clang.TranslationUnit : clangTranslationUnit = TranslationUnit;
     import libclang_ast.ast;
     import dextool.clang_extensions : getExprOperator, OpKind;
     import my.set;
@@ -371,7 +370,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     FilesysIO fio;
 
-    clangTranslationUnit rootTu;
+    Blacklist blacklist;
 
     this(FilesysIO fio) nothrow {
         this.fio = fio;
@@ -407,17 +406,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     // `cursor` must be at least a cursor in the correct file.
     private bool isBlacklist(Cursor cursor, analyze.Location l) @trusted {
-        import dextool.clang_extensions;
-        import clang.c.Index;
-
-        static bool anyMacro(CXSourceLocation l) {
-            return dex_isInSystemMacro(l) || dex_isMacroArgExpansion(l)
-                || dex_isMacroBodyExpansion(l);
-        }
-
-        auto file = cursor.location.file;
-        return anyMacro(clang_getLocationForOffset(rootTu, file, l.interval.begin))
-            || anyMacro(clang_getLocationForOffset(rootTu, file, l.interval.end));
+        return blacklist.isBlacklist(cursor, l);
     }
 
     private void pushStack(Cursor cursor, analyze.Node n, analyze.Location l,
@@ -448,7 +437,7 @@ final class BaseVisitor : ExtendedVisitor {
 
         mixin(mixinNodeLog!());
 
-        rootTu = v.cursor.translationUnit;
+        blacklist.rootTu = v.cursor.translationUnit;
 
         ast.root = ast.make!(analyze.TranslationUnit);
         auto loc = v.cursor.toLocation;
@@ -1523,4 +1512,35 @@ auto getChildrenTypes(ref Ast ast, Node parent) {
     return BreathFirstRange(parent).map!(a => ast.type(a))
         .filter!(a => a !is null)
         .map!(a => a.kind);
+}
+
+/// Locations that should not be mutated with scheman
+struct Blacklist {
+    import clang.TranslationUnit : clangTranslationUnit = TranslationUnit;
+
+    clangTranslationUnit rootTu;
+    bool[size_t] cache_;
+
+    bool isBlacklist(ref Cursor cursor, ref analyze.Location l) @trusted {
+        import dextool.clang_extensions;
+        import clang.c.Index;
+
+        auto hb = l.file.toHash + l.interval.begin;
+        if (auto v = hb in cache_)
+            return *v;
+        auto he = l.file.toHash + l.interval.end;
+        if (auto v = he in cache_)
+            return *v;
+
+        auto file = cursor.location.file;
+
+        auto res = dex_isAnyMacro(clang_getLocationForOffset(rootTu, file, l.interval.begin));
+        cache_[hb] = res;
+        if (res)
+            return true;
+
+        res = dex_isAnyMacro(clang_getLocationForOffset(rootTu, file, l.interval.end));
+        cache_[he] = res;
+        return res;
+    }
 }
