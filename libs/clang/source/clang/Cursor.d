@@ -36,11 +36,6 @@ import clang.Visitor;
     // for example primitive types are predefined
     private static const CXCursorKind[string] predefined;
 
-    static this() {
-        // populate the database once
-        predefined = queryPredefined();
-    }
-
     /// Retrieve the NULL cursor, which represents no entity.
     @property static Cursor empty() @trusted {
         auto r = clang_getNullCursor();
@@ -667,31 +662,6 @@ import clang.Visitor;
     CXVisibilityKind visibility() const @trusted {
         return clang_getCursorVisibility(cx);
     }
-
-    private static CXCursorKind[string] queryPredefined() @trusted {
-        import clang.Index;
-        import clang.TranslationUnit;
-
-        CXCursorKind[string] result;
-
-        Index index = Index(false, false);
-        TranslationUnit unit = TranslationUnit.parseString(index, "", []);
-
-        foreach (cursor; unit.cursor.children)
-            result[cursor.usr] = cursor.kind;
-
-        return result;
-    }
-
-    public static string predefinedToString() @trusted {
-        import std.algorithm : map, joiner;
-        import std.ascii : newline;
-        import std.conv : text;
-        import std.string : leftJustifier;
-
-        return predefined.byKeyValue().map!(a => leftJustifier(a.key, 50)
-                .text ~ a.value.text).joiner(newline).text;
-    }
 }
 
 struct ObjcCursor {
@@ -956,11 +926,4 @@ void dumpAST(ref const(Cursor) c, ref Appender!string result, size_t indent, Fil
 
 void dumpAST(ref const(Cursor) c, ref Appender!string result, size_t indent) @safe {
     dumpAST(c, result, indent, null);
-}
-
-unittest {
-    // "Should output the predefined types for inspection"
-    import std.stdio;
-
-    writeln(Cursor.predefinedToString);
 }
