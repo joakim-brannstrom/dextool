@@ -802,9 +802,8 @@ class BinaryOpVisitor : DepthFirstVisitor {
         auto locExpr = ast.location(n);
         auto locOp = ast.location(n.operator);
 
-        if (locExpr.interval.isZero || locOp.interval.isZero) {
+        if (locExpr.interval.isZero || locOp.interval.isZero)
             return;
-        }
 
         auto left = contentOrNull(root.begin, locExpr.interval.begin, content);
         auto right = contentOrNull(locExpr.interval.end, root.end, content);
@@ -824,45 +823,52 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         auto helper = MutantHelper(*fragment, locExpr.interval);
 
-        foreach (const mutant; opMutants) {
-            // dfmt off
-            fragment.schema.
-                put(mutant.id.c0,
+        if (locExpr.interval.begin < locOp.interval.begin
+                && locOp.interval.end < locExpr.interval.end) {
+            foreach (const mutant; opMutants) {
+                // dfmt off
+                fragment.schema.
+                    put(mutant.id.c0,
+                        helper.pre,
+                        left,
+                        content[locExpr.interval.begin .. locOp.interval.begin],
+                        makeMutation(mutant.mut.kind, ast.lang).mutate(content[locOp.interval.begin .. locOp.interval.end]),
+                        content[locOp.interval.end .. locExpr.interval.end],
+                        right,
+                        helper.post
+                        );
+                // dfmt on
+            }
+        }
+
+        if (offsLhs.end < locExpr.interval.end) {
+            foreach (const mutant; lhsMutants) {
+                // dfmt off
+                fragment.schema.put(mutant.id.c0,
                     helper.pre,
                     left,
-                    content[locExpr.interval.begin .. locOp.interval.begin],
-                    makeMutation(mutant.mut.kind, ast.lang).mutate(content[locOp.interval.begin .. locOp.interval.end]),
-                    content[locOp.interval.end .. locExpr.interval.end],
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
+                    content[offsLhs.end .. locExpr.interval.end],
                     right,
                     helper.post
                     );
-            // dfmt on
+                // dfmt on
+            }
         }
 
-        foreach (const mutant; lhsMutants) {
-            // dfmt off
-            fragment.schema.put(mutant.id.c0,
-                helper.pre,
-                left,
-                makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
-                content[offsLhs.end .. locExpr.interval.end],
-                right,
-                helper.post
-                );
-            // dfmt on
-        }
-
-        foreach (const mutant; rhsMutants) {
-            // dfmt off
-            fragment.schema.put(mutant.id.c0,
-                helper.pre,
-                left,
-                content[locExpr.interval.begin .. offsRhs.begin],
-                makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
-                right,
-                helper.post
-                );
-            // dfmt on
+        if (locExpr.interval.begin < offsRhs.begin) {
+            foreach (const mutant; rhsMutants) {
+                // dfmt off
+                fragment.schema.put(mutant.id.c0,
+                    helper.pre,
+                    left,
+                    content[locExpr.interval.begin .. offsRhs.begin],
+                    makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsRhs.begin .. offsRhs.end]),
+                    right,
+                    helper.post
+                    );
+                // dfmt on
+            }
         }
 
         foreach (const mutant; exprMutants) {
