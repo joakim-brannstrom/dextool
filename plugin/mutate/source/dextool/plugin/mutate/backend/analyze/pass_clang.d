@@ -1487,24 +1487,10 @@ uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind) @trusted {
     return sr.end;
 }
 
-/** Check if a function has the constexpr keyword.
- *
- * The implementation opt for higher precision than efficiency which is why it
- * looks at the tokens. That should eliminate such factors as "whitespace".
- */
 bool isConstExpr(const Cursor c) @trusted {
-    bool helper(T)(ref T toks) {
-        foreach (ref t; toks.filter!(a => a.kind.among(CXTokenKind.keyword,
-                CXTokenKind.identifier))) {
-            if (t.spelling == "constexpr") {
-                return true;
-            }
-        }
-        return false;
-    }
+    import dextool.clang_extensions;
 
-    auto toks = c.tokens;
-    return helper(toks);
+    return dex_isPotentialConstExpr(c);
 }
 
 /// Returns: the types of the children

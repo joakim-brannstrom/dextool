@@ -246,6 +246,9 @@ extern (C++,dextool_clang_extension) {
 
     /// If the location is in any type of macro.
     extern (C++) bool dex_isAnyMacro(const CXSourceLocation location);
+
+    /// Whether this is a (C++11) constexpr function or constexpr constructor.
+    extern (C++) bool dex_isPotentialConstExpr(const CXCursor cx);
 }
 
 Operator getExprOperator(const CXCursor expr) @trusted {
