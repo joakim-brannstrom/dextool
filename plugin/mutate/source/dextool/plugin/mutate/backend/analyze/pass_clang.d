@@ -437,7 +437,7 @@ final class BaseVisitor : ExtendedVisitor {
 
         mixin(mixinNodeLog!());
 
-        blacklist.rootTu = v.cursor.translationUnit;
+        blacklist = Blacklist(v.cursor);
 
         ast.root = ast.make!(analyze.TranslationUnit);
         auto loc = v.cursor.toLocation;
@@ -1503,39 +1503,78 @@ auto getChildrenTypes(ref Ast ast, Node parent) {
 /// Locations that should not be mutated with scheman
 struct Blacklist {
     import clang.TranslationUnit : clangTranslationUnit = TranslationUnit;
+    import dextool.plugin.mutate.backend.analyze.utility : Index;
 
     clangTranslationUnit rootTu;
     bool[size_t] cache_;
+    Index!string macros;
+
+    this(const Cursor root) {
+        rootTu = root.translationUnit;
+
+        Interval[][string] macros;
+
+        foreach (c, parent; root.all) {
+            if (!c.kind.among(CXCursorKind.macroExpansion,
+                    CXCursorKind.macroDefinition) || c.isMacroBuiltin)
+                continue;
+            add(c, macros);
+        }
+
+        foreach (k; macros.byKey)
+            macros[k] = macros[k].sort.array;
+
+        this.macros = Index!string(macros);
+    }
+
+    static void add(ref const Cursor c, ref Interval[][string] idx) {
+        const file = c.location.path;
+        if (file.empty)
+            return;
+        const e = c.extent;
+        const interval = Interval(e.start.offset, e.end.offset);
+
+        auto absFile = AbsolutePath(file);
+        if (auto v = absFile in idx) {
+            (*v) ~= interval;
+        } else {
+            idx[absFile.toString] = [interval];
+        }
+    }
 
     bool isBlacklist(ref Cursor cursor, ref analyze.Location l) @trusted {
         import dextool.clang_extensions;
         import clang.c.Index;
 
-        if (!cursor.isValid)
-            return false;
+        bool clangPass() {
+            if (!cursor.isValid)
+                return false;
 
-        auto hb = l.file.toHash + l.interval.begin;
-        if (auto v = hb in cache_)
-            return *v;
-        auto he = l.file.toHash + l.interval.end;
-        if (auto v = he in cache_)
-            return *v;
+            auto hb = l.file.toHash + l.interval.begin;
+            if (auto v = hb in cache_)
+                return *v;
+            auto he = l.file.toHash + l.interval.end;
+            if (auto v = he in cache_)
+                return *v;
 
-        auto file = cursor.location.file;
-        if (!file.isValid)
-            return false;
+            auto file = cursor.location.file;
+            if (!file.isValid)
+                return false;
 
-        auto cxLoc = clang_getLocationForOffset(rootTu, file, l.interval.begin);
-        if (cxLoc is CXSourceLocation.init)
-            return false;
+            auto cxLoc = clang_getLocationForOffset(rootTu, file, l.interval.begin);
+            if (cxLoc is CXSourceLocation.init)
+                return false;
 
-        auto res = dex_isAnyMacro(cxLoc);
-        cache_[hb] = res;
-        if (res)
-            return true;
+            auto res = dex_isAnyMacro(cxLoc);
+            cache_[hb] = res;
+            if (res)
+                return true;
 
-        res = dex_isAnyMacro(clang_getLocationForOffset(rootTu, file, l.interval.end));
-        cache_[he] = res;
-        return res;
+            res = dex_isAnyMacro(clang_getLocationForOffset(rootTu, file, l.interval.end));
+            cache_[he] = res;
+            return res;
+        }
+
+        return clangPass() || macros.overlap(l.file.toString, l.interval);
     }
 }
