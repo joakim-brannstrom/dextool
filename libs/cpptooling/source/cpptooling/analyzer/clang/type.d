@@ -106,7 +106,7 @@ out (result) {
     logger.trace(result, this_indent);
     assert(result.length > 0);
 }
-body {
+do {
     import std.array : appender;
 
     auto app = appender!string();
@@ -121,7 +121,7 @@ out (result) {
     logger.trace(result, this_indent);
     assert(result.length > 0);
 }
-body {
+do {
     import std.array : appender;
 
     auto usr = USRType(c.usr);
@@ -159,7 +159,7 @@ private void assertTypeResult(const ref TypeResults results) @trusted {
 struct BacktrackLocation {
     static import clang.SourceLocation;
     import my.optional;
-    import cpptooling.data.type : Location;
+    static import cpptooling.data.type;
 
     alias Tag = Optional!(cpptooling.data.type.Location);
 
@@ -312,7 +312,7 @@ out (result) {
         assertTypeResult(result.get);
     }
 }
-body {
+do {
     Nullable!TypeResults rval;
 
     // bail early
@@ -340,7 +340,7 @@ private Nullable!TypeResult pass1(ref const Cursor c, uint indent)
 in {
     logNode(c, indent);
 }
-body {
+do {
     Nullable!TypeResult rval;
 
     if (!c.isAnonymous) {
@@ -390,7 +390,7 @@ private Nullable!TypeResult pass2(ref const Cursor c, uint indent)
 in {
     logNode(c, indent);
 }
-body {
+do {
     Nullable!TypeResult rval;
 
     if (c.spelling.length != 0) {
@@ -436,7 +436,7 @@ private Nullable!TypeResult pass3(ref const Cursor c, uint indent)
 in {
     logNode(c, indent);
 }
-body {
+do {
     Nullable!TypeResult rval;
 
     switch (c.kind) with (CXCursorKind) {
@@ -464,7 +464,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     auto indent = this_indent + 1;
     Nullable!TypeResults rval;
 
@@ -622,7 +622,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     import std.range : takeOne;
 
     auto indent = this_indent + 1;
@@ -663,7 +663,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     import std.range : takeOne;
 
     auto indent = 1 + this_indent;
@@ -737,7 +737,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     const uint indent = this_indent + 1;
     string spell = type.spelling;
 
@@ -784,7 +784,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     string spell = type.spelling;
 
     // ugly hack to remove const
@@ -817,7 +817,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     auto rval = makeTypeKindAttr(type, c);
     LocationTag loc;
 
@@ -860,7 +860,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     /// Make a string that represent the type.
     static string makeSpelling(ref const Cursor c, ref Type type) {
         import std.array : array;
@@ -929,7 +929,7 @@ in {
 out (result) {
     logTypeResult(result, indent);
 }
-body {
+do {
     string spell = type.spelling;
 
     // ugly hack needed when canonicalType has been used to get the type of a
@@ -969,7 +969,7 @@ out (result) {
     result.get.primary.type.kind.info.match!(ignore!(const TypeKind.FuncPtrInfo),
             ignore!(const TypeKind.PointerInfo), (_) { assert(0, "wrong type"); });
 }
-body {
+do {
     import cpptooling.data : PtrFmt, Left, Right;
 
     immutable indent = this_indent + 1;
@@ -1085,7 +1085,7 @@ out (result) {
             assert(0, "wrong type " ~ typeof(val).stringof);
         }), (_) {});
 }
-body {
+do {
     import cpptooling.data : FuncPtrFmt, Left, Right;
 
     immutable indent = this_indent + 1;
@@ -1134,7 +1134,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     import std.array : array;
     import std.algorithm : map;
     import std.string : strip;
@@ -1228,7 +1228,7 @@ in {
 out (result) {
     logTypeResult(result, indent);
 }
-body {
+do {
     import std.algorithm : map;
     import std.array : array;
     import cpptooling.data : CtorFmt;
@@ -1263,7 +1263,7 @@ in {
 out (result) {
     logTypeResult(result, indent);
 }
-body {
+do {
     TypeResults rval;
     auto primary = makeTypeKindAttr(type, c);
 
@@ -1303,7 +1303,7 @@ out (result) {
         logTypeAttr(r, this_indent);
     }
 }
-body {
+do {
     auto indent = this_indent + 1;
     PointerTypeAttr rval;
     auto decl_c = type.declaration;
@@ -1335,7 +1335,7 @@ out (result) {
         assert(0, "wrong type");
     });
 }
-body {
+do {
     import std.format : format;
     import cpptooling.data : ArrayFmt, LocationTag, Location;
 
@@ -1460,7 +1460,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     import std.range : takeOne;
 
     const indent = this_indent + 1;
@@ -1570,7 +1570,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     const uint indent = this_indent + 1;
 
     Nullable!TypeResults rval;
@@ -1615,7 +1615,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     import std.range : takeOne;
 
     const uint indent = this_indent + 1;
@@ -1817,7 +1817,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     import std.algorithm : filter;
     import std.range : chain, only;
     import cpptooling.data : FuncFmt;
@@ -1892,7 +1892,7 @@ in {
     assert(c.kind.among(CXCursorKind.classTemplate,
             CXCursorKind.classTemplatePartialSpecialization));
 }
-body {
+do {
     TypeResults rval;
 
     auto type = c.type;
@@ -1910,7 +1910,7 @@ in {
     logNode(c, this_indent);
     assert(c.kind == CXCursorKind.cxxBaseSpecifier);
 }
-body {
+do {
     auto indent = this_indent + 1;
 
     // when the cursor references a definition. easy
@@ -1970,7 +1970,7 @@ in {
 out (result) {
     logTypeResult(result, this_indent);
 }
-body {
+do {
     return retrieveInstanceDecl(c, container, this_indent + 1);
 }
 
@@ -1984,7 +1984,7 @@ in {
     logNode(c, this_indent);
     // TODO add assert for the types allowed
 }
-body {
+do {
     import std.range : takeOne;
 
     uint indent = this_indent + 1;
@@ -2024,7 +2024,7 @@ out (result) {
         logTypeResult(e, this_indent);
     }
 }
-body {
+do {
     const auto indent = this_indent + 1;
 
     void appendParams(ref const Cursor c, ref ExtractParamsResults rval) {
@@ -2103,7 +2103,7 @@ in {
 out (result) {
     logger.trace(!result.isNull, result);
 }
-body {
+do {
     Nullable!string r;
 
     // a good file to see what the types are:

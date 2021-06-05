@@ -27,21 +27,22 @@ the values of the enums defined by the `d2sqlite3` package (`SQLITE_VERSION`,
 
 See_Also: $(LINK http://www.sqlite.org/c3ref/libversion.html).
 +/
-string versionString() {
+string versionString()
+{
     import std.conv : to;
-
     return sqlite3_libversion().to!string;
 }
 
 /// Ditto
-int versionNumber() nothrow {
+int versionNumber() nothrow
+{
     return sqlite3_libversion_number();
 }
 
 /// Ditto
-string sourceID() {
+string sourceID()
+{
     import std.conv : to;
-
     return sqlite3_sourceid().to!string;
 }
 
@@ -50,7 +51,8 @@ Tells whether SQLite was compiled with the thread-safe options.
 
 See_also: $(LINK http://www.sqlite.org/c3ref/threadsafe.html).
 +/
-bool threadSafe() nothrow {
+bool threadSafe() nothrow
+{
     return cast(bool) sqlite3_threadsafe();
 }
 
@@ -60,13 +62,14 @@ Manually initializes (or shuts down) SQLite.
 SQLite initializes itself automatically on the first request execution, so this
 usually wouldn't be called. Use for instance before a call to config().
 +/
-void initialize() {
+void initialize()
+{
     immutable result = sqlite3_initialize();
-    enforce(result == SQLITE_OK,
-            new SqliteException("Initialization: error %s".format(result), result));
+    enforce(result == SQLITE_OK, new SqliteException("Initialization: error %s".format(result), result));
 }
 /// Ditto
-void shutdown() {
+void shutdown()
+{
     immutable result = sqlite3_shutdown();
     enforce(result == SQLITE_OK, new SqliteException("Shutdown: error %s".format(result), result));
 }
@@ -79,10 +82,10 @@ call to initialize and before execution of the first statement.
 
 See_Also: $(LINK http://www.sqlite.org/c3ref/config.html).
 +/
-void config(Args...)(int code, Args args) {
+void config(Args...)(int code, Args args)
+{
     immutable result = sqlite3_config(code, args);
-    enforce(result == SQLITE_OK,
-            new SqliteException("Configuration: error %s".format(result), result));
+    enforce(result == SQLITE_OK, new SqliteException("Configuration: error %s".format(result), result));
 }
 
 /++
@@ -90,13 +93,15 @@ Tests if an SQLite compile option is set
 
 See_Also: $(LINK http://sqlite.org/c3ref/compileoption_get.html).
 +/
-bool isCompiledWith(string option) {
+bool isCompiledWith(string option)
+{
     import std.string : toStringz;
-
     return cast(bool) sqlite3_compileoption_used(option.toStringz);
 }
 ///
-version (SqliteEnableUnlockNotify) unittest {
+version (SqliteEnableUnlockNotify)
+unittest
+{
     assert(isCompiledWith("SQLITE_ENABLE_UNLOCK_NOTIFY"));
     assert(!isCompiledWith("SQLITE_UNKNOWN_COMPILE_OPTION"));
 }

@@ -23,10 +23,8 @@ import std.string : format;
 import std.typecons : Nullable;
 
 /// Set _UnlockNotify version if compiled with SqliteEnableUnlockNotify or SqliteFakeUnlockNotify
-version (SqliteEnableUnlockNotify)
-    version = _UnlockNotify;
-else version (SqliteFakeUnlockNotify)
-    version = _UnlockNotify;
+version (SqliteEnableUnlockNotify) version = _UnlockNotify;
+else version (SqliteFakeUnlockNotify) version = _UnlockNotify;
 
 /++
 An input range interface to access the rows resulting from an SQL query.
@@ -39,7 +37,8 @@ row when iterating the results of a `ResultRange`. It becomes invalid as soon as
 Instances of this struct are typically returned by `Database.execute()` or
 `Statement.execute()`.
 +/
-struct ResultRange {
+struct ResultRange
+{
 private:
     Statement statement;
     int state = SQLITE_DONE;
@@ -47,13 +46,14 @@ private:
     Row current;
 
 package(d2sqlite3):
-    this(Statement statement) {
-        if (!statement.empty) {
-            version (_UnlockNotify)
-                state = sqlite3_blocking_step(statement);
-            else
-                state = sqlite3_step(statement.handle);
-        } else
+    this(Statement statement)
+    {
+        if (!statement.empty)
+        {
+            version (_UnlockNotify) state = sqlite3_blocking_step(statement);
+            else state = sqlite3_step(statement.handle);
+        }
+        else
             state = SQLITE_DONE;
 
         enforce(state == SQLITE_ROW || state == SQLITE_DONE,
@@ -64,13 +64,15 @@ package(d2sqlite3):
         current = Row(statement, colCount);
     }
 
-    version (_UnlockNotify) {
-        auto sqlite3_blocking_step(Statement statement) {
+    version (_UnlockNotify)
+    {
+        auto sqlite3_blocking_step(Statement statement)
+        {
             int rc;
-            while (SQLITE_LOCKED == (rc = sqlite3_step(statement.handle))) {
+            while(SQLITE_LOCKED == (rc = sqlite3_step(statement.handle)))
+            {
                 rc = statement.waitForUnlockNotify();
-                if (rc != SQLITE_OK)
-                    break;
+                if(rc != SQLITE_OK) break;
                 sqlite3_reset(statement.handle);
             }
             return rc;
@@ -81,36 +83,39 @@ public:
     /++
     Range interface.
     +/
-    bool empty() @property {
+    bool empty() @property
+    {
         return state == SQLITE_DONE;
     }
 
     /// ditto
-    ref Row front() return @property {
+    ref Row front() return @property
+    {
         assert(!empty, "no rows available");
         return current;
     }
 
     /// ditto
-    void popFront() {
+    void popFront()
+    {
         assert(!empty, "no rows available");
-        version (_UnlockNotify)
-            state = sqlite3_blocking_step(statement);
-        else
-            state = sqlite3_step(statement.handle);
+        version (_UnlockNotify) state = sqlite3_blocking_step(statement);
+        else state = sqlite3_step(statement.handle);
         current = Row(statement, colCount);
         enforce(state == SQLITE_DONE || state == SQLITE_ROW,
-                new SqliteException(errmsg(statement.handle), state));
+            new SqliteException(errmsg(statement.handle), state));
     }
 
     /++
     Gets only the first value of the first row returned by the execution of the statement.
     +/
-    auto oneValue(T)() {
+    auto oneValue(T)()
+    {
         return front.peek!T(0);
     }
     ///
-    unittest {
+    unittest
+    {
         auto db = Database(":memory:");
         db.execute("CREATE TABLE test (val INTEGER)");
         auto count = db.execute("SELECT count(*) FROM test").oneValue!long;
@@ -118,7 +123,8 @@ public:
     }
 }
 ///
-unittest {
+unittest
+{
     auto db = Database(":memory:");
     db.run("CREATE TABLE test (i INTEGER);
             INSERT INTO test VALUES (1);
@@ -147,7 +153,8 @@ Warning:
     The data of the row is invalid when the next row is accessed (after a call to
     `ResultRange.popFront()`).
 +/
-struct Row {
+struct Row
+{
     import std.traits : isBoolean, isIntegral, isSomeChar, isFloatingPoint, isSomeString, isArray;
     import std.traits : isInstanceOf, TemplateArgsOf;
 
@@ -156,76 +163,87 @@ private:
     int frontIndex = 0;
     int backIndex = -1;
 
-    this(Statement statement, int colCount) nothrow {
+    this(Statement statement, int colCount) nothrow
+    {
         this.statement = statement;
         backIndex = colCount - 1;
     }
 
 public:
     /// Range interface.
-    bool empty() const @property nothrow {
+    bool empty() const @property nothrow
+    {
         return length == 0;
     }
 
     /// ditto
-    ColumnData front() @property {
+    ColumnData front() @property
+    {
         assertInitialized();
         return opIndex(0);
     }
 
     /// ditto
-    void popFront() nothrow {
+    void popFront() nothrow
+    {
         assertInitialized();
         frontIndex++;
     }
 
     /// ditto
-    Row save() @property {
+    Row save() @property
+    {
         return this;
     }
 
     /// ditto
-    ColumnData back() @property {
+    ColumnData back() @property
+    {
         assertInitialized();
         return opIndex(backIndex - frontIndex);
     }
 
     /// ditto
-    void popBack() nothrow {
+    void popBack() nothrow
+    {
         assertInitialized();
         backIndex--;
     }
 
     /// ditto
-    size_t length() const @property nothrow {
+    size_t length() const @property nothrow
+    {
         return backIndex - frontIndex + 1;
     }
 
     /// ditto
-    ColumnData opIndex(size_t index) {
+    ColumnData opIndex(size_t index)
+    {
         assertInitialized();
         auto i = internalIndex(index);
         auto type = sqlite3_column_type(statement.handle, i);
-        final switch (type) {
-        case SqliteType.INTEGER:
-            return ColumnData(peek!long(index));
+        final switch (type)
+        {
+            case SqliteType.INTEGER:
+                return ColumnData(peek!long(index));
 
-        case SqliteType.FLOAT:
-            return ColumnData(peek!double(index));
+            case SqliteType.FLOAT:
+                return ColumnData(peek!double(index));
 
-        case SqliteType.TEXT:
-            return ColumnData(peek!string(index));
+            case SqliteType.TEXT:
+                return ColumnData(peek!string(index));
 
-        case SqliteType.BLOB:
-            return ColumnData(peek!(Blob, PeekMode.copy)(index));
+            case SqliteType.BLOB:
+                return ColumnData(peek!(Blob, PeekMode.copy)(index));
 
-        case SqliteType.NULL:
-            return ColumnData(null);
+            case SqliteType.NULL:
+                return ColumnData(null);
         }
     }
 
     /// Ditto
-    ColumnData opIndex(string columnName) {
+    ColumnData opIndex(string columnName)
+    {
         return opIndex(indexForName(columnName));
     }
 
@@ -294,19 +312,25 @@ public:
         tested each time this function is called: use
         numeric indexing for better performance.
     +/
-    T peek(T)(size_t index) if (isBoolean!T || isIntegral!T || isSomeChar!T) {
+    T peek(T)(size_t index)
+        if (isBoolean!T || isIntegral!T || isSomeChar!T)
+    {
         assertInitialized();
         return sqlite3_column_int64(statement.handle, internalIndex(index)).to!T;
     }
 
     /// ditto
-    T peek(T)(size_t index) if (isFloatingPoint!T) {
+    T peek(T)(size_t index)
+        if (isFloatingPoint!T)
+    {
         assertInitialized();
         return sqlite3_column_double(statement.handle, internalIndex(index)).to!T;
     }
 
     /// ditto
-    T peek(T, PeekMode mode = PeekMode.copy)(size_t index) if (isSomeString!T) {
+    T peek(T, PeekMode mode = PeekMode.copy)(size_t index)
+        if (isSomeString!T)
+    {
         import core.stdc.string : strlen, memcpy;
 
         assertInitialized();
@@ -317,41 +341,46 @@ public:
             return null;
 
         auto length = strlen(str);
-        static if (mode == PeekMode.copy) {
+        static if (mode == PeekMode.copy)
+        {
             char[] text;
             text.length = length;
             memcpy(text.ptr, str, length);
             return text.to!T;
-        } else static if (mode == PeekMode.slice)
-            return cast(T) str[0 .. length];
+        }
+        else static if (mode == PeekMode.slice)
+            return cast(T) str[0..length];
         else
             static assert(false);
     }
 
     /// ditto
     T peek(T, PeekMode mode = PeekMode.copy)(size_t index)
-            if (isArray!T && !isSomeString!T) {
+        if (isArray!T && !isSomeString!T)
+    {
         assertInitialized();
         auto i = internalIndex(index);
         auto ptr = sqlite3_column_blob(statement.handle, i);
         auto length = sqlite3_column_bytes(statement.handle, i);
-        static if (mode == PeekMode.copy) {
+        static if (mode == PeekMode.copy)
+        {
             import core.stdc.string : memcpy;
-
             ubyte[] blob;
             blob.length = length;
             memcpy(blob.ptr, ptr, length);
             return cast(T) blob;
-        } else static if (mode == PeekMode.slice)
-            return cast(T) ptr[0 .. length];
+        }
+        else static if (mode == PeekMode.slice)
+            return cast(T) ptr[0..length];
         else
             static assert(false);
     }
 
     /// ditto
     T peek(T)(size_t index)
-            if (isInstanceOf!(Nullable, T) && !isArray!(TemplateArgsOf!T[0])
-                && !isSomeString!(TemplateArgsOf!T[0])) {
+        if (isInstanceOf!(Nullable, T)
+            && !isArray!(TemplateArgsOf!T[0]) && !isSomeString!(TemplateArgsOf!T[0]))
+    {
         assertInitialized();
         alias U = TemplateArgsOf!T[0];
         if (sqlite3_column_type(statement.handle, internalIndex(index)) == SqliteType.NULL)
@@ -361,8 +390,9 @@ public:
 
     /// ditto
     T peek(T, PeekMode mode = PeekMode.copy)(size_t index)
-            if (isInstanceOf!(Nullable, T) && (isArray!(TemplateArgsOf!T[0])
-                || isSomeString!(TemplateArgsOf!T[0]))) {
+        if (isInstanceOf!(Nullable, T)
+            && (isArray!(TemplateArgsOf!T[0]) || isSomeString!(TemplateArgsOf!T[0])))
+    {
         assertInitialized();
         alias U = TemplateArgsOf!T[0];
         if (sqlite3_column_type(statement.handle, internalIndex(index)) == SqliteType.NULL)
@@ -371,7 +401,8 @@ public:
     }
 
     /// ditto
-    T peek(T)(string columnName) {
+    T peek(T)(string columnName)
+    {
         return peek!T(indexForName(columnName));
     }
 
@@ -384,25 +415,30 @@ public:
     See_Also: $(LINK http://www.sqlite.org/c3ref/column_blob.html) and
     $(LINK http://www.sqlite.org/c3ref/column_decltype.html).
     +/
-    SqliteType columnType(size_t index) {
+    SqliteType columnType(size_t index)
+    {
         assertInitialized();
         return cast(SqliteType) sqlite3_column_type(statement.handle, internalIndex(index));
     }
     /// Ditto
-    SqliteType columnType(string columnName) {
+    SqliteType columnType(string columnName)
+    {
         return columnType(indexForName(columnName));
     }
     /// Ditto
-    string columnDeclaredTypeName(size_t index) {
+    string columnDeclaredTypeName(size_t index)
+    {
         assertInitialized();
         return sqlite3_column_decltype(statement.handle, internalIndex(index)).to!string;
     }
     /// Ditto
-    string columnDeclaredTypeName(string columnName) {
+    string columnDeclaredTypeName(string columnName)
+    {
         return columnDeclaredTypeName(indexForName(columnName));
     }
     ///
-    unittest {
+    unittest
+    {
         auto db = Database(":memory:");
         db.run("CREATE TABLE items (name TEXT, price REAL);
                 INSERT INTO items VALUES ('car', 20000);
@@ -429,12 +465,14 @@ public:
 
     See_Also: $(LINK http://www.sqlite.org/c3ref/column_name.html).
     +/
-    string columnName(size_t index) {
+    string columnName(size_t index)
+    {
         assertInitialized();
         return sqlite3_column_name(statement.handle, internalIndex(index)).to!string;
     }
     ///
-    unittest {
+    unittest
+    {
         auto db = Database(":memory:");
         db.run("CREATE TABLE items (name TEXT, price REAL);
                 INSERT INTO items VALUES ('car', 20000);");
@@ -443,7 +481,8 @@ public:
         assert(row.columnName(1) == "price");
     }
 
-    version (SqliteEnableColumnMetadata) {
+    version (SqliteEnableColumnMetadata)
+    {
         /++
         Determines the name of the database, table, or column that is the origin of a
         particular result column in SELECT statement.
@@ -455,30 +494,36 @@ public:
 
         See_Also: $(LINK http://www.sqlite.org/c3ref/column_database_name.html).
         +/
-        string columnDatabaseName(size_t index) {
+        string columnDatabaseName(size_t index)
+        {
             assertInitialized();
             return sqlite3_column_database_name(statement.handle, internalIndex(index)).to!string;
         }
         /// Ditto
-        string columnDatabaseName(string columnName) {
+        string columnDatabaseName(string columnName)
+        {
             return columnDatabaseName(indexForName(columnName));
         }
         /// Ditto
-        string columnTableName(size_t index) {
+        string columnTableName(size_t index)
+        {
             assertInitialized();
             return sqlite3_column_database_name(statement.handle, internalIndex(index)).to!string;
         }
         /// Ditto
-        string columnTableName(string columnName) {
+        string columnTableName(string columnName)
+        {
             return columnTableName(indexForName(columnName));
         }
         /// Ditto
-        string columnOriginName(size_t index) {
+        string columnOriginName(size_t index)
+        {
             assertInitialized();
             return sqlite3_column_origin_name(statement.handle, internalIndex(index)).to!string;
         }
         /// Ditto
-        string columnOriginName(string columnName) {
+        string columnOriginName(string columnName)
+        {
             return columnOriginName(indexForName(columnName));
         }
     }
@@ -493,7 +538,9 @@ public:
     SQLite's conversion rules will be used. For instance, if a string field has the same rank
     as an INTEGER column, the field's data will be the string representation of the integer.
     +/
-    T as(T)() if (is(T == struct)) {
+    T as(T)()
+        if (is(T == struct))
+    {
         import std.traits : FieldTypeTuple, FieldNameTuple;
 
         alias FieldTypes = FieldTypeTuple!T;
@@ -503,8 +550,10 @@ public:
         return obj;
     }
     ///
-    unittest {
-        struct Item {
+    unittest
+    {
+        struct Item
+        {
             int _id;
             string name;
         }
@@ -521,7 +570,8 @@ public:
     }
 
 private:
-    int internalIndex(size_t index) {
+    int internalIndex(size_t index)
+    {
         assertInitialized();
         auto i = index + frontIndex;
         assert(i >= 0 && i <= backIndex, "invalid column index: %d".format(i));
@@ -529,10 +579,12 @@ private:
         return cast(int) i;
     }
 
-    int indexForName(string name) {
+    int indexForName(string name)
+    {
         assertInitialized();
         assert(name.length, "column with no name");
-        foreach (i; frontIndex .. backIndex + 1) {
+        foreach (i; frontIndex .. backIndex + 1)
+        {
             assert(i <= int.max, "invalid index value: %d".format(i));
             if (sqlite3_column_name(statement.handle, cast(int) i).to!string == name)
                 return i;
@@ -541,14 +593,16 @@ private:
         assert(false, "invalid column name: '%s'".format(name));
     }
 
-    void assertInitialized() nothrow {
+    void assertInitialized() nothrow
+    {
         assert(!empty, "Accessing elements of an empty row");
         assert(statement.handle !is null, "operation on an empty statement");
     }
 }
 
 /// Behavior of the `Row.peek()` method for arrays/strings
-enum PeekMode {
+enum PeekMode
+{
     /++
     Return a copy of the data into a new array/string.
     The copy is safe to use after stepping to the next row.
@@ -565,13 +619,16 @@ enum PeekMode {
 /++
 Some data retrieved from a column.
 +/
-struct ColumnData {
-    import std.traits : isBoolean, isIntegral, isNumeric, isFloatingPoint, isSomeString, isArray;
+struct ColumnData
+{
+    import std.traits : isBoolean, isIntegral, isNumeric, isFloatingPoint,
+        isSomeString, isArray;
     import std.variant : Algebraic, VariantException;
 
     alias SqliteVariant = Algebraic!(long, double, string, Blob, typeof(null));
 
-    private {
+    private
+    {
         SqliteVariant _value;
         SqliteType _type;
     }
@@ -579,40 +636,56 @@ struct ColumnData {
     /++
     Creates a new `ColumnData` from the value.
     +/
-    this(T)(inout T value) inout if (isBoolean!T || isIntegral!T) {
+    this(T)(inout T value) inout
+        if (isBoolean!T || isIntegral!T)
+    {
         _value = SqliteVariant(value.to!long);
         _type = SqliteType.INTEGER;
     }
 
     /// ditto
-    this(T)(T value) if (isFloatingPoint!T) {
+    this(T)(T value)
+        if (isFloatingPoint!T)
+    {
         _value = SqliteVariant(value.to!double);
         _type = SqliteType.FLOAT;
     }
 
     /// ditto
-    this(T)(T value) if (isSomeString!T) {
-        if (value is null) {
+    this(T)(T value)
+        if (isSomeString!T)
+    {
+        if (value is null)
+        {
             _value = SqliteVariant(null);
             _type = SqliteType.NULL;
-        } else {
+        }
+        else
+        {
             _value = SqliteVariant(value.to!string);
             _type = SqliteType.TEXT;
         }
     }
 
     /// ditto
-    this(T)(T value) if (isArray!T && !isSomeString!T) {
-        if (value is null) {
+    this(T)(T value)
+        if (isArray!T && !isSomeString!T)
+    {
+        if (value is null)
+        {
             _value = SqliteVariant(null);
             _type = SqliteType.NULL;
-        } else {
+        }
+        else
+        {
             _value = SqliteVariant(value.to!Blob);
             _type = SqliteType.BLOB;
         }
     }
     /// ditto
-    this(T)(T value) if (is(T == typeof(null))) {
+    this(T)(T value)
+        if (is(T == typeof(null)))
+    {
         _value = SqliteVariant(null);
         _type = SqliteType.NULL;
     }
@@ -620,7 +693,8 @@ struct ColumnData {
     /++
     Returns the Sqlite type of the column.
     +/
-    SqliteType type() const nothrow {
+    SqliteType type() const nothrow
+    {
         assertInitialized();
         return _type;
     }
@@ -635,7 +709,8 @@ struct ColumnData {
         to the desired type.
     +/
     auto as(T)(T defaultValue = T.init)
-            if (isBoolean!T || isNumeric!T || isSomeString!T) {
+        if (isBoolean!T || isNumeric!T || isSomeString!T)
+    {
         assertInitialized();
 
         if (_type == SqliteType.NULL)
@@ -645,7 +720,9 @@ struct ColumnData {
     }
 
     /// ditto
-    auto as(T)(T defaultValue = T.init) if (isArray!T && !isSomeString!T) {
+    auto as(T)(T defaultValue = T.init)
+        if (isArray!T && !isSomeString!T)
+    {
         assertInitialized();
 
         if (_type == SqliteType.NULL)
@@ -656,7 +733,8 @@ struct ColumnData {
     }
 
     /// ditto
-    auto as(T : Nullable!U, U...)(T defaultValue = T.init) {
+    auto as(T : Nullable!U, U...)(T defaultValue = T.init)
+    {
         assertInitialized();
 
         if (_type == SqliteType.NULL)
@@ -665,7 +743,8 @@ struct ColumnData {
         return T(as!U());
     }
 
-    void toString(scope void delegate(const(char)[]) sink) {
+    void toString(scope void delegate(const(char)[]) sink)
+    {
         assertInitialized();
 
         if (_type == SqliteType.NULL)
@@ -675,7 +754,8 @@ struct ColumnData {
     }
 
 private:
-    void assertInitialized() const nothrow {
+    void assertInitialized() const nothrow
+    {
         assert(_value.hasValue, "Accessing uninitialized ColumnData");
     }
 }
@@ -694,11 +774,13 @@ Returns:
     turn can be viewed as either an array of `ColumnData` or as an associative
     array of `ColumnData` indexed by the column names.
 +/
-CachedResults cached(ResultRange results) {
+CachedResults cached(ResultRange results)
+{
     return CachedResults(results);
 }
 ///
-unittest {
+unittest
+{
     auto db = Database(":memory:");
     db.run("CREATE TABLE test (msg TEXT, num FLOAT);
             INSERT INTO test (msg, num) VALUES ('ABC', 123);
@@ -725,17 +807,20 @@ data always remain available.
 See_Also:
     `cached` for an example.
 +/
-struct CachedResults {
+struct CachedResults
+{
     import std.array : appender;
 
     // A row of retrieved data
-    struct CachedRow {
+    struct CachedRow
+    {
         ColumnData[] columns;
         alias columns this;
 
         size_t[string] columnIndexes;
 
-        private this(Row row, size_t[string] columnIndexes) {
+        private this(Row row, size_t[string] columnIndexes)
+        {
             this.columnIndexes = columnIndexes;
 
             auto colapp = appender!(ColumnData[]);
@@ -745,12 +830,14 @@ struct CachedResults {
         }
 
         // Returns the data at the given index in the row.
-        ColumnData opIndex(size_t index) {
+        ColumnData opIndex(size_t index)
+        {
             return columns[index];
         }
 
         // Returns the data at the given column.
-        ColumnData opIndex(string name) {
+        ColumnData opIndex(string name)
+        {
             auto index = name in columnIndexes;
             assert(index, "unknown column name: %s".format(name));
             return columns[*index];
@@ -763,10 +850,13 @@ struct CachedResults {
 
     private size_t[string] columnIndexes;
 
-    this(ResultRange results) {
-        if (!results.empty) {
+    this(ResultRange results)
+    {
+        if (!results.empty)
+        {
             auto first = results.front;
-            foreach (i; 0 .. first.length) {
+            foreach (i; 0 .. first.length)
+            {
                 assert(i <= int.max, "invalid column index value: %d".format(i));
                 auto name = sqlite3_column_name(results.statement.handle, cast(int) i).to!string;
                 columnIndexes[name] = i;
@@ -774,7 +864,8 @@ struct CachedResults {
         }
 
         auto rowapp = appender!(CachedRow[]);
-        while (!results.empty) {
+        while (!results.empty)
+        {
             rowapp.put(CachedRow(results.front, columnIndexes));
             results.popFront();
         }

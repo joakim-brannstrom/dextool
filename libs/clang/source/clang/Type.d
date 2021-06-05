@@ -230,7 +230,7 @@ struct ArrayType {
     in {
         assert(type.isArray);
     }
-    body {
+    do {
         this.type = type;
     }
 

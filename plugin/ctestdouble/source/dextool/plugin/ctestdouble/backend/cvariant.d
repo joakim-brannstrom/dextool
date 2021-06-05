@@ -167,9 +167,11 @@ struct Generator {
     /** Filter and aggregate data for future processing.
      */
     void aggregate(ref CppRoot root, ref Container container) {
+        import std.typecons : Nullable;
         import cpptooling.data.symbol.types : USRType;
 
-        rawFilter(root, ctrl, products, filtered, (USRType usr) => container.find!LocationTag(usr));
+        rawFilter(root, ctrl, products, filtered,
+                (Nullable!USRType usr) => container.find!LocationTag(usr.get));
     }
 
     /** Process structural data to a test double.
@@ -449,6 +451,7 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
 
     // dfmt off
     input.funcRange
+        .filter!(a => !a.usr.isNull)
         // by definition static functions can't be replaced by test doubles
         .filter!(a => a.payload.storageClass != StorageClass.Static)
         // ask controller if the user wants to generate a test double function for the symbol.

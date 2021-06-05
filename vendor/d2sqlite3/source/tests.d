@@ -1,27 +1,30 @@
 module tests.d;
 
-version (unittest)  : import d2sqlite3;
+version (unittest):
+
+import d2sqlite3;
+import std.algorithm;
 import std.exception : assertThrown, assertNotThrown;
 import std.string : format;
 import std.typecons : Nullable;
 import std.conv : hexString;
 
-unittest  // Test version of SQLite library
+unittest // Test version of SQLite library
 {
     import std.string : startsWith;
-
     assert(versionString.startsWith("3."));
     assert(versionNumber >= 3_008_007);
 }
 
-unittest  // COV
+unittest // COV
 {
     auto ts = threadSafe;
 }
 
-unittest  // Configuration logging and db.close()
+unittest // Configuration logging and db.close()
 {
-    static extern (C) void loggerCallback(void* arg, int code, const(char)* msg) nothrow {
+    static extern (C) void loggerCallback(void* arg, int code, const(char)* msg) nothrow
+    {
         ++*(cast(int*) arg);
     }
 
@@ -34,9 +37,12 @@ unittest  // Configuration logging and db.close()
 
     {
         auto db = Database(":memory:");
-        try {
+        try
+        {
             db.run("DROP TABLE wtf");
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
         }
         db.close();
     }
@@ -48,37 +54,37 @@ unittest  // Configuration logging and db.close()
 
     {
         auto db = Database(":memory:");
-        try {
+        try
+        {
             db.run("DROP TABLE wtf");
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
         }
     }
     assert(marker == 43);
 }
 
-unittest  // Database.tableColumnMetadata()
+unittest // Database.tableColumnMetadata()
 {
     auto db = Database(":memory:");
     db.run("CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT,
             val FLOAT NOT NULL)");
-    assert(db.tableColumnMetadata("test",
-            "id") == TableColumnMetadata("INTEGER", "BINARY", false, true, true));
-    assert(db.tableColumnMetadata("test", "val") == TableColumnMetadata("FLOAT",
-            "BINARY", true, false, false));
+    assert(db.tableColumnMetadata("test", "id") ==
+            TableColumnMetadata("INTEGER", "BINARY", false, true, true));
+    assert(db.tableColumnMetadata("test", "val") ==
+            TableColumnMetadata("FLOAT", "BINARY", true, false, false));
 }
 
-unittest  // Database.run()
+unittest // Database.run()
 {
     auto db = Database(":memory:");
     int i;
-    db.run(`SELECT 1; SELECT 2;`, (ResultRange r) {
-        i = r.oneValue!int;
-        return false;
-    });
+    db.run(`SELECT 1; SELECT 2;`, (ResultRange r) { i = r.oneValue!int; return false; });
     assert(i == 1);
 }
 
-unittest  // Database.errorCode()
+unittest // Database.errorCode()
 {
     auto db = Database(":memory:");
     db.run(`SELECT 1;`);
@@ -89,7 +95,7 @@ unittest  // Database.errorCode()
         assert(db.errorCode == SQLITE_ERROR);
 }
 
-unittest  // Database.config
+unittest // Database.config
 {
     auto db = Database(":memory:");
     db.run(`
@@ -105,14 +111,16 @@ unittest  // Database.config
     db.execute("INSERT INTO test (val) VALUES (1)");
 }
 
-unittest  // Database.createFunction(ColumnData[]...)
+unittest // Database.createFunction(ColumnData[]...)
 {
-    string myList(ColumnData[] args...) {
+    string myList(ColumnData[] args...)
+    {
         import std.array : appender;
         import std.string : format, join;
 
         auto app = appender!(string[]);
-        foreach (arg; args) {
+        foreach (arg; args)
+        {
             if (arg.type == SqliteType.TEXT)
                 app.put(`"%s"`.format(arg));
             else
@@ -120,18 +128,18 @@ unittest  // Database.createFunction(ColumnData[]...)
         }
         return app.data.join(", ");
     }
-
     auto db = Database(":memory:");
     db.createFunction("my_list", &myList);
     auto list = db.execute("SELECT my_list(42, 3.14, 'text', x'00FF', NULL)").oneValue!string;
     assert(list == `42, 3.14, "text", [0, 255], null`, list);
 }
 
-unittest  // Database.createFunction() exceptions
+unittest // Database.createFunction() exceptions
 {
     import std.exception : assertThrown;
 
-    int myFun(int a, int b = 1) {
+    int myFun(int a, int b = 1)
+    {
         return a * b;
     }
 
@@ -147,7 +155,7 @@ unittest  // Database.createFunction() exceptions
     assertThrown!SqliteException(db.execute("SELECT myFun(5, 2)"));
 }
 
-unittest  // Database.setUpdateHook()
+unittest // Database.setUpdateHook()
 {
     int i;
     auto db = Database(":memory:");
@@ -164,7 +172,7 @@ unittest  // Database.setUpdateHook()
     db.setUpdateHook(null);
 }
 
-unittest  // Database commit and rollback hooks
+unittest // Database commit and rollback hooks
 {
     int i;
     auto db = Database(":memory:");
@@ -182,7 +190,7 @@ unittest  // Database commit and rollback hooks
     db.setRollbackHook(null);
 }
 
-unittest  // Miscellaneous functions
+unittest // Miscellaneous functions
 {
     auto db = Database(":memory:");
     assert(db.attachedFilePath("main") is null);
@@ -190,7 +198,7 @@ unittest  // Miscellaneous functions
     db.close();
 }
 
-unittest  // Execute an SQL statement
+unittest // Execute an SQL statement
 {
     auto db = Database(":memory:");
     db.run("");
@@ -199,7 +207,7 @@ unittest  // Execute an SQL statement
     db.run("ANALYZE; VACUUM;");
 }
 
-unittest  // Unexpected multiple statements
+unittest // Unexpected multiple statements
 {
     auto db = Database(":memory:");
     db.execute("BEGIN; CREATE TABLE test (val INTEGER); ROLLBACK;");
@@ -212,10 +220,9 @@ unittest  // Unexpected multiple statements
     assertThrown(db.execute("DROP TABLE test"));
 }
 
-unittest  // Multiple statements with callback
+unittest // Multiple statements with callback
 {
     import std.array : appender;
-
     auto db = Database(":memory:");
     auto test = appender!string;
     db.run("SELECT 1, 2, 3; SELECT 'A', 'B', 'C';", (ResultRange r) {
@@ -226,11 +233,12 @@ unittest  // Multiple statements with callback
     assert(test.data == "123ABC");
 }
 
-unittest  // Different arguments and result types with createFunction
+unittest // Different arguments and result types with createFunction
 {
     auto db = Database(":memory:");
 
-    T display(T)(T value) {
+    T display(T)(T value)
+    {
         return value;
     }
 
@@ -250,11 +258,12 @@ unittest  // Different arguments and result types with createFunction
     assert(db.execute("SELECT display_blob(NULL)").oneValue!(Blob) is null);
 }
 
-unittest  // Different Nullable argument types with createFunction
+unittest // Different Nullable argument types with createFunction
 {
     auto db = Database(":memory:");
 
-    auto display(T : Nullable!U, U...)(T value) {
+    auto display(T : Nullable!U, U...)(T value)
+    {
         if (value.isNull)
             return T.init;
         return value;
@@ -268,8 +277,7 @@ unittest  // Different Nullable argument types with createFunction
     assert(db.execute("SELECT display_integer(42)").oneValue!(Nullable!int) == 42);
     assert(db.execute("SELECT display_float(3.14)").oneValue!(Nullable!double) == 3.14);
     assert(db.execute("SELECT display_text('ABC')").oneValue!(Nullable!string) == "ABC");
-    assert(db.execute("SELECT display_blob(x'ABCD')")
-            .oneValue!(Nullable!Blob) == cast(Blob) hexString!"ABCD");
+    assert(db.execute("SELECT display_blob(x'ABCD')").oneValue!(Nullable!Blob) == cast(Blob) hexString!"ABCD");
 
     assert(db.execute("SELECT display_integer(NULL)").oneValue!(Nullable!int).isNull);
     assert(db.execute("SELECT display_float(NULL)").oneValue!(Nullable!double).isNull);
@@ -277,18 +285,21 @@ unittest  // Different Nullable argument types with createFunction
     assert(db.execute("SELECT display_blob(NULL)").oneValue!(Nullable!Blob).isNull);
 }
 
-unittest  // Callable struct with createFunction
+unittest // Callable struct with createFunction
 {
     import std.functional : toDelegate;
 
-    struct Fun {
+    struct Fun
+    {
         int factor;
 
-        this(int factor) {
+        this(int factor)
+        {
             this.factor = factor;
         }
 
-        int opCall(int value) {
+        int opCall(int value)
+        {
             return value * factor;
         }
     }
@@ -299,7 +310,7 @@ unittest  // Callable struct with createFunction
     assert(db.execute("SELECT my_fun(4)").oneValue!int == 8);
 }
 
-unittest  // Callbacks
+unittest // Callbacks
 {
     bool wasTraced = false;
     bool wasProfiled = false;
@@ -318,7 +329,7 @@ unittest  // Callbacks
     assert(hasProgressed);
 }
 
-unittest  // Statement.oneValue()
+unittest // Statement.oneValue()
 {
     Statement statement;
     {
@@ -328,14 +339,14 @@ unittest  // Statement.oneValue()
     assert(statement.execute.oneValue!int == 42);
 }
 
-unittest  // Statement.finalize()
+unittest // Statement.finalize()
 {
     auto db = Database(":memory:");
     auto statement = db.prepare(" SELECT 42 ");
     statement.finalize();
 }
 
-unittest  // Simple parameters binding
+unittest // Simple parameters binding
 {
     auto db = Database(":memory:");
     db.execute("CREATE TABLE test (val INTEGER)");
@@ -358,7 +369,7 @@ unittest  // Simple parameters binding
         assert(row.peek!int(0) == 42);
 }
 
-unittest  // Multiple parameters binding
+unittest // Multiple parameters binding
 {
     auto db = Database(":memory:");
     db.execute("CREATE TABLE test (i INTEGER, f FLOAT, t TEXT)");
@@ -380,7 +391,8 @@ unittest  // Multiple parameters binding
     statement.execute();
 
     auto results = db.execute("SELECT * FROM test");
-    foreach (row; results) {
+    foreach (row; results)
+    {
         assert(row.length == 3);
         assert(row.peek!int("i") == 42);
         assert(row.peek!double("f") == 3.14);
@@ -388,7 +400,46 @@ unittest  // Multiple parameters binding
     }
 }
 
-unittest  // Multiple parameters binding: tuples
+// Binding/peeking structs with `toString` and `fromString`
+unittest
+{
+    auto db = Database(":memory:");
+    db.execute("CREATE TABLE test (val TEXT)");
+
+    static struct ToStringSink {
+        string value;
+        void toString(scope void delegate(in char[]) sink) const
+        {
+            sink(this.value);
+        }
+    }
+
+    static struct ToStringMethod {
+        string value;
+        string toString() const
+        {
+            return this.value;
+        }
+    }
+
+    auto statement = db.prepare("INSERT INTO test (val) VALUES (?)");
+    statement.bind(1, ToStringMethod("oldmethod"));
+    statement.clearBindings();
+    statement.bind(1, ToStringMethod("method"));
+    statement.execute();
+    statement.reset();
+    statement.bind(1, ToStringSink("sink"));
+    statement.execute();
+
+    assert(db.lastInsertRowid == 2);
+    assert(db.changes == 1);
+    assert(db.totalChanges == 2);
+
+    auto results = db.execute("SELECT * FROM test");
+    results.equal!((a, b) => a.peek!string(0) == b)(["method", "sink"]);
+}
+
+unittest // Multiple parameters binding: tuples
 {
     auto db = Database(":memory:");
     db.execute("CREATE TABLE test (i INTEGER, f FLOAT, t TEXT)");
@@ -397,7 +448,8 @@ unittest  // Multiple parameters binding: tuples
     statement.execute();
 
     auto results = db.execute("SELECT * FROM test");
-    foreach (row; results) {
+    foreach (row; results)
+    {
         assert(row.length == 3);
         assert(row.peek!int(0) == 42);
         assert(row.peek!double(1) == 3.14);
@@ -405,7 +457,7 @@ unittest  // Multiple parameters binding: tuples
     }
 }
 
-unittest  // Binding/peeking integral values
+unittest // Binding/peeking integral values
 {
     auto db = Database(":memory:");
     db.run("CREATE TABLE test (val INTEGER)");
@@ -437,7 +489,7 @@ void foobar() // Binding/peeking floating point values
         assert(row.peek!double(0) == 42.0);
 }
 
-unittest  // Binding/peeking text values
+unittest // Binding/peeking text values
 {
     auto db = Database(":memory:");
     db.run("CREATE TABLE test (val TEXT);
@@ -449,31 +501,32 @@ unittest  // Binding/peeking text values
 
     import std.exception : assertThrown;
     import std.variant : VariantException;
-
     assertThrown!VariantException(results.front[0].as!Blob);
 }
 
-unittest  // Binding/peeking blob values
+unittest // Binding/peeking blob values
 {
     auto db = Database(":memory:");
     db.execute("CREATE TABLE test (val BLOB)");
 
     auto statement = db.prepare("INSERT INTO test (val) VALUES (?)");
-    auto array = cast(Blob)[1, 2, 3];
+    auto array = cast(Blob) [1, 2, 3];
     statement.inject(array);
     ubyte[3] sarray = [1, 2, 3];
     statement.inject(sarray);
 
     auto results = db.execute("SELECT * FROM test");
-    foreach (row; results) {
-        assert(row.peek!(Blob, PeekMode.slice)(0) == [1, 2, 3]);
+    foreach (row; results)
+    {
+        assert(row.peek!(Blob, PeekMode.slice)(0) ==  [1, 2, 3]);
         assert(row[0].as!Blob == [1, 2, 3]);
     }
 }
 
-unittest  // Struct injecting
+unittest // Struct injecting
 {
-    static struct Test {
+    static struct Test
+    {
         int i;
         double f;
         string t;
@@ -490,7 +543,8 @@ unittest  // Struct injecting
 
     auto results = db.execute("SELECT * FROM test");
     assert(!results.empty);
-    foreach (row; results) {
+    foreach (row; results)
+    {
         assert(row.length == 3);
         assert(row.peek!int(0) == 42);
         assert(row.peek!double(1) == 3.14);
@@ -498,7 +552,7 @@ unittest  // Struct injecting
     }
 }
 
-unittest  // Iterable struct injecting
+unittest // Iterable struct injecting
 {
     import std.range : iota;
 
@@ -509,7 +563,8 @@ unittest  // Iterable struct injecting
 
     auto results = db.execute("SELECT * FROM test");
     assert(!results.empty);
-    foreach (row; results) {
+    foreach (row; results)
+    {
         assert(row.length == 3);
         assert(row.peek!int(0) == 0);
         assert(row.peek!int(1) == 1);
@@ -517,9 +572,8 @@ unittest  // Iterable struct injecting
     }
 }
 
-unittest  // Injecting nullable
+unittest // Injecting nullable
 {
-    import std.algorithm : map;
     import std.array : array;
 
     auto db = Database(":memory:");
@@ -529,15 +583,12 @@ unittest  // Injecting nullable
     statement = db.prepare("INSERT INTO test (i) VALUES (?)");
     statement.inject(Nullable!int.init);
 
-    auto results = db.execute("SELECT i FROM test ORDER BY rowid")
-        .map!(a => a.peek!(Nullable!int)(0)).array;
-
-    assert(results.length == 2);
-    assert(results[0] == 1);
-    assert(results[1].isNull);
+    auto results = db.execute("SELECT i FROM test ORDER BY rowid");
+    assert(results.equal!((a, b) => a.peek!(Nullable!int)(0) == b)(
+               [ Nullable!int(1), Nullable!int.init ] ));
 }
 
-unittest  // Injecting tuple
+unittest // Injecting tuple
 {
     import std.typecons : tuple;
 
@@ -547,7 +598,8 @@ unittest  // Injecting tuple
     statement.inject(tuple(42, 3.14, "TEXT"));
 
     auto results = db.execute("SELECT * FROM test");
-    foreach (row; results) {
+    foreach (row; results)
+    {
         assert(row.length == 3);
         assert(row.peek!int(0) == 42);
         assert(row.peek!double(1) == 3.14);
@@ -555,15 +607,16 @@ unittest  // Injecting tuple
     }
 }
 
-unittest  // Injecting dict
+unittest // Injecting dict
 {
     auto db = Database(":memory:");
     db.execute("CREATE TABLE test (a TEXT, b TEXT, c TEXT)");
     auto statement = db.prepare("INSERT INTO test (c, b, a) VALUES (:c, :b, :a)");
-    statement.inject([":a": "a", ":b": "b", ":c": "c"]);
+    statement.inject([":a":"a", ":b":"b", ":c":"c"]);
 
     auto results = db.execute("SELECT * FROM test");
-    foreach (row; results) {
+    foreach (row; results)
+    {
         assert(row.length == 3);
         assert(row.peek!string(0) == "a");
         assert(row.peek!string(1) == "b");
@@ -571,7 +624,7 @@ unittest  // Injecting dict
     }
 }
 
-unittest  // Binding Nullable
+unittest // Binding Nullable
 {
     auto db = Database(":memory:");
     db.execute("CREATE TABLE test (a, b, c, d, e);");
@@ -585,7 +638,8 @@ unittest  // Binding Nullable
     statement.execute();
 
     auto results = db.execute("SELECT * FROM test");
-    foreach (row; results) {
+    foreach (row; results)
+    {
         assert(row.length == 5);
         assert(row.peek!int(0) == 123);
         assert(row.columnType(1) == SqliteType.NULL);
@@ -595,11 +649,12 @@ unittest  // Binding Nullable
     }
 }
 
-unittest  // Peeking Nullable
+unittest // Peeking Nullable
 {
     auto db = Database(":memory:");
     auto results = db.execute("SELECT 1, NULL, 8.5, NULL");
-    foreach (row; results) {
+    foreach (row; results)
+    {
         assert(row.length == 4);
         assert(row.peek!(Nullable!double)(2).get == 8.5);
         assert(row.peek!(Nullable!double)(3).isNull);
@@ -608,7 +663,7 @@ unittest  // Peeking Nullable
     }
 }
 
-unittest  // GC anchoring test
+unittest // GC anchoring test
 {
     import core.memory : GC;
 
@@ -619,13 +674,15 @@ unittest  // GC anchoring test
     stmt.bind(1, str);
     str = null;
 
-    foreach (_; 0 .. 3) {
+    foreach (_; 0..3)
+    {
         GC.collect();
         GC.minimize();
     }
 
     ResultRange results = stmt.execute();
-    foreach (row; results) {
+    foreach(row; results)
+    {
         assert(row.length == 1);
         assert(row.peek!string(0) == "I am test string");
     }
@@ -634,31 +691,28 @@ unittest  // GC anchoring test
 version (unittest) // ResultRange is an input range of Row
 {
     import std.range.primitives : isInputRange, ElementType;
-
     static assert(isInputRange!ResultRange);
     static assert(is(ElementType!ResultRange == Row));
 }
 
-unittest  // Statement error
+unittest // Statement error
 {
     auto db = Database(":memory:");
     db.execute("CREATE TABLE test (val INTEGER NOT NULL)");
     auto stmt = db.prepare("INSERT INTO test (val) VALUES (?)");
     stmt.bind(1, null);
     import std.exception : assertThrown;
-
     assertThrown!SqliteException(stmt.execute());
 }
 
 version (unittest) // Row is a random access range of ColumnData
 {
     import std.range.primitives : isRandomAccessRange, ElementType;
-
     static assert(isRandomAccessRange!Row);
     static assert(is(ElementType!Row == ColumnData));
 }
 
-unittest  // Row.init
+unittest // Row.init
 {
     import core.exception : AssertError;
 
@@ -672,7 +726,7 @@ unittest  // Row.init
     assertThrown!AssertError(row.peek!long(0));
 }
 
-unittest  // Peek
+unittest // Peek
 {
     auto db = Database(":memory:");
     db.run("CREATE TABLE test (value);
@@ -683,7 +737,6 @@ unittest  // Peek
             INSERT INTO test VALUES (x'DEADBEEF');");
 
     import std.math : isNaN;
-
     auto results = db.execute("SELECT * FROM test");
     auto row = results.front;
     assert(row.peek!long(0) == 0);
@@ -716,7 +769,7 @@ unittest  // Peek
     assert(row.peek!Blob(0) == cast(Blob) hexString!"DEADBEEF");
 }
 
-unittest  // Peeking NULL values
+unittest // Peeking NULL values
 {
     auto db = Database(":memory:");
     db.run("CREATE TABLE test (val TEXT);
@@ -730,7 +783,7 @@ unittest  // Peeking NULL values
     assert(results.front.peek!Blob(0) is null);
 }
 
-unittest  // Row life-time
+unittest // Row life-time
 {
     auto db = Database(":memory:");
     auto row = db.execute("SELECT 1 AS one").front;
@@ -738,7 +791,7 @@ unittest  // Row life-time
     assert(row["one"].as!long == 1);
 }
 
-unittest  // PeekMode
+unittest // PeekMode
 {
     auto db = Database(":memory:");
     db.run("CREATE TABLE test (value);
@@ -760,7 +813,7 @@ unittest  // PeekMode
     assert(!b4.isNull && b4 == cast(Blob) hexString!"0A0B0C0D");
 }
 
-unittest  // Row random-access range interface
+unittest // Row random-access range interface
 {
     import std.array : front, popFront;
 
@@ -772,8 +825,10 @@ unittest  // Row random-access range interface
     {
         auto results = db.execute("SELECT * FROM test");
         auto values = [1, 2, 3, 4, 5, 6, 7, 8];
-        foreach (row; results) {
-            while (!row.empty) {
+        foreach (row; results)
+        {
+            while (!row.empty)
+            {
                 assert(row.front.as!int == values.front);
                 row.popFront();
                 values.popFront();
@@ -784,8 +839,10 @@ unittest  // Row random-access range interface
     {
         auto results = db.execute("SELECT * FROM test");
         auto values = [4, 3, 2, 1, 8, 7, 6, 5];
-        foreach (row; results) {
-            while (!row.empty) {
+        foreach (row; results)
+        {
+            while (!row.empty)
+            {
                 assert(row.back.as!int == values.front);
                 row.popBack();
                 values.popFront();
@@ -803,47 +860,48 @@ unittest  // Row random-access range interface
     }
 }
 
-unittest  // ColumnData.init
+unittest // ColumnData.init
 {
     import core.exception : AssertError;
-
     ColumnData data;
     assertThrown!AssertError(data.type);
     assertThrown!AssertError(data.as!string);
 }
 
-unittest  // ColumnData-compatible types
+unittest // ColumnData-compatible types
 {
     import std.meta : AliasSeq;
 
     alias AllCases = AliasSeq!(bool, true, int, int.max, float, float.epsilon,
-            real, 42.0L, string, "おはよう！", const(ubyte)[], [0x00,
-                0xFF], string, "", Nullable!byte, 42);
+        real, 42.0L, string, "おはよう！", const(ubyte)[], [0x00, 0xFF],
+        string, "", Nullable!byte, 42);
 
-    void test(Cases...)() {
+    void test(Cases...)()
+    {
         auto cd = ColumnData(Cases[1]);
         assert(cd.as!(Cases[0]) == Cases[1]);
         static if (Cases.length > 2)
-            test!(Cases[2 .. $])();
+            test!(Cases[2..$])();
     }
 
     test!AllCases();
 }
 
-unittest  // ColumnData.toString
+unittest // ColumnData.toString
 {
     auto db = Database(":memory:");
     auto rc = db.execute("SELECT 42, 3.14, 'foo_bar', x'00FF', NULL").cached;
     assert("%(%s%)".format(rc) == "[42, 3.14, foo_bar, [0, 255], null]");
 }
 
-unittest  // CachedResults copies
+unittest // CachedResults copies
 {
     auto db = Database(":memory:");
     db.run("CREATE TABLE test (msg TEXT);
             INSERT INTO test (msg) VALUES ('ABC')");
 
-    static getdata(Database db) {
+    static getdata(Database db)
+    {
         return db.execute("SELECT * FROM test").cached;
     }
 
@@ -852,7 +910,7 @@ unittest  // CachedResults copies
     assert(data[0][0].as!string == "ABC");
 }
 
-unittest  // UTF-8
+unittest // UTF-8
 {
     auto db = Database(":memory:");
     bool ran = false;
@@ -864,11 +922,9 @@ unittest  // UTF-8
     assert(ran);
 }
 
-unittest  // loadExtension failure test
+unittest // loadExtension failure test
 {
-    import std.algorithm : canFind;
     import std.exception : collectExceptionMsg;
-
     auto db = Database(":memory:");
     auto msg = collectExceptionMsg(db.loadExtension("foobar"));
     //assert(msg.canFind("(not authorized)"));

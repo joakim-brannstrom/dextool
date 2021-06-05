@@ -1015,7 +1015,7 @@ struct PlantumlRootModule {
     in {
         assert(root !is null);
     }
-    body {
+    do {
         return root.render();
     }
 }

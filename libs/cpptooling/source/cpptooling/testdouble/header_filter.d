@@ -97,7 +97,7 @@ struct GenericTestDoubleIncludes(PayloadT) {
     in {
         assert(st == State.finalize);
     }
-    body {
+    do {
         import std.algorithm : map;
 
         return permanent_pool[].map!(a => a.filename);
@@ -107,7 +107,7 @@ struct GenericTestDoubleIncludes(PayloadT) {
     in {
         assert(st == State.finalize);
     }
-    body {
+    do {
         return permanent_pool[];
     }
 
@@ -132,7 +132,7 @@ struct GenericTestDoubleIncludes(PayloadT) {
 
         assert(st.among(State.waiting, State.forceInclude));
     }
-    body {
+    do {
         st = State.finalize;
     }
 
@@ -142,7 +142,7 @@ struct GenericTestDoubleIncludes(PayloadT) {
 
         assert(st.among(State.waiting, State.rootInclude, State.symbolInclude, State.forceInclude));
     }
-    body {
+    do {
         import std.algorithm : each;
 
         if (st == State.forceInclude)
@@ -166,7 +166,7 @@ struct GenericTestDoubleIncludes(PayloadT) {
 
         validate((cast(string) fname));
     }
-    body {
+    do {
         auto val = Include(fname, kind);
 
         switch (st) with (State) {

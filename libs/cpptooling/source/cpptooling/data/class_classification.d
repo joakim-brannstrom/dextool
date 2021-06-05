@@ -50,7 +50,7 @@ private auto toInData(T)(T func) @trusted
 out (result) {
     assert(result.value != MemberVirtualType.Unknown);
 }
-body {
+do {
     import std.variant : visit;
 
     //dfmt off

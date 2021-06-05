@@ -463,7 +463,7 @@ struct CxGlobalVariable {
             formattedWrite(sink, "%s;", variable.type.toStringDecl(variable.name));
             if (!usr.isNull && fmt.spec == 'u') {
                 put(sink, " // ");
-                put(sink, usr);
+                put(sink, usr.get);
             }
         }
 
@@ -665,7 +665,7 @@ struct CFunction {
 
         if (!usr.isNull && fmt.spec == 'u') {
             put(sink, " ");
-            put(sink, usr);
+            put(sink, usr.get);
         }
     }
 
@@ -861,7 +861,7 @@ struct CppMethod {
         put(w, helperVirtualPre(classification_.get));
         put(w, returnType_.toStringDecl);
         put(w, " ");
-        put(w, name_);
+        put(w, name_.get);
         formattedWrite(w, "(%s)", paramRange.joinParams);
         put(w, helperConst(isConst));
         put(w, helperVirtualPost(classification_.get));
@@ -869,7 +869,7 @@ struct CppMethod {
 
         if (!usr.isNull && fmt.spec == 'u') {
             put(w, " // ");
-            put(w, usr);
+            put(w, usr.get);
         }
     }
 
@@ -933,7 +933,7 @@ struct CppMethodOp {
         put(w, helperVirtualPre(classification_.get));
         put(w, returnType_.toStringDecl);
         put(w, " ");
-        put(w, name_);
+        put(w, name_.get);
         formattedWrite(w, "(%s)", paramRange.joinParams);
         put(w, helperConst(isConst));
         put(w, helperVirtualPost(classification_.get));
@@ -941,7 +941,7 @@ struct CppMethodOp {
 
         if (!usr.isNull && fmt.spec == 'u') {
             put(w, " // ");
-            put(w, usr);
+            put(w, usr.get);
         }
     }
 
@@ -960,7 +960,7 @@ struct CppMethodOp {
     in {
         assert(name_.get.length > 8);
     }
-    body {
+    do {
         return CppMethodName((cast(string) name_.get)[8 .. $]);
     }
 }
@@ -1072,7 +1072,7 @@ struct CppClass {
     out {
         assert(name_.length > 0);
     }
-    body {
+    do {
         import std.array : array;
         import std.algorithm : map, each;
 
@@ -1093,7 +1093,7 @@ struct CppClass {
     out {
         assert(name_.length > 0);
     }
-    body {
+    do {
         this(name, inherits, CppNsStack.init);
     }
 
@@ -1102,7 +1102,7 @@ struct CppClass {
     out {
         assert(name_.length > 0);
     }
-    body {
+    do {
         this(name, CppInherit[].init, CppNsStack.init);
     }
 
@@ -1129,7 +1129,7 @@ struct CppClass {
         // debug help
         if (!usr.isNull && fmt.spec == 'u') {
             put(w, " // ");
-            put(w, usr);
+            put(w, usr.get);
             put(w, newline);
         }
 
