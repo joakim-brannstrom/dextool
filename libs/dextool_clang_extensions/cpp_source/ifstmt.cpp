@@ -20,6 +20,24 @@ struct DXIfStmt {
     CXCursor then;
     /// Kind Stmt
     CXCursor else_;
+
+    /** Retrieve the variable declared in this "if" statement, if any.
+     *
+     * Kind VarDecl.
+     *
+     * In the following example, "x" is the condition variable.
+     * ```c++
+     * if (int x = foo()) {
+     *   printf("x is %d", x);
+     * }
+     * ```
+     */
+    CXCursor condVar;
+
+    /** If this IfStmt has a condition variable, return the faux DeclStmt
+     * associated with the creation of that condition variable.
+     */
+    CXCursor condVarDeclStmt;
 };
 
 DXIfStmt dex_getIfStmt(const CXCursor cx) {
@@ -28,6 +46,8 @@ DXIfStmt dex_getIfStmt(const CXCursor cx) {
     rval.cond = clang_getNullCursor();
     rval.then = clang_getNullCursor();
     rval.else_ = clang_getNullCursor();
+    rval.condVar = clang_getNullCursor();
+    rval.condVarDeclStmt = clang_getNullCursor();
 
     const clang::Stmt* stmt = getCursorStmt(cx);
     if (stmt == nullptr || !llvm::isa<clang::IfStmt>(stmt)) {
@@ -66,6 +86,21 @@ DXIfStmt dex_getIfStmt(const CXCursor cx) {
         if (subs != nullptr) {
             rval.else_ =
                 clang::cxcursor::dex_MakeCXCursor(subs, parent, tu, subs->getSourceRange());
+        }
+    }
+
+    {
+        const clang::VarDecl* a = ifstmt->getConditionVariable();
+        if (a != nullptr) {
+            rval.condVar = clang::cxcursor::dex_MakeCursorVariableRef(a, a->getLocation(), tu);
+        }
+    }
+
+    {
+        const clang::DeclStmt* a = ifstmt->getConditionVariableDeclStmt();
+        if (a != nullptr) {
+            rval.condVarDeclStmt =
+                clang::cxcursor::dex_MakeCXCursor(a, parent, tu, a->getSourceRange());
         }
     }
 

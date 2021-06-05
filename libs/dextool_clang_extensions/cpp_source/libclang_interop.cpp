@@ -1,6 +1,22 @@
 /// @copyright Boost License 1.0, http://boost.org/LICENSE_1_0.txt
 /// @date 2017
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
+///
+/// All copied code from libclang is under the original license! Obviously.
+//===- CXCursor.cpp - Routines for manipulating CXCursors -----------------===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines routines for manipulating CXCursors. It should be the
+// only file that has internal knowledge of the encoding of the data in
+// CXCursor.
+//
+//===----------------------------------------------------------------------===//
 #include "libclang_interop.hpp"
 
 // used by translateSourceLocation
@@ -388,6 +404,16 @@ CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent, CXTra
     }
 
     CXCursor C = {K, 0, {Parent, S, TU}};
+    return C;
+}
+
+// See: CXCursor.cpp
+CXCursor dex_MakeCursorVariableRef(const clang::VarDecl* Var, clang::SourceLocation Loc,
+                                   CXTranslationUnit TU) {
+
+    assert(Var && TU && "Invalid arguments!");
+    void* RawLoc = Loc.getPtrEncoding();
+    CXCursor C = {CXCursor_VariableRef, 0, {Var, RawLoc, TU}};
     return C;
 }
 

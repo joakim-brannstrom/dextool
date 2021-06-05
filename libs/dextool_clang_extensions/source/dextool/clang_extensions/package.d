@@ -212,6 +212,8 @@ extern (C++,dextool_clang_extension) {
         CXCursor cond;
         CXCursor then;
         CXCursor else_;
+        CXCursor condVar;
+        CXCursor condVarDeclStmt;
     }
 
     extern (C++) DXIfStmt dex_getIfStmt(const CXCursor cx);
@@ -392,6 +394,28 @@ IfStmt getIfStmt(const CXCursor cx) @trusted {
 
     Cursor cond() const {
         return Cursor(stmt.cond);
+    }
+
+    /** Retrieve the variable declared in this "if" statement, if any.
+     *
+     * Kind VarDecl.
+     *
+     * In the following example, "x" is the condition variable.
+     * ```c++
+     * if (int x = foo()) {
+     *   printf("x is %d", x);
+     * }
+     * ```
+     */
+    Cursor conditionVariable() const {
+        return Cursor(stmt.condVar);
+    }
+
+    /** If this IfStmt has a condition variable, return the faux DeclStmt
+     * associated with the creation of that condition variable.
+     */
+    Cursor conditionVariableDeclStmt() const {
+        return Cursor(stmt.condVarDeclStmt);
     }
 
     Cursor then() const {
