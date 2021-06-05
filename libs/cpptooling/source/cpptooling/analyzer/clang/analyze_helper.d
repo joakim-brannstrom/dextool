@@ -146,7 +146,7 @@ Language toLanguage(const Cursor c) @safe
 in {
     assert(c.isValid);
 }
-body {
+do {
     import std.algorithm : canFind;
 
     // assuming that the C++ USR always contains a '#'.
@@ -189,7 +189,7 @@ in {
 
     assert(c_in.kind == CXCursorKind.functionDecl);
 }
-body {
+do {
     import std.algorithm : among;
     import std.functional : pipe;
 
@@ -208,9 +208,14 @@ body {
             return tr;
         }
 
+        bool fail;
         tr.get.primary.type.kind.info.match!(ignore!(TypeKind.FuncInfo),
-                ignore!(TypeKind.TypeRefInfo), ignore!(TypeKind.SimpleInfo),
-                _ => assert(0, "wrong type"));
+                ignore!(TypeKind.TypeRefInfo), ignore!(TypeKind.SimpleInfo), (_) {
+            fail = true;
+        });
+        if (fail)
+            assert(0, "wrong type");
+
         put(tr, container, indent);
 
         return tr;

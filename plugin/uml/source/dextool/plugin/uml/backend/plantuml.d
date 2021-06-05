@@ -167,7 +167,7 @@ private struct Relate {
     out {
         assert(to_ in to);
     }
-    body {
+    do {
         auto v = to_ in to;
         if (v is null) {
             to[to_] = Inner[].init;
@@ -361,7 +361,7 @@ class UMLClassDiagram {
     in {
         assert(key in classes);
     }
-    body {
+    do {
         classes[key].content ~= cast(string) content;
     }
 
@@ -373,7 +373,7 @@ class UMLClassDiagram {
     in {
         assert(key in classes);
     }
-    body {
+    do {
         classes[key].classification = classification;
     }
 
@@ -386,7 +386,7 @@ class UMLClassDiagram {
         assert(to in classes);
         assert(kind != Relate.Kind.None);
     }
-    body {
+    do {
         put(to, display_name);
         relate_to[cast(Relate.Key) from].put(cast(Relate.Key) to, kind);
     }
@@ -403,7 +403,7 @@ class UMLClassDiagram {
         assert(k in classes);
         assert((cast(Relate.Key) k) in relate_to);
     }
-    body {
+    do {
         return relate_to[cast(Relate.Key) k];
     }
 
@@ -558,7 +558,7 @@ class UMLComponentDiagram {
     out {
         assert(key in components);
     }
-    body {
+    do {
         components[key].contains.insert(loc);
     }
 
@@ -571,7 +571,7 @@ class UMLComponentDiagram {
         assert(to in components);
         assert(kind != Relate.Kind.None);
     }
-    body {
+    do {
         put(to, toDisplayName);
 
         auto rel = cast(Relate.Key) from in relate_to;
@@ -602,7 +602,7 @@ class UMLComponentDiagram {
         assert(k in components);
         assert((cast(Relate.Key) k) in relate_to);
     }
-    body {
+    do {
         return relate_to[cast(Relate.Key) k];
     }
 

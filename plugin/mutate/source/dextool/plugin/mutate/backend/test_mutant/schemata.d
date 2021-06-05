@@ -477,7 +477,7 @@ nothrow:
         // the first tested mutant also get the compile time of the schema.
         compileTime = Duration.zero;
 
-        data.result.mutId = id;
+        data.result.mutId = id.get;
         data.result.status = res.status;
         data.result.exitStatus = res.exitStatus;
         data.hasTestOutput = !res.output.empty;

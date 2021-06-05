@@ -31,7 +31,7 @@ private string gmockMacro(size_t len, bool isConst)
 in {
     assert(len <= 10);
 }
-body {
+do {
     if (isConst)
         return "MOCK_CONST_METHOD" ~ len.text;
     else
@@ -187,7 +187,7 @@ void generateGmock(CppClass in_c, CppModule hdr)
 in {
     assert(in_c.isVirtual);
 }
-body {
+do {
     // dfmt off
     // fully qualified class the mock inherit from
     auto base_class = "public " ~

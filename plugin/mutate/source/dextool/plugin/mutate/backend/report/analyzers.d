@@ -775,7 +775,7 @@ TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
 
     const test_cases = spinSql!(() { return db.getDetectedTestCaseIds; }).map!(
             a => Tuple!(TestCaseId, "id", TestCase, "tc")(a, spinSql!(() {
-                return db.getTestCase(a);
+                return db.getTestCase(a).get;
             }))).array;
 
     MutationId[] gatherKilledMutants(const(TestGroup) tg) {
@@ -899,7 +899,7 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
 
         if (fid.get !in r.files) {
             r.files[fid.get] = Path.init;
-            r.files[fid.get] = db.getFile(fid.get);
+            r.files[fid.get] = db.getFile(fid.get).get;
         }
     }
 
@@ -909,7 +909,7 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
 
         if (fid.get !in r.files) {
             r.files[fid.get] = Path.init;
-            r.files[fid.get] = db.getFile(fid.get);
+            r.files[fid.get] = db.getFile(fid.get).get;
         }
     }
 
@@ -944,14 +944,14 @@ MutantSample reportSelectedAliveMutants(ref Database db, const(Mutation.Kind)[] 
     foreach (const mutst; rval.highestPrio) {
         auto ids = db.getMutationIds(kinds, [mutst.statusId]);
         if (ids.length != 0)
-            rval.mutants[mutst.statusId] = db.getMutation(ids[0]);
+            rval.mutants[mutst.statusId] = db.getMutation(ids[0]).get;
     }
 
     rval.oldest = db.getOldestMutants(kinds, historyNr);
     foreach (const mutst; rval.oldest) {
         auto ids = db.getMutationIds(kinds, [mutst.id]);
         if (ids.length != 0)
-            rval.mutants[mutst.id] = db.getMutation(ids[0]);
+            rval.mutants[mutst.id] = db.getMutation(ids[0]).get;
     }
 
     return rval;
@@ -1094,7 +1094,7 @@ MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
     foreach (const val; db.getDetectedTestCases
             .map!(a => tuple(a, db.getTestCaseId(a)))
             .filter!(a => !a[1].isNull)
-            .map!(a => TcIdInfo(a[0], a[1], db.getTestCaseInfo(a[0], kinds)))
+            .map!(a => TcIdInfo(a[0], a[1].get, db.getTestCaseInfo(a[0], kinds).get))
             .filter!(a => a.info.killedMutants != 0)
             .array
             .sort!((a, b) => a.info.killedMutants < b.info.killedMutants)) {
