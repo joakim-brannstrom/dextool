@@ -948,6 +948,14 @@ final class BaseVisitor : ExtendedVisitor {
         dextool.plugin.mutate.backend.analyze.extensions.accept(v, this);
     }
 
+    override void visit(const IfStmtInit v) @trusted {
+        mixin(mixinNodeLog!());
+        auto n = ast.make!(analyze.Poision);
+        n.schemaBlacklist = true;
+        pushStack(n, v);
+        v.accept(this);
+    }
+
     override void visit(const IfStmtCond v) {
         mixin(mixinNodeLog!());
 
