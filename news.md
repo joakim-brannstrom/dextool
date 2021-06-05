@@ -24,6 +24,7 @@ Fixes for dextool mutate
  * Fix that a UTF-8 BOM lead to compilation errors. The tool now find and warn about it.
    It further detect when the source code is in something else than UTF-8 and warn.
  * Reduce memory usage by stack allocating AST nodes.
+ * Fix C++17 if-statement initialization making scheman not compile.
 
 # v3.2.0 Topaz
 
