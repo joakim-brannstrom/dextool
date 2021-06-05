@@ -44,7 +44,7 @@ public import d2sqlite3.results;
 public import d2sqlite3.sqlite3;
 
 ///
-unittest  // Documentation example
+unittest // Documentation example
 {
     // Note: exception handling is left aside for clarity.
     import d2sqlite3;
@@ -62,8 +62,10 @@ unittest  // Documentation example
             )");
 
     // Prepare an INSERT statement
-    Statement statement = db.prepare("INSERT INTO person (name, score)
-         VALUES (:name, :score)");
+    Statement statement = db.prepare(
+        "INSERT INTO person (name, score)
+         VALUES (:name, :score)"
+    );
 
     // Bind values one by one (by parameter name or index)
     statement.bind(":name", "John");
@@ -83,12 +85,14 @@ unittest  // Documentation example
     assert(db.totalChanges == 3);
 
     // Count the Johns in the table.
-    auto count = db.execute("SELECT count(*) FROM person WHERE name == 'John'").oneValue!long;
+    auto count = db.execute("SELECT count(*) FROM person WHERE name == 'John'")
+                   .oneValue!long;
     assert(count == 2);
 
     // Read the data from the table lazily
     ResultRange results = db.execute("SELECT * FROM person");
-    foreach (Row row; results) {
+    foreach (Row row; results)
+    {
         // Retrieve "id", which is the column at index 0, and contains an int,
         // e.g. using the peek function (best performance).
         auto id = row.peek!long(0);
@@ -99,7 +103,8 @@ unittest  // Documentation example
         // Retrieve "score", which is at index 2, e.g. using the peek function,
         // using a Nullable type
         auto score = row.peek!(Nullable!double)(2);
-        if (!score.isNull) {
+        if (!score.isNull)
+        {
             // ...
         }
     }
