@@ -976,6 +976,13 @@ final class BaseVisitor : ExtendedVisitor {
         rewriteCondition(ast, n);
     }
 
+    override void visit(const IfStmtCondVar v) {
+        mixin(mixinNodeLog!());
+        auto n = ast.make!(analyze.Poision);
+        n.schemaBlacklist = true;
+        pushStack(n, v);
+    }
+
     override void visit(const IfStmtThen v) {
         mixin(mixinNodeLog!());
         visitIfBranch(v);
@@ -1314,13 +1321,6 @@ void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
     foreach (ty; BreathFirstRange(root).map!(a => ast.typeId(a))
             .filter!(a => a.hasValue)) {
         sumtype.match!((Some!TypeId a) => ast.put(root, a), (None a) {})(ty);
-        break;
-    }
-
-    foreach (a; BreathFirstRange(root).filter!(a => a.kind == Kind.VarDecl)) {
-        ast.put(root, ast.location(a));
-        // can't delete the VarDecl explicitly because the code will not compile
-        a.schemaBlacklist = true;
         break;
     }
 }

@@ -46,6 +46,10 @@ class ExtendedVisitor : Visitor {
         visit(cast(const(Expression)) value);
     }
 
+    void visit(const(IfStmtCondVar) value) {
+        visit(cast(const(Expression)) value);
+    }
+
     void visit(const(IfStmtThen) value) {
         visit(cast(const(Statement)) value);
     }
@@ -71,6 +75,18 @@ final class IfStmtInit : libclang_ast.ast.Statement {
 }
 
 final class IfStmtCond : libclang_ast.ast.Expression {
+    this(Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    void accept(ExtendedVisitor v) @safe const {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.dispatch(cursor, v);
+    }
+}
+
+final class IfStmtCondVar : libclang_ast.ast.Expression {
     this(Cursor cursor) @safe {
         super(cursor);
     }
@@ -117,32 +133,52 @@ void accept(T)(ref dextool.clang_extensions.IfStmt n, T v)
         if (is(T : ExtendedVisitor)) {
     import std.traits : hasMember;
 
-    static if (hasMember!(T, "incr"))
-        v.incr;
+    void incr() {
+        static if (hasMember!(T, "incr"))
+            v.incr;
+    }
+
+    void decr() {
+        static if (hasMember!(T, "decr"))
+            v.decr;
+    }
+
+    void ignore(Cursor c) {
+        static if (__traits(hasMember, T, "ignoreCursors"))
+            v.ignoreCursors.add(c.toHash);
+    }
+
+    incr();
+    scope (exit)
+        decr();
 
     if (n.init_.isValid) {
-        auto sub = new IfStmtInit(n.init_);
-        static if (__traits(hasMember, T, "ignoreCursors")) {
-            v.ignoreCursors.add(n.init_.toHash);
-        }
+        scope sub = new IfStmtInit(n.init_);
+        ignore(n.init_);
         v.visit(sub);
     }
     if (n.cond.isValid) {
-        auto sub = new IfStmtCond(n.cond);
-        static if (__traits(hasMember, T, "ignoreCursors")) {
-            v.ignoreCursors.add(n.cond.toHash);
+        if (n.conditionVariable.isValid) {
+            incr();
+
+            scope sub = new IfStmtCondVar(n.conditionVariable);
+            ignore(n.conditionVariable);
+            v.visit(sub);
         }
+
+        scope sub = new IfStmtCond(n.cond);
+        ignore(n.cond);
         v.visit(sub);
+
+        if (n.conditionVariable.isValid)
+            decr();
     }
     if (n.then.isValid) {
-        auto sub = new IfStmtThen(n.then);
+        scope sub = new IfStmtThen(n.then);
         v.visit(sub);
     }
     if (n.else_.isValid) {
-        auto sub = new IfStmtElse(n.else_);
+        scope sub = new IfStmtElse(n.else_);
         v.visit(sub);
     }
-
-    static if (hasMember!(T, "decr"))
-        v.decr;
 }
