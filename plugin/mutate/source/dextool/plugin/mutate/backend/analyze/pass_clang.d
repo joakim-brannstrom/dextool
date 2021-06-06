@@ -877,7 +877,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
 
-        auto visitor = new FindVisitor!CompoundStmt;
+        scope visitor = new FindVisitor!CompoundStmt;
         v.accept(visitor);
 
         if (visitor.node !is null) {
@@ -889,7 +889,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
 
-        auto visitor = new FindVisitor!CompoundStmt;
+        scope visitor = new FindVisitor!CompoundStmt;
         v.accept(visitor);
 
         if (visitor.node !is null) {
@@ -915,7 +915,7 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(n, v);
         v.accept(this);
 
-        auto caseVisitor = new FindVisitor!CaseStmt;
+        scope caseVisitor = new FindVisitor!CaseStmt;
         v.accept(caseVisitor);
 
         if (caseVisitor.node is null) {
@@ -1271,8 +1271,9 @@ final class FindVisitor(T) : Visitor {
 
     override void visit(const T v) @trusted {
         //mixin(mixinNodeLog!());
+        // nodes are scope allocated thus it needs to be duplicated.
         if (nodes.empty)
-            nodes = [v];
+            nodes = [new T(v.cursor)];
     }
 }
 
