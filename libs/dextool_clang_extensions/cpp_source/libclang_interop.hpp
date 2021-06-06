@@ -54,6 +54,10 @@ const clang::Decl* getCursorParentDecl(CXCursor Cursor);
 CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent, CXTranslationUnit TU,
                           clang::SourceRange RegionOfInterest = clang::SourceRange());
 
+// Based on MakeCXCursor from CXCursor.h
+CXCursor dex_MakeCursorVariableRef(const clang::VarDecl* Var, clang::SourceLocation Loc,
+                                   CXTranslationUnit TU);
+
 /// Returns the underlying node that is not an reference or implicit cast.
 const clang::Expr* getUnderlyingExprNode(const clang::Expr* expr);
 
