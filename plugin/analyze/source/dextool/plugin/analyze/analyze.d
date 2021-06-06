@@ -268,7 +268,7 @@ class Pool {
         if (pool.length < workerThreads) {
             // assuming that spawnLinked is of high quality. Assuming func is @safe.
             rval = () @trusted { return spawnLinked(func, thisTid, args); }();
-            pool ~= rval;
+            pool ~= rval.get;
         }
 
         return rval;
