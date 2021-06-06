@@ -324,6 +324,10 @@ Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
 
 Location toLocation(ref const Cursor c) {
     auto e = c.extent;
+    // there are unexposed nodes with invalid locations.
+    if (!e.isValid)
+        return Location.init;
+
     auto interval = Interval(e.start.offset, e.end.offset);
     auto begin = e.start;
     auto end = e.end;
@@ -825,29 +829,32 @@ final class BaseVisitor : ExtendedVisitor {
         } else
             try {
                 auto loc = v.cursor.toLocation;
-                auto file = fio.makeInput(loc.file);
-                const maxEnd = file.content.length;
+                // there are unexposed nodes which has range [0,0]
+                if (loc.interval.begin < loc.interval.end) {
+                    auto file = fio.makeInput(loc.file);
+                    const maxEnd = file.content.length;
 
-                // The block that can be modified is the inside of it thus the
-                // a CompoundStmt that represent a "{..}" can for example be the
-                // body of a function or the block that a try statement encompase.
-                // done then a SDL can't be generated that delete the inside of
-                // e.g. void functions.
+                    // The block that can be modified is the inside of it thus the
+                    // a CompoundStmt that represent a "{..}" can for example be the
+                    // body of a function or the block that a try statement encompase.
+                    // done then a SDL can't be generated that delete the inside of
+                    // e.g. void functions.
 
-                auto end = min(findBraketOffset(file, loc.interval.end == 0
-                        ? loc.interval.end : loc.interval.end - 1, cast(uint) maxEnd,
-                        cast(ubyte) '}'), maxEnd);
-                auto begin = findBraketOffset(file, loc.interval.begin, end, cast(ubyte) '{');
+                    auto end = min(findBraketOffset(file, loc.interval.end == 0
+                            ? loc.interval.end : loc.interval.end - 1,
+                            cast(uint) maxEnd, cast(ubyte) '}'), maxEnd);
+                    auto begin = findBraketOffset(file, loc.interval.begin, end, cast(ubyte) '{');
 
-                if (begin < end)
-                    begin = begin + 1;
+                    if (begin < end)
+                        begin = begin + 1;
 
-                // TODO: need to adjust sloc too
-                loc.interval = Interval(begin, end);
+                    // TODO: need to adjust sloc too
+                    loc.interval = Interval(begin, end);
 
-                auto n = ast.make!(analyze.Block);
-                nstack.back.children ~= n;
-                pushStack(v.cursor, n, loc, v.cursor.kind);
+                    auto n = ast.make!(analyze.Block);
+                    nstack.back.children ~= n;
+                    pushStack(v.cursor, n, loc, v.cursor.kind);
+                }
             } catch (InvalidPathException e) {
             } catch (Exception e) {
                 log.trace(e.msg).collectException;
@@ -870,7 +877,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
 
-        auto visitor = new FindVisitor!CompoundStmt;
+        scope visitor = new FindVisitor!CompoundStmt;
         v.accept(visitor);
 
         if (visitor.node !is null) {
@@ -882,7 +889,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
 
-        auto visitor = new FindVisitor!CompoundStmt;
+        scope visitor = new FindVisitor!CompoundStmt;
         v.accept(visitor);
 
         if (visitor.node !is null) {
@@ -908,7 +915,7 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(n, v);
         v.accept(this);
 
-        auto caseVisitor = new FindVisitor!CaseStmt;
+        scope caseVisitor = new FindVisitor!CaseStmt;
         v.accept(caseVisitor);
 
         if (caseVisitor.node is null) {
@@ -1264,8 +1271,9 @@ final class FindVisitor(T) : Visitor {
 
     override void visit(const T v) @trusted {
         //mixin(mixinNodeLog!());
+        // nodes are scope allocated thus it needs to be duplicated.
         if (nodes.empty)
-            nodes = [v];
+            nodes = [new T(v.cursor)];
     }
 }
 

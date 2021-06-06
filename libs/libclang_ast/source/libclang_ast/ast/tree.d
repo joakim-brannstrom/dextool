@@ -122,11 +122,10 @@ private:
 string wrapCursor(alias visitor, alias cursor)(immutable(string)[] cases) {
     import std.format : format;
 
-    //TODO allocate in an allocator, not GC with "new"
     string result;
 
     foreach (case_; cases) {
-        result ~= format("case CXCursorKind.%s: auto wrapped = new %s(%s); %s.visit(wrapped); break;\n",
+        result ~= format("case CXCursorKind.%s: scope wrapped = new %s(%s); %s.visit(wrapped); break;\n",
                 case_, makeNodeClassName(case_), cursor.stringof, visitor.stringof);
     }
     return result;
@@ -145,8 +144,8 @@ unittest {
     int cursor;
 
     wrapCursor!(visitor, cursor)(["Dummy.xCase1", "Dummy.xCase2"]).shouldEqual(
-            "case Dummy.xCase1: auto wrapped = new Case1(cursor); visitor.visit(wrapped); break;
-case Dummy.xCase2: auto wrapped = new Case2(cursor); visitor.visit(wrapped); break;
+            "case Dummy.xCase1: scope wrapped = new Case1(cursor); visitor.visit(wrapped); break;
+case Dummy.xCase2: scope wrapped = new Case2(cursor); visitor.visit(wrapped); break;
 ");
 }
 
