@@ -67,7 +67,7 @@ struct Backend {
         // dfmt off
         auto filtered = rawFilter(visitor.root, ctrl, products,
                 (Path a, LocationType k, Language l) @safe => this.putLocation(a, k, l),
-                (USRType usr) @safe => container.find!LocationTag(usr));
+                (Nullable!USRType usr) @safe => container.find!LocationTag(usr.get));
         // dfmt on
 
         analyze.get.root.merge(filtered, MergeMode.full);
@@ -148,6 +148,7 @@ AnalyzeData rawFilter(PutLocT, LookupT)(AnalyzeData input, Controller ctrl,
 
     // dfmt off
     input.funcRange
+        .filter!(a => !a.usr.isNull)
         // by definition static functions can't be replaced by test doubles
         .filter!(a => a.storageClass != StorageClass.Static)
         // ask controller if the symbol should be intercepted
