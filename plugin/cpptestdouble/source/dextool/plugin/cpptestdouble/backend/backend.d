@@ -63,7 +63,7 @@ struct Backend {
     }
 
     ExitStatusType analyzeFile(const AbsolutePath abs_in_file, const string[] use_cflags) {
-        import std.typecons : NullableRef, scoped;
+        import std.typecons : NullableRef, scoped, Nullable;
         import dextool.utility : analyzeFile;
         import cpptooling.data : MergeMode;
 
@@ -78,6 +78,7 @@ struct Backend {
         debug logger.tracef("%u", visitor.root);
 
         auto fl = rawFilter(visitor.root, ctrl, products,
+                (Nullable!USRType usr) => container.find!LocationTag(usr.get),
                 (USRType usr) => container.find!LocationTag(usr));
 
         analyze.get.root.merge(fl, MergeMode.full);
@@ -153,7 +154,8 @@ import dsrcgen.cpp : E;
  * Params:
  *  ctrl = removes according to directives via ctrl
  */
-CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, LookupT lookup) @safe {
+CppT rawFilter(CppT, LookupT, LookupT2)(CppT input, Controller ctrl,
+        Products prod, LookupT lookup, LookupT2 lookup2) @safe {
     import std.array : array;
     import std.algorithm : each, filter, map, filter;
     import std.range : tee;
@@ -175,6 +177,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     if (ctrl.doFreeFunction) {
         // dfmt off
         input.funcRange
+            .filter!(a => !a.usr.isNull)
             // by definition static functions can't be replaced by test doubles
             .filter!(a => a.storageClass != StorageClass.Static)
             // ask controller if the file should be mocked, and thus the node
@@ -188,7 +191,7 @@ CppT rawFilter(CppT, LookupT)(CppT input, Controller ctrl, Products prod, Lookup
     // dfmt off
     input.namespaceRange
         .filter!(a => !a.isAnonymous)
-        .map!(a => rawFilter(a, ctrl, prod, lookup))
+        .map!(a => rawFilter(a, ctrl, prod, lookup, lookup2))
         .each!(a => filtered.put(a));
     // dfmt on
 
