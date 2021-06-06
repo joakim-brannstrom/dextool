@@ -1,5 +1,9 @@
 # vNext.release
 
+General
+
+ * Fix compatibility with D language frontend 2.079.0+
+
 New features for dextool mutate
 
  * The configuration file for coverage and schema is changed to allow a user to
