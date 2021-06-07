@@ -26,6 +26,7 @@ Fixes for dextool mutate
  * Reduce memory usage by stack allocating AST nodes.
  * Fix C++17 if-statement initialization making scheman not compile.
  * Fix slow re-analyze on a large project by optimizing the sqlite schema (use indexes).
+ * Fix GC-crash on long analysis. Dangling object where collected.
 
 # v3.2.0 Topaz
 
