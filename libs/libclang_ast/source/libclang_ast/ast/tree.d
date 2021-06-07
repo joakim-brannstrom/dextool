@@ -87,7 +87,6 @@ void dispatch(VisitorT)(const(Cursor) cursor, VisitorT visitor) @safe {
     import libclang_ast.ast.nodes;
     import std.conv : to;
 
-    // expecting ignoreCursors to be dextool.set.Set.
     static if (__traits(hasMember, VisitorT, "ignoreCursors")) {
         const h = cursor.toHash;
         if (h in visitor.ignoreCursors) {
