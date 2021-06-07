@@ -48,6 +48,31 @@ and into memory for processing, they are converted to the most general datatype
 (8-byte signed integer). And so for the most part, "storage class" is
 indistinguishable from "datatype" and the two terms can be used
 interchangeably.
+
+# ON DELETE CASCADE
+
+when a ON DELETE CASCADE is added an index should be created too of the childs
+foreign key.
+
+From the sqlite documentation:
+
+Indices are not required for child key columns but they are almost always
+beneficial. […]
+
+Each time an application deletes a row from the ... parent table, it performs
+[a query] to search for referencing rows in the ... child table.
+
+If this query returns any rows at all, then SQLite concludes that deleting the
+row from the parent table would violate the foreign key constraint and returns
+an error. Similar queries may be run if the content of the parent key is
+modified or a new row is inserted into the parent table. If these queries
+cannot use an index, they are forced to do a linear scan of the entire child
+table. In a non-trivial database, this may be prohibitively expensive.
+
+So, in most real systems, an index should be created on the child key columns
+of each foreign key constraint. The child key index does not have to be (and
+usually will not be) a UNIQUE index.
+
 */
 module dextool.plugin.mutate.backend.database.schema;
 
@@ -306,7 +331,7 @@ struct MutationPointTbl {
 
 @TableName(mutationTable)
 @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
-@TableForeignKey("st_id", KeyRef("mutation_status(id)"))
+@TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 @TableConstraint("unique_ UNIQUE (mp_id, kind)")
 struct MutationTbl {
     long id;
@@ -664,7 +689,7 @@ long getSchemaVersion(ref Miniorm db) nothrow {
 void upgrade(ref Miniorm db) {
     import d2sqlite3;
 
-    immutable maxIndex = 5;
+    immutable maxIndex = 30;
 
     alias upgradeFunc = void function(ref Miniorm db);
     auto tbl = makeUpgradeTable;
@@ -730,13 +755,34 @@ void upgrade(ref Miniorm db) {
         try {
             auto trans = db.transaction;
             int i;
-            db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, mutationPointTable));
             db.run(format!"CREATE INDEX i%s ON %s(path)"(i++, filesTable));
             db.run(format!"CREATE INDEX i%s ON %s(path)"(i++, testFilesTable));
 
             // improve getTestCaseMutantKills by 10x
             db.run(format!"CREATE INDEX i%s ON %s(tc_id,st_id)"(i++, killedTestCaseTable));
             db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, mutationTable));
+
+            // all on delete cascade
+            db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, rawSrcMetadataTable));
+            db.run(format!"CREATE INDEX i%s ON %s(mut_id)"(i++, srcMetadataTable));
+            db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, srcMetadataTable));
+            db.run(format!"CREATE INDEX i%s ON %s(mp_id)"(i++, srcMetadataTable));
+            db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, srcMetadataTable));
+            db.run(format!"CREATE INDEX i%s ON %s(mp_id)"(i++, nomutTable));
+            db.run(format!"CREATE INDEX i%s ON %s(mut_id)"(i++, nomutDataTable));
+            db.run(format!"CREATE INDEX i%s ON %s(mp_id)"(i++, nomutDataTable));
+            db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, mutationPointTable));
+            db.run(format!"CREATE INDEX i%s ON %s(mp_id)"(i++, mutationTable));
+            db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, mutationTable));
+            db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, killedTestCaseTable));
+            db.run(format!"CREATE INDEX i%s ON %s(tc_id)"(i++, killedTestCaseTable));
+            db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, schemataMutantTable));
+            db.run(format!"CREATE INDEX i%s ON %s(schem_id)"(i++, schemataMutantTable));
+            db.run(format!"CREATE INDEX i%s ON %s(schem_id)"(i++, schemataFragmentTable));
+            db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, schemataFragmentTable));
+            db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, srcCovTable));
+            db.run(format!"CREATE INDEX i%s ON %s(dep_id)"(i++, depRootTable));
+            db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, depRootTable));
 
             assert(i <= maxIndex);
             trans.commit;
@@ -968,6 +1014,21 @@ void upgradeV6(ref Miniorm db) {
         SysTime timestamp;
         ulong checksum0;
         ulong checksum1;
+    }
+
+    @TableName(mutationTable)
+    @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableForeignKey("st_id", KeyRef("mutation_status(id)"))
+    @TableConstraint("unique_ UNIQUE (mp_id, kind)")
+    struct MutationTbl {
+        long id;
+
+        long mp_id;
+
+        @ColumnParam("")
+        long st_id;
+
+        long kind;
     }
 
     immutable new_mut_tbl = "new_" ~ mutationTable;
@@ -1616,6 +1677,17 @@ void upgradeV41(ref Miniorm db) {
 // 2021-05-23
 void upgradeV42(ref Miniorm db) {
     db.run(buildSchema!(TestCmdMutatedTable));
+}
+
+// 2021-06-07
+void upgradeV43(ref Miniorm db) {
+    immutable newTbl = "new_" ~ mutationTable;
+    db.run(buildSchema!MutationTbl("new_"));
+
+    db.run(format("INSERT INTO %s (id,mp_id,st_id,kind)
+        SELECT id,mp_id,st_id,kind FROM %s WHERE st_id NOT NULL",
+            newTbl, mutationTable));
+    replaceTbl(db, newTbl, mutationTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

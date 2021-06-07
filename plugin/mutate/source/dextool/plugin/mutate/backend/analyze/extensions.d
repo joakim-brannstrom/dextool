@@ -129,8 +129,7 @@ void accept(T)(const(libclang_ast.ast.IfStmt) n, T v) if (is(T : ExtendedVisitor
     accept(stmt, v);
 }
 
-void accept(T)(ref dextool.clang_extensions.IfStmt n, T v)
-        if (is(T : ExtendedVisitor)) {
+void accept(T)(dextool.clang_extensions.IfStmt n, T v) if (is(T : ExtendedVisitor)) {
     import std.traits : hasMember;
 
     void incr() {
@@ -148,26 +147,37 @@ void accept(T)(ref dextool.clang_extensions.IfStmt n, T v)
             v.ignoreCursors.add(c.toHash);
     }
 
+    static if (__traits(hasMember, T, "ignoreCursors")) {
+        {
+            const h = n.cursor.toHash;
+            if (h in v.ignoreCursors) {
+                v.ignoreCursors.remove(h);
+                return;
+            }
+            v.ignoreCursors.add(h);
+        }
+    }
+
     incr();
     scope (exit)
         decr();
 
     if (n.init_.isValid) {
-        scope sub = new IfStmtInit(n.init_);
         ignore(n.init_);
+        scope sub = new IfStmtInit(n.init_);
         v.visit(sub);
     }
     if (n.cond.isValid) {
         if (n.conditionVariable.isValid) {
             incr();
 
-            scope sub = new IfStmtCondVar(n.conditionVariable);
             ignore(n.conditionVariable);
+            scope sub = new IfStmtCondVar(n.conditionVariable);
             v.visit(sub);
         }
 
-        scope sub = new IfStmtCond(n.cond);
         ignore(n.cond);
+        scope sub = new IfStmtCond(n.cond);
         v.visit(sub);
 
         if (n.conditionVariable.isValid)

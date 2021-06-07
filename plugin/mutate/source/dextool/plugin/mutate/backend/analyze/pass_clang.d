@@ -663,9 +663,10 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(const Expression v) {
         mixin(mixinNodeLog!());
 
-        if (v.cursor.toHash in isVisited)
+        const h = v.cursor.toHash;
+        if (h in isVisited)
             return;
-        isVisited.add(v.cursor.toHash);
+        isVisited.add(h);
 
         auto n = ast.make!(analyze.Expr);
         n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
@@ -944,6 +945,13 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(const IfStmt v) @trusted {
         mixin(mixinNodeLog!());
+        // to avoid infinite recursion, which may occur in e.g. postgresql, block
+        // segfault on 300
+        if (indent > 200) {
+            logger.warning("Max analyze depth reached (200)");
+            return;
+        }
+
         pushStack(ast.make!(analyze.BranchBundle), v);
         dextool.plugin.mutate.backend.analyze.extensions.accept(v, this);
     }
@@ -1558,7 +1566,7 @@ struct Blacklist {
         }
     }
 
-    bool isBlacklist(ref Cursor cursor, ref analyze.Location l) @trusted {
+    bool isBlacklist(Cursor cursor, analyze.Location l) @trusted {
         import dextool.clang_extensions;
         import clang.c.Index;
 

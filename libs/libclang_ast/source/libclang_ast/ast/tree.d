@@ -50,7 +50,7 @@ struct ClangAST(VisitorT) {
 
     Cursor root;
 
-    void accept(ref VisitorT visitor) @safe {
+    void accept(VisitorT visitor) @safe {
         dispatch(root, visitor);
     }
 }
@@ -61,7 +61,7 @@ struct ClangAST(VisitorT) {
  *   void incr(). Called before descending a node.
  *   void decr(). Called after ascending a node.
  */
-void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
+void accept(VisitorT)(const(Cursor) cursor, VisitorT visitor) @safe {
     import clang.Visitor : Visitor;
 
     visitor.incr();
@@ -82,12 +82,11 @@ void accept(VisitorT)(ref const(Cursor) cursor, ref VisitorT visitor) @safe {
  *
  * Note that the mixins shall be ordered alphabetically.
  */
-void dispatch(VisitorT)(ref const(Cursor) cursor, VisitorT visitor) @safe {
+void dispatch(VisitorT)(const(Cursor) cursor, VisitorT visitor) @safe {
     import clang.Visitor : Visitor;
     import libclang_ast.ast.nodes;
     import std.conv : to;
 
-    // expecting ignoreCursors to be dextool.set.Set.
     static if (__traits(hasMember, VisitorT, "ignoreCursors")) {
         const h = cursor.toHash;
         if (h in visitor.ignoreCursors) {
