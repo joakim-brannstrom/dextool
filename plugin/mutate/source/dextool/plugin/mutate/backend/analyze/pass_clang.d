@@ -1558,7 +1558,7 @@ struct Blacklist {
         }
     }
 
-    bool isBlacklist(ref Cursor cursor, ref analyze.Location l) @trusted {
+    bool isBlacklist(Cursor cursor, analyze.Location l) @trusted {
         import dextool.clang_extensions;
         import clang.c.Index;
 
