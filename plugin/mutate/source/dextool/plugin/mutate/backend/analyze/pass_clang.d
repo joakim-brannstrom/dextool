@@ -832,27 +832,35 @@ final class BaseVisitor : ExtendedVisitor {
                 auto loc = v.cursor.toLocation;
                 // there are unexposed nodes which has range [0,0]
                 if (loc.interval.begin < loc.interval.end) {
-                    auto file = fio.makeInput(loc.file);
-                    const maxEnd = file.content.length;
-
-                    // The block that can be modified is the inside of it thus the
-                    // a CompoundStmt that represent a "{..}" can for example be the
-                    // body of a function or the block that a try statement encompase.
-                    // done then a SDL can't be generated that delete the inside of
-                    // e.g. void functions.
-
-                    auto end = min(findBraketOffset(file, loc.interval.end == 0
-                            ? loc.interval.end : loc.interval.end - 1,
-                            cast(uint) maxEnd, cast(ubyte) '}'), maxEnd);
-                    auto begin = findBraketOffset(file, loc.interval.begin, end, cast(ubyte) '{');
-
-                    if (begin < end)
-                        begin = begin + 1;
-
-                    // TODO: need to adjust sloc too
-                    loc.interval = Interval(begin, end);
-
                     auto n = ast.make!(analyze.Block);
+
+                    // important because it triggers an invalid path if the
+                    // file shouldn't be manipulated
+                    auto file = fio.makeInput(loc.file);
+
+                    // if the loc is inside a macro it may be impossible to
+                    // textually find matching brackets.
+                    if (!isBlacklist(v.cursor, loc)) {
+                        const maxEnd = file.content.length;
+
+                        // The block that can be modified is the inside of it thus the
+                        // a CompoundStmt that represent a "{..}" can for example be the
+                        // body of a function or the block that a try statement encompase.
+                        // done then a SDL can't be generated that delete the inside of
+                        // e.g. void functions.
+
+                        auto end = min(findBraketOffset(file, loc.interval.end == 0
+                                ? loc.interval.end : loc.interval.end - 1,
+                                cast(uint) maxEnd, cast(ubyte) '}'), maxEnd);
+                        auto begin = findBraketOffset(file, loc.interval.begin, end, cast(ubyte) '{');
+
+                        if (begin < end)
+                            begin = begin + 1;
+
+                        // TODO: need to adjust sloc too
+                        loc.interval = Interval(begin, end);
+                    }
+
                     nstack.back.children ~= n;
                     pushStack(v.cursor, n, loc, v.cursor.kind);
                 }
@@ -1575,7 +1583,7 @@ struct Blacklist {
         }
     }
 
-    bool isBlacklist(Cursor cursor, analyze.Location l) @trusted {
+    bool isBlacklist(const Cursor cursor, const analyze.Location l) @trusted {
         import dextool.clang_extensions;
         import clang.c.Index;
 
@@ -1597,14 +1605,17 @@ struct Blacklist {
             auto cxLoc = clang_getLocationForOffset(rootTu, file, l.interval.begin);
             if (cxLoc is CXSourceLocation.init)
                 return false;
-
             auto res = dex_isAnyMacro(cxLoc);
             cache_[hb] = res;
             if (res)
                 return true;
 
-            res = dex_isAnyMacro(clang_getLocationForOffset(rootTu, file, l.interval.end));
+            cxLoc = clang_getLocationForOffset(rootTu, file, l.interval.end);
+            if (cxLoc is CXSourceLocation.init)
+                return false;
+            res = dex_isAnyMacro(cxLoc);
             cache_[he] = res;
+
             return res;
         }
 

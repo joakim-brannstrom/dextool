@@ -18,6 +18,28 @@ FMT_CONSTEXPR void handle_cstring_type_spec(Char spec, Handler&& handler) {
 
 void fn() {}
 
+int assert_counter;
+#define JSON_ASSERT(x)                                                                             \
+    {                                                                                              \
+        if (!(x))                                                                                  \
+            ++assert_counter;                                                                      \
+    }
+
+class Foo {
+    void deep_nest(std::string s) {
+        JSON_ASSERT(s.empty());
+
+        if (!s.empty() && s.back()) {
+            for (auto it = s.begin(); it != s.end(); ++it) {
+                if (*it) {
+                    s.end();
+                    break;
+                }
+            }
+        }
+    }
+};
+
 int main(int argc, char** argv) {
     int x = 0;
     x = 42;

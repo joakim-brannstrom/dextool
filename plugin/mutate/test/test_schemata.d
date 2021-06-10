@@ -174,6 +174,9 @@ class ShallGenerateValidSchemaForNestedIf : SchemataFixutre {
         testAnyOrder!SubStr([`*this`,]).shouldNotBeIn(r.output);
         testAnyOrder!SubStr([`from '+'`,]).shouldNotBeIn(r.output);
         testAnyOrder!SubStr([`from '=='`,]).shouldNotBeIn(r.output);
+
+        testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
+                r.output);
     }
 }
 
