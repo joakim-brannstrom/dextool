@@ -864,9 +864,18 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const CaseStmt v) {
+    override void visit(const CaseStmt v) @trusted {
+        import libclang_ast.ast : dispatch;
+        import dextool.clang_extensions;
+
         mixin(mixinNodeLog!());
-        v.accept(this);
+
+        auto stmt = getCaseStmt(v.cursor);
+        if (stmt.isValid && stmt.subStmt.isValid) {
+            dispatch(stmt.subStmt, this);
+        } else {
+            v.accept(this);
+        }
     }
 
     override void visit(const DefaultStmt v) {
