@@ -981,9 +981,8 @@ struct BlockChain {
 
         void addOriginal() {
             app.put(original);
-            if (!original.empty && original[$ - 1] != cast(ubyte) ';') {
+            if (!original.empty && original[$ - 1] != cast(ubyte) ';')
                 app.put(";".rewrite);
-            }
         }
 
         app.put(format!"if (%s == 0) {"(schemataMutantIdentifier).rewrite);
@@ -999,14 +998,13 @@ struct BlockChain {
             app.put(") {".rewrite);
 
             app.put(mutant.value);
-            if (!mutant.value.empty && mutant.value[$ - 1] != cast(ubyte) ';') {
+            if (!mutant.value.empty && mutant.value[$ - 1] != cast(ubyte) ';')
                 app.put(";".rewrite);
-            }
 
             app.put("} ".rewrite);
         }
 
-        app.put("else {".rewrite);
+        app.put(" else {".rewrite);
         addOriginal;
         app.put("}".rewrite);
 
@@ -1015,7 +1013,7 @@ struct BlockChain {
 }
 
 auto contentOrNull(uint begin, uint end, const(ubyte)[] content) {
-    if (begin >= end)
+    if (begin >= end || end > content.length)
         return null;
     return content[begin .. end];
 }
