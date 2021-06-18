@@ -1262,8 +1262,14 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         // only remove schemas that are of no further use.
-        bool remove = true;
+        bool remove;
         void updateRemove(MutationTestResult[] result) {
+            // only remove if there actually are any results utherwise we do
+            // not know if it is a good idea to remove it.
+            // same with the overload. if mutation testing is stopped because
+            // of a halt command then keep the schema.
+            remove = !(result.empty || stopCheck.isHalt != TestStopCheck.HaltReason.none);
+
             foreach (a; data.result) {
                 final switch (a.status) with (Mutation.Status) {
                 case unknown:
