@@ -707,11 +707,14 @@ nothrow:
 
     void opCall(ref ContinuesCheckTestSuite data) {
         import std.algorithm : max;
+        import colorlog : color, Color;
 
         data.ok = true;
 
         if (!conf.contCheckTestSuite)
             return;
+
+        logger.info("Checking the test environment").collectException;
 
         enum forceCheckEach = 1.dur!"hours";
 
@@ -746,7 +749,10 @@ nothrow:
             }
         }
 
-        if (!data.ok) {
+        if (data.ok) {
+            logger.info("Ok".color.fgGreen).collectException;
+        } else {
+            logger.info("Failed".color.fgRed).collectException;
             logger.warning("Continues sanity check of the test suite has failed.").collectException;
             logger.infof("Rolling back the status of the last %s mutants to status unknown.",
                     period).collectException;
