@@ -1115,8 +1115,6 @@ exit 1
     }
 
     override void test() {
-        import my.file;
-
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
@@ -1144,5 +1142,54 @@ exit 1
                 ]).run;
 
         testConsecutiveSparseOrder!Re(["Equivalent:.*4"]).shouldBeIn(r1.output);
+    }
+}
+
+// the infinite loops shall be terminated.  the loops are used to further
+// "test" the reset of the source code after a mutant such that if the test
+// environment check is executed on a mutant this test will fail.
+class ShallTestTestEnv : SimpleFixture {
+    string scriptTest_;
+
+    override string programFile() {
+        return (testData ~ "bug_test_inf_loop.cpp").toString;
+    }
+
+    override string scriptBuild() {
+        return "#!/bin/bash
+set -e
+g++ %s -o %s
+";
+    }
+
+    override string scriptTest() {
+        return "#!/bin/bash\n" ~ scriptTest_ ~ "\n";
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        scriptTest_ = (testEnv.outdir ~ "program").toString;
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+
+        // dfmt off
+        auto r0 = dextool_test.makeDextool(testEnv)
+            .setWorkdir(workDir)
+            .args(["mutate"])
+            .addArg(["test"])
+            .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
+            .addPostArg(["--mutant", "all"])
+            // zero forces it to be checked for every mutant
+            .addPostArg(["--cont-test-suite", "--cont-test-suite-period", "0"])
+            .addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript])
+            .addPostArg(["--test-timeout", "100"])
+            .run;
+        // dfmt on
+
+        testConsecutiveSparseOrder!Re([
+                "info.*Checking the test environment", "info.*Ok"
+                ]).shouldBeIn(r0.output);
     }
 }

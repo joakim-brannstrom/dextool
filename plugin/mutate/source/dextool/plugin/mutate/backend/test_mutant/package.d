@@ -728,7 +728,9 @@ nothrow:
 
         const period = conf.contCheckTestSuitePeriod.get;
         const diffCnt = local.get!ContinuesCheckTestSuite.lastWorklistCnt - wlist;
-        if (!(wlist % period == 0 || diffCnt >= period
+        // period == 0 is mostly for test purpose because it makes it possible
+        // to force a check for every mutant.
+        if (!(period == 0 || wlist % period == 0 || diffCnt >= period
                 || Clock.currTime > local.get!ContinuesCheckTestSuite.lastCheck))
             return;
 
