@@ -125,7 +125,7 @@ struct ArgParser {
         app.put("[analyze]");
         app.put(null);
         app.put(
-                "# glob filter which include/exclude matched files (relative to root) from analysis.");
+                "# glob filter which matched files (relative to root) to be used for static analysis information.");
         app.put(`include = ["*"]`);
         app.put("exclude = []");
         app.put(null);
