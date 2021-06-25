@@ -578,6 +578,25 @@ struct Database {
         return rval;
     }
 
+    Nullable!Path getPath(const MutationStatusId id) @trusted {
+        static immutable get_path_sql = format("SELECT t2.path
+            FROM
+            %s t0, %s t1, %s t2
+            WHERE
+            t0.st_id = :id AND t0.mp_id = t1.id AND t1.file_id = t2.id
+            ", mutationTable,
+                mutationPointTable, filesTable);
+
+        auto stmt = db.prepare(get_path_sql);
+        stmt.get.bind(":id", id.get);
+        auto res = stmt.get.execute;
+
+        typeof(return) rval;
+        if (!res.empty)
+            rval = Path(res.front.peek!string(0));
+        return rval;
+    }
+
     /// Returns: the mutants that are connected to the mutation statuses.
     MutantInfo[] getMutantsInfo(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
         const get_mutid_sql = format("SELECT t0.id,t2.status,t2.exit_code,t0.kind,t1.line,t1.column
@@ -631,6 +650,32 @@ struct Database {
             break;
         }
         return rval;
+    }
+
+    MutationStatus getMutationStatus2(const MutationStatusId id) @trusted {
+        const sql = format("SELECT t0.id,t0.status,t0.prio,t0.update_ts,t0.added_ts
+            FROM %s t0
+            WHERE
+            t0.update_ts IS NOT NULL AND
+            t0.id = :id",
+                mutationStatusTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+
+        foreach (res; stmt.get.execute) {
+            auto added = () {
+                auto raw = res.peek!string(4);
+                if (raw.length == 0)
+                    return Nullable!SysTime();
+                return Nullable!SysTime(raw.fromSqLiteDateTime);
+            }();
+
+            return MutationStatus(MutationStatusId(res.peek!long(0)),
+                    res.peek!long(1).to!(Mutation.Status), res.peek!long(2)
+                    .MutantPrio, res.peek!string(3).fromSqLiteDateTime, added,);
+        }
+
+        return MutationStatus.init;
     }
 
     Nullable!MutationStatusId getMutationStatusId(const MutationId id) @trusted {
@@ -990,29 +1035,34 @@ struct Database {
     alias aliveNoMutSrcMutants = countNoMutMutants!([Mutation.Status.alive], true);
 
     /// Returns: mutants killed by the test case.
-    MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, TestCase tc) @trusted {
-        const query = format("
-            SELECT t1.id
-            FROM %s t0, %s t1, %s t2, %s t3
+    MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, const TestCaseId id) @trusted {
+        const sql = format("SELECT t1.id
+            FROM %s t0, %s t1, %s t3
             WHERE
             t0.st_id = t1.id AND
             t1.status = :st AND
             t0.kind IN (%(%s,%)) AND
-            t2.name = :name AND
-            t2.id = t3.tc_id AND
+            t3.tc_id = :id AND
             t3.st_id = t1.id
             GROUP BY t1.id", mutationTable, mutationStatusTable,
-                allTestCaseTable, killedTestCaseTable, kinds.map!(a => cast(int) a));
+                killedTestCaseTable, kinds.map!(a => cast(int) a));
 
-        auto stmt = db.prepare(query);
+        auto stmt = db.prepare(sql);
         stmt.get.bind(":st", cast(long) Mutation.Status.killed);
-        stmt.get.bind(":name", tc.name);
+        stmt.get.bind(":id", id.get);
 
         auto app = appender!(MutationStatusId[])();
         foreach (res; stmt.get.execute)
             app.put(MutationStatusId(res.peek!long(0)));
 
         return app.data;
+    }
+
+    MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, const TestCase tc) @safe {
+        auto id = getTestCaseId(tc);
+        if (id.isNull)
+            return null;
+        return testCaseKilledSrcMutants(kinds, id.get);
     }
 
     /// Returns: mutants at mutations points that the test case has killed mutants at.
@@ -1447,28 +1497,36 @@ struct Database {
     }
 
     /// Returns: stats about the test case.
-    Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc, const Mutation.Kind[] kinds) @trusted {
+    TestCaseInfo getTestCaseInfo(const TestCaseId tcId, const Mutation.Kind[] kinds) @trusted {
         const sql = format("SELECT sum(ctime),sum(ttime),count(*)
             FROM (
             SELECT sum(t2.compile_time_ms) ctime,sum(t2.test_time_ms) ttime
-            FROM %s t0, %s t1, %s t2, %s t3
+            FROM %s t1, %s t2, %s t3
             WHERE
-            t0.name = :name AND
-            t0.id = t1.tc_id AND
+            :id = t1.tc_id AND
             t1.st_id = t2.id AND
             t1.st_id = t3.st_id AND
             t3.kind IN (%(%s,%))
-            GROUP BY t1.st_id)", allTestCaseTable,
-                killedTestCaseTable, mutationStatusTable, mutationTable,
-                kinds.map!(a => cast(int) a));
+            GROUP BY t1.st_id)", killedTestCaseTable,
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":name", tc.name);
+        stmt.get.bind(":id", tcId.get);
 
         typeof(return) rval;
         foreach (a; stmt.get.execute) {
             rval = TestCaseInfo(MutantTimeProfile(a.peek!long(0).dur!"msecs",
                     a.peek!long(1).dur!"msecs"), a.peek!long(2));
         }
+        return rval;
+    }
+
+    Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc, const Mutation.Kind[] kinds) @safe {
+        typeof(return) rval;
+
+        auto id = getTestCaseId(tc);
+        if (!id.isNull)
+            rval = getTestCaseInfo(id.get, kinds);
+
         return rval;
     }
 
@@ -1490,11 +1548,8 @@ struct Database {
         MutationId[][string] data;
         foreach (row; stmt.get.execute) {
             const name = row.peek!string(0);
-            if (auto v = name in data) {
-                *v ~= MutationId(row.peek!long(1));
-            } else {
-                data[name] = [MutationId(row.peek!long(1))];
-            }
+            auto id = MutationId(row.peek!long(1));
+            data.update(name, () => [id], (ref MutationId[] a) { a ~= id; });
         }
 
         auto app = appender!(TestCaseInfo2[])();

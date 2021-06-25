@@ -55,13 +55,14 @@ void toHtml(ref Database db, TestGroupSimilarity result, Element root) {
     import std.conv : to;
     import std.path : buildPath;
     import dextool.cachetools;
-    import dextool.plugin.mutate.backend.database : spinSql, MutationId;
-    import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
+    import dextool.plugin.mutate.backend.database : spinSql, MutationId, MutationStatusId;
+    import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
     import dextool.type : Path;
 
-    auto getPath = nullableCache!(MutationId, string, (MutationId id) {
+    auto getPath = nullableCache!(MutationStatusId, string, (MutationStatusId id) {
         auto path = spinSql!(() => db.getPath(id)).get;
-        return format!"%s#%s"(buildPath(Html.fileDir, pathToHtmlLink(path)), id);
+        auto mutId = spinSql!(() => db.getMutationId(id)).get;
+        return format!"%s#%s"(buildPath("..", Html.fileDir, pathToHtmlLink(path)), mutId.get);
     })(0, 30.dur!"seconds");
 
     const test_groups = result.similarities.byKey.array.sort!((a, b) => a < b).array;

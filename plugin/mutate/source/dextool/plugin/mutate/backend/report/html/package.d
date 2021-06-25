@@ -14,6 +14,7 @@ import std.algorithm : max, each, map, min, canFind, sort, filter, joiner;
 import std.array : Appender, appender, array, empty;
 import std.exception : collectException;
 import std.format : format;
+import std.range : only;
 import std.stdio : File;
 import std.utf : toUTF8, byChar;
 
@@ -77,7 +78,7 @@ struct FileIndex {
 }
 
 @safe final class ReportHtml {
-    import std.stdio : File, writefln, writeln;
+    import std.stdio : writefln, writeln;
     import undead.xml : encode;
 
     const Mutation.Kind[] kinds;
@@ -87,6 +88,8 @@ struct FileIndex {
     const AbsolutePath logDir;
     /// Reports for each file
     const AbsolutePath logFilesDir;
+    /// Reports for each test case
+    const AbsolutePath logTestCasesDir;
 
     /// What the user configured.
     MutationKind[] humanReadableKinds;
@@ -111,6 +114,7 @@ struct FileIndex {
         this.conf = conf;
         this.logDir = buildPath(conf.logDir, HtmlStyle.dir).Path.AbsolutePath;
         this.logFilesDir = buildPath(this.logDir, HtmlStyle.fileDir).Path.AbsolutePath;
+        this.logTestCasesDir = buildPath(this.logDir, HtmlStyle.testCaseDir).Path.AbsolutePath;
         this.diff = diff;
 
         sections = conf.reportSection.toSet;
@@ -120,17 +124,16 @@ struct FileIndex {
         import std.file : mkdirRecurse;
 
         humanReadableKinds = k.dup;
-        mkdirRecurse(this.logDir);
-        mkdirRecurse(this.logFilesDir);
+        foreach (a; only(logDir, logFilesDir, logTestCasesDir))
+            mkdirRecurse(a);
     }
 
     void getFileReportEvent(ref Database db, const ref FileRow fr) {
         import std.path : buildPath;
-        import std.stdio : File;
-        import dextool.plugin.mutate.backend.report.html.page_files;
+        import dextool.plugin.mutate.backend.report.html.utility : pathToHtml;
         import dextool.plugin.mutate.backend.report.analyzers : reportScore;
 
-        const original = fr.file.dup.pathToHtml;
+        const original = fr.file.idup.pathToHtml;
         const report = (original ~ HtmlStyle.ext).Path;
 
         auto stat = reportScore(db, kinds, fr.file);
@@ -176,10 +179,8 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_minimal_set;
         import dextool.plugin.mutate.backend.report.html.page_nomut;
         import dextool.plugin.mutate.backend.report.html.page_stats;
+        import dextool.plugin.mutate.backend.report.html.page_test_case;
         import dextool.plugin.mutate.backend.report.html.page_test_case_full_overlap;
-        import dextool.plugin.mutate.backend.report.html.page_test_case_similarity;
-        import dextool.plugin.mutate.backend.report.html.page_test_case_stat;
-        import dextool.plugin.mutate.backend.report.html.page_test_case_unique;
         import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
         import dextool.plugin.mutate.backend.report.html.page_tree_map;
@@ -218,10 +219,6 @@ struct FileIndex {
         if (ReportSection.treemap in sections) {
             addSubPage(() => makeTreeMapPage(files.data), "tree_map", "Treemap");
         }
-        if (ReportSection.tc_stat in sections) {
-            addSubPage(() => makeTestCaseStats(db, conf, humanReadableKinds,
-                    kinds), "test_case_stat", "Test Case Statistics");
-        }
         if (ReportSection.tc_groups in sections) {
             addSubPage(() => makeTestGroups(db, conf, humanReadableKinds,
                     kinds), "test_groups", "Test Groups");
@@ -231,17 +228,9 @@ struct FileIndex {
             addSubPage(() => makeMinimalSetAnalyse(db, conf, humanReadableKinds,
                     kinds), "minimal_set", "Minimal Test Set");
         }
-        if (ReportSection.tc_similarity in sections) {
-            addSubPage(() => makeTestCaseSimilarityAnalyse(db, conf, humanReadableKinds,
-                    kinds), "test_case_similarity", "Test Case Similarity");
-        }
         if (ReportSection.tc_groups_similarity in sections) {
             addSubPage(() => makeTestGroupSimilarityAnalyse(db, conf, humanReadableKinds,
                     kinds), "test_group_similarity", "Test Group Similarity");
-        }
-        if (ReportSection.tc_unique in sections) {
-            addSubPage(() => makeTestCaseUnique(db, conf, humanReadableKinds,
-                    kinds), "test_case_unique", "Test Case Uniqueness");
         }
         if (ReportSection.tc_killed_no_mutants in sections) {
             addContent((string tag) => makeDeadTestCase(db, kinds, tag, content),
@@ -255,6 +244,9 @@ struct FileIndex {
         if (ReportSection.trend in sections) {
             addContent((string tag) => makeTrend(db, kinds, tag, content), "Trend", "#trend");
         }
+
+        addContent((string tag) => makeTestCases(db, conf, humanReadableKinds,
+                kinds, logTestCasesDir, tag, content), "Test Cases", "#test_cases");
 
         files.data.toIndex(content, HtmlStyle.fileDir);
 

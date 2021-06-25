@@ -49,7 +49,7 @@ void testGroups(const TestGroupStat test_g, Element root) {
     import std.path : buildPath;
     import std.typecons : tuple;
     import dextool.plugin.mutate.backend.mutation_type : toUser;
-    import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
+    import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
 
     root.addChild("h3", test_g.description);
 

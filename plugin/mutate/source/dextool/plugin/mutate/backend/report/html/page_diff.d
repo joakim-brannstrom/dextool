@@ -19,7 +19,7 @@ import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.report.analyzers : DiffReport, reportDiff;
 import dextool.plugin.mutate.backend.report.html.constants;
-import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
+import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, filesCss, tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;

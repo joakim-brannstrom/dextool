@@ -271,11 +271,11 @@ class ShallReportTopTestCaseStats : ReportTestCaseStats {
          ]).shouldBeIn(r.output);
 
         testConsecutiveSparseOrder!SubStr([
-            "Test Case Statistics",
-            "1.0", "2", "tc_2",
-            "0.5", "1", "tc_3",
-            "0.5", "1", "tc_1",
-        ]).shouldBeIn(File((testEnv.outdir ~ "html/test_case_stat.html").toString).byLineCopy.array);
+            "Test Cases",
+            "tc_1", "50",
+            "tc_2", "100",
+            "tc_3", "50"
+        ]).shouldBeIn(File((testEnv.outdir ~ "html/index.html").toString).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
         j["test_case_stat"]["tc_1"]["killed"].integer.shouldEqual(1);
@@ -399,8 +399,7 @@ class ShallProduceHtmlReport : SimpleAnalyzeFixture {
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
 
-        // assert that the expected files have been generated
-        exists(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata_report_one_ror_mutation_point.cpp.html")).shouldBeTrue;
+        exists(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata__report_one_ror_mutation_point.cpp.html")).shouldBeTrue;
         exists(buildPath(testEnv.outdir.toString, "html", "index.html")).shouldBeTrue;
     }
 }
@@ -427,7 +426,7 @@ class ShallProduceHtmlReportOfMultiLineComment : SimpleAnalyzeFixture {
             `"loc-11"`,
             `"loc-12"`,
             `"loc-13"`,
-        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata_report_multi_line_comment.cpp.html")).byLineCopy.array);
+        ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata__report_multi_line_comment.cpp.html")).byLineCopy.array);
     }
 }
 
@@ -591,7 +590,7 @@ class ShallReportHtmlNoMutForMutantsInFileView : LinesWithNoMut {
             "'meta' : ''",
             "'meta' : 'nomut'",
             "'meta' : 'nomut'",
-            ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata_report_nomut1.cpp.html")).byLineCopy.array);
+            ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "files", "plugin_testdata__report_nomut1.cpp.html")).byLineCopy.array);
     }
 }
 
@@ -615,7 +614,7 @@ class ShallReportHtmlNoMutSummary : LinesWithNoMut {
         // assert
         testConsecutiveSparseOrder!SubStr([
                 `<h2>group1</h2>`,
-                `<a href="files/plugin_testdata_report_nomut1.cpp.html`,
+                `<a href="files/plugin_testdata__report_nomut1.cpp.html`,
                 `<br`, `with comment`
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
                 "nomut.html")).byLineCopy.array);
@@ -632,7 +631,6 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
         auto ids = getAllMutationIds(db);
 
-        // Arrange
         const tc1 = TestCase("tc_1");
         const tc2 = TestCase("tc_2");
         const tc3 = TestCase("tc_3");
@@ -645,7 +643,6 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
         db.updateMutation(ids[3], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
         db.updateMutation(ids[4], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
 
-        // Act
         makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
             .addArg(["--style", "html"])
@@ -653,16 +650,21 @@ class ShallReportHtmlTestCaseSimilarity : LinesWithNoMut {
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
 
-        // Assert
         testConsecutiveSparseOrder!SubStr([
-                `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
-                `<td>tc_2`, `<td>0.8`, `<td>tc_3`, `<td>0.4`,
-                `<h2 class="tbl_header"><i class="right"></i> tc_2</h2>`,
-                `<td>tc_1`, `<td>1.00`, `<td>tc_3`, `<td>0.5`,
-                `<h2 class="tbl_header"><i class="right"></i> tc_3</h2>`,
-                `<td>tc_1`, `<td>1.00`, `<td>tc_2`, `<td>1.00`,
+                                          `Similarity`,
+                `tc_2`, `<td>0.8`, `tc_3`, `<td>0.4`,
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
-                "test_case_similarity.html")).byLineCopy.array);
+                "test_cases", "tc_1.html")).byLineCopy.array);
+        testConsecutiveSparseOrder!SubStr([
+                                          `Similarity`,
+                `tc_1`, `<td>1.0`, `tc_3`, `<td>0.5`,
+                ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
+                "test_cases", "tc_2.html")).byLineCopy.array);
+        testConsecutiveSparseOrder!SubStr([
+                                          `Similarity`,
+                `tc_1`, `<td>1.0`, `tc_2`, `<td>1.0`,
+                ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
+                "test_cases", "tc_3.html")).byLineCopy.array);
     }
 }
 
@@ -708,10 +710,11 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
 
         // Assert
         testConsecutiveSparseOrder!SubStr([
-                `<h2 class="tbl_header"><i class="right"></i> tc_1</h2>`,
-                `<table`, `<td>tc_2</td>`, `<td>tc_3</td>`,
+                `Test Cases</h2>`, `table`,
+                `tc_1`, `<td>x`, `tc_2`, `tc_3`,
+                `/table`
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
-                "test_case_unique.html")).byLineCopy.array);
+                "index.html")).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
         j["test_case_no_unique"].array.length.shouldEqual(2);

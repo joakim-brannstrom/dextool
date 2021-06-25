@@ -25,7 +25,8 @@ import std.typecons : Flag, Yes, No, Tuple, Nullable, tuple;
 import my.named_type;
 import my.optional;
 
-import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId, MarkedMutant;
+import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId,
+    MarkedMutant, TestCaseId, MutationStatusId;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult,
     makeMutationText, makeMutation;
@@ -175,15 +176,15 @@ class TestCaseSimilarityAnalyse {
     import dextool.plugin.mutate.backend.type : TestCase;
 
     static struct Similarity {
-        TestCase testCase;
+        TestCaseId testCase;
         double similarity = 0.0;
         /// Mutants that are similare between `testCase` and the parent.
-        MutationId[] intersection;
+        MutationStatusId[] intersection;
         /// Unique mutants that are NOT verified by `testCase`.
-        MutationId[] difference;
+        MutationStatusId[] difference;
     }
 
-    Similarity[][TestCase] similarities;
+    Similarity[][TestCaseId] similarities;
 }
 
 /// The result of the similarity analyse
@@ -191,13 +192,13 @@ private struct Similarity {
     /// The quota |A intersect B| / |A|. Thus it is how similare A is to B. If
     /// B ever fully encloses A then the score is 1.0.
     double similarity = 0.0;
-    MutationId[] intersection;
-    MutationId[] difference;
+    MutationStatusId[] intersection;
+    MutationStatusId[] difference;
 }
 
 // The set similairty measures how much of lhs is in rhs. This is a
 // directional metric.
-private Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
+private Similarity setSimilarity(MutationStatusId[] lhs_, MutationStatusId[] rhs_) {
     import my.set;
 
     auto lhs = lhs_.toSet;
@@ -220,7 +221,7 @@ private Similarity setSimilarity(MutationId[] lhs_, MutationId[] rhs_) {
 TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
         const Mutation.Kind[] kinds, ulong limit) @safe {
     import std.container.binaryheap;
-    import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
+    import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
 
     auto profile = Profile(ReportSection.tc_similarity);
 
@@ -228,22 +229,14 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     // The DB lookups must be cached or otherwise the algorithm becomes too
     // slow for practical use.
 
-    MutationId[][TestCaseId] kill_cache2;
-    MutationId[] getKills(TestCaseId id) @trusted {
+    MutationStatusId[][TestCaseId] kill_cache2;
+    MutationStatusId[] getKills(TestCaseId id) @trusted {
         return kill_cache2.require(id, spinSql!(() {
-                return db.getTestCaseMutantKills(id, kinds);
+                return db.testCaseKilledSrcMutants(kinds, id);
             }));
     }
 
-    TestCase[TestCaseId] tc_cache2;
-    TestCase getTestCase(TestCaseId id) @trusted {
-        return tc_cache2.require(id, spinSql!(() {
-                // assuming it can never be null
-                return db.getTestCase(id).get;
-            }));
-    }
-
-    alias TcKills = Tuple!(TestCaseId, "id", MutationId[], "kills");
+    alias TcKills = Tuple!(TestCaseId, "id", MutationStatusId[], "kills");
 
     const test_cases = spinSql!(() { return db.getDetectedTestCaseIds; });
 
@@ -257,12 +250,12 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
                 .filter!(a => a.kills.length != 0)) {
             auto distance = setSimilarity(tc_kill.kills, tc.kills);
             if (distance.similarity > 0)
-                app.put(TestCaseSimilarityAnalyse.Similarity(getTestCase(tc.id),
+                app.put(TestCaseSimilarityAnalyse.Similarity(tc.id,
                         distance.similarity, distance.intersection, distance.difference));
         }
         if (app.data.length != 0) {
             () @trusted {
-                rval.similarities[getTestCase(tc_kill.id)] = heapify!((a,
+                rval.similarities[tc_kill.id] = heapify!((a,
                         b) => a.similarity < b.similarity)(app.data).take(limit).array;
             }();
         }
@@ -613,7 +606,6 @@ struct TestCaseOverlapStat {
     import std.format : formattedWrite;
     import std.range : put;
     import my.hash;
-    import dextool.plugin.mutate.backend.database.type : TestCaseId;
 
     long overlap;
     long total;
@@ -702,7 +694,6 @@ template toTable(Flag!"colWithMutants" colMutants) {
 /// Test cases that kill exactly the same mutants.
 TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Kind[] kinds) @safe {
     import my.hash;
-    import dextool.plugin.mutate.backend.database.type : TestCaseId;
 
     auto profile = Profile(ReportSection.tc_full_overlap);
 
@@ -751,9 +742,9 @@ class TestGroupSimilarity {
         /// How similare the `key` is to `comparedTo`.
         double similarity = 0.0;
         /// Mutants that are similare between `testCase` and the parent.
-        MutationId[] intersection;
+        MutationStatusId[] intersection;
         /// Unique mutants that are NOT verified by `testCase`.
-        MutationId[] difference;
+        MutationStatusId[] difference;
     }
 
     Similarity[][TestGroup] similarities;
@@ -767,22 +758,21 @@ class TestGroupSimilarity {
  */
 TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
         const(Mutation.Kind)[] kinds, const(TestGroup)[] test_groups) @safe {
-    import dextool.plugin.mutate.backend.database.type : TestCaseInfo, TestCaseId;
-
     auto profile = Profile(ReportSection.tc_groups_similarity);
 
-    alias TgKills = Tuple!(TestGroupSimilarity.TestGroup, "testGroup", MutationId[], "kills");
+    alias TgKills = Tuple!(TestGroupSimilarity.TestGroup, "testGroup",
+            MutationStatusId[], "kills");
 
     const test_cases = spinSql!(() { return db.getDetectedTestCaseIds; }).map!(
             a => Tuple!(TestCaseId, "id", TestCase, "tc")(a, spinSql!(() {
                 return db.getTestCase(a).get;
             }))).array;
 
-    MutationId[] gatherKilledMutants(const(TestGroup) tg) {
-        auto kills = appender!(MutationId[])();
+    MutationStatusId[] gatherKilledMutants(const(TestGroup) tg) {
+        auto kills = appender!(MutationStatusId[])();
         foreach (tc; test_cases.filter!(a => a.tc.isTestCaseInTestGroup(tg.re))) {
             kills.put(spinSql!(() {
-                    return db.getTestCaseMutantKills(tc.id, kinds);
+                    return db.testCaseKilledSrcMutants(kinds, tc.id);
                 }));
         }
         return kills.data;
@@ -815,7 +805,7 @@ TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
 }
 
 class TestGroupStat {
-    import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo;
+    import dextool.plugin.mutate.backend.database : FileId, MutantInfo;
 
     /// Human readable description for the test group.
     string description;
@@ -847,7 +837,6 @@ private bool isTestCaseInTestGroup(const TestCase tc, const Regex!char tg) {
 
 TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
         const(TestGroup) test_g) @safe {
-    import dextool.plugin.mutate.backend.database : MutationStatusId;
     import my.set;
 
     auto profile = Profile(ReportSection.tc_groups);
@@ -918,8 +907,8 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
 
 /// High interest mutants.
 class MutantSample {
-    import dextool.plugin.mutate.backend.database : MutationId, FileId, MutantInfo,
-        MutationStatus, MutationStatusId, MutationEntry, MutationStatusTime;
+    import dextool.plugin.mutate.backend.database : FileId, MutantInfo,
+        MutationStatus, MutationEntry, MutationStatusTime;
 
     MutationEntry[MutationStatusId] mutants;
 
@@ -1000,7 +989,6 @@ class DiffReport {
 
 DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         ref Diff diff, AbsolutePath workdir) {
-    import dextool.plugin.mutate.backend.database : MutationId, MutationStatusId;
     import dextool.plugin.mutate.backend.type : SourceLoc;
     import my.set;
 
@@ -1079,7 +1067,7 @@ struct MinimalTestSet {
 }
 
 MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
-    import dextool.plugin.mutate.backend.database : TestCaseId, TestCaseInfo;
+    import dextool.plugin.mutate.backend.database : TestCaseInfo;
     import my.set;
 
     auto profile = Profile(ReportSection.tc_min_set);
@@ -1117,51 +1105,47 @@ MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
 }
 
 struct TestCaseUniqueness {
-    MutationId[][TestCase] uniqueKills;
+    import my.set;
+
+    MutationStatusId[][TestCaseId] uniqueKills;
 
     // test cases that have no unique kills. These are candidates for being
     // refactored/removed.
-    TestCase[] noUniqueKills;
+    Set!TestCaseId noUniqueKills;
 }
 
 /// Returns: a report of the mutants that a test case is the only one that kills.
 TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind[] kinds) {
-    import dextool.plugin.mutate.backend.database.type : TestCaseId;
+    import dextool.plugin.mutate.backend.database.type : MutationStatusId;
     import my.set;
 
     auto profile = Profile(ReportSection.tc_unique);
 
-    /// any time a mutant is killed by more than one test case it is removed.
-    TestCaseId[MutationId] killedBy;
-    Set!MutationId blacklist;
+    // any time a mutant is killed by more than one test case it is removed.
+    TestCaseId[MutationStatusId] killedBy;
+    // killed by multiple test cases
+    Set!MutationStatusId multiKill;
 
     foreach (tc_id; db.getTestCasesWithAtLeastOneKill(kinds)) {
-        auto muts = db.getTestCaseMutantKills(tc_id, kinds);
-        foreach (m; muts.filter!(a => !blacklist.contains(a))) {
+        auto muts = db.testCaseKilledSrcMutants(kinds, tc_id);
+        foreach (m; muts.filter!(a => a !in multiKill)) {
             if (m in killedBy) {
                 killedBy.remove(m);
-                blacklist.add(m);
+                multiKill.add(m);
             } else {
                 killedBy[m] = tc_id;
             }
         }
     }
 
-    // use a cache to reduce the database access
-    TestCase[TestCaseId] idToTc;
-    TestCase getTestCase(TestCaseId id) @trusted {
-        return idToTc.require(id, spinSql!(() { return db.getTestCase(id).get; }));
-    }
-
     typeof(return) rval;
     Set!TestCaseId uniqueTc;
     foreach (kv; killedBy.byKeyValue) {
-        rval.uniqueKills[getTestCase(kv.value)] ~= kv.key;
+        rval.uniqueKills[kv.value] ~= kv.key;
         uniqueTc.add(kv.value);
     }
-    foreach (tc_id; db.getDetectedTestCaseIds.filter!(a => !uniqueTc.contains(a))) {
-        rval.noUniqueKills ~= getTestCase(tc_id);
-    }
+    foreach (tc_id; db.getDetectedTestCaseIds.filter!(a => !uniqueTc.contains(a)))
+        rval.noUniqueKills.add(tc_id);
 
     return rval;
 }

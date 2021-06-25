@@ -51,7 +51,7 @@ void toHtml(MutantMetaData[] data, ref Database db, Element root) {
     import std.uni : toLower;
     import sumtype;
     import dextool.plugin.mutate.backend.database : MutationId, NoMetadata, NoMut;
-    import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
+    import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
 
     alias IdComment = Tuple!(MutationId, "id", string, "comment");
     string[MutationId][string] tags;
