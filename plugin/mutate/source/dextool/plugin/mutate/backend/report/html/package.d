@@ -684,6 +684,8 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
 
         const score = f.stat.score;
         const style = () {
+            if (f.stat.total == 0)
+                return "background-color: lightgrey";
             if (f.stat.killed == f.stat.total)
                 return "background-color: green";
             if (score < 0.3)
