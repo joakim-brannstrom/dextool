@@ -3,6 +3,7 @@
 Fixes for dextool mutate
 
  * Fix invalid scheman when a constexpr is used as a label in a case stmt.
+ * Fix broken test case suggestion SQL query.
 
 # v3.3.0 Emerald
 
