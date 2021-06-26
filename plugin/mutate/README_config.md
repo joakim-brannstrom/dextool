@@ -320,30 +320,30 @@ Directory to write log files to (default: .).
 ```
 Sections to include in the report.
 
-| Section                          | Supported Style   |
-|----------------------------------|-------------------|
-| alive                            | plain, json       |
-| killed                           | plain, json       |
-| all_mut                          | plain, json       |
-| summary                          | all               |
-| mut_stat                         | plain             |
-| tc_killed                        | plain             |
-| tc_stat                          | plain, json       |
-| tc_map                           | plain             |
-| tc_suggestion                    | html              |
-| tc_killed_no_mutants             | plain, html, json |
-| tc_full_overlap                  | plain, html       |
-| tc_full_overlap_with_mutation_id | plain, html       |
-| tc_groups                        | html              |
-| tc_min_set                       | html              |
-| tc_similarity                    | html              |
-| tc_groups_similarity             | html              |
-| treemap                          | html              |
-| mut_recommend_kill               | html              |
-| diff                             | html, json        |
-| tc_unique                        | html, json        |
-| marked_mutants                   | plain             |
-| trend                            | plain, html, json |
+| Section                          | plain | json | html |
+|----------------------------------|-------|------|------|
+| alive                            | ✔     | ✔    |      |
+| killed                           | ✔     | ✔    |      |
+| all_mut                          | ✔     | ✔    |      |
+| summary                          | ✔     | ✔    | ✔    |
+| mut_stat                         | ✔     |      |      |
+| tc_killed                        | ✔     |      |      |
+| tc_stat                          | ✔     | ✔    |      |
+| tc_map                           | ✔     |      |      |
+| tc_suggestion                    |       |      | ✔    |
+| tc_killed_no_mutants             | ✔     | ✔    | ✔    |
+| tc_full_overlap                  | ✔     |      | ✔    |
+| tc_full_overlap_with_mutation_id | ✔     |      | ✔    |
+| tc_groups                        |       |      | ✔    |
+| tc_min_set                       |       |      | ✔    |
+| tc_similarity                    |       |      | ✔    |
+| tc_groups_similarity             |       |      | ✔    |
+| treemap                          |       |      | ✔    |
+| mut_recommend_kill               |       |      | ✔    |
+| diff                             |       | ✔    | ✔    |
+| tc_unique                        |       | ✔    | ✔    |
+| marked_mutants                   | ✔     |      |      |
+| trend                            | ✔     | ✔    | ✔    |
 
 **Note**: styles may have automatic support for sections which are always on.
 These are not shown in the table.
