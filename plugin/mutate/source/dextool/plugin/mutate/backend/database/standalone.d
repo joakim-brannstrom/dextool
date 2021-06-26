@@ -1588,11 +1588,8 @@ struct Database {
         return db.execute(num_test_cases_sql).oneValue!long;
     }
 
-    /** Returns: test cases that killed other mutants at the same mutation point as `id`.
-      */
+    /// Returns: test cases that killed other mutants at the same mutation point as `id`.
     TestCase[] getSurroundingTestCases(const MutationId id) @trusted {
-        Appender!(TestCase[]) rval;
-
         // get the mutation point ID that id reside at
         long mp_id;
         {
@@ -1605,13 +1602,15 @@ struct Database {
         }
 
         // get all the test cases that are killed at the mutation point
-        static immutable get_test_cases_sql = format!"SELECT t2.name,t1.location FROM %s t1,%s t2 WHERE t1.tc_id == t2.id AND t0.st_id IN (SELECT st_id FROM %s WHERE mp_id=:id)"(
-                killedTestCaseTable, allTestCaseTable, mutationTable);
+        static immutable get_test_cases_sql = format!"SELECT DISTINCT t2.name
+            FROM %s t0, %s t1,%s t2 WHERE t1.tc_id == t2.id AND t0.st_id IN (SELECT st_id FROM %s WHERE mp_id=:id)"(
+                mutationTable, killedTestCaseTable, allTestCaseTable, mutationTable);
         auto stmt = db.prepare(get_test_cases_sql);
         stmt.get.bind(":id", mp_id);
-        foreach (a; stmt.get.execute) {
-            rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
-        }
+
+        auto rval = appender!(TestCase[])();
+        foreach (a; stmt.get.execute)
+            rval.put(TestCase(a.peek!string(0)));
 
         return rval.data;
     }
