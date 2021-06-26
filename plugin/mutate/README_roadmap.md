@@ -52,10 +52,8 @@ for the next release together with mapping the items to implement.
 
 ## Arc Current
 
-The focus is on speed. Both in running the tool and in giving actionable
-feedback to the user.
-
- * Improve priority of how mutants are executed.
+The focus is on usability. Improve the HTML report, make it easier to read and
+faster to act on important information.
 
 ### Tasks
 
@@ -63,12 +61,8 @@ feedback to the user.
    should be "good enough" because the user is working on the pieace of code
    thus it should be able to "fast" understand what the mutant means.
  * save the function name in the database for a coverage region.
- * add prioritization based on the size of a mutant with a cut-off like max(10,
-   offset.end - offset.begin). This affects in what order mutants are tested.
- * the html report have an off-by-one error when displaying mutants.
- * html. show the date when the checksummed tests where last changed to the
-   user in the long term view. Then we can show to the user how "out of sync"
-   the tests are with the mutation report.
+ * add function metric to present to user a under-tested function. It is
+   basically a mutation score per function.
 
 ## Arc Next
 
@@ -116,3 +110,4 @@ New items are added at the top
    Using Mutation
    Testing](http://liu.diva-portal.org/smash/record.jsf?pid=diva2%3A707336&dswid=-3612)
    to reduce the amount of equivalent mutants.
+ * the html report have an off-by-one error when displaying mutants.

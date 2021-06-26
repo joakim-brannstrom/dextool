@@ -24,8 +24,8 @@ import dextool.type;
 import dextool.plugin.mutate.backend.database : Database, IterateMutantRow, MutationId;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats, reportMarkedMutants, reportStatistics,
-    MutationsMap, reportTestCaseKillMap, MutationReprMap, MutationRepr, MutationScoreHistory;
+import dextool.plugin.mutate.backend.report.analyzers : reportMutationSubtypeStats,
+    reportMarkedMutants, reportStatistics, MutationScoreHistory;
 import dextool.plugin.mutate.backend.report.type : ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table;
 import dextool.plugin.mutate.backend.type : Mutation;
@@ -72,10 +72,6 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
     FilesysIO fio;
 
     long[MakeMutationTextResult] mutationStat;
-
-    MutationsMap testCaseMutationKilled;
-    MutationReprMap mutationReprMap;
-    Appender!(MutationId[]) testCaseSuggestions;
 
     this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
         this.kinds = kinds;
@@ -136,29 +132,6 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
             }
         }
 
-        void updateTestCaseMap(TestCase[] testCases) {
-            if (r.mutation.status != Mutation.Status.killed || testCases.empty)
-                return;
-
-            try {
-                auto abs_path = AbsolutePath(buildPath(fio.getOutputDir, r.file.Path));
-                auto mut_txt = makeMutationText(fio.makeInput(abs_path),
-                        r.mutationPoint.offset, r.mutation.kind, r.lang);
-                mutationReprMap[r.id] = MutationRepr(r.sloc, r.file, mut_txt);
-
-                foreach (const a; testCases) {
-                    testCaseMutationKilled[a][r.id] = true;
-                }
-            } catch (Exception e) {
-                logger.warning(e.msg);
-            }
-        }
-
-        void updateTestCaseSuggestion() {
-            if (r.mutation.status == Mutation.Status.alive)
-                testCaseSuggestions.put(r.id);
-        }
-
         void reportTestCase(TestCase[] testCases) {
             if (r.mutation.status != Mutation.Status.killed || testCases.empty)
                 return;
@@ -179,8 +152,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
                 updateMutationStat;
 
             auto testCases = () {
-                if (ReportSection.tc_killed in sections
-                        || ReportSection.tc_stat in sections || ReportSection.tc_map in sections) {
+                if (ReportSection.tc_killed in sections || ReportSection.tc_stat in sections) {
                     return db.getTestCases(r.id);
                 }
                 return null;
@@ -191,32 +163,12 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 
             if (ReportSection.tc_stat in sections)
                 updateTestCaseStat(testCases);
-
-            if (ReportSection.tc_map in sections)
-                updateTestCaseMap(testCases);
-
-            if (ReportSection.tc_suggestion in sections)
-                updateTestCaseSuggestion();
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
     }
 
     void locationStatEvent() {
-        if (ReportSection.tc_map in sections && testCaseMutationKilled.length != 0) {
-            logger.info("Test Case Kill Map");
-
-            static void txtWriter(string s) {
-                writeln(s);
-            }
-
-            static void writer(ref Table!4 tbl) {
-                writeln(tbl);
-            }
-
-            reportTestCaseKillMap(testCaseMutationKilled, mutationReprMap, &txtWriter, &writer);
-        }
-
         if (ReportSection.mut_stat in sections && mutationStat.length != 0) {
             logger.info("Alive Mutation Statistics");
 
@@ -230,9 +182,8 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
     }
 
     void statEvent(ref Database db) {
-        import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap, reportTestCaseStats,
-            reportMutationTestCaseSuggestion, reportDeadTestCases, toTable,
-            reportMutationScoreHistory;
+        import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseFullOverlap,
+            reportTestCaseStats, reportDeadTestCases, toTable, reportMutationScoreHistory;
 
         auto stdout_ = () @trusted { return stdout; }();
 
@@ -257,14 +208,6 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
             tbl.heading = ["TestCase", "Location"];
             r.toTable(tbl);
             writeln(tbl);
-        }
-
-        if (ReportSection.tc_suggestion in sections && testCaseSuggestions.data.length != 0) {
-            static void writer(ref Table!1 tbl) {
-                writeln(tbl);
-            }
-
-            reportMutationTestCaseSuggestion(db, testCaseSuggestions.data, &writer);
         }
 
         if (ReportSection.tc_full_overlap in sections

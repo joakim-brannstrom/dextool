@@ -1643,30 +1643,30 @@ struct Database {
         return db.execute(num_test_cases_sql).oneValue!long;
     }
 
-    /// Returns: test cases that killed other mutants at the same mutation point as `id`.
-    TestCase[] getSurroundingTestCases(const MutationId id) @trusted {
-        // get the mutation point ID that id reside at
+    /// Returns: all alive mutants on the same mutation point as `id`.
+    MutationStatusId[] getSurroundingAliveMutants(const MutationStatusId id) @trusted {
         long mp_id;
         {
-            auto stmt = db.prepare(format!"SELECT mp_id FROM %s WHERE id=:id"(mutationTable));
-            stmt.get.bind(":id", cast(long) id);
+            auto stmt = db.prepare(format!"SELECT mp_id FROM %s WHERE st_id=:id"(mutationTable));
+            stmt.get.bind(":id", id.get);
             auto res = stmt.get.execute;
             if (res.empty)
                 return null;
             mp_id = res.oneValue!long;
         }
 
-        // get all the test cases that are killed at the mutation point
-        static immutable get_test_cases_sql = format!"SELECT DISTINCT t2.name
-            FROM %s t0, %s t1,%s t2 WHERE t1.tc_id == t2.id AND t0.st_id IN (SELECT st_id FROM %s WHERE mp_id=:id)"(
-                mutationTable, killedTestCaseTable, allTestCaseTable, mutationTable);
-        auto stmt = db.prepare(get_test_cases_sql);
+        static immutable sql = format!"SELECT DISTINCT t0.st_id FROM %s t0, %s t1 WHERE
+            t0.mp_id = :id AND
+            t0.st_id = t1.id AND
+            t1.status = %s"(mutationTable,
+                mutationStatusTable, cast(int) Mutation.Status.alive);
+
+        auto stmt = db.prepare(sql);
         stmt.get.bind(":id", mp_id);
 
-        auto rval = appender!(TestCase[])();
+        auto rval = appender!(MutationStatusId[])();
         foreach (a; stmt.get.execute)
-            rval.put(TestCase(a.peek!string(0)));
-
+            rval.put(a.peek!long(0).MutationStatusId);
         return rval.data;
     }
 

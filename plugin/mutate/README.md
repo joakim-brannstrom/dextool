@@ -1,7 +1,7 @@
 # Dextool Mutate
 
 Dextool Mutate is a mutation testing tool for C/C++. It can help you
-design new tests and evaluate the quality of existing tests by measuring their 
+design new tests and evaluate the quality of existing tests by measuring their
 ability to detect artificially injected faults.
 
 Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
@@ -129,8 +129,8 @@ Optional that are good candidates are:
 Figure: Overview of Dextool Mutate's operational phases.
 
 When using Dextool Mutate, the user starts by providing a configuration-file
-where scripts, settings, and paths are specified. The picture above shows that 
-the flow of the tool is divided into different parts (executable commandos) - 
+where scripts, settings, and paths are specified. The picture above shows that
+the flow of the tool is divided into different parts (executable commandos) -
 analyze, test and report.
 
 ## Test Phase Execution Flow
@@ -168,19 +168,25 @@ A basic report with a file list, statistics and some simple test case
 analysises is:
 
 ```sh
-dextool mutate report --style html --section summary --section tc_stat --section tc_killed_no_mutants --section tc_unique --section trend
+dextool mutate report --style html --section summary --section tc_suggestion --section tc_killed_no_mutants --section tc_unique --section tc_similarity --section trend
 ```
 
 ## Closing in for the kill <a name="kill"></a> 🦁
 
-For every killed mutant, a list of its "killer test cases" can be expanded. 
+The HTML report will for every killed mutant list the test cases that killed it
+when the mutant is expanded.
 
-When investigating a surviving mutant; some of the killer test cases in the 
+When investigating a surviving mutant; some of the killer test cases in the
 neighbourhood might be good candidates for improvement or deriving a new test.
 
 Next to the killer test case is a number that tells how many mutants it killed.
+
 * A low number suggests that the test covers a corner case.
 * A high number suggests that the test covers many aspects.
+
+If you add the report section `tc_suggestion` you will for each test case get a
+`Suggestion` column.  For every mutant that a test case kill a list of mutants
+at the same source code location that are alive are listed.
 
 ## Mark a Mutant as Dont Care <a name="mark-mutant"></a> 🤷
 

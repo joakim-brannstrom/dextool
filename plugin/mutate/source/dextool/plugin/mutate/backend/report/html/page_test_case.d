@@ -35,6 +35,7 @@ import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
+import dextool.cachetools;
 
 void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationKind)[] humanReadableKinds,
         const(Mutation.Kind)[] kinds, AbsolutePath testCasesDir, string tag, Element root) @trusted {
@@ -48,8 +49,11 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
         data.addUnique = true;
         data.uniqueData = reportTestCaseUniqueness(db, kinds);
     }
+
     if (ReportSection.tc_similarity in sections)
         data.similaritiesData = reportTestCaseSimilarityAnalyse(db, kinds, 5);
+
+    data.addSuggestion = ReportSection.tc_suggestion in sections;
 
     auto tbl = tmplSortableTable(root, ["Name", "Score", "Killed"] ~ data.columns);
     {
@@ -73,7 +77,8 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
             auto t = db.transaction;
             makeTestCasePage(db, humanReadableKinds, kinds, name, tcId,
                 data.uniqueData.uniqueKills.get(tcId, null), (data.similaritiesData is null)
-                ? null : data.similaritiesData.similarities.get(tcId, null), fout);
+                ? null : data.similaritiesData.similarities.get(tcId, null),
+                data.addSuggestion, fout);
         });
 
         r.addChild("td").addChild("a", name).href = buildPath(HtmlStyle.testCaseDir, reportFname);
@@ -95,38 +100,53 @@ struct ReportData {
     TestCaseUniqueness uniqueData;
 
     TestCaseSimilarityAnalyse similaritiesData;
+
+    bool addSuggestion;
 }
 
 void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
-        const(Mutation.Kind)[] kinds, const string name, const TestCaseId tcId,
-        MutationStatusId[] unique, TestCaseSimilarityAnalyse.Similarity[] similarities, ref File out_) {
+        const(Mutation.Kind)[] kinds, const string name, const TestCaseId tcId, MutationStatusId[] unique,
+        TestCaseSimilarityAnalyse.Similarity[] similarities, const bool addSuggestion, ref File out_) {
     auto doc = tmplBasicPage.dashboardCss;
     scope (success)
         out_.write(doc.toPrettyString);
+
+    auto getPath = nullableCache!(MutationStatusId, string, (MutationStatusId id) {
+        auto path = spinSql!(() => db.getPath(id)).get;
+        auto mutId = spinSql!(() => db.getMutationId(id)).get;
+        return format!"%s#%s"(buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(path)), mutId.get);
+    })(0, 30.dur!"seconds");
 
     doc.title(format("Test Case %s %(%s %) %s", name, humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");
     doc.root.childElements("head")[0].addChild("script").addChild(new RawSource(doc, jsIndex));
 
     doc.mainBody.addChild("h2").appendText("Killed");
-    addKilledMutants(db, kinds, tcId, unique, doc.mainBody);
+    addKilledMutants(db, kinds, tcId, unique, addSuggestion, getPath, doc.mainBody);
 
     if (!similarities.empty) {
         doc.mainBody.addChild("h2").appendText("Similarity");
-        addSimilarity(db, similarities, doc.mainBody);
+        addSimilarity(db, similarities, getPath, doc.mainBody);
     }
 }
 
-void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
-        const TestCaseId tcId, MutationStatusId[] uniqueKills, Element root) {
+void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds, const TestCaseId tcId,
+        MutationStatusId[] uniqueKills, const bool addSuggestion, ref PathCacheT getPath,
+        Element root) {
     auto kills = db.testCaseKilledSrcMutants(kinds, tcId);
     auto unique = uniqueKills.toSet;
 
-    auto tbl = tmplSortableTable(root, ["Link", "Tested", "Priority", "Unique"]);
+    auto tbl = tmplSortableTable(root, ["Link", "Tested", "Priority"] ~ (uniqueKills.empty
+            ? null : ["Unique"]) ~ (addSuggestion ? ["Suggestion"] : null));
     {
         auto p = root.addChild("p");
         p.addChild("b", "Unique");
         p.appendText(": only this test case kill the mutant.");
+    }
+    {
+        auto p = root.addChild("p");
+        p.addChild("b", "Suggestion");
+        p.appendText(": alive mutants on the same source code location. Because they are close to a mutant that this test case killed it may be suitable to extend this test case to also kill the suggested mutant.");
     }
 
     foreach (const id; kills.sort) {
@@ -141,14 +161,23 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
                 HtmlStyle.fileDir, pathToHtmlLink(mut.file)), mut.id.get);
         r.addChild("td", mutStatus.updated.toString);
         r.addChild("td", mutStatus.prio.get.to!string);
-        r.addChild("td", (id in unique ? "x" : ""));
+
+        if (!uniqueKills.empty)
+            r.addChild("td", (id in unique ? "x" : ""));
+
+        if (addSuggestion) {
+            auto tds = r.addChild("td");
+            foreach (s; db.getSurroundingAliveMutants(id)) {
+                tds.addChild("a", format("%s", s.get)).href = format("%s#%s",
+                        buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(mut.file)),
+                        db.getMutationId(s).get);
+            }
+        }
     }
 }
 
-void addSimilarity(ref Database db, TestCaseSimilarityAnalyse.Similarity[] similarities,
-        Element root) {
-    import dextool.cachetools;
-
+void addSimilarity(PathCacheT)(ref Database db,
+        TestCaseSimilarityAnalyse.Similarity[] similarities, ref PathCacheT getPath, Element root) {
     root.addChild("p", "How similary this test case is to others.");
     {
         auto p = root.addChild("p");
@@ -159,12 +188,6 @@ void addSimilarity(ref Database db, TestCaseSimilarityAnalyse.Similarity[] simil
             .appendText(
                     " The difference column are the mutants that are only killed by the current test case.");
     }
-
-    auto getPath = nullableCache!(MutationStatusId, string, (MutationStatusId id) {
-        auto path = spinSql!(() => db.getPath(id)).get;
-        auto mutId = spinSql!(() => db.getMutationId(id)).get;
-        return format!"%s#%s"(buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(path)), mutId.get);
-    })(0, 30.dur!"seconds");
 
     auto tbl = tmplDefaultTable(root, [
             "Test Case", "Similarity", "Difference", "Intersection"

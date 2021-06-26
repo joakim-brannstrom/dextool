@@ -787,20 +787,38 @@ class ShallChangeNrOfHighInterestMutantsShown : SimpleAnalyzeFixture {
     }
 }
 
-class ShallReportTestCaseSuggestion : SimpleAnalyzeFixture {
+// this test only see that the database queries work
+class ShallReportHtmlMutantSuggestion : SimpleAnalyzeFixture {
     import dextool.plugin.mutate.backend.type : TestCase;
 
     override void test() {
+        import dextool.plugin.mutate.backend.type : TestCase;
+
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-        foreach (id; getAllMutationIds(db))
+        auto ids = getAllMutationIds(db);
+
+        foreach (id; ids)
             db.updateMutation(id, Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), []);
+
+        foreach (i; ids[0 .. $/2])
+            db.updateMutation(i, Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [TestCase("tc_1")]);
+        foreach (i; ids[$/2 .. $])
+            db.updateMutation(i, Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
 
         makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
+            .addArg(["--style", "html"])
             .addArg(["--section", "tc_suggestion"])
+            .addArg(["--logdir", testEnv.outdir.toString])
             .run;
+
+        // only check that the column exists, not the content. checking the
+        // content becomes so specific which may lead to a brittle test
+        testConsecutiveSparseOrder!SubStr([`Suggestion`,
+                ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
+                "test_cases", "tc_1.html")).byLineCopy.array);
     }
 }
