@@ -4,6 +4,10 @@ Fixes for dextool mutate
 
  * Fix invalid scheman when a constexpr is used as a label in a case stmt.
  * Fix broken test case suggestion SQL query.
+ * Fix scattered test case report. Users have reported that the information
+   about test cases are spread out in the html report. This constructs an
+   individual page per test case and a summary table in `index.html` for easy
+   navigation.
 
 # v3.3.0 Emerald
 

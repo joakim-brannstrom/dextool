@@ -15,6 +15,7 @@ struct Html {
     static immutable ext = ".html";
     static immutable dir = "html";
     static immutable fileDir = "files";
+    static immutable testCaseDir = "test_cases";
 }
 
 // CSS style

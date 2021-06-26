@@ -26,7 +26,7 @@ import dextool.plugin.mutate.config : ConfigReport;
 void makeHighInterestMutants(ref Database db, const(Mutation.Kind)[] kinds,
         typeof(ConfigReport.highInterestMutantsNr) showInterestingMutants, string tag, Element root) @trusted {
     import std.path : buildPath;
-    import dextool.plugin.mutate.backend.report.html.page_files : pathToHtmlLink;
+    import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
 
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id",
             tag[1 .. $]), "High Interest Mutants");

@@ -99,7 +99,7 @@ class ShallRemoveTestCase : SimpleAnalyzeFixture {
                 "--operation", "removeTestCase"
                 ]).addArg(["--test-case-regex", `.*_1`]).run;
 
-        db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)]).get.killedMutants.shouldEqual(0);
+        db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)]).isNull.shouldBeTrue;
     }
 }
 
