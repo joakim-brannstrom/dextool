@@ -1,214 +1,65 @@
 # Report {id="req-report"}
 
-The plugin shall produce a report:
- * that is *easy* to integrate in other tools.
- * that is *easy to read* by a human.
+The plugin shall support producing reports in formats that are:
 
-The plugin shall use the *human readable report* as the default report.
+ * *easy* to integrate in other tools.
+ * *easy to read* by a human.
 
-**Rationale**: This is based on the assumption that it is important to use
-defaults for the standalone scenario that make it easy for a human to interpret
-the results.
+## Why Human Readable Report
 
-### Report Level
+The main consumer of the report is a human in the end. A human will need to
+understand the information that is presented to them and act. The reporting
+should assume that the human is a developer. A developer is always time
+constrained, a bit lazy and easily overwhelmed with information. A developer
+that opens the report prefer a layout that has easily actionable information
+presented to them together with deeper information for when it is needed.
 
-The supported report levels are:
- * summary
- * alive
- * all
+Imagin a CI integration and a pull request workflow. The reviewer of the pull
+request gets a link to the mutation report. They want to easily see if there
+are some major problems with the pull request that the tool has found.
+Preferably without scrolling/moving around so much.
 
-### Human Readable Report Content
+## Why Tool Integration?
 
-The report shall at least contain information regarding the mutants as absolute numbers and the mutation score.
+A report tailored for a human is often not suitable for machine consumption
+therefor at least one other format need to be supported for this case. Its
+intent is to make it easy for a user to extend the reporting without modifying
+the tool, integrate with other software etc.
 
-### Why Tool Integration?
+## Git Diff like Report
 
-The reporting to the user is part of the *user interface* thus it should be as good as possible.
-The easier a tool is to use the higher is the likelihood that it will be used.
+Other tools support producing mutants as diffs and use that as "report".
 
-By making it easy to integrate in other tools it will allow the user to use
-mutation testing in a *live* manner.  Imagine the scenario if the live mutants
-are integrated in the IDE. The user can then make changes to the code, rerun
-the mutation testing and see the changes to the live mutations in the IDE. No
-context switching needed. Mutation testing is a click on a button.
+**Decision**: Not needed. If a user absolutely need it then it can be mimicked
+with the tool integration report.  So far no user has requested it because the
+human readable report is good enough and easier.
 
-Another positive effect is that the time to inspect live mutants are reduced compared to reading an external report.
-
-### Why Human Readable Report
-
-The intention is to generate a report such that it is easy to publish in other content systems.
-
-### TODO
-
- * Develop a statistical model for how potentially how many bugs there are left
-   in the program that has not been discovered by tests.
- * Should the checksum be used when reporting mutations?
-   It is probably a bad idea to "stop" reporting because the source code is not always accessible.
-   But the user should be informed that the content is different.
- * Separate the mutation time in compiling SUT+tests and executing tests.
-
-## Report For Human {id="spc-report_for_human"}
+## Report For Human {id="spc-report_for_tool_developer"}
 [partof](#req-report)
 
-The plugin shall produce a report in markdown format when commanded via the
-*CLI*.
+The plugin shall produce a plain console report when style is *plain*.
 
 ### Why?
 
-Markdown is chosen because there exist many tools to convert it to other
-formats. It is also easy for a human to read in the raw form thus it can be
-used as the default *console* report.
-
-#### Git Diff like Report
-
-The user may want the output to be like `git diff`. But keep in mind that this
-is an *information leak* of the source code which may prohibit its usage when
-publishing to content systems so should be controllable by the user.
-
-Decision: Not needed. The tool integration can be used for this.
-
-This decision has been partially reverted. It is a bit too limited to only show
-the mutation subtype that where performed at that mutation point. But after
-using the markdown report it was determined that the user do not understand the
-mutation subtypes. It is kind of unreasonable to expect them to memories them.
-
-But the original reason for not implementing it is still valid. Thus a window
-of ~7 characters are used. For most mutations this is is actually not any more
-leak of information than it was before. For those mutations that remove source
-code or replaces large chunks a window that display at most 7 characters is
-used.
-
-## Report For Human CLI {id="spc-report_for_human-cli"}
-[partof](#spc-report_for_human)
-
-The command line argument *--level* shall control the *report level* of the
-human readable report.
-
-The default *report level* shall be *summary*.
-
-The plugin shall support the *report levels* {summary, alive, full}.
-
-### Markdown Chapter Mutants
-
-The report shall use the column order *from*, *to*, *file line:column*,
-*status*, *id*.
-
-#### Why?
-
-A human read a page from left to right. The intent is to keep the most
-interesting part to the left side.
-
-Without any scientific evidence I (Joakim B) think that the interesting part is
-what the mutation is (from -> to). It gives a human a quick way of determining
-how severe the problem is, if it is an equivalent mutant etc.  When you inspect
-the report this is probably the part you are looking for.
-
-This is followed by the filename and line:column. When the report is used the
-reader must be able to find the file the mutation is performed in and where in
-the file.
-
-The *id* is slightly more interesting than the *status*. It is what uniquely
-identify a mutation which is used for other things such as marking a mutant as
-equivalent.
-
-The least interesting is the status. I think that the normal report mode is
-*alive* which then mean that the status will be filled with "alive". A column
-which all have the same value is totally uninteresting.
-
-### Summary
-
-The report shall contain a summary of the mutation testing.
-
-The summary shall contain the following information:
- * number of untested mutants
- * number of alive/killed/timeout mutants
- * the sum of the mutants (alive+killed+timeout)
- * the mutation score
- * the time spent on testing alive/killed/timeout mutants in a human readable format (days/hours/minutes/seconds...)
- * the total time spent on mutation testing
-
-The plugin shall calculate a prediction as a date and absolute time for when
-the current running mutation is done when producing a report and there are any
-mutants left to test.
-
-**Rationale**: The user is interested in when the mutation is finished because
-it can take a long time to go through all mutations. All the data to do a
-simple *mean* approximation is available.
-
-The summary shall contain mutation metrics of the time spent on mutation testing.
-
-### Alive
-
-The report shall contain the location of alive mutations.
-
-A location for a mutant shall containg the following information:
- * the mutation ID
- * the status of the mutant (alive, unknown etc)
- * the file location
-    * the path to the file
-    * the line and column
-
-The summary shall be the last section in the report.
-
-**Note**: See ## Summary for the specification of the content
-
-**Rationale**: This requirement is based on the assumption that the user is
-first interested in reading the summary of the mutation testing. By printing
-the summary last the user do not have to scroll in the console. This is though
-inverted if the user renders the markdown report as a webpage. Then the user
-probably want the summary at the top.
-
-#### Alive Statistics
-
-The report shall contain the statistics of the alive mutations.
-
-The statistics shall on the original -> mutation:
- * total of that kind
- * percentage of the total
- * textual description of from -> to
-
-The statistics shall be sorted by the count column.
-
-### Full
-
-The report shall contain the location of all mutations.
-
-**Note**: See ## Alive for the specification of the content.
-
-The summary shall be the last section in the report.
-
-**Note**: See ## Summary for the specification of the content
-
-## TST-report_for_human
-[partof](#spc-report_for_human)
-
-*database content*
- * only untested mutants
- * one alive mutant
- * one alive and one killed mutant
- * one alive, one killed and one timeout mutant
- * one alive, one killed, one timeout and one killed by the compiler mutant
-
-*report level* = { summary, alive, all }
-
-Verify that the produced report contains the expected result when the input is
-a database with *database content* and *report level*.
+This is mainly intended to be used either by the tool developers of dextool or
+to quickly check e.g. the mutation score. It do not have to be full featured or
+anything. The human readable report is intended for that.
 
 ## SPC-report_for_tool_ide_integration
 [partof](#req-report)
 
-The plugin shall report mutants as *gcc compiler warnings* when commanded via the *CLI*.
+The plugin shall report mutants as *gcc compiler warnings* when style is *compiler*.
 
-The plugin shall filter the reported mutants by the *report level*:
- * *all*. All mutants are reported.
- * otherwise. Alive mutants are reported.
+The report only need to support reporting all mutants or alive.
+
+**Rationale**: Because the compiler format isn't modifiable thus limited in what it can contain.
 
 The plugin shall produce a *fixit hint* for each reported mutant.
 
-The plugin shall write the report to stderr.
-
 **Rationale**: The format of the messages are derived from how gcc output when
 using `-fdiagnostics-parseable-fixits`.
+
+The plugin shall write the report to stderr.
 
 ### GCC Compiler Warnings
 
@@ -255,135 +106,7 @@ inspect the mutation.
 ## SPC-report_for_tool_integration_format
 [partof](#req-report)
 
-The plugin shall report mutants as a *json model* when commanded via the *CLI*.
-
-### JSON Model
-
-The structure of the json file should be an array of files with their mutations:
-```json
-{
-"types": ["array of the mutation types in this report"],
-"files": [
-    "filename": "filename",
-    "checksum": "file checksum as hex",
-    "mutants": ["array of mutants"]
-]
-}
-```
-
-Each mutant is:
-```json
-{
-    "id": "unique ID for the mutant",
-    "status": "mutation status",
-    "kind": "subtype mutation kind",
-    "line": "line number starting from 1 in the file",
-    "column": "column number starting from the line",
-    "begin": "offset in bytes from start",
-    "end": "offset in bytes from start, one byte past the last",
-    "value": "the mutation as textual representation"
-}
-```
-
-## SPC-report_for_human_plain
-[partof](#req-report)
-###
-
-The plugin shall report mutants as *plain text* when commande via the *CLI*.
-
-### Plain Text
-
-This format is defined as:
-```
-info: $ID $STATUS from '$FROM' to '$TO' in $ABSOLUTE_PATH:$LINE:$COLUMN
-```
-
-The intention is that by providing the absolute path it becomes easier for the
-user to locate the file.  By printing the full code both from and to it becomes
-easier to find it on the line. It becomes easier to understand.
-
-## SPC-report_as_csv
-partof: REQ-report
-###
-
-The plugin shall report mutants in the *CSV format* when commanded via the
-*CLI*.
-
-**Note**: The standard for *CSV format* is somewhat unclear. This plugin try to
-adher to what wikipedia states about the format.
-
-### Requirements for Rapid User Understanding
-
-**Rationale**: The intention with the *textual description* field is to make it
-possible for the user to identify the mutant in the source code. This has been
-reported from the user as a problem when trying to understand the RORp and DCR
-mutants. As a side effect this may even make it possible for the user to
-classify a mutant by just looking at this field.
-
-The plugin shall wrap each field in double quotes when printing a CSV line.
-
-**Rationale**: This makes it somewhat easier to implement. It also makes it
-possible to embedded newlines which is useful for the *textual description*
-field.
-
-The plugin shall limit the *textual description* field to 255 characters when
-printing a CSV line.
-
-**Rationale**: 255 characters is assumed to be *enough* for the user to clearly
-identify and *somewhat* understand the mutant. Users have reported that
-LibreOffice Calc do not handle long lines well because the scrolling becomes
-horizontally unresponsive. Thus the limiting is further motivated. It has been
-tried to use a limit of 512 characters but that was too much.
-
-The plugin shall remove double quotes from the *original* and *mutated* part of
-the *textual description* field when printing a CSV line.
-
-**Rationale**: The problem with quotes are that they are somewhat more
-cumbersome to implement so by removing them the implementation is simpler. This
-shouldn't inhibit the readability.
-
-### CSV
-
-The intent is to make it easy to import the mutant report in e.g. Excel for
-inspection.
-
-A user will want to write comments to convey to other users his/her thoughts
-about the mutant.
-
-The columns should be
-1. ID
-2. Mutation kind as human readable.
-3. Textual description of the mutant which make it easy to inspect at a quick glance.
-    From user input it should be something like: 'x' to 'y'.
-4. Filename line:column
-5. Comment
-
-### Format Specification
-
-This is copied from the phobos module `std.csv`.
-
- * A record is separated by a new line (CRLF,LF,CR)
- * A final record may end with a new line
- * A header may be provided as the first record in input
- * A record has fields separated by a comma (customizable)
- * A field containing new lines, commas, or double quotes should be enclosed in
-   double quotes (customizable)
- * Double quotes in a field are escaped with a double quote
- * Each record should contain the same number of fields
-
-From wikipedia regarding the double quotes:
- * Each of the embedded double-quote characters must be represented by a pair of double-quote characters.
-    * 1997,Ford,E350,"Super, ""luxurious"" truck"
-
-## TST-report_as_csv
-[partof](#spc-report_as_csv)
-
-As input to the program use a file that contains DCC/DCR mutations.
-
-Verify that the report:
- * has a CSV header
- * contains a report of mutations for each column
- * the last column, comment, shall be empty
+The plugin shall report mutants as a *json model* when style is *json*.
 
 ## REQ-report_mutation_score
 [partof](#req-report)
@@ -426,7 +149,7 @@ call it an use case henceforth.
 During the implementation of this use case a bunch of test cases have been
 implemented. These test cases have, obviously, been implemented with the
 intention to verify the parts of the implementation that are related to the use
-case..
+case.
 
 It can thus be reasoned that this *group* of test cases collectively try to
 verify the implementation of the use case.

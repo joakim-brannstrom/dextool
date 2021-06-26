@@ -319,38 +319,94 @@ Directory to write log files to (default: .).
 --section
 ```
 Sections to include in the report.
- - *alive* : Alive mutants.
- - *killed* : Killed Mutants.
- - *all_mut* : All mutants.
- - *summary* : A summary of the result.
- - *mut_stat* : The top N mutations *from* -> *to* that has survived (e.g. "-" -> "+").
- - *tc_killed* : The mutants that each test case killed.
- - *tc_stat* : Test case statistics based on the number of mutants that are killed.
- - *tc_map* : TODO
- - *tc_suggestion* : TODO
- - *tc_killed_no_mutants* : Provide a list of tests that killed no mutant.
- - *tc_full_overlap* : Provide a list of tests that killed the exact same
-   mutants (candidates for redundant test cases).
- - *tc_full_overlap_with_mutation_id* : Provide a list of tests that killed the
- - exact same mutants (candidates for redundant test cases), but include the id
-   of the mutants.
- - *tc_groups* : Test case groups.
- - *tc_min_set* : Provide the minimal set of test cases needed in order to
-   achieve the mutation score.
- - *tc_similarity* : Provide a list of tests and to what degree they are
-   similar in terms of mutants the kill.
- - *tc_groups_similarity* : Compare the similarity between test groups. This is
-   a "group" view compared to *tc_similarity*.
- - *treemap* : Generate a treemap for the project (is currently unstable for
-   large projects and files that have very long filenames).
- - *mut_recommend_kill* :
- - *diff* : add a page that shows the diff as git would do it together with the
-   mutants on the changed lines.
- - *tc_unique* : for each test case report the mutants that the test case is the
-   only one to kill.
- * *marked_mutants* : a table with the manually marked mutants.
- * *trend* : print the recorded mutation score, one for each day, and a trend
-   of how it is predicted to change.
+
+| Section                          | Supported Style   |
+|----------------------------------|-------------------|
+| alive                            | plain, json       |
+| killed                           | plain, json       |
+| all_mut                          | plain, json       |
+| summary                          | all               |
+| mut_stat                         | plain             |
+| tc_killed                        | plain             |
+| tc_stat                          | plain, json       |
+| tc_map                           | plain             |
+| tc_suggestion                    | html              |
+| tc_killed_no_mutants             | plain, html, json |
+| tc_full_overlap                  | plain, html       |
+| tc_full_overlap_with_mutation_id | plain, html       |
+| tc_groups                        | html              |
+| tc_min_set                       | html              |
+| tc_similarity                    | html              |
+| tc_groups_similarity             | html              |
+| treemap                          | html              |
+| mut_recommend_kill               | html              |
+| diff                             | html, json        |
+| tc_unique                        | html, json        |
+| marked_mutants                   | plain             |
+| trend                            | plain, html, json |
+
+**Note**: styles may have automatic support for sections which are always on.
+These are not shown in the table.
+
+**alive**: Only report alive mutants.
+
+**killed**: Only report killed Mutants.
+
+**all_mut**: Report all mutants.
+
+**summary**: A summary of the result such as the mutation score.
+
+**mut_stat**: The top N mutations *from* -> *to* that has survived (e.g. "-" -> "+").
+
+**tc_killed**: The mutants that each test case killed.
+
+**tc_stat**: Test case statistics based on the number of mutants that are killed.
+
+**tc_map**: Deprecated.
+
+**tc_suggestion**: Report per test case alive mutants that are in the same
+source code location as mutants the test case are killing.
+
+**tc_killed_no_mutants**: Provide a list of tests that killed no mutant. These
+tests are probably flawed.
+
+**tc_full_overlap**: Provide a list of tests that killed the exact same
+mutants. They may be redundant and candidates for removal.
+
+**tc_full_overlap_with_mutation_id**: Same as **tc_full_overlap** but include
+the mutant too. It makes it possible to do a deeper analysis of test cases.
+
+**tc_groups**: Test case groups.
+
+**tc_min_set**: Provide the minimal set of test cases needed in order to
+achieve the mutation score. It can be used to e.g. define a smoke screen test
+suite because the minimal set has the same verification coverage as the full
+test suite.
+
+**tc_similarity**: Provide a list of tests and to what degree they are similar
+in terms of mutants the kill. Use it to e.g. merge tests or remove redundant
+test cases.
+
+**tc_groups_similarity**: Compare the similarity between test groups. This is a
+"group" view compared to *tc_similarity*.
+
+**treemap**: Generate a treemap for the project (is currently unstable for
+large projects and files that have very long filenames).
+
+**mut_recommend_kill**: Report a list of high priority mutants to kill.
+
+**diff**: Add a page that shows the diff as git would do it together with the
+mutants on the changed lines.
+
+**tc_unique**: For each test case report the mutants that the test case is the
+only one to kill. This can be used in the reverse that test cases that have no
+unique mutants may be redundant. Recommended to use in conjunction with
+**tc_similarity** for a deeper analysis.
+
+**marked_mutants**: List all manually marked mutants.
+
+**trend**: print the recorded mutation score, one for each day, and a trend of
+how it is predicted to change.
 
 ```sh
 --section-tc_stat-num
