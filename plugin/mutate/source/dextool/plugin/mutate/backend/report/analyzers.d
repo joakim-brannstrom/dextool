@@ -335,6 +335,7 @@ struct MutationScore {
     long total;
     long noCoverage;
     long equivalent;
+    long skipped;
     MutantTimeProfile totalTime;
 
     // Nr of mutants that are alive but tagged with nomut.
@@ -351,23 +352,18 @@ struct MutationScore {
 MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
     auto profile = Profile("reportScore");
 
-    const alive = spinSql!(() => db.mutantApi.aliveSrcMutants(kinds, file));
-    const noCov = spinSql!(() => db.mutantApi.noCovSrcMutants(kinds, file));
-    const aliveNomut = spinSql!(() => db.mutantApi.aliveNoMutSrcMutants(kinds, file));
-    const killed = spinSql!(() => db.mutantApi.killedSrcMutants(kinds, file));
-    const timeout = spinSql!(() => db.mutantApi.timeoutSrcMutants(kinds, file));
-    const equivalent = spinSql!(() => db.mutantApi.equivalentMutants(kinds, file));
-    const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds, file));
-
     typeof(return) rval;
-    rval.alive = alive.count;
-    rval.killed = killed.count;
-    rval.timeout = timeout.count;
-    rval.total = total.count;
-    rval.aliveNoMut = aliveNomut.count;
-    rval.noCoverage = noCov.count;
-    rval.equivalent = equivalent.count;
+    rval.alive = spinSql!(() => db.mutantApi.aliveSrcMutants(kinds, file)).count;
+    rval.killed = spinSql!(() => db.mutantApi.killedSrcMutants(kinds, file)).count;
+    rval.timeout = spinSql!(() => db.mutantApi.timeoutSrcMutants(kinds, file)).count;
+    rval.aliveNoMut = spinSql!(() => db.mutantApi.aliveNoMutSrcMutants(kinds, file)).count;
+    rval.noCoverage = spinSql!(() => db.mutantApi.noCovSrcMutants(kinds, file)).count;
+    rval.equivalent = spinSql!(() => db.mutantApi.equivalentMutants(kinds, file)).count;
+    rval.skipped = spinSql!(() => db.mutantApi.skippedMutants(kinds, file)).count;
+
+    const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds, file));
     rval.totalTime = total.time;
+    rval.total = total.count;
 
     return rval;
 }
@@ -404,6 +400,10 @@ struct MutationStat {
 
     long equivalent() @safe pure nothrow const @nogc {
         return scoreData.equivalent;
+    }
+
+    long skipped() @safe pure nothrow const @nogc {
+        return scoreData.skipped;
     }
 
     long total() @safe pure nothrow const @nogc {
@@ -468,6 +468,8 @@ struct MutationStat {
         }
         formattedWrite(w, "%-*s %s\n", align_, "Alive:", alive);
         formattedWrite(w, "%-*s %s\n", align_, "Killed:", killed);
+        if (skipped > 0)
+            formattedWrite(w, "%-*s %s\n", align_, "Skipped:", skipped);
         if (equivalent > 0)
             formattedWrite(w, "%-*s %s\n", align_, "Equivalent:", equivalent);
         formattedWrite(w, "%-*s %s\n", align_, "Timeout:", timeout);
@@ -1123,6 +1125,8 @@ struct EstimateScore {
                 goto case;
             case killedByCompiler:
                 return 0.5; // shouldnt happen but...
+            case skipped:
+                goto case;
             case noCoverage:
                 goto case;
             case alive:

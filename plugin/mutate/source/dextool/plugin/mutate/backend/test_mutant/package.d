@@ -610,7 +610,7 @@ nothrow:
     void opCall(ref Initialize data) {
         logger.info("Initializing worklist").collectException;
         spinSql!(() {
-            db.worklistApi.updateWorklist(kinds, Mutation.Status.unknown,
+            db.worklistApi.updateWorklist(kinds, [Mutation.Status.unknown],
                 unknownWeight, mutationOrder);
         });
 
@@ -843,7 +843,8 @@ nothrow:
                     }
                 }
                 if (update) {
-                    db.worklistApi.updateWorklist(kinds, Mutation.Status.unknown);
+                    db.worklistApi.updateWorklist(kinds,
+                            [Mutation.Status.unknown, Mutation.Status.skipped]);
                 }
                 break;
             }
@@ -867,10 +868,12 @@ nothrow:
                 && conf.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
             logger.info("Adding alive mutants to worklist").collectException;
             spinSql!(() {
-                db.worklistApi.updateWorklist(kinds, Mutation.Status.alive);
-                // if these mutants are covered by the tests then they will be
-                // removed from the worklist in PropagateCoverage.
-                db.worklistApi.updateWorklist(kinds, Mutation.Status.noCoverage);
+                db.worklistApi.updateWorklist(kinds, [
+                        Mutation.Status.alive, Mutation.Status.skipped,
+                        // if these mutants are covered by the tests then they will be
+                        // emoved from the worklist in PropagateCoverage.
+                        Mutation.Status.noCoverage
+                    ]);
             });
         }
     }
@@ -1148,7 +1151,7 @@ nothrow:
 
         try {
             auto g = MutationTestDriver.Global(filesysIO, db, nextMutant,
-                    runnerPtr, testBinaryDbPtr);
+                    runnerPtr, testBinaryDbPtr, conf.useSkipMutant);
             auto driver = MutationTestDriver(g,
                     MutationTestDriver.TestMutantData(!(conf.mutationTestCaseAnalyze.empty
                         && conf.mutationTestCaseBuiltin.empty),
@@ -1281,6 +1284,8 @@ nothrow:
 
             foreach (a; data.result) {
                 final switch (a.status) with (Mutation.Status) {
+                case skipped:
+                    goto case;
                 case unknown:
                     goto case;
                 case equivalent:

@@ -44,7 +44,6 @@ version (unittest) {
 
 /// The result of running the test suite on one mutant.
 struct MutationTestResult {
-    import std.datetime : Duration;
     import dextool.plugin.mutate.backend.database : MutationStatusId, MutationId;
     import dextool.plugin.mutate.backend.type : Mutation, TestCase, ExitStatus;
 

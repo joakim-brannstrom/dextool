@@ -224,6 +224,8 @@ struct ConfigMutationTest {
     NamedType!(bool, Tag!"TestCmdChecksum", bool.init, TagStringable) testCmdChecksum;
 
     NamedType!(long, Tag!"MaxTestCaseOutputCaptureMbyte", int.init, TagStringable) maxTestCaseOutput = 10;
+
+    NamedType!(bool, Tag!"UseSkipMutant", bool.init, TagStringable) useSkipMutant;
 }
 
 /// Settings for the administration mode

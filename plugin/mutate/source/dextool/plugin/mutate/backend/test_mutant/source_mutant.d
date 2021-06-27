@@ -18,6 +18,7 @@ import std.array : empty, array;
 import std.exception : collectException;
 import std.path : buildPath;
 
+import miniorm : spinSql;
 import my.fsm : next, act, get, TypeDataMap;
 import my.hash : Checksum64;
 import my.named_type;
@@ -60,6 +61,8 @@ struct MutationTestDriver {
 
         TestBinaryDb* testBinaryDb;
 
+        NamedType!(bool, Tag!"UseSkipMutant", bool.init, TagStringable) useSkipMutant;
+
         /// File to mutate.
         AbsolutePath mutateFile;
 
@@ -100,6 +103,7 @@ struct MutationTestDriver {
         Optional!(Mutation.Status) calcStatus;
     }
 
+    // if checksums of test binaries is used to set the status.
     static struct MarkCalcStatus {
         Mutation.Status status;
     }
@@ -123,6 +127,9 @@ struct MutationTestDriver {
     static struct StoreResult {
     }
 
+    static struct Propagate {
+    }
+
     static struct Done {
     }
 
@@ -138,7 +145,8 @@ struct MutationTestDriver {
     }
 
     alias Fsm = my.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode, TestCaseAnalyze, StoreResult, Done,
-            FilesysError, NoResultRestoreCode, NoResult, MarkCalcStatus, TestBinaryAnalyze);
+            FilesysError, NoResultRestoreCode, NoResult, MarkCalcStatus,
+            TestBinaryAnalyze, Propagate);
     alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData);
 
     private {
@@ -185,8 +193,8 @@ struct MutationTestDriver {
             if (a.filesysError)
                 return fsm(FilesysError.init);
             return fsm(StoreResult.init);
-        }, (StoreResult a) { return fsm(Done.init); }, (Done a) => fsm(a),
-                (FilesysError a) => fsm(a),
+        }, (StoreResult a) => Propagate.init, (Propagate a) => Done.init,
+                (Done a) => fsm(a), (FilesysError a) => fsm(a),
                 (NoResultRestoreCode a) => fsm(NoResult.init), (NoResult a) => fsm(a),);
 
         self.fsm.act!self;
@@ -405,6 +413,8 @@ nothrow:
                 goto case;
             case Status.equivalent:
                 goto case;
+            case Status.skipped:
+                goto case;
             case Status.unknown:
                 break;
             }
@@ -442,8 +452,6 @@ nothrow:
     }
 
     void opCall(StoreResult data) {
-        import miniorm : spinSql;
-
         const statusId = spinSql!(() => global.db.mutantApi.getMutationStatusId(global.mutp.id));
 
         global.swTest.stop;
@@ -463,6 +471,46 @@ nothrow:
                 global.testResult.exitStatus.get, profile).collectException;
         logger.infof(!global.testCases.empty, `killed by [%-(%s, %)]`,
                 global.testCases.sort.map!"a.name").collectException;
+    }
+
+    void opCall(Propagate data) {
+        import std.algorithm : canFind;
+
+        // only SDL mutants are supported for propgatation for now because a
+        // surviving SDL is a strong indication that all internal mutants will
+        // survive. The SDL mutant have basically deleted the code so. Note
+        // though that there are probably corner cases wherein this assumption
+        // isn't true.
+
+        if (!global.useSkipMutant.get || result.empty
+                || result[0].status != Mutation.Status.alive
+                || global.mutp.mp.mutations.canFind!(a => a.kind != Mutation.Kind.stmtDel))
+            return;
+
+        logger.trace("Propagate").collectException;
+
+        void propagate() {
+            const fid = global.db.getFileId(global.mutp.file);
+            if (fid.isNull)
+                return;
+
+            foreach (const stId; global.db.mutantApi.mutantsInRegion(fid.get,
+                    global.mutp.mp.offset, Mutation.Status.unknown).filter!(a => a != result[0].id)) {
+                const mutId = global.db.mutantApi.getMutationId(stId);
+                if (mutId.isNull)
+                    return;
+                result ~= MutationTestResult(mutId.get, stId, Mutation.Status.skipped,
+                        MutantTimeProfile.init, null, ExitStatus(0));
+            }
+
+            logger.tracef("Marked %s as skipped", result.length - 1).collectException;
+        }
+
+        spinSql!(() @trusted {
+            auto t = global.db.transaction;
+            propagate;
+            t.commit;
+        });
     }
 
     void opCall(ref RestoreCode data) {

@@ -262,7 +262,9 @@ struct Mutation {
         /// not covered by the tests
         noCoverage,
         ///
-        equivalent
+        equivalent,
+        /// if the mutant where never tested because reasons
+        skipped,
     }
 
     Kind kind;

@@ -28,7 +28,7 @@ class ShallDeleteBodyOfFuncsReturningVoid : SdlFixture {
 
     override void test() {
         mixin(EnvSetup(globalTestdir));
-        auto r = precondition(testEnv);
+        auto r = precondition(testEnv).run;
         testAnyOrder!SubStr([
                 `from ' f1Global = 2.2; ' to ''`, `from ' z = 1.2; ' to ''`,
                 `from ' method1 = 2.2; ' to ''`
@@ -51,7 +51,7 @@ class ShallDeleteReturnStmt : SdlFixture {
 
     override void test() {
         mixin(EnvSetup(globalTestdir));
-        auto r = precondition(testEnv);
+        auto r = precondition(testEnv).run;
         testAnyOrder!Re([`from.*return.*to ''`, `from.*return.*to ''`,]).shouldBeIn(r.output);
         testAnyOrder!SubStr([`return false`,]).shouldNotBeIn(r.output);
     }
@@ -64,7 +64,7 @@ class ShallDeleteFuncCalls : SdlFixture {
 
     override void test() {
         mixin(EnvSetup(globalTestdir));
-        auto r = precondition(testEnv);
+        auto r = precondition(testEnv).run;
         testAnyOrder!SubStr([
                 "'gun()' to ''", "'wun(5)' to ''", "'wun(calc(6))' to ''",
                 ]).shouldBeIn(r.output);
@@ -78,7 +78,7 @@ class ShallNotDeleteThrowStmt : SdlFixture {
 
     override void test() {
         mixin(EnvSetup(globalTestdir));
-        auto r = precondition(testEnv);
+        auto r = precondition(testEnv).run;
 
         testAnyOrder!SubStr([`from 'throw Bun()' to ''`]).shouldNotBeIn(r.output);
 
@@ -95,7 +95,7 @@ class ShallDeleteAssignment : SdlFixture {
 
     override void test() {
         mixin(EnvSetup(globalTestdir));
-        auto r = precondition(testEnv);
+        auto r = precondition(testEnv).addPostArg("--no-skipped").run;
         testAnyOrder!SubStr([`from 'w = 4' to ''`]).shouldBeIn(r.output);
 
         testAnyOrder!SubStr([
