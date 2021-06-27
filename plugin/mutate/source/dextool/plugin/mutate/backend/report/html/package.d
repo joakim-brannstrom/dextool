@@ -144,7 +144,7 @@ struct FileIndex {
 
         auto raw = fio.makeInput(AbsolutePath(buildPath(fio.getOutputDir, fr.file)));
 
-        auto tc_info = db.getAllTestCaseInfo2(fr.id, kinds);
+        auto tc_info = db.testCaseApi.getAllTestCaseInfo2(fr.id, kinds);
 
         ctx = FileCtx.make(original, fr.id, raw, tc_info);
         ctx.processFile = fr.file;
@@ -894,7 +894,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
         // force a newline in the generated html to improve readability
         appendText("\n");
         addChild(new RawSource(ctx.doc, format("const MAX_NUM_TESTCASES = %s;",
-                db.getDetectedTestCases.length)));
+                db.testCaseApi.getDetectedTestCases.length)));
         appendText("\n");
         addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
                 muts.data.map!(a => a.id))));

@@ -225,14 +225,14 @@ final class ReportJson {
             if (!r.uniqueKills.empty) {
                 JSONValue s;
                 foreach (a; r.uniqueKills.byKeyValue) {
-                    s[db.getTestCaseName(a.key)] = a.value.map!((a => a.get)).array;
+                    s[db.testCaseApi.getTestCaseName(a.key)] = a.value.map!((a => a.get)).array;
                 }
                 report["test_case_unique"] = s;
             }
 
             if (!r.noUniqueKills.empty) {
                 report["test_case_no_unique"] = r.noUniqueKills.toRange.map!(
-                        a => db.getTestCaseName(a)).array;
+                        a => db.testCaseApi.getTestCaseName(a)).array;
             }
         }
 

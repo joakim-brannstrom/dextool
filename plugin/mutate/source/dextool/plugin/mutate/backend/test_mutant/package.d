@@ -819,7 +819,7 @@ nothrow:
         // the test cases before anything has potentially changed.
         auto old_tcs = spinSql!(() {
             Set!string old_tcs;
-            foreach (tc; db.getDetectedTestCases)
+            foreach (tc; db.testCaseApi.getDetectedTestCases)
                 old_tcs.add(tc.name);
             return old_tcs;
         });
@@ -827,14 +827,15 @@ nothrow:
         void transaction() @safe {
             final switch (conf.onRemovedTestCases) with (ConfigMutationTest.RemovedTestCases) {
             case doNothing:
-                db.addDetectedTestCases(data.foundTestCases.byValue.joiner.array);
+                db.testCaseApi.addDetectedTestCases(data.foundTestCases.byValue.joiner.array);
                 break;
             case remove:
                 bool update;
                 // change all mutants which, if a test case is removed, no
                 // longer has a test case that kills it to unknown status
-                foreach (id; db.setDetectedTestCases(data.foundTestCases.byValue.joiner.array)) {
-                    if (!db.hasTestCases(id)) {
+                foreach (id; db.testCaseApi.setDetectedTestCases(
+                        data.foundTestCases.byValue.joiner.array)) {
+                    if (!db.testCaseApi.hasTestCases(id)) {
                         update = true;
                         db.updateMutationStatus(id, Mutation.Status.unknown, ExitStatus(0));
                     }
@@ -851,7 +852,7 @@ nothrow:
             transaction();
 
             Set!string found_tcs;
-            foreach (tc; db.getDetectedTestCases)
+            foreach (tc; db.testCaseApi.getDetectedTestCases)
                 found_tcs.add(tc.name);
 
             tr.commit;
@@ -1437,7 +1438,7 @@ nothrow:
             updateMutantStatus(*db, result.id, result.status,
                     result.exitStatus, timeoutFsm.output.iter);
             db.updateMutation(result.id, result.profile);
-            db.updateMutationTestCases(result.id, result.testCases);
+            db.testCaseApi.updateMutationTestCases(result.id, result.testCases);
             db.removeFromWorklist(result.id);
 
             if (result.status == Mutation.Status.alive)

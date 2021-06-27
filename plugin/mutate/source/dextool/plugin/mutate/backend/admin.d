@@ -173,12 +173,13 @@ ExitStatusType removeTestCase(ref Database db, const Regex!char re) @trusted not
     try {
         auto trans = db.transaction;
 
-        foreach (a; db.getDetectedTestCases
+        foreach (a; db.testCaseApi
+                .getDetectedTestCases
                 .filter!(a => !matchFirst(a.name, re).empty)
-                .map!(a => tuple!("tc", "id")(a, db.getTestCaseId(a)))
+                .map!(a => tuple!("tc", "id")(a, db.testCaseApi.getTestCaseId(a)))
                 .filter!(a => !a.id.isNull)) {
             logger.info("Removing ", a.tc);
-            db.removeTestCase(a.id.get);
+            db.testCaseApi.removeTestCase(a.id.get);
         }
 
         trans.commit;
@@ -196,12 +197,13 @@ ExitStatusType resetTestCase(ref Database db, const Regex!char re) @trusted noth
     try {
         auto trans = db.transaction;
 
-        foreach (a; db.getDetectedTestCases
+        foreach (a; db.testCaseApi
+                .getDetectedTestCases
                 .filter!(a => !matchFirst(a.name, re).empty)
-                .map!(a => tuple!("tc", "id")(a, db.getTestCaseId(a)))
+                .map!(a => tuple!("tc", "id")(a, db.testCaseApi.getTestCaseId(a)))
                 .filter!(a => !a.id.isNull)) {
             logger.info("Resetting ", a.tc);
-            db.resetTestCaseId(a.id.get);
+            db.testCaseApi.resetTestCaseId(a.id.get);
         }
 
         trans.commit;

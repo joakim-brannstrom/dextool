@@ -54,14 +54,15 @@ class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
         db.updateMutation(MutationId(5), Mutation.Status.killed, ExitStatus(0),
                 MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
 
-        db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
+        db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
             .get.killedMutants.shouldBeGreaterThan(1);
 
         auto r = makeDextoolAdmin(testEnv).addArg([
                 "--operation", "resetTestCase"
                 ]).addArg(["--test-case-regex", `.*_1`]).run;
 
-        db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)]).get.killedMutants.shouldEqual(0);
+        db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
+            .get.killedMutants.shouldEqual(0);
     }
 }
 
@@ -92,14 +93,14 @@ class ShallRemoveTestCase : SimpleAnalyzeFixture {
         db.updateMutation(MutationId(4), Mutation.Status.killed, ExitStatus(0),
                 MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
 
-        db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
+        db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
             .get.killedMutants.shouldBeGreaterThan(1);
 
         auto r = makeDextoolAdmin(testEnv).addArg([
                 "--operation", "removeTestCase"
                 ]).addArg(["--test-case-regex", `.*_1`]).run;
 
-        db.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)]).isNull.shouldBeTrue;
+        db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)]).isNull.shouldBeTrue;
     }
 }
 

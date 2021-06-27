@@ -64,11 +64,11 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
     root.addChild("p", "A test case that has zero killed mutants has a high probability of containing implementation errors. They should be manually inspected.");
 
     const total = spinSql!(() => db.totalSrcMutants(kinds)).count;
-    foreach (tcId; spinSql!(() => db.getDetectedTestCaseIds)) {
+    foreach (tcId; spinSql!(() => db.testCaseApi.getDetectedTestCaseIds)) {
         auto r = tbl.appendRow;
 
-        const name = spinSql!(() => db.getTestCaseName(tcId));
-        const kills = spinSql!(() => db.getTestCaseInfo(tcId, kinds)).killedMutants;
+        const name = spinSql!(() => db.testCaseApi.getTestCaseName(tcId));
+        const kills = spinSql!(() => db.testCaseApi.getTestCaseInfo(tcId, kinds)).killedMutants;
         const ratio = 100.0 * ((total == 0) ? 0.0 : (cast(double) kills / total));
 
         auto reportFname = name.pathToHtmlLink;
@@ -138,7 +138,7 @@ void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
 void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds, const TestCaseId tcId,
         MutationStatusId[] uniqueKills, const bool addSuggestion, ref PathCacheT getPath,
         Element root) {
-    auto kills = db.testCaseKilledSrcMutants(kinds, tcId);
+    auto kills = db.testCaseApi.testCaseKilledSrcMutants(kinds, tcId);
     auto unique = uniqueKills.toSet;
 
     auto tbl = tmplSortableTable(root, ["Link", "Tested", "Priority"] ~ (uniqueKills.empty
@@ -200,7 +200,7 @@ void addSimilarity(PathCacheT)(ref Database db,
     foreach (const sim; similarities) {
         auto r = tbl.appendRow();
 
-        const name = db.getTestCaseName(sim.testCase);
+        const name = db.testCaseApi.getTestCaseName(sim.testCase);
         r.addChild("td").addChild("a", name).href = buildPath(name.pathToHtmlLink);
 
         r.addChild("td", format("%#.3s", sim.similarity));

@@ -43,7 +43,8 @@ import dextool.type : AbsolutePath, Path, ExitStatusType;
 
 import dextool.plugin.mutate.backend.database.schema;
 import dextool.plugin.mutate.backend.database.type;
-import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum, Language, Offset;
+import dextool.plugin.mutate.backend.type : MutationPoint, Mutation, Checksum,
+    Language, Offset, TestCase;
 import dextool.plugin.mutate.type : MutationOrder;
 
 /** Database wrapper with minimal dependencies.
@@ -389,7 +390,7 @@ struct Database {
         stmt.get.bind(":update_ts", Clock.currTime.toSqliteDateTime);
         stmt.get.execute;
 
-        updateMutationTestCases(id, tcs);
+        testCaseApi.updateMutationTestCases(id, tcs);
     }
 
     /** Update the status of a mutant.
@@ -1034,91 +1035,6 @@ struct Database {
     /// ditto.
     alias aliveNoMutSrcMutants = countNoMutMutants!([Mutation.Status.alive], true);
 
-    /// Returns: mutants killed by the test case.
-    MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, const TestCaseId id) @trusted {
-        const sql = format("SELECT t1.id
-            FROM %s t0, %s t1, %s t3
-            WHERE
-            t0.st_id = t1.id AND
-            t1.status = :st AND
-            t0.kind IN (%(%s,%)) AND
-            t3.tc_id = :id AND
-            t3.st_id = t1.id
-            GROUP BY t1.id", mutationTable, mutationStatusTable,
-                killedTestCaseTable, kinds.map!(a => cast(int) a));
-
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":st", cast(long) Mutation.Status.killed);
-        stmt.get.bind(":id", id.get);
-
-        auto app = appender!(MutationStatusId[])();
-        foreach (res; stmt.get.execute)
-            app.put(MutationStatusId(res.peek!long(0)));
-
-        return app.data;
-    }
-
-    MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, const TestCase tc) @safe {
-        auto id = getTestCaseId(tc);
-        if (id.isNull)
-            return null;
-        return testCaseKilledSrcMutants(kinds, id.get);
-    }
-
-    /// Returns: mutants at mutations points that the test case has killed mutants at.
-    alias testCaseMutationPointAliveSrcMutants = testCaseCountSrcMutants!([
-            Mutation.Status.alive
-            ]);
-    /// ditto
-    alias testCaseMutationPointTimeoutSrcMutants = testCaseCountSrcMutants!(
-            [Mutation.Status.timeout]);
-    /// ditto
-    alias testCaseMutationPointKilledSrcMutants = testCaseCountSrcMutants!([
-            Mutation.Status.killed
-            ]);
-    /// ditto
-    alias testCaseMutationPointUnknownSrcMutants = testCaseCountSrcMutants!(
-            [Mutation.Status.unknown]);
-    /// ditto
-    alias testCaseMutationPointKilledByCompilerSrcMutants = testCaseCountSrcMutants!(
-            [Mutation.Status.killedByCompiler]);
-    /// ditto
-    alias testCaseMutationPointTotalSrcMutants = testCaseCountSrcMutants!(
-            [
-            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
-            ]);
-
-    private MutationStatusId[] testCaseCountSrcMutants(int[] status)(
-            const Mutation.Kind[] kinds, TestCase tc) @trusted {
-        const query = format("
-            SELECT t1.id
-            FROM %s t0, %s t1
-            WHERE
-            t0.mp_id IN (SELECT t1.id
-                      FROM %s t0,%s t1, %s t2, %s t3
-                      WHERE
-                      t0.mp_id = t1.id AND
-                      t2.name = :name AND
-                      t2.id = t3.tc_id AND
-                      t3.st_id = t0.st_id
-                      )
-            AND
-            t0.st_id = t1.id AND
-            t1.status IN (%(%s,%)) AND
-            t0.kind IN (%(%s,%))
-            GROUP BY t1.id", mutationTable, mutationStatusTable, mutationTable, mutationPointTable,
-                allTestCaseTable, killedTestCaseTable, status, kinds.map!(a => cast(int) a));
-
-        auto stmt = db.prepare(query);
-        stmt.get.bind(":name", tc.name);
-
-        auto app = appender!(MutationStatusId[])();
-        foreach (res; stmt.get.execute)
-            app.put(MutationStatusId(res.peek!long(0)));
-
-        return app.data;
-    }
-
     Nullable!Checksum getChecksum(MutationStatusId id) @trusted {
         static immutable sql = format!"SELECT checksum0, checksum1 FROM %s WHERE id=:id"(
                 mutationStatusTable);
@@ -1295,354 +1211,6 @@ struct Database {
         logger.infof(!removeIds.empty, "%1$s/%1$s removed", removeIds.length);
     }
 
-    /** Add a link between the mutation and what test case killed it.
-     *
-     * Params:
-     *  id = ?
-     *  tcs = test cases to add
-     */
-    void updateMutationTestCases(const MutationId id, const(TestCase)[] tcs) @trusted {
-        if (tcs.length == 0)
-            return;
-
-        immutable statusId = () {
-            static immutable st_id_for_mutation_q = format!"SELECT st_id FROM %s WHERE id=:id"(
-                    mutationTable);
-            auto stmt = db.prepare(st_id_for_mutation_q);
-            stmt.get.bind(":id", cast(long) id);
-            return stmt.get.execute.oneValue!long;
-        }();
-        updateMutationTestCases(MutationStatusId(statusId), tcs);
-    }
-
-    /** Add a link between the mutation and what test case killed it.
-     *
-     * Params:
-     *  id = ?
-     *  tcs = test cases to add
-     */
-    void updateMutationTestCases(const MutationStatusId statusId, const(TestCase)[] tcs) @trusted {
-        if (tcs.length == 0)
-            return;
-
-        try {
-            static immutable remove_old_sql = format!"DELETE FROM %s WHERE st_id=:id"(
-                    killedTestCaseTable);
-            auto stmt = db.prepare(remove_old_sql);
-            stmt.get.bind(":id", statusId.get);
-            stmt.get.execute;
-        } catch (Exception e) {
-        }
-
-        static immutable add_if_non_exist_tc_sql = format!"INSERT OR IGNORE INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)"(
-                allTestCaseTable, allTestCaseTable);
-        auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
-
-        static immutable add_new_sql = format!"INSERT OR IGNORE INTO %s (st_id, tc_id, location) SELECT :st_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc"(
-                killedTestCaseTable, allTestCaseTable);
-        auto stmt_insert = db.prepare(add_new_sql);
-        foreach (const tc; tcs) {
-            try {
-                stmt_insert_tc.get.reset;
-                stmt_insert_tc.get.bind(":name1", tc.name);
-                stmt_insert_tc.get.bind(":name2", tc.name);
-                stmt_insert_tc.get.execute;
-
-                stmt_insert.get.reset;
-                stmt_insert.get.bind(":st_id", statusId.get);
-                stmt_insert.get.bind(":loc", tc.location);
-                stmt_insert.get.bind(":tc", tc.name);
-                stmt_insert.get.execute;
-            } catch (Exception e) {
-                logger.warning(e.msg);
-            }
-        }
-    }
-
-    /** Set detected test cases.
-     *
-     * This will replace those that where previously stored.
-     *
-     * Returns: ID of affected mutation statuses.
-     */
-    MutationStatusId[] setDetectedTestCases(const(TestCase)[] tcs) @trusted {
-        if (tcs.length == 0)
-            return null;
-
-        auto ids = appender!(MutationStatusId[])();
-
-        static immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
-        internalAddDetectedTestCases(tcs, tmp_name);
-
-        static immutable mut_st_id = format!"SELECT DISTINCT t1.st_id
-            FROM %s t0, %s t1
-            WHERE
-            t0.name NOT IN (SELECT name FROM %s) AND
-            t0.id = t1.tc_id"(allTestCaseTable,
-                killedTestCaseTable, tmp_name);
-        auto stmt = db.prepare(mut_st_id);
-        foreach (res; stmt.get.execute) {
-            ids.put(res.peek!long(0).MutationStatusId);
-        }
-
-        static immutable remove_old_sql = format!"DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)"(
-                allTestCaseTable, tmp_name);
-        db.run(remove_old_sql);
-
-        db.run(format!"DROP TABLE %s"(tmp_name));
-
-        return ids.data;
-    }
-
-    /** Add test cases to those that have been detected.
-     *
-     * They will be added if they are unique.
-     */
-    void addDetectedTestCases(const(TestCase)[] tcs) @trusted {
-        if (tcs.length == 0)
-            return;
-
-        static immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
-        internalAddDetectedTestCases(tcs, tmp_name);
-        db.run(format!"DROP TABLE %s"(tmp_name));
-    }
-
-    /// ditto.
-    private void internalAddDetectedTestCases(const(TestCase)[] tcs, string tmp_tbl) @trusted {
-        db.run(format!"CREATE TEMP TABLE %s (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"(
-                tmp_tbl));
-
-        const add_tc_sql = format!"INSERT OR IGNORE INTO %s (name) VALUES(:name)"(tmp_tbl);
-        auto insert_s = db.prepare(add_tc_sql);
-        foreach (tc; tcs.filter!(a => !a.name.empty)) {
-            insert_s.get.bind(":name", tc.name);
-            insert_s.get.execute;
-            insert_s.get.reset;
-        }
-
-        // https://stackoverflow.com/questions/2686254/how-to-select-all-records-from-one-table-that-do-not-exist-in-another-table
-        //Q: What is happening here?
-        //
-        //A: Conceptually, we select all rows from table1 and for each row we
-        //attempt to find a row in table2 with the same value for the name
-        //column.  If there is no such row, we just leave the table2 portion of
-        //our result empty for that row. Then we constrain our selection by
-        //picking only those rows in the result where the matching row does not
-        //exist. Finally, We ignore all fields from our result except for the
-        //name column (the one we are sure that exists, from table1).
-        //
-        //While it may not be the most performant method possible in all cases,
-        //it should work in basically every database engine ever that attempts
-        //to implement ANSI 92 SQL
-        const add_missing_sql = format!"INSERT OR IGNORE INTO %s (name) SELECT t1.name FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL"(
-                allTestCaseTable, tmp_tbl, allTestCaseTable);
-        db.run(add_missing_sql);
-    }
-
-    /// Returns: detected test cases.
-    TestCase[] getDetectedTestCases() @trusted {
-        auto rval = appender!(TestCase[])();
-        db.run(select!AllTestCaseTbl).map!(a => TestCase(a.name)).copy(rval);
-        return rval.data;
-    }
-
-    /// Returns: detected test cases.
-    TestCaseId[] getDetectedTestCaseIds() @trusted {
-        auto rval = appender!(TestCaseId[])();
-        db.run(select!AllTestCaseTbl).map!(a => TestCaseId(a.id)).copy(rval);
-        return rval.data;
-    }
-
-    /// Returns: test cases that has killed zero mutants.
-    TestCase[] getTestCasesWithZeroKills() @trusted {
-        static immutable sql = format("SELECT t1.name FROM %s t1 WHERE t1.id NOT IN (SELECT tc_id FROM %s)",
-                allTestCaseTable, killedTestCaseTable);
-
-        auto rval = appender!(TestCase[])();
-        auto stmt = db.prepare(sql);
-        foreach (a; stmt.get.execute)
-            rval.put(TestCase(a.peek!string(0)));
-
-        return rval.data;
-    }
-
-    /** Guarantees that the there are no duplications of `TestCaseId`.
-     *
-     * Returns: test cases that has killed at least one mutant.
-     */
-    TestCaseId[] getTestCasesWithAtLeastOneKill(const Mutation.Kind[] kinds) @trusted {
-        const sql = format!"SELECT DISTINCT t1.id
-            FROM %s t1, %s t2, %s t3
-            WHERE
-            t1.id = t2.tc_id AND
-            t2.st_id == t3.st_id AND
-            t3.kind IN (%(%s,%))"(allTestCaseTable,
-                killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
-
-        auto rval = appender!(TestCaseId[])();
-        auto stmt = db.prepare(sql);
-        foreach (a; stmt.get.execute)
-            rval.put(TestCaseId(a.peek!long(0)));
-
-        return rval.data;
-    }
-
-    /// Returns: the name of the test case.
-    string getTestCaseName(const TestCaseId id) @trusted {
-        static immutable sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
-        auto res = stmt.get.execute;
-        return res.oneValue!string;
-    }
-
-    /// Returns: stats about the test case.
-    TestCaseInfo getTestCaseInfo(const TestCaseId tcId, const Mutation.Kind[] kinds) @trusted {
-        const sql = format("SELECT sum(ctime),sum(ttime),count(*)
-            FROM (
-            SELECT sum(t2.compile_time_ms) ctime,sum(t2.test_time_ms) ttime
-            FROM %s t1, %s t2, %s t3
-            WHERE
-            :id = t1.tc_id AND
-            t1.st_id = t2.id AND
-            t1.st_id = t3.st_id AND
-            t3.kind IN (%(%s,%))
-            GROUP BY t1.st_id)", killedTestCaseTable,
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", tcId.get);
-
-        typeof(return) rval;
-        foreach (a; stmt.get.execute) {
-            rval = TestCaseInfo(MutantTimeProfile(a.peek!long(0).dur!"msecs",
-                    a.peek!long(1).dur!"msecs"), a.peek!long(2));
-        }
-        return rval;
-    }
-
-    Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc, const Mutation.Kind[] kinds) @safe {
-        typeof(return) rval;
-
-        auto id = getTestCaseId(tc);
-        if (!id.isNull)
-            rval = getTestCaseInfo(id.get, kinds);
-
-        return rval;
-    }
-
-    /// Returns: all test cases for the file and the mutants they killed.
-    TestCaseInfo2[] getAllTestCaseInfo2(const FileId file, const Mutation.Kind[] kinds) @trusted {
-        // row of test case name and mutation id.
-        const sql = format("SELECT t0.name,t3.id
-            FROM %s t0, %s t1, %s t2, %s t3, %s t4
-            WHERE
-            t0.id = t1.tc_id AND
-            t1.st_id = t2.id AND
-            t2.id = t3.st_id AND
-            t4.id = :file_id AND
-            t3.kind IN (%(%s,%))", allTestCaseTable, killedTestCaseTable,
-                mutationStatusTable, mutationTable, filesTable, kinds.map!(a => cast(int) a));
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":file_id", cast(long) file);
-
-        MutationId[][string] data;
-        foreach (row; stmt.get.execute) {
-            const name = row.peek!string(0);
-            auto id = MutationId(row.peek!long(1));
-            data.update(name, () => [id], (ref MutationId[] a) { a ~= id; });
-        }
-
-        auto app = appender!(TestCaseInfo2[])();
-        data.byKeyValue.map!(a => TestCaseInfo2(TestCase(a.key), a.value)).copy(app);
-        return app.data;
-    }
-
-    /// Returns: the test case.
-    Nullable!TestCase getTestCase(const TestCaseId id) @trusted {
-        static immutable sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
-
-        typeof(return) rval;
-        foreach (res; stmt.get.execute) {
-            rval = TestCase(res.peek!string(0));
-        }
-        return rval;
-    }
-
-    /// Returns: the test case id.
-    Nullable!TestCaseId getTestCaseId(const TestCase tc) @trusted {
-        static immutable sql = format!"SELECT id FROM %s WHERE name = :name"(allTestCaseTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":name", tc.name);
-
-        typeof(return) rval;
-        foreach (res; stmt.get.execute) {
-            rval = TestCaseId(res.peek!long(0));
-        }
-        return rval;
-    }
-
-    /// The mutation ids are guaranteed to be sorted.
-    /// Returns: the mutants the test case killed.
-    MutationId[] getTestCaseMutantKills(const TestCaseId id, const Mutation.Kind[] kinds) @trusted {
-        immutable sql = format!"SELECT t2.id
-            FROM %s t1, %s t2
-            WHERE
-            t1.tc_id = :tid AND
-            t1.st_id = t2.st_id AND
-            t2.kind IN (%(%s,%))
-            GROUP BY t2.st_id
-            ORDER BY t2.id"(killedTestCaseTable,
-                mutationTable, kinds.map!(a => cast(int) a));
-
-        auto rval = appender!(MutationId[])();
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":tid", cast(long) id);
-        foreach (a; stmt.get.execute)
-            rval.put(MutationId(a.peek!long(0)));
-
-        return rval.data;
-    }
-
-    /// Returns: test cases that killed the mutant.
-    TestCase[] getTestCases(const MutationId id) @trusted {
-        Appender!(TestCase[]) rval;
-
-        static immutable get_test_cases_sql = format!"SELECT t1.name,t2.location
-            FROM %s t1, %s t2, %s t3
-            WHERE
-            t3.id = :id AND
-            t3.st_id = t2.st_id AND
-            t2.tc_id = t1.id"(
-                allTestCaseTable, killedTestCaseTable, mutationTable);
-        auto stmt = db.prepare(get_test_cases_sql);
-        stmt.get.bind(":id", cast(long) id);
-        foreach (a; stmt.get.execute)
-            rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
-
-        return rval.data;
-    }
-
-    /// Returns: if the mutant have any test cases recorded that killed it
-    bool hasTestCases(const MutationStatusId id) @trusted {
-        static immutable sql = format!"SELECT count(*) FROM %s t0 WHERE t0.st_id = :id"(
-                killedTestCaseTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", id.get);
-        foreach (a; stmt.get.execute) {
-            return a.peek!long(0) != 0;
-        }
-        return false;
-    }
-
-    /** Returns: number of test cases
-     */
-    long getNumOfTestCases() @trusted {
-        static immutable num_test_cases_sql = format!"SELECT count(*) FROM %s"(allTestCaseTable);
-        return db.execute(num_test_cases_sql).oneValue!long;
-    }
-
     /// Returns: all alive mutants on the same mutation point as `id`.
     MutationStatusId[] getSurroundingAliveMutants(const MutationStatusId id) @trusted {
         long mp_id;
@@ -1668,29 +1236,6 @@ struct Database {
         foreach (a; stmt.get.execute)
             rval.put(a.peek!long(0).MutationStatusId);
         return rval.data;
-    }
-
-    void removeTestCase(const TestCaseId id) @trusted {
-        auto stmt = db.prepare(format!"DELETE FROM %s WHERE id=:id"(allTestCaseTable));
-        stmt.get.bind(":id", cast(long) id);
-        stmt.get.execute;
-    }
-
-    /// Change the status of all mutants that the test case has killed to unknown.
-    void resetTestCaseId(const TestCaseId id) @trusted {
-        {
-            static immutable sql = format!"UPDATE %1$s SET status=0 WHERE id IN (SELECT t1.id FROM %2$s t0, %1$s t1 WHERE t0.tc_id = :id AND t0.st_id = t1.id)"(
-                    mutationStatusTable, killedTestCaseTable);
-            auto stmt = db.prepare(sql);
-            stmt.get.bind(":id", cast(long) id);
-            stmt.get.execute;
-        }
-        {
-            static immutable sql2 = format!"DELETE FROM %1$s WHERE tc_id = :id"(killedTestCaseTable);
-            auto stmt = db.prepare(sql2);
-            stmt.get.bind(":id", cast(long) id);
-            stmt.get.execute;
-        }
     }
 
     /// Returns: the context for the timeout algorithm.
@@ -2218,12 +1763,16 @@ struct Database {
         return app.data;
     }
 
-    DbDependency dependencyApi() return  {
+    scope DbDependency dependencyApi() return @safe {
         return DbDependency(&this);
     }
 
-    DbTestCmd testCmdApi() return  {
+    scope DbTestCmd testCmdApi() return @safe {
         return DbTestCmd(&this);
+    }
+
+    scope DbTestCase testCaseApi() return @safe {
+        return DbTestCase(&this);
     }
 }
 
@@ -2400,6 +1949,466 @@ struct DbTestCmd {
         foreach (ref r; stmt.get.execute)
             rval[Checksum64(cast(ulong) r.peek!long(0))] = r.peek!long(1).to!(Mutation.Status);
         return rval;
+    }
+}
+
+struct DbTestCase {
+    private Database* db;
+
+    /** Add a link between the mutation and what test case killed it.
+     *
+     * Params:
+     *  id = ?
+     *  tcs = test cases to add
+     */
+    void updateMutationTestCases(const MutationId id, const(TestCase)[] tcs) @trusted {
+        if (tcs.length == 0)
+            return;
+
+        immutable statusId = () {
+            static immutable st_id_for_mutation_q = format!"SELECT st_id FROM %s WHERE id=:id"(
+                    mutationTable);
+            auto stmt = db.prepare(st_id_for_mutation_q);
+            stmt.get.bind(":id", cast(long) id);
+            return stmt.get.execute.oneValue!long;
+        }();
+        updateMutationTestCases(MutationStatusId(statusId), tcs);
+    }
+
+    /** Add a link between the mutation and what test case killed it.
+     *
+     * Params:
+     *  id = ?
+     *  tcs = test cases to add
+     */
+    void updateMutationTestCases(const MutationStatusId statusId, const(TestCase)[] tcs) @trusted {
+        if (tcs.length == 0)
+            return;
+
+        try {
+            static immutable remove_old_sql = format!"DELETE FROM %s WHERE st_id=:id"(
+                    killedTestCaseTable);
+            auto stmt = db.prepare(remove_old_sql);
+            stmt.get.bind(":id", statusId.get);
+            stmt.get.execute;
+        } catch (Exception e) {
+        }
+
+        static immutable add_if_non_exist_tc_sql = format!"INSERT OR IGNORE INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)"(
+                allTestCaseTable, allTestCaseTable);
+        auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
+
+        static immutable add_new_sql = format!"INSERT OR IGNORE INTO %s (st_id, tc_id, location) SELECT :st_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc"(
+                killedTestCaseTable, allTestCaseTable);
+        auto stmt_insert = db.prepare(add_new_sql);
+        foreach (const tc; tcs) {
+            try {
+                stmt_insert_tc.get.reset;
+                stmt_insert_tc.get.bind(":name1", tc.name);
+                stmt_insert_tc.get.bind(":name2", tc.name);
+                stmt_insert_tc.get.execute;
+
+                stmt_insert.get.reset;
+                stmt_insert.get.bind(":st_id", statusId.get);
+                stmt_insert.get.bind(":loc", tc.location);
+                stmt_insert.get.bind(":tc", tc.name);
+                stmt_insert.get.execute;
+            } catch (Exception e) {
+                logger.warning(e.msg);
+            }
+        }
+    }
+
+    /** Set detected test cases.
+     *
+     * This will replace those that where previously stored.
+     *
+     * Returns: ID of affected mutation statuses.
+     */
+    MutationStatusId[] setDetectedTestCases(const(TestCase)[] tcs) @trusted {
+        if (tcs.length == 0)
+            return null;
+
+        auto ids = appender!(MutationStatusId[])();
+
+        static immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
+        internalAddDetectedTestCases(tcs, tmp_name);
+
+        static immutable mut_st_id = format!"SELECT DISTINCT t1.st_id
+            FROM %s t0, %s t1
+            WHERE
+            t0.name NOT IN (SELECT name FROM %s) AND
+            t0.id = t1.tc_id"(allTestCaseTable,
+                killedTestCaseTable, tmp_name);
+        auto stmt = db.prepare(mut_st_id);
+        foreach (res; stmt.get.execute) {
+            ids.put(res.peek!long(0).MutationStatusId);
+        }
+
+        static immutable remove_old_sql = format!"DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)"(
+                allTestCaseTable, tmp_name);
+        db.run(remove_old_sql);
+
+        db.run(format!"DROP TABLE %s"(tmp_name));
+
+        return ids.data;
+    }
+
+    /** Add test cases to those that have been detected.
+     *
+     * They will be added if they are unique.
+     */
+    void addDetectedTestCases(const(TestCase)[] tcs) @trusted {
+        if (tcs.length == 0)
+            return;
+
+        static immutable tmp_name = "tmp_new_tc_" ~ __LINE__.to!string;
+        internalAddDetectedTestCases(tcs, tmp_name);
+        db.run(format!"DROP TABLE %s"(tmp_name));
+    }
+
+    /// ditto.
+    private void internalAddDetectedTestCases(const(TestCase)[] tcs, string tmp_tbl) @trusted {
+        db.run(format!"CREATE TEMP TABLE %s (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"(
+                tmp_tbl));
+
+        const add_tc_sql = format!"INSERT OR IGNORE INTO %s (name) VALUES(:name)"(tmp_tbl);
+        auto insert_s = db.prepare(add_tc_sql);
+        foreach (tc; tcs.filter!(a => !a.name.empty)) {
+            insert_s.get.bind(":name", tc.name);
+            insert_s.get.execute;
+            insert_s.get.reset;
+        }
+
+        // https://stackoverflow.com/questions/2686254/how-to-select-all-records-from-one-table-that-do-not-exist-in-another-table
+        //Q: What is happening here?
+        //
+        //A: Conceptually, we select all rows from table1 and for each row we
+        //attempt to find a row in table2 with the same value for the name
+        //column.  If there is no such row, we just leave the table2 portion of
+        //our result empty for that row. Then we constrain our selection by
+        //picking only those rows in the result where the matching row does not
+        //exist. Finally, We ignore all fields from our result except for the
+        //name column (the one we are sure that exists, from table1).
+        //
+        //While it may not be the most performant method possible in all cases,
+        //it should work in basically every database engine ever that attempts
+        //to implement ANSI 92 SQL
+        const add_missing_sql = format!"INSERT OR IGNORE INTO %s (name) SELECT t1.name FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL"(
+                allTestCaseTable, tmp_tbl, allTestCaseTable);
+        db.run(add_missing_sql);
+    }
+
+    /// Returns: detected test cases.
+    TestCase[] getDetectedTestCases() @trusted {
+        auto rval = appender!(TestCase[])();
+        db.run(select!AllTestCaseTbl).map!(a => TestCase(a.name)).copy(rval);
+        return rval.data;
+    }
+
+    /// Returns: detected test cases.
+    TestCaseId[] getDetectedTestCaseIds() @trusted {
+        auto rval = appender!(TestCaseId[])();
+        db.run(select!AllTestCaseTbl).map!(a => TestCaseId(a.id)).copy(rval);
+        return rval.data;
+    }
+
+    /// Returns: test cases that has killed zero mutants.
+    TestCase[] getTestCasesWithZeroKills() @trusted {
+        static immutable sql = format("SELECT t1.name FROM %s t1 WHERE t1.id NOT IN (SELECT tc_id FROM %s)",
+                allTestCaseTable, killedTestCaseTable);
+
+        auto rval = appender!(TestCase[])();
+        auto stmt = db.prepare(sql);
+        foreach (a; stmt.get.execute)
+            rval.put(TestCase(a.peek!string(0)));
+
+        return rval.data;
+    }
+
+    /** Guarantees that the there are no duplications of `TestCaseId`.
+     *
+     * Returns: test cases that has killed at least one mutant.
+     */
+    TestCaseId[] getTestCasesWithAtLeastOneKill(const Mutation.Kind[] kinds) @trusted {
+        const sql = format!"SELECT DISTINCT t1.id
+            FROM %s t1, %s t2, %s t3
+            WHERE
+            t1.id = t2.tc_id AND
+            t2.st_id == t3.st_id AND
+            t3.kind IN (%(%s,%))"(allTestCaseTable,
+                killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
+
+        auto rval = appender!(TestCaseId[])();
+        auto stmt = db.prepare(sql);
+        foreach (a; stmt.get.execute)
+            rval.put(TestCaseId(a.peek!long(0)));
+
+        return rval.data;
+    }
+
+    /// Returns: the name of the test case.
+    string getTestCaseName(const TestCaseId id) @trusted {
+        static immutable sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", cast(long) id);
+        auto res = stmt.get.execute;
+        return res.oneValue!string;
+    }
+
+    /// Returns: stats about the test case.
+    TestCaseInfo getTestCaseInfo(const TestCaseId tcId, const Mutation.Kind[] kinds) @trusted {
+        const sql = format("SELECT sum(ctime),sum(ttime),count(*)
+            FROM (
+            SELECT sum(t2.compile_time_ms) ctime,sum(t2.test_time_ms) ttime
+            FROM %s t1, %s t2, %s t3
+            WHERE
+            :id = t1.tc_id AND
+            t1.st_id = t2.id AND
+            t1.st_id = t3.st_id AND
+            t3.kind IN (%(%s,%))
+            GROUP BY t1.st_id)", killedTestCaseTable,
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", tcId.get);
+
+        typeof(return) rval;
+        foreach (a; stmt.get.execute) {
+            rval = TestCaseInfo(MutantTimeProfile(a.peek!long(0).dur!"msecs",
+                    a.peek!long(1).dur!"msecs"), a.peek!long(2));
+        }
+        return rval;
+    }
+
+    Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc, const Mutation.Kind[] kinds) @safe {
+        typeof(return) rval;
+
+        auto id = getTestCaseId(tc);
+        if (!id.isNull)
+            rval = getTestCaseInfo(id.get, kinds);
+
+        return rval;
+    }
+
+    /// Returns: all test cases for the file and the mutants they killed.
+    TestCaseInfo2[] getAllTestCaseInfo2(const FileId file, const Mutation.Kind[] kinds) @trusted {
+        // row of test case name and mutation id.
+        const sql = format("SELECT t0.name,t3.id
+            FROM %s t0, %s t1, %s t2, %s t3, %s t4
+            WHERE
+            t0.id = t1.tc_id AND
+            t1.st_id = t2.id AND
+            t2.id = t3.st_id AND
+            t4.id = :file_id AND
+            t3.kind IN (%(%s,%))", allTestCaseTable, killedTestCaseTable,
+                mutationStatusTable, mutationTable, filesTable, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":file_id", cast(long) file);
+
+        MutationId[][string] data;
+        foreach (row; stmt.get.execute) {
+            const name = row.peek!string(0);
+            auto id = MutationId(row.peek!long(1));
+            data.update(name, () => [id], (ref MutationId[] a) { a ~= id; });
+        }
+
+        auto app = appender!(TestCaseInfo2[])();
+        data.byKeyValue.map!(a => TestCaseInfo2(TestCase(a.key), a.value)).copy(app);
+        return app.data;
+    }
+
+    /// Returns: the test case.
+    Nullable!TestCase getTestCase(const TestCaseId id) @trusted {
+        static immutable sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", cast(long) id);
+
+        typeof(return) rval;
+        foreach (res; stmt.get.execute) {
+            rval = TestCase(res.peek!string(0));
+        }
+        return rval;
+    }
+
+    /// Returns: the test case id.
+    Nullable!TestCaseId getTestCaseId(const TestCase tc) @trusted {
+        static immutable sql = format!"SELECT id FROM %s WHERE name = :name"(allTestCaseTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":name", tc.name);
+
+        typeof(return) rval;
+        foreach (res; stmt.get.execute) {
+            rval = TestCaseId(res.peek!long(0));
+        }
+        return rval;
+    }
+
+    /// The mutation ids are guaranteed to be sorted.
+    /// Returns: the mutants the test case killed.
+    MutationId[] getTestCaseMutantKills(const TestCaseId id, const Mutation.Kind[] kinds) @trusted {
+        immutable sql = format!"SELECT t2.id
+            FROM %s t1, %s t2
+            WHERE
+            t1.tc_id = :tid AND
+            t1.st_id = t2.st_id AND
+            t2.kind IN (%(%s,%))
+            GROUP BY t2.st_id
+            ORDER BY t2.id"(killedTestCaseTable,
+                mutationTable, kinds.map!(a => cast(int) a));
+
+        auto rval = appender!(MutationId[])();
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":tid", cast(long) id);
+        foreach (a; stmt.get.execute)
+            rval.put(MutationId(a.peek!long(0)));
+
+        return rval.data;
+    }
+
+    /// Returns: test cases that killed the mutant.
+    TestCase[] getTestCases(const MutationId id) @trusted {
+        Appender!(TestCase[]) rval;
+
+        static immutable get_test_cases_sql = format!"SELECT t1.name,t2.location
+            FROM %s t1, %s t2, %s t3
+            WHERE
+            t3.id = :id AND
+            t3.st_id = t2.st_id AND
+            t2.tc_id = t1.id"(
+                allTestCaseTable, killedTestCaseTable, mutationTable);
+        auto stmt = db.prepare(get_test_cases_sql);
+        stmt.get.bind(":id", cast(long) id);
+        foreach (a; stmt.get.execute)
+            rval.put(TestCase(a.peek!string(0), a.peek!string(1)));
+
+        return rval.data;
+    }
+
+    /// Returns: if the mutant have any test cases recorded that killed it
+    bool hasTestCases(const MutationStatusId id) @trusted {
+        static immutable sql = format!"SELECT count(*) FROM %s t0 WHERE t0.st_id = :id"(
+                killedTestCaseTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+        foreach (a; stmt.get.execute) {
+            return a.peek!long(0) != 0;
+        }
+        return false;
+    }
+
+    /** Returns: number of test cases
+     */
+    long getNumOfTestCases() @trusted {
+        static immutable num_test_cases_sql = format!"SELECT count(*) FROM %s"(allTestCaseTable);
+        return db.execute(num_test_cases_sql).oneValue!long;
+    }
+
+    void removeTestCase(const TestCaseId id) @trusted {
+        auto stmt = db.prepare(format!"DELETE FROM %s WHERE id=:id"(allTestCaseTable));
+        stmt.get.bind(":id", cast(long) id);
+        stmt.get.execute;
+    }
+
+    /// Change the status of all mutants that the test case has killed to unknown.
+    void resetTestCaseId(const TestCaseId id) @trusted {
+        {
+            static immutable sql = format!"UPDATE %1$s SET status=0 WHERE id IN (SELECT t1.id FROM %2$s t0, %1$s t1 WHERE t0.tc_id = :id AND t0.st_id = t1.id)"(
+                    mutationStatusTable, killedTestCaseTable);
+            auto stmt = db.prepare(sql);
+            stmt.get.bind(":id", cast(long) id);
+            stmt.get.execute;
+        }
+        {
+            static immutable sql2 = format!"DELETE FROM %1$s WHERE tc_id = :id"(killedTestCaseTable);
+            auto stmt = db.prepare(sql2);
+            stmt.get.bind(":id", cast(long) id);
+            stmt.get.execute;
+        }
+    }
+
+    /// Returns: mutants killed by the test case.
+    MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, const TestCaseId id) @trusted {
+        const sql = format("SELECT t1.id
+            FROM %s t0, %s t1, %s t3
+            WHERE
+            t0.st_id = t1.id AND
+            t1.status = :st AND
+            t0.kind IN (%(%s,%)) AND
+            t3.tc_id = :id AND
+            t3.st_id = t1.id
+            GROUP BY t1.id", mutationTable, mutationStatusTable,
+                killedTestCaseTable, kinds.map!(a => cast(int) a));
+
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":st", cast(long) Mutation.Status.killed);
+        stmt.get.bind(":id", id.get);
+
+        auto app = appender!(MutationStatusId[])();
+        foreach (res; stmt.get.execute)
+            app.put(MutationStatusId(res.peek!long(0)));
+
+        return app.data;
+    }
+
+    MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, const TestCase tc) @safe {
+        auto id = getTestCaseId(tc);
+        if (id.isNull)
+            return null;
+        return testCaseKilledSrcMutants(kinds, id.get);
+    }
+
+    /// Returns: mutants at mutations points that the test case has killed mutants at.
+    alias testCaseMutationPointAliveSrcMutants = testCaseCountSrcMutants!([
+            Mutation.Status.alive
+            ]);
+    /// ditto
+    alias testCaseMutationPointTimeoutSrcMutants = testCaseCountSrcMutants!(
+            [Mutation.Status.timeout]);
+    /// ditto
+    alias testCaseMutationPointKilledSrcMutants = testCaseCountSrcMutants!([
+            Mutation.Status.killed
+            ]);
+    /// ditto
+    alias testCaseMutationPointUnknownSrcMutants = testCaseCountSrcMutants!(
+            [Mutation.Status.unknown]);
+    /// ditto
+    alias testCaseMutationPointKilledByCompilerSrcMutants = testCaseCountSrcMutants!(
+            [Mutation.Status.killedByCompiler]);
+    /// ditto
+    alias testCaseMutationPointTotalSrcMutants = testCaseCountSrcMutants!(
+            [
+            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
+            ]);
+
+    private MutationStatusId[] testCaseCountSrcMutants(int[] status)(
+            const Mutation.Kind[] kinds, TestCase tc) @trusted {
+        const query = format("
+            SELECT t1.id
+            FROM %s t0, %s t1
+            WHERE
+            t0.mp_id IN (SELECT t1.id
+                      FROM %s t0,%s t1, %s t2, %s t3
+                      WHERE
+                      t0.mp_id = t1.id AND
+                      t2.name = :name AND
+                      t2.id = t3.tc_id AND
+                      t3.st_id = t0.st_id
+                      )
+            AND
+            t0.st_id = t1.id AND
+            t1.status IN (%(%s,%)) AND
+            t0.kind IN (%(%s,%))
+            GROUP BY t1.id", mutationTable, mutationStatusTable, mutationTable, mutationPointTable,
+                allTestCaseTable, killedTestCaseTable, status, kinds.map!(a => cast(int) a));
+
+        auto stmt = db.prepare(query);
+        stmt.get.bind(":name", tc.name);
+
+        auto app = appender!(MutationStatusId[])();
+        foreach (res; stmt.get.execute)
+            app.put(MutationStatusId(res.peek!long(0)));
+
+        return app.data;
     }
 }
 

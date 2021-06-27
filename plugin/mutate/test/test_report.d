@@ -206,7 +206,7 @@ unittest {
         .run;
     auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
-    db.setDetectedTestCases([TestCase("tc_4")]);
+    db.testCaseApi.setDetectedTestCases([TestCase("tc_4")]);
     db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [TestCase("tc_1"), TestCase("tc_2")]);
     db.updateMutation(MutationId(2), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), [TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3")]);
     // make tc_3 unique
@@ -363,7 +363,7 @@ class ShallReportTestCasesThatHasKilledZeroMutants : SimpleAnalyzeFixture {
         precondition(testEnv);
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-        db.setDetectedTestCases([TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3"), TestCase("tc_4")]);
+        db.testCaseApi.setDetectedTestCases([TestCase("tc_1"), TestCase("tc_2"), TestCase("tc_3"), TestCase("tc_4")]);
         db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [TestCase("tc_1"), TestCase("tc_2")]);
         db.updateMutation(MutationId(2), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), [TestCase("tc_2"), TestCase("tc_3")]);
 
