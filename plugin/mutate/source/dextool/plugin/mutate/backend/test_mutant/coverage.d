@@ -175,7 +175,7 @@ nothrow:
     }
 
     void opCall(Initialize data) {
-        foreach (a; spinSql!(() => db.getCoverageMap).byKeyValue
+        foreach (a; spinSql!(() => db.coverageApi.getCoverageMap).byKeyValue
                 .map!(a => tuple(spinSql!(() => db.getFile(a.key)), a.value,
                     spinSql!(() => db.getFileIdLanguage(a.key))))
                 .filter!(a => !a[0].isNull)
@@ -199,7 +199,7 @@ nothrow:
                 if (tmp.empty) {
                     // no root found, inject instead in all instrumented files and
                     // "hope for the best".
-                    tmp = spinSql!(() => db.getCoverageMap).byKey.array;
+                    tmp = spinSql!(() => db.coverageApi.getCoverageMap).byKey.array;
                 }
                 return tmp;
             }();
@@ -352,9 +352,9 @@ nothrow:
         void save() @trusted {
             auto trans = db.transaction;
             foreach (a; data.covMap) {
-                db.putCoverageInfo(localId[a.id], a.status);
+                db.coverageApi.putCoverageInfo(localId[a.id], a.status);
             }
-            db.updateCoverageTimeStamp;
+            db.coverageApi.updateCoverageTimeStamp;
             trans.commit;
         }
 

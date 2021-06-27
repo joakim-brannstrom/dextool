@@ -444,7 +444,7 @@ nothrow:
     void opCall(StoreResult data) {
         import miniorm : spinSql;
 
-        const statusId = spinSql!(() => global.db.getMutationStatusId(global.mutp.id));
+        const statusId = spinSql!(() => global.db.mutantApi.getMutationStatusId(global.mutp.id));
 
         global.swTest.stop;
         auto profile = MutantTimeProfile(global.swCompile.peek, global.swTest.peek);

@@ -610,7 +610,8 @@ nothrow:
     void opCall(ref Initialize data) {
         logger.info("Initializing worklist").collectException;
         spinSql!(() {
-            db.updateWorklist(kinds, Mutation.Status.unknown, unknownWeight, mutationOrder);
+            db.worklistApi.updateWorklist(kinds, Mutation.Status.unknown,
+                unknownWeight, mutationOrder);
         });
 
         // detect if the system is overloaded before trying to do something
@@ -718,7 +719,7 @@ nothrow:
 
         enum forceCheckEach = 1.dur!"hours";
 
-        const wlist = spinSql!(() => db.getWorklistCount);
+        const wlist = spinSql!(() => db.worklistApi.getWorklistCount);
         if (local.get!ContinuesCheckTestSuite.lastWorklistCnt == 0) {
             // first time, just initialize.
             local.get!ContinuesCheckTestSuite.lastWorklistCnt = wlist;
@@ -758,9 +759,9 @@ nothrow:
             logger.warning("Continues sanity check of the test suite has failed.").collectException;
             logger.infof("Rolling back the status of the last %s mutants to status unknown.",
                     period).collectException;
-            foreach (a; spinSql!(() => db.getLatestMutants(kinds, max(diffCnt, period)))) {
-                spinSql!(() => db.updateMutation(a.id, Mutation.Status.unknown,
-                        ExitStatus(0), MutantTimeProfile.init));
+            foreach (a; spinSql!(() => db.mutantApi.getLatestMutants(kinds, max(diffCnt, period)))) {
+                spinSql!(() => db.mutantApi.updateMutation(a.id,
+                        Mutation.Status.unknown, ExitStatus(0), MutantTimeProfile.init));
             }
         }
     }
@@ -837,11 +838,12 @@ nothrow:
                         data.foundTestCases.byValue.joiner.array)) {
                     if (!db.testCaseApi.hasTestCases(id)) {
                         update = true;
-                        db.updateMutationStatus(id, Mutation.Status.unknown, ExitStatus(0));
+                        db.mutantApi.updateMutationStatus(id,
+                                Mutation.Status.unknown, ExitStatus(0));
                     }
                 }
                 if (update) {
-                    db.updateWorklist(kinds, Mutation.Status.unknown);
+                    db.worklistApi.updateWorklist(kinds, Mutation.Status.unknown);
                 }
                 break;
             }
@@ -865,10 +867,10 @@ nothrow:
                 && conf.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
             logger.info("Adding alive mutants to worklist").collectException;
             spinSql!(() {
-                db.updateWorklist(kinds, Mutation.Status.alive);
+                db.worklistApi.updateWorklist(kinds, Mutation.Status.alive);
                 // if these mutants are covered by the tests then they will be
                 // removed from the worklist in PropagateCoverage.
-                db.updateWorklist(kinds, Mutation.Status.noCoverage);
+                db.worklistApi.updateWorklist(kinds, Mutation.Status.noCoverage);
             });
         }
     }
@@ -889,13 +891,14 @@ nothrow:
         if (conf.onOldMutants == ConfigMutationTest.OldMutant.nothing) {
             return;
         }
-        if (spinSql!(() { return db.getWorklistCount; }) != 0) {
+        if (spinSql!(() => db.worklistApi.getWorklistCount) != 0) {
             // do not re-test any old mutants if there are still work to do in the worklist.
             return;
         }
 
-        const oldestMutant = spinSql!(() => db.getOldestMutants(kinds, 1));
-        const newestTest = spinSql!(() => db.getNewestTestFile).orElse(TestFile.init).timeStamp;
+        const oldestMutant = spinSql!(() => db.mutantApi.getOldestMutants(kinds, 1));
+        const newestTest = spinSql!(() => db.testFileApi.getNewestTestFile).orElse(
+                TestFile.init).timeStamp;
         const newestFile = spinSql!(() => db.getNewestFile).orElse(SysTime.init);
         if (!oldestMutant.empty && oldestMutant[0].updated > newestTest
                 && oldestMutant[0].updated > newestFile) {
@@ -913,20 +916,20 @@ nothrow:
                 return local.get!ResetOldMutant.maxReset;
             }
 
-            const total = spinSql!(() { return db.totalSrcMutants(kinds).count; });
+            const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds).count);
             const rval = cast(long)(1 + total * local.get!ResetOldMutant.resetPercentage.get
                     / 100.0);
             return rval;
         }();
 
-        auto oldest = spinSql!(() { return db.getOldestMutants(kinds, testCnt); });
+        auto oldest = spinSql!(() => db.mutantApi.getOldestMutants(kinds, testCnt));
 
         logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
         spinSql!(() {
             foreach (const old; oldest.enumerate) {
                 logger.infof("%s Last updated %s", old.index + 1,
                     old.value.updated).collectException;
-                db.addToWorklist(old.value.id);
+                db.worklistApi.addToWorklist(old.value.id);
             }
         });
     }
@@ -980,7 +983,7 @@ nothrow:
         import dextool.plugin.mutate.backend.database.type : MutationScore;
         import dextool.plugin.mutate.backend.report.analyzers : reportScore;
 
-        if (spinSql!(() => db.unknownSrcMutants(kinds)).count != 0)
+        if (spinSql!(() => db.mutantApi.unknownSrcMutants(kinds)).count != 0)
             return;
 
         const score = reportScore(*db, kinds).score;
@@ -1056,14 +1059,12 @@ nothrow:
             }
 
             foreach (l; kv.value) {
-                auto mutants = spinSql!(() {
-                    return db.getMutationsOnLine(kinds, file_id.get, SourceLoc(l.value, 0));
-                });
+                auto mutants = spinSql!(() => db.mutantApi.getMutationsOnLine(kinds,
+                        file_id.get, SourceLoc(l.value, 0)));
 
                 const preCnt = mutantIds.length;
-                foreach (v; mutants) {
+                foreach (v; mutants)
                     mutantIds.add(v);
-                }
 
                 logger.infof(mutantIds.length - preCnt > 0, "Found %s mutant(s) to test (%s:%s)",
                         mutantIds.length - preCnt, kv.key, l.value).collectException;
@@ -1074,10 +1075,11 @@ nothrow:
                 mutantIds.length).collectException;
         spinSql!(() {
             foreach (id; mutantIds.toArray.sort)
-                db.addToWorklist(id, pullRequestWeight, MutationOrder.bySize);
+                db.worklistApi.addToWorklist(id, pullRequestWeight, MutationOrder.bySize);
         });
 
-        local.get!CheckPullRequestMutant.startWorklistCnt = spinSql!(() => db.getWorklistCount);
+        local.get!CheckPullRequestMutant.startWorklistCnt = spinSql!(
+                () => db.worklistApi.getWorklistCount);
         local.get!CheckPullRequestMutant.stopAfter = mutantIds.length;
 
         if (mutantIds.empty) {
@@ -1100,7 +1102,7 @@ nothrow:
         logger.infof("Measuring the runtime of the test command(s):\n%(%s\n%)",
                 testCmds).collectException;
 
-        auto measures = spinSql!(() => db.getTestCmdRuntimes);
+        auto measures = spinSql!(() => db.testCmdApi.getTestCmdRuntimes);
 
         const tester = () {
             try {
@@ -1128,7 +1130,7 @@ nothrow:
 
             spinSql!(() @trusted {
                 auto t = db.transaction;
-                db.setTestCmdRuntimes(measures);
+                db.testCmdApi.setTestCmdRuntimes(measures);
                 t.commit;
             });
         } else {
@@ -1189,7 +1191,7 @@ nothrow:
     }
 
     void opCall(ref CheckPullRequestMutant data) {
-        const left = spinSql!(() { return db.getWorklistCount; });
+        const left = spinSql!(() => db.worklistApi.getWorklistCount);
         data.noUnknownMutantsLeft.get = (
                 local.get!CheckPullRequestMutant.startWorklistCnt - left) >= local
             .get!CheckPullRequestMutant.stopAfter;
@@ -1247,9 +1249,7 @@ nothrow:
             // TODO: replace with my.collection.vector
             const id = schematas[0];
             schematas = schematas[1 .. $];
-            const mutants = spinSql!(() {
-                return db.schemataMutantsCount(id, kinds);
-            });
+            const mutants = spinSql!(() => db.schemaApi.schemataMutantsCount(id, kinds));
 
             logger.infof("Schema %s has %s mutants (threshold %s)", id.get,
                     mutants, threshold).collectException;
@@ -1335,7 +1335,7 @@ nothrow:
             }
 
             if (remove) {
-                spinSql!(() { db.markUsed(data.id); });
+                spinSql!(() => db.schemaApi.markUsed(data.id));
             }
 
         } catch (Exception e) {
@@ -1346,7 +1346,7 @@ nothrow:
 
     void opCall(SchemataPruneUsed data) {
         try {
-            const removed = db.pruneUsedSchemas;
+            const removed = db.schemaApi.pruneUsedSchemas;
 
             if (removed != 0) {
                 logger.infof("Removed %s schemas from the database", removed);
@@ -1365,9 +1365,9 @@ nothrow:
         }
 
         auto app = appender!(SchemataId[])();
-        foreach (id; spinSql!(() { return db.getSchematas(); })) {
-            if (spinSql!(() { return db.schemataMutantsCount(id, kinds); }) >= schemataMutantsThreshold(
-                    schemaConf.minMutantsPerSchema.get, 0, 0)) {
+        foreach (id; spinSql!(() => db.schemaApi.getSchematas())) {
+            if (spinSql!(() => db.schemaApi.schemataMutantsCount(id,
+                    kinds)) >= schemataMutantsThreshold(schemaConf.minMutantsPerSchema.get, 0, 0)) {
                 app.put(id);
             }
         }
@@ -1383,7 +1383,8 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.coverage;
 
         auto tracked = spinSql!(() => db.getLatestTimeStampOfTestOrSut).orElse(SysTime.init);
-        auto covTimeStamp = spinSql!(() => db.getCoverageTimeStamp).orElse(SysTime.init);
+        auto covTimeStamp = spinSql!(() => db.coverageApi.getCoverageTimeStamp).orElse(
+                SysTime.init);
 
         if (tracked < covTimeStamp) {
             logger.info("Coverage information is up to date").collectException;
@@ -1415,10 +1416,10 @@ nothrow:
         void propagate() @trusted {
             auto trans = db.transaction;
 
-            auto noCov = db.getNotCoveredMutants;
+            auto noCov = db.coverageApi.getNotCoveredMutants;
             foreach (id; noCov) {
-                db.updateMutationStatus(id, Mutation.Status.noCoverage, ExitStatus(0));
-                db.removeFromWorklist(id);
+                db.mutantApi.updateMutationStatus(id, Mutation.Status.noCoverage, ExitStatus(0));
+                db.worklistApi.removeFromWorklist(id);
             }
 
             trans.commit;
@@ -1437,9 +1438,9 @@ nothrow:
 
             updateMutantStatus(*db, result.id, result.status,
                     result.exitStatus, timeoutFsm.output.iter);
-            db.updateMutation(result.id, result.profile);
+            db.mutantApi.updateMutation(result.id, result.profile);
             db.testCaseApi.updateMutationTestCases(result.id, result.testCases);
-            db.removeFromWorklist(result.id);
+            db.worklistApi.removeFromWorklist(result.id);
 
             if (result.status == Mutation.Status.alive)
                 stopCheck.incrAliveMutants;
@@ -1451,7 +1452,7 @@ nothrow:
                 statusUpdate(a);
             }
 
-            const left = db.getWorklistCount;
+            const left = db.worklistApi.getWorklistCount;
             t.commit;
             return left;
         });

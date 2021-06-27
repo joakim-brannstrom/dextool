@@ -63,7 +63,7 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
     }
     root.addChild("p", "A test case that has zero killed mutants has a high probability of containing implementation errors. They should be manually inspected.");
 
-    const total = spinSql!(() => db.totalSrcMutants(kinds)).count;
+    const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds)).count;
     foreach (tcId; spinSql!(() => db.testCaseApi.getDetectedTestCaseIds)) {
         auto r = tbl.appendRow;
 
@@ -117,8 +117,8 @@ void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
         out_.write(doc.toPrettyString);
 
     auto getPath = nullableCache!(MutationStatusId, string, (MutationStatusId id) {
-        auto path = spinSql!(() => db.getPath(id)).get;
-        auto mutId = spinSql!(() => db.getMutationId(id)).get;
+        auto path = spinSql!(() => db.mutantApi.getPath(id)).get;
+        auto mutId = spinSql!(() => db.mutantApi.getMutationId(id)).get;
         return format!"%s#%s"(buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(path)), mutId.get);
     })(0, 30.dur!"seconds");
 
@@ -157,9 +157,9 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
     foreach (const id; kills.sort) {
         auto r = tbl.appendRow();
 
-        const mutId = db.getMutationId(id).get;
-        auto mut = db.getMutation(mutId).get;
-        auto mutStatus = db.getMutationStatus2(id);
+        const mutId = db.mutantApi.getMutationId(id).get;
+        auto mut = db.mutantApi.getMutation(mutId).get;
+        auto mutStatus = db.mutantApi.getMutationStatus2(id);
 
         r.addChild("td").addChild("a", format("%s:%s", mut.file,
                 mut.sloc.line)).href = format("%s#%s", buildPath("..",
@@ -172,10 +172,10 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
 
         if (addSuggestion) {
             auto tds = r.addChild("td");
-            foreach (s; db.getSurroundingAliveMutants(id)) {
+            foreach (s; db.mutantApi.getSurroundingAliveMutants(id)) {
                 tds.addChild("a", format("%s", s.get)).href = format("%s#%s",
                         buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(mut.file)),
-                        db.getMutationId(s).get);
+                        db.mutantApi.getMutationId(s).get);
             }
         }
     }

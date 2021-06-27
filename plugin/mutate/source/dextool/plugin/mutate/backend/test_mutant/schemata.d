@@ -270,17 +270,16 @@ nothrow:
         swCompile = StopWatch(AutoStart.yes);
 
         InjectIdBuilder builder;
-        foreach (mutant; spinSql!(() => db.getSchemataMutants(schemataId, kinds))) {
-            auto cs = spinSql!(() { return db.getChecksum(mutant); });
-            if (!cs.isNull) {
+        foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(schemataId, kinds))) {
+            auto cs = spinSql!(() => db.mutantApi.getChecksum(mutant));
+            if (!cs.isNull)
                 builder.put(mutant, cs.get);
-            }
         }
         debug logger.trace(builder).collectException;
 
         local.get!NextMutant.mutants = builder.finalize;
 
-        schemata = spinSql!(() => db.getSchemata(schemataId)).get;
+        schemata = spinSql!(() => db.schemaApi.getSchemata(schemataId)).get;
 
         try {
             modifiedFiles = schemata.fragments.map!(a => fio.toAbsoluteRoot(a.file))
@@ -402,7 +401,7 @@ nothrow:
 
             logger.info("Skipping schema because it failed to compile".color(Color.yellow))
                 .collectException;
-            spinSql!(() { db.markUsed(schemataId); });
+            spinSql!(() => db.schemaApi.markUsed(schemataId));
             return;
         }
 
@@ -419,7 +418,7 @@ nothrow:
         if (data.error) {
             logger.info("Skipping the schemata because the test suite failed".color(Color.yellow))
                 .collectException;
-            spinSql!(() { db.markUsed(schemataId); });
+            spinSql!(() => db.schemaApi.markUsed(schemataId));
         } else {
             logger.info("Ok".color(Color.green)).collectException;
         }
@@ -446,12 +445,12 @@ nothrow:
 
         data.result.id = data.inject.statusId;
 
-        auto id = spinSql!(() { return db.getMutationId(data.inject.statusId); });
+        auto id = spinSql!(() => db.mutantApi.getMutationId(data.inject.statusId));
         if (id.isNull) {
             data.mutantIdError = true;
             return;
         }
-        auto entry_ = spinSql!(() { return db.getMutation(id.get); });
+        auto entry_ = spinSql!(() => db.mutantApi.getMutation(id.get));
         if (entry_.isNull) {
             data.mutantIdError = true;
             return;

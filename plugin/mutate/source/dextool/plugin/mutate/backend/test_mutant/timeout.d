@@ -36,7 +36,7 @@ import dextool.plugin.mutate.backend.type : Mutation, ExitStatus;
 
 /// Reset the state of the timeout algorithm to its inital state.
 void resetTimeoutContext(ref Database db) @trusted {
-    db.putMutantTimeoutCtx(MutantTimeoutCtx.init);
+    db.timeoutApi.putMutantTimeoutCtx(MutantTimeoutCtx.init);
 }
 
 /// Calculate the timeout to use based on the context.
@@ -72,18 +72,17 @@ void updateMutantStatus(ref Database db, const MutationStatusId id,
         const Mutation.Status st, const ExitStatus ecode, const long usedIter) @trusted {
     import std.typecons : Yes;
 
-    const ctx = db.getMutantTimeoutCtx;
+    const ctx = db.timeoutApi.getMutantTimeoutCtx;
 
     final switch (ctx.state) with (MutantTimeoutCtx.State) {
     case init_:
         if (st == Mutation.Status.timeout)
-            db.putMutantInTimeoutWorklist(id);
-        db.updateMutationStatus(id, st, ecode, Yes.updateTs);
+            db.timeoutApi.putMutantInTimeoutWorklist(id);
+        db.mutantApi.updateMutationStatus(id, st, ecode, Yes.updateTs);
         break;
     case running:
-        if (usedIter == ctx.iter) {
-            db.updateMutationStatus(id, st, ecode, Yes.updateTs);
-        }
+        if (usedIter == ctx.iter)
+            db.mutantApi.updateMutationStatus(id, st, ecode, Yes.updateTs);
         break;
     case done:
         break;
@@ -169,7 +168,7 @@ struct TimeoutFsm {
         self.global.stop = false;
 
         auto t = db.transaction;
-        self.global.ctx = db.getMutantTimeoutCtx;
+        self.global.ctx = db.timeoutApi.getMutantTimeoutCtx;
 
         // force the local state to match the starting point in the ctx
         // (database).
@@ -200,7 +199,7 @@ struct TimeoutFsm {
             }
         }
 
-        db.putMutantTimeoutCtx(self.global.ctx);
+        db.timeoutApi.putMutantTimeoutCtx(self.global.ctx);
         t.commit;
 
         self.output.iter = self.global.ctx.iter;
@@ -208,8 +207,8 @@ struct TimeoutFsm {
 
     private static void step(ref TimeoutFsm self, ref Database db) @safe {
         bool noUnknown() {
-            return db.unknownSrcMutants(self.global.kinds, null).count == 0
-                && db.getWorklistCount == 0;
+            return db.mutantApi.unknownSrcMutants(self.global.kinds, null)
+                .count == 0 && db.worklistApi.getWorklistCount == 0;
         }
 
         self.fsm.next!((Init a) {
@@ -247,12 +246,12 @@ struct TimeoutFsm {
     }
 
     void opCall(ResetWorkList) {
-        global.db.copyMutantTimeoutWorklist;
+        global.db.timeoutApi.copyMutantTimeoutWorklist;
     }
 
     void opCall(UpdateCtx) {
         global.ctx.iter += 1;
-        global.ctx.worklistCount = global.db.countMutantTimeoutWorklist;
+        global.ctx.worklistCount = global.db.timeoutApi.countMutantTimeoutWorklist;
     }
 
     void opCall(Running) {
@@ -261,9 +260,9 @@ struct TimeoutFsm {
     }
 
     void opCall(ref Purge data) {
-        global.db.reduceMutantTimeoutWorklist;
+        global.db.timeoutApi.reduceMutantTimeoutWorklist;
 
-        if (global.db.countMutantTimeoutWorklist == global.ctx.worklistCount) {
+        if (global.db.timeoutApi.countMutantTimeoutWorklist == global.ctx.worklistCount) {
             data.ev = Purge.Event.same;
         } else {
             data.ev = Purge.Event.changed;
@@ -281,7 +280,7 @@ struct TimeoutFsm {
     }
 
     void opCall(ClearWorkList) {
-        global.db.clearMutantTimeoutWorklist;
+        global.db.timeoutApi.clearMutantTimeoutWorklist;
     }
 
     void opCall(Stop) {
