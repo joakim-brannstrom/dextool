@@ -173,7 +173,6 @@ struct FileIndex {
     void postProcessEvent(ref Database db) @trusted {
         import std.datetime : Clock;
         import std.path : buildPath, baseName;
-        import dextool.plugin.mutate.backend.report.html.page_dead_test_case;
         import dextool.plugin.mutate.backend.report.html.page_diff;
         import dextool.plugin.mutate.backend.report.html.page_long_term_view;
         import dextool.plugin.mutate.backend.report.html.page_minimal_set;
@@ -231,10 +230,6 @@ struct FileIndex {
         if (ReportSection.tc_groups_similarity in sections) {
             addSubPage(() => makeTestGroupSimilarityAnalyse(db, conf, humanReadableKinds,
                     kinds), "test_group_similarity", "Test Group Similarity");
-        }
-        if (ReportSection.tc_killed_no_mutants in sections) {
-            addContent((string tag) => makeDeadTestCase(db, kinds, tag, content),
-                    "Killed No Mutants Test Cases", "#killed_no_mutants_test_cases");
         }
         if (ReportSection.tc_full_overlap in sections
                 || ReportSection.tc_full_overlap_with_mutation_id in sections) {
