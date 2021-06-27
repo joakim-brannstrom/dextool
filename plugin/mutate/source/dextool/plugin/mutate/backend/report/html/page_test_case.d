@@ -61,6 +61,7 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
         p.addChild("b", "Is Unique");
         p.appendText(": a test case that has killed some mutants that no other test case has.");
     }
+    root.addChild("p", "A test case that has zero killed mutants has a high probability of containing implementation errors. They should be manually inspected.");
 
     const total = spinSql!(() => db.totalSrcMutants(kinds)).count;
     foreach (tcId; spinSql!(() => db.getDetectedTestCaseIds)) {
@@ -68,6 +69,7 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
 
         const name = spinSql!(() => db.getTestCaseName(tcId));
         const kills = spinSql!(() => db.getTestCaseInfo(tcId, kinds)).killedMutants;
+        const ratio = 100.0 * ((total == 0) ? 0.0 : (cast(double) kills / total));
 
         auto reportFname = name.pathToHtmlLink;
         auto fout = File(testCasesDir ~ reportFname, "w");
@@ -82,10 +84,13 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
         });
 
         r.addChild("td").addChild("a", name).href = buildPath(HtmlStyle.testCaseDir, reportFname);
-        r.addChild("td", format!"%.1f"(100.0 * ((total == 0) ? 0.0 : (cast(double) kills / total))));
+        r.addChild("td", format!"%.1f"(ratio));
         r.addChild("td", kills.to!string);
         if (data.addUnique)
             r.addChild("td", (tcId in data.uniqueData.uniqueKills ? "x" : ""));
+
+        if (kills == 0)
+            r.style = "background-color: lightred";
     }
 }
 
