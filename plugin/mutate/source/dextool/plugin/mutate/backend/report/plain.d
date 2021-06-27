@@ -153,7 +153,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 
             auto testCases = () {
                 if (ReportSection.tc_killed in sections || ReportSection.tc_stat in sections) {
-                    return db.getTestCases(r.id);
+                    return db.testCaseApi.getTestCases(r.id);
                 }
                 return null;
             }();

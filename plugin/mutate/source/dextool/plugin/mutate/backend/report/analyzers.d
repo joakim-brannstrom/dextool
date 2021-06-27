@@ -153,8 +153,9 @@ TestCaseStat reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds) @
     alias TcInfo2 = Tuple!(TestCase, "tc", Nullable!TestCaseInfo, "info");
     TestCaseStat rval;
 
-    foreach (v; spinSql!(() { return db.getDetectedTestCases; }).map!(a => TcInfo2(a, spinSql!(() {
-                return db.getTestCaseInfo(a, kinds);
+    foreach (v; spinSql!(() { return db.testCaseApi.getDetectedTestCases; }).map!(
+            a => TcInfo2(a, spinSql!(() {
+                return db.testCaseApi.getTestCaseInfo(a, kinds);
             })))
             .filter!(a => !a.info.isNull)
             .map!(a => TcInfo(a.tc, a.info.get))) {
@@ -232,13 +233,15 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     MutationStatusId[][TestCaseId] kill_cache2;
     MutationStatusId[] getKills(TestCaseId id) @trusted {
         return kill_cache2.require(id, spinSql!(() {
-                return db.testCaseKilledSrcMutants(kinds, id);
+                return db.testCaseApi.testCaseKilledSrcMutants(kinds, id);
             }));
     }
 
     alias TcKills = Tuple!(TestCaseId, "id", MutationStatusId[], "kills");
 
-    const test_cases = spinSql!(() { return db.getDetectedTestCaseIds; });
+    const test_cases = spinSql!(() {
+        return db.testCaseApi.getDetectedTestCaseIds;
+    });
 
     auto rval = new typeof(return);
 
@@ -315,8 +318,8 @@ TestCaseDeadStat reportDeadTestCases(ref Database db) @safe {
     auto profile = Profile(ReportSection.tc_killed_no_mutants);
 
     TestCaseDeadStat r;
-    r.total = db.getNumOfTestCases;
-    r.testCases = db.getTestCasesWithZeroKills;
+    r.total = db.testCaseApi.getNumOfTestCases;
+    r.testCases = db.testCaseApi.getTestCasesWithZeroKills;
     if (r.total > 0)
         r.ratio = cast(double) r.numDeadTC / cast(double) r.total;
     return r;
@@ -622,10 +625,11 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
     auto profile = Profile(ReportSection.tc_full_overlap);
 
     TestCaseOverlapStat st;
-    st.total = db.getNumOfTestCases;
+    st.total = db.testCaseApi.getNumOfTestCases;
 
-    foreach (tc_id; db.getTestCasesWithAtLeastOneKill(kinds)) {
-        auto muts = db.getTestCaseMutantKills(tc_id, kinds).sort.map!(a => cast(long) a).array;
+    foreach (tc_id; db.testCaseApi.getTestCasesWithAtLeastOneKill(kinds)) {
+        auto muts = db.testCaseApi.getTestCaseMutantKills(tc_id, kinds)
+            .sort.map!(a => cast(long) a).array;
         auto m3 = makeMurmur3(cast(ubyte[]) muts);
         if (auto v = m3 in st.tc_mut)
             (*v) ~= tc_id;
@@ -633,7 +637,7 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
             st.tc_mut[m3] = [tc_id];
             st.mutid_mut[m3] = muts;
         }
-        st.name_tc[tc_id] = db.getTestCaseName(tc_id);
+        st.name_tc[tc_id] = db.testCaseApi.getTestCaseName(tc_id);
     }
 
     foreach (tcs; st.tc_mut.byKeyValue.filter!(a => a.value.length > 1)) {
@@ -687,16 +691,17 @@ TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
     alias TgKills = Tuple!(TestGroupSimilarity.TestGroup, "testGroup",
             MutationStatusId[], "kills");
 
-    const test_cases = spinSql!(() { return db.getDetectedTestCaseIds; }).map!(
-            a => Tuple!(TestCaseId, "id", TestCase, "tc")(a, spinSql!(() {
-                return db.getTestCase(a).get;
+    const test_cases = spinSql!(() {
+        return db.testCaseApi.getDetectedTestCaseIds;
+    }).map!(a => Tuple!(TestCaseId, "id", TestCase, "tc")(a, spinSql!(() {
+                return db.testCaseApi.getTestCase(a).get;
             }))).array;
 
     MutationStatusId[] gatherKilledMutants(const(TestGroup) tg) {
         auto kills = appender!(MutationStatusId[])();
         foreach (tc; test_cases.filter!(a => a.tc.isTestCaseInTestGroup(tg.re))) {
             kills.put(spinSql!(() {
-                    return db.testCaseKilledSrcMutants(kinds, tc.id);
+                    return db.testCaseApi.testCaseKilledSrcMutants(kinds, tc.id);
                 }));
         }
         return kills.data;
@@ -780,22 +785,22 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
     TcStat tc_stat;
 
     // map test cases to this test group
-    foreach (tc; db.getDetectedTestCases) {
+    foreach (tc; db.testCaseApi.getDetectedTestCases) {
         if (tc.isTestCaseInTestGroup(test_g.re))
             r.testCases ~= tc;
     }
 
     // collect mutation statistics for each test case group
     foreach (const tc; r.testCases) {
-        foreach (const id; db.testCaseMutationPointAliveSrcMutants(kinds, tc))
+        foreach (const id; db.testCaseApi.testCaseMutationPointAliveSrcMutants(kinds, tc))
             tc_stat.alive.add(id);
-        foreach (const id; db.testCaseMutationPointKilledSrcMutants(kinds, tc))
+        foreach (const id; db.testCaseApi.testCaseMutationPointKilledSrcMutants(kinds, tc))
             tc_stat.killed.add(id);
-        foreach (const id; db.testCaseMutationPointTimeoutSrcMutants(kinds, tc))
+        foreach (const id; db.testCaseApi.testCaseMutationPointTimeoutSrcMutants(kinds, tc))
             tc_stat.timeout.add(id);
-        foreach (const id; db.testCaseMutationPointTotalSrcMutants(kinds, tc))
+        foreach (const id; db.testCaseApi.testCaseMutationPointTotalSrcMutants(kinds, tc))
             tc_stat.total.add(id);
-        foreach (const id; db.testCaseKilledSrcMutants(kinds, tc))
+        foreach (const id; db.testCaseApi.testCaseKilledSrcMutants(kinds, tc))
             tc_stat.tcKilled.add(id);
     }
 
@@ -960,7 +965,7 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
     }
 
     Set!TestCase test_cases;
-    foreach (tc; killed.toRange.map!(a => db.getTestCases(a)).joiner) {
+    foreach (tc; killed.toRange.map!(a => db.testCaseApi.getTestCases(a)).joiner) {
         test_cases.add(tc);
     }
 
@@ -1003,17 +1008,18 @@ MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
     Set!MutationId killedMutants;
 
     // start by picking test cases that have the fewest kills.
-    foreach (const val; db.getDetectedTestCases
-            .map!(a => tuple(a, db.getTestCaseId(a)))
+    foreach (const val; db.testCaseApi
+            .getDetectedTestCases
+            .map!(a => tuple(a, db.testCaseApi.getTestCaseId(a)))
             .filter!(a => !a[1].isNull)
-            .map!(a => TcIdInfo(a[0], a[1].get, db.getTestCaseInfo(a[0], kinds).get))
+            .map!(a => TcIdInfo(a[0], a[1].get, db.testCaseApi.getTestCaseInfo(a[0], kinds).get))
             .filter!(a => a.info.killedMutants != 0)
             .array
             .sort!((a, b) => a.info.killedMutants < b.info.killedMutants)) {
         rval.testCaseTime[val.tc.name] = val.info;
 
         const killed = killedMutants.length;
-        foreach (const id; db.getTestCaseMutantKills(val.id, kinds)) {
+        foreach (const id; db.testCaseApi.getTestCaseMutantKills(val.id, kinds)) {
             killedMutants.add(id);
         }
 
@@ -1050,8 +1056,8 @@ TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind
     // killed by multiple test cases
     Set!MutationStatusId multiKill;
 
-    foreach (tc_id; db.getTestCasesWithAtLeastOneKill(kinds)) {
-        auto muts = db.testCaseKilledSrcMutants(kinds, tc_id);
+    foreach (tc_id; db.testCaseApi.getTestCasesWithAtLeastOneKill(kinds)) {
+        auto muts = db.testCaseApi.testCaseKilledSrcMutants(kinds, tc_id);
         foreach (m; muts.filter!(a => a !in multiKill)) {
             if (m in killedBy) {
                 killedBy.remove(m);
@@ -1068,7 +1074,7 @@ TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind
         rval.uniqueKills[kv.value] ~= kv.key;
         uniqueTc.add(kv.value);
     }
-    foreach (tc_id; db.getDetectedTestCaseIds.filter!(a => !uniqueTc.contains(a)))
+    foreach (tc_id; db.testCaseApi.getDetectedTestCaseIds.filter!(a => !uniqueTc.contains(a)))
         rval.noUniqueKills.add(tc_id);
 
     return rval;
