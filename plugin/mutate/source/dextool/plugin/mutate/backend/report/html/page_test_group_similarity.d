@@ -60,8 +60,8 @@ void toHtml(ref Database db, TestGroupSimilarity result, Element root) {
     import dextool.type : Path;
 
     auto getPath = nullableCache!(MutationStatusId, string, (MutationStatusId id) {
-        auto path = spinSql!(() => db.getPath(id)).get;
-        auto mutId = spinSql!(() => db.getMutationId(id)).get;
+        auto path = spinSql!(() => db.mutantApi.getPath(id)).get;
+        auto mutId = spinSql!(() => db.mutantApi.getMutationId(id)).get;
         return format!"%s#%s"(buildPath("..", Html.fileDir, pathToHtmlLink(path)), mutId.get);
     })(0, 30.dur!"seconds");
 

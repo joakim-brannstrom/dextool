@@ -40,8 +40,7 @@ ExitStatusType runGenerateMutant(const AbsolutePath dbPath, MutationKind[] kind,
     import dextool.plugin.mutate.backend.mutation_type : toInternal;
 
     ExitStatusType helper(ref Database db) @safe {
-        Nullable!MutationEntry mutp;
-        mutp = spinSql!(() { return db.getMutation(user_mutation); });
+        auto mutp = spinSql!(() => db.mutantApi.getMutation(user_mutation));
 
         if (mutp.isNull) {
             logger.error("No such mutation id: ", user_mutation).collectException;

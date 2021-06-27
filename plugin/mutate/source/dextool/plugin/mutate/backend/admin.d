@@ -147,7 +147,7 @@ ExitStatusType resetMutant(ref Database db, const Mutation.Kind[] kinds,
         Mutation.Status status, Mutation.Status to_status) @safe nothrow {
     try {
         logger.infof("Resetting %s with status %s to %s", kinds, status, to_status);
-        db.resetMutant(kinds, status, to_status);
+        db.mutantApi.resetMutant(kinds, status, to_status);
     } catch (Exception e) {
         logger.error(e.msg).collectException;
         return ExitStatusType.Errors;
@@ -230,7 +230,7 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
     try {
         auto trans = db.transaction;
 
-        auto mut = db.getMutation(id);
+        auto mut = db.mutantApi.getMutation(id);
         if (mut.isNull) {
             logger.errorf("Mutant with ID %s do not exist", id.get);
             return ExitStatusType.Errors;
@@ -239,19 +239,19 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
         // because getMutation worked we know the ID is valid thus no need to
         // check the return values when it or derived values are used.
 
-        const st_id = db.getMutationStatusId(id).get;
-        const checksum = db.getChecksum(st_id).get;
+        const st_id = db.mutantApi.getMutationStatusId(id).get;
+        const checksum = db.mutantApi.getChecksum(st_id).get;
 
         const txt = () {
             auto tmp = makeMutationText(fio.makeInput(fio.toAbsoluteRoot(mut.get.file)),
-                    mut.get.mp.offset, db.getKind(id), mut.get.lang);
+                    mut.get.mp.offset, db.mutantApi.getKind(id), mut.get.lang);
             return window(format!"'%s'->'%s'"(tmp.original.strip, tmp.mutation.strip), 30);
         }();
 
-        db.markMutant(id, mut.get.file, mut.get.sloc, st_id, checksum, status,
-                Rationale(rationale), txt);
+        db.markMutantApi.markMutant(id, mut.get.file, mut.get.sloc, st_id,
+                checksum, status, Rationale(rationale), txt);
 
-        db.updateMutationStatus(st_id, status, ExitStatus(0));
+        db.mutantApi.updateMutationStatus(st_id, status, ExitStatus(0));
 
         logger.infof(`Mutant %s marked with status %s and rationale %s`, id.get, status, rationale);
 
@@ -269,15 +269,15 @@ ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothr
         auto trans = db.transaction;
 
         // MutationStatusId used as check, removal of marking and updating status to unknown
-        const st_id = db.getMutationStatusId(id);
+        const st_id = db.mutantApi.getMutationStatusId(id);
         if (st_id.isNull) {
             logger.errorf("Mutant with ID %s do not exist", id.get);
             return ExitStatusType.Errors;
         }
 
-        if (db.isMarked(id)) {
-            db.removeMarkedMutant(st_id.get);
-            db.updateMutationStatus(st_id.get, Mutation.Status.unknown, ExitStatus(0));
+        if (db.markMutantApi.isMarked(id)) {
+            db.markMutantApi.removeMarkedMutant(st_id.get);
+            db.mutantApi.updateMutationStatus(st_id.get, Mutation.Status.unknown, ExitStatus(0));
             logger.infof("Removed marking for mutant %s.", id);
         } else {
             logger.errorf("Failure when removing marked mutant (mutant %s is not marked)", id.get);
@@ -310,14 +310,14 @@ ExitStatusType stopTimeoutTest(ref Database db) @trusted nothrow {
         logger.info("Forcing the testing of timeout mutants to stop");
         auto t = db.transaction;
 
-        db.resetMutantTimeoutWorklist(Mutation.Status.timeout);
-        db.clearMutantTimeoutWorklist;
-        db.clearWorklist;
+        db.timeoutApi.resetMutantTimeoutWorklist(Mutation.Status.timeout);
+        db.timeoutApi.clearMutantTimeoutWorklist;
+        db.worklistApi.clearWorklist;
 
         MutantTimeoutCtx ctx;
         ctx.iter = MaxTimeoutIterations;
         ctx.state = MutantTimeoutCtx.State.done;
-        db.putMutantTimeoutCtx(ctx);
+        db.timeoutApi.putMutantTimeoutCtx(ctx);
 
         t.commit;
         return ExitStatusType.Ok;

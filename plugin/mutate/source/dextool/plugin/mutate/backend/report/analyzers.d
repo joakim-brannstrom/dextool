@@ -144,7 +144,7 @@ TestCaseStat reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds) @
 
     auto profile = Profile(ReportSection.tc_stat);
 
-    const total = spinSql!(() { return db.totalSrcMutants(kinds).count; });
+    const total = spinSql!(() { return db.mutantApi.totalSrcMutants(kinds).count; });
     // nothing to do. this also ensure that we do not divide by zero.
     if (total == 0)
         return TestCaseStat.init;
@@ -351,13 +351,13 @@ struct MutationScore {
 MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
     auto profile = Profile("reportScore");
 
-    const alive = spinSql!(() { return db.aliveSrcMutants(kinds, file); });
-    const noCov = spinSql!(() { return db.noCovSrcMutants(kinds, file); });
-    const aliveNomut = spinSql!(() { return db.aliveNoMutSrcMutants(kinds, file); });
-    const killed = spinSql!(() { return db.killedSrcMutants(kinds, file); });
-    const timeout = spinSql!(() { return db.timeoutSrcMutants(kinds, file); });
-    const equivalent = spinSql!(() => db.equivalentMutants(kinds, file));
-    const total = spinSql!(() { return db.totalSrcMutants(kinds, file); });
+    const alive = spinSql!(() => db.mutantApi.aliveSrcMutants(kinds, file));
+    const noCov = spinSql!(() => db.mutantApi.noCovSrcMutants(kinds, file));
+    const aliveNomut = spinSql!(() => db.mutantApi.aliveNoMutSrcMutants(kinds, file));
+    const killed = spinSql!(() => db.mutantApi.killedSrcMutants(kinds, file));
+    const timeout = spinSql!(() => db.mutantApi.timeoutSrcMutants(kinds, file));
+    const equivalent = spinSql!(() => db.mutantApi.equivalentMutants(kinds, file));
+    const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds, file));
 
     typeof(return) rval;
     rval.alive = alive.count;
@@ -489,11 +489,9 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
 
     auto profile = Profile(ReportSection.summary);
 
-    const untested = spinSql!(() { return db.unknownSrcMutants(kinds, file); });
-    const worklist = spinSql!(() { return db.getWorklistCount; });
-    const killedByCompiler = spinSql!(() {
-        return db.killedByCompilerSrcMutants(kinds, file);
-    });
+    const untested = spinSql!(() => db.mutantApi.unknownSrcMutants(kinds, file));
+    const worklist = spinSql!(() => db.worklistApi.getWorklistCount);
+    const killedByCompiler = spinSql!(() => db.mutantApi.killedByCompilerSrcMutants(kinds, file));
 
     MutationStat st;
     st.scoreData = reportScore(db, kinds, file);
@@ -519,7 +517,7 @@ MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kin
         "File", "Line", "Column", "Mutation", "Status", "Rationale"
     ];
 
-    foreach (m; db.getMarkedMutants()) {
+    foreach (m; db.markMutantApi.getMarkedMutants()) {
         typeof(st.tbl).Row r = [
             m.path, m.sloc.line.to!string, m.sloc.column.to!string,
             m.mutText, statusToString(m.toStatus), m.rationale.get
@@ -811,7 +809,7 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
     r.stats.scoreData.total = tc_stat.total.length;
 
     // associate mutants with their file
-    foreach (const m; db.getMutantsInfo(kinds, tc_stat.tcKilled.toArray)) {
+    foreach (const m; db.mutantApi.getMutantsInfo(kinds, tc_stat.tcKilled.toArray)) {
         auto fid = db.getFileId(m.id);
         r.killed[fid.get] ~= m;
 
@@ -821,7 +819,7 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
         }
     }
 
-    foreach (const m; db.getMutantsInfo(kinds, tc_stat.alive.toArray)) {
+    foreach (const m; db.mutantApi.getMutantsInfo(kinds, tc_stat.alive.toArray)) {
         auto fid = db.getFileId(m.id);
         r.alive[fid.get] ~= m;
 
@@ -858,18 +856,18 @@ MutantSample reportSelectedAliveMutants(ref Database db, const(Mutation.Kind)[] 
 
     auto rval = new typeof(return);
 
-    rval.highestPrio = db.getHighestPrioMutant(kinds, Mutation.Status.alive, historyNr);
+    rval.highestPrio = db.mutantApi.getHighestPrioMutant(kinds, Mutation.Status.alive, historyNr);
     foreach (const mutst; rval.highestPrio) {
-        auto ids = db.getMutationIds(kinds, [mutst.statusId]);
+        auto ids = db.mutantApi.getMutationIds(kinds, [mutst.statusId]);
         if (ids.length != 0)
-            rval.mutants[mutst.statusId] = db.getMutation(ids[0]).get;
+            rval.mutants[mutst.statusId] = db.mutantApi.getMutation(ids[0]).get;
     }
 
-    rval.oldest = db.getOldestMutants(kinds, historyNr);
+    rval.oldest = db.mutantApi.getOldestMutants(kinds, historyNr);
     foreach (const mutst; rval.oldest) {
-        auto ids = db.getMutationIds(kinds, [mutst.id]);
+        auto ids = db.mutantApi.getMutationIds(kinds, [mutst.id]);
         if (ids.length != 0)
-            rval.mutants[mutst.id] = db.getMutation(ids[0]).get;
+            rval.mutants[mutst.id] = db.mutantApi.getMutation(ids[0]).get;
     }
 
     return rval;
@@ -939,14 +937,14 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         bool hasMutants;
         foreach (id; kv.value
                 .toRange
-                .map!(line => spinSql!(() => db.getMutationsOnLine(kinds,
+                .map!(line => spinSql!(() => db.mutantApi.getMutationsOnLine(kinds,
                     fid.get, SourceLoc(line))))
                 .joiner
                 .filter!(a => a !in total)) {
             hasMutants = true;
             total.add(id);
 
-            const info = db.getMutantsInfo(kinds, [id])[0];
+            const info = db.mutantApi.getMutantsInfo(kinds, [id])[0];
             if (info.status == Mutation.Status.alive) {
                 rval.alive[fid.get] ~= info;
                 alive.add(info.id);
@@ -1327,10 +1325,10 @@ SyncStatus reportSyncStatus(ref Database db, const(Mutation.Kind)[] kinds, const
     import dextool.plugin.mutate.backend.database : TestFile, TestFileChecksum, TestFilePath;
 
     typeof(return) rval;
-    rval.test = spinSql!(() => db.getNewestTestFile)
+    rval.test = spinSql!(() => db.testFileApi.getNewestTestFile)
         .orElse(TestFile(TestFilePath.init, TestFileChecksum.init, Clock.currTime)).timeStamp;
     rval.code = spinSql!(() => db.getNewestFile).orElse(Clock.currTime);
-    rval.coverage = spinSql!(() => db.getCoverageTimeStamp).orElse(Clock.currTime);
-    rval.mutants = spinSql!(() => db.getOldestMutants(kinds, nrMutants));
+    rval.coverage = spinSql!(() => db.coverageApi.getCoverageTimeStamp).orElse(Clock.currTime);
+    rval.mutants = spinSql!(() => db.mutantApi.getOldestMutants(kinds, nrMutants));
     return rval;
 }

@@ -16,7 +16,7 @@ import dextool.plugin.mutate.backend.database.standalone : Database;
 import dextool_test.utility;
 
 auto getAllMutationIds(ref Database db) {
-    return db.getAllMutationStatus.map!(a => db.getMutationId(a).get).array;
+    return db.mutantApi.getAllMutationStatus.map!(a => db.mutantApi.getMutationId(a).get).array;
 }
 
 /// Fejk database entries

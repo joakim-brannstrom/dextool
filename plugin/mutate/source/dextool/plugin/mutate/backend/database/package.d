@@ -82,7 +82,7 @@ struct Database {
             ORDER BY t4.prio DESC LIMIT %6$s)
             ORDER BY RANDOM() LIMIT 1", mutationTable, mutationPointTable,
                 filesTable, mutationStatusTable, mutantWorklistTable, maxParallel);
-        auto stmt = db.prepare(sql);
+        auto stmt = db.db.prepare(sql);
         auto res = stmt.get.execute;
         if (res.empty) {
             rval.st = NextMutationEntry.Status.done;
@@ -113,7 +113,7 @@ struct Database {
            t0.kind IN (%(%s,%))
            ORDER BY t1.added_ts",
                 mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
-        auto stmt = db.prepare(sql);
+        auto stmt = db.db.prepare(sql);
         try {
             foreach (ref r; stmt.get.execute) {
                 dg(r.peek!int(0).to!(Mutation.Status), r.peek!string(1).fromSqLiteDateTime);
@@ -152,7 +152,7 @@ struct Database {
                 filesTable, mutationStatusTable, srcMetadataTable, kinds.map!(a => cast(int) a));
 
         try {
-            auto stmt = db.prepare(all_mutants);
+            auto stmt = db.db.prepare(all_mutants);
             foreach (ref r; stmt.get.execute) {
                 IterateMutantRow d;
                 d.id = MutationId(r.peek!long(0));
@@ -183,7 +183,7 @@ struct Database {
         enum files_q = format("SELECT t0.path, t0.checksum0, t0.checksum1, t0.lang, t0.id FROM %s t0",
                     filesTable);
         auto app = appender!(FileRow[])();
-        auto stmt = db.prepare(files_q);
+        auto stmt = db.db.prepare(files_q);
         foreach (ref r; stmt.get.execute) {
             auto fr = FileRow(r.peek!string(0).Path, checksum(r.peek!long(1),
                     r.peek!long(2)), r.peek!Language(3), r.peek!long(4).FileId);
@@ -229,7 +229,7 @@ struct Database {
             ", mutationTable, mutationPointTable,
                 filesTable, mutationStatusTable, kinds.map!(a => cast(int) a));
 
-        auto stmt = db.prepare(all_fmut);
+        auto stmt = db.db.prepare(all_fmut);
         stmt.get.bind(":path", cast(string) file);
         foreach (ref r; stmt.get.execute) {
             FileMutantRow fr;

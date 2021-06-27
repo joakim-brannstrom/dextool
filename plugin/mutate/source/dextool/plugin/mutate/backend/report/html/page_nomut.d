@@ -33,7 +33,7 @@ auto makeNomut(ref Database db, ref const ConfigReport conf,
     doc.mainBody.addChild("p",
             "This is all the mutation suppressions that are used and affects the analysis.");
 
-    db.getMutantationMetaData(kinds, Mutation.Status.alive).toHtml(db, doc.mainBody);
+    db.mutantApi.getMutantationMetaData(kinds, Mutation.Status.alive).toHtml(db, doc.mainBody);
 
     return doc.toPrettyString;
 }
@@ -79,7 +79,7 @@ void toHtml(MutantMetaData[] data, ref Database db, Element root) {
                 .sort!((a, b) => a.comment < b.comment)) {
             auto r = tbl.appendRow();
 
-            auto file = db.getPath(m.id);
+            auto file = db.mutantApi.getPath(m.id);
             if (file.isNull)
                 continue;
 

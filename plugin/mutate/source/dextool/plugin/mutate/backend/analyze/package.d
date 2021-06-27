@@ -352,12 +352,12 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
             value.match!((Some!(SchemataBuilder.ET) a) {
                 try {
                     auto mutants = a.mutants
-                        .map!(a => db.getMutationStatusId(a.id))
+                        .map!(a => db.mutantApi.getMutationStatusId(a.id))
                         .filter!(a => !a.isNull)
                         .map!(a => a.get)
                         .array;
                     if (!mutants.empty) {
-                        const id = db.putSchemata(a.checksum, a.fragments, mutants);
+                        const id = db.schemaApi.putSchemata(a.checksum, a.fragments, mutants);
                         log.tracef(!id.isNull, "Saving schema %s with %s mutants",
                             id.get.get, mutants.length);
                     }
@@ -468,7 +468,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     db.put(relp, info.checksum, info.language, f == result.root);
                     savedFiles.add(f);
                 }
-                db.put(app.data, fio.getOutputDir);
+                db.mutantApi.put(app.data, fio.getOutputDir);
 
                 if (result.root !in savedFiles) {
                     // this occurs when the file is e.g. a unittest that uses a
@@ -493,8 +493,8 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                     foreach (a; result.coverage.byKeyValue) {
                         const fid = getFileId(fio.toRelativeRoot(result.fileId[a.key]));
                         if (!fid.isNull) {
-                            db.clearCoverageMap(fid.get);
-                            db.putCoverageMap(fid.get, a.value);
+                            db.coverageApi.clearCoverageMap(fid.get);
+                            db.coverageApi.putCoverageMap(fid.get, a.value);
                         }
                     }
 
@@ -521,7 +521,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                         app.put(LineMetadata(fid.get, md.line, md.attr));
                     }
                 }
-                db.put(app.data);
+                db.metaDataApi.put(app.data);
             }
         }
 
@@ -529,17 +529,17 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
             auto profile = Profile("save test files");
             Set!Checksum old;
 
-            foreach (a; db.getTestFiles) {
+            foreach (a; db.testFileApi.getTestFiles) {
                 old.add(a.checksum.get);
                 if (a.checksum.get !in result.files) {
                     log.info("Removed test file ", a.file.get.toString);
-                    db.removeFile(a.file);
+                    db.testFileApi.removeFile(a.file);
                 }
             }
 
             foreach (a; result.files.byValue.filter!(a => a.checksum.get !in old)) {
                 log.info("Saving test file ", a.file.get.toString);
-                db.put(a);
+                db.testFileApi.put(a);
             }
         }
 
@@ -644,7 +644,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 auto profile = Profile("prune old schemas");
                 if (isToolVersionDifferent) {
                     log.info("Prune database of schematan created by the old version");
-                    db.deleteAllSchemas;
+                    db.schemaApi.deleteAllSchemas;
                 }
                 trans.commit;
             }
@@ -664,19 +664,19 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
                 resetTimeoutContext(db);
 
                 log.info("Updating metadata");
-                db.updateMetadata;
+                db.metaDataApi.updateMetadata;
 
                 if (conf.analyze.prune) {
                     pruneFiles();
                     {
                         auto profile = Profile("remove orphaned mutants");
                         log.info("Removing orphaned mutants");
-                        db.removeOrphanedMutants;
+                        db.mutantApi.removeOrphanedMutants;
                     }
                     {
                         auto profile = Profile("prune schemas");
                         log.info("Prune the database of unused schemas");
-                        db.pruneSchemas;
+                        db.schemaApi.pruneSchemas;
                     }
                     {
                         auto profile = Profile("prune dependencies");
@@ -687,7 +687,7 @@ void storeActor(const AbsolutePath dbPath, scope shared FilesysIO fioShared,
 
                 log.info("Updating manually marked mutants");
                 updateMarkedMutants(db);
-                printLostMarkings(db.getLostMarkings);
+                printLostMarkings(db.markMutantApi.getLostMarkings);
 
                 if (isToolVersionDifferent) {
                     log.info("Updating tool version");
@@ -1038,23 +1038,24 @@ void updateMarkedMutants(ref Database db) {
     import dextool.plugin.mutate.backend.type : ExitStatus;
 
     void update(MarkedMutant m) {
-        const stId = db.getMutationStatusId(m.statusChecksum);
+        const stId = db.mutantApi.getMutationStatusId(m.statusChecksum);
         if (stId.isNull)
             return;
-        const mutId = db.getMutationId(stId.get);
+        const mutId = db.mutantApi.getMutationId(stId.get);
         if (mutId.isNull)
             return;
-        db.removeMarkedMutant(m.statusChecksum);
-        db.markMutant(mutId.get, m.path, m.sloc, stId.get, m.statusChecksum,
-                m.toStatus, m.rationale, m.mutText);
-        db.updateMutationStatus(stId.get, m.toStatus, ExitStatus(0));
+        db.markMutantApi.removeMarkedMutant(m.statusChecksum);
+        db.markMutantApi.markMutant(mutId.get, m.path, m.sloc, stId.get,
+                m.statusChecksum, m.toStatus, m.rationale, m.mutText);
+        db.mutantApi.updateMutationStatus(stId.get, m.toStatus, ExitStatus(0));
     }
 
     // find those marked mutants that have a checksum that is different from
     // the mutation status the marked mutant is related to. If possible change
     // the relation to the correct mutation status id.
-    foreach (m; db.getMarkedMutants
-            .map!(a => tuple(a, db.getChecksum(a.statusId)))
+    foreach (m; db.markMutantApi
+            .getMarkedMutants
+            .map!(a => tuple(a, db.mutantApi.getChecksum(a.statusId)))
             .filter!(a => !a[1].isNull)
             .filter!(a => a[0].statusChecksum != a[1].get)) {
         update(m[0]);

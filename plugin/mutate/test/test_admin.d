@@ -43,16 +43,26 @@ class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
         // tc3: [1,12]
-        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(2), Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
-        db.updateMutation(MutationId(4), Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
-        db.updateMutation(MutationId(5), Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
+        db.mutantApi.updateMutation(MutationId(1), Mutation.Status.killed,
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
+                    tc1, tc2, tc3
+                ]);
+        db.mutantApi.updateMutation(MutationId(2), Mutation.Status.killed,
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
+                    tc1
+                ]);
+        db.mutantApi.updateMutation(MutationId(3), Mutation.Status.killed,
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
+                    tc1, tc2
+                ]);
+        db.mutantApi.updateMutation(MutationId(4), Mutation.Status.killed,
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
+                    tc1, tc2, tc3
+                ]);
+        db.mutantApi.updateMutation(MutationId(5), Mutation.Status.killed,
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
+                    tc1, tc2
+                ]);
 
         db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
             .get.killedMutants.shouldBeGreaterThan(1);
@@ -84,14 +94,22 @@ class ShallRemoveTestCase : SimpleAnalyzeFixture {
         const tc2 = TestCase("tc_2");
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
-        db.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
-        db.updateMutation(MutationId(2), Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
-        db.updateMutation(MutationId(3), Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
-        db.updateMutation(MutationId(4), Mutation.Status.killed, ExitStatus(0),
-                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
+        db.mutantApi.updateMutation(MutationId(1), Mutation.Status.killed,
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
+                    tc1, tc2
+                ]);
+        db.mutantApi.updateMutation(MutationId(2), Mutation.Status.killed,
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
+                    tc1
+                ]);
+        db.mutantApi.updateMutation(MutationId(3), Mutation.Status.killed,
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
+                    tc1, tc2
+                ]);
+        db.mutantApi.updateMutation(MutationId(4), Mutation.Status.killed,
+                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
+                    tc1, tc2
+                ]);
 
         db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
             .get.killedMutants.shouldBeGreaterThan(1);
@@ -161,7 +179,7 @@ unittest {
     r.success.shouldBeFalse;
 
     auto db = createDatabase(testEnv);
-    db.getMutation(MutationId(5000)).isNull.shouldBeTrue;
+    db.mutantApi.getMutation(MutationId(5000)).isNull.shouldBeTrue;
 
     testAnyOrder!SubStr(["error"]).shouldBeIn(r.output);
     testAnyOrder!SubStr([format!"Mutant with ID %s do not exist"(5000)]).shouldBeIn(r.output);
@@ -217,7 +235,7 @@ unittest {
         .addArg(["--to-status", to!string(Status.killed)])
         .addArg(["--rationale", `"This marking should not exist"`])
         .run;
-    db.isMarked(MutationId(10)).shouldBeTrue;
+    db.markMutantApi.isMarked(MutationId(10)).shouldBeTrue;
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "removeMarkedMutant"])
         .addArg(["--id",        "10"])
@@ -226,8 +244,8 @@ unittest {
 
     // assert
     testAnyOrder!SubStr(["error"]).shouldNotBeIn(r.output);
-    db.isMarked(MutationId(10)).shouldBeFalse;
-    (db.getMutationStatus(MutationId(10)) == Status.unknown).shouldBeTrue;
+    db.markMutantApi.isMarked(MutationId(10)).shouldBeFalse;
+    (db.mutantApi.getMutationStatus(MutationId(10)) == Status.unknown).shouldBeTrue;
 
     testAnyOrder!SubStr([
             format!"info: Removed marking for mutant %s"(to!string(MutationId(10)))
@@ -252,7 +270,7 @@ unittest {
     // dfmt on
 
     // assert
-    db.isMarked(MutationId(20)).shouldBeFalse;
+    db.markMutantApi.isMarked(MutationId(20)).shouldBeFalse;
 
     testAnyOrder!SubStr(["error"]).shouldBeIn(r.output);
     testAnyOrder!SubStr([
