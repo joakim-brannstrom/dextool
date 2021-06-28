@@ -179,7 +179,6 @@ struct FileIndex {
         import dextool.plugin.mutate.backend.report.html.page_nomut;
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_case;
-        import dextool.plugin.mutate.backend.report.html.page_test_case_full_overlap;
         import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
         import dextool.plugin.mutate.backend.report.html.page_test_groups;
         import dextool.plugin.mutate.backend.report.html.page_tree_map;
@@ -230,11 +229,6 @@ struct FileIndex {
         if (ReportSection.tc_groups_similarity in sections) {
             addSubPage(() => makeTestGroupSimilarityAnalyse(db, conf, humanReadableKinds,
                     kinds), "test_group_similarity", "Test Group Similarity");
-        }
-        if (ReportSection.tc_full_overlap in sections
-                || ReportSection.tc_full_overlap_with_mutation_id in sections) {
-            addSubPage(() => makeFullOverlapTestCase(db, conf, humanReadableKinds,
-                    kinds), "full_overlap_test_cases", "Full Overlap Test Cases");
         }
         if (ReportSection.trend in sections) {
             addContent((string tag) => makeTrend(db, kinds, tag, content), "Trend", "#trend");
