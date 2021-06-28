@@ -142,10 +142,9 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
     auto kills = db.testCaseApi.testCaseKilledSrcMutants(kinds, tcId);
     auto unique = uniqueKills.toSet;
 
-    auto tbl = tmplSortableTable(root, ["Link", "Priority", "ExitCode"] ~ (uniqueKills.empty
-            ? null : ["Unique"]) ~ (addSuggestion ? ["Suggestion"] : null) ~ [
-            "Tested"
-            ]);
+    auto tbl = tmplSortableTable(root, ["Link"] ~ (uniqueKills.empty
+            ? null : ["Unique"]) ~ (addSuggestion
+            ? ["Suggestion"] : null) ~ ["Priority", "ExitCode", "Tested"]);
     {
         auto p = root.addChild("p");
         p.addChild("b", "Unique");
@@ -165,8 +164,6 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
         r.addChild("td").addChild("a", format("%s:%s", info.file,
                 info.sloc.line)).href = format("%s#%s", buildPath("..",
                 HtmlStyle.fileDir, pathToHtmlLink(info.file)), info.id.get);
-        r.addChild("td", info.prio.get.to!string);
-        r.addChild("td", info.exitStatus.get.to!string);
 
         if (!uniqueKills.empty)
             r.addChild("td", (id in unique ? "x" : ""));
@@ -180,6 +177,8 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
             }
         }
 
+        r.addChild("td", info.prio.get.to!string);
+        r.addChild("td", info.exitStatus.get.to!string);
         r.addChild("td", info.updated.toShortDate);
     }
 }

@@ -127,7 +127,7 @@ struct MutationTestDriver {
     static struct StoreResult {
     }
 
-    static struct Propagate {
+    static struct Cover {
     }
 
     static struct Done {
@@ -145,8 +145,7 @@ struct MutationTestDriver {
     }
 
     alias Fsm = my.fsm.Fsm!(None, Initialize, MutateCode, TestMutant, RestoreCode, TestCaseAnalyze, StoreResult, Done,
-            FilesysError, NoResultRestoreCode, NoResult, MarkCalcStatus,
-            TestBinaryAnalyze, Propagate);
+            FilesysError, NoResultRestoreCode, NoResult, MarkCalcStatus, TestBinaryAnalyze, Cover);
     alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData);
 
     private {
@@ -193,7 +192,7 @@ struct MutationTestDriver {
             if (a.filesysError)
                 return fsm(FilesysError.init);
             return fsm(StoreResult.init);
-        }, (StoreResult a) => Propagate.init, (Propagate a) => Done.init,
+        }, (StoreResult a) => Cover.init, (Cover a) => Done.init,
                 (Done a) => fsm(a), (FilesysError a) => fsm(a),
                 (NoResultRestoreCode a) => fsm(NoResult.init), (NoResult a) => fsm(a),);
 
@@ -473,8 +472,9 @@ nothrow:
                 global.testCases.sort.map!"a.name").collectException;
     }
 
-    void opCall(Propagate data) {
+    void opCall(Cover data) {
         import std.algorithm : canFind;
+        import dextool.plugin.mutate.backend.mutation_type.cover : covers, Cover;
 
         // only SDL mutants are supported for propgatation for now because a
         // surviving SDL is a strong indication that all internal mutants will
@@ -482,12 +482,24 @@ nothrow:
         // though that there are probably corner cases wherein this assumption
         // isn't true.
 
-        if (!global.useSkipMutant.get || result.empty
-                || result[0].status != Mutation.Status.alive
-                || global.mutp.mp.mutations.canFind!(a => a.kind != Mutation.Kind.stmtDel))
+        if (!global.useSkipMutant.get || result.empty || global.mutp.mp.mutations.empty)
             return;
 
-        logger.trace("Propagate").collectException;
+        const(Mutation.Kind)[] cover;
+        if (auto v = Cover(global.mutp.mp.mutations[0].kind, result[0].status) in covers) {
+            cover = *v;
+        } else {
+            logger.tracef("no cover for %s:%s", global.mutp.mp.mutations[0].kind,
+                    result[0].status).collectException;
+            return;
+        }
+
+        if (cover.empty)
+            return;
+
+        logger.trace("Performing cover").collectException;
+        logger.tracef("cover for %s:%s", global.mutp.mp.mutations[0].kind,
+                result[0].status).collectException;
 
         void propagate() {
             const fid = global.db.getFileId(global.mutp.file);
@@ -495,7 +507,8 @@ nothrow:
                 return;
 
             foreach (const stId; global.db.mutantApi.mutantsInRegion(fid.get,
-                    global.mutp.mp.offset, Mutation.Status.unknown).filter!(a => a != result[0].id)) {
+                    global.mutp.mp.offset, Mutation.Status.unknown, cover).filter!(
+                    a => a != result[0].id)) {
                 const mutId = global.db.mutantApi.getMutationId(stId);
                 if (mutId.isNull)
                     return;
