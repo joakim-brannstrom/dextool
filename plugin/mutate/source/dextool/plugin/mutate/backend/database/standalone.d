@@ -1098,16 +1098,18 @@ struct DbMutant {
         auto stmt = () {
             if (update_ts) {
                 const ts = Clock.currTime.toSqliteDateTime;
-                auto s = db.prepare(format!"UPDATE %s SET status=:st,update_ts=:update_ts WHERE id=:id"(
+                auto s = db.prepare(
+                        format!"UPDATE %s SET status=:st,exit_code=:ecode,update_ts=:update_ts WHERE id=:id"(
                         mutationStatusTable));
                 s.get.bind(":update_ts", ts);
                 return s;
             } else
-                return db.prepare(format!"UPDATE %s SET status=:st WHERE id=:id"(
+                return db.prepare(format!"UPDATE %s SET status=:st,exit_code=:ecode WHERE id=:id"(
                         mutationStatusTable));
         }();
         stmt.get.bind(":st", st.to!long);
         stmt.get.bind(":id", id.to!long);
+        stmt.get.bind(":ecode", ecode.get);
         stmt.get.execute;
     }
 
