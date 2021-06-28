@@ -609,9 +609,13 @@ nothrow:
 
     void opCall(ref Initialize data) {
         logger.info("Initializing worklist").collectException;
+
+        auto status = [Mutation.Status.unknown];
+        if (!conf.useSkipMutant)
+            status ~= Mutation.Status.skipped;
+
         spinSql!(() {
-            db.worklistApi.updateWorklist(kinds, [Mutation.Status.unknown],
-                unknownWeight, mutationOrder);
+            db.worklistApi.updateWorklist(kinds, status, unknownWeight, mutationOrder);
         });
 
         // detect if the system is overloaded before trying to do something
