@@ -13,7 +13,7 @@ import logger = std.experimental.logger;
 import std.algorithm : sort;
 import std.array : empty;
 import std.conv : to;
-import std.datetime : Clock, dur;
+import std.datetime : Clock, dur, SysTime;
 import std.format : format;
 import std.path : buildPath;
 import std.stdio : File;
@@ -142,11 +142,10 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
     auto kills = db.testCaseApi.testCaseKilledSrcMutants(kinds, tcId);
     auto unique = uniqueKills.toSet;
 
-    auto tbl = tmplSortableTable(root, [
-            "Link", "Tested", "Priority", "ExitCode"
-            ] ~ (uniqueKills.empty ? null : ["Unique"]) ~ (addSuggestion ? [
-                "Suggestion"
-            ] : null));
+    auto tbl = tmplSortableTable(root, ["Link", "Priority", "ExitCode"] ~ (uniqueKills.empty
+            ? null : ["Unique"]) ~ (addSuggestion ? ["Suggestion"] : null) ~ [
+            "Tested"
+            ]);
     {
         auto p = root.addChild("p");
         p.addChild("b", "Unique");
@@ -166,7 +165,6 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
         r.addChild("td").addChild("a", format("%s:%s", info.file,
                 info.sloc.line)).href = format("%s#%s", buildPath("..",
                 HtmlStyle.fileDir, pathToHtmlLink(info.file)), info.id.get);
-        r.addChild("td", info.updated.toString);
         r.addChild("td", info.prio.get.to!string);
         r.addChild("td", info.exitStatus.get.to!string);
 
@@ -181,6 +179,8 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
                         db.mutantApi.getMutationId(s).get);
             }
         }
+
+        r.addChild("td", info.updated.toShortDate);
     }
 }
 
@@ -222,4 +222,8 @@ void addSimilarity(PathCacheT)(ref Database db,
             s.appendText(" ");
         }
     }
+}
+
+string toShortDate(SysTime ts) {
+    return format("%04s-%02s-%02s", ts.year, cast(ushort) ts.month, ts.day);
 }
