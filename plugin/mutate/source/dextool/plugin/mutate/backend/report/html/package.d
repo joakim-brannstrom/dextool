@@ -721,6 +721,7 @@ struct MetaSpan {
         killed,
         timeout,
         killedByCompiler,
+        skipped,
         unknown,
         none,
         noCoverage
@@ -767,6 +768,10 @@ MetaSpan.StatusColor pickColor(const FileMutant m,
     case Mutation.Status.timeout:
         if (status > MetaSpan.StatusColor.timeout)
             status = MetaSpan.StatusColor.timeout;
+        break;
+    case Mutation.Status.skipped:
+        if (status > MetaSpan.StatusColor.skipped)
+            status = MetaSpan.StatusColor.skipped;
         break;
     case Mutation.Status.unknown:
         if (status > MetaSpan.StatusColor.unknown)

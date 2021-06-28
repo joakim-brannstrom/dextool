@@ -113,7 +113,7 @@ class MutantFixture : TestCase {
     auto precondition(ref TestEnv testEnv) {
         makeDextoolAnalyze(testEnv).addInputArg(testData ~ programFile).run;
 
-        auto r = makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", op]).run;
+        auto r = makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", op]);
         return r;
     }
 }

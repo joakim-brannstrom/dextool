@@ -1522,17 +1522,19 @@ struct DbMutant {
     import dextool.plugin.mutate.backend.type;
 
     alias aliveSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.noCoverage
+            Mutation.Status.alive, Mutation.Status.noCoverage,
+            Mutation.Status.skipped
             ]);
     alias killedSrcMutants = countMutants!([Mutation.Status.killed]);
     alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout]);
     alias noCovSrcMutants = countMutants!([Mutation.Status.noCoverage]);
     alias equivalentMutants = countMutants!([Mutation.Status.equivalent]);
+    alias skippedMutants = countMutants!([Mutation.Status.skipped]);
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.killed,
-            Mutation.Status.timeout, Mutation.Status.noCoverage
+            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout,
+            Mutation.Status.noCoverage, Mutation.Status.skipped
             ]);
 
     alias unknownSrcMutants = countMutants!([Mutation.Status.unknown]);
@@ -1792,6 +1794,29 @@ struct DbMutant {
             rval.put(a.peek!long(0).MutationStatusId);
         return rval.data;
     }
+
+    MutationStatusId[] mutantsInRegion(const FileId id, const Offset region,
+            const Mutation.Status status) @trusted {
+        static immutable sql = format!"SELECT DISTINCT t1.st_id
+            FROM %1$s t0, %2$s t1, %3$s t2
+            WHERE t0.file_id = :file_id AND
+            t0.id = t1.mp_id AND
+            (t0.offset_begin BETWEEN :begin AND :end) AND
+            (t0.offset_end BETWEEN :begin AND :end) AND
+            t1.st_id = t2.id AND
+            t2.status = :status"(mutationPointTable,
+                mutationTable, mutationStatusTable);
+
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":file_id", id.get);
+        stmt.get.bind(":begin", region.begin);
+        stmt.get.bind(":end", region.end);
+        stmt.get.bind(":status", cast(int) status);
+        auto app = appender!(MutationStatusId[])();
+        foreach (ref r; stmt.get.execute)
+            app.put(MutationStatusId(r.peek!long(0)));
+        return app.data;
+    }
 }
 
 struct DbWorklist {
@@ -1800,18 +1825,17 @@ struct DbWorklist {
 
     /** Add all mutants with the specific status to the worklist.
      */
-    void updateWorklist(const Mutation.Kind[] kinds, const Mutation.Status status,
+    void updateWorklist(const Mutation.Kind[] kinds, const Mutation.Status[] status,
             const long basePrio = 100, const MutationOrder userOrder = MutationOrder.random) @trusted {
         const order = fromOrder(userOrder);
 
         const sql = format!"INSERT OR IGNORE INTO %s (id,prio)
             SELECT t1.id,%s FROM %s t0, %s t1 WHERE t0.kind IN (%(%s,%)) AND
             t0.st_id = t1.id AND
-            t1.status = :status
-            "(mutantWorklistTable, order,
-                mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
+            t1.status IN (%(%s,%))
+            "(mutantWorklistTable, order, mutationTable,
+                mutationStatusTable, kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":status", cast(long) status);
         stmt.get.bind(":base_prio", basePrio);
         stmt.get.execute;
     }

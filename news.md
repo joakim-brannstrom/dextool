@@ -1,5 +1,12 @@
 # vNext.release
 
+New features for dextool mutate
+
+ * Speedup the test phase by skipping mutants inside SDL mutants. Because a SDL
+   delete the code it is higly unlikely that mutants inside such a region would
+   be killed. This is basically an extension of using coverage to skip mutants
+   to test.
+
 Fixes for dextool mutate
 
  * Fix invalid scheman when a constexpr is used as a label in a case stmt.

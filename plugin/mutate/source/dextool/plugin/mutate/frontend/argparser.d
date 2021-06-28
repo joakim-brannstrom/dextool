@@ -422,13 +422,14 @@ struct ArgParser {
         void testMutantsG(string[] args) {
             import std.datetime : Clock;
 
-            string[] mutationTester;
-            string mutationCompile;
-            string[] mutationTestCaseAnalyze;
+            bool noSkip;
+            int maxAlive = -1;
             long mutationTesterRuntime;
             string maxRuntime;
+            string mutationCompile;
+            string[] mutationTestCaseAnalyze;
+            string[] mutationTester;
             string[] testConstraint;
-            int maxAlive = -1;
 
             mutationTest.loadThreshold.get = totalCPUs + 1;
 
@@ -451,6 +452,7 @@ struct ArgParser {
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
                    "m|mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
+                   "no-skipped", "do not skip mutants that are covered by others", &noSkip,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &workArea.rawRoot,
                    "schema-check", "sanity check a schemata before it is used", &schema.sanityCheckSchemata,
@@ -483,6 +485,7 @@ struct ArgParser {
             if (!maxRuntime.empty)
                 mutationTest.maxRuntime = parseDuration(maxRuntime);
             mutationTest.constraint = parseUserTestConstraint(testConstraint);
+            mutationTest.useSkipMutant.get = !noSkip;
         }
 
         void reportG(string[] args) {
