@@ -238,10 +238,6 @@ class ShallProduceAllDcrMutantsWithSchemataForC : SchemataFixutre {
         auto r0 = runDextoolTest(testEnv).addPostArg(["--mutant", "dcr"]).run;
         testAnyOrder!SubStr(expected).shouldBeIn(r0.output);
         testAnyOrder!SubStr(["error:"]).shouldNotBeIn(r0.output);
-
-        makeDextoolAdmin(testEnv).addArg(["--operation", "resetMutant", "--status", "alive"]).run;
-        testAnyOrder!SubStr(expected).shouldBeIn(makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "dcr"]).run.output);
-
     }
 }
 

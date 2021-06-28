@@ -149,6 +149,7 @@ set -e
             .setWorkdir(workDir)
             .args(["mutate"])
             .addArg(["test"])
+            .addPostArg("--no-skipped")
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -188,6 +189,7 @@ set -e
             .addArg(["test"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["-c", (testData ~ "config/coverage.toml").toString])
+            .addPostArg("--no-skipped")
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--log-coverage"]);

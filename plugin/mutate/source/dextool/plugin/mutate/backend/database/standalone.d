@@ -28,6 +28,7 @@ import std.datetime : SysTime, Clock;
 import std.exception : collectException;
 import std.format : format;
 import std.path : relativePath;
+import std.range : enumerate;
 import std.regex : Regex, matchFirst;
 import std.typecons : Nullable, Flag, No;
 
@@ -541,8 +542,6 @@ struct DbTestCmd {
 
     /// Drop all currently stored runtimes and replaces with `runtime`.
     void setTestCmdRuntimes(const TestCmdRuntime[] runtimes) @trusted {
-        import std.range : enumerate;
-
         db.run(format!"DELETE FROM %s"(runtimeHistoryTable));
         db.run(insertOrReplace!RuntimeHistoryTable,
                 runtimes.enumerate.map!(a => RuntimeHistoryTable(a.index,
@@ -1548,8 +1547,7 @@ struct DbMutant {
     import dextool.plugin.mutate.backend.type;
 
     alias aliveSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.noCoverage,
-            Mutation.Status.skipped
+            Mutation.Status.alive, Mutation.Status.noCoverage
             ]);
     alias killedSrcMutants = countMutants!([Mutation.Status.killed]);
     alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout]);
@@ -1559,8 +1557,8 @@ struct DbMutant {
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout,
-            Mutation.Status.noCoverage, Mutation.Status.skipped
+            Mutation.Status.alive, Mutation.Status.killed,
+            Mutation.Status.timeout, Mutation.Status.noCoverage
             ]);
 
     alias unknownSrcMutants = countMutants!([Mutation.Status.unknown]);
@@ -1822,16 +1820,18 @@ struct DbMutant {
     }
 
     MutationStatusId[] mutantsInRegion(const FileId id, const Offset region,
-            const Mutation.Status status) @trusted {
-        static immutable sql = format!"SELECT DISTINCT t1.st_id
-            FROM %1$s t0, %2$s t1, %3$s t2
+            const Mutation.Status status, const Mutation.Kind[] kinds) @trusted {
+        const sql = format!"SELECT DISTINCT t1.st_id
+            FROM %s t0, %s t1, %s t2
             WHERE t0.file_id = :file_id AND
             t0.id = t1.mp_id AND
             (t0.offset_begin BETWEEN :begin AND :end) AND
             (t0.offset_end BETWEEN :begin AND :end) AND
             t1.st_id = t2.id AND
-            t2.status = :status"(mutationPointTable,
-                mutationTable, mutationStatusTable);
+            t2.status = :status AND
+            t1.kind IN (%(%s,%))
+            "(mutationPointTable, mutationTable,
+                mutationStatusTable, kinds.map!(a => cast(int) a));
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":file_id", id.get);
@@ -2259,7 +2259,6 @@ struct DbSchema {
     /// Create a schemata from a bundle of fragments.
     Nullable!SchemataId putSchemata(SchemataChecksum cs,
             const SchemataFragment[] fragments, MutationStatusId[] mutants) @trusted {
-        import std.range : enumerate;
         import std.zlib : compress;
 
         const schemId = cast(long) cs.value.c0;

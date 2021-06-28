@@ -973,7 +973,7 @@ class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
             .addPostArg(["--test-cmd", "/bin/true"])
             .addPostArg(["--test-timeout", "10000"])
             .addPostArg(["--max-alive", "3"])
-            .addPostArg(["-L", programCode.relativePath(workDir.toString) ~ ":8-18"])
+            .addPostArg(["-L", programCode.relativePath(workDir.toString) ~ ":8-24"])
             .run;
 
         testConsecutiveSparseOrder!Re([

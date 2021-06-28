@@ -43,6 +43,7 @@ auto makeDextool(const ref TestEnv env) {
         .args(["mutate"])
         .addPostArg(["--db", (env.outdir ~ defaultDb).toString])
         .addPostArg("--dry-run")
+        .addPostArg("--no-skipped")
         .addPostArg(["--order", "consecutive"])
         .addPostArg(["--build-cmd", "/bin/true"])
         .addPostArg(["--test-cmd", "/bin/true"])
