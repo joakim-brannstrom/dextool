@@ -1548,8 +1548,7 @@ struct DbMutant {
     import dextool.plugin.mutate.backend.type;
 
     alias aliveSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.noCoverage,
-            Mutation.Status.skipped
+            Mutation.Status.alive, Mutation.Status.noCoverage
             ]);
     alias killedSrcMutants = countMutants!([Mutation.Status.killed]);
     alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout]);
@@ -1559,8 +1558,8 @@ struct DbMutant {
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout,
-            Mutation.Status.noCoverage, Mutation.Status.skipped
+            Mutation.Status.alive, Mutation.Status.killed,
+            Mutation.Status.timeout, Mutation.Status.noCoverage
             ]);
 
     alias unknownSrcMutants = countMutants!([Mutation.Status.unknown]);
