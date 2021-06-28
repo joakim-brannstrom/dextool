@@ -123,6 +123,16 @@ struct MutantInfo {
     SourceLoc sloc;
 }
 
+struct MutantInfo2 {
+    MutationId id;
+    Mutation.Status status;
+    ExitStatus exitStatus;
+    Path file;
+    SourceLoc sloc;
+    MutantPrio prio;
+    SysTime updated;
+}
+
 struct TestCaseInfo {
     /// The sum on the execution time of killing the mutants.
     MutantTimeProfile time;

@@ -1280,6 +1280,30 @@ struct DbMutant {
     }
 
     /// Returns: the mutants that are connected to the mutation statuses.
+    Optional!MutantInfo2 getMutantInfo(const MutationStatusId id) @trusted {
+        static const sql = format("SELECT t0.id,t2.status,t2.exit_code,t3.path,t1.line,t1.column,t2.prio,t2.update_ts
+            FROM %s t0,%s t1, %s t2, %s t3
+            WHERE
+            t2.id = :id AND
+            t0.st_id = :id AND
+            t0.mp_id = t1.id AND
+            t1.file_id = t3.id",
+                mutationTable, mutationPointTable, mutationStatusTable, filesTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+
+        foreach (res; stmt.get.execute) {
+            return some(MutantInfo2(res.peek!long(0).MutationId,
+                    res.peek!long(1).to!(Mutation.Status), res.peek!int(2)
+                    .to!ExitStatus, res.peek!string(3).Path,
+                    SourceLoc(res.peek!uint(4), res.peek!uint(5)), res.peek!long(6)
+                    .MutantPrio, res.peek!string(7).fromSqLiteDateTime));
+        }
+
+        return none!MutantInfo2;
+    }
+
+    /// Returns: the mutants that are connected to the mutation statuses.
     MutationId[] getMutationIds(const(Mutation.Kind)[] kinds, const(MutationStatusId)[] id) @trusted {
         if (id.length == 0)
             return null;

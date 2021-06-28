@@ -19,11 +19,12 @@ import std.path : buildPath;
 import std.stdio : File;
 
 import arsd.dom : Element, RawSource, Link, Document;
+import my.optional;
 import my.path : AbsolutePath;
 import my.set;
 
 import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId,
-    TestCaseId, MutationStatusId;
+    TestCaseId, MutationStatusId, MutantInfo2;
 import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseUniqueness,
     TestCaseUniqueness, reportTestCaseSimilarityAnalyse, TestCaseSimilarityAnalyse;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
@@ -141,8 +142,11 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
     auto kills = db.testCaseApi.testCaseKilledSrcMutants(kinds, tcId);
     auto unique = uniqueKills.toSet;
 
-    auto tbl = tmplSortableTable(root, ["Link", "Tested", "Priority"] ~ (uniqueKills.empty
-            ? null : ["Unique"]) ~ (addSuggestion ? ["Suggestion"] : null));
+    auto tbl = tmplSortableTable(root, [
+            "Link", "Tested", "Priority", "ExitCode"
+            ] ~ (uniqueKills.empty ? null : ["Unique"]) ~ (addSuggestion ? [
+                "Suggestion"
+            ] : null));
     {
         auto p = root.addChild("p");
         p.addChild("b", "Unique");
@@ -157,15 +161,14 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
     foreach (const id; kills.sort) {
         auto r = tbl.appendRow();
 
-        const mutId = db.mutantApi.getMutationId(id).get;
-        auto mut = db.mutantApi.getMutation(mutId).get;
-        auto mutStatus = db.mutantApi.getMutationStatus2(id);
+        const info = db.mutantApi.getMutantInfo(id).orElse(MutantInfo2.init);
 
-        r.addChild("td").addChild("a", format("%s:%s", mut.file,
-                mut.sloc.line)).href = format("%s#%s", buildPath("..",
-                HtmlStyle.fileDir, pathToHtmlLink(mut.file)), mut.id.get);
-        r.addChild("td", mutStatus.updated.toString);
-        r.addChild("td", mutStatus.prio.get.to!string);
+        r.addChild("td").addChild("a", format("%s:%s", info.file,
+                info.sloc.line)).href = format("%s#%s", buildPath("..",
+                HtmlStyle.fileDir, pathToHtmlLink(info.file)), info.id.get);
+        r.addChild("td", info.updated.toString);
+        r.addChild("td", info.prio.get.to!string);
+        r.addChild("td", info.exitStatus.get.to!string);
 
         if (!uniqueKills.empty)
             r.addChild("td", (id in unique ? "x" : ""));
@@ -174,7 +177,7 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
             auto tds = r.addChild("td");
             foreach (s; db.mutantApi.getSurroundingAliveMutants(id)) {
                 tds.addChild("a", format("%s", s.get)).href = format("%s#%s",
-                        buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(mut.file)),
+                        buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(info.file)),
                         db.mutantApi.getMutationId(s).get);
             }
         }
