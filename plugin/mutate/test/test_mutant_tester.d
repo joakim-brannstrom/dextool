@@ -967,6 +967,7 @@ class ShallStopAfterNrAliveMutantsFound : SimpleFixture {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
+            .addPostArg("--no-skipped")
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", "/bin/true"])
