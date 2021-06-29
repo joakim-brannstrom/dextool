@@ -1282,23 +1282,32 @@ struct DbMutant {
 
     /// Returns: the mutants that are connected to the mutation statuses.
     Optional!MutantInfo2 getMutantInfo(const MutationStatusId id) @trusted {
-        static const sql = format("SELECT t0.id,t2.status,t2.exit_code,t3.path,t1.line,t1.column,t2.prio,t2.update_ts
+        static const sql = format("SELECT t0.id,t2.status,t2.exit_code,t3.path,t1.line,t1.column,t2.prio,t2.update_ts,
+            (SELECT count(*) FROM %s WHERE st_id = :id) as vc_cnt
             FROM %s t0,%s t1, %s t2, %s t3
             WHERE
             t2.id = :id AND
             t0.st_id = :id AND
             t0.mp_id = t1.id AND
-            t1.file_id = t3.id",
-                mutationTable, mutationPointTable, mutationStatusTable, filesTable);
+            t1.file_id = t3.id
+            ",
+                killedTestCaseTable, mutationTable, mutationPointTable,
+                mutationStatusTable, filesTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
 
         foreach (res; stmt.get.execute) {
-            return some(MutantInfo2(res.peek!long(0).MutationId,
-                    res.peek!long(1).to!(Mutation.Status), res.peek!int(2)
-                    .to!ExitStatus, res.peek!string(3).Path,
-                    SourceLoc(res.peek!uint(4), res.peek!uint(5)), res.peek!long(6)
-                    .MutantPrio, res.peek!string(7).fromSqLiteDateTime));
+            // dfmt off
+            return MutantInfo2(
+                res.peek!long(0).MutationId,
+                res.peek!long(1).to!(Mutation.Status),
+                res.peek!int(2).to!ExitStatus,
+                res.peek!string(3).Path,
+                SourceLoc(res.peek!uint(4), res.peek!uint(5)),
+                res.peek!long(6).MutantPrio,
+                res.peek!string(7).fromSqLiteDateTime,
+                res.peek!int(8)).some;
+            // dfmt on
         }
 
         return none!MutantInfo2;

@@ -131,6 +131,9 @@ struct MutantInfo2 {
     SourceLoc sloc;
     MutantPrio prio;
     SysTime updated;
+
+    // number of test cases that killed the mutant
+    int tcKilled;
 }
 
 struct TestCaseInfo {
