@@ -719,8 +719,6 @@ nothrow:
         if (!conf.contCheckTestSuite)
             return;
 
-        logger.info("Checking the test environment").collectException;
-
         enum forceCheckEach = 1.dur!"hours";
 
         const wlist = spinSql!(() => db.worklistApi.getWorklistCount);
@@ -738,6 +736,8 @@ nothrow:
         if (!(period == 0 || wlist % period == 0 || diffCnt >= period
                 || Clock.currTime > local.get!ContinuesCheckTestSuite.lastCheck))
             return;
+
+        logger.info("Checking the test environment").collectException;
 
         local.get!ContinuesCheckTestSuite.lastWorklistCnt = wlist;
         local.get!ContinuesCheckTestSuite.lastCheck = Clock.currTime + forceCheckEach;
