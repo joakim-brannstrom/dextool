@@ -16,6 +16,7 @@ import std.conv : to;
 import std.datetime : Clock, dur, SysTime;
 import std.format : format;
 import std.path : buildPath;
+import std.range : enumerate;
 import std.stdio : File;
 
 import arsd.dom : Element, RawSource, Link, Document;
@@ -170,10 +171,12 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
 
         if (addSuggestion) {
             auto tds = r.addChild("td");
-            foreach (s; db.mutantApi.getSurroundingAliveMutants(id)) {
-                tds.addChild("a", format("%s", s.get)).href = format("%s#%s",
-                        buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(info.file)),
-                        db.mutantApi.getMutationId(s).get);
+            foreach (s; db.mutantApi.getSurroundingAliveMutants(id).enumerate) {
+                // column sort in the html report do not work correctly if starting from 0.
+                auto td = tds.addChild("a", format("%s", s.index + 1));
+                td.href = format("%s#%s", buildPath("..", HtmlStyle.fileDir,
+                        pathToHtmlLink(info.file)), db.mutantApi.getMutationId(s.value).get);
+                td.appendText(" ");
             }
         }
 
