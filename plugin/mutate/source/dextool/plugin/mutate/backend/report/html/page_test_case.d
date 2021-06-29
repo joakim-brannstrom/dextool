@@ -47,17 +47,18 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
 
     ReportData data;
 
-    if (ReportSection.tc_unique in sections) {
-        data.addUnique = true;
-        data.uniqueData = reportTestCaseUniqueness(db, kinds);
-    }
-
     if (ReportSection.tc_similarity in sections)
         data.similaritiesData = reportTestCaseSimilarityAnalyse(db, kinds, 5);
 
     data.addSuggestion = ReportSection.tc_suggestion in sections;
 
-    auto tbl = tmplSortableTable(root, ["Name", "Score", "Killed"] ~ data.columns);
+    auto tbl = tmplSortableTable(root, ["Name", "Score", "Killed", "Is Unique"]);
+    {
+        auto p = root.addChild("p");
+        p.addChild("b", "Score");
+        p.appendText(
+                ": in percentage how many of all killed mutants this test case is responsible for.");
+    }
     {
         auto p = root.addChild("p");
         p.addChild("b", "Is Unique");
@@ -75,45 +76,39 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
 
         auto reportFname = name.pathToHtmlLink;
         auto fout = File(testCasesDir ~ reportFname, "w");
+        bool isUniqueTc;
         spinSql!(() {
             // do all the heavy database interaction in a transaction to
             // speedup to reduce locking.
             auto t = db.transaction;
             makeTestCasePage(db, humanReadableKinds, kinds, name, tcId,
-                data.uniqueData.uniqueKills.get(tcId, null), (data.similaritiesData is null)
-                ? null : data.similaritiesData.similarities.get(tcId, null),
-                data.addSuggestion, fout);
+                (data.similaritiesData is null) ? null : data.similaritiesData.similarities.get(tcId,
+                null), data.addSuggestion, isUniqueTc, fout);
         });
 
         r.addChild("td").addChild("a", name).href = buildPath(HtmlStyle.testCaseDir, reportFname);
         r.addChild("td", format!"%.1f"(ratio));
-        r.addChild("td", kills.to!string);
-        if (data.addUnique)
-            r.addChild("td", (tcId in data.uniqueData.uniqueKills ? "x" : ""));
 
+        r.addChild("td", kills.to!string);
         if (kills == 0)
             r.style = "background-color: lightred";
+
+        r.addChild("td", (isUniqueTc ? "x" : ""));
     }
 }
 
 private:
 
 struct ReportData {
-    string[] columns() @safe pure nothrow const {
-        return (addUnique ? ["Is Unique"] : null);
-    }
-
-    bool addUnique;
-    TestCaseUniqueness uniqueData;
-
     TestCaseSimilarityAnalyse similaritiesData;
 
     bool addSuggestion;
 }
 
 void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
-        const(Mutation.Kind)[] kinds, const string name, const TestCaseId tcId, MutationStatusId[] unique,
-        TestCaseSimilarityAnalyse.Similarity[] similarities, const bool addSuggestion, ref File out_) {
+        const(Mutation.Kind)[] kinds, const string name, const TestCaseId tcId,
+        TestCaseSimilarityAnalyse.Similarity[] similarities,
+        const bool addSuggestion, ref bool isUniqueTc, ref File out_) {
     auto doc = tmplBasicPage.dashboardCss;
     scope (success)
         out_.write(doc.toPrettyString);
@@ -129,7 +124,7 @@ void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
     doc.root.childElements("head")[0].addChild("script").addChild(new RawSource(doc, jsIndex));
 
     doc.mainBody.addChild("h2").appendText("Killed");
-    addKilledMutants(db, kinds, tcId, unique, addSuggestion, getPath, doc.mainBody);
+    addKilledMutants(db, kinds, tcId, addSuggestion, getPath, isUniqueTc, doc.mainBody);
 
     if (!similarities.empty) {
         doc.mainBody.addChild("h2").appendText("Similarity");
@@ -137,19 +132,19 @@ void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
     }
 }
 
-void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds, const TestCaseId tcId,
-        MutationStatusId[] uniqueKills, const bool addSuggestion, ref PathCacheT getPath,
-        Element root) {
+void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
+        const TestCaseId tcId, const bool addSuggestion, ref PathCacheT getPath,
+        ref bool isUniqueTc, Element root) {
     auto kills = db.testCaseApi.testCaseKilledSrcMutants(kinds, tcId);
-    auto unique = uniqueKills.toSet;
 
-    auto tbl = tmplSortableTable(root, ["Link"] ~ (uniqueKills.empty
-            ? null : ["Unique"]) ~ (addSuggestion
+    auto uniqueElem = root.addChild("div");
+
+    auto tbl = tmplSortableTable(root, ["Link", "TestCases"] ~ (addSuggestion
             ? ["Suggestion"] : null) ~ ["Priority", "ExitCode", "Tested"]);
     {
         auto p = root.addChild("p");
-        p.addChild("b", "Unique");
-        p.appendText(": only this test case kill the mutant.");
+        p.addChild("b", "TestCases");
+        p.appendText(": number of test cases that kill the mutant.");
     }
     {
         auto p = root.addChild("p");
@@ -157,6 +152,7 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
         p.appendText(": alive mutants on the same source code location. Because they are close to a mutant that this test case killed it may be suitable to extend this test case to also kill the suggested mutant.");
     }
 
+    int uniqueKills;
     foreach (const id; kills.sort) {
         auto r = tbl.appendRow();
 
@@ -166,8 +162,13 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
                 info.sloc.line)).href = format("%s#%s", buildPath("..",
                 HtmlStyle.fileDir, pathToHtmlLink(info.file)), info.id.get);
 
-        if (!uniqueKills.empty)
-            r.addChild("td", (id in unique ? "x" : ""));
+        {
+            auto td = r.addChild("td", info.tcKilled.to!string);
+            if (info.tcKilled == 1) {
+                uniqueKills++;
+                td.style = "background-color: lightgreen";
+            }
+        }
 
         if (addSuggestion) {
             auto tds = r.addChild("td");
@@ -183,6 +184,11 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
         r.addChild("td", info.prio.get.to!string);
         r.addChild("td", info.exitStatus.get.to!string);
         r.addChild("td", info.updated.toShortDate);
+    }
+
+    if (uniqueKills > 0) {
+        uniqueElem.addChild("p", "Unique kills ").appendText(uniqueKills.to!string);
+        isUniqueTc = true;
     }
 }
 

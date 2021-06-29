@@ -322,28 +322,28 @@ Sections to include in the report.
 
 | Section                          | plain | json | html |
 |----------------------------------|-------|------|------|
-| alive                            | ✔     | ✔    |      |
-| killed                           | ✔     | ✔    |      |
-| all_mut                          | ✔     | ✔    |      |
-| summary                          | ✔     | ✔    | ✔    |
-| mut_stat                         | ✔     |      |      |
-| tc_killed                        | ✔     |      |      |
-| tc_stat                          | ✔     | ✔    |      |
-| tc_map                           | ✔     |      |      |
-| tc_suggestion                    |       |      | ✔    |
-| tc_killed_no_mutants             | ✔     | ✔    | (✔)  |
-| tc_full_overlap                  | ✔     |      | (✔)  |
-| tc_full_overlap_with_mutation_id | ✔     |      | ✔    |
-| tc_groups                        |       |      | ✔    |
-| tc_min_set                       |       |      | ✔    |
-| tc_similarity                    |       |      | ✔    |
-| tc_groups_similarity             |       |      | ✔    |
-| treemap                          |       |      | ✔    |
-| mut_recommend_kill               |       |      | ✔    |
-| diff                             |       | ✔    | ✔    |
-| tc_unique                        |       | ✔    | ✔    |
-| marked_mutants                   | ✔     |      |      |
-| trend                            | ✔     | ✔    | ✔    |
+| alive                            | ✔    | ✔   |      |
+| all_mut                          | ✔    | ✔   |      |
+| diff                             |       | ✔   | ✔   |
+| killed                           | ✔    | ✔   |      |
+| marked_mutants                   | ✔    |      |      |
+| mut_recommend_kill               |       |      | ✔   |
+| mut_stat                         | ✔    |      |      |
+| summary                          | ✔    | ✔   | ✔   |
+| tc_full_overlap                  | ✔    |      | (✔) |
+| tc_full_overlap_with_mutation_id | ✔    |      | ✔   |
+| tc_groups                        |       |      | ✔   |
+| tc_groups_similarity             |       |      | ✔   |
+| tc_killed                        | ✔    |      |      |
+| tc_killed_no_mutants             | ✔    | ✔   | (✔) |
+| tc_map                           | ✔    |      |      |
+| tc_min_set                       |       |      | ✔   |
+| tc_similarity                    |       |      | ✔   |
+| tc_stat                          | ✔    | ✔   |      |
+| tc_suggestion                    |       |      | ✔   |
+| tc_unique                        |       | ✔   | (✔) |
+| treemap                          |       |      | ✔   |
+| trend                            | ✔    | ✔   | ✔   |
 
 **Note**: styles may have automatic support for sections which are always on,
 indicated by a (✔)..
