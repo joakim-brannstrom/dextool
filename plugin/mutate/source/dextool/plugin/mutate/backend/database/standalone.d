@@ -1112,6 +1112,19 @@ struct DbMutant {
         stmt.get.execute;
     }
 
+    /// Returns: all mutants and how many test cases that have killed them.
+    long[] getAllTestCaseKills() @trusted {
+        static immutable sql = format!"SELECT (SELECT count(*) FROM %s WHERE t0.id=st_id) as vc_cnt FROM %s t0"(
+                killedTestCaseTable, mutationStatusTable);
+        auto stmt = db.prepare(sql);
+
+        auto app = appender!(long[])();
+        foreach (res; stmt.get.execute)
+            app.put(res.peek!long(0));
+
+        return app.data;
+    }
+
     /// Returns: all mutation status IDs.
     MutationStatusId[] getAllMutationStatus() @trusted {
         static immutable sql = format!"SELECT id FROM %s"(mutationStatusTable);

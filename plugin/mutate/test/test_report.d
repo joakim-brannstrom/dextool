@@ -272,9 +272,9 @@ class ShallReportTopTestCaseStats : ReportTestCaseStats {
 
         testConsecutiveSparseOrder!SubStr([
             "Test Cases",
-            "tc_1", "50",
-            "tc_2", "100",
-            "tc_3", "50"
+            "tc_1", "1",
+            "tc_2", "2",
+            "tc_3", "1"
         ]).shouldBeIn(File((testEnv.outdir ~ "html/index.html").toString).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
@@ -697,7 +697,6 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
         makeDextoolReport(testEnv, testData.dirName)
             .addPostArg(["--mutant", "all"])
             .addArg(["--style", "html"])
-            .addArg(["--section", "tc_unique"])
             .addArg(["--logdir", testEnv.outdir.toString])
             .run;
 
@@ -711,7 +710,7 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
         // Assert
         testConsecutiveSparseOrder!SubStr([
                 `Test Cases</h2>`, `table`,
-                `tc_1`, `<td>x`, `tc_2`, `tc_3`,
+                `tc_1`, `<td>Unique`, `tc_2`, `tc_3`,
                 `/table`
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
                 "index.html")).byLineCopy.array);
