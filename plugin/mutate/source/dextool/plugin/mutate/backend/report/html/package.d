@@ -813,7 +813,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
     // used to make sure that metadata about a mutant is only written onces
     // to the global arrays.
-    Set!MutationId ids;
+    Set!MutationId metadataOnlyOnce;
     auto muts = appender!(MData[])();
 
     // this is the last location. It is used to calculate the num of
@@ -851,8 +851,8 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 setAttribute("onclick", meta.onClick);
         }
 
-        foreach (m; s.muts.filter!(m => !ids.contains(m.id))) {
-            ids.add(m.id);
+        foreach (m; s.muts.filter!(m => m.id !in metadataOnlyOnce)) {
+            metadataOnlyOnce.add(m.id);
 
             const metadata = db.mutantApi.getMutantationMetaData(m.id);
 

@@ -6,6 +6,10 @@ New features for dextool mutate
    delete the code it is higly unlikely that mutants inside such a region would
    be killed. This is basically an extension of using coverage to skip mutants
    to test.
+ * Automatic classification of test cases as either unique, bad or buggy. It
+   hopefully makes it easier to read the test case report and *fast* find the
+   interesting test case for further inspection without having to read all test
+   cases in detail.
 
 Fixes for dextool mutate
 

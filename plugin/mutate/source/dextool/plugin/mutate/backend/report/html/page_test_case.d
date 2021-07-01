@@ -26,8 +26,9 @@ import my.set;
 
 import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId,
     TestCaseId, MutationStatusId, MutantInfo2;
-import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseUniqueness,
-    TestCaseUniqueness, reportTestCaseSimilarityAnalyse, TestCaseSimilarityAnalyse;
+import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseUniqueness, TestCaseUniqueness,
+    reportTestCaseSimilarityAnalyse, TestCaseSimilarityAnalyse,
+    TestCaseClassifier, makeTestCaseClassifier;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     dashboardCss, tmplSortableTable, tmplDefaultTable;
@@ -51,20 +52,27 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
         data.similaritiesData = reportTestCaseSimilarityAnalyse(db, kinds, 5);
 
     data.addSuggestion = ReportSection.tc_suggestion in sections;
+    // 10 is magic number. feels good.
+    data.classifier = makeTestCaseClassifier(db, 10);
+    if (!data.classifier.hgram.buckets.empty)
+        logger.trace(data.classifier.hgram.toBar);
 
-    auto tbl = tmplSortableTable(root, ["Name", "Score", "Killed", "Is Unique"]);
+    auto tbl = tmplSortableTable(root, ["Name", "Killed", "Class"]);
     {
         auto p = root.addChild("p");
-        p.addChild("b", "Score");
-        p.appendText(
-                ": in percentage how many of all killed mutants this test case is responsible for.");
+        p.addChild("b", "Killed");
+        p.appendText(": number of mutants the test case has killed.");
     }
     {
         auto p = root.addChild("p");
-        p.addChild("b", "Is Unique");
-        p.appendText(": a test case that has killed some mutants that no other test case has.");
+        p.addChild("b", "Class");
+        p.appendText(": automatic classification of the test case.");
+        root.addChild("p", "Unique: kills mutants that no other test case do.");
+        root.addChild("p", format!"Redundant: all mutants the test case kill are also killed by %s other test cases. The test case is probably redudant and thus can be removed."(
+                data.classifier.threshold));
+        root.addChild("p",
+                "Buggy: zero killed mutants. The test case is most probably incorrect. Immediatly inspect the test case.");
     }
-    root.addChild("p", "A test case that has zero killed mutants has a high probability of containing implementation errors. They should be manually inspected.");
 
     const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds)).count;
     foreach (tcId; spinSql!(() => db.testCaseApi.getDetectedTestCaseIds)) {
@@ -72,28 +80,36 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
 
         const name = spinSql!(() => db.testCaseApi.getTestCaseName(tcId));
         const kills = spinSql!(() => db.testCaseApi.getTestCaseInfo(tcId, kinds)).killedMutants;
-        const ratio = 100.0 * ((total == 0) ? 0.0 : (cast(double) kills / total));
 
         auto reportFname = name.pathToHtmlLink;
         auto fout = File(testCasesDir ~ reportFname, "w");
-        bool isUniqueTc;
+        TestCaseSummary summary;
         spinSql!(() {
             // do all the heavy database interaction in a transaction to
             // speedup to reduce locking.
             auto t = db.transaction;
             makeTestCasePage(db, humanReadableKinds, kinds, name, tcId,
                 (data.similaritiesData is null) ? null : data.similaritiesData.similarities.get(tcId,
-                null), data.addSuggestion, isUniqueTc, fout);
+                null), data, summary, fout);
         });
 
-        r.addChild("td").addChild("a", name).href = buildPath(HtmlStyle.testCaseDir, reportFname);
-        r.addChild("td", format!"%.1f"(ratio));
+        auto tdName = r.addChild("td");
+        tdName.addChild("a", name).href = buildPath(HtmlStyle.testCaseDir, reportFname);
 
         r.addChild("td", kills.to!string);
-        if (kills == 0)
-            r.style = "background-color: lightred";
 
-        r.addChild("td", (isUniqueTc ? "x" : ""));
+        if (kills == 0) {
+            tdName.style = "background-color: #ff9980"; // light red
+            r.addChild("td", "Buggy");
+        } else if (summary.score == 1) {
+            tdName.style = "background-color: #b3ff99"; // light green
+            r.addChild("td", "Unique");
+        } else if (summary.score > data.classifier.threshold) {
+            tdName.style = "background-color: #ffc266"; // light orange
+            r.addChild("td", "Redundant");
+        } else {
+            r.addChild("td");
+        }
     }
 }
 
@@ -101,14 +117,22 @@ private:
 
 struct ReportData {
     TestCaseSimilarityAnalyse similaritiesData;
+    TestCaseClassifier classifier;
 
     bool addSuggestion;
+}
+
+struct TestCaseSummary {
+    // min(f) where f is the number of test cases that killed a mutant.
+    // thus if a test case have one unique mutant the score is 1, none then it
+    // is the lowest of all mutant test case kills.
+    long score = long.max;
 }
 
 void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
         const(Mutation.Kind)[] kinds, const string name, const TestCaseId tcId,
         TestCaseSimilarityAnalyse.Similarity[] similarities,
-        const bool addSuggestion, ref bool isUniqueTc, ref File out_) {
+        const ReportData rdata, ref TestCaseSummary summary, ref File out_) {
     auto doc = tmplBasicPage.dashboardCss;
     scope (success)
         out_.write(doc.toPrettyString);
@@ -124,7 +148,7 @@ void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
     doc.root.childElements("head")[0].addChild("script").addChild(new RawSource(doc, jsIndex));
 
     doc.mainBody.addChild("h2").appendText("Killed");
-    addKilledMutants(db, kinds, tcId, addSuggestion, getPath, isUniqueTc, doc.mainBody);
+    addKilledMutants(db, kinds, tcId, rdata, getPath, summary, doc.mainBody);
 
     if (!similarities.empty) {
         doc.mainBody.addChild("h2").appendText("Similarity");
@@ -132,14 +156,15 @@ void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
     }
 }
 
-void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
-        const TestCaseId tcId, const bool addSuggestion, ref PathCacheT getPath,
-        ref bool isUniqueTc, Element root) {
+void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds, const TestCaseId tcId,
+        const ReportData rdata, ref PathCacheT getPath, ref TestCaseSummary summary, Element root) {
+    import std.algorithm : min;
+
     auto kills = db.testCaseApi.testCaseKilledSrcMutants(kinds, tcId);
 
     auto uniqueElem = root.addChild("div");
 
-    auto tbl = tmplSortableTable(root, ["Link", "TestCases"] ~ (addSuggestion
+    auto tbl = tmplSortableTable(root, ["Link", "TestCases"] ~ (rdata.addSuggestion
             ? ["Suggestion"] : null) ~ ["Priority", "ExitCode", "Tested"]);
     {
         auto p = root.addChild("p");
@@ -152,7 +177,6 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
         p.appendText(": alive mutants on the same source code location. Because they are close to a mutant that this test case killed it may be suitable to extend this test case to also kill the suggested mutant.");
     }
 
-    int uniqueKills;
     foreach (const id; kills.sort) {
         auto r = tbl.appendRow();
 
@@ -162,15 +186,15 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
                 info.sloc.line)).href = format("%s#%s", buildPath("..",
                 HtmlStyle.fileDir, pathToHtmlLink(info.file)), info.id.get);
 
+        summary.score = min(info.tcKilled, summary.score);
         {
             auto td = r.addChild("td", info.tcKilled.to!string);
             if (info.tcKilled == 1) {
-                uniqueKills++;
                 td.style = "background-color: lightgreen";
             }
         }
 
-        if (addSuggestion) {
+        if (rdata.addSuggestion) {
             auto tds = r.addChild("td");
             foreach (s; db.mutantApi.getSurroundingAliveMutants(id).enumerate) {
                 // column sort in the html report do not work correctly if starting from 0.
@@ -184,11 +208,6 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
         r.addChild("td", info.prio.get.to!string);
         r.addChild("td", info.exitStatus.get.to!string);
         r.addChild("td", info.updated.toShortDate);
-    }
-
-    if (uniqueKills > 0) {
-        uniqueElem.addChild("p", "Unique kills ").appendText(uniqueKills.to!string);
-        isUniqueTc = true;
     }
 }
 

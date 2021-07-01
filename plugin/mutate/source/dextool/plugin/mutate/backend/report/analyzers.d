@@ -1336,3 +1336,42 @@ SyncStatus reportSyncStatus(ref Database db, const(Mutation.Kind)[] kinds, const
     rval.mutants = spinSql!(() => db.mutantApi.getOldestMutants(kinds, nrMutants));
     return rval;
 }
+
+struct TestCaseClassifier {
+    import my.stat : Histogram;
+
+    long threshold;
+    Histogram hgram;
+}
+
+TestCaseClassifier makeTestCaseClassifier(ref Database db, const long minThreshold) {
+    import std.algorithm : maxElement, max;
+    import my.stat;
+
+    const tcKills = db.mutantApi.getAllTestCaseKills;
+    // no use in a classifier if there are too few test cases.
+    if (tcKills.length < 30)
+        return TestCaseClassifier(minThreshold);
+
+    auto hgram = Histogram(1, max(31, tcKills.maxElement), 30);
+    foreach (a; tcKills)
+        hgram.put(a);
+
+    TestCaseClassifier rval;
+    rval.hgram = hgram;
+
+    const stat = basicStat(StatData(hgram.buckets.map!(a => cast(double) a).array));
+
+    // assuming that the histogram is normal distributed.
+    // convert the frequency to a concrete threshold of mutant kills.
+    const freqTwo = stat.mean.value + stat.sd.value * 2.0;
+    for (int i = cast(int) hgram.buckets.length - 1; i >= 0; --i) {
+        if (hgram.buckets[i] < freqTwo) {
+            rval.threshold = cast(long)(hgram.low + (i + 1) * hgram.interval);
+        }
+    }
+
+    rval.threshold = max(rval.threshold, minThreshold);
+
+    return rval;
+}
