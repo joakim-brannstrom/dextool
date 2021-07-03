@@ -1348,13 +1348,29 @@ TestCaseClassifier makeTestCaseClassifier(ref Database db, const long minThresho
     import std.algorithm : maxElement, max;
     import my.stat;
 
+    auto profile = Profile("test case classifier");
+
+    // the distribution is bimodal (U shaped) with one or more tops depending
+    // on the architecture. The left most edge is the leaf functionality and
+    // the rest of the edges are the main data flows.
+    //
+    // Even though the formula below assume a normal distribution and,
+    // obviously, this isn't one the result is totally fine because the purpuse
+    // is to classify "bad" test cases by checking if all mutants that they
+    // kill are above the threshold. The threshold, as calculcated, thus
+    // centers around the mean and moves further to the right the further the
+    // edges are. It also, suitably, handle multiple edges because the only
+    // important factor is to not get "too close" to the left most edge. That
+    // would lead to false classifications.
+
     const tcKills = db.mutantApi.getAllTestCaseKills;
-    // no use in a classifier if there are too few test cases.
-    if (tcKills.length < 30)
+    // no use in a classifier if there are too mutants.
+    if (tcKills.length < 500)
         return TestCaseClassifier(minThreshold);
 
-    auto hgram = Histogram(1, max(31, tcKills.maxElement), 30);
-    foreach (a; tcKills)
+    auto hgram = Histogram(1, tcKills.maxElement, 100);
+    // all zero kills are removed because the metric is for the test cases that kill mutants.
+    foreach (a; tcKills.filter!"a>0")
         hgram.put(a);
 
     TestCaseClassifier rval;
@@ -1371,6 +1387,7 @@ TestCaseClassifier makeTestCaseClassifier(ref Database db, const long minThresho
         }
     }
 
+    logger.tracef("calculated threshold: %s stat: %s", rval.threshold, stat);
     rval.threshold = max(rval.threshold, minThreshold);
 
     return rval;
