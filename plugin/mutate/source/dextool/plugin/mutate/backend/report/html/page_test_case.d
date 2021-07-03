@@ -18,8 +18,9 @@ import std.format : format;
 import std.path : buildPath;
 import std.range : enumerate;
 import std.stdio : File;
+import std.traits : EnumMembers;
 
-import arsd.dom : Element, RawSource, Link, Document;
+import arsd.dom : Element, RawSource, Link, Document, Table;
 import my.optional;
 import my.path : AbsolutePath;
 import my.set;
@@ -59,63 +60,105 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
         logger.trace("threshold for classification of redundant: ", data.classifier.threshold);
     }
 
-    auto tbl = tmplSortableTable(root, ["Name", "Killed", "Class"]);
-    {
-        auto p = root.addChild("p");
-        p.addChild("b", "Killed");
-        p.appendText(": number of mutants the test case has killed.");
-    }
-    {
-        auto p = root.addChild("p");
-        p.addChild("b", "Class");
-        p.appendText(": automatic classification of the test case.");
-        root.addChild("p", "Unique: kills mutants that no other test case do.");
-        root.addChild("p", format!"Redundant: all mutants the test case kill are also killed by %s other test cases. The test case is probably redudant and thus can be removed."(
-                data.classifier.threshold));
-        root.addChild("p",
-                "Buggy: zero killed mutants. The test case is most probably incorrect. Immediatly inspect the test case.");
+    const tabGroupName = "testcase_class";
+    Element[Classification] tabLink;
+
+    { // tab links
+        auto tab = root.addChild("div").addClass("tab");
+        foreach (class_; [EnumMembers!Classification]) {
+            auto b = tab.addChild("button").addClass("tablinks")
+                .addClass("tablinks_" ~ tabGroupName);
+            b.setAttribute("onclick", format!`openTab(event, '%s', '%s')`(class_, tabGroupName));
+            b.appendText(class_.to!string);
+            tabLink[class_] = b;
+        }
     }
 
-    const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds)).count;
+    Table[Classification] tabContent;
+    foreach (a; [EnumMembers!Classification]) {
+        auto div = root.addChild("div").addClass("tabcontent")
+            .addClass("tabcontent_" ~ tabGroupName).setAttribute("id", a.to!string);
+        if (a == Classification.Redundant)
+            div.addChild("p", format(classDescription[a], data.classifier.threshold));
+        else
+            div.addChild("p", classDescription[a]);
+        tabContent[a] = tmplSortableTable(div, ["Name", "Killed"]);
+    }
+
+    long[Classification] classCnt;
     foreach (tcId; spinSql!(() => db.testCaseApi.getDetectedTestCaseIds)) {
-        auto r = tbl.appendRow;
-
         const name = spinSql!(() => db.testCaseApi.getTestCaseName(tcId));
-        const kills = spinSql!(() => db.testCaseApi.getTestCaseInfo(tcId, kinds)).killedMutants;
 
         auto reportFname = name.pathToHtmlLink;
         auto fout = File(testCasesDir ~ reportFname, "w");
         TestCaseSummary summary;
         spinSql!(() {
             // do all the heavy database interaction in a transaction to
-            // speedup to reduce locking.
+            // speedup by reduce locking.
             auto t = db.transaction;
             makeTestCasePage(db, humanReadableKinds, kinds, name, tcId,
                 (data.similaritiesData is null) ? null : data.similaritiesData.similarities.get(tcId,
                 null), data, summary, fout);
         });
 
+        auto classification = classify(summary, data.classifier);
+        classCnt[classification] += 1;
+
+        auto r = tabContent[classification].appendRow;
+
         auto tdName = r.addChild("td");
         tdName.addChild("a", name).href = buildPath(HtmlStyle.testCaseDir, reportFname);
 
-        r.addChild("td", kills.to!string);
+        r.addChild("td", summary.kills.to!string);
+    }
 
-        if (kills == 0) {
-            tdName.style = "background-color: #ff9980"; // light red
-            r.addChild("td", "Buggy");
-        } else if (summary.score == 1) {
-            tdName.style = "background-color: #b3ff99"; // light green
-            r.addChild("td", "Unique");
-        } else if (summary.score > data.classifier.threshold) {
-            tdName.style = "background-color: #ffc266"; // light orange
-            r.addChild("td", "Redundant");
-        } else {
-            r.addChild("td");
-        }
+    foreach (a; classCnt.byKeyValue) {
+        tabLink[a.key].appendText(format!" %s"(a.value));
+        if (auto c = a.key in classColor)
+            tabLink[a.key].style = *c;
     }
 }
 
 private:
+
+enum Classification {
+    Unique,
+    Redundant,
+    Buggy,
+    Normal
+}
+
+immutable string[Classification] classDescription;
+immutable string[Classification] classColor;
+
+shared static this() {
+    classDescription = cast(immutable)[
+        Classification.Unique: "kills mutants that no other test case do.",
+        Classification.Redundant: "all mutants the test case kill are also killed by %s other test cases. The test case is probably redudant and thus can be removed.",
+        Classification.Buggy
+        : "zero killed mutants. The test case is most probably incorrect. Immediatly inspect the test case.",
+        Classification.Normal: ""
+    ];
+
+    classColor = cast(immutable)[
+        // light green
+        Classification.Unique: "background-color: #b3ff99",
+        // light orange
+        Classification.Redundant: "background-color: #ffc266",
+        // light red
+        Classification.Buggy: "background-color: #ff9980"
+    ];
+}
+
+Classification classify(TestCaseSummary summary, TestCaseClassifier tclass) {
+    if (summary.kills == 0)
+        return Classification.Buggy;
+    if (summary.score == 1)
+        return Classification.Unique;
+    if (summary.score >= tclass.threshold)
+        return Classification.Redundant;
+    return Classification.Normal;
+}
 
 struct ReportData {
     TestCaseSimilarityAnalyse similaritiesData;
@@ -125,6 +168,8 @@ struct ReportData {
 }
 
 struct TestCaseSummary {
+    long kills;
+
     // min(f) where f is the number of test cases that killed a mutant.
     // thus if a test case have one unique mutant the score is 1, none then it
     // is the lowest of all mutant test case kills.
@@ -165,6 +210,7 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
     import std.algorithm : min;
 
     auto kills = db.testCaseApi.testCaseKilledSrcMutants(kinds, tcId);
+    summary.kills = kills.length;
 
     auto uniqueElem = root.addChild("div");
 

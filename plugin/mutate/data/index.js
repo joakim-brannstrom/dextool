@@ -9,6 +9,7 @@ function init() {
         theads[i].addEventListener('click', function(e) {sortable_table_onclick(e);});
     }
 }
+
 function sortable_table_onclick(e) {
     var col = e.target.id.split('-',2)[1];
     if (!col) {
@@ -53,4 +54,24 @@ function sortable_table_onclick(e) {
     for(var i = 0; i<sorted.length; i++) {
         tbody.insertRow(i).innerHTML = sorted[i].innerHTML;
     }
+}
+
+/** Toggle visibility for a tab and close others.
+ */
+function openTab(evt, open, tabGroup) {
+  // Get all elements with class="tabcontent" and hide them
+  var tabcontent = document.getElementsByClassName("tabcontent_" + tabGroup);
+  for (var i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+  }
+
+  // Get all elements with class="tablinks" and remove the class "active"
+  var tablinks = document.getElementsByClassName("tablinks_" + tabGroup);
+  for (var i = 0; i < tablinks.length; i++) {
+    tablinks[i].className = tablinks[i].className.replace(" active", "");
+  }
+
+  // Show the current tab, and add an "active" class to the button that opened the tab
+  document.getElementById(open).style.display = "block";
+  evt.currentTarget.className += " active";
 }

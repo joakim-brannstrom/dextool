@@ -265,13 +265,15 @@ class ShallReportTopTestCaseStats : ReportTestCaseStats {
          testConsecutiveSparseOrder!SubStr([
             "| Percentage | Count | TestCase |",
             "|------------|-------|----------|",
-            "| 100        | 2     | tc_2     |",
-            "| 50         | 1     | tc_3     |",
-            "| 50         | 1     | tc_1     |",
+            "| 2     | tc_2     |",
+            "| 1     | tc_3     |",
+            "| 1     | tc_1     |",
          ]).shouldBeIn(r.output);
 
         testConsecutiveSparseOrder!SubStr([
             "Test Cases",
+            `Normal 3`,
+            `Normal`,
             "tc_1", "1",
             "tc_2", "2",
             "tc_3", "1"
@@ -315,13 +317,16 @@ class ReportTestCaseStats : unit_threaded.TestCase {
             .run;
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
 
+        auto ids = getAllMutationIds(db);
+        assert(ids.length >= 4);
+
         // Updating this test case requires manually inspecting the database.
         //
         // By setting mutant 4 to killed it automatically propagate to mutant 5
         // because they are the same source code change.
-        db.mutantApi.updateMutation(MutationId(1), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [TestCase("tc_1"), TestCase("tc_2")]);
-        db.mutantApi.updateMutation(MutationId(4), Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), [TestCase("tc_2"), TestCase("tc_3")]);
-        db.mutantApi.updateMutation(MutationId(7), Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), null);
+        db.mutantApi.updateMutation(ids[0], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [TestCase("tc_1"), TestCase("tc_2")]);
+        db.mutantApi.updateMutation(ids[1], Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), [TestCase("tc_2"), TestCase("tc_3")]);
+        db.mutantApi.updateMutation(ids[3], Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 10.dur!"msecs"), null);
         return db;
     }
 }
@@ -709,9 +714,7 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
 
         // Assert
         testConsecutiveSparseOrder!SubStr([
-                `Test Cases</h2>`, `table`,
-                `tc_1`, `<td>Unique`, `tc_2`, `tc_3`,
-                `/table`
+                `Test Cases</h2>`, `Unique 1`, `Unique`, `tc_1`, `Redundant`
                 ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
                 "index.html")).byLineCopy.array);
 
