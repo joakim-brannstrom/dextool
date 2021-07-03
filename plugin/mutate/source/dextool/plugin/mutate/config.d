@@ -18,7 +18,7 @@ import my.optional;
 
 import dextool.plugin.mutate.type;
 import dextool.type : AbsolutePath, Path;
-public import dextool.plugin.mutate.backend : Mutation, TestGroup;
+public import dextool.plugin.mutate.backend.type : Mutation, TestGroup;
 
 /// The mode the tool is operating in
 enum ToolMode {
