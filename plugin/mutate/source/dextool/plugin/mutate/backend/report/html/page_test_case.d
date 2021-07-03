@@ -54,8 +54,10 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
     data.addSuggestion = ReportSection.tc_suggestion in sections;
     // 10 is magic number. feels good.
     data.classifier = makeTestCaseClassifier(db, 10);
-    if (!data.classifier.hgram.buckets.empty)
+    if (!data.classifier.hgram.buckets.empty) {
         logger.trace(data.classifier.hgram.toBar);
+        logger.trace("threshold for classification of redundant: ", data.classifier.threshold);
+    }
 
     auto tbl = tmplSortableTable(root, ["Name", "Killed", "Class"]);
     {
@@ -143,11 +145,13 @@ void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
         return format!"%s#%s"(buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(path)), mutId.get);
     })(0, 30.dur!"seconds");
 
-    doc.title(format("Test Case %s %(%s %) %s", name, humanReadableKinds, Clock.currTime));
+    doc.title(format("%s %(%s %) %s", name, humanReadableKinds, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");
     doc.root.childElements("head")[0].addChild("script").addChild(new RawSource(doc, jsIndex));
 
+    doc.mainBody.addChild("h1").appendText("Test Case " ~ name);
     doc.mainBody.addChild("h2").appendText("Killed");
+    doc.mainBody.addChild("p", format!"Mutation operators: %(%s, %)"(humanReadableKinds));
     addKilledMutants(db, kinds, tcId, rdata, getPath, summary, doc.mainBody);
 
     if (!similarities.empty) {
