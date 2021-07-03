@@ -1369,7 +1369,8 @@ TestCaseClassifier makeTestCaseClassifier(ref Database db, const long minThresho
         return TestCaseClassifier(minThreshold);
 
     auto hgram = Histogram(1, tcKills.maxElement, 100);
-    foreach (a; tcKills)
+    // all zero kills are removed because the metric is for the test cases that kill mutants.
+    foreach (a; tcKills.filter!"a>0")
         hgram.put(a);
 
     TestCaseClassifier rval;
@@ -1386,6 +1387,7 @@ TestCaseClassifier makeTestCaseClassifier(ref Database db, const long minThresho
         }
     }
 
+    logger.tracef("calculated threshold: %s stat: %s", rval.threshold, stat);
     rval.threshold = max(rval.threshold, minThreshold);
 
     return rval;
