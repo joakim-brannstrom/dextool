@@ -10,6 +10,7 @@ New features for dextool mutate
    hopefully makes it easier to read the test case report and *fast* find the
    interesting test case for further inspection without having to read all test
    cases in detail.
+ * (html) A page with all mutants, their status etc has been added.
 
 Fixes for dextool mutate
 
