@@ -174,8 +174,8 @@ struct FileIndex {
         import std.datetime : Clock;
         import std.path : buildPath, baseName;
         import dextool.plugin.mutate.backend.report.html.page_diff;
-        import dextool.plugin.mutate.backend.report.html.page_long_term_view;
         import dextool.plugin.mutate.backend.report.html.page_minimal_set;
+        import dextool.plugin.mutate.backend.report.html.page_mutant;
         import dextool.plugin.mutate.backend.report.html.page_nomut;
         import dextool.plugin.mutate.backend.report.html.page_stats;
         import dextool.plugin.mutate.backend.report.html.page_test_case;
@@ -207,9 +207,6 @@ struct FileIndex {
         addContent((string tag) => makeStats(db, kinds, tag, content), "Overview", "#overview");
         navbarItems ~= NavbarItem("Files", "#files"); // add files here to force it to always be after the overview
 
-        addContent((string tag) => makeHighInterestMutants(db, kinds,
-                conf.highInterestMutantsNr, tag, content), "High Interest", "#high_interest");
-
         if (!diff.empty) {
             addSubPage(() => makeDiffView(db, conf, humanReadableKinds, kinds,
                     diff, fio.getOutputDir), "diff_view", "Diff View");
@@ -234,8 +231,12 @@ struct FileIndex {
             addContent((string tag) => makeTrend(db, kinds, tag, content), "Trend", "#trend");
         }
 
-        addContent((string tag) => makeTestCases(db, conf, humanReadableKinds,
-                kinds, logTestCasesDir, tag, content), "Test Cases", "#test_cases");
+        addContent((string tag) => makeMutantPage(db, conf, kinds,
+                AbsolutePath(logDir ~ Path("mutants" ~ HtmlStyle.ext)), tag, content),
+                "Mutants", "#mutants");
+
+        addContent((string tag) => makeTestCases(db, conf, kinds,
+                logTestCasesDir, tag, content), "Test Cases", "#test_cases");
 
         files.data.toIndex(content, HtmlStyle.fileDir);
 

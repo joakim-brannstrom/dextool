@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html.utility;
 
+import std.datetime : SysTime;
+
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.type : Path;
 
@@ -25,4 +27,10 @@ string pathToHtml(string p) {
 
 Path pathToHtmlLink(string p) {
     return Path(pathToHtml(p) ~ Html.ext);
+}
+
+string toShortDate(SysTime ts) {
+    import std.format : format;
+
+    return format("%04s-%02s-%02s", ts.year, cast(ushort) ts.month, ts.day);
 }

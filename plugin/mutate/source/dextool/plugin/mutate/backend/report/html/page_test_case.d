@@ -33,15 +33,16 @@ import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseUniqueness
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     dashboardCss, tmplSortableTable, tmplDefaultTable;
-import dextool.plugin.mutate.backend.report.html.utility : pathToHtml;
-import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
+import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink, toShortDate;
 import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
 import dextool.cachetools;
 
-void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationKind)[] humanReadableKinds,
+@safe:
+
+void makeTestCases(ref Database db, ref const ConfigReport conf,
         const(Mutation.Kind)[] kinds, AbsolutePath testCasesDir, string tag, Element root) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]),
             "Test Cases");
@@ -96,9 +97,8 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(MutationK
             // do all the heavy database interaction in a transaction to
             // speedup by reduce locking.
             auto t = db.transaction;
-            makeTestCasePage(db, humanReadableKinds, kinds, name, tcId,
-                (data.similaritiesData is null) ? null : data.similaritiesData.similarities.get(tcId,
-                null), data, summary, fout);
+            makeTestCasePage(db, kinds, name, tcId, (data.similaritiesData is null)
+                ? null : data.similaritiesData.similarities.get(tcId, null), data, summary, fout);
         });
 
         auto classification = classify(summary, data.classifier);
@@ -131,7 +131,7 @@ enum Classification {
 immutable string[Classification] classDescription;
 immutable string[Classification] classColor;
 
-shared static this() {
+shared static this() @trusted {
     classDescription = cast(immutable)[
         Classification.Unique: "kills mutants that no other test case do.",
         Classification.Redundant: "all mutants the test case kill are also killed by %s other test cases. The test case is probably redudant and thus can be removed.",
@@ -176,37 +176,29 @@ struct TestCaseSummary {
     long score = long.max;
 }
 
-void makeTestCasePage(ref Database db, const(MutationKind)[] humanReadableKinds,
-        const(Mutation.Kind)[] kinds, const string name, const TestCaseId tcId,
-        TestCaseSimilarityAnalyse.Similarity[] similarities,
-        const ReportData rdata, ref TestCaseSummary summary, ref File out_) {
+void makeTestCasePage(ref Database db, const(Mutation.Kind)[] kinds, const string name,
+        const TestCaseId tcId, TestCaseSimilarityAnalyse.Similarity[] similarities,
+        const ReportData rdata, ref TestCaseSummary summary, ref File out_) @system {
     auto doc = tmplBasicPage.dashboardCss;
     scope (success)
         out_.write(doc.toPrettyString);
 
-    auto getPath = nullableCache!(MutationStatusId, string, (MutationStatusId id) {
-        auto path = spinSql!(() => db.mutantApi.getPath(id)).get;
-        auto mutId = spinSql!(() => db.mutantApi.getMutationId(id)).get;
-        return format!"%s#%s"(buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(path)), mutId.get);
-    })(0, 30.dur!"seconds");
-
-    doc.title(format("%s %(%s %) %s", name, humanReadableKinds, Clock.currTime));
+    doc.title(format("%s %s", name, Clock.currTime));
     doc.mainBody.setAttribute("onload", "init()");
     doc.root.childElements("head")[0].addChild("script").addChild(new RawSource(doc, jsIndex));
 
-    doc.mainBody.addChild("h1").appendText("Test Case " ~ name);
+    doc.mainBody.addChild("h1").appendText(name);
     doc.mainBody.addChild("h2").appendText("Killed");
-    doc.mainBody.addChild("p", format!"Mutation operators: %(%s, %)"(humanReadableKinds));
-    addKilledMutants(db, kinds, tcId, rdata, getPath, summary, doc.mainBody);
+    addKilledMutants(db, kinds, tcId, rdata, summary, doc.mainBody);
 
     if (!similarities.empty) {
         doc.mainBody.addChild("h2").appendText("Similarity");
-        addSimilarity(db, similarities, getPath, doc.mainBody);
+        addSimilarity(db, similarities, doc.mainBody);
     }
 }
 
-void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds, const TestCaseId tcId,
-        const ReportData rdata, ref PathCacheT getPath, ref TestCaseSummary summary, Element root) {
+void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
+        const TestCaseId tcId, const ReportData rdata, ref TestCaseSummary summary, Element root) @system {
     import std.algorithm : min;
 
     auto kills = db.testCaseApi.testCaseKilledSrcMutants(kinds, tcId);
@@ -261,8 +253,14 @@ void addKilledMutants(PathCacheT)(ref Database db, const(Mutation.Kind)[] kinds,
     }
 }
 
-void addSimilarity(PathCacheT)(ref Database db,
-        TestCaseSimilarityAnalyse.Similarity[] similarities, ref PathCacheT getPath, Element root) {
+void addSimilarity(ref Database db, TestCaseSimilarityAnalyse.Similarity[] similarities,
+        Element root) @system {
+    auto getPath = nullableCache!(MutationStatusId, string, (MutationStatusId id) {
+        auto path = spinSql!(() => db.mutantApi.getPath(id)).get;
+        auto mutId = spinSql!(() => db.mutantApi.getMutationId(id)).get;
+        return format!"%s#%s"(buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(path)), mutId.get);
+    })(0, 30.dur!"seconds");
+
     root.addChild("p", "How similary this test case is to others.");
     {
         auto p = root.addChild("p");
@@ -299,8 +297,4 @@ void addSimilarity(PathCacheT)(ref Database db,
             s.appendText(" ");
         }
     }
-}
-
-string toShortDate(SysTime ts) {
-    return format("%04s-%02s-%02s", ts.year, cast(ushort) ts.month, ts.day);
 }
