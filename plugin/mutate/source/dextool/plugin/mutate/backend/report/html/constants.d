@@ -40,6 +40,10 @@ struct DashboardCss {
         return root.addChild("h2", txt).addClass("sub-header");
     }
 
+    static Element h3(Element root, string txt) @trusted {
+        return root.addChild("h3", txt).addClass("sub-header");
+    }
+
     static Element defaultTable(Element root) @trusted {
         return root.addClass("table table-striped");
     }

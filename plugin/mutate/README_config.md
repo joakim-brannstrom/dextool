@@ -323,11 +323,11 @@ Sections to include in the report.
 | Section                          | plain | json | html |
 |----------------------------------|-------|------|------|
 | alive                            | ✔    | ✔   |      |
-| all_mut                          | ✔    | ✔   |      |
+| all_mut                          | ✔    | ✔   | (✔) |
 | diff                             |       | ✔   | ✔   |
 | killed                           | ✔    | ✔   |      |
 | marked_mutants                   | ✔    |      |      |
-| mut_recommend_kill               |       |      | ✔   |
+| mut_recommend_kill               |       |      | (✔) |
 | mut_stat                         | ✔    |      |      |
 | summary                          | ✔    | ✔   | ✔   |
 | tc_full_overlap                  | ✔    |      | (✔) |

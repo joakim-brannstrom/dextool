@@ -16,6 +16,7 @@ module dextool.plugin.mutate.backend.database;
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
 import std.algorithm : map;
+import std.datetime : SysTime;
 import std.exception : collectException;
 import std.format : format;
 
@@ -176,6 +177,47 @@ struct Database {
         }
     }
 
+    void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow2) dg) @trusted {
+        immutable sql = format("SELECT
+            t0.id,
+            t0.kind,
+            t3.status,
+            t3.exit_code,
+            t3.prio,
+            t2.path,
+            t1.line,
+            t1.column,
+            t3.update_ts
+            FROM %s t0,%s t1,%s t2, %s t3
+            WHERE
+            t0.kind IN (%(%s,%)) AND
+            t0.st_id = t3.id AND
+            t0.mp_id = t1.id AND
+            t1.file_id = t2.id
+            GROUP BY t3.id
+            ORDER BY t2.path,t1.line,t3.id", mutationTable, mutationPointTable,
+                filesTable, mutationStatusTable, kinds.map!"cast(int) a");
+
+        try {
+            auto stmt = db.db.prepare(sql);
+            foreach (ref r; stmt.get.execute) {
+                IterateMutantRow2 d;
+                d.id = MutationId(r.peek!long(0));
+                d.mutant = Mutation(r.peek!int(1).to!(Mutation.Kind),
+                        r.peek!int(2).to!(Mutation.Status));
+                d.exitStatus = r.peek!int(3).ExitStatus;
+                d.prio = r.peek!long(4).MutantPrio;
+                d.file = r.peek!string(5).Path;
+                d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
+                d.tested = r.peek!string(8).fromSqLiteDateTime;
+
+                dg(d);
+            }
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+        }
+    }
+
     FileRow[] getDetailedFiles() @trusted {
         import std.array : appender;
         import dextool.plugin.mutate.backend.utility : checksum;
@@ -257,6 +299,16 @@ struct IterateMutantRow {
     SourceLoc slocEnd;
     Language lang;
     MutantMetaData attrs;
+}
+
+struct IterateMutantRow2 {
+    MutationId id;
+    Mutation mutant;
+    ExitStatus exitStatus;
+    Path file;
+    SourceLoc sloc;
+    MutantPrio prio;
+    SysTime tested;
 }
 
 struct FileRow {
