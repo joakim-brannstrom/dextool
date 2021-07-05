@@ -188,16 +188,18 @@ struct Database {
             t1.line,
             t1.column,
             t3.update_ts,
-            (SELECT count(*) FROM %s WHERE t3.id=st_id) as vc_cnt
-            FROM %s t0,%s t1,%s t2, %s t3
+            (SELECT count(*) FROM %s WHERE t3.id=st_id) as vc_cnt,
+            t4.nomut
+            FROM %s t0,%s t1,%s t2, %s t3, %s t4
             WHERE
             t0.kind IN (%(%s,%)) AND
             t0.st_id = t3.id AND
             t0.mp_id = t1.id AND
-            t1.file_id = t2.id
+            t1.file_id = t2.id AND
+            t0.id = t4.mut_id
             GROUP BY t3.id
-            ORDER BY t2.path,t1.line,t3.id", killedTestCaseTable, mutationTable,
-                mutationPointTable, filesTable, mutationStatusTable, kinds.map!"cast(int) a");
+            ORDER BY t2.path,t1.line,t3.id", killedTestCaseTable, mutationTable, mutationPointTable,
+                filesTable, mutationStatusTable, srcMetadataTable, kinds.map!"cast(int) a");
 
         try {
             auto stmt = db.db.prepare(sql);
@@ -212,6 +214,10 @@ struct Database {
                 d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
                 d.tested = r.peek!string(8).fromSqLiteDateTime;
                 d.killedByTestCases = r.peek!long(9);
+
+                if (r.peek!long(10) != 0) {
+                    d.attrs = MutantMetaData(d.id, MutantAttr(NoMut.init));
+                }
 
                 dg(d);
             }
@@ -312,6 +318,7 @@ struct IterateMutantRow2 {
     MutantPrio prio;
     SysTime tested;
     long killedByTestCases;
+    MutantMetaData attrs;
 }
 
 struct FileRow {
