@@ -105,6 +105,13 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
     }
 
     auto root = doc.mainBody;
+    root.addChild("p",
+            "Priority: how important it is to kill the mutant. It is based on modified source code size.");
+    root.addChild("p",
+            "ExitCode: the exit code of the test suite when the mutant where killed. 1: normal, -9: segfault");
+    root.addChild("p",
+            "Tests: number of tests that killed the mutant (failed when it was executed).");
+    root.addChild("p", "Tested: date when the mutant was last tested/executed.");
 
     const tabGroupName = "mutant_status";
     Element[Mutation.Status] tabLink;
@@ -126,7 +133,7 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
             .addClass("tabcontent_" ~ tabGroupName).setAttribute("id", status.to!string);
         div.addChild("p", statusDescription[status]);
         tabContent[status] = tmplSortableTable(div, [
-                "Link", "Priority", "ExitCode", "Tested"
+                "Link", "Priority", "ExitCode", "Tests", "Tested"
                 ]);
     }
 
@@ -158,7 +165,8 @@ void addMutants(ref Database db, const(Mutation.Kind)[] kinds,
                 mut.sloc.line)).href = toLinkPath(mut.file, mut.id);
         r.addChild("td", mut.prio.get.to!string);
         r.addChild("td", mut.exitStatus.get.to!string);
-        r.addChild("td", mut.tested.toShortDate);
+        r.addChild("td", mut.killedByTestCases.to!string);
+        r.addChild("td", mut.mutant.status == Mutation.Status.unknown ? "" : mut.tested.toShortDate);
     }
 
     db.iterateMutants(kinds, &mutant);
