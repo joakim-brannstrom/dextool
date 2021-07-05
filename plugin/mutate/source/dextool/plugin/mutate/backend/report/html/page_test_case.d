@@ -35,7 +35,7 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     dashboardCss, tmplSortableTable, tmplDefaultTable;
 import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink, toShortDate;
 import dextool.plugin.mutate.backend.resource;
-import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.type : Mutation, toString;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
 import dextool.cachetools;
@@ -83,7 +83,7 @@ void makeTestCases(ref Database db, ref const ConfigReport conf,
             div.addChild("p", format(classDescription[a], data.classifier.threshold));
         else
             div.addChild("p", classDescription[a]);
-        tabContent[a] = tmplSortableTable(div, ["Name", "Killed"]);
+        tabContent[a] = tmplSortableTable(div, ["Name", "Tests", "Killed"]);
     }
 
     long[Classification] classCnt;
@@ -105,10 +105,11 @@ void makeTestCases(ref Database db, ref const ConfigReport conf,
         classCnt[classification] += 1;
 
         auto r = tabContent[classification].appendRow;
-
-        auto tdName = r.addChild("td");
-        tdName.addChild("a", name).href = buildPath(HtmlStyle.testCaseDir, reportFname);
-
+        {
+            auto td = r.addChild("td");
+            td.addChild("a", name).href = buildPath(HtmlStyle.testCaseDir, reportFname);
+        }
+        r.addChild("td", summary.score.to!string);
         r.addChild("td", summary.kills.to!string);
     }
 
@@ -206,8 +207,6 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
 
     auto uniqueElem = root.addChild("div");
 
-    auto tbl = tmplSortableTable(root, ["Link", "TestCases"] ~ (rdata.addSuggestion
-            ? ["Suggestion"] : null) ~ ["Priority", "ExitCode", "Tested"]);
     {
         auto p = root.addChild("p");
         p.addChild("b", "TestCases");
@@ -218,6 +217,9 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
         p.addChild("b", "Suggestion");
         p.appendText(": alive mutants on the same source code location. Because they are close to a mutant that this test case killed it may be suitable to extend this test case to also kill the suggested mutant.");
     }
+
+    auto tbl = tmplSortableTable(root, ["Link", "TestCases"] ~ (rdata.addSuggestion
+            ? ["Suggestion"] : null) ~ ["Priority", "ExitCode", "Tested"]);
 
     foreach (const id; kills.sort) {
         auto r = tbl.appendRow();
@@ -248,7 +250,7 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
         }
 
         r.addChild("td", info.prio.get.to!string);
-        r.addChild("td", info.exitStatus.get.to!string);
+        r.addChild("td", toString(info.exitStatus));
         r.addChild("td", info.updated.toShortDate);
     }
 }

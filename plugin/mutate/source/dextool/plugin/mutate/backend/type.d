@@ -468,6 +468,81 @@ struct Token {
 
 alias ExitStatus = NamedType!(int, Tag!"ExitStatus", int.init, TagStringable);
 
+private immutable string[int] exitStatusDesc;
+
+shared static this() @system {
+    exitStatusDesc = cast(immutable)[
+        -1: "SIGHUP",
+        -10: "SIGUSR1",
+        -11: "SIGSEGV",
+        -12: "SIGUSR2",
+        -13: "SIGPIPE",
+        -14: "SIGALRM",
+        -15: "SIGTERM",
+        -16: "SIGSTKFLT",
+        -17: "SIGCHLD",
+        -18: "SIGCONT",
+        -19: "SIGSTOP",
+        -2: "SIGINT",
+        -20: "SIGTSTP",
+        -21: "SIGTTIN",
+        -22: "SIGTTOU",
+        -23: "SIGURG",
+        -24: "SIGXCPU",
+        -25: "SIGXFSZ",
+        -26: "SIGVTALRM",
+        -27: "SIGPROF",
+        -28: "SIGWINCH",
+        -29: "SIGIO",
+        -3: "SIGQUIT",
+        -30: "SIGPWR",
+        -31: "SIGSYS",
+        -34: "SIGRTMIN",
+        -35: "SIGRTMIN+1",
+        -36: "SIGRTMIN+2",
+        -37: "SIGRTMIN+3",
+        -38: "SIGRTMIN+4",
+        -39: "SIGRTMIN+5",
+        -4: "SIGILL",
+        -40: "SIGRTMIN+6",
+        -41: "SIGRTMIN+7",
+        -42: "SIGRTMIN+8",
+        -43: "SIGRTMIN+9",
+        -44: "SIGRTMIN+10",
+        -45: "SIGRTMIN+11",
+        -46: "SIGRTMIN+12",
+        -47: "SIGRTMIN+13",
+        -48: "SIGRTMIN+14",
+        -49: "SIGRTMIN+15",
+        -5: "SIGTRAP",
+        -50: "SIGRTMAX-14",
+        -51: "SIGRTMAX-13",
+        -52: "SIGRTMAX-12",
+        -53: "SIGRTMAX-11",
+        -54: "SIGRTMAX-10",
+        -55: "SIGRTMAX-9",
+        -56: "SIGRTMAX-8",
+        -57: "SIGRTMAX-7",
+        -58: "SIGRTMAX-6",
+        -59: "SIGRTMAX-5",
+        -6: "SIGABRT",
+        -60: "SIGRTMAX-4",
+        -61: "SIGRTMAX-3",
+        -62: "SIGRTMAX-2",
+        -63: "SIGRTMAX-1",
+        -64: "SIGRTMAX",
+        -7: "SIGBUS",
+        -8: "SIGFPE",
+        -9: "SIGKILL",
+    ];
+}
+
+string toString(ExitStatus a) {
+    import std.conv : to;
+
+    return exitStatusDesc.get(a.get, a.get.to!string);
+}
+
 /// Profile of what a mutant spent time on to collect a status.
 struct MutantTimeProfile {
     /// Time it took to compile the mutant.
