@@ -28,7 +28,7 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     tmplDefaultTable, dashboardCss, tmplDefaultMatrixTable, tmplSortableTable;
 import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink, toShortDate;
 import dextool.plugin.mutate.backend.resource;
-import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.type : Mutation, toString;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 
@@ -108,7 +108,7 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
     root.addChild("p",
             "Priority: how important it is to kill the mutant. It is based on modified source code size.");
     root.addChild("p",
-            "ExitCode: the exit code of the test suite when the mutant where killed. 1: normal, -9: segfault");
+            "ExitCode: the exit code of the test suite when the mutant where killed. 1: normal");
     root.addChild("p",
             "Tests: number of tests that killed the mutant (failed when it was executed).");
     root.addChild("p", "Tested: date when the mutant was last tested/executed.");
@@ -164,7 +164,7 @@ void addMutants(ref Database db, const(Mutation.Kind)[] kinds,
         r.addChild("td").addChild("a", format("%s:%s", mut.file,
                 mut.sloc.line)).href = toLinkPath(mut.file, mut.id);
         r.addChild("td", mut.prio.get.to!string);
-        r.addChild("td", mut.exitStatus.get.to!string);
+        r.addChild("td", toString(mut.exitStatus));
         r.addChild("td", mut.killedByTestCases.to!string);
         r.addChild("td", mut.mutant.status == Mutation.Status.unknown ? "" : mut.tested.toShortDate);
     }
