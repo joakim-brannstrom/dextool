@@ -46,35 +46,51 @@ void makeMutantPage(ref Database db, ref const ConfigReport conf,
 
 private:
 
-immutable string[Mutation.Status] statusDescription;
-immutable string[Mutation.Status] statusColor;
+string mixinMutantStatus() {
+    string s;
+    s ~= "enum MutantStatus {";
+    foreach (a; [EnumMembers!(Mutation.Status)])
+        s ~= a.to!string ~ ",";
+    s ~= "nomut";
+    s ~= "}";
+    return s;
+}
+
+mixin(mixinMutantStatus);
+
+MutantStatus toStatus(Mutation.Status s) {
+    return cast(MutantStatus) s;
+}
+
+immutable string[MutantStatus] statusDescription;
+immutable string[MutantStatus] statusColor;
 
 shared static this() @trusted {
     statusDescription = cast(immutable)[
-        Mutation.Status.unknown
-        : "Mutants that haven't been tested yet.",
-        Mutation.Status.alive: "No test case failed when the mutant is tested.",
-        Mutation.Status.killed: "At least one test case fail when the mutant is tested.",
-        Mutation.Status.killedByCompiler
+        MutantStatus.unknown: "Mutants that haven't been tested yet.",
+        MutantStatus.alive: "No test case failed when the mutant is tested.",
+        MutantStatus.killed: "At least one test case fail when the mutant is tested.",
+        MutantStatus.killedByCompiler
         : "The compiler found and killed the mutant.",
-        Mutation.Status.timeout
+        MutantStatus.timeout
         : "The test suite never terminate, infinite loop, when the mutant is tested.",
-        Mutation.Status.noCoverage: "The mutant is never executed by the test suite.",
-        Mutation.Status.equivalent
+        MutantStatus.noCoverage: "The mutant is never executed by the test suite.",
+        MutantStatus.equivalent
         : "No change in the test case binaries happens when the mutant is injected and compiled.",
-        Mutation.Status.skipped
-        : "The mutant is skipped because another mutant that covers it survived (is alive)."
+        MutantStatus.skipped: "The mutant is skipped because another mutant that covers it survived (is alive).",
+        MutantStatus.nomut
+        : "The mutant is manually marked as not interesting. There is no intention of writing a test to kill it."
     ];
 
     statusColor = cast(immutable)[
         //Mutation.Status.unknown:,
         // light red
-        Mutation.Status.alive: "background-color: #ff9980",
+        MutantStatus.alive: "background-color: #ff9980",
         // light green
-        Mutation.Status.killed: "background-color: #b3ff99",
-        Mutation.Status.killedByCompiler: "background-color: #b3ff99",
-        Mutation.Status.timeout: "background-color: #b3ff99",
-        Mutation.Status.noCoverage: "background-color: #ff9980",
+        MutantStatus.killed: "background-color: #b3ff99",
+        MutantStatus.killedByCompiler: "background-color: #b3ff99",
+        MutantStatus.timeout: "background-color: #b3ff99",
+        MutantStatus.noCoverage: "background-color: #ff9980",
         //Mutation.Status.equivalent:,
         //Mutation.Status.skipped:,
     ];
@@ -114,11 +130,11 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
     root.addChild("p", "Tested: date when the mutant was last tested/executed.");
 
     const tabGroupName = "mutant_status";
-    Element[Mutation.Status] tabLink;
+    Element[MutantStatus] tabLink;
 
     { // tab links
         auto tab = root.addChild("div").addClass("tab");
-        foreach (const status; [EnumMembers!(Mutation.Status)]) {
+        foreach (const status; [EnumMembers!MutantStatus]) {
             auto b = tab.addChild("button").addClass("tablinks")
                 .addClass("tablinks_" ~ tabGroupName);
             b.setAttribute("onclick", format!`openTab(event, '%s', '%s')`(status, tabGroupName));
@@ -127,8 +143,8 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
         }
     }
 
-    Table[Mutation.Status] tabContent;
-    foreach (const status; [EnumMembers!(Mutation.Status)]) {
+    Table[MutantStatus] tabContent;
+    foreach (const status; [EnumMembers!MutantStatus]) {
         auto div = root.addChild("div").addClass("tabcontent")
             .addClass("tabcontent_" ~ tabGroupName).setAttribute("id", status.to!string);
         div.addChild("p", statusDescription[status]);
@@ -137,7 +153,7 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
                 ]);
     }
 
-    long[Mutation.Status] statusCnt;
+    long[MutantStatus] statusCnt;
     addMutants(db, kinds, tabContent, statusCnt);
 
     foreach (a; statusCnt.byKeyValue) {
@@ -148,7 +164,7 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
 }
 
 void addMutants(ref Database db, const(Mutation.Kind)[] kinds,
-        ref Table[Mutation.Status] content, ref long[Mutation.Status] statusCnt) @system {
+        ref Table[MutantStatus] content, ref long[MutantStatus] statusCnt) @system {
     import std.path : buildPath;
     import dextool.plugin.mutate.backend.database : IterateMutantRow2, MutationId;
 
@@ -157,9 +173,14 @@ void addMutants(ref Database db, const(Mutation.Kind)[] kinds,
     }
 
     void mutant(ref const IterateMutantRow2 mut) {
-        statusCnt[mut.mutant.status] += 1;
+        const status = () {
+            if (mut.attrs.isNoMut)
+                return MutantStatus.nomut;
+            return toStatus(mut.mutant.status);
+        }();
 
-        auto r = content[mut.mutant.status].appendRow;
+        statusCnt[status] += 1;
+        auto r = content[status].appendRow;
 
         r.addChild("td").addChild("a", format("%s:%s", mut.file,
                 mut.sloc.line)).href = toLinkPath(mut.file, mut.id);

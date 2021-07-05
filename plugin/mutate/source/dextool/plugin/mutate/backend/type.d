@@ -539,8 +539,11 @@ shared static this() @system {
 
 string toString(ExitStatus a) {
     import std.conv : to;
+    import std.format : format;
 
-    return exitStatusDesc.get(a.get, a.get.to!string);
+    if (auto v = a.get in exitStatusDesc)
+        return format!"%s %s"(a.get, *v);
+    return a.get.to!string;
 }
 
 /// Profile of what a mutant spent time on to collect a status.
