@@ -170,7 +170,7 @@ struct TestCaseSummary {
     // min(f) where f is the number of test cases that killed a mutant.
     // thus if a test case have one unique mutant the score is 1, none then it
     // is the lowest of all mutant test case kills.
-    long score = long.max;
+    long score;
 }
 
 void makeTestCasePage(ref Database db, const(Mutation.Kind)[] kinds, const string name,
@@ -200,6 +200,7 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
 
     auto kills = db.testCaseApi.testCaseKilledSrcMutants(kinds, tcId);
     summary.kills = kills.length;
+    summary.score = kills.length == 0 ? 0 : long.max;
 
     auto uniqueElem = root.addChild("div");
 
