@@ -56,10 +56,6 @@ void makeTestCases(ref Database db, ref const ConfigReport conf,
     data.addSuggestion = ReportSection.tc_suggestion in sections;
     // 10 is magic number. feels good.
     data.classifier = makeTestCaseClassifier(db, 10);
-    if (!data.classifier.hgram.buckets.empty) {
-        logger.trace(data.classifier.hgram.toBar);
-        logger.trace("threshold for classification of redundant: ", data.classifier.threshold);
-    }
 
     const tabGroupName = "testcase_class";
     Element[Classification] tabLink;
