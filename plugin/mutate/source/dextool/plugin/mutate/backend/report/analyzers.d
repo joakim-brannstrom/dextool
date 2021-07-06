@@ -1338,15 +1338,14 @@ SyncStatus reportSyncStatus(ref Database db, const(Mutation.Kind)[] kinds, const
 }
 
 struct TestCaseClassifier {
-    import my.stat : Histogram;
-
     long threshold;
-    Histogram hgram;
 }
 
 TestCaseClassifier makeTestCaseClassifier(ref Database db, const long minThreshold) {
-    import std.algorithm : maxElement, max;
-    import my.stat;
+    import std.algorithm : maxElement, max, minElement;
+    import std.datetime : dur;
+    import std.math : abs;
+    import dextool.plugin.mutate.backend.report.kmean;
 
     auto profile = Profile("test case classifier");
 
@@ -1363,31 +1362,30 @@ TestCaseClassifier makeTestCaseClassifier(ref Database db, const long minThresho
     // important factor is to not get "too close" to the left most edge. That
     // would lead to false classifications.
 
-    const tcKills = db.mutantApi.getAllTestCaseKills;
+    auto tcKills = db.mutantApi
+        .getAllTestCaseKills
+        .filter!"a>0"
+        .map!(a => Point(cast(double) a))
+        .array;
     // no use in a classifier if there are too mutants.
-    if (tcKills.length < 500)
+    if (tcKills.length < 100)
         return TestCaseClassifier(minThreshold);
 
-    auto hgram = Histogram(1, tcKills.maxElement, 100);
-    // all zero kills are removed because the metric is for the test cases that kill mutants.
-    foreach (a; tcKills.filter!"a>0")
-        hgram.put(a);
+    // 0.1 is good enough because it is then rounded.
+    auto iter = KmeanIterator!Point(0.1);
+    iter.clusters ~= Cluster!Point(0);
+    // div by 2 reduces the number of iterations for a typical sample.
+    iter.clusters ~= Cluster!Point(cast(double) tcKills.map!(a => a.value).maxElement / 2.0);
+
+    iter.fit(tcKills, 1000, 10.dur!"seconds");
 
     TestCaseClassifier rval;
-    rval.hgram = hgram;
+    rval.threshold = 1 + cast(long)(
+            iter.clusters.map!"a.mean".minElement + abs(
+            iter.clusters[0].mean - iter.clusters[1].mean) / 2.0);
 
-    const stat = basicStat(StatData(hgram.buckets.map!(a => cast(double) a).array));
-
-    // assuming that the histogram is normal distributed.
-    // convert the frequency to a concrete threshold of mutant kills.
-    const freqTwo = stat.mean.value + stat.sd.value * 2.0;
-    for (int i = cast(int) hgram.buckets.length - 1; i >= 0; --i) {
-        if (hgram.buckets[i] < freqTwo) {
-            rval.threshold = cast(long)(hgram.low + (i + 1) * hgram.interval);
-        }
-    }
-
-    logger.tracef("calculated threshold: %s stat: %s", rval.threshold, stat);
+    logger.tracef("calculated threshold: %s iterations:%s time:%s cluster.mean: %s",
+            rval.threshold, iter.iterations, iter.time, iter.clusters.map!(a => a.mean));
     rval.threshold = max(rval.threshold, minThreshold);
 
     return rval;
