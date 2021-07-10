@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/gtest_to_metadata
+gtest_to_metadata.so
+gtest_to_metadata.dylib
+gtest_to_metadata.dll
+gtest_to_metadata.a
+gtest_to_metadata.lib
+gtest_to_metadata-test-*
+*.exe
+*.o
+*.obj
+*.lst
+build

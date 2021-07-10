@@ -35,7 +35,7 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     dashboardCss, tmplSortableTable, tmplDefaultTable;
 import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink, toShortDate;
 import dextool.plugin.mutate.backend.resource;
-import dextool.plugin.mutate.backend.type : Mutation, toString;
+import dextool.plugin.mutate.backend.type : Mutation, toString, TestCase;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
 
@@ -97,7 +97,7 @@ void makeTestCases(ref Database db, ref const ConfigReport conf, const(Mutation.
                 data, metaData, summary, fout);
         });
 
-        auto classification = classify(summary, data.classifier);
+        auto classification = classify(TestCase(name), summary, data.classifier, metaData);
         classCnt[classification] += 1;
 
         auto r = tabContent[classification].appendRow;
@@ -147,13 +147,19 @@ shared static this() @trusted {
     ];
 }
 
-Classification classify(TestCaseSummary summary, TestCaseClassifier tclass) {
+Classification classify(TestCase tc, const TestCaseSummary summary,
+        const ref TestCaseClassifier tclass, const ref TestCaseMetadata metaData) {
     if (summary.kills == 0)
         return Classification.Buggy;
     if (summary.score == 1)
         return Classification.Unique;
-    if (summary.score >= tclass.threshold)
+
+    if (auto v = tc in metaData.redundant) {
+        if (*v)
+            return Classification.Redundant;
+    } else if (summary.score >= tclass.threshold)
         return Classification.Redundant;
+
     return Classification.Normal;
 }
 
