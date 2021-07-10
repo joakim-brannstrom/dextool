@@ -11,6 +11,14 @@ New features for dextool mutate
    interesting test case for further inspection without having to read all test
    cases in detail.
  * (html) A page with all mutants, their status etc has been added.
+ * (html) Allow a user to provide additional metadata about test cases such as
+   a link to the implementation and text about the test case. This is in a
+   separate json file. The intention is that tools are used to extract the
+   information from the implementation of the test cases.
+
+```json
+[{"name": "tc_1", "redundant": true, "text": "<p>a text with <br> html <a href=\"foo.html\">links</a>.</p>", "location": {"file": "../../tc_1.cpp", "line": 42}}]
+```
 
 Fixes for dextool mutate
 

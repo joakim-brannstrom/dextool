@@ -351,6 +351,11 @@ struct ArgParser {
         app.put(`# see for regex syntax: http://dlang.org/phobos/std_regex.html`);
         app.put(null);
 
+        app.put("[test]");
+        app.put(null);
+        app.put("# Path to a JSON file containing metadata about tests.");
+        app.put(`# metadata = "test_data.json"`);
+
         return app.data.joiner(newline).toUTF8;
     }
 
@@ -494,6 +499,8 @@ struct ArgParser {
 
             data.toolMode = ToolMode.report;
             ReportSection[] sections;
+            string metadataPath;
+
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "compile-db", "Retrieve compilation parameters from the file", &compileDbs,
@@ -511,6 +518,7 @@ struct ArgParser {
                    "section-tc_stat-num", "number of test cases to report", &report.tcKillSortNum,
                    "section-tc_stat-sort", "sort order when reporting test case kill stat " ~ format("[%(%s|%)]", [EnumMembers!ReportKillSortOrder]), &report.tcKillSortOrder,
                    "style", "kind of report to generate " ~ format("[%(%s|%)]", [EnumMembers!ReportKind]), &report.reportKind,
+                   "test-metadata", "path to a JSON file containing metadata about tests", &metadataPath,
                    );
             // dfmt on
 
@@ -519,6 +527,8 @@ struct ArgParser {
             report.logDir = logDir.Path.AbsolutePath;
             if (!sections.empty)
                 report.reportSection = sections;
+            if (!metadataPath.empty)
+                report.testMetadata = some(ConfigReport.TestMetaData(AbsolutePath(metadataPath)));
 
             updateCompileDb(compileDb, compileDbs);
         }
@@ -1066,6 +1076,10 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         c.report.highInterestMutantsNr.get = cast(uint) v.integer;
     };
 
+    callbacks["test.metadata"] = (ref ArgParser c, ref TOMLValue v) {
+        c.report.testMetadata = some(ConfigReport.TestMetaData(AbsolutePath(v.str)));
+    };
+
     void iterSection(ref ArgParser c, string sectionName) {
         if (auto section = sectionName in doc) {
             // specific configuration from section members
@@ -1096,6 +1110,7 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     iterSection(rval, "report");
     iterSection(rval, "schema");
     iterSection(rval, "coverage");
+    iterSection(rval, "test");
 
     parseTestGroups(rval, doc);
 
@@ -1389,6 +1404,18 @@ max_test_cmd_output = 42
     ap.mutationTest.maxTestCaseOutput.get.shouldEqual(42);
 }
 
+@("shall parse the test metadata")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `[test]
+metadata = "foo.json"`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.report.testMetadata.orElse(ConfigReport.TestMetaData(AbsolutePath.init))
+        .get.toString.shouldEqual(AbsolutePath("foo.json").toString);
+}
+
 /// Minimal config to setup path to config file.
 struct MiniConfig {
     /// Value from the user via CLI, unmodified.
@@ -1467,7 +1494,7 @@ unittest {
     d.should == expected;
 }
 
-auto parseUserTestConstraint(string[] raw) {
+TestConstraint parseUserTestConstraint(string[] raw) {
     import std.conv : to;
     import std.regex : regex, matchFirst;
     import std.typecons : tuple;
