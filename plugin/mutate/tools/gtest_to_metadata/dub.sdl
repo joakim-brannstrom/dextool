@@ -1,0 +1,10 @@
+name "gtest_to_metadata"
+description "Scan gtest files to create a test-metadata.json"
+authors "Joakim Brannstrom"
+copyright "Copyright © 2021, Joakim Brannstrom"
+license "BSL-1.0"
+
+targetPath "build"
+
+dependency "colorlog" version="~>0.0.7" optional=true default=true
+dependency "my" version="~>0.0.32" optional=true default=true
