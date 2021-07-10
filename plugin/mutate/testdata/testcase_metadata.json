@@ -1,0 +1,4 @@
+[
+    {"name": "tc_1", "redundant": true, "text": "<p>a text with <br> html <a href=\"foo.html\">links</a>.</p>", "location": {"file": "../../tc_1.cpp", "line": 42}},
+    {"name": "tc_2", "redundant": false, "text": "a text.", "location": {"file": "tc_2.cpp", "line": 84}}
+]

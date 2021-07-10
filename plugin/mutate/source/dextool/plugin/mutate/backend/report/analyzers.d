@@ -24,6 +24,7 @@ import std.typecons : Flag, Yes, No, Tuple, Nullable, tuple;
 
 import my.named_type;
 import my.optional;
+import my.set;
 
 import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId,
     MarkedMutant, TestCaseId, MutationStatusId;
@@ -200,8 +201,6 @@ private struct Similarity {
 // The set similairty measures how much of lhs is in rhs. This is a
 // directional metric.
 private Similarity setSimilarity(MutationStatusId[] lhs_, MutationStatusId[] rhs_) {
-    import my.set;
-
     auto lhs = lhs_.toSet;
     auto rhs = rhs_.toSet;
     auto intersect = lhs.intersect(rhs);
@@ -766,8 +765,6 @@ private bool isTestCaseInTestGroup(const TestCase tc, const Regex!char tg) {
 
 TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
         const(TestGroup) test_g) @safe {
-    import my.set;
-
     auto profile = Profile(ReportSection.tc_groups);
 
     static struct TcStat {
@@ -919,7 +916,6 @@ class DiffReport {
 DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         ref Diff diff, AbsolutePath workdir) {
     import dextool.plugin.mutate.backend.type : SourceLoc;
-    import my.set;
 
     auto profile = Profile(ReportSection.diff);
 
@@ -997,7 +993,6 @@ struct MinimalTestSet {
 
 MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
     import dextool.plugin.mutate.backend.database : TestCaseInfo;
-    import my.set;
 
     auto profile = Profile(ReportSection.tc_min_set);
 
@@ -1035,8 +1030,6 @@ MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
 }
 
 struct TestCaseUniqueness {
-    import my.set;
-
     MutationStatusId[][TestCaseId] uniqueKills;
 
     // test cases that have no unique kills. These are candidates for being
@@ -1047,7 +1040,6 @@ struct TestCaseUniqueness {
 /// Returns: a report of the mutants that a test case is the only one that kills.
 TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind[] kinds) {
     import dextool.plugin.mutate.backend.database.type : MutationStatusId;
-    import my.set;
 
     auto profile = Profile(ReportSection.tc_unique);
 
@@ -1387,6 +1379,71 @@ TestCaseClassifier makeTestCaseClassifier(ref Database db, const long minThresho
     logger.tracef("calculated threshold: %s iterations:%s time:%s cluster.mean: %s",
             rval.threshold, iter.iterations, iter.time, iter.clusters.map!(a => a.mean));
     rval.threshold = max(rval.threshold, minThreshold);
+
+    return rval;
+}
+
+struct TestCaseMetadata {
+    static struct Location {
+        string file;
+        Optional!uint line;
+    }
+
+    string[TestCase] text;
+    Location[TestCase] loc;
+
+    /// If the user has manually marked a test case as redundant or not.
+    bool[TestCase] redundant;
+}
+
+TestCaseMetadata parseTestCaseMetadata(AbsolutePath metadataPath) @trusted {
+    import std.json;
+    import std.file : readText;
+
+    TestCaseMetadata rval;
+    JSONValue jraw;
+    try {
+        jraw = parseJSON(readText(metadataPath.toString));
+    } catch (Exception e) {
+        logger.warning("Error reading ", metadataPath);
+        logger.info(e.msg);
+        return rval;
+    }
+
+    try {
+        foreach (jtc; jraw.array) {
+            TestCase tc;
+
+            try {
+                if (auto v = "name" in jtc) {
+                    tc = TestCase(v.str);
+                } else {
+                    logger.warning("Missing `name` in ", jtc.toPrettyString);
+                    continue;
+                }
+
+                if (auto v = "text" in jtc)
+                    rval.text[tc] = v.str;
+                if (auto v = "location" in jtc) {
+                    TestCaseMetadata.Location loc;
+                    if (auto f = "file" in *v)
+                        loc.file = f.str;
+                    if (auto l = "line" in *v)
+                        loc.line = some(cast(uint) l.integer);
+                    rval.loc[tc] = loc;
+                }
+
+                if (auto v = "redundant" in jtc)
+                    rval.redundant[tc] = v.boolean;
+            } catch (Exception e) {
+                logger.warning("Error parsing ", jtc.toPrettyString);
+                logger.warning(e.msg);
+            }
+        }
+    } catch (Exception e) {
+        logger.warning("Error parsing ", jraw.toPrettyString);
+        logger.warning(e.msg);
+    }
 
     return rval;
 }

@@ -27,9 +27,9 @@ import my.set;
 
 import dextool.plugin.mutate.backend.database : Database, spinSql, MutationId,
     TestCaseId, MutationStatusId, MutantInfo2;
-import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseUniqueness, TestCaseUniqueness,
-    reportTestCaseSimilarityAnalyse, TestCaseSimilarityAnalyse,
-    TestCaseClassifier, makeTestCaseClassifier;
+import dextool.plugin.mutate.backend.report.analyzers : reportTestCaseUniqueness,
+    TestCaseUniqueness, reportTestCaseSimilarityAnalyse,
+    TestCaseSimilarityAnalyse, TestCaseClassifier, makeTestCaseClassifier, TestCaseMetadata;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     dashboardCss, tmplSortableTable, tmplDefaultTable;
@@ -38,12 +38,11 @@ import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation, toString;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
-import dextool.cachetools;
 
 @safe:
 
-void makeTestCases(ref Database db, ref const ConfigReport conf,
-        const(Mutation.Kind)[] kinds, AbsolutePath testCasesDir, string tag, Element root) @trusted {
+void makeTestCases(ref Database db, ref const ConfigReport conf, const(Mutation.Kind)[] kinds,
+        TestCaseMetadata metaData, AbsolutePath testCasesDir, string tag, Element root) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]),
             "Test Cases");
     auto sections = conf.reportSection.toSet;
@@ -94,7 +93,8 @@ void makeTestCases(ref Database db, ref const ConfigReport conf,
             // speedup by reduce locking.
             auto t = db.transaction;
             makeTestCasePage(db, kinds, name, tcId, (data.similaritiesData is null)
-                ? null : data.similaritiesData.similarities.get(tcId, null), data, summary, fout);
+                ? null : data.similaritiesData.similarities.get(tcId, null),
+                data, metaData, summary, fout);
         });
 
         auto classification = classify(summary, data.classifier);
@@ -175,7 +175,10 @@ struct TestCaseSummary {
 
 void makeTestCasePage(ref Database db, const(Mutation.Kind)[] kinds, const string name,
         const TestCaseId tcId, TestCaseSimilarityAnalyse.Similarity[] similarities,
-        const ReportData rdata, ref TestCaseSummary summary, ref File out_) @system {
+        const ReportData rdata, TestCaseMetadata metaData, ref TestCaseSummary summary, ref File out_) @system {
+    import std.path : baseName;
+    import dextool.plugin.mutate.backend.type : TestCase;
+
     auto doc = tmplBasicPage.dashboardCss;
     scope (success)
         out_.write(doc.toPrettyString);
@@ -185,6 +188,15 @@ void makeTestCasePage(ref Database db, const(Mutation.Kind)[] kinds, const strin
     doc.root.childElements("head")[0].addChild("script").addChild(new RawSource(doc, jsIndex));
 
     doc.mainBody.addChild("h1").appendText(name);
+    if (auto v = TestCase(name) in metaData.loc) {
+        auto p = doc.mainBody.addChild("p");
+        p.addChild("a", v.file.baseName).href = v.file;
+        if (v.line.hasValue)
+            p.appendText(" at line " ~ v.line.orElse(0u).to!string);
+    }
+    if (auto v = TestCase(name) in metaData.text)
+        doc.mainBody.addChild(new RawSource(doc, *v));
+
     doc.mainBody.addChild("h2").appendText("Killed");
     addKilledMutants(db, kinds, tcId, rdata, summary, doc.mainBody);
 
@@ -254,6 +266,8 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
 
 void addSimilarity(ref Database db, TestCaseSimilarityAnalyse.Similarity[] similarities,
         Element root) @system {
+    import dextool.cachetools;
+
     auto getPath = nullableCache!(MutationStatusId, string, (MutationStatusId id) {
         auto path = spinSql!(() => db.mutantApi.getPath(id)).get;
         auto mutId = spinSql!(() => db.mutantApi.getMutationId(id)).get;

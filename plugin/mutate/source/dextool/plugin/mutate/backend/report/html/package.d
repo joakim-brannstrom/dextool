@@ -19,6 +19,7 @@ import std.stdio : File;
 import std.utf : toUTF8, byChar;
 
 import arsd.dom : Document, Element, require, Table, RawSource, Link;
+import my.optional;
 import my.set;
 
 import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId;
@@ -80,6 +81,7 @@ struct FileIndex {
 @safe final class ReportHtml {
     import std.stdio : writefln, writeln;
     import undead.xml : encode;
+    import dextool.plugin.mutate.backend.report.analyzers : TestCaseMetadata;
 
     const Mutation.Kind[] kinds;
     const ConfigReport conf;
@@ -106,8 +108,12 @@ struct FileIndex {
     // Report alive mutants in this section
     Diff diff;
 
+    // User provided metadata.
+    TestCaseMetadata metaData;
+
     this(const(Mutation.Kind)[] kinds, const ConfigReport conf, FilesysIO fio, ref Diff diff) {
         import std.path : buildPath;
+        import dextool.plugin.mutate.backend.report.analyzers : parseTestCaseMetadata;
 
         this.kinds = kinds;
         this.fio = fio;
@@ -116,6 +122,10 @@ struct FileIndex {
         this.logFilesDir = buildPath(this.logDir, HtmlStyle.fileDir).Path.AbsolutePath;
         this.logTestCasesDir = buildPath(this.logDir, HtmlStyle.testCaseDir).Path.AbsolutePath;
         this.diff = diff;
+
+        if (conf.testMetadata.hasValue)
+            metaData = parseTestCaseMetadata((cast(Optional!(ConfigReport.TestMetaData)) conf.testMetadata)
+                    .orElse(ConfigReport.TestMetaData(AbsolutePath.init)).get);
 
         sections = conf.reportSection.toSet;
     }
@@ -235,7 +245,7 @@ struct FileIndex {
                 AbsolutePath(logDir ~ Path("mutants" ~ HtmlStyle.ext)), tag, content),
                 "Mutants", "#mutants");
 
-        addContent((string tag) => makeTestCases(db, conf, kinds,
+        addContent((string tag) => makeTestCases(db, conf, kinds, metaData,
                 logTestCasesDir, tag, content), "Test Cases", "#test_cases");
 
         files.data.toIndex(content, HtmlStyle.fileDir);

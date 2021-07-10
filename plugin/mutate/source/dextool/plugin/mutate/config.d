@@ -62,6 +62,10 @@ struct ConfigReport {
     bool profile;
 
     NamedType!(uint, Tag!"HighInterestMutantsNr", uint.init, TagStringable) highInterestMutantsNr = 5;
+
+    alias TestMetaData = NamedType!(AbsolutePath, Tag!"TestMetaData",
+            AbsolutePath.init, TagStringable);
+    Optional!TestMetaData testMetadata;
 }
 
 /// Configuration data for the compile_commands.json
