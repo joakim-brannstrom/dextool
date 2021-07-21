@@ -100,18 +100,29 @@ static assert(dextoolVersion.length > 0, "Failed to import version.txt at compil
 
 private long dextoolBinaryId_;
 /// A unique identifier for this binary of dextool.
-long dextoolBinaryId() @trusted {
+long dextoolBinaryId() @trusted nothrow {
     import std.file : thisExePath;
     import std.stdio : File;
     import my.hash : BuildChecksum64, toLong;
 
-    if (dextoolBinaryId_ == 0) {
-        BuildChecksum64 h;
-        foreach (c; File(thisExePath).byChunk(8196)) {
-            h.put(c);
+    if (dextoolBinaryId_ != 0)
+        return dextoolBinaryId_;
+
+    // just give up after 10 tries. No good reason. Something is just wrong
+    // then so... and assuming nothing else fataly fails if the version now and
+    // then is "0".
+    for (int i = 0; i < 10; ++i) {
+        try {
+            BuildChecksum64 h;
+            foreach (c; File(thisExePath).byChunk(8196)) {
+                h.put(c);
+            }
+            dextoolBinaryId_ = cast(long) h.finish.toLong;
+            break;
+        } catch (Exception e) {
         }
-        dextoolBinaryId_ = h.finish.toLong;
     }
+
     return dextoolBinaryId_;
 }
 
