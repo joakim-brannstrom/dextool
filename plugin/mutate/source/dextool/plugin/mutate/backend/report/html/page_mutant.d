@@ -34,8 +34,8 @@ import dextool.plugin.mutate.type : MutationKind;
 
 @safe:
 
-void makeMutantPage(ref Database db, ref const ConfigReport conf,
-        const(Mutation.Kind)[] kinds, const AbsolutePath mutantPageFname, string tag, Element root) @trusted {
+void makeMutantPage(ref Database db, string tag, Element root, ref const ConfigReport conf,
+        const(Mutation.Kind)[] kinds, const AbsolutePath mutantPageFname) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Mutants");
 
     root.addChild("a", "All mutants").href = mutantPageFname.baseName;

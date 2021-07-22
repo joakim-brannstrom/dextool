@@ -25,7 +25,7 @@ import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 
-string makeDiffView(ref Database db, ref const ConfigReport conf,
+string makeDiffView(ref Database db, const ConfigReport conf,
         const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds,
         ref Diff diff, from.my.path.AbsolutePath workdir) @trusted {
     import std.datetime : Clock;

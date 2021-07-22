@@ -289,6 +289,10 @@ struct Profile {
     }
 
     ~this() @safe nothrow {
+        // uninitialized
+        if (name.length == 0)
+            return;
+
         try {
             sw.stop;
             if (saveTo is null) {
