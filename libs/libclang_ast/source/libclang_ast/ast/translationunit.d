@@ -17,16 +17,19 @@ final class TranslationUnit : Node {
     import clang.Cursor : Cursor;
     import libclang_ast.ast : Visitor;
 
-    Cursor cursor;
-    alias cursor this;
+    private Cursor cursor_;
 
-    this(Cursor cursor) @safe {
-        this.cursor = cursor;
+    this(scope Cursor cursor) @trusted {
+        this.cursor_ = cursor;
     }
 
-    override void accept(Visitor v) @safe const {
+    Cursor cursor() return const @safe {
+        return Cursor(cursor_.cx);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
-        libclang_ast.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor_, v);
     }
 }

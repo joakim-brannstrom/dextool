@@ -338,7 +338,7 @@ private ulong uniqueNodeId() {
 
 abstract class Node {
     Kind kind() const;
-    ulong id() @safe pure nothrow const @nogc;
+    ulong id() @safe pure nothrow const @nogc scope;
 
     Node[] children;
 
@@ -814,7 +814,7 @@ class Type {
         return TypeKind.bottom;
     }
 
-    ulong id() @safe pure nothrow const @nogc {
+    ulong id() @safe pure nothrow const @nogc scope {
         return id_;
     }
 
@@ -1235,7 +1235,7 @@ string nodeImpl(T)() {
     return `
     private const ulong id_;
 
-    override ulong id() @safe pure nothrow const @nogc { return id_; }
+    override ulong id() @safe pure nothrow const @nogc scope { return id_; }
 
     override Kind kind() const {
         return Kind.` ~ T.stringof ~ `;
@@ -1249,7 +1249,7 @@ string nodeImpl(T)() {
 string typeImpl() {
     return `
     private const ulong id_;
-    override ulong id() @safe pure nothrow const @nogc { return id_; }
+    override ulong id() @safe pure nothrow const @nogc scope { return id_; }
     this() {
         id_ = uniqueNodeId;
     }`;

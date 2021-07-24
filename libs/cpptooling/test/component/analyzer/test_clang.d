@@ -33,12 +33,12 @@ final class TestVisitor : Visitor {
     bool underlyingIsEnum;
     string typedefSpelling;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(TypedefDecl) v) {
+    override void visit(scope const TypedefDecl v) {
         mixin(mixinNodeLog!());
 
         if (v.cursor.spelling == "MyType") {

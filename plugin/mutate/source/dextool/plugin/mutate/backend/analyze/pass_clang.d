@@ -322,7 +322,7 @@ Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
 
 @safe:
 
-Location toLocation(ref const Cursor c) {
+Location toLocation(scope const Cursor c) {
     auto e = c.extent;
     // there are unexposed nodes with invalid locations.
     if (!e.isValid)
@@ -397,23 +397,23 @@ final class BaseVisitor : ExtendedVisitor {
         return cstack[$ - 1].data == k;
     }
 
-    override void incr() @safe {
+    override void incr() scope @safe {
         ++indent;
         lastDecr.clear;
     }
 
-    override void decr() @trusted {
+    override void decr() scope @trusted {
         --indent;
         lastDecr = nstack.popUntil(indent);
         cstack.popUntil(indent);
     }
 
     // `cursor` must be at least a cursor in the correct file.
-    private bool isBlacklist(Cursor cursor, analyze.Location l) @trusted {
+    private bool isBlacklist(scope Cursor cursor, analyze.Location l) @trusted {
         return blacklist.isBlacklist(cursor, l);
     }
 
-    private void pushStack(Cursor cursor, analyze.Node n, analyze.Location l,
+    private void pushStack(scope Cursor cursor, analyze.Node n, analyze.Location l,
             const CXCursorKind cKind) @trusted {
         n.blacklist = n.blacklist || isBlacklist(cursor, l);
         n.schemaBlacklist = n.blacklist || n.schemaBlacklist;
@@ -432,11 +432,11 @@ final class BaseVisitor : ExtendedVisitor {
             pushStack(c, n, loc, c.kind);
         } else {
             auto loc = c.cursor.toLocation;
-            pushStack(c.cursor, n, loc, c.kind);
+            pushStack(c.cursor, n, loc, c.cursor.kind);
         }
     }
 
-    override void visit(const TranslationUnit v) @trusted {
+    override void visit(scope const TranslationUnit v) @trusted {
         import clang.c.Index : CXLanguageKind;
 
         mixin(mixinNodeLog!());
@@ -462,29 +462,29 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const Attribute v) {
+    override void visit(scope const Attribute v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const Declaration v) {
+    override void visit(scope const Declaration v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const VarDecl v) @trusted {
-        mixin(mixinNodeLog!());
-        visitVar(v);
-        v.accept(this);
-    }
-
-    override void visit(const ParmDecl v) @trusted {
+    override void visit(scope const VarDecl v) @trusted {
         mixin(mixinNodeLog!());
         visitVar(v);
         v.accept(this);
     }
 
-    override void visit(const DeclStmt v) {
+    override void visit(scope const ParmDecl v) @trusted {
+        mixin(mixinNodeLog!());
+        visitVar(v);
+        v.accept(this);
+    }
+
+    override void visit(scope const DeclStmt v) @trusted {
         mixin(mixinNodeLog!());
 
         // this, in clang-11, is one of the patterns in the AST when struct
@@ -506,7 +506,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const ClassTemplate v) {
+    override void visit(scope const ClassTemplate v) @trusted {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.make!(analyze.Poision);
@@ -514,7 +514,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const ClassTemplatePartialSpecialization v) {
+    override void visit(scope const ClassTemplatePartialSpecialization v) @trusted {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.make!(analyze.Poision);
@@ -522,7 +522,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const FunctionTemplate v) {
+    override void visit(scope const FunctionTemplate v) @trusted {
         mixin(mixinNodeLog!());
         auto n = ast.make!(analyze.Function);
         // it is too uncertain to inject mutant schematan inside a template
@@ -534,27 +534,27 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const TemplateTypeParameter v) {
+    override void visit(scope const TemplateTypeParameter v) {
         mixin(mixinNodeLog!());
         // block mutants inside template parameters
     }
 
-    override void visit(const TemplateTemplateParameter v) {
+    override void visit(scope const TemplateTemplateParameter v) {
         mixin(mixinNodeLog!());
         // block mutants inside template parameters
     }
 
-    override void visit(const NonTypeTemplateParameter v) {
+    override void visit(scope const NonTypeTemplateParameter v) {
         mixin(mixinNodeLog!());
         // block mutants inside template parameters
     }
 
-    override void visit(const TypeAliasDecl v) {
+    override void visit(scope const TypeAliasDecl v) {
         mixin(mixinNodeLog!());
         // block mutants inside template parameters
     }
 
-    override void visit(const CxxBaseSpecifier v) {
+    override void visit(scope const CxxBaseSpecifier v) {
         mixin(mixinNodeLog!());
         // block mutants inside template parameters.
         // the only mutants that are inside an inheritance is template
@@ -565,18 +565,18 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(ast.make!(analyze.VarDecl), v);
     }
 
-    override void visit(const Directive v) {
+    override void visit(scope const Directive v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const InclusionDirective v) @trusted {
+    override void visit(scope const InclusionDirective v) @trusted {
         import std.file : exists;
         import std.path : buildPath, dirName;
 
         mixin(mixinNodeLog!());
 
-        const spell = v.spelling;
+        const spell = v.cursor.spelling;
         const file = v.cursor.location.file.name;
         const p = buildPath(file.dirName, spell);
         if (exists(p))
@@ -587,13 +587,13 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const Reference v) {
+    override void visit(scope const Reference v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
     // TODO overlapping logic with Expression. deduplicate
-    override void visit(const DeclRefExpr v) @trusted {
+    override void visit(scope const DeclRefExpr v) @trusted {
         import libclang_ast.ast : dispatch;
         import clang.SourceRange : intersects;
 
@@ -638,18 +638,18 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
-    override void visit(const Statement v) {
+    override void visit(scope const Statement v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const LabelRef v) {
+    override void visit(scope const LabelRef v) {
         mixin(mixinNodeLog!());
         // a label cannot be duplicated thus mutant scheman aren't possible to generate
         blacklistFunc = true;
     }
 
-    override void visit(const ArraySubscriptExpr v) {
+    override void visit(scope const ArraySubscriptExpr v) {
         mixin(mixinNodeLog!());
         // block schematan inside subscripts because some lead to compilation
         // errors. Need to investigate more to understand why and how to avoid.
@@ -660,7 +660,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const Expression v) {
+    override void visit(scope const Expression v) {
         mixin(mixinNodeLog!());
 
         const h = v.cursor.toHash;
@@ -682,10 +682,10 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const Preprocessor v) {
+    override void visit(scope const Preprocessor v) {
         mixin(mixinNodeLog!());
 
-        const bool isCpp = v.spelling == "__cplusplus";
+        const bool isCpp = v.cursor.spelling == "__cplusplus";
 
         if (isCpp)
             ast.lang = Language.cpp;
@@ -695,7 +695,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const EnumDecl v) @trusted {
+    override void visit(scope const EnumDecl v) @trusted {
         mixin(mixinNodeLog!());
 
         // extract the boundaries of the enum to update the type db.
@@ -704,12 +704,12 @@ final class BaseVisitor : ExtendedVisitor {
         ast.types.set(vis.id, vis.toType);
     }
 
-    override void visit(const FunctionDecl v) @trusted {
+    override void visit(scope const FunctionDecl v) @trusted {
         mixin(mixinNodeLog!());
         visitFunc(v);
     }
 
-    override void visit(const Constructor v) @trusted {
+    override void visit(scope const Constructor v) @trusted {
         mixin(mixinNodeLog!());
 
         auto n = ast.make!(analyze.Poision);
@@ -721,7 +721,7 @@ final class BaseVisitor : ExtendedVisitor {
             v.accept(this);
     }
 
-    override void visit(const Destructor v) @trusted {
+    override void visit(scope const Destructor v) @trusted {
         mixin(mixinNodeLog!());
 
         auto n = ast.make!(analyze.Poision);
@@ -735,7 +735,7 @@ final class BaseVisitor : ExtendedVisitor {
         // destructor. For some versions of clang a CompoundStmt is generated
     }
 
-    override void visit(const CxxMethod v) {
+    override void visit(scope const CxxMethod v) {
         mixin(mixinNodeLog!());
 
         // model C++ methods as functions. It should be enough to know that it
@@ -746,30 +746,30 @@ final class BaseVisitor : ExtendedVisitor {
             visitFunc(v);
     }
 
-    override void visit(const BreakStmt v) {
+    override void visit(scope const BreakStmt v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const BinaryOperator v) @trusted {
+    override void visit(scope const BinaryOperator v) @trusted {
         mixin(mixinNodeLog!());
 
         visitOp(v, v.cursor.kind);
     }
 
-    override void visit(const UnaryOperator v) @trusted {
+    override void visit(scope const UnaryOperator v) @trusted {
         mixin(mixinNodeLog!());
         visitOp(v, v.cursor.kind);
     }
 
-    override void visit(const CompoundAssignOperator v) {
+    override void visit(scope const CompoundAssignOperator v) {
         mixin(mixinNodeLog!());
         // TODO: implement all aor assignment such as +=
         pushStack(ast.make!(analyze.OpAssign), v);
         v.accept(this);
     }
 
-    override void visit(const CallExpr v) {
+    override void visit(scope const CallExpr v) {
         mixin(mixinNodeLog!());
 
         if (!visitOp(v, v.cursor.kind)) {
@@ -777,7 +777,7 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
-    override void visit(const CxxThrowExpr v) {
+    override void visit(scope const CxxThrowExpr v) {
         mixin(mixinNodeLog!());
         // model a C++ exception as a return expression because that is
         // "basically" what happens.
@@ -787,13 +787,13 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const InitListExpr v) {
+    override void visit(scope const InitListExpr v) {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Constructor), v);
         v.accept(this);
     }
 
-    override void visit(const LambdaExpr v) {
+    override void visit(scope const LambdaExpr v) {
         mixin(mixinNodeLog!());
 
         // model C++ lambdas as functions. It should be enough to know that it
@@ -801,13 +801,13 @@ final class BaseVisitor : ExtendedVisitor {
         visitFunc(v);
     }
 
-    override void visit(const ReturnStmt v) {
+    override void visit(scope const ReturnStmt v) {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Return), v);
         v.accept(this);
     }
 
-    override void visit(const CompoundStmt v) {
+    override void visit(scope const CompoundStmt v) {
         import std.algorithm : min;
 
         mixin(mixinNodeLog!());
@@ -872,7 +872,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const CaseStmt v) @trusted {
+    override void visit(scope const CaseStmt v) @trusted {
         import libclang_ast.ast : dispatch;
         import dextool.clang_extensions;
 
@@ -886,12 +886,12 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
-    override void visit(const DefaultStmt v) {
+    override void visit(scope const DefaultStmt v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const ForStmt v) {
+    override void visit(scope const ForStmt v) {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
 
@@ -903,7 +903,7 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
-    override void visit(const CxxForRangeStmt v) {
+    override void visit(scope const CxxForRangeStmt v) {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
 
@@ -915,19 +915,19 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
-    override void visit(const WhileStmt v) {
+    override void visit(scope const WhileStmt v) {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
         v.accept(this);
     }
 
-    override void visit(const DoStmt v) {
+    override void visit(scope const DoStmt v) {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
         v.accept(this);
     }
 
-    override void visit(const SwitchStmt v) {
+    override void visit(scope const SwitchStmt v) {
         mixin(mixinNodeLog!());
         auto n = ast.make!(analyze.BranchBundle);
         pushStack(n, v);
@@ -951,7 +951,7 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
-    override void visit(const ConditionalOperator v) {
+    override void visit(scope const ConditionalOperator v) {
         mixin(mixinNodeLog!());
         // need to push a node because a ternery can contain function calls.
         // Without a node for the op it seems like it is in the body, which it
@@ -960,7 +960,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const IfStmt v) @trusted {
+    override void visit(scope const IfStmt v) @trusted {
         mixin(mixinNodeLog!());
         // to avoid infinite recursion, which may occur in e.g. postgresql, block
         // segfault on 300
@@ -973,7 +973,7 @@ final class BaseVisitor : ExtendedVisitor {
         dextool.plugin.mutate.backend.analyze.extensions.accept(v, this);
     }
 
-    override void visit(const IfStmtInit v) @trusted {
+    override void visit(scope const IfStmtInit v) @trusted {
         mixin(mixinNodeLog!());
         auto n = ast.make!(analyze.Poision);
         n.schemaBlacklist = true;
@@ -981,7 +981,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(const IfStmtCond v) {
+    override void visit(scope const IfStmtCond v) {
         mixin(mixinNodeLog!());
 
         auto n = ast.make!(analyze.Condition);
@@ -1001,29 +1001,29 @@ final class BaseVisitor : ExtendedVisitor {
         rewriteCondition(ast, n);
     }
 
-    override void visit(const IfStmtCondVar v) {
+    override void visit(scope const IfStmtCondVar v) {
         mixin(mixinNodeLog!());
         auto n = ast.make!(analyze.Poision);
         n.schemaBlacklist = true;
         pushStack(n, v);
     }
 
-    override void visit(const IfStmtThen v) {
+    override void visit(scope const IfStmtThen v) {
         mixin(mixinNodeLog!());
         visitIfBranch(v);
     }
 
-    override void visit(const IfStmtElse v) {
+    override void visit(scope const IfStmtElse v) {
         mixin(mixinNodeLog!());
         visitIfBranch(v);
     }
 
-    private void visitIfBranch(T)(ref const T v) @trusted {
+    private void visitIfBranch(T)(scope const T v) @trusted {
         pushStack(ast.make!(analyze.Branch), v);
         v.accept(this);
     }
 
-    private bool visitOp(T)(ref const T v, const CXCursorKind cKind) @trusted {
+    private bool visitOp(T)(scope const T v, const CXCursorKind cKind) @trusted {
         auto op = operatorCursor(ast.get, v);
         if (op.isNull) {
             return false;
@@ -1035,7 +1035,7 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     /// Returns: true if it added a binary operator, false otherwise.
-    private bool visitBinaryOp(Cursor cursor, ref OperatorCursor op, const CXCursorKind cKind) @trusted {
+    private bool visitBinaryOp(scope Cursor cursor, ref OperatorCursor op, const CXCursorKind cKind) @trusted {
         import libclang_ast.ast : dispatch;
 
         auto astOp = cast(analyze.BinaryOp) op.astOp;
@@ -1178,7 +1178,7 @@ final class BaseVisitor : ExtendedVisitor {
         return true;
     }
 
-    private void visitFunc(T)(ref const T v) @trusted {
+    private void visitFunc(T)(scope const T v) @trusted {
         auto oldBlacklistFn = blacklistFunc;
         scope (exit)
             blacklistFunc = oldBlacklistFn;
@@ -1208,7 +1208,7 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
-    private void visitCall(T)(ref const T v) @trusted {
+    private void visitCall(T)(scope const T v) @trusted {
         auto n = ast.make!(analyze.Call);
         pushStack(n, v);
 
@@ -1240,13 +1240,13 @@ final class EnumVisitor : ExtendedVisitor {
         this.indent = indent;
     }
 
-    override void visit(const EnumDecl v) @trusted {
+    override void visit(scope const EnumDecl v) @trusted {
         mixin(mixinNodeLog!());
         id = make!(analyze.TypeId)(v.cursor);
         v.accept(this);
     }
 
-    override void visit(const EnumConstantDecl v) @trusted {
+    override void visit(scope const EnumConstantDecl v) @trusted {
         mixin(mixinNodeLog!());
 
         long value = v.cursor.enum_.signedValue;
@@ -1303,13 +1303,13 @@ final class FindVisitor(T) : Visitor {
     //    --indent;
     //}
 
-    override void visit(const Statement v) {
+    override void visit(scope const Statement v) {
         //mixin(mixinNodeLog!());
         if (nodes.empty)
             v.accept(this);
     }
 
-    override void visit(const T v) @trusted {
+    override void visit(scope const T v) @trusted {
         //mixin(mixinNodeLog!());
         // nodes are scope allocated thus it needs to be duplicated.
         if (nodes.empty)
@@ -1450,7 +1450,7 @@ struct DeriveCursorTypeResult {
  *
  * This is intended for expression nodes in the clang AST.
  */
-DeriveCursorTypeResult deriveCursorType(ref Ast ast, const Cursor baseCursor) {
+DeriveCursorTypeResult deriveCursorType(ref Ast ast, scope const Cursor baseCursor) {
     auto c = Cursor(getUnderlyingExprNode(baseCursor));
     if (!c.isValid)
         return DeriveCursorTypeResult.init;

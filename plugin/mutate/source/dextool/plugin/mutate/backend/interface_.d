@@ -61,23 +61,23 @@ interface FilesysIO {
 
     // these are here so backend do not need to import std.stdio which makes it
     // easier to review.
-    File getDevNull();
-    File getStdin();
+    File getDevNull() const scope;
+    File getStdin() const scope;
 
     /// Convert a path to be relative to the root of the filesystem.
-    Path toRelativeRoot(Path p);
+    Path toRelativeRoot(Path p) const scope;
 
     /// Convert a path to an absolute path relative to the root.
-    AbsolutePath toAbsoluteRoot(Path p);
+    AbsolutePath toAbsoluteRoot(Path p) const scope;
 
     /// File output is restricted to this directory
     AbsolutePath getOutputDir() nothrow;
 
     ///
-    SafeOutput makeOutput(AbsolutePath p);
+    SafeOutput makeOutput(AbsolutePath p) scope;
 
     ///
-    Blob makeInput(AbsolutePath p);
+    Blob makeInput(AbsolutePath p) scope;
 
     /// Duplicate the instance,
     FilesysIO dup();

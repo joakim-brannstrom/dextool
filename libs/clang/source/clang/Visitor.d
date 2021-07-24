@@ -23,7 +23,7 @@ struct Visitor {
         this.cursor = cursor;
     }
 
-    this(Cursor cursor) {
+    this(scope Cursor cursor) @trusted {
         this.cursor = cursor.cx;
     }
 

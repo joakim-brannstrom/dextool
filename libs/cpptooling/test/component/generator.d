@@ -44,17 +44,17 @@ final class TestVisitor : Visitor {
 
     private CppNsStack ns_stack;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(UnexposedDecl) v) {
+    override void visit(scope const UnexposedDecl v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Namespace) v) {
+    override void visit(scope const Namespace v) {
         mixin(mixinNodeLog!());
 
         () @trusted { ns_stack ~= CppNs(v.cursor.spelling); }();
@@ -65,15 +65,15 @@ final class TestVisitor : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(ClassDecl) v) {
+    override void visit(scope const ClassDecl v) {
         visitRecord(v);
     }
 
-    override void visit(const(StructDecl) v) {
+    override void visit(scope const StructDecl v) {
         visitRecord(v);
     }
 
-    void visitRecord(T)(const T v) @trusted {
+    void visitRecord(T)(scope const T v) @trusted {
         import cpptooling.analyzer.clang.analyze_helper : ClassVisitor, analyzeRecord;
 
         mixin(mixinNodeLog!());

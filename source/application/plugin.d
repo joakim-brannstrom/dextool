@@ -232,7 +232,7 @@ string toShortHelp(Plugin[] plugins) @safe {
 }
 
 @("Shall only keep those files prefixed with basename")
-@safe unittest {
+unittest {
     import std.algorithm;
     import std.array;
 

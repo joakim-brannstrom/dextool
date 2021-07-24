@@ -17,28 +17,32 @@ abstract class Attribute : Node {
     import clang.Cursor : Cursor;
     import libclang_ast.ast : Visitor;
 
-    Cursor cursor;
-    alias cursor this;
+    private Cursor cursor_;
 
-    this(Cursor cursor) @safe {
-        this.cursor = cursor;
+    // trusted on the assumption that the node is scope allocated and all access to cursor is via a scoped ref.
+    this(scope Cursor cursor) @trusted {
+        this.cursor_ = cursor;
     }
 
-    override void accept(Visitor v) @safe const {
+    Cursor cursor() return const @safe {
+        return Cursor(cursor_.cx);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
-        libclang_ast.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor_, v);
     }
 }
 
 final class UnexposedAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -48,11 +52,11 @@ final class UnexposedAttr : Attribute {
 final class IbActionAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -62,11 +66,11 @@ final class IbActionAttr : Attribute {
 final class IbOutletAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -76,11 +80,11 @@ final class IbOutletAttr : Attribute {
 final class IbOutletCollectionAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -90,11 +94,11 @@ final class IbOutletCollectionAttr : Attribute {
 final class CxxFinalAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -104,11 +108,11 @@ final class CxxFinalAttr : Attribute {
 final class CxxOverrideAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -118,11 +122,11 @@ final class CxxOverrideAttr : Attribute {
 final class AnnotateAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -132,11 +136,11 @@ final class AnnotateAttr : Attribute {
 final class AsmLabelAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -146,11 +150,11 @@ final class AsmLabelAttr : Attribute {
 final class PackedAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -160,11 +164,11 @@ final class PackedAttr : Attribute {
 final class PureAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -174,11 +178,11 @@ final class PureAttr : Attribute {
 final class ConstAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -188,11 +192,11 @@ final class ConstAttr : Attribute {
 final class NoDuplicateAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -202,11 +206,11 @@ final class NoDuplicateAttr : Attribute {
 final class CudaConstantAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -216,11 +220,11 @@ final class CudaConstantAttr : Attribute {
 final class CudaDeviceAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -230,11 +234,11 @@ final class CudaDeviceAttr : Attribute {
 final class CudaGlobalAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -244,11 +248,11 @@ final class CudaGlobalAttr : Attribute {
 final class CudaHostAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -258,11 +262,11 @@ final class CudaHostAttr : Attribute {
 final class CudaSharedAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -272,11 +276,11 @@ final class CudaSharedAttr : Attribute {
 final class VisibilityAttr : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -286,11 +290,11 @@ final class VisibilityAttr : Attribute {
 final class DllExport : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -300,11 +304,11 @@ final class DllExport : Attribute {
 final class DllImport : Attribute {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);

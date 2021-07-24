@@ -40,44 +40,44 @@ final class TestVisitor : Visitor {
 
     USRType[] globalsFound;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Namespace) v) {
+    override void visit(scope const Namespace v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Declaration) v) {
+    override void visit(scope const Declaration v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.cursor_backtrack;
 
-        if (!v.usr.among("c:issue.hpp@T@TypeDef") && v.isGlobalOrNamespaceScope) {
-            globalsFound ~= USRType(v.usr);
+        if (!v.cursor.usr.among("c:issue.hpp@T@TypeDef") && v.cursor.isGlobalOrNamespaceScope) {
+            globalsFound ~= USRType(v.cursor.usr);
         }
 
         v.accept(this);
     }
 
-    override void visit(const(Expression) v) {
+    override void visit(scope const Expression v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.cursor_backtrack;
 
-        if (!v.usr.among("c:issue.hpp@T@TypeDef") && v.isGlobalOrNamespaceScope) {
-            globalsFound ~= USRType(v.usr);
+        if (!v.cursor.usr.among("c:issue.hpp@T@TypeDef") && v.cursor.isGlobalOrNamespaceScope) {
+            globalsFound ~= USRType(v.cursor.usr);
         }
 
         v.accept(this);
     }
 
-    override void visit(const(Statement) v) {
+    override void visit(scope const Statement v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.cursor_backtrack;
 
-        if (!v.usr.among("c:issue.hpp@T@TypeDef") && v.isGlobalOrNamespaceScope) {
-            globalsFound ~= USRType(v.usr);
+        if (!v.cursor.usr.among("c:issue.hpp@T@TypeDef") && v.cursor.isGlobalOrNamespaceScope) {
+            globalsFound ~= USRType(v.cursor.usr);
         }
 
         v.accept(this);

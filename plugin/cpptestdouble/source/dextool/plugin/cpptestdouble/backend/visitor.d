@@ -97,7 +97,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         }
     }
 
-    override void visit(const(UnexposedDecl) v) {
+    override void visit(scope const UnexposedDecl v) {
         mixin(mixinNodeLog!());
 
         // An unexposed may be:
@@ -108,7 +108,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(VarDecl) v) @trusted {
+    override void visit(scope const VarDecl v) {
         import clang.c.Index : CX_StorageClass;
 
         mixin(mixinNodeLog!());
@@ -123,7 +123,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         }
     }
 
-    override void visit(const(FunctionDecl) v) {
+    override void visit(scope const FunctionDecl v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeFunctionDecl(v, container, indent);
@@ -134,15 +134,15 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         }
     }
 
-    override void visit(const(ClassDecl) v) {
+    override void visit(scope const ClassDecl v) {
         visitRecord(v);
     }
 
-    override void visit(const(StructDecl) v) {
+    override void visit(scope const StructDecl v) {
         visitRecord(v);
     }
 
-    void visitRecord(T)(const T v) @trusted {
+    void visitRecord(T)(scope const T v) @trusted {
         import std.typecons : scoped;
         import cpptooling.analyzer.clang.analyze_helper : ClassVisitor, analyzeRecord;
 
@@ -168,7 +168,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         }
     }
 
-    override void visit(const(Namespace) v) @trusted {
+    override void visit(scope const Namespace v) @trusted {
         mixin(mixinNodeLog!());
 
         () @trusted { ns_stack ~= CppNs(v.cursor.spelling); }();
@@ -185,7 +185,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
         root.put(ns_visitor.root);
     }
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         import std.algorithm : filter;
         import cpptooling.analyzer.clang.type : makeLocation;
         import cpptooling.testdouble.header_filter : LocationType;

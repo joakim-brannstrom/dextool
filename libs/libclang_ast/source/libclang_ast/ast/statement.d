@@ -17,28 +17,32 @@ abstract class Statement : Node {
     import clang.Cursor : Cursor;
     import libclang_ast.ast : Visitor;
 
-    Cursor cursor;
-    alias cursor this;
+    private Cursor cursor_;
 
-    this(Cursor cursor) @safe {
-        this.cursor = cursor;
+    // trusted on the assumption that the node is scope allocated and all access to cursor is via a scoped ref.
+    this(scope Cursor cursor) @trusted {
+        this.cursor_ = cursor;
     }
 
-    override void accept(Visitor v) @safe const {
+    Cursor cursor() return const @safe {
+        return Cursor(cursor_.cx);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
-        libclang_ast.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor_, v);
     }
 }
 
 final class UnexposedStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -48,11 +52,11 @@ final class UnexposedStmt : Statement {
 final class LabelStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -62,11 +66,11 @@ final class LabelStmt : Statement {
 final class CompoundStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -76,11 +80,11 @@ final class CompoundStmt : Statement {
 final class CaseStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -90,11 +94,11 @@ final class CaseStmt : Statement {
 final class DefaultStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -104,11 +108,11 @@ final class DefaultStmt : Statement {
 final class IfStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -118,11 +122,11 @@ final class IfStmt : Statement {
 final class SwitchStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -132,11 +136,11 @@ final class SwitchStmt : Statement {
 final class WhileStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -146,11 +150,11 @@ final class WhileStmt : Statement {
 final class DoStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -160,11 +164,11 @@ final class DoStmt : Statement {
 final class ForStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -174,11 +178,11 @@ final class ForStmt : Statement {
 final class GotoStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -188,11 +192,11 @@ final class GotoStmt : Statement {
 final class IndirectGotoStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -202,11 +206,11 @@ final class IndirectGotoStmt : Statement {
 final class ContinueStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -216,11 +220,11 @@ final class ContinueStmt : Statement {
 final class BreakStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -230,11 +234,11 @@ final class BreakStmt : Statement {
 final class ReturnStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -244,11 +248,11 @@ final class ReturnStmt : Statement {
 final class AsmStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -258,11 +262,11 @@ final class AsmStmt : Statement {
 final class ObjCAtTryStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -272,11 +276,11 @@ final class ObjCAtTryStmt : Statement {
 final class ObjCAtCatchStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -286,11 +290,11 @@ final class ObjCAtCatchStmt : Statement {
 final class ObjCAtFinallyStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -300,11 +304,11 @@ final class ObjCAtFinallyStmt : Statement {
 final class ObjCAtThrowStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -314,11 +318,11 @@ final class ObjCAtThrowStmt : Statement {
 final class ObjCAtSynchronizedStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -328,11 +332,11 @@ final class ObjCAtSynchronizedStmt : Statement {
 final class ObjCAutoreleasePoolStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -342,11 +346,11 @@ final class ObjCAutoreleasePoolStmt : Statement {
 final class ObjCForCollectionStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -356,11 +360,11 @@ final class ObjCForCollectionStmt : Statement {
 final class CxxCatchStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -370,11 +374,11 @@ final class CxxCatchStmt : Statement {
 final class CxxTryStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -384,11 +388,11 @@ final class CxxTryStmt : Statement {
 final class CxxForRangeStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -398,11 +402,11 @@ final class CxxForRangeStmt : Statement {
 final class SehTryStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -412,11 +416,11 @@ final class SehTryStmt : Statement {
 final class SehExceptStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -426,11 +430,11 @@ final class SehExceptStmt : Statement {
 final class SehFinallyStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -440,11 +444,11 @@ final class SehFinallyStmt : Statement {
 final class MsAsmStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -454,11 +458,11 @@ final class MsAsmStmt : Statement {
 final class NullStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -468,11 +472,11 @@ final class NullStmt : Statement {
 final class DeclStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -482,11 +486,11 @@ final class DeclStmt : Statement {
 final class SehLeaveStmt : Statement {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);

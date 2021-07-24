@@ -1079,7 +1079,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     }
 
     /// Nested class definitions.
-    override void visit(const ClassDecl v) @trusted {
+    override void visit(scope const ClassDecl v) {
         mixin(mixinNodeLog!());
         logger.info("class: ", v.cursor.spelling);
 
@@ -1093,7 +1093,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
 
         recv.put(result, ns_stack);
 
-        auto visitor = scoped!(UMLClassVisitor!(ControllerT, ReceiveT))(result.type,
+        scope visitor = new UMLClassVisitor!(ControllerT, ReceiveT)(result.type,
                 ns_stack, ctrl, recv, *container, indent + 1);
         v.accept(visitor);
 
@@ -1102,7 +1102,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     }
 
     /// Analyze the inheritance(s).
-    override void visit(const CxxBaseSpecifier v) {
+    override void visit(scope const CxxBaseSpecifier v) {
         import cpptooling.data : TypeKind;
 
         mixin(mixinNodeLog!());
@@ -1123,7 +1123,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result);
     }
 
-    override void visit(const Constructor v) {
+    override void visit(scope const Constructor v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeConstructor(v, *container, indent);
@@ -1136,7 +1136,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result, access);
     }
 
-    override void visit(const Destructor v) {
+    override void visit(scope const Destructor v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeDestructor(v, *container, indent);
@@ -1151,7 +1151,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result, access);
     }
 
-    override void visit(const CxxMethod v) {
+    override void visit(scope const CxxMethod v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeCxxMethod(v, *container, indent);
@@ -1171,7 +1171,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result, access);
     }
 
-    override void visit(const FieldDecl v) {
+    override void visit(scope const FieldDecl v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeFieldDecl(v, *container, indent);
@@ -1188,7 +1188,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result, access);
     }
 
-    override void visit(const CxxAccessSpecifier v) @trusted {
+    override void visit(scope const CxxAccessSpecifier v) {
         mixin(mixinNodeLog!());
         access = CppAccess(toAccessType(v.cursor.access.accessSpecifier));
     }
@@ -1225,7 +1225,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         this.container = &container;
     }
 
-    override void visit(const TranslationUnit v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
 
@@ -1233,7 +1233,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(result);
     }
 
-    override void visit(const UnexposedDecl v) {
+    override void visit(scope const UnexposedDecl v) {
         mixin(mixinNodeLog!());
 
         // An unexposed may be:
@@ -1244,10 +1244,10 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         v.accept(this);
     }
 
-    override void visit(const VarDecl v) {
+    override void visit(scope const VarDecl v) {
         mixin(mixinNodeLog!());
 
-        auto result = () @trusted { return analyzeVarDecl(v, container, indent); }();
+        auto result = analyzeVarDecl(v, container, indent);
 
         debug {
             logger.info("global variable: ", cast(string) result.name);
@@ -1256,7 +1256,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(result);
     }
 
-    override void visit(const FunctionDecl v) {
+    override void visit(scope const FunctionDecl v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeFunctionDecl(v, container, indent);
@@ -1270,7 +1270,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(result);
     }
 
-    override void visit(const ClassDecl v) @trusted {
+    override void visit(scope const ClassDecl v) @trusted {
         mixin(mixinNodeLog!());
         logger.info("class: ", v.cursor.spelling);
 
@@ -1292,7 +1292,7 @@ final class UMLVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(r_classification);
     }
 
-    override void visit(const Namespace v) {
+    override void visit(scope const Namespace v) {
         mixin(mixinNodeLog!());
 
         () @trusted { ns_stack ~= CppNs(v.cursor.spelling); }();

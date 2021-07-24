@@ -178,7 +178,7 @@ struct CompilerMsgBuilder(Writer) {
         return this;
     }
 
-    auto begin(ARGS...)(auto ref ARGS args) {
+    auto begin(ARGS...)(auto ref ARGS args) @trusted {
         // for now the severity is hard coded to warning because nothing else
         // needs to be supported.
         formattedWrite(w, "%s:%s:%s: warning: ", file_, start_.line, start_.column);
@@ -187,14 +187,14 @@ struct CompilerMsgBuilder(Writer) {
         return this;
     }
 
-    auto note(ARGS...)(auto ref ARGS args) {
+    auto note(ARGS...)(auto ref ARGS args) @trusted {
         formattedWrite(w, "%s:%s:%s: note: ", file_, start_.line, start_.column);
         formattedWrite(w, args);
         put(w, newline);
         return this;
     }
 
-    auto fixit(const(char)[] mutation) {
+    auto fixit(const(char)[] mutation) @trusted {
         // Example of a fixit hint from gcc:
         // fix-it:"foo.cpp":{5:12-5:17}:"argc"
         // the second value in the location is bytes (starting from 1) from the

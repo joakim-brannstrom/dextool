@@ -155,7 +155,7 @@ struct FileWriteChannel {
      *
      * Returns: the data that was written
      */
-    const(ubyte)[] write(scope const(ubyte)[] data) @trusted {
+    const(ubyte)[] write(return scope const(ubyte)[] data) @trusted {
         static import core.sys.posix.unistd;
 
         const res = core.sys.posix.unistd.write(file.fileno, &data[0], data.length);

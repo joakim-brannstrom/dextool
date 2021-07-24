@@ -19,13 +19,11 @@ private struct BacktrackResult {
 
     Cursor front() @safe nothrow const {
         assert(!empty, "Can't get front of an empty range");
-
         return cursor;
     }
 
     void popFront() @safe {
         assert(!empty, "Can't pop front of an empty range");
-
         cursor = cursor.semanticParent;
     }
 
@@ -59,7 +57,7 @@ auto backtrackScopeRange(NodeT)(const(NodeT) node) {
 }
 
 /// Backtrack a cursor until the top cursor is reached.
-auto backtrack(NodeT)(const(NodeT) node) {
+auto backtrack(NodeT)(const NodeT node) @trusted {
     static if (is(NodeT == Cursor)) {
         Cursor c = node;
     } else {
@@ -89,7 +87,7 @@ bool isLocalScope(CXCursorKind kind) @safe pure nothrow @nogc {
 }
 
 /// Determine if a cursor is in the global or namespace scope.
-bool isGlobalOrNamespaceScope(const(Cursor) c) @safe {
+bool isGlobalOrNamespaceScope(scope const Cursor c) @safe {
     import std.algorithm : among;
     import clang.c.Index : CXCursorKind;
 

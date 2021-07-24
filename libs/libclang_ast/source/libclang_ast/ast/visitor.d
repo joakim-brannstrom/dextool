@@ -20,11 +20,11 @@ version (unittest) {
 mixin template generateIndentIncrDecr() {
     uint indent;
 
-    override void incr() @safe {
+    override void incr() @safe scope {
         ++indent;
     }
 
-    override void decr() @safe {
+    override void decr() @safe scope {
         --indent;
     }
 }

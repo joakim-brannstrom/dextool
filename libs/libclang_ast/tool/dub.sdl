@@ -6,10 +6,13 @@ license "BSL-1.0"
 
 targetPath "build"
 
-lflags "-L/usr/lib/llvm-10/lib"
+lflags "-L/usr/lib/llvm-11/lib"
 libs  ":libclang.so.1"
 
+# have to manually adjust the path to the specific libclang source that is used
+
 targetType "executable"
-sourcePaths "source" "../../libclang/source"
+
+importPaths "../../libclang/11/source" "../source"
+sourcePaths "source" "../../libclang/11/source"
 sourceFiles "../source/libclang_ast/ast/nodes.d"
-importPaths "../../libclang/source" "../source"

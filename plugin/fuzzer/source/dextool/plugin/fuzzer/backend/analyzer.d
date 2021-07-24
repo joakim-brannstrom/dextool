@@ -106,18 +106,18 @@ final class TUVisitor : Visitor {
         this.root = AnalyzeData.make;
     }
 
-    override void visit(const(UnexposedDecl) v) {
+    override void visit(scope const UnexposedDecl v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(LinkageSpec) v) {
+    override void visit(scope const LinkageSpec v) {
         mixin(mixinNodeLog!());
         // extern "C"... etc
         v.accept(this);
     }
 
-    override void visit(const(FunctionDecl) v) {
+    override void visit(scope const FunctionDecl v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeFunctionDecl(v, container, indent);
@@ -136,7 +136,7 @@ final class TUVisitor : Visitor {
                 result.language, root.languageOfTranslationUnit);
     }
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
 
         root.fileOfTranslationUnit = Path(v.cursor.spelling);

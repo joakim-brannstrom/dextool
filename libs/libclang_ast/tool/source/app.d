@@ -75,16 +75,20 @@ abstract class %s : Node {
     import clang.Cursor : Cursor;
     import libclang_ast.ast : Visitor;
 
-    Cursor cursor;
-    alias cursor this;
+    private Cursor cursor_;
 
-    this(Cursor cursor) @safe {
-        this.cursor = cursor;
+    // trusted on the assumption that the node is scope allocated and all access to cursor is via a scoped ref.
+    this(scope Cursor cursor) @trusted {
+        this.cursor_ = cursor;
     }
 
-    override void accept(Visitor v) @safe const {
+    Cursor cursor() return const @safe {
+        return Cursor(cursor_.cx);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
-        libclang_ast.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor_, v);
     }
 }
 
@@ -99,7 +103,7 @@ abstract class %s : Node {
 
 template generateNodeAccept() {
     enum generateNodeAccept = q{
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
         libclang_ast.ast.accept(cursor, v);
     }
@@ -109,7 +113,7 @@ template generateNodeAccept() {
 template generateNodeCtor() {
     enum generateNodeCtor = q{
     import clang.Cursor : Cursor;
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 };
@@ -134,11 +138,11 @@ unittest {
     q{
         final class UnexposedDecl : UtNode {
             import clang.Cursor : Cursor;
-            this(Cursor cursor) @safe {
+            this(scope Cursor cursor) @safe {
                 super(cursor);
             }
 
-            override void accept(Visitor v) @safe const {
+            override void accept(scope Visitor v) @safe const {
                 static import libclang_ast.ast;
                 libclang_ast.ast.accept(cursor, v);
             }
@@ -176,7 +180,7 @@ unittest {
                 super(cursor);
             }
 
-            override void accept(Visitor v) @safe const {
+            override void accept(scope Visitor v) @safe const {
                 static import libclang_ast.ast;
                 libclang_ast.ast.accept(cursor, v);
             }
@@ -188,7 +192,7 @@ unittest {
                 super(cursor);
             }
 
-            override void accept(Visitor v) @safe const {
+            override void accept(scope Visitor v) @safe const {
                 static import libclang_ast.ast;
                 libclang_ast.ast.accept(cursor, v);
             }
@@ -218,14 +222,14 @@ abstract class Visitor {
 @safe:
 
     /// Called when entering a node
-    void incr() {
+    void incr() scope {
     }
 
     /// Called when leaving a node
-    void decr() {
+    void decr() scope {
     }
 
-    void visit(const TranslationUnit) {
+    void visit(scope const TranslationUnit) {
     }
 %s
 }
@@ -245,13 +249,13 @@ string generateVisit(string Base, immutable(string)[] E) {
     import std.format : format;
 
     string result = format(q{
-    void visit(const(%s)) {}
+    void visit(scope const %s) {}
 }, Base);
 
     foreach (e; E) {
 
         result ~= format(q{
-    void visit(const(%s) value) {
+    void visit(scope const %s value) {
         visit(cast(const(%s)) value);
     }
 }, makeNodeClassName(e), Base);
@@ -272,13 +276,13 @@ unittest {
         .array()
         .shouldEqualPretty([
                      "",
-                     "void visit(const(Declaration)) {}",
+                     "void visit(scope const Declaration) {}",
                      "",
-                     "void visit(const(UnexposedDecl) value) {",
+                     "void visit(scope const UnexposedDecl value) {",
                      "visit(cast(const(Declaration)) value);",
                      "}",
                      "",
-                     "void visit(const(UnionDecl) value) {",
+                     "void visit(const UnionDecl value) {",
                      "visit(cast(const(Declaration)) value);",
                      "}",
                      ""

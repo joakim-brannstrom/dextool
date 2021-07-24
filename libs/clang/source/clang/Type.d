@@ -146,7 +146,7 @@ struct Type {
      * looking through aliases that may have added "const" at a different
      * level.
      */
-    @property bool isConst() {
+    @property bool isConst() @trusted {
         return clang_isConstQualifiedType(cx) == 1;
     }
 
