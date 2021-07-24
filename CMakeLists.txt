@@ -79,6 +79,10 @@ else()
     endif()
 endif()
 
+if(LOW_MEM)
+    append("-lowmem" DDMD_DFLAGS)
+endif()
+
 #
 # Resources
 #
