@@ -30,15 +30,14 @@ int main(string[] args) {
     switch (command) {
     case "preGenerate":
         if (spawnProcess([
-                    "cmake", "-DCMAKE_BUILD_TYPE=Release",
+                    "cmake", "-DLOW_MEM=ON", "-DCMAKE_BUILD_TYPE=Release",
                     "-DCMAKE_INSTALL_PREFIX=" ~ buildDir.escapeShellFileName,
                     packageDir
                 ], null, Config.none, cmakeDir).wait != 0)
             return 1;
         return 0;
     case "postBuild":
-        if (spawnProcess(["make", "-j", totalCPUs.to!string, "install"], null,
-                Config.none, cmakeDir).wait != 0)
+        if (spawnProcess(["make", "install"], null, Config.none, cmakeDir).wait != 0)
             return 1;
         rmdirRecurse(cmakeDir);
         File(postBuildStamp, "w").write;
