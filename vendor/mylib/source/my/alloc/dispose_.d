@@ -26,7 +26,6 @@ void dispose(A, T)(auto ref A alloc, T* p) {
 
 /// Ditto
 void dispose(A, T)(auto ref A alloc, T p) if (is(T == class) || is(T == interface)) {
-
     if (!p)
         return;
     static if (is(T == interface)) {

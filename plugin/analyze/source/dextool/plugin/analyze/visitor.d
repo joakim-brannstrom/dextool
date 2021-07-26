@@ -46,7 +46,7 @@ final class TUVisitor : Visitor {
 
     // note that it requires a member variable called restrict
     private static string makeVisitor(string node_t, string callback_member) {
-        string s = "override void visit(const(" ~ node_t ~ ") v) {\n";
+        string s = "override void visit(scope const " ~ node_t ~ " v) @trusted {\n";
         s ~= "auto callbacks = " ~ callback_member ~ ";";
         s ~= q{
             if (!v.cursor.location.path.startsWith(restrict.toString))
@@ -90,35 +90,35 @@ final class TUVisitor : Visitor {
         this.restrict = restrict;
     }
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const(TranslationUnit) v) {
         v.accept(this);
     }
 
-    override void visit(const(Attribute) v) {
+    override void visit(scope const(Attribute) v) {
         v.accept(this);
     }
 
-    override void visit(const(Declaration) v) {
+    override void visit(scope const(Declaration) v) {
         v.accept(this);
     }
 
-    override void visit(const(Directive) v) {
+    override void visit(scope const(Directive) v) {
         v.accept(this);
     }
 
-    override void visit(const(Expression) v) {
+    override void visit(scope const(Expression) v) {
         v.accept(this);
     }
 
-    override void visit(const(Preprocessor) v) {
+    override void visit(scope const(Preprocessor) v) {
         v.accept(this);
     }
 
-    override void visit(const(Reference) v) {
+    override void visit(scope const(Reference) v) {
         v.accept(this);
     }
 
-    override void visit(const(Statement) v) {
+    override void visit(scope const(Statement) v) {
         v.accept(this);
     }
 }

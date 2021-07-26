@@ -163,22 +163,22 @@ final class TUVisitor : Visitor {
         generatedCode.header.comment("A file header");
     }
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Attribute) v) {
+    override void visit(scope const Attribute v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Declaration) v) {
+    override void visit(scope const Declaration v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(FunctionDecl) v) {
+    override void visit(scope const FunctionDecl v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.analyze_helper;
         import cpptooling.data;
@@ -211,27 +211,27 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    override void visit(const(Directive) v) {
+    override void visit(scope const Directive v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Expression) v) {
+    override void visit(scope const Expression v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Preprocessor) v) {
+    override void visit(scope const Preprocessor v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Reference) v) {
+    override void visit(scope const Reference v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Statement) v) {
+    override void visit(scope const Statement v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }

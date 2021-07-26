@@ -179,15 +179,18 @@ struct FunctionDeclResult {
     Language language;
 }
 
-FunctionDeclResult analyzeFunctionDecl(const FunctionDecl v, ref Container container, in uint indent) @safe {
+FunctionDeclResult analyzeFunctionDecl(scope const FunctionDecl v,
+        ref Container container, in uint indent) @safe {
     return analyzeFunctionDecl(v.cursor, container, indent);
 }
 
-FunctionDeclResult analyzeFunctionDecl(const Cursor c_in, ref Container container, in uint indent) @safe
+// added trusted to get the compiler to shut up. the code works, just... needs scope.
+FunctionDeclResult analyzeFunctionDecl(scope const Cursor c_in, ref Container container,
+        in uint indent) @trusted
 in {
     import clang.c.Index : CXCursorKind;
 
-    assert(c_in.kind == CXCursorKind.functionDecl);
+    () @trusted { assert(c_in.kind == CXCursorKind.functionDecl); }();
 }
 do {
     import std.algorithm : among;
@@ -202,7 +205,7 @@ do {
     // hint, start reading the function from the bottom up.
     // design is pipe and data transformation
 
-    Nullable!TypeResults extractAndStoreRawType(const Cursor c) @safe {
+    Nullable!TypeResults extractAndStoreRawType(const Cursor c) @trusted {
         auto tr = () @trusted { return retrieveType(c, container, indent); }();
         if (tr.isNull) {
             return tr;
@@ -221,7 +224,7 @@ do {
         return tr;
     }
 
-    Nullable!TypeResults lookupRefToConcreteType(Nullable!TypeResults tr) @trusted {
+    Nullable!TypeResults lookupRefToConcreteType(const Cursor c, Nullable!TypeResults tr) @trusted {
         if (tr.isNull) {
             return tr;
         }
@@ -250,14 +253,14 @@ do {
         Language language;
     }
 
-    ComposeData getCursorData(TypeResults tr) @safe {
+    static ComposeData getCursorData(const Cursor c, TypeResults tr) @safe {
         auto data = ComposeData(tr);
 
-        data.name = CFunctionName(c_in.spelling);
-        data.loc = locToTag(c_in.location());
-        data.is_definition = cast(Flag!"isDefinition") c_in.isDefinition;
-        data.storageClass = c_in.storageClass().toStorageClass;
-        data.language = c_in.toLanguage;
+        data.name = CFunctionName(c.spelling);
+        data.loc = locToTag(c.location());
+        data.is_definition = cast(Flag!"isDefinition") c.isDefinition;
+        data.storageClass = c.storageClass().toStorageClass;
+        data.language = c.toLanguage;
 
         return data;
     }
@@ -287,21 +290,13 @@ do {
                 data.storageClass, params, data.loc, data.is_definition, data.language);
     }
 
-    // dfmt off
-    auto rval = pipe!(extractAndStoreRawType,
-                      lookupRefToConcreteType,
-                      // either break early if null or continue composing a
-                      // function representation
-                      (Nullable!TypeResults tr) {
-                          if (tr.isNull) {
-                              return FunctionDeclResult.init;
-                          } else {
-                              return pipe!(getCursorData, composeFunc)(tr.get);
-                          }
-                      }
-                      )
-        (c_in);
-    // dfmt on
+    FunctionDeclResult rval;
+    auto r0 = extractAndStoreRawType(c_in);
+    auto r1 = lookupRefToConcreteType(c_in, r0);
+    if (!r1.isNull) {
+        auto r2 = getCursorData(c_in, r1.get);
+        rval = composeFunc(r2);
+    }
 
     return rval;
 }
@@ -315,12 +310,12 @@ struct VarDeclResult {
 }
 
 /// Analyze a variable declaration
-VarDeclResult analyzeVarDecl(const VarDecl v, ref Container container, in uint indent) @safe {
+VarDeclResult analyzeVarDecl(scope const VarDecl v, ref Container container, in uint indent) @safe {
     return analyzeVarDecl(v.cursor, container, indent);
 }
 
 /// ditto
-VarDeclResult analyzeVarDecl(const Cursor v, ref Container container, in uint indent) @safe
+VarDeclResult analyzeVarDecl(scope const Cursor v, ref Container container, in uint indent) @safe
 in {
     import clang.c.Index : CXCursorKind;
 
@@ -364,7 +359,7 @@ struct ConstructorResult {
  *
  * Returns: analyzed data.
  */
-auto analyzeConstructor(const(Constructor) v, ref Container container, in uint indent) @safe {
+auto analyzeConstructor(scope const Constructor v, ref Container container, in uint indent) @safe {
     auto type = () @trusted { return retrieveType(v.cursor, container, indent); }();
     put(type, container, indent);
 
@@ -382,7 +377,7 @@ struct DestructorResult {
 }
 
 /// ditto
-auto analyzeDestructor(const(Destructor) v, ref Container container, in uint indent) @safe {
+auto analyzeDestructor(scope const Destructor v, ref Container container, in uint indent) @safe {
     auto type = () @trusted { return retrieveType(v.cursor, container, indent); }();
     put(type, container, indent);
 
@@ -403,12 +398,12 @@ struct CxxMethodResult {
     LocationTag location;
 }
 
-CxxMethodResult analyzeCxxMethod(const(CxxMethod) v, ref Container container, in uint indent) @safe {
+CxxMethodResult analyzeCxxMethod(scope const CxxMethod v, ref Container container, in uint indent) @safe {
     return analyzeCxxMethod(v.cursor, container, indent);
 }
 
 /// ditto
-CxxMethodResult analyzeCxxMethod(const(Cursor) v, ref Container container, in uint indent) @safe {
+CxxMethodResult analyzeCxxMethod(scope const Cursor v, ref Container container, in uint indent) @safe {
     auto type = () @trusted { return retrieveType(v, container, indent); }();
     type.get.primary.type.kind.info.match!(ignore!(TypeKind.FuncInfo), (_) {
         assert(0, "wrong type");
@@ -435,7 +430,7 @@ struct FieldDeclResult {
 }
 
 /// ditto
-auto analyzeFieldDecl(const(FieldDecl) v, ref Container container, in uint indent) @safe {
+auto analyzeFieldDecl(scope const FieldDecl v, ref Container container, in uint indent) @safe {
     import cpptooling.analyzer.clang.type : makeEnsuredUSR;
 
     auto type = () @trusted { return retrieveType(v.cursor, container, indent); }();
@@ -475,7 +470,7 @@ struct CxxBaseSpecifierResult {
  * It is possible to inherit from for example a typedef. canonicalUSR would be
  * the class the typedef refers.
  */
-auto analyzeCxxBaseSpecified(const(CxxBaseSpecifier) v, ref Container container, in uint indent) @safe {
+auto analyzeCxxBaseSpecified(scope const CxxBaseSpecifier v, ref Container container, in uint indent) @safe {
     import clang.c.Index : CXCursorKind;
     import std.array : array;
     import std.algorithm : map;
@@ -516,13 +511,13 @@ struct RecordResult {
     LocationTag location;
 }
 
-RecordResult analyzeRecord(T)(const(T) decl, ref Container container, in uint indent)
+RecordResult analyzeRecord(T)(scope const T decl, ref Container container, in uint indent)
         if (staticIndexOf!(T, ClassDecl, StructDecl, ClassTemplate,
             ClassTemplatePartialSpecialization, UnionDecl) != -1) {
     return analyzeRecord(decl.cursor, container, indent);
 }
 
-RecordResult analyzeRecord(const(Cursor) cursor, ref Container container, in uint indent) @safe {
+RecordResult analyzeRecord(scope const Cursor cursor, ref Container container, in uint indent) @safe {
     auto type = () @trusted { return retrieveType(cursor, container, indent); }();
     put(type, container, indent);
 
@@ -536,8 +531,8 @@ struct TranslationUnitResult {
     string fileName;
 }
 
-auto analyzeTranslationUnit(const(TranslationUnit) tu, ref Container container, in uint indent) {
-    auto fname = tu.spelling;
+auto analyzeTranslationUnit(scope const TranslationUnit tu, ref Container container, in uint indent) {
+    auto fname = tu.cursor.spelling;
     return TranslationUnitResult(fname);
 }
 
@@ -581,7 +576,7 @@ final class ClassVisitor : Visitor {
         this.root.usr = result.type.kind.usr;
     }
 
-    override void visit(const(CxxBaseSpecifier) v) {
+    override void visit(scope const(CxxBaseSpecifier) v) {
         import std.range : retro;
         import std.array : appender;
         import clang.c.Index : CXCursorKind;
@@ -598,7 +593,7 @@ final class ClassVisitor : Visitor {
         root.put(inherit);
     }
 
-    override void visit(const(Constructor) v) @trusted {
+    override void visit(scope const(Constructor) v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeConstructor(v, *container, indent);
@@ -608,7 +603,7 @@ final class ClassVisitor : Visitor {
         debug logger.trace("ctor: ", tor.toString);
     }
 
-    override void visit(const(Destructor) v) @trusted {
+    override void visit(scope const(Destructor) v) @trusted {
         mixin(mixinNodeLog!());
 
         auto type = retrieveType(v.cursor, *container, indent);
@@ -621,7 +616,7 @@ final class ClassVisitor : Visitor {
         debug logger.trace("dtor: ", tor.toString);
     }
 
-    override void visit(const(CxxMethod) v) @trusted {
+    override void visit(scope const(CxxMethod) v) {
         import cpptooling.data : CppMethodOp;
 
         mixin(mixinNodeLog!());
@@ -643,13 +638,13 @@ final class ClassVisitor : Visitor {
         }
     }
 
-    override void visit(const(CxxAccessSpecifier) v) @trusted {
+    override void visit(scope const(CxxAccessSpecifier) v) {
         mixin(mixinNodeLog!());
 
         accessType = CppAccess(toAccessType(v.cursor.access.accessSpecifier));
     }
 
-    override void visit(const(FieldDecl) v) @trusted {
+    override void visit(scope const(FieldDecl) v) {
         import cpptooling.data : TypeKindVariable;
 
         mixin(mixinNodeLog!());

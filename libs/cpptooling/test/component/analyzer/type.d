@@ -49,22 +49,22 @@ final class TestVisitor : Visitor {
     VarDeclResult[] vars;
     bool found;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Namespace) v) {
+    override void visit(scope const Namespace v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(UnexposedDecl) v) {
+    override void visit(scope const UnexposedDecl v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(VarDecl) v) {
+    override void visit(scope const VarDecl v) {
         mixin(mixinNodeLog!());
         v.accept(this);
 
@@ -75,7 +75,7 @@ final class TestVisitor : Visitor {
         }
     }
 
-    override void visit(const(FunctionDecl) v) {
+    override void visit(scope const FunctionDecl v) {
         mixin(mixinNodeLog!());
 
         auto tmp = analyzeFunctionDecl(v, container, indent);
@@ -96,22 +96,22 @@ final class AllFuncVisitor : Visitor {
 
     FunctionDeclResult[] funcs;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Namespace) v) {
+    override void visit(scope const Namespace v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(UnexposedDecl) v) {
+    override void visit(scope const UnexposedDecl v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(FunctionDecl) v) {
+    override void visit(scope const FunctionDecl v) {
         mixin(mixinNodeLog!());
 
         funcs ~= analyzeFunctionDecl(v, container, indent);
@@ -128,24 +128,24 @@ final class TestRecordVisitor : Visitor {
 
     RecordResult record;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Namespace) v) {
+    override void visit(scope const Namespace v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(ClassDecl) v) @trusted {
+    override void visit(scope const ClassDecl v) @trusted {
         mixin(mixinNodeLog!());
 
         record = analyzeRecord(v, container, indent);
         v.accept(this);
     }
 
-    override void visit(const(Constructor) v) {
+    override void visit(scope const Constructor v) {
         mixin(mixinNodeLog!());
 
         analyzeConstructor(v, container, indent);
@@ -160,12 +160,12 @@ final class TestDeclVisitor : Visitor {
 
     Container container;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Declaration) v) {
+    override void visit(scope const Declaration v) {
         mixin(mixinNodeLog!());
         import cpptooling.analyzer.clang.store : put;
 
@@ -187,27 +187,27 @@ final class TestFunctionBodyVisitor : Visitor {
 
     FunctionDeclResult[] funcs;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Declaration) v) {
+    override void visit(scope const Declaration v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Statement) v) {
+    override void visit(scope const Statement v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Expression) v) {
+    override void visit(scope const Expression v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(DeclRefExpr) v) {
+    override void visit(scope const DeclRefExpr v) {
         mixin(mixinNodeLog!());
         import clang.Cursor : Cursor;
 
@@ -220,7 +220,7 @@ final class TestFunctionBodyVisitor : Visitor {
         dispatch!Visitor(ref_, this);
     }
 
-    override void visit(const(FunctionDecl) v) {
+    override void visit(scope const FunctionDecl v) {
         mixin(mixinNodeLog!());
 
         funcs ~= analyzeFunctionDecl(v, container, indent);
@@ -238,27 +238,27 @@ final class TestUnionVisitor : Visitor {
 
     RecordResult[] records;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Declaration) v) {
+    override void visit(scope const Declaration v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Statement) v) {
+    override void visit(scope const Statement v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(Expression) v) {
+    override void visit(scope const Expression v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(UnionDecl) v) {
+    override void visit(scope const UnionDecl v) {
         mixin(mixinNodeLog!());
 
         records ~= analyzeRecord(v, container, indent);
@@ -280,17 +280,17 @@ final class ClassVisitor : Visitor {
     FunctionDeclResult[] funcs;
     bool found;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(ClassDecl) v) {
+    override void visit(scope const ClassDecl v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(FunctionDecl) v) {
+    override void visit(scope const FunctionDecl v) {
         mixin(mixinNodeLog!());
 
         auto tmp = analyzeFunctionDecl(v, container, indent);
@@ -300,7 +300,7 @@ final class ClassVisitor : Visitor {
         }
     }
 
-    override void visit(const(CxxMethod) v) @trusted {
+    override void visit(scope const CxxMethod v) @trusted {
         mixin(mixinNodeLog!());
 
         auto tmp = analyzeCxxMethod(v, container, indent);

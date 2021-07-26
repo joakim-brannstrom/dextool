@@ -12,13 +12,19 @@ module dextool.plugin.mutate.backend.report.html;
 import logger = std.experimental.logger;
 import std.algorithm : max, each, map, min, canFind, sort, filter, joiner;
 import std.array : Appender, appender, array, empty;
+import std.datetime : dur;
 import std.exception : collectException;
 import std.format : format;
+import std.path : buildPath, baseName, relativePath;
 import std.range : only;
 import std.stdio : File;
+import std.typecons : tuple, Tuple;
 import std.utf : toUTF8, byChar;
 
 import arsd.dom : Document, Element, require, Table, RawSource, Link;
+import my.actor;
+import my.actor.utility.limiter;
+import my.gc.refc;
 import my.optional;
 import my.set;
 
@@ -27,6 +33,7 @@ import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc, Token;
+import dextool.plugin.mutate.backend.utility : Profile;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportSection;
 import dextool.type : AbsolutePath, Path;
@@ -35,39 +42,20 @@ import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, D
 import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.resource;
 
-version (unittest) {
-    import unit_threaded : shouldEqual;
-}
-
 @safe:
 
-void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf,
-        FilesysIO fio, ref Diff diff) {
+void report(ref System sys, AbsolutePath dbPath, const MutationKind[] userKinds,
+        ConfigReport conf, FilesysIO fio, ref Diff diff) @trusted {
     import dextool.plugin.mutate.backend.database : FileMutantRow;
     import dextool.plugin.mutate.backend.mutation_type : toInternal;
-    import dextool.plugin.mutate.backend.utility : Profile;
 
-    const kinds = toInternal(userKinds);
+    auto flowCtrl = sys.spawn(&spawnFlowControlTotalCPUs);
+    auto reportCollector = sys.spawn(&spawnFileReportCollector, flowCtrl);
+    auto overview = sys.spawn(&spawnOverviewActor, flowCtrl, reportCollector,
+            dbPath, userKinds.dup, conf, fio, diff);
 
-    auto fps = new ReportHtml(kinds, conf, fio, diff);
-
-    fps.mutationKindEvent(userKinds);
-
-    foreach (f; db.getDetailedFiles) {
-        auto profile = Profile("generate report for " ~ f.file);
-
-        fps.getFileReportEvent(db, f);
-
-        void fn(const ref FileMutantRow row) {
-            fps.fileMutantEvent(row);
-        }
-
-        db.iterateFileMutants(kinds, f.file, &fn);
-        generateFile(db, fps.ctx);
-    }
-
-    auto profile = Profile("post process report");
-    fps.postProcessEvent(db);
+    auto self = scopedActor;
+    self.request(overview, infTimeout).send(WaitForDoneMsg.init).then((bool a) {});
 }
 
 struct FileIndex {
@@ -76,184 +64,6 @@ struct FileIndex {
     Path path;
     string display;
     MutationScore stat;
-}
-
-@safe final class ReportHtml {
-    import std.stdio : writefln, writeln;
-    import undead.xml : encode;
-    import dextool.plugin.mutate.backend.report.analyzers : TestCaseMetadata;
-
-    const Mutation.Kind[] kinds;
-    const ConfigReport conf;
-
-    /// The base directory of logdirs
-    const AbsolutePath logDir;
-    /// Reports for each file
-    const AbsolutePath logFilesDir;
-    /// Reports for each test case
-    const AbsolutePath logTestCasesDir;
-
-    /// What the user configured.
-    MutationKind[] humanReadableKinds;
-    Set!ReportSection sections;
-
-    FilesysIO fio;
-
-    // all files that have been produced.
-    Appender!(FileIndex[]) files;
-
-    // the context for the file that is currently being processed.
-    FileCtx ctx;
-
-    // Report alive mutants in this section
-    Diff diff;
-
-    // User provided metadata.
-    TestCaseMetadata metaData;
-
-    this(const(Mutation.Kind)[] kinds, const ConfigReport conf, FilesysIO fio, ref Diff diff) {
-        import std.path : buildPath;
-        import dextool.plugin.mutate.backend.report.analyzers : parseTestCaseMetadata;
-
-        this.kinds = kinds;
-        this.fio = fio;
-        this.conf = conf;
-        this.logDir = buildPath(conf.logDir, HtmlStyle.dir).Path.AbsolutePath;
-        this.logFilesDir = buildPath(this.logDir, HtmlStyle.fileDir).Path.AbsolutePath;
-        this.logTestCasesDir = buildPath(this.logDir, HtmlStyle.testCaseDir).Path.AbsolutePath;
-        this.diff = diff;
-
-        if (conf.testMetadata.hasValue)
-            metaData = parseTestCaseMetadata((cast(Optional!(ConfigReport.TestMetaData)) conf.testMetadata)
-                    .orElse(ConfigReport.TestMetaData(AbsolutePath.init)).get);
-
-        sections = conf.reportSection.toSet;
-    }
-
-    void mutationKindEvent(const MutationKind[] k) {
-        import std.file : mkdirRecurse;
-
-        humanReadableKinds = k.dup;
-        foreach (a; only(logDir, logFilesDir, logTestCasesDir))
-            mkdirRecurse(a);
-    }
-
-    void getFileReportEvent(ref Database db, const ref FileRow fr) {
-        import std.path : buildPath;
-        import dextool.plugin.mutate.backend.report.html.utility : pathToHtml;
-        import dextool.plugin.mutate.backend.report.analyzers : reportScore;
-
-        const original = fr.file.idup.pathToHtml;
-        const report = (original ~ HtmlStyle.ext).Path;
-
-        auto stat = reportScore(db, kinds, fr.file);
-
-        files.put(FileIndex(report, fr.file, stat));
-
-        const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
-
-        auto raw = fio.makeInput(AbsolutePath(buildPath(fio.getOutputDir, fr.file)));
-
-        auto tc_info = db.testCaseApi.getAllTestCaseInfo2(fr.id, kinds);
-
-        ctx = FileCtx.make(original, fr.id, raw, tc_info);
-        ctx.processFile = fr.file;
-        ctx.out_ = File(out_path, "w");
-        ctx.span = Spanner(tokenize(fio.getOutputDir, fr.file));
-    }
-
-    void fileMutantEvent(const ref FileMutantRow fr) {
-        import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
-
-        // TODO unnecessary to create the mutation text here.
-        // Move it to endFileEvent. This is inefficient.
-
-        // the mutation text has been found to contain '\0' characters when the
-        // mutant span multiple lines. These null characters render badly in
-        // the html report.
-        static string cleanup(const(char)[] raw) @safe nothrow {
-            return raw.byChar.filter!(a => a != '\0').array.idup;
-        }
-
-        auto txt = makeMutationText(ctx.raw, fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
-        ctx.span.put(FileMutant(fr.id, fr.mutationPoint.offset,
-                cleanup(txt.original), cleanup(txt.mutation), fr.mutation));
-    }
-
-    void postProcessEvent(ref Database db) @trusted {
-        import std.datetime : Clock;
-        import std.path : buildPath, baseName;
-        import dextool.plugin.mutate.backend.report.html.page_diff;
-        import dextool.plugin.mutate.backend.report.html.page_minimal_set;
-        import dextool.plugin.mutate.backend.report.html.page_mutant;
-        import dextool.plugin.mutate.backend.report.html.page_nomut;
-        import dextool.plugin.mutate.backend.report.html.page_stats;
-        import dextool.plugin.mutate.backend.report.html.page_test_case;
-        import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
-        import dextool.plugin.mutate.backend.report.html.page_test_groups;
-        import dextool.plugin.mutate.backend.report.html.page_tree_map;
-        import dextool.plugin.mutate.backend.report.html.trend;
-
-        auto index = makeDashboard;
-        index.title = format("Mutation Testing Report %(%s %) %s",
-                humanReadableKinds, Clock.currTime);
-
-        auto content = index.mainBody.getElementById("content");
-
-        NavbarItem[] navbarItems;
-        void addSubPage(Fn)(Fn fn, string name, string linkTxt) {
-            const fname = buildPath(logDir, name ~ HtmlStyle.ext);
-            logger.infof("Generating %s (%s)", linkTxt, name);
-            File(fname, "w").write(fn());
-            navbarItems ~= NavbarItem(linkTxt, fname.baseName);
-        }
-
-        void addContent(Fn)(Fn fn, string name, string tag) {
-            logger.infof("Generating %s", name);
-            fn(tag);
-            navbarItems ~= NavbarItem(name, tag);
-        }
-
-        addContent((string tag) => makeStats(db, kinds, tag, content), "Overview", "#overview");
-        navbarItems ~= NavbarItem("Files", "#files"); // add files here to force it to always be after the overview
-
-        if (!diff.empty) {
-            addSubPage(() => makeDiffView(db, conf, humanReadableKinds, kinds,
-                    diff, fio.getOutputDir), "diff_view", "Diff View");
-        }
-        if (ReportSection.treemap in sections) {
-            addSubPage(() => makeTreeMapPage(files.data), "tree_map", "Treemap");
-        }
-        if (ReportSection.tc_groups in sections) {
-            addSubPage(() => makeTestGroups(db, conf, humanReadableKinds,
-                    kinds), "test_groups", "Test Groups");
-        }
-        addSubPage(() => makeNomut(db, conf, humanReadableKinds, kinds), "nomut", "NoMut Details");
-        if (ReportSection.tc_min_set in sections) {
-            addSubPage(() => makeMinimalSetAnalyse(db, conf, humanReadableKinds,
-                    kinds), "minimal_set", "Minimal Test Set");
-        }
-        if (ReportSection.tc_groups_similarity in sections) {
-            addSubPage(() => makeTestGroupSimilarityAnalyse(db, conf, humanReadableKinds,
-                    kinds), "test_group_similarity", "Test Group Similarity");
-        }
-        if (ReportSection.trend in sections) {
-            addContent((string tag) => makeTrend(db, kinds, tag, content), "Trend", "#trend");
-        }
-
-        addContent((string tag) => makeMutantPage(db, conf, kinds,
-                AbsolutePath(logDir ~ Path("mutants" ~ HtmlStyle.ext)), tag, content),
-                "Mutants", "#mutants");
-
-        addContent((string tag) => makeTestCases(db, conf, kinds, metaData,
-                logTestCasesDir, tag, content), "Test Cases", "#test_cases");
-
-        files.data.toIndex(content, HtmlStyle.fileDir);
-
-        addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
-
-        File(buildPath(logDir, "index" ~ HtmlStyle.ext), "w").write(index.toPrettyString);
-    }
 }
 
 @safe:
@@ -360,7 +170,6 @@ struct FileCtx {
 }
 
 auto tokenize(AbsolutePath base_dir, Path f) @trusted {
-    import std.path : buildPath;
     import std.typecons : Yes;
     import libclang_ast.context;
     static import dextool.plugin.mutate.backend.utility;
@@ -622,6 +431,8 @@ struct Span {
     import std.range;
     import clang.c.Index : CXTokenKind;
 
+    import unit_threaded : shouldEqual;
+
     auto offsets = zip(iota(0, 150, 10), iota(10, 160, 10)).map!(a => Offset(a[0], a[1])).array;
 
     auto toks = offsets.map!(a => Token(CXTokenKind.comment, a, SourceLoc.init,
@@ -658,7 +469,6 @@ struct Span {
 void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     import std.algorithm : sort, filter;
     import std.conv : to;
-    import std.path : buildPath;
 
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
@@ -972,4 +782,607 @@ void addNavbarItems(NavbarItem[] items, Element root) @trusted {
     foreach (item; items) {
         root.addChild("li").addChild(new Link(item.link, item.name));
     }
+}
+
+struct InitMsg {
+}
+
+struct DoneMsg {
+}
+
+struct GenerateReportMsg {
+}
+
+alias FileReportActor = typedActor!(void function(InitMsg, AbsolutePath dbPath, AbsolutePath logFilesDir),
+        void function(AbsolutePath logFilesDir),
+        void function(GenerateReportMsg), void function(DoneMsg));
+
+auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtrl,
+        FileReportCollectorActor.Address collector,
+        AbsolutePath dbPath, FilesysIO fio, Mutation.Kind[] kinds,
+        ConfigReport conf, AbsolutePath logFilesDir, FileRow fr) @trusted {
+    static struct State {
+        Mutation.Kind[] kinds;
+        ConfigReport conf;
+        FlowControlActor.Address flowCtrl;
+        FileReportCollectorActor.Address collector;
+        FileRow fileRow;
+
+        Path reportFile;
+
+        Database db;
+
+        FileCtx ctx;
+    }
+
+    auto st = tuple!("self", "state", "fio")(self, refCounted(State(kinds,
+            conf, flowCtrl, collector, fr)), fio.dup);
+    alias Ctx = typeof(st);
+
+    static void init_(ref Ctx ctx, InitMsg, AbsolutePath dbPath, AbsolutePath logFilesDir) @trusted {
+        ctx.state.db = Database.make(dbPath);
+        send(ctx.self, logFilesDir);
+    }
+
+    static void start(ref Ctx ctx, AbsolutePath logFilesDir) @safe {
+        import dextool.plugin.mutate.backend.report.html.utility : pathToHtml;
+
+        const original = ctx.state.fileRow.file.idup.pathToHtml;
+        const report = (original ~ HtmlStyle.ext).Path;
+
+        const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
+
+        auto raw = ctx.fio.makeInput(AbsolutePath(buildPath(ctx.fio.getOutputDir,
+                ctx.state.fileRow.file)));
+
+        auto tc_info = ctx.state.db.testCaseApi.getAllTestCaseInfo2(ctx.state.fileRow.id,
+                ctx.state.kinds);
+
+        ctx.state.reportFile = report;
+        ctx.state.ctx = FileCtx.make(original, ctx.state.fileRow.id, raw, tc_info);
+        ctx.state.ctx.processFile = ctx.state.fileRow.file;
+        ctx.state.ctx.out_ = File(out_path, "w");
+        ctx.state.ctx.span = Spanner(tokenize(ctx.fio.getOutputDir, ctx.state.fileRow.file));
+
+        send(ctx.self, GenerateReportMsg.init);
+    }
+
+    static void run(ref Ctx ctx, GenerateReportMsg) @safe {
+        auto profile = Profile("html file report " ~ ctx.state.fileRow.file);
+        void fn(const ref FileMutantRow fr) {
+            import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
+
+            // TODO unnecessary to create the mutation text here.
+            // Move it to endFileEvent. This is inefficient.
+
+            // the mutation text has been found to contain '\0' characters when the
+            // mutant span multiple lines. These null characters render badly in
+            // the html report.
+            static string cleanup(const(char)[] raw) @safe nothrow {
+                return raw.byChar.filter!(a => a != '\0').array.idup;
+            }
+
+            auto txt = makeMutationText(ctx.state.ctx.raw,
+                    fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
+            ctx.state.ctx.span.put(FileMutant(fr.id, fr.mutationPoint.offset,
+                    cleanup(txt.original), cleanup(txt.mutation), fr.mutation));
+        }
+
+        ctx.state.db.iterateFileMutants(ctx.state.kinds, ctx.state.fileRow.file, &fn);
+        generateFile(ctx.state.db, ctx.state.ctx);
+
+        send(ctx.self, DoneMsg.init);
+    }
+
+    static void done(ref Ctx ctx, DoneMsg) @safe {
+        import dextool.plugin.mutate.backend.report.analyzers : reportScore;
+
+        auto stat = reportScore(ctx.state.db, ctx.state.kinds, ctx.state.fileRow.file);
+        send(ctx.state.collector, FileIndex(ctx.state.reportFile, ctx.state.fileRow.file, stat));
+
+        ctx.self.shutdown;
+    }
+
+    self.request(flowCtrl, infTimeout).send(TakeTokenMsg.init)
+        .capture(self.address, dbPath, logFilesDir).then((ref Tuple!(FileReportActor.Address,
+                AbsolutePath, AbsolutePath) ctx, my.actor.utility.limiter.Token _) => send(ctx[0],
+                InitMsg.init, ctx[1], ctx[2]));
+
+    return impl(self, &init_, capture(st), &start, capture(st), &done,
+            capture(st), &run, capture(st));
+}
+
+struct GetIndexesMsg {
+}
+
+struct StartReporterMsg {
+}
+
+struct DoneStartingReportersMsg {
+}
+
+alias FileReportCollectorActor = typedActor!(void function(StartReporterMsg),
+        void function(DoneStartingReportersMsg), /// Collects an index.
+        void function(FileIndex), /// Returns all collected indexes.
+        FileIndex[]function(GetIndexesMsg));
+
+/// Collect file indexes from finished reports
+auto spawnFileReportCollector(FileReportCollectorActor.Impl self, FlowControlActor.Address flow) {
+    static struct State {
+        FlowControlActor.Address flow;
+
+        uint reporters;
+        bool doneStarting;
+        FileIndex[] files;
+        Promise!(FileIndex[]) promise;
+
+        bool done() {
+            return doneStarting && (reporters == files.length);
+        }
+    }
+
+    auto st = tuple!("self", "state")(self, refCounted(State(flow)));
+    alias Ctx = typeof(st);
+
+    static void started(ref Ctx ctx, StartReporterMsg) {
+        ctx.state.reporters++;
+    }
+
+    static void doneStarting(ref Ctx ctx, DoneStartingReportersMsg) {
+        ctx.state.doneStarting = true;
+    }
+
+    static void index(ref Ctx ctx, FileIndex fi) {
+        ctx.state.files ~= fi;
+
+        if (ctx.state.done && !ctx.state.promise.empty) {
+            ctx.state.promise.deliver(ctx.state.files);
+            ctx.self.shutdown;
+        }
+
+        send(ctx.state.flow, ReturnTokenMsg.init);
+        logger.infof("Generated %s (%s)", fi.display, fi.stat.score);
+    }
+
+    static RequestResult!(FileIndex[]) getIndexes(ref Ctx ctx, GetIndexesMsg) {
+        if (ctx.state.done) {
+            if (!ctx.state.promise.empty)
+                ctx.state.promise.deliver(ctx.state.files);
+            ctx.self.shutdown;
+            return typeof(return)(ctx.state.files);
+        }
+
+        assert(ctx.state.promise.empty, "can only be one active request at a time");
+        ctx.state.promise = makePromise!(FileIndex[]);
+        return typeof(return)(ctx.state.promise);
+    }
+
+    return impl(self, &started, capture(st), &doneStarting, capture(st),
+            &index, capture(st), &getIndexes, capture(st));
+}
+
+struct GetPagesMsg {
+}
+
+alias SubPage = Tuple!(string, "fileName", string, "linkTxt");
+alias SubContent = Tuple!(string, "name", string, "tag", string, "content");
+
+alias AnalyzeReportCollectorActor = typedActor!(void function(StartReporterMsg), void function(DoneStartingReportersMsg), /// Collects an index.
+        void function(SubPage), void function(SubContent), void function(CheckDoneMsg),
+        Tuple!(SubPage[], SubContent[]) function(GetPagesMsg));
+
+auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
+        FlowControlActor.Address flow) {
+    alias Result = Tuple!(SubPage[], SubContent[]);
+    static struct State {
+        FlowControlActor.Address flow;
+
+        uint awaitingReports;
+        bool doneStarting;
+
+        SubPage[] subPages;
+        SubContent[] subContent;
+        Promise!(Tuple!(SubPage[], SubContent[])) promise;
+
+        bool done() {
+            return doneStarting && (awaitingReports == (subPages.length + subContent.length));
+        }
+    }
+
+    auto st = tuple!("self", "state")(self, refCounted(State(flow)));
+    alias Ctx = typeof(st);
+
+    static void started(ref Ctx ctx, StartReporterMsg) {
+        ctx.state.awaitingReports++;
+    }
+
+    static void doneStarting(ref Ctx ctx, DoneStartingReportersMsg) {
+        ctx.state.doneStarting = true;
+    }
+
+    static void subPage(ref Ctx ctx, SubPage p) {
+        ctx.state.subPages ~= p;
+        send(ctx.self, CheckDoneMsg.init);
+        send(ctx.state.flow, ReturnTokenMsg.init);
+        logger.infof("Generated %s", p.linkTxt);
+    }
+
+    static void subContent(ref Ctx ctx, SubContent p) {
+        ctx.state.subContent ~= p;
+        send(ctx.self, CheckDoneMsg.init);
+        send(ctx.state.flow, ReturnTokenMsg.init);
+        logger.infof("Generated %s", p.name);
+    }
+
+    static void checkDone(ref Ctx ctx, CheckDoneMsg) {
+        // defensive programming in case a promise request arrive after the last page is generated.
+        delayedSend(ctx.self, delay(1.dur!"seconds"), CheckDoneMsg.init);
+        if (!ctx.state.done)
+            return;
+
+        if (!ctx.state.promise.empty) {
+            ctx.state.promise.deliver(tuple(ctx.state.subPages, ctx.state.subContent));
+            ctx.self.shutdown;
+        }
+    }
+
+    static RequestResult!Result getPages(ref Ctx ctx, GetPagesMsg) {
+        if (ctx.state.done) {
+            if (!ctx.state.promise.empty)
+                ctx.state.promise.deliver(tuple(ctx.state.subPages, ctx.state.subContent));
+            ctx.self.shutdown;
+            return typeof(return)(tuple(ctx.state.subPages, ctx.state.subContent));
+        }
+
+        assert(ctx.state.promise.empty, "can only be one active request at a time");
+        ctx.state.promise = makePromise!Result;
+        return typeof(return)(ctx.state.promise);
+    }
+
+    return impl(self, &started, capture(st), &doneStarting, capture(st),
+            &subPage, capture(st), &checkDone, capture(st), &getPages,
+            capture(st), &subContent, capture(st));
+}
+
+struct StartAnalyzersMsg {
+}
+
+struct WaitForDoneMsg {
+}
+
+struct IndexWaitMsg {
+}
+
+struct CheckDoneMsg {
+}
+
+struct GenerateIndexMsg {
+}
+
+alias OverviewActor = typedActor!(void function(InitMsg, AbsolutePath), void function(StartAnalyzersMsg, AbsolutePath),
+        void function(StartReporterMsg, AbsolutePath), void function(IndexWaitMsg),
+        void function(GenerateIndexMsg), void function(CheckDoneMsg), // Returns a response when the reporting is done.
+        bool function(WaitForDoneMsg));
+
+/** Generate `index.html` and act as the top coordinating actor that spawn,
+ * control and summarises the result from all the sub-report actors.
+ */
+auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCtrl,
+        FileReportCollectorActor.Address fileCollector,
+        AbsolutePath dbPath, MutationKind[] userKinds, ConfigReport conf,
+        FilesysIO fio, ref Diff diff) @trusted {
+    import std.stdio : writefln, writeln;
+    import undead.xml : encode;
+    import dextool.plugin.mutate.backend.report.analyzers : TestCaseMetadata;
+
+    static struct State {
+        FlowControlActor.Address flow;
+        FileReportCollectorActor.Address fileCollector;
+        ConfigReport conf;
+
+        // Report alive mutants in this section
+        Diff diff;
+
+        /// What the user configured.
+        MutationKind[] humanReadableKinds;
+
+        Mutation.Kind[] kinds;
+
+        /// The base directory of logdirs
+        AbsolutePath logDir;
+        /// Reports for each file
+        AbsolutePath logFilesDir;
+        /// Reports for each test case
+        AbsolutePath logTestCasesDir;
+
+        // User provided metadata.
+        TestCaseMetadata metaData;
+
+        Set!ReportSection sections;
+
+        Database db;
+
+        FileIndex[] files;
+        SubPage[] subPages;
+        SubContent[] subContent;
+
+        /// signals that the whole report is done.
+        bool reportsDone;
+        bool filesDone;
+        bool done;
+        Promise!bool waitForDone;
+    }
+
+    auto st = tuple!("self", "state", "fio")(self, refCounted(State(flowCtrl,
+            fileCollector, conf, diff, userKinds)), fio.dup);
+    alias Ctx = typeof(st);
+
+    static void init_(ref Ctx ctx, InitMsg, AbsolutePath dbPath) {
+        import std.file : mkdirRecurse;
+        import dextool.plugin.mutate.backend.mutation_type : toInternal;
+        import dextool.plugin.mutate.backend.report.analyzers : parseTestCaseMetadata;
+
+        ctx.state.db = Database.make(dbPath);
+
+        ctx.state.kinds = toInternal(ctx.state.humanReadableKinds);
+
+        ctx.state.logDir = buildPath(ctx.state.conf.logDir, HtmlStyle.dir).Path.AbsolutePath;
+        ctx.state.logFilesDir = buildPath(ctx.state.logDir, HtmlStyle.fileDir).Path.AbsolutePath;
+        ctx.state.logTestCasesDir = buildPath(ctx.state.logDir,
+                HtmlStyle.testCaseDir).Path.AbsolutePath;
+
+        if (ctx.state.conf.testMetadata.hasValue)
+            ctx.state.metaData = parseTestCaseMetadata(
+                    (cast(Optional!(ConfigReport.TestMetaData)) ctx.state.conf.testMetadata)
+                    .orElse(ConfigReport.TestMetaData(AbsolutePath.init)).get);
+
+        foreach (a; only(ctx.state.logDir, ctx.state.logFilesDir, ctx.state.logTestCasesDir))
+            mkdirRecurse(a);
+
+        send(ctx.self, StartReporterMsg.init, dbPath);
+        send(ctx.self, StartAnalyzersMsg.init, dbPath);
+    }
+
+    static void startAnalyzers(ref Ctx ctx, StartAnalyzersMsg, AbsolutePath dbPath) {
+        import dextool.plugin.mutate.backend.report.html.page_diff;
+        import dextool.plugin.mutate.backend.report.html.page_minimal_set;
+        import dextool.plugin.mutate.backend.report.html.page_mutant;
+        import dextool.plugin.mutate.backend.report.html.page_nomut;
+        import dextool.plugin.mutate.backend.report.html.page_stats;
+        import dextool.plugin.mutate.backend.report.html.page_test_case;
+        import dextool.plugin.mutate.backend.report.html.page_test_group_similarity;
+        import dextool.plugin.mutate.backend.report.html.page_test_groups;
+        import dextool.plugin.mutate.backend.report.html.trend;
+
+        string makeFname(string name) {
+            return buildPath(ctx.state.logDir, name ~ HtmlStyle.ext);
+        }
+
+        auto collector = ctx.self.homeSystem.spawn(&spawnAnalyzeReportCollector, ctx.state.flow);
+
+        runAnalyzer!makeStats(ctx.self, ctx.state.flow, collector,
+                SubContent("Overview", "#overview", null), dbPath, ctx.state.kinds);
+
+        runAnalyzer!makeMutantPage(ctx.self, ctx.state.flow, collector,
+                SubContent("Mutants", "#mutants", null), dbPath, ctx.state.conf, ctx.state.kinds,
+                AbsolutePath(ctx.state.logDir ~ Path("mutants" ~ HtmlStyle.ext)));
+
+        runAnalyzer!makeTestCases(ctx.self, ctx.state.flow, collector,
+                SubContent("Test Cases", "#test_cases", null), dbPath, ctx.state.conf,
+                ctx.state.kinds, ctx.state.metaData, ctx.state.logTestCasesDir);
+
+        if (ReportSection.trend in ctx.state.sections) {
+            runAnalyzer!makeTrend(ctx.self, ctx.state.flow, collector,
+                    SubContent("Trend", "#trend", null), dbPath, ctx.state.kinds);
+        }
+
+        if (!ctx.state.diff.empty) {
+            runAnalyzer!makeDiffView(ctx.self, ctx.state.flow, collector,
+                    SubPage(makeFname("diff_view"), "Diff View"), dbPath, ctx.state.conf,
+                    ctx.state.humanReadableKinds, ctx.state.kinds,
+                    ctx.state.diff, ctx.fio.getOutputDir);
+        }
+        if (ReportSection.tc_groups in ctx.state.sections) {
+            runAnalyzer!makeTestGroups(ctx.self, ctx.state.flow, collector,
+                    SubPage(makeFname("test_groups"), "Test Groups"), dbPath,
+                    ctx.state.conf, ctx.state.humanReadableKinds, ctx.state.kinds);
+        }
+
+        if (ReportSection.tc_min_set in ctx.state.sections) {
+            runAnalyzer!makeMinimalSetAnalyse(ctx.self, ctx.state.flow, collector,
+                    SubPage(makeFname("minimal_set"), "Minimal Test Set"), dbPath,
+                    ctx.state.conf, ctx.state.humanReadableKinds, ctx.state.kinds);
+        }
+
+        if (ReportSection.tc_groups_similarity in ctx.state.sections) {
+            runAnalyzer!makeTestGroupSimilarityAnalyse(ctx.self, ctx.state.flow, collector,
+                    SubPage(makeFname("test_group_similarity"), "Test Group Similarity"), dbPath,
+                    ctx.state.conf, ctx.state.humanReadableKinds, ctx.state.kinds);
+        }
+
+        runAnalyzer!makeNomut(ctx.self, ctx.state.flow, collector,
+                SubPage(makeFname("nomut"), "NoMut Details"), dbPath,
+                ctx.state.conf, ctx.state.humanReadableKinds, ctx.state.kinds);
+
+        send(collector, DoneStartingReportersMsg.init);
+
+        ctx.self.request(collector, infTimeout).send(GetPagesMsg.init)
+            .capture(ctx).then((ref Ctx ctx, SubPage[] sp, SubContent[] sc) {
+                ctx.state.subPages = sp;
+                ctx.state.subContent = sc;
+                ctx.state.reportsDone = true;
+                send(ctx.self, IndexWaitMsg.init);
+            });
+    }
+
+    static void startFileReportes(ref Ctx ctx, StartReporterMsg, AbsolutePath dbPath) {
+        foreach (f; ctx.state.db.getDetailedFiles) {
+            auto fa = ctx.self.homeSystem.spawn(&spawnFileReport,
+                    ctx.state.flow, ctx.state.fileCollector, dbPath,
+                    ctx.fio.dup, ctx.state.kinds, ctx.state.conf, ctx.state.logFilesDir, f);
+            send(ctx.state.fileCollector, StartReporterMsg.init);
+        }
+        send(ctx.state.fileCollector, DoneStartingReportersMsg.init);
+
+        ctx.self.request(ctx.state.fileCollector, infTimeout)
+            .send(GetIndexesMsg.init).capture(ctx).then((ref Ctx ctx, FileIndex[] a) {
+                ctx.state.files = a;
+                ctx.state.filesDone = true;
+                send(ctx.self, IndexWaitMsg.init);
+            });
+    }
+
+    static void indexWait(ref Ctx ctx, IndexWaitMsg) {
+        if (ctx.state.reportsDone && ctx.state.filesDone)
+            send(ctx.self, GenerateIndexMsg.init);
+    }
+
+    static void checkDone(ref Ctx ctx, CheckDoneMsg) {
+        if (!ctx.state.done) {
+            delayedSend(ctx.self, delay(1.dur!"seconds"), CheckDoneMsg.init);
+            return;
+        }
+
+        if (!ctx.state.waitForDone.empty)
+            ctx.state.waitForDone.deliver(true);
+    }
+
+    static Promise!bool waitForDone(ref Ctx ctx, WaitForDoneMsg) {
+        send(ctx.self, CheckDoneMsg.init);
+        ctx.state.waitForDone = makePromise!bool;
+        return ctx.state.waitForDone;
+    }
+
+    static void genIndex(ref Ctx ctx, GenerateIndexMsg) {
+        scope (exit)
+            () { ctx.state.done = true; send(ctx.self, CheckDoneMsg.init); }();
+
+        import std.datetime : Clock;
+        import dextool.plugin.mutate.backend.report.html.page_tree_map;
+
+        auto profile = Profile("post process report");
+
+        auto index = makeDashboard;
+        index.title = format("Mutation Testing Report %(%s %) %s",
+                ctx.state.humanReadableKinds, Clock.currTime);
+
+        auto content = index.mainBody.getElementById("content");
+
+        NavbarItem[] navbarItems;
+        void addSubPage(Fn)(Fn fn, string name, string linkTxt) {
+            const fname = buildPath(ctx.state.logDir, name ~ HtmlStyle.ext);
+            logger.infof("Generating %s (%s)", linkTxt, name);
+            File(fname, "w").write(fn());
+            navbarItems ~= NavbarItem(linkTxt, fname.baseName);
+        }
+
+        // content must be added in a specific order such as statistics first
+        SubContent[string] subContent;
+        foreach (sc; ctx.state.subContent)
+            subContent[sc.tag] = sc;
+        void addContent(string tag) {
+            auto item = subContent[tag];
+            navbarItems ~= NavbarItem(item.name, tag);
+            content.addChild(new RawSource(index, item.content));
+            subContent.remove(tag);
+        }
+
+        addContent("#overview");
+        // add files here to force it to always be after the overview.
+        navbarItems ~= NavbarItem("Files", "#files");
+
+        foreach (tag; subContent.byKey.array.sort)
+            addContent(tag);
+
+        foreach (sp; ctx.state.subPages.sort!((a, b) => a.fileName < b.fileName)) {
+            const link = relativePath(sp.fileName, ctx.state.logDir);
+            navbarItems ~= NavbarItem(sp.linkTxt, link);
+        }
+
+        // keep
+        if (ReportSection.treemap in ctx.state.sections) {
+            addSubPage(() => makeTreeMapPage(ctx.state.files), "tree_map", "Treemap");
+        }
+
+        ctx.state.files.toIndex(content, HtmlStyle.fileDir);
+
+        addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
+
+        File(buildPath(ctx.state.logDir, "index" ~ HtmlStyle.ext), "w").write(index.toPrettyString);
+    }
+
+    send(self, InitMsg.init, dbPath);
+    return impl(self, &init_, capture(st), &startFileReportes, capture(st),
+            &waitForDone, capture(st), &checkDone, capture(st), &genIndex,
+            capture(st), &startAnalyzers, capture(st), &indexWait, capture(st));
+}
+
+void runAnalyzer(alias fn, Args...)(OverviewActor.Impl self, FlowControlActor.Address flow,
+        AnalyzeReportCollectorActor.Address collector, SubPage sp,
+        AbsolutePath dbPath, auto ref Args args) @trusted {
+    // keep params separated because it is easier to forward the captured arguments to `fn`.
+    auto params = tuple(args);
+    auto ctx = tuple!("self", "collector", "sp", "db")(self, collector, sp, dbPath);
+
+    // wait for flow to return a token.
+    // then start the analyzer and send the result to the collector.
+    send(collector, StartReporterMsg.init);
+
+    self.request(flow, infTimeout).send(TakeTokenMsg.init).capture(params, ctx)
+        .then((ref Tuple!(typeof(params), typeof(ctx)) ctx, my.actor.utility.limiter.Token _) {
+            // actor spawned in the system that will run the analyze. Uses a
+            // dynamic actor because then we do not need to make an interface.
+            // It should be OK because it is only used here, not as a generic
+            // actor. The "type checking" is done when `fn` is called which
+            // ensure that the captured parameters match.
+            ctx[1].self.homeSystem.spawn((Actor* self, typeof(params) params, typeof(ctx[1]) ctx) {
+                // tells the actor to actually do the work
+                send(self, self, ctx.db, ctx.collector, ctx.sp);
+                return impl(self, (ref typeof(params) ctx, Actor* self, AbsolutePath dbPath,
+                AnalyzeReportCollectorActor.Address collector, SubPage sp) {
+                    auto db = Database.make(dbPath);
+                    auto content = fn(db, ctx.expand);
+                    File(sp.fileName, "w").write(content);
+                    send(collector, sp);
+                    self.shutdown;
+                }, capture(params));
+            }, ctx[0], ctx[1]);
+        });
+}
+
+void runAnalyzer(alias fn, Args...)(OverviewActor.Impl self, FlowControlActor.Address flow,
+        AnalyzeReportCollectorActor.Address collector, SubContent sc,
+        AbsolutePath dbPath, auto ref Args args) @trusted {
+    import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage;
+
+    // keep params separated because it is easier to forward the captured arguments to `fn`.
+    auto params = tuple(args);
+    auto ctx = tuple!("self", "collector", "sc", "db")(self, collector, sc, dbPath);
+
+    // wait for flow to return a token.
+    // then start the analyzer and send the result to the collector.
+    send(collector, StartReporterMsg.init);
+
+    self.request(flow, infTimeout).send(TakeTokenMsg.init).capture(params, ctx)
+        .then((ref Tuple!(typeof(params), typeof(ctx)) ctx, my.actor.utility.limiter.Token _) {
+            // actor spawned in the system that will run the analyze. Uses a
+            // dynamic actor because then we do not need to make an interface.
+            // It should be OK because it is only used here, not as a generic
+            // actor. The "type checking" is done when `fn` is called which
+            // ensure that the captured parameters match.
+            ctx[1].self.homeSystem.spawn((Actor* self, typeof(params) params, typeof(ctx[1]) ctx) {
+                // tells the actor to actually do the work
+                send(self, self, ctx.db, ctx.collector, ctx.sc);
+                return impl(self, (ref typeof(params) ctx, Actor* self, AbsolutePath dbPath,
+                AnalyzeReportCollectorActor.Address collector, SubContent sc) {
+                    auto db = Database.make(dbPath);
+                    auto doc = tmplBasicPage;
+                    auto root = doc.mainBody.addChild("div");
+                    fn(db, sc.tag, root, ctx.expand);
+                    sc.content = root.toPrettyString;
+                    send(collector, sc);
+                    self.shutdown;
+                }, capture(params));
+            }, ctx[0], ctx[1]);
+        });
 }

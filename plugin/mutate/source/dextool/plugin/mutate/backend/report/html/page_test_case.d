@@ -41,8 +41,8 @@ import dextool.plugin.mutate.type : MutationKind, ReportSection;
 
 @safe:
 
-void makeTestCases(ref Database db, ref const ConfigReport conf, const(Mutation.Kind)[] kinds,
-        TestCaseMetadata metaData, AbsolutePath testCasesDir, string tag, Element root) @trusted {
+void makeTestCases(ref Database db, string tag, Element root, ref const ConfigReport conf,
+        const(Mutation.Kind)[] kinds, TestCaseMetadata metaData, AbsolutePath testCasesDir) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]),
             "Test Cases");
     auto sections = conf.reportSection.toSet;

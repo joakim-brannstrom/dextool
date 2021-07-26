@@ -12,5 +12,5 @@ module libclang_ast.ast.node;
 interface Node {
     import libclang_ast.ast.base_visitor : Visitor;
 
-    void accept(Visitor visitor) @safe const;
+    void accept(scope Visitor visitor) @safe const;
 }

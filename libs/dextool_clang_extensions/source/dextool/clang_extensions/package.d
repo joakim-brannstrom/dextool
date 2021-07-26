@@ -253,7 +253,7 @@ extern (C++,dextool_clang_extension) {
     extern (C++) bool dex_isPotentialConstExpr(const CXCursor cx);
 }
 
-Operator getExprOperator(const CXCursor expr) @trusted {
+Operator getExprOperator(scope const CXCursor expr) @trusted {
     import std.algorithm : among;
 
     // This check is technically not needed because the C++ source code try to
@@ -273,7 +273,7 @@ Operator getExprOperator(const CXCursor expr) @trusted {
  * trusted: the C++ impl check that the node is an expression.
  * It can handle any CursorKind.
  */
-ValueKind exprValueKind(const CXCursor expr) @trusted {
+ValueKind exprValueKind(scope const CXCursor expr) @trusted {
     return dex_getExprValueKind(expr);
 }
 
@@ -281,7 +281,7 @@ ValueKind exprValueKind(const CXCursor expr) @trusted {
  * trusted: the C++ impl check that the node is an expression.
  * It can handle any CursorKind.
  */
-auto getUnderlyingExprNode(const CXCursor expr) @trusted {
+auto getUnderlyingExprNode(scope const CXCursor expr) @trusted {
     return dex_getUnderlyingExprNode(expr);
 }
 
@@ -365,7 +365,7 @@ auto getUnderlyingExprNode(const CXCursor expr) @trusted {
     }
 }
 
-IfStmt getIfStmt(const CXCursor cx) @trusted {
+IfStmt getIfStmt(scope const CXCursor cx) @trusted {
     if (clang_getCursorKind(cx) == CXCursorKind.ifStmt)
         return IfStmt(cx, dex_getIfStmt(cx));
 

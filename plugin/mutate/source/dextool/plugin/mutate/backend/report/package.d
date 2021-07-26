@@ -17,6 +17,7 @@ import std.ascii : newline;
 import std.exception : collectException;
 
 import dextool.type;
+import my.actor;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.diff_parser : Diff, diffFromStdin;
@@ -26,34 +27,42 @@ import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind;
 
 ExitStatusType runReport(const AbsolutePath dbPath, const MutationKind[] kind,
-        const ConfigReport conf, FilesysIO fio) @trusted nothrow {
+        ConfigReport conf, FilesysIO fio) @trusted {
 
-    ExitStatusType helper(ref Database db) {
+    auto sys = makeSystem;
+
+    ExitStatusType helper() {
         Diff diff;
         if (conf.unifiedDiff) {
             diff = diffFromStdin;
         }
 
         final switch (conf.reportKind) with (ReportKind) {
-        case plain:
-            import dextool.plugin.mutate.backend.report.plain : report;
+        case plain: {
+                import dextool.plugin.mutate.backend.report.plain : report;
 
-            report(db, kind, conf, fio);
+                auto db = Database.make(dbPath);
+                report(db, kind, conf, fio);
+            }
             break;
-        case compiler:
-            import dextool.plugin.mutate.backend.report.compiler : report;
+        case compiler: {
+                import dextool.plugin.mutate.backend.report.compiler : report;
 
-            report(db, kind, conf, fio);
+                auto db = Database.make(dbPath);
+                report(db, kind, conf, fio);
+            }
             break;
-        case json:
-            import dextool.plugin.mutate.backend.report.json : report;
+        case json: {
+                import dextool.plugin.mutate.backend.report.json : report;
 
-            report(db, kind, conf, fio, diff);
+                auto db = Database.make(dbPath);
+                report(db, kind, conf, fio, diff);
+            }
             break;
         case html:
             import dextool.plugin.mutate.backend.report.html : report;
 
-            report(db, kind, conf, fio, diff);
+            report(sys, dbPath, kind, conf, fio, diff);
             break;
         }
 
@@ -65,12 +74,12 @@ ExitStatusType runReport(const AbsolutePath dbPath, const MutationKind[] kind,
             } catch (Exception e) {
                 logger.warning("Unable to print the profile data: ", e.msg).collectException;
             }
+
         return ExitStatusType.Ok;
     }
 
     try {
-        auto db = Database.make(dbPath);
-        return helper(db);
+        return helper();
     } catch (Exception e) {
         logger.error(e.msg).collectException;
     }

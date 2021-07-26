@@ -17,28 +17,32 @@ abstract class Declaration : Node {
     import clang.Cursor : Cursor;
     import libclang_ast.ast : Visitor;
 
-    Cursor cursor;
-    alias cursor this;
+    private Cursor cursor_;
 
-    this(Cursor cursor) @safe {
-        this.cursor = cursor;
+    // trusted on the assumption that the node is scope allocated and all access to cursor is via a scoped ref.
+    this(scope Cursor cursor) @trusted {
+        this.cursor_ = cursor;
     }
 
-    override void accept(Visitor v) @safe const {
+    Cursor cursor() return const @safe {
+        return Cursor(cursor_.cx);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
-        libclang_ast.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor_, v);
     }
 }
 
 final class UnexposedDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -48,11 +52,11 @@ final class UnexposedDecl : Declaration {
 final class StructDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -62,11 +66,11 @@ final class StructDecl : Declaration {
 final class UnionDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -76,11 +80,11 @@ final class UnionDecl : Declaration {
 final class ClassDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -90,11 +94,11 @@ final class ClassDecl : Declaration {
 final class EnumDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -104,11 +108,11 @@ final class EnumDecl : Declaration {
 final class FieldDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -118,11 +122,11 @@ final class FieldDecl : Declaration {
 final class EnumConstantDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -132,11 +136,11 @@ final class EnumConstantDecl : Declaration {
 final class FunctionDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -146,11 +150,11 @@ final class FunctionDecl : Declaration {
 final class VarDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -160,11 +164,11 @@ final class VarDecl : Declaration {
 final class ParmDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -174,11 +178,11 @@ final class ParmDecl : Declaration {
 final class ObjCInterfaceDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -188,11 +192,11 @@ final class ObjCInterfaceDecl : Declaration {
 final class ObjCCategoryDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -202,11 +206,11 @@ final class ObjCCategoryDecl : Declaration {
 final class ObjCProtocolDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -216,11 +220,11 @@ final class ObjCProtocolDecl : Declaration {
 final class ObjCPropertyDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -230,11 +234,11 @@ final class ObjCPropertyDecl : Declaration {
 final class ObjCIvarDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -244,11 +248,11 @@ final class ObjCIvarDecl : Declaration {
 final class ObjCInstanceMethodDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -258,11 +262,11 @@ final class ObjCInstanceMethodDecl : Declaration {
 final class ObjCClassMethodDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -272,11 +276,11 @@ final class ObjCClassMethodDecl : Declaration {
 final class ObjCImplementationDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -286,11 +290,11 @@ final class ObjCImplementationDecl : Declaration {
 final class ObjCCategoryImplDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -300,11 +304,11 @@ final class ObjCCategoryImplDecl : Declaration {
 final class TypedefDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -314,11 +318,11 @@ final class TypedefDecl : Declaration {
 final class CxxMethod : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -328,11 +332,11 @@ final class CxxMethod : Declaration {
 final class Namespace : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -342,11 +346,11 @@ final class Namespace : Declaration {
 final class LinkageSpec : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -356,11 +360,11 @@ final class LinkageSpec : Declaration {
 final class Constructor : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -370,11 +374,11 @@ final class Constructor : Declaration {
 final class Destructor : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -384,11 +388,11 @@ final class Destructor : Declaration {
 final class ConversionFunction : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -398,11 +402,11 @@ final class ConversionFunction : Declaration {
 final class TemplateTypeParameter : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -412,11 +416,11 @@ final class TemplateTypeParameter : Declaration {
 final class NonTypeTemplateParameter : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -426,11 +430,11 @@ final class NonTypeTemplateParameter : Declaration {
 final class TemplateTemplateParameter : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -440,11 +444,11 @@ final class TemplateTemplateParameter : Declaration {
 final class FunctionTemplate : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -454,11 +458,11 @@ final class FunctionTemplate : Declaration {
 final class ClassTemplate : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -468,11 +472,11 @@ final class ClassTemplate : Declaration {
 final class ClassTemplatePartialSpecialization : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -482,11 +486,11 @@ final class ClassTemplatePartialSpecialization : Declaration {
 final class NamespaceAlias : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -496,11 +500,11 @@ final class NamespaceAlias : Declaration {
 final class UsingDirective : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -510,11 +514,11 @@ final class UsingDirective : Declaration {
 final class TypeAliasDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -524,11 +528,11 @@ final class TypeAliasDecl : Declaration {
 final class ObjCSynthesizeDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -538,11 +542,11 @@ final class ObjCSynthesizeDecl : Declaration {
 final class ObjCDynamicDecl : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -552,11 +556,11 @@ final class ObjCDynamicDecl : Declaration {
 final class CxxAccessSpecifier : Declaration {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);

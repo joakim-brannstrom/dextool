@@ -38,23 +38,23 @@ class ExtendedVisitor : Visitor {
     // IfStmtCond and then a BinaryOperator.
     Set!size_t ignoreCursors;
 
-    void visit(const(IfStmtInit) value) {
+    void visit(scope const IfStmtInit value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(const(IfStmtCond) value) {
+    void visit(scope const IfStmtCond value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(IfStmtCondVar) value) {
+    void visit(scope const IfStmtCondVar value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(const(IfStmtThen) value) {
+    void visit(scope const IfStmtThen value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(const(IfStmtElse) value) {
+    void visit(scope const IfStmtElse value) {
         visit(cast(const(Statement)) value);
     }
 }
@@ -67,7 +67,7 @@ final class IfStmtInit : libclang_ast.ast.Statement {
         super(cursor);
     }
 
-    void accept(ExtendedVisitor v) @safe const {
+    void accept(ExtendedVisitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.dispatch(cursor, v);
@@ -79,7 +79,7 @@ final class IfStmtCond : libclang_ast.ast.Expression {
         super(cursor);
     }
 
-    void accept(ExtendedVisitor v) @safe const {
+    void accept(ExtendedVisitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.dispatch(cursor, v);
@@ -91,7 +91,7 @@ final class IfStmtCondVar : libclang_ast.ast.Expression {
         super(cursor);
     }
 
-    void accept(ExtendedVisitor v) @safe const {
+    void accept(ExtendedVisitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.dispatch(cursor, v);
@@ -103,7 +103,7 @@ final class IfStmtThen : libclang_ast.ast.Statement {
         super(cursor);
     }
 
-    void accept(ExtendedVisitor v) @safe const {
+    void accept(ExtendedVisitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.dispatch(cursor, v);
@@ -115,21 +115,23 @@ final class IfStmtElse : libclang_ast.ast.Statement {
         super(cursor);
     }
 
-    void accept(ExtendedVisitor v) @safe const {
+    void accept(ExtendedVisitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.dispatch(cursor, v);
     }
 }
 
-void accept(T)(const(libclang_ast.ast.IfStmt) n, T v) if (is(T : ExtendedVisitor)) {
+void accept(T)(scope const libclang_ast.ast.IfStmt n, T v)
+        if (is(T : ExtendedVisitor)) {
     import dextool.clang_extensions;
 
     auto stmt = getIfStmt(n.cursor);
     accept(stmt, v);
 }
 
-void accept(T)(dextool.clang_extensions.IfStmt n, T v) if (is(T : ExtendedVisitor)) {
+void accept(T)(scope dextool.clang_extensions.IfStmt n, T v)
+        if (is(T : ExtendedVisitor)) {
     import std.traits : hasMember;
 
     void incr() {

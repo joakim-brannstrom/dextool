@@ -363,6 +363,17 @@ class Document : FileResource {
 	+/
 	string[] selfClosedElements = htmlSelfClosedElements;
 
+	/++
+		List of elements that are considered inline for pretty printing.
+		The default for a Document are hard-coded to something appropriate
+		for HTML. For [XmlDocument], it defaults to empty. You can modify
+		this after construction but before parsing.
+
+		History:
+			Added June 21, 2021 (included in dub release 10.1)
+	+/
+	string[] inlineElements = htmlInlineElements;
+
 	/**
 		Take XMLish data and try to make the DOM tree out of it.
 
@@ -1072,8 +1083,9 @@ class Document : FileResource {
 										pos++;
 
 										ateAny = eatWhitespace();
-										if(strict && ateAny)
-											throw new MarkupException("inappropriate whitespace after attribute equals");
+										// the spec actually allows this!
+										//if(strict && ateAny)
+											//throw new MarkupException("inappropriate whitespace after attribute equals");
 
 										attrValue = readAttributeValue();
 
@@ -1208,7 +1220,7 @@ class Document : FileResource {
 	final SomeElementType requireElementById(SomeElementType = Element)(string id, string file = __FILE__, size_t line = __LINE__)
 		if( is(SomeElementType : Element))
 		out(ret) { assert(ret !is null); }
-	body {
+	do {
 		return root.requireElementById!(SomeElementType)(id, file, line);
 	}
 
@@ -1216,7 +1228,7 @@ class Document : FileResource {
 	final SomeElementType requireSelector(SomeElementType = Element)(string selector, string file = __FILE__, size_t line = __LINE__)
 		if( is(SomeElementType : Element))
 		out(ret) { assert(ret !is null); }
-	body {
+	do {
 		auto e = cast(SomeElementType) querySelector(selector);
 		if(e is null)
 			throw new ElementNotFoundException(SomeElementType.stringof, selector, this.root, file, line);
@@ -1331,7 +1343,7 @@ class Document : FileResource {
 		out(ret) {
 			assert(ret !is null);
 		}
-	body {
+	do {
 		return cast(Form) createElement("form");
 	}
 
@@ -1493,7 +1505,7 @@ class Element {
 	out(ret) {
 		assert(ret !is null);
 	}
-	body {
+	do {
 		auto e = cast(SomeElementType) getElementById(id);
 		if(e is null)
 			throw new ElementNotFoundException(SomeElementType.stringof, "id=" ~ id, this, file, line);
@@ -1508,7 +1520,7 @@ class Element {
 	out(ret) {
 		assert(ret !is null);
 	}
-	body {
+	do {
 		auto e = cast(SomeElementType) querySelector(selector);
 		if(e is null)
 			throw new ElementNotFoundException(SomeElementType.stringof, selector, this, file, line);
@@ -1620,7 +1632,7 @@ class Element {
 			//assert(e.parentNode is this);
 			//assert(e.parentDocument is this.parentDocument);
 		}
-	body {
+	do {
 		auto e = Element.make(tagName, childInfo, childInfo2);
 		// FIXME (maybe): if the thing is self closed, we might want to go ahead and
 		// return the parent. That will break existing code though.
@@ -1640,7 +1652,7 @@ class Element {
 			assert(e.parentNode is this.parentNode);
 			assert(e.parentDocument is this.parentDocument);
 		}
-	body {
+	do {
 		auto e = Element.make(tagName, childInfo, childInfo2);
 		return parentNode.insertAfter(this, e);
 	}
@@ -1683,7 +1695,7 @@ class Element {
 		assert(ret.parentDocument is this.parentDocument);
 		//assert(firstChild.parentDocument is this.parentDocument);
 	}
-	body {
+	do {
 		auto e = Element.make(tagName, "", info2);
 		e.appendChild(firstChild);
 		this.appendChild(e);
@@ -1699,7 +1711,7 @@ class Element {
 		assert((cast(DocumentFragment) this !is null) || (ret.parentNode is this), ret.toString);// e.parentNode ? e.parentNode.toString : "null");
 		assert(ret.parentDocument is this.parentDocument);
 	}
-	body {
+	do {
 		auto e = Element.make(tagName, "", info2);
 		this.appendChild(e);
 		e.innerHTML = innerHtml.source;
@@ -1723,7 +1735,7 @@ class Element {
 			assert(this.parentNode is newParent);
 			//assert(isInArray(this, newParent.children));
 		}
-	body {
+	do {
 		parentNode.removeChild(this);
 		newParent.appendChild(this);
 	}
@@ -1747,7 +1759,7 @@ class Element {
 			assert(parentNode is null);
 			assert(children.length == 0);
 		}
-	body {
+	do {
 		foreach(c; children)
 			c.parentNode = null; // remove the parent
 		if(children.length)
@@ -1767,7 +1779,7 @@ class Element {
 			assert(this.parentNode is null);
 			assert(var is this);
 		}
-	body {
+	do {
 		if(this.parentNode is null)
 			return this;
 
@@ -1791,7 +1803,7 @@ class Element {
 			assert(this.parentNode is what);
 			assert(ret is what);
 		}
-	body {
+	do {
 		this.replaceWith(what);
 		what.appendChild(this);
 
@@ -1803,7 +1815,7 @@ class Element {
 	in {
 		assert(this.parentNode !is null);
 	}
-	body {
+	do {
 		e.removeFromTree();
 		this.parentNode.replaceChild(this, e);
 		return e;
@@ -2449,7 +2461,7 @@ class Element {
 	out(ret) {
 		assert(ret is this);
 	}
-	body {
+	do {
 		if(parentDocument && parentDocument.loose)
 			name = name.toLower();
 		if(name in attributes)
@@ -2661,7 +2673,7 @@ class Element {
 		out {
 			assert(this.children.length == 0);
 		}
-	body {
+	do {
 		children = null;
 	}
 
@@ -2695,7 +2707,7 @@ class Element {
 			assert(e.parentDocument is this.parentDocument);
 			assert(e is ret);
 		}
-	body {
+	do {
 		if(e.parentNode !is null)
 			e.parentNode.removeChild(e);
 
@@ -2727,7 +2739,7 @@ class Element {
 			assert(what.parentDocument is this.parentDocument);
 			assert(ret is what);
 		}
-	body {
+	do {
 		foreach(i, e; children) {
 			if(e is where) {
 				if(auto frag = cast(DocumentFragment) what)
@@ -2761,7 +2773,7 @@ class Element {
 			assert(what.parentDocument is this.parentDocument);
 			assert(ret is what);
 		}
-	body {
+	do {
 		foreach(i, e; children) {
 			if(e is where) {
 				if(auto frag = cast(DocumentFragment) what)
@@ -2792,7 +2804,7 @@ class Element {
 			assert(replacement.parentNode is this);
 			assert(replacement.parentDocument is this.parentDocument);
 		}
-	body {
+	do {
 		foreach(ref c; this.children)
 			if(c is child) {
 				c.parentNode = null;
@@ -2867,7 +2879,7 @@ class Element {
 			//assert(isInArray(where, children));
 			//assert(isInArray(child, children));
 		}
-	body {
+	do {
 		foreach(ref i, c; children) {
 			if(c is where) {
 				i++;
@@ -2905,7 +2917,7 @@ class Element {
 				assert(child.parentDocument is this.parentDocument);
 			}
 		}
-	body {
+	do {
 		foreach(c; e.children) {
 			c.parentNode = this;
 			c.parentDocument = this.parentDocument;
@@ -2940,7 +2952,7 @@ class Element {
 			assert(e.parentDocument is this.parentDocument);
 			assert(children[0] is e);
 		}
-	body {
+	do {
 		e.parentNode = this;
 		e.parentDocument = this.parentDocument;
 		if(auto frag = cast(DocumentFragment) e)
@@ -3072,7 +3084,7 @@ class Element {
 			assert(replace.parentDocument is this.parentDocument);
 			assert(find.parentNode is null);
 		}
-	body {
+	do {
 		// FIXME
 		//if(auto frag = cast(DocumentFragment) replace)
 			//return this.replaceChild(frag, replace.children);
@@ -3108,7 +3120,7 @@ class Element {
 			debug foreach(r; replace)
 				assert(r.parentNode is this);
 		}
-	body {
+	do {
 		if(replace.length == 0) {
 			removeChild(find);
 			return;
@@ -3148,7 +3160,7 @@ class Element {
 				assert(child !is c);
 			assert(c.parentNode is null);
 		}
-	body {
+	do {
 		foreach(i, e; children) {
 			if(e is c) {
 				children = children[0..i] ~ children [i+1..$];
@@ -3167,7 +3179,7 @@ class Element {
 			debug foreach(r; ret)
 				assert(r.parentNode is null);
 		}
-	body {
+	do {
 		Element[] oldChildren = children.dup;
 		foreach(c; oldChildren)
 			c.parentNode = null;
@@ -3242,7 +3254,7 @@ class Element {
 			assert(ret.children.length == this.children.length, format("%d %d", ret.children.length, this.children.length));
 			assert(ret.tagName == this.tagName);
 		}
-	body {
+	do {
 	+/
 	{
 		return this.cloneNode(true);
@@ -3352,6 +3364,8 @@ class Element {
 		}
 		+/
 
+		auto inlineElements = (parentDocument is null ? null : parentDocument.inlineElements);
+
 		const(Element)[] children;
 
 		TextNode lastTextChild = null;
@@ -3399,7 +3413,7 @@ class Element {
 
 		// for simple `<collection><item>text</item><item>text</item></collection>`, let's
 		// just keep them on the same line
-		if(tagName.isInArray(inlineElements) || allAreInlineHtml(children)) {
+		if(tagName.isInArray(inlineElements) || allAreInlineHtml(children, inlineElements)) {
 			foreach(child; children) {
 				s ~= child.toString();//toPrettyString(false, 0, null);
 			}
@@ -3558,6 +3572,7 @@ class Element {
 class XmlDocument : Document {
 	this(string data) {
 		selfClosedElements = null;
+		inlineElements = null;
 		contentType = "text/xml; charset=utf-8";
 		_prolog = `<?xml version="1.0" encoding="UTF-8"?>` ~ "\n";
 
@@ -3991,7 +4006,7 @@ enum NodeType { Text = 3 }
 T require(T = Element, string file = __FILE__, int line = __LINE__)(Element e) if(is(T : Element))
 	in {}
 	out(ret) { assert(ret !is null); }
-body {
+do {
 	auto ret = cast(T) e;
 	if(ret is null)
 		throw new ElementNotFoundException(T.stringof, "passed value", e, file, line);
@@ -6595,7 +6610,7 @@ class Table : Element {
 				);
 			}
 		}
-	body {
+	do {
 		if(tablePortition is null)
 			tablePortition = this;
 
@@ -6782,7 +6797,7 @@ private immutable static string[] htmlSelfClosedElements = [
 	// html 5
 	"source" ];
 
-private immutable static string[] inlineElements = [
+private immutable static string[] htmlInlineElements = [
 	"span", "strong", "em", "b", "i", "a"
 ];
 
@@ -8780,11 +8795,11 @@ unittest {
 }
 +/
 
-bool allAreInlineHtml(const(Element)[] children) {
+bool allAreInlineHtml(const(Element)[] children, const string[] inlineElements) {
 	foreach(child; children) {
 		if(child.nodeType == NodeType.Text && child.nodeValue.strip.length) {
 			// cool
-		} else if(child.tagName.isInArray(inlineElements) && allAreInlineHtml(child.children)) {
+		} else if(child.tagName.isInArray(inlineElements) && allAreInlineHtml(child.children, inlineElements)) {
 			// cool
 		} else {
 			// prolly block

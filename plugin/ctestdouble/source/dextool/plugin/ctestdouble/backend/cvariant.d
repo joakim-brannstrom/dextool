@@ -292,7 +292,7 @@ final class CVisitor : Visitor {
         this.root = CppRoot.make;
     }
 
-    override void visit(const VarDecl v) @trusted {
+    override void visit(scope const VarDecl v) {
         import cpptooling.data : TypeKindVariable;
         import clang.c.Index : CX_StorageClass;
 
@@ -308,7 +308,7 @@ final class CVisitor : Visitor {
         }
     }
 
-    override void visit(const FunctionDecl v) {
+    override void visit(scope const FunctionDecl v) {
         import cpptooling.data.type : CxReturnType;
 
         mixin(mixinNodeLog!());
@@ -321,7 +321,7 @@ final class CVisitor : Visitor {
         }
     }
 
-    override void visit(const TranslationUnit v) {
+    override void visit(scope const TranslationUnit v) {
         import cpptooling.analyzer.clang.type : makeLocation;
 
         mixin(mixinNodeLog!());

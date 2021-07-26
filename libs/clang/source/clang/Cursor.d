@@ -51,12 +51,12 @@ import clang.Visitor;
      * references in one translation refer to an entity defined in another
      * translation unit.
      */
-    @property string usr() const @trusted {
+    @property string usr() const @trusted scope {
         return toD(clang_getCursorUSR(cx));
     }
 
     /// Return: Retrieve a name for the entity referenced by this cursor.
-    @property string spelling() const @trusted {
+    @property string spelling() const @trusted scope {
         return toD(clang_getCursorSpelling(cx));
     }
 
@@ -66,7 +66,7 @@ import clang.Visitor;
      * If the passed in Cursor is not a function or variable declaration,
      * CX_SC_Invalid is returned else the storage class.
      */
-    @property CX_StorageClass storageClass() const @trusted {
+    @property CX_StorageClass storageClass() const @trusted scope {
         return clang_Cursor_getStorageClass(cx);
     }
 
@@ -90,7 +90,7 @@ import clang.Visitor;
      * This is the linkage for entities with true, external linkage.
      * CXLinkage_External
      */
-    @property CXLinkageKind linkage() const @trusted {
+    @property CXLinkageKind linkage() const @trusted scope {
         return clang_getCursorLinkage(cx);
     }
 
@@ -103,14 +103,14 @@ import clang.Visitor;
      * If it is NOT a declaration then the return value is the same as
      * spelling.
      */
-    @property string displayName() const @trusted {
+    @property string displayName() const @trusted scope {
         return toD(clang_getCursorDisplayName(cx));
     }
 
     /** Return the cursor kind of the template specialization that would be
      * generated when instantiating the template with this cursor.
      */
-    @property CXCursorKind templateKind() const @trusted {
+    @property CXCursorKind templateKind() const @trusted scope {
         return clang_getTemplateCursorKind(cx);
     }
 
@@ -120,7 +120,7 @@ import clang.Visitor;
      * It will only work for a cursor that represent a specialization or
      * insantiation of a template. Otherwise, NULL cursor is returned.
      */
-    @property CXCursor templateCursor() const @trusted {
+    @property CXCursor templateCursor() const @trusted scope {
         return clang_getSpecializedCursorTemplate(cx);
     }
 
@@ -128,7 +128,7 @@ import clang.Visitor;
      *
      * Only useful for cursors that are NOT declarations.
      */
-    @property string mangling() const @trusted {
+    @property string mangling() const @trusted scope {
         return toD(clang_Cursor_getMangling(cx));
     }
 
@@ -141,7 +141,7 @@ import clang.Visitor;
     //}
 
     /// Return: the kind of this cursor.
-    @property CXCursorKind kind() const @trusted {
+    @property CXCursorKind kind() const @trusted scope {
         return clang_getCursorKind(cx);
     }
 
@@ -154,7 +154,7 @@ import clang.Visitor;
      * The location of a reference is where that reference occurs within the
      * source code.
      */
-    @property SourceLocation location() const @trusted {
+    @property SourceLocation location() const @trusted scope {
         return SourceLocation(clang_getCursorLocation(cx));
     }
 
@@ -175,7 +175,7 @@ import clang.Visitor;
      *  - NamespaceRef
      *  - OverloadedDeclRef
      */
-    @property Type type() @trusted const {
+    @property Type type() @trusted const scope {
         auto r = clang_getCursorType(cx);
         return Type(this, r);
     }
@@ -186,7 +186,7 @@ import clang.Visitor;
      *
      * Returns: the Type the typedef cursor is a declaration for.
      */
-    @property Type typedefUnderlyingType() @trusted const {
+    @property Type typedefUnderlyingType() @trusted const scope {
         auto r = clang_getTypedefDeclUnderlyingType(cx);
         return Type(this, r);
     }
@@ -195,7 +195,7 @@ import clang.Visitor;
      *  some entity, return a cursor that points to the definition of that
      *  entity.
      */
-    @property Cursor definition() const @trusted {
+    @property Cursor definition() const @trusted scope {
         auto r = clang_getCursorDefinition(cx);
         return Cursor(r);
     }
@@ -233,7 +233,7 @@ import clang.Visitor;
      *
      * For global declarations, the semantic parent is the translation unit.
      */
-    @property Cursor semanticParent() const @trusted {
+    @property Cursor semanticParent() const @trusted scope {
         auto r = clang_getCursorSemanticParent(cx);
         return Cursor(r);
     }
@@ -272,7 +272,7 @@ import clang.Visitor;
      * For declarations written in the global scope, the lexical parent is
      * the translation unit.
      */
-    @property Cursor lexicalParent() const @trusted {
+    @property Cursor lexicalParent() const @trusted scope {
         auto r = clang_getCursorLexicalParent(cx);
         return Cursor(r);
     }
@@ -287,12 +287,12 @@ import clang.Visitor;
      * declaration or definition, it returns that declaration or definition
      * unchanged.  Otherwise, returns the NULL cursor.
      */
-    @property Cursor referenced() const @trusted {
+    @property Cursor referenced() const @trusted scope {
         auto r = clang_getCursorReferenced(cx);
         return Cursor(r);
     }
 
-    @property DeclarationVisitor declarations() const @trusted {
+    @property DeclarationVisitor declarations() const @trusted scope {
         return DeclarationVisitor(this);
     }
 
@@ -306,7 +306,7 @@ import clang.Visitor;
      * the extent covers the location of the reference (e.g., where the
      * referenced entity was actually used).
      */
-    @property SourceRange extent() const @trusted {
+    @property SourceRange extent() const @trusted scope {
         auto r = clang_getCursorExtent(cx);
         return SourceRange(r);
     }
@@ -343,18 +343,18 @@ import clang.Visitor;
      *
      * Return: The canonical cursor for the entity referred to by the given cursor.
      */
-    @property Cursor canonical() @trusted const {
+    @property Cursor canonical() @trusted const scope {
         auto r = clang_getCanonicalCursor(cx);
         return Cursor(r);
     }
 
     /// Determine the "language" of the entity referred to by a given cursor.
-    @property CXLanguageKind language() const @trusted {
+    @property CXLanguageKind language() const @trusted scope {
         return clang_getCursorLanguage(cx);
     }
 
     /// Returns: the translation unit that a cursor originated from.
-    @property TranslationUnit translationUnit() const @trusted {
+    @property TranslationUnit translationUnit() const @trusted scope {
         return TranslationUnit(clang_Cursor_getTranslationUnit(cx));
     }
 
@@ -368,7 +368,7 @@ import clang.Visitor;
      *
      * Returns: A range over the tokens.
      */
-    @property auto tokens() const @trusted {
+    @property auto tokens() const @trusted scope {
         import std.algorithm.mutation : stripRight;
 
         CXToken* tokens = null;
@@ -380,35 +380,31 @@ import clang.Visitor;
         return result.stripRight!(token => !intersects(extent, token.extent));
     }
 
-    @property ObjcCursor objc() const {
+    @property ObjcCursor objc() const return scope {
         return ObjcCursor(this);
     }
 
-    @property FunctionCursor func() const {
+    @property FunctionCursor func() const return scope {
         return FunctionCursor(this);
     }
 
-    @property EnumCursor enum_() const {
+    @property EnumCursor enum_() const return scope {
         return EnumCursor(this);
     }
 
-    @property AccessCursor access() const {
+    @property AccessCursor access() const return scope {
         return AccessCursor(this);
     }
 
-    @property IncludeCursor include() const {
+    @property IncludeCursor include() const return scope {
         return IncludeCursor(this);
     }
 
-    @property Visitor all() const {
+    @property Visitor all() const return scope {
         return Visitor(this);
     }
 
-    @property InOrderVisitor allInOrder() const {
-        return InOrderVisitor(this);
-    }
-
-    private Cursor[] childrenImpl(T)(bool ignorePredefined) const {
+    private Cursor[] childrenImpl(T)(bool ignorePredefined) const scope @trusted {
         import std.array : appender;
 
         Cursor[] result;
@@ -432,21 +428,21 @@ import clang.Visitor;
      * Params:
      *  ignorePredefined = ignore cursors for primitive types.
      */
-    Cursor[] children(bool ignorePredefined = false) const {
+    Cursor[] children(bool ignorePredefined = false) const scope {
         return childrenImpl!Visitor(ignorePredefined);
     }
 
-    Cursor[] childrenInOrder(bool ignorePredefined = false) const {
+    Cursor[] childrenInOrder(bool ignorePredefined = false) const scope {
         return childrenImpl!InOrderVisitor(ignorePredefined);
     }
 
     /// Determine whether two cursors are equivalent.
-    equals_t opEquals(const ref Cursor cursor) const @trusted {
+    equals_t opEquals(scope const Cursor cursor) const @trusted {
         return clang_equalCursors(cast(CXCursor) cursor.cx, cast(CXCursor) cx) != 0;
     }
 
     /// Compute a hash value for the given cursor.
-    size_t toHash() const nothrow @trusted {
+    size_t toHash() const nothrow @trusted scope {
         //TODO i'm not sure this is a good solution... investigate.
         try {
             return clang_hashCursor(cast(CXCursor) cx);
@@ -456,12 +452,12 @@ import clang.Visitor;
     }
 
     /// Determine whether the given cursor has any attributes.
-    @property bool hasAttributes() const @trusted {
+    @property bool hasAttributes() const @trusted scope {
         return clang_Cursor_hasAttrs(cx) != 0;
     }
 
     /// Determine whether the given cursor kind represents a declaration.
-    @property bool isDeclaration() const @trusted {
+    @property bool isDeclaration() const @trusted scope {
         return clang_isDeclaration(cx.kind) != 0;
     }
 
@@ -472,17 +468,17 @@ import clang.Visitor;
      * other cursors. Use clang_getCursorReferenced() to determine whether a
      * particular cursor refers to another entity.
      */
-    @property bool isReference() const @trusted {
+    @property bool isReference() const @trusted scope {
         return clang_isReference(cx.kind) != 0;
     }
 
     /// Determine whether the given cursor kind represents an expression.
-    @property bool isExpression() const @trusted {
+    @property bool isExpression() const @trusted scope {
         return clang_isExpression(cx.kind) != 0;
     }
 
     /// Determine whether the given cursor kind represents a statement.
-    @property bool isStatement() const @trusted {
+    @property bool isStatement() const @trusted scope {
         return clang_isStatement(cx.kind) != 0;
     }
 
@@ -505,39 +501,39 @@ import clang.Visitor;
      * };
      * ---
      */
-    @property bool isAnonymous() const @trusted {
+    @property bool isAnonymous() const @trusted scope {
         return clang_Cursor_isAnonymous(cx) != 0;
     }
 
     /// Determine whether the given cursor kind represents an attribute.
-    @property bool isAttribute() const @trusted {
+    @property bool isAttribute() const @trusted scope {
         return clang_isAttribute(cx.kind) != 0;
     }
 
-    int bitFieldWidth() const @trusted {
+    int bitFieldWidth() const @trusted scope {
         return clang_getFieldDeclBitWidth(cast(CXCursor) cx);
     }
 
-    bool isBitField() const @trusted {
+    bool isBitField() const @trusted scope {
         return clang_Cursor_isBitField(cast(CXCursor) cx) != 0;
     }
 
     /// Determine whether the given cursor kind represents an invalid cursor.
-    @property bool isValid() const @trusted {
+    @property bool isValid() const @trusted scope {
         // note that it checks for invalidity of the cursor, thus the inverse
         // is the return value.
         return !clang_isInvalid(cx.kind);
     }
 
     /// Determine whether the given cursor kind represents a translation unit.
-    @property bool isTranslationUnit() const @trusted {
+    @property bool isTranslationUnit() const @trusted scope {
         return clang_isTranslationUnit(cx.kind) != 0;
     }
 
     /** Determine whether the given cursor represents a preprocessing
      * element, such as a preprocessor directive or macro instantiation.
      */
-    @property bool isPreprocessing() const @trusted {
+    @property bool isPreprocessing() const @trusted scope {
         return clang_isPreprocessing(cx.kind) != 0;
 
         // If clang_isPreprocessing isn't working out this is the
@@ -551,12 +547,12 @@ import clang.Visitor;
     /** Determine whether the given cursor represents a currently unexposed
      * piece of the AST (e.g., CXCursor_UnexposedStmt).
      */
-    @property bool isUnexposed() const @trusted {
+    @property bool isUnexposed() const @trusted scope {
         return clang_isUnexposed(cx.kind) != 0;
     }
 
     /// Return: if the underlying type is an enum.
-    @property bool isUnderlyingTypeEnum() const @trusted {
+    @property bool isUnderlyingTypeEnum() const @trusted scope {
         auto underlying = typedefUnderlyingType;
         if (!underlying.isValid) {
             return false;
@@ -571,78 +567,78 @@ import clang.Visitor;
     }
 
     /// Return: if cursor is null/empty.
-    @property bool isEmpty() const @trusted {
+    @property bool isEmpty() const @trusted scope {
         return clang_Cursor_isNull(cx) != 0;
     }
 
     /** Returns true if the declaration pointed at by the cursor is also a
      * definition of that entity.
      */
-    bool isDefinition() const @trusted {
+    bool isDefinition() const @trusted scope {
         return clang_isCursorDefinition(cast(CXCursor) cx) != 0;
     }
 
     /// Returns: if the base class specified by the cursor with kind CX_CXXBaseSpecifier is virtual.
-    @property bool isVirtualBase() const @trusted {
+    @property bool isVirtualBase() const @trusted scope {
         return clang_isVirtualBase(cx) != 0;
     }
 
-    bool isPredefined() const @trusted {
+    bool isPredefined() const @trusted scope {
         auto xkind = usr in predefined;
         return xkind !is null && *xkind == kind;
     }
 
     /** Determine whether a CXCursor that is a macro, is function like.
      */
-    bool isMacroFunctionLike() const @trusted {
+    bool isMacroFunctionLike() const @trusted scope {
         return clang_Cursor_isMacroFunctionLike(cx) != 0;
     }
 
     /** Determine whether a CXCursor that is a macro, is a builtin one.
      */
-    bool isMacroBuiltin() const @trusted {
+    bool isMacroBuiltin() const @trusted scope {
         return clang_Cursor_isMacroBuiltin(cx) != 0;
     }
 
     /** Determine whether a CXCursor that is a function declaration, is an
      * inline declaration.
      */
-    bool isFunctionInlined() const @trusted {
+    bool isFunctionInlined() const @trusted scope {
         return clang_Cursor_isFunctionInlined(cx) != 0;
     }
 
     /// Determine if a C++ constructor is a converting constructor.
-    bool isConvertingConstructor() const @trusted {
+    bool isConvertingConstructor() const @trusted scope {
         return clang_CXXConstructor_isConvertingConstructor(cx) != 0;
     }
 
     /// Determine if a C++ constructor is a copy constructor.
-    bool isCopyConstructor() const @trusted {
+    bool isCopyConstructor() const @trusted scope {
         return clang_CXXConstructor_isCopyConstructor(cx) != 0;
     }
 
     /// Determine if a C++ constructor is the default constructor.
-    bool isDefaultConstructor() const @trusted {
+    bool isDefaultConstructor() const @trusted scope {
         return clang_CXXConstructor_isDefaultConstructor(cx) != 0;
     }
 
     /// Determine if a C++ constructor is a move constructor.
-    bool isMoveConstructor() const @trusted {
+    bool isMoveConstructor() const @trusted scope {
         return clang_CXXConstructor_isMoveConstructor(cx) != 0;
     }
 
     /// Determine if a C++ field is declared 'mutable'.
-    bool isMutable() const @trusted {
+    bool isMutable() const @trusted scope {
         return clang_CXXField_isMutable(cx) != 0;
     }
 
     /// Determine if a C++ method is declared '= default'.
-    bool isDefaulted() const @trusted {
+    bool isDefaulted() const @trusted scope {
         return clang_CXXMethod_isDefaulted(cx) != 0;
     }
 
     /// Determine if a C++ member function or member function template is pure virtual.
-    bool isPureVirtual() @trusted {
+    bool isPureVirtual() @trusted scope {
         return clang_CXXMethod_isPureVirtual(cx) != 0;
     }
 
@@ -767,7 +763,7 @@ struct AccessCursor {
      * by a cursor with kind CXCursor_CXXBaseSpecifier or
      * CXCursor_AccessSpecifier.
      */
-    @property auto accessSpecifier() @trusted {
+    @property auto accessSpecifier() @trusted scope const {
         return clang_getCXXAccessSpecifier(cx);
     }
 }

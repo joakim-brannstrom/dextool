@@ -154,23 +154,23 @@ final class FrontendIO : FilesysIO {
         return new FrontendIO(root, dry_run);
     }
 
-    override File getDevNull() {
+    override File getDevNull() const scope {
         return File("/dev/null", "w");
     }
 
-    override File getStdin() @trusted {
+    override File getStdin() @trusted const scope {
         static import std.stdio;
 
         return std.stdio.stdin;
     }
 
-    override Path toRelativeRoot(Path p) @trusted {
+    override Path toRelativeRoot(Path p) @trusted const scope {
         import std.path : relativePath;
 
         return relativePath(p, root).Path;
     }
 
-    override AbsolutePath toAbsoluteRoot(Path p) {
+    override AbsolutePath toAbsoluteRoot(Path p) const scope {
         return AbsolutePath(buildPath(root, p));
     }
 
@@ -178,13 +178,13 @@ final class FrontendIO : FilesysIO {
         return root;
     }
 
-    override SafeOutput makeOutput(AbsolutePath p) @safe {
+    override SafeOutput makeOutput(AbsolutePath p) @trusted scope {
         if (!verifyPathInsideRoot(root, p, dry_run))
             throw singletonException;
         return SafeOutput(p, this);
     }
 
-    override Blob makeInput(AbsolutePath p) @safe {
+    override Blob makeInput(AbsolutePath p) @safe scope {
         if (!verifyPathInsideRoot(root, p, dry_run))
             throw singletonException;
 

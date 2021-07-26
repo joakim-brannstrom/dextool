@@ -49,12 +49,12 @@ final class TestVisitor : Visitor {
     CppClass[] classes;
     bool found;
 
-    override void visit(const(TranslationUnit) v) {
+    override void visit(scope const TranslationUnit v) {
         mixin(mixinNodeLog!());
         v.accept(this);
     }
 
-    override void visit(const(ClassDecl) v) @trusted {
+    override void visit(scope const ClassDecl v) @trusted {
         mixin(mixinNodeLog!());
 
         import std.typecons : scoped;

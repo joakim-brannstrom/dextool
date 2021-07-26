@@ -20,7 +20,7 @@ import dextool.plugin.mutate.backend.report.analyzers : reportTrendByCodeChange,
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.type : Mutation;
 
-void makeTrend(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
+void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[] kinds) @trusted {
     import std.datetime : SysTime;
     import dextool.plugin.mutate.backend.report.html.tmpl : TimeScalePointGraph;
 

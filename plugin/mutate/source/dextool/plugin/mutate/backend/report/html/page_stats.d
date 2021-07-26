@@ -23,7 +23,7 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable,
     PieGraph, TimeScalePointGraph;
 import dextool.plugin.mutate.backend.type : Mutation;
 
-void makeStats(ref Database db, const(Mutation.Kind)[] kinds, string tag, Element root) @trusted {
+void makeStats(ref Database db, string tag, Element root, const(Mutation.Kind)[] kinds) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Overview");
     overallStat(reportStatistics(db, kinds), root.addChild("div"));
     syncStatus(reportSyncStatus(db, kinds, 100), root);

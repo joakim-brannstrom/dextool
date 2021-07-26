@@ -87,7 +87,6 @@ struct Set(T) {
      * It is the set of all objects that are members of both self and set.
      */
     Set!T intersect(Set!T set) {
-
         typeof(this) r;
         foreach (k; toRange.filter!(a => set.contains(a)))
             r.add(k);

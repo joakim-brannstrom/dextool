@@ -107,7 +107,7 @@ struct Database {
 
     /// Iterate over the mutants of `kinds` in oldest->newest datum order.
     void iterateMutantStatus(const Mutation.Kind[] kinds,
-            void delegate(const Mutation.Status, const SysTime added) dg) @trusted {
+            scope void delegate(const Mutation.Status, const SysTime added) dg) @trusted {
         immutable sql = format("SELECT t1.status,t1.added_ts FROM %s t0, %s t1
            WHERE
            t0.st_id = t1.id AND
@@ -124,7 +124,7 @@ struct Database {
         }
     }
 
-    void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow) dg) @trusted {
+    void iterateMutants(const Mutation.Kind[] kinds, scope void delegate(const ref IterateMutantRow) dg) @trusted {
         import dextool.plugin.mutate.backend.utility : checksum;
 
         immutable all_mutants = format("SELECT
@@ -254,7 +254,7 @@ struct Database {
      *  dg = callback for reach row
      */
     void iterateFileMutants(const Mutation.Kind[] kinds, Path file,
-            void delegate(ref const FileMutantRow) dg) @trusted {
+            scope void delegate(ref const FileMutantRow) dg) @trusted {
         import std.algorithm : map;
 
         immutable all_fmut = format("SELECT

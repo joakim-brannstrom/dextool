@@ -306,47 +306,47 @@ struct Database {
         return some(max(test.orElse(TestFile.init).timeStamp, sut.orElse(SysTime.init)));
     }
 
-    scope DbDependency dependencyApi() return @safe {
+    DbDependency dependencyApi() return @safe {
         return typeof(return)(&db, &this);
     }
 
-    scope DbTestCmd testCmdApi() return @safe {
+    DbTestCmd testCmdApi() return @safe {
         return typeof(return)(&db, &this);
     }
 
-    scope DbTestCase testCaseApi() return @safe {
+    DbTestCase testCaseApi() return @safe {
         return typeof(return)(&db, &this);
     }
 
-    scope DbMutant mutantApi() return @safe {
+    DbMutant mutantApi() return @safe {
         return typeof(return)(&db, &this);
     }
 
-    scope DbWorklist worklistApi() return @safe {
+    DbWorklist worklistApi() return @safe {
         return typeof(return)(&db, &this);
     }
 
-    scope DbMarkMutant markMutantApi() return @safe {
+    DbMarkMutant markMutantApi() return @safe {
         return typeof(return)(&db, &this);
     }
 
-    scope DbTimeout timeoutApi() return @safe {
+    DbTimeout timeoutApi() return @safe {
         return typeof(return)(&db, &this);
     }
 
-    scope DbCoverage coverageApi() return @safe {
+    DbCoverage coverageApi() return @safe {
         return typeof(return)(&db, &this);
     }
 
-    scope DbSchema schemaApi() return @safe {
+    DbSchema schemaApi() return @safe {
         return typeof(return)(&db, &this);
     }
 
-    scope DbTestFile testFileApi() return @safe {
+    DbTestFile testFileApi() return @safe {
         return typeof(return)(&db, &this);
     }
 
-    scope DbMetaData metaDataApi() return @safe {
+    DbMetaData metaDataApi() return @safe {
         return typeof(return)(&db, &this);
     }
 }

@@ -61,7 +61,7 @@ struct ClangAST(VisitorT) {
  *   void incr(). Called before descending a node.
  *   void decr(). Called after ascending a node.
  */
-void accept(VisitorT)(const(Cursor) cursor, VisitorT visitor) @safe {
+void accept(VisitorT)(scope const Cursor cursor, scope VisitorT visitor) @safe {
     import clang.Visitor : Visitor;
 
     visitor.incr();
@@ -81,8 +81,12 @@ void accept(VisitorT)(const(Cursor) cursor, VisitorT visitor) @safe {
  * cursor.
  *
  * Note that the mixins shall be ordered alphabetically.
+ *
+ * trusted. seems to be a bug. it complains about visitor being assigned to
+ * `this` calling base_visitor.Visitor.this. But that can't be true because
+ * `visit` takes a scope cursor so...
  */
-void dispatch(VisitorT)(const(Cursor) cursor, VisitorT visitor) @safe {
+void dispatch(VisitorT)(scope const Cursor cursor, scope VisitorT visitor) @trusted {
     import clang.Visitor : Visitor;
     import libclang_ast.ast.nodes;
     import std.conv : to;

@@ -17,28 +17,32 @@ abstract class Expression : Node {
     import clang.Cursor : Cursor;
     import libclang_ast.ast : Visitor;
 
-    Cursor cursor;
-    alias cursor this;
+    private Cursor cursor_;
 
-    this(Cursor cursor) @safe {
-        this.cursor = cursor;
+    // trusted on the assumption that the node is scope allocated and all access to cursor is via a scoped ref.
+    this(scope Cursor cursor) @trusted {
+        this.cursor_ = cursor;
     }
 
-    override void accept(Visitor v) @safe const {
+    Cursor cursor() return const @safe {
+        return Cursor(cursor_.cx);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
-        libclang_ast.ast.accept(cursor, v);
+        libclang_ast.ast.accept(cursor_, v);
     }
 }
 
 final class UnexposedExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -48,11 +52,11 @@ final class UnexposedExpr : Expression {
 final class DeclRefExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -62,11 +66,11 @@ final class DeclRefExpr : Expression {
 final class MemberRefExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -76,11 +80,11 @@ final class MemberRefExpr : Expression {
 final class CallExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -90,11 +94,11 @@ final class CallExpr : Expression {
 final class ObjCMessageExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -104,11 +108,11 @@ final class ObjCMessageExpr : Expression {
 final class BlockExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -118,11 +122,11 @@ final class BlockExpr : Expression {
 final class IntegerLiteral : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -132,11 +136,11 @@ final class IntegerLiteral : Expression {
 final class FloatingLiteral : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -146,11 +150,11 @@ final class FloatingLiteral : Expression {
 final class ImaginaryLiteral : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -160,11 +164,11 @@ final class ImaginaryLiteral : Expression {
 final class StringLiteral : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -174,11 +178,11 @@ final class StringLiteral : Expression {
 final class CharacterLiteral : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -188,11 +192,11 @@ final class CharacterLiteral : Expression {
 final class ParenExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -202,11 +206,11 @@ final class ParenExpr : Expression {
 final class UnaryOperator : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -216,11 +220,11 @@ final class UnaryOperator : Expression {
 final class ArraySubscriptExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -230,11 +234,11 @@ final class ArraySubscriptExpr : Expression {
 final class BinaryOperator : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -244,11 +248,11 @@ final class BinaryOperator : Expression {
 final class CompoundAssignOperator : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -258,11 +262,11 @@ final class CompoundAssignOperator : Expression {
 final class ConditionalOperator : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -272,11 +276,11 @@ final class ConditionalOperator : Expression {
 final class CStyleCastExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -286,11 +290,11 @@ final class CStyleCastExpr : Expression {
 final class CompoundLiteralExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -300,11 +304,11 @@ final class CompoundLiteralExpr : Expression {
 final class InitListExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -314,11 +318,11 @@ final class InitListExpr : Expression {
 final class AddrLabelExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -328,11 +332,11 @@ final class AddrLabelExpr : Expression {
 final class StmtExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -342,11 +346,11 @@ final class StmtExpr : Expression {
 final class GenericSelectionExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -356,11 +360,11 @@ final class GenericSelectionExpr : Expression {
 final class GnuNullExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -370,11 +374,11 @@ final class GnuNullExpr : Expression {
 final class CxxStaticCastExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -384,11 +388,11 @@ final class CxxStaticCastExpr : Expression {
 final class CxxDynamicCastExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -398,11 +402,11 @@ final class CxxDynamicCastExpr : Expression {
 final class CxxReinterpretCastExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -412,11 +416,11 @@ final class CxxReinterpretCastExpr : Expression {
 final class CxxConstCastExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -426,11 +430,11 @@ final class CxxConstCastExpr : Expression {
 final class CxxFunctionalCastExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -440,11 +444,11 @@ final class CxxFunctionalCastExpr : Expression {
 final class CxxTypeidExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -454,11 +458,11 @@ final class CxxTypeidExpr : Expression {
 final class CxxBoolLiteralExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -468,11 +472,11 @@ final class CxxBoolLiteralExpr : Expression {
 final class CxxNullPtrLiteralExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -482,11 +486,11 @@ final class CxxNullPtrLiteralExpr : Expression {
 final class CxxThisExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -496,11 +500,11 @@ final class CxxThisExpr : Expression {
 final class CxxThrowExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -510,11 +514,11 @@ final class CxxThrowExpr : Expression {
 final class CxxNewExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -524,11 +528,11 @@ final class CxxNewExpr : Expression {
 final class CxxDeleteExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -538,11 +542,11 @@ final class CxxDeleteExpr : Expression {
 final class UnaryExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -552,11 +556,11 @@ final class UnaryExpr : Expression {
 final class ObjCStringLiteral : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -566,11 +570,11 @@ final class ObjCStringLiteral : Expression {
 final class ObjCEncodeExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -580,11 +584,11 @@ final class ObjCEncodeExpr : Expression {
 final class ObjCSelectorExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -594,11 +598,11 @@ final class ObjCSelectorExpr : Expression {
 final class ObjCProtocolExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -608,11 +612,11 @@ final class ObjCProtocolExpr : Expression {
 final class ObjCBridgedCastExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -622,11 +626,11 @@ final class ObjCBridgedCastExpr : Expression {
 final class PackExpansionExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -636,11 +640,11 @@ final class PackExpansionExpr : Expression {
 final class SizeOfPackExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -650,11 +654,11 @@ final class SizeOfPackExpr : Expression {
 final class LambdaExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -664,11 +668,11 @@ final class LambdaExpr : Expression {
 final class ObjCBoolLiteralExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -678,11 +682,11 @@ final class ObjCBoolLiteralExpr : Expression {
 final class ObjCSelfExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -692,11 +696,11 @@ final class ObjCSelfExpr : Expression {
 final class OmpArraySectionExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);
@@ -706,11 +710,11 @@ final class OmpArraySectionExpr : Expression {
 final class ObjCAvailabilityCheckExpr : Expression {
     import clang.Cursor : Cursor;
 
-    this(Cursor cursor) @safe {
+    this(scope Cursor cursor) @safe {
         super(cursor);
     }
 
-    override void accept(Visitor v) @safe const {
+    override void accept(scope Visitor v) @safe const scope {
         static import libclang_ast.ast;
 
         libclang_ast.ast.accept(cursor, v);

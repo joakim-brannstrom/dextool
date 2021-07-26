@@ -138,6 +138,11 @@ struct RefCounted(T) {
             item = &impl.item;
     }
 
+    inout(T*) unsafePtr() inout {
+        assert(impl, "Invalid refcounted access");
+        return item;
+    }
+
     ref inout(T) get() inout {
         assert(impl, "Invalid refcounted access");
         return *item;
