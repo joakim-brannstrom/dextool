@@ -965,8 +965,7 @@ final class BaseVisitor : ExtendedVisitor {
         // to avoid infinite recursion, which may occur in e.g. postgresql, block
         // segfault on 300
         if (indent > 200) {
-            logger.warning("Max analyze depth reached (200)");
-            return;
+            throw new Exception("max analyze depth reached (200)");
         }
 
         pushStack(ast.make!(analyze.BranchBundle), v);
