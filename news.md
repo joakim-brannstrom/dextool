@@ -20,6 +20,13 @@ New features for dextool mutate
 [{"name": "tc_1", "redundant": true, "text": "<p>a text with <br> html <a href=\"foo.html\">links</a>.</p>", "location": {"file": "../../tc_1.cpp", "line": 42}}]
 ```
 
+ * When `test_cmd`s are executed the host could run out of memry. It resulted
+   in either the tool hanging, the linux OOM killer reaping processes etc. In
+   summary the system and tool became unstable. The tool now have support for
+   specifying the max total used memory of the host via
+   `max_mem_usage_percentage`. If the limit is reached `test_cmd`s will be
+   terminated.
+
 Fixes for dextool mutate
 
  * Fix invalid scheman when a constexpr is used as a label in a case stmt.

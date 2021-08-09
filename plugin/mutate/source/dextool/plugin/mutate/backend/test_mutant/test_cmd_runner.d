@@ -42,10 +42,12 @@ version (unittest) {
 struct TestRunner {
     alias MaxCaptureBytes = NamedType!(ulong, Tag!"MaxOutputCaptureBytes",
             ulong.init, TagStringable);
+    alias MinAvailableMemBytes = NamedType!(ulong, Tag!"MinAvailableMemBytes",
+            ulong.min, TagStringable);
 
     private {
-        alias TestTask = Task!(spawnRunTest, ShellCommand, Duration,
-                string[string], MaxCaptureBytes, Signal, Mutex, Condition);
+        alias TestTask = Task!(spawnRunTest, ShellCommand, Duration, string[string],
+                MaxCaptureBytes, MinAvailableMemBytes, Signal, Mutex, Condition);
         TaskPool pool;
         Duration timeout_;
 
@@ -63,6 +65,8 @@ struct TestRunner {
 
         /// max bytes to save from a test case.
         MaxCaptureBytes maxOutput = 10 * 1024 * 1024;
+
+        MinAvailableMemBytes minAvailableMem_;
     }
 
     static auto make(int poolSize) {
@@ -88,6 +92,10 @@ struct TestRunner {
 
     void maxOutputCapture(MaxCaptureBytes bytes) @safe pure nothrow @nogc {
         this.maxOutput = bytes;
+    }
+
+    void minAvailableMem(MinAvailableMemBytes bytes) @safe pure nothrow @nogc {
+        this.minAvailableMem_ = bytes;
     }
 
     /** Stop executing tests as soon as one detects a failure.
@@ -252,7 +260,7 @@ struct TestRunner {
 
         foreach (c; commands.filter!(a => a.cmd.value[0]!in skipTests.get)) {
             auto t = task!spawnRunTest(c.cmd, timeout, env, maxOutput,
-                    earlyStopSignal, mtx, condDone);
+                    minAvailableMem_, earlyStopSignal, mtx, condDone);
             tasks.put(t);
             pool.put(t);
         }
@@ -308,10 +316,17 @@ string[] findExecutables(AbsolutePath root) @trusted {
     return app.data;
 }
 
-RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env,
-        TestRunner.MaxCaptureBytes maxOutputCapture, Signal earlyStop, Mutex mtx, Condition condDone) @trusted nothrow {
+RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env, TestRunner.MaxCaptureBytes maxOutputCapture,
+        TestRunner.MinAvailableMemBytes minAvailableMem, Signal earlyStop,
+        Mutex mtx, Condition condDone) @trusted nothrow {
+    import core.sys.posix.unistd : _SC_AVPHYS_PAGES, _SC_PAGESIZE, sysconf;
     import std.algorithm : copy;
     static import std.process;
+
+    const pageSize = sysconf(_SC_PAGESIZE);
+    bool isMemLimitTrigger() {
+        return sysconf(_SC_AVPHYS_PAGES) * pageSize < minAvailableMem.get;
+    }
 
     scope (exit)
         () nothrow{
@@ -345,6 +360,13 @@ RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env,
             if (earlyStop.isActive) {
                 debug logger.tracef("Early stop detected. Stopping %s (%s)", cmd, Clock.currTime);
                 p.kill;
+                break;
+            }
+            if (isMemLimitTrigger) {
+                logger.infof("Available memory below limit. Stopping %s (%s < %s)",
+                        cmd, sysconf(_SC_AVPHYS_PAGES) * pageSize, minAvailableMem.get);
+                p.kill;
+                rval.status = RunResult.Status.timeout;
                 break;
             }
         }

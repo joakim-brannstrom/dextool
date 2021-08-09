@@ -465,6 +465,8 @@ struct TestDriver {
         this.runner.useEarlyStop(conf.useEarlyTestCmdStop);
         this.runner.maxOutputCapture(
                 TestRunner.MaxCaptureBytes(conf.maxTestCaseOutput.get * 1024 * 1024));
+        this.runner.minAvailableMem(
+                TestRunner.MinAvailableMemBytes(toMinMemory(conf.maxMemUsage.get)));
         this.runner.put(conf.mutationTester);
 
         // TODO: allow a user, as is for test_cmd, to specify an array of
@@ -623,6 +625,10 @@ nothrow:
         if (conf.loadBehavior == ConfigMutationTest.LoadBehavior.halt && stopCheck.isHalt) {
             data.halt = true;
         }
+
+        logger.infof("Memory limit set minium %s Mbyte",
+                cast(ulong)(toMinMemory(conf.maxMemUsage.get) / (1024.0 * 1024.0)))
+            .collectException;
     }
 
     void opCall(Stop data) {
@@ -1575,3 +1581,10 @@ DIAGNOSTICS
      ber of samples actually retrieved is returned.
  */
 extern (C) int getloadavg(double* loadavg, int nelem) nothrow;
+
+ulong toMinMemory(double percentageOfTotal) {
+    import core.sys.posix.unistd : _SC_PHYS_PAGES, _SC_PAGESIZE, sysconf;
+
+    return cast(ulong)((1.0 - (percentageOfTotal / 100.0)) * sysconf(
+            _SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE));
+}
