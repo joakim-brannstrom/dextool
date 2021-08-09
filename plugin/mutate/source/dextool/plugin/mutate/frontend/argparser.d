@@ -325,6 +325,11 @@ struct ArgParser {
         app.put("# Unit is Mbyte");
         app.put("# max_test_cmd_output = 10");
         app.put(null);
+        app.put("# Kill test_cmd's if the total used memory goes above this limit.");
+        app.put("# This avoids the host from running out of memory.");
+        app.put("# Killed tests are tagged as timeout thus they will be re-tested");
+        app.put("max_mem_usage_percentage = 90.0");
+        app.put(null);
 
         app.put("[report]");
         app.put(null);
@@ -1058,6 +1063,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["mutant_test.max_test_cmd_output"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.maxTestCaseOutput.get = v.integer;
     };
+    callbacks["mutant_test.max_mem_usage_percentage"] = (ref ArgParser c, ref TOMLValue v) {
+        c.mutationTest.maxMemUsage.get = v.floating;
+    };
 
     callbacks["report.style"] = (ref ArgParser c, ref TOMLValue v) {
         c.report.reportKind = v.str.to!ReportKind;
@@ -1414,6 +1422,17 @@ metadata = "foo.json"`;
     auto ap = loadConfig(ArgParser.init, doc);
     ap.report.testMetadata.orElse(ConfigReport.TestMetaData(AbsolutePath.init))
         .get.toString.shouldEqual(AbsolutePath("foo.json").toString);
+}
+
+@("shall parse the max memory usage")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `[mutant_test]
+max_mem_usage_percentage = 2.0`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    (cast(long) ap.mutationTest.maxMemUsage.get).shouldEqual(2);
 }
 
 /// Minimal config to setup path to config file.

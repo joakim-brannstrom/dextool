@@ -805,6 +805,13 @@ executions. The limit is per `test_cmd`. This is used to prevent e.g.
 consuming all the available memory which lead to a crash of the plugin.  The
 default limit is 10 Mbyte. It should be enough for most reasonable `test_cmd`s.
 
+`max_mem_usage_percentage`: Limit the max used memory. The limit is global for
+the host thus includes all programs that are executed. If the limit is reached
+the tool will start terminating `test_cmd`s to reduce the memory usage. A
+terminated `test_cmd` is marked as timeout. This is to re-test them later on to
+be **really** sure that they actually result in the host running out of memory
+and thus isn't a fluke.
+
 ## [report]
 
 Configuration of the generated reports.

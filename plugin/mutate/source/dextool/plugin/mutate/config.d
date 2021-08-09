@@ -230,6 +230,8 @@ struct ConfigMutationTest {
     NamedType!(long, Tag!"MaxTestCaseOutputCaptureMbyte", int.init, TagStringable) maxTestCaseOutput = 10;
 
     NamedType!(bool, Tag!"UseSkipMutant", bool.init, TagStringable) useSkipMutant;
+
+    NamedType!(double, Tag!"MaxMemoryUsage", double.init, TagStringable) maxMemUsage = 90.0;
 }
 
 /// Settings for the administration mode
