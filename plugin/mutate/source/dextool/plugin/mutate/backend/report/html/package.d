@@ -472,9 +472,15 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
 
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
+    auto fltr = root.addChild("div").addClass("input-group");
+    fltr.addChild("input").setAttribute("type", "search").setAttribute("id", "fileFilterInput")
+            .setAttribute("onkeyup", "filter_table_on_search('fileFilterInput', 'fileTable')")
+            .addClass("form-control").setAttribute("placeholder", "Search...");
+
     auto tbl = tmplSortableTable(root, [
             "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
             ]);
+    tbl.setAttribute("id", "fileTable");
 
     // Users are not interested that files that contains zero mutants are shown
     // in the list. It is especially annoying when they are marked with dark
