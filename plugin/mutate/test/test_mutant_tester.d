@@ -9,6 +9,7 @@ import core.thread : Thread;
 import core.time : dur, Duration;
 import std.algorithm : filter;
 import std.file : readText;
+import std.format : format;
 import std.stdio : File;
 import std.traits : EnumMembers;
 import std.typecons : Yes;
@@ -16,7 +17,25 @@ import std.typecons : Yes;
 import dextool_test.utility;
 import dextool_test.fixtures;
 
+string failOnSecondCall() {
+    return `
+MARK="$(dirname $BASH_SOURCE[0])/mark.txt"
+if [[ -e "$MARK" ]]; then
+    EXIT_STATUS=1
+fi
+touch "$MARK"
+exit $EXIT_STATUS
+
+`;
+}
+
 class ShallReportTestCaseKilledMutant : SimpleFixture {
+    override string scriptTest() {
+        return format("#!/bin/bash
+%s
+", programBin) ~ failOnSecondCall;
+    }
+
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
@@ -130,8 +149,7 @@ Expected equality of these values:
 
  2 FAILED TEST
 EOF
-exit 1
-";
+" ~ failOnSecondCall;
     }
 }
 
@@ -496,8 +514,7 @@ The following tests FAILED:
          55 - gtest_output_test (Failed)
          60 - gtest_xml_output_unittest (Failed)
 EOF
-exit 1
-`;
+` ~ failOnSecondCall;
     }
 }
 
@@ -524,12 +541,15 @@ Running main() from gtest_main.cc
 [==========] 4 tests from 1 test case ran. (0 ms total)
 [  PASSED  ] 4 tests.
 EOF
-exit 1
 `;
     }
 }
 
 class ShallDetectAllTestCases : TestCaseDetection {
+    override string scriptTest() {
+        return super.scriptTest ~ failOnSecondCall;
+    }
+
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
@@ -565,6 +585,10 @@ class ShallDetectAllTestCases : TestCaseDetection {
 }
 
 class ShallResetOnNewTestCases : TestCaseDetection {
+    override string scriptTest() {
+        return super.scriptTest;
+    }
+
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
@@ -612,7 +636,6 @@ Running main() from gtest_main.cc
 [==========] 4 tests from 1 test case ran. (0 ms total)
 [  PASSED  ] 4 tests.
 EOF
-exit 1
 ";
 
         File(testScript, "w").write(scriptGTestSuiteAddOne);
@@ -640,6 +663,10 @@ exit 1
 }
 
 class DroppedTestCases : TestCaseDetection {
+    override string scriptTest() {
+        return super.scriptTest ~ failOnSecondCall;
+    }
+
     auto run(ref TestEnv testEnv, string[] extra_args) {
         // dfmt off
         auto r0 = dextool_test.makeDextool(testEnv)
@@ -674,7 +701,6 @@ Running main() from gtest_main.cc
 [==========] 4 tests from 1 test case ran. (0 ms total)
 [  PASSED  ] 4 tests.
 EOF
-exit 1
 ";
 
         File(testScript, "w").write(scriptGTestSuiteDropOne);

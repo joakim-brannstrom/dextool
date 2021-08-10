@@ -167,6 +167,12 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
         stdout.flush;
     }
 
+    static void printFailing(ref TestRunResult res) {
+        print(res);
+        logger.info("failing commands: ", res.output.byKey);
+        logger.info("exit status: ", res.exitStatus.get);
+    }
+
     Duration[] runtimes;
     bool failed;
     for (int i; i < samples && !failed; ++i) {
@@ -182,9 +188,7 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
                 goto case;
             case Status.error:
                 failed = true;
-                print(res.result);
-                logger.info("failing commands: ", res.result.output.byKey);
-                logger.info("exit status: ", res.result.exitStatus.get);
+                printFailing(res.result);
                 break;
             }
             logger.infof("%s: Measured test command runtime %s", i, res.runtime);
@@ -279,6 +283,7 @@ struct TestDriver {
     }
 
     static struct AnalyzeTestCmdForTestCase {
+        bool failed;
         TestCase[][ShellCommand] foundTestCases;
     }
 
@@ -500,9 +505,11 @@ struct TestDriver {
             if (self.conf.unifiedDiffFromStdin)
                 return fsm(ParseStdin.init);
             return fsm(PreCompileSut.init);
-        }, (ParseStdin a) => fsm(PreCompileSut.init), (AnalyzeTestCmdForTestCase a) => fsm(
-                UpdateAndResetAliveMutants(a.foundTestCases)),
-                (UpdateAndResetAliveMutants a) => fsm(CheckMutantsLeft.init),
+        }, (ParseStdin a) => fsm(PreCompileSut.init), (AnalyzeTestCmdForTestCase a) {
+            if (a.failed)
+                return fsm(Error.init);
+            return fsm(UpdateAndResetAliveMutants(a.foundTestCases));
+        }, (UpdateAndResetAliveMutants a) => fsm(CheckMutantsLeft.init),
                 (ResetOldMutant a) => fsm(UpdateTimeout.init), (Cleanup a) {
             if (self.local.get!PullRequest.constraint.empty)
                 return fsm(NextSchemata.init);
@@ -648,7 +655,7 @@ nothrow:
         import core.sys.posix.sys.stat : S_IWUSR;
         import std.path : buildPath;
         import my.file : getAttrs;
-        import colorlog : color, Color;
+        import colorlog : color;
         import dextool.plugin.mutate.backend.utility : checksum, Checksum;
 
         logger.info("Sanity check of files to mutate").collectException;
@@ -718,7 +725,7 @@ nothrow:
 
     void opCall(ref ContinuesCheckTestSuite data) {
         import std.algorithm : max;
-        import colorlog : color, Color;
+        import colorlog : color;
 
         data.ok = true;
 
@@ -792,7 +799,11 @@ nothrow:
     }
 
     void opCall(ref AnalyzeTestCmdForTestCase data) {
+        import std.conv : to;
+        import colorlog : color;
+
         TestCase[][ShellCommand] found;
+
         try {
             runner.captureAll(true);
             scope (exit)
@@ -801,6 +812,7 @@ nothrow:
             // using an unreasonable timeout to make it possible to analyze for
             // test cases and measure the test suite.
             auto res = runTester(runner, 999.dur!"hours");
+            data.failed = res.status != Mutation.Status.alive;
 
             foreach (testCmd; res.output.byKeyValue) {
                 auto analyze = testCaseAnalyzer.analyze(testCmd.key, testCmd.value, Yes.allFound);
@@ -813,7 +825,12 @@ nothrow:
                 }, (TestCaseAnalyzer.Failed a) {
                     logger.warning("The parser that analyze the output for test case(s) failed");
                 });
+            }
 
+            if (data.failed) {
+                logger.infof("Some or all tests have status %s (exit code %s)",
+                        res.status.to!string.color.fgRed, res.exitStatus.get);
+                logger.warning("Failing test suite");
             }
 
             warnIfConflictingTestCaseIdentifiers(found.byValue.joiner.array);
@@ -821,7 +838,9 @@ nothrow:
             logger.warning(e.msg).collectException;
         }
 
-        data.foundTestCases = found;
+        if (!data.failed) {
+            data.foundTestCases = found;
+        }
     }
 
     void opCall(UpdateAndResetAliveMutants data) {
