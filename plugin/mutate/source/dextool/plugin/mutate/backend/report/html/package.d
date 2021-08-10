@@ -1086,6 +1086,8 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         /// What the user configured.
         MutationKind[] humanReadableKinds;
 
+        Set!ReportSection sections;
+
         Mutation.Kind[] kinds;
 
         /// The base directory of logdirs
@@ -1097,8 +1099,6 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
 
         // User provided metadata.
         TestCaseMetadata metaData;
-
-        Set!ReportSection sections;
 
         Database db;
 
@@ -1114,7 +1114,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
     }
 
     auto st = tuple!("self", "state", "fio")(self, refCounted(State(flowCtrl,
-            fileCollector, conf, diff, userKinds)), fio.dup);
+            fileCollector, conf, diff, userKinds, conf.reportSection.toSet)), fio.dup);
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, InitMsg, AbsolutePath dbPath) {
