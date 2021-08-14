@@ -11,41 +11,118 @@ import core.sync.mutex : Mutex;
  *
  * The value may be `T.init` if multiple consumers try to pop a value at the same time.
  */
-struct Queue(T) {
+struct Queue(RawT) {
+    import std.container.dlist : DList;
+
+    static if (is(RawT == U*, U)) {
+        alias T = U;
+        enum AsPointer = true;
+    } else {
+        alias T = RawT;
+        enum AsPointer = false;
+    }
+
+    static struct Item(TT) {
+        private TT ptr;
+
+        ~this() @trusted {
+            if (ptr !is null) {
+                *ptr = T.init;
+                ptr = null;
+            }
+        }
+
+        ref T get() {
+            return *ptr;
+        }
+
+        // Move the value. It is now up to the user to ensure it is destructed.
+        TT unsafeMove() {
+            auto tmp = ptr;
+            ptr = null;
+            return tmp;
+        }
+    }
+
     private {
         Mutex mtx;
-        T[] data;
+        DList!(T*) data;
+        bool open;
+        size_t length_;
+    }
+
+    invariant {
+        assert(mtx !is null);
     }
 
     @disable this(this);
 
-    this(Mutex mtx) {
+    this(Mutex mtx)
+    in (mtx !is null) {
         this.mtx = mtx;
+        this.open = true;
     }
 
-    void put(T a) @trusted scope {
-        synchronized (mtx) {
-            data ~= a;
-        }
-    }
-
-    T pop() @trusted scope {
-        T rval;
-        synchronized (mtx) {
-            if (!empty) {
-                rval = data[0];
-                data = data[1 .. $];
+    static if (AsPointer) {
+        bool put(T* a) @trusted {
+            synchronized (mtx) {
+                if (open) {
+                    data.insertBack(a);
+                    length_++;
+                }
+                return open;
             }
         }
-        return rval;
+    } else {
+        bool put(T a) @trusted {
+            synchronized (mtx) {
+                if (open) {
+                    auto obj = new T;
+                    *obj = a;
+                    data.insertBack(obj);
+                    length_++;
+                }
+                return open;
+            }
+        }
     }
 
-    size_t length() @safe pure nothrow const @nogc {
-        return data.length;
+    alias PopReturnType = Item!(T*);
+
+    Item!(T*) pop() @trusted scope {
+        synchronized (mtx) {
+            if (!empty) {
+                auto tmp = data.front;
+                data.removeFront;
+                length_--;
+                return typeof(return)(tmp);
+            }
+        }
+
+        return typeof(return).init;
     }
 
-    bool empty() @safe pure nothrow const @nogc {
-        return data.length == 0;
+    bool empty() @trusted pure const @nogc {
+        synchronized (mtx) {
+            return data.empty;
+        }
+    }
+
+    size_t length() @trusted pure const @nogc {
+        synchronized (mtx) {
+            return length_;
+        }
+    }
+
+    /// clear the queue and permanently shut it down by rejecting put messages.
+    void teardown(void delegate(ref T) deinit) @trusted {
+        synchronized (mtx) {
+            foreach (ref a; cast() data)
+                deinit(*a);
+            open = false;
+            data.clear;
+            length_ = 0;
+        }
     }
 }
 

@@ -48,11 +48,11 @@ private void incrUseCnt(T)(ref T cb) nothrow {
     cb.useCnt.atomicOp!"+="(1);
 }
 
-private void releaseUseCnt(T)(ref T cb) {
-    assert(cb.useCnt >= 0, "Invalid count detected");
-
+private void releaseUseCnt(T)(ref T cb)
+in (cb.useCnt >= 0, "Invalid count detected") {
     if (cb.useCnt.atomicOp!"-="(1) == 0) {
-        destroy(cb.item);
+        if (!GC.inFinalizer)
+            destroy(cb.item);
         releaseWeakCnt(cb);
     }
 }
@@ -61,9 +61,8 @@ private void incrWeakCnt(T)(ref T cb) nothrow {
     cb.weakCnt.atomicOp!"+="(1);
 }
 
-private void releaseWeakCnt(T)(ref T cb) @trusted {
-    assert(cb.weakCnt >= 0, "Invalid count detected");
-
+private void releaseWeakCnt(T)(ref T cb) @trusted
+in (cb.weakCnt >= 0, "Invalid count detected") {
     if (cb.weakCnt.atomicOp!"-="(1) == 0) {
         GC.removeRoot(cb);
     }
@@ -92,33 +91,33 @@ private void releaseWeakCnt(T)(ref T cb) @trusted {
  * used to prevent the data race.
  */
 struct RefCounted(T) {
+    import std.conv : emplace;
+
     alias Impl = ControlBlock!T;
     private Impl* impl;
-    private T* item;
 
     this(Impl* impl) {
         this.impl = impl;
-        setLocalItem;
     }
 
     this(Args...)(auto ref Args args) {
-        import std.conv : emplace;
-
         impl = alloc();
-        () @trusted { emplace(impl, args); GC.addRoot(impl); }();
-        setLocalItem;
+        () @trusted {
+            scope (failure)
+                GC.removeRoot(impl);
+            emplace(impl, args);
+        }();
     }
 
     this(this) {
-        if (impl) {
+        if (impl)
             incrUseCnt(impl);
-        }
     }
 
     ~this() {
-        if (impl) {
+        if (impl)
             releaseUseCnt(impl);
-        }
+        impl = null;
     }
 
     /// Set impl to an allocated block of data. It is uninitialized.
@@ -126,43 +125,47 @@ struct RefCounted(T) {
         // need to use untyped memory, so we don't get a dtor call by the GC.
         import std.traits : hasIndirections;
 
-        static if (hasIndirections!T)
+        static if (hasIndirections!T) {
             auto rawMem = new void[Impl.sizeof];
-        else
+            GC.addRoot(rawMem.ptr);
+        } else {
             auto rawMem = new ubyte[Impl.sizeof];
-        return (() @trusted => cast(Impl*) rawMem.ptr)();
+        }
+
+        auto rval = cast(Impl*) rawMem.ptr;
+        rval.useCnt = 1;
+        rval.weakCnt = 1;
+        return rval;
     }
 
-    private void setLocalItem() @trusted {
-        if (impl)
-            item = &impl.item;
+    private inout(T*) item() inout @trusted
+    in (impl !is null, "not initialized") {
+        return cast(inout(T*)) impl;
     }
 
-    inout(T*) unsafePtr() inout {
-        assert(impl, "Invalid refcounted access");
+    /// Returns: pointer to the item or null.
+    inout(T*) unsafePtr() inout scope return  {
         return item;
     }
 
+    alias unsafePtr this;
+
     ref inout(T) get() inout {
-        assert(impl, "Invalid refcounted access");
+        assert(item, "Invalid refcounted access");
         return *item;
+    }
+
+    size_t toHash() @safe pure nothrow const @nogc scope {
+        return cast(size_t) impl;
     }
 
     void opAssign(RefCounted other) {
         swap(impl, other.impl);
-        setLocalItem;
     }
 
-    void opAssign(T other) {
-        import std.conv : emplace;
-
-        if (empty) {
-            impl = alloc;
-            () @trusted { emplace(impl, other); GC.addRoot(impl); }();
-        } else {
-            move(other, impl.item);
-        }
-        setLocalItem;
+    void opAssign(T other)
+    in (impl !is null) {
+        move(other, impl.item);
     }
 
     /// Release the reference.
@@ -185,17 +188,20 @@ struct RefCounted(T) {
         return impl is null;
     }
 
+    T opCast(T : bool)() @safe pure nothrow const @nogc {
+        return !empty;
+    }
+
     WeakRef!T weakRef() {
         return WeakRef!T(this);
     }
-
-    alias get this;
 }
 
 RefCounted!T refCounted(T)(auto ref T item) {
     return RefCounted!T(item);
 }
 
+@("shall call the destructor when the last ref is destroyed")
 @safe unittest {
     size_t dtorcalled = 0;
     struct S {
@@ -240,42 +246,40 @@ RefCounted!T refCounted(T)(auto ref T item) {
 struct WeakRef(T) {
     alias Impl = ControlBlock!T;
     private Impl* impl;
-    private T* item;
 
     this(RefCounted!T r) {
+        if (r.empty)
+            return;
+
         incrWeakCnt(r.impl);
-        scope (failure) {
-            releaseWeakCnt(r.impl);
-        }
         impl = r.impl;
     }
 
-    this(ref RefCounted!T r) @safe nothrow {
+    this(ref RefCounted!T r) {
+        if (r.empty)
+            return;
+
         incrWeakCnt(r.impl);
         impl = r.impl;
-        setLocalItem;
     }
 
     this(this) {
-        if (impl) {
+        if (impl)
             incrWeakCnt(impl);
-        }
     }
 
     ~this() @safe {
-        if (impl) {
+        if (impl)
             releaseWeakCnt(impl);
-        }
+        impl = null;
     }
 
-    private void setLocalItem() @trusted {
-        if (impl)
-            item = &impl.item;
+    size_t toHash() @safe pure nothrow const @nogc scope {
+        return cast(size_t) impl;
     }
 
     void opAssign(WeakRef other) @safe nothrow {
         swap(impl, other.impl);
-        setLocalItem;
     }
 
     RefCounted!T asRefCounted() nothrow {
@@ -307,9 +311,13 @@ struct WeakRef(T) {
     bool empty() @safe pure nothrow const @nogc {
         return impl is null;
     }
+
+    T opCast(T : bool)() @safe pure nothrow const @nogc {
+        return !empty;
+    }
 }
 
-/// shall only call the destructor one time.
+@("shall only call the destructor one time")
 @safe unittest {
     size_t dtorcalled = 0;
     struct S {
@@ -338,7 +346,7 @@ struct WeakRef(T) {
     assert(dtorcalled == 1);
 }
 
-/// shall destroy the object even though there are cycles because they are WeakRef.
+@("shall destroy the object even though there are cycles because they are WeakRef")
 @safe unittest {
     size_t dtorcalled = 0;
     struct S {
@@ -357,8 +365,8 @@ struct WeakRef(T) {
         auto rc1 = S(1).refCounted;
         auto rc2 = S(2).refCounted;
 
-        rc1.other = rc2.weakRef;
-        rc2.other = rc1.weakRef;
+        rc1.get.other = rc2.weakRef;
+        rc2.get.other = rc1.weakRef;
 
         assert(rc1.impl.useCnt == 1);
         assert(rc1.impl.weakCnt == 2);
@@ -367,4 +375,71 @@ struct WeakRef(T) {
     }
 
     assert(dtorcalled == 2);
+}
+
+@("shall ref count an object stored in a Variant")
+@system unittest {
+    import std.variant : Variant;
+    import std.typecons : tuple, Tuple;
+
+    static struct S {
+        int x;
+    }
+
+    auto rc = S(42).refCounted;
+
+    {
+        Variant obj;
+
+        obj = rc;
+        assert(rc.refCount == 2, "count incr when stored");
+
+        obj = 42;
+        assert(rc.refCount == 1, "count decrease when obj is destroyed");
+
+        {
+            obj = rc.weakRef;
+            assert(rc.refCount == 1, "the use count did not change");
+            assert(rc.impl.weakCnt == 2, "weak count incr");
+        }
+
+        { // lets get the object back via the weak ref
+            auto tmpRef = obj.get!(WeakRef!S);
+            assert(rc.impl.weakCnt == 3);
+            auto tmpRc = tmpRef.asRefCounted;
+            assert(tmpRc.get.x == 42);
+        }
+        assert(rc.impl.weakCnt == 2);
+    }
+
+    assert(rc.refCount == 1,
+            "when last ref of obj disappears the dtor is called. only one ref left");
+    assert(rc.impl.weakCnt == 1);
+}
+
+@("shall ref count an object stored in nested Variant")
+@system unittest {
+    import std.variant : Variant;
+    import std.typecons : tuple, Tuple;
+
+    static struct S {
+        int x;
+    }
+
+    auto rc = S(42).refCounted;
+
+    {
+        auto obj = Variant(rc.weakRef);
+        assert(rc.refCount == 1, "the use count did not change");
+        assert(rc.impl.weakCnt == 2, "weak count incr");
+
+        { // nested Variants call ctor/dtor as expected
+            auto obj2 = Variant(tuple(42, obj));
+            assert(rc.refCount == 1);
+            assert(rc.impl.weakCnt == 3);
+        }
+    }
+
+    assert(rc.refCount == 1,
+            "when last ref of obj disappears the dtor is called. only one ref left");
 }
