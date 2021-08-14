@@ -97,7 +97,7 @@ struct OperatorCursor {
 
     /// Add the result to the AST and astOp to the parent.
     /// astOp is set to have two children, lhs and rhs.
-    void put(analyze.Node parent, ref analyze.Ast ast) @safe {
+    void put(analyze.Node parent, scope analyze.Ast* ast) @safe {
         ast.put(astOp, exprLoc);
         ast.put(operator, opLoc);
 
@@ -113,7 +113,7 @@ struct OperatorCursor {
     }
 }
 
-Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
+Nullable!OperatorCursor operatorCursor(T)(scope Ast* ast, T node) {
     import dextool.clang_extensions : getExprOperator, OpKind, ValueKind, getUnderlyingExprNode;
 
     auto op = getExprOperator(node.cursor);
@@ -699,7 +699,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
 
         // extract the boundaries of the enum to update the type db.
-        scope vis = new EnumVisitor(ast.get, indent);
+        scope vis = new EnumVisitor(ast, indent);
         vis.visit(v);
         ast.types.set(vis.id, vis.toType);
     }
@@ -1023,7 +1023,7 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private bool visitOp(T)(scope const T v, const CXCursorKind cKind) @trusted {
-        auto op = operatorCursor(ast.get, v);
+        auto op = operatorCursor(ast, v);
         if (op.isNull) {
             return false;
         }
@@ -1189,7 +1189,7 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(v.cursor, n, loc, v.cursor.kind);
 
         auto fRetval = ast.make!(analyze.Return);
-        auto rty = deriveType(ast.get, v.cursor.func.resultType);
+        auto rty = deriveType(ast, v.cursor.func.resultType);
         rty.put(ast);
         if (rty.type !is null) {
             ast.put(fRetval, loc);
@@ -1211,7 +1211,7 @@ final class BaseVisitor : ExtendedVisitor {
         auto n = ast.make!(analyze.Call);
         pushStack(n, v);
 
-        auto ty = deriveType(ast.get, v.cursor.type);
+        auto ty = deriveType(ast, v.cursor.type);
         ty.put(ast);
         if (ty.type !is null)
             ast.put(n, ty.id);
@@ -1234,8 +1234,8 @@ final class EnumVisitor : ExtendedVisitor {
     Nullable!long minValue;
     Nullable!long maxValue;
 
-    this(ref analyze.Ast ast, const uint indent) @trusted {
-        this.ast = &ast;
+    this(scope analyze.Ast* ast, const uint indent) @trusted {
+        this.ast = ast;
         this.indent = indent;
     }
 
@@ -1337,7 +1337,7 @@ final class FindVisitor(T) : Visitor {
  * The problem is that the location of the Condition node will be OpGreater and
  * not the VarDecl.
  */
-void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
+void rewriteCondition(scope analyze.Ast* ast, analyze.Condition root) {
     import sumtype;
     import dextool.plugin.mutate.backend.analyze.ast : TypeId, VarDecl, Kind;
 
@@ -1349,7 +1349,7 @@ void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
     }
 }
 
-void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root,
+void rewriteSwitch(scope analyze.Ast* ast, analyze.BranchBundle root,
         analyze.Block block, Location firstCase) {
     import std.range : enumerate;
     import std.typecons : tuple;
@@ -1389,7 +1389,7 @@ struct DeriveTypeResult {
     analyze.SymbolId symId;
     analyze.Symbol symbol;
 
-    void put(ref analyze.Ast ast) @safe {
+    void put(scope analyze.Ast* ast) @safe {
         if (type !is null) {
             ast.types.require(id, type);
         }
@@ -1399,7 +1399,7 @@ struct DeriveTypeResult {
     }
 }
 
-DeriveTypeResult deriveType(ref Ast ast, Type cty) {
+DeriveTypeResult deriveType(scope Ast* ast, Type cty) {
     DeriveTypeResult rval;
 
     if (!cty.isValid)
@@ -1449,7 +1449,7 @@ struct DeriveCursorTypeResult {
  *
  * This is intended for expression nodes in the clang AST.
  */
-DeriveCursorTypeResult deriveCursorType(ref Ast ast, scope const Cursor baseCursor) {
+DeriveCursorTypeResult deriveCursorType(scope Ast* ast, scope const Cursor baseCursor) {
     auto c = Cursor(getUnderlyingExprNode(baseCursor));
     if (!c.isValid)
         return DeriveCursorTypeResult.init;
@@ -1534,7 +1534,7 @@ bool isConstExpr(const Cursor c) @trusted {
 }
 
 /// Returns: the types of the children
-auto getChildrenTypes(ref Ast ast, Node parent) {
+auto getChildrenTypes(scope Ast* ast, Node parent) {
     return BreathFirstRange(parent).map!(a => ast.type(a))
         .filter!(a => a !is null)
         .map!(a => a.kind);
