@@ -359,7 +359,7 @@ public:
 			tag = tid;
 		}
 
-		static if (isCopyable!T) {
+		static if (isCopyable!(const(T))) {
 			// Avoid defining the same constructor multiple times
 			static if (IndexOf!(const(T), Map!(ConstOf, Types)) == tid) {
 				/// ditto
@@ -376,7 +376,11 @@ public:
 					tag = tid;
 				}
 			}
+		} else {
+			@disable this(const(T) value) const;
+		}
 
+		static if (isCopyable!(immutable(T))) {
 			static if (IndexOf!(immutable(T), Map!(ImmutableOf, Types)) == tid) {
 				/// ditto
 				this(immutable(T) value) immutable
@@ -393,7 +397,6 @@ public:
 				}
 			}
 		} else {
-			@disable this(const(T) value) const;
 			@disable this(immutable(T) value) immutable;
 		}
 	}
@@ -1263,6 +1266,18 @@ version (D_BetterC) {} else
 	Outer y = x;
 }
 
+// Types with qualified copy constructors
+@safe unittest {
+	static struct S
+	{
+		int n;
+		this(inout int n) inout { this.n = n; }
+		this(ref const S other) const { this.n = other.n; }
+	}
+
+	const SumType!S x = const(S)(1);
+}
+
 // Types with disabled opEquals
 @safe unittest {
 	static struct S
@@ -1679,7 +1694,7 @@ private size_t stride(size_t dim, lengths...)()
 
 private template matchImpl(Flag!"exhaustive" exhaustive, handlers...)
 {
-	auto matchImpl(SumTypes...)(auto ref SumTypes args)
+	auto ref matchImpl(SumTypes...)(auto ref SumTypes args)
 		if (allSatisfy!(isSumType, SumTypes) && args.length > 0)
 	{
 		enum typeCount(SumType) = SumType.Types.length;
@@ -2109,6 +2124,15 @@ version (D_Exceptions)
 	);
 
 	assert(value.get!double.isClose(6.28));
+}
+
+// Handlers that return by ref
+@safe unittest {
+	SumType!int x = 123;
+
+	x.match!(ref (ref int n) => n) = 456;
+
+	assert(x.match!((int n) => n == 456));
 }
 
 // Unreachable handlers
