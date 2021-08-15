@@ -33,28 +33,35 @@ version (unittest) {
  * stops being used such as the instance going out of scope.
  */
 auto rcKill(T)(T p, int signal = SIGKILL) {
-    return refCounted(ScopeKill!T(p, signal));
+    return ScopeKill!T(p, signal);
 }
 
 // backward compatibility.
 alias scopeKill = rcKill;
 
 struct ScopeKill(T) {
-    T process;
-    alias process this;
+    private {
+        static struct Payload {
+            T process;
+            int signal = SIGKILL;
+            bool hasProcess;
 
-    private int signal = SIGKILL;
-    private bool hasProcess;
+            ~this() @safe {
+                if (hasProcess)
+                    process.dispose();
+            }
+        }
 
-    this(T process, int signal) @safe {
-        this.process = process;
-        this.signal = signal;
-        this.hasProcess = true;
+        RefCounted!Payload payload_;
     }
 
-    ~this() @safe {
-        if (hasProcess)
-            process.dispose();
+    alias process this;
+    ref T process() {
+        return payload_.get.process;
+    }
+
+    this(T process, int signal) @safe {
+        payload_ = refCounted(Payload(process, signal, true));
     }
 }
 
@@ -547,9 +554,9 @@ sleep 10m
 
         auto pid = p.osHandle;
         rc = refCounted(Payload(move(p), pid));
-        rc.background = new Background(&rc.p, timeout);
-        rc.background.isDaemon = true;
-        rc.background.start;
+        rc.get.background = new Background(&rc.get.p, timeout);
+        rc.get.background.isDaemon = true;
+        rc.get.background.start;
     }
 
     ~this() @trusted {
@@ -676,34 +683,34 @@ sleep 10m
     }
 
     RawPid osHandle() nothrow @trusted {
-        return rc.pid;
+        return rc.get.pid;
     }
 
     static if (__traits(hasMember, ProcessT, "stdin")) {
         ref FileWriteChannel stdin() nothrow @safe {
-            return rc.p.stdin;
+            return rc.get.p.stdin;
         }
     }
 
     static if (__traits(hasMember, ProcessT, "stdout")) {
         ref FileReadChannel stdout() nothrow @safe {
-            return rc.p.stdout;
+            return rc.get.p.stdout;
         }
     }
 
     static if (__traits(hasMember, ProcessT, "stderr")) {
         ref FileReadChannel stderr() nothrow @trusted {
-            return rc.p.stderr;
+            return rc.get.p.stderr;
         }
     }
 
     void dispose() @trusted {
-        if (rc.backgroundReply.among(Reply.none, Reply.running)) {
-            rc.background.put(Msg.stop);
-            rc.background.join;
-            rc.backgroundReply = rc.background.reply;
+        if (rc.get.backgroundReply.among(Reply.none, Reply.running)) {
+            rc.get.background.put(Msg.stop);
+            rc.get.background.join;
+            rc.get.backgroundReply = rc.get.background.reply;
         }
-        rc.p.dispose;
+        rc.get.p.dispose;
     }
 
     /** Send `signal` to the process.
@@ -712,35 +719,35 @@ sleep 10m
      *  signal = a signal from `core.sys.posix.signal`
      */
     void kill(int signal = SIGKILL) nothrow @trusted {
-        rc.background.setSignal(signal);
-        rc.background.kill();
+        rc.get.background.setSignal(signal);
+        rc.get.background.kill();
     }
 
     int wait() @trusted {
         while (!this.tryWait) {
             Thread.sleep(20.dur!"msecs");
         }
-        return rc.p.wait;
+        return rc.get.p.wait;
     }
 
     bool tryWait() @trusted {
-        return rc.p.tryWait;
+        return rc.get.p.tryWait;
     }
 
     int status() @trusted {
-        return rc.p.status;
+        return rc.get.p.status;
     }
 
     bool terminated() @trusted {
-        return rc.p.terminated;
+        return rc.get.p.terminated;
     }
 
     bool timeoutTriggered() @trusted {
-        if (rc.backgroundReply.among(Reply.none, Reply.running)) {
-            rc.background.put(Msg.status);
-            rc.backgroundReply = rc.background.reply;
+        if (rc.get.backgroundReply.among(Reply.none, Reply.running)) {
+            rc.get.background.put(Msg.status);
+            rc.get.backgroundReply = rc.get.background.reply;
         }
-        return rc.backgroundReply == Reply.killedByTimeout;
+        return rc.get.backgroundReply == Reply.killedByTimeout;
     }
 }
 
