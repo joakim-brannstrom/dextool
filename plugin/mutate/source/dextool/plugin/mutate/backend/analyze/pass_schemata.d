@@ -21,7 +21,6 @@ import std.traits : EnumMembers;
 import std.typecons : tuple, Tuple, scoped;
 
 import my.container.vector : vector, Vector;
-import my.gc.refc : RefCounted;
 import my.optional;
 import my.set;
 import sumtype;
@@ -55,7 +54,7 @@ immutable schemataMutantIdentifier = "dextool_get_mutid()";
 immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
 /// Translate a mutation AST to a schemata.
-SchemataResult toSchemata(RefCounted!Ast ast, FilesysIO fio, CodeMutantsResult cresult) @safe {
+SchemataResult toSchemata(Ast* ast, FilesysIO fio, CodeMutantsResult cresult) @safe {
     auto rval = new SchemataResult;
     auto index = new CodeMutantIndex(cresult);
 
@@ -65,10 +64,8 @@ SchemataResult toSchemata(RefCounted!Ast ast, FilesysIO fio, CodeMutantsResult c
     case Language.assumeCpp:
         goto case;
     case Language.cpp:
-        auto visitor = new CppSchemataVisitor(ast, index, fio, rval);
-        scope (exit)
-            visitor.dispose;
-        ast.accept(visitor);
+        scope visitor = new CppSchemataVisitor(ast, index, fio, rval);
+        () @trusted { ast.accept(visitor); }();
         break;
     }
 
@@ -334,7 +331,7 @@ struct MutantHelper {
 class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
-    RefCounted!Ast ast;
+    Ast* ast;
     CodeMutantIndex index;
     SchemataResult result;
     FilesysIO fio;
@@ -349,17 +346,12 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     alias visit = DepthFirstVisitor.visit;
 
-    this(RefCounted!Ast ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result) {
-        assert(!ast.empty);
-
+    this(Ast* ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result)
+    in (ast !is null) {
         this.ast = ast;
         this.index = index;
         this.fio = fio;
         this.result = result;
-    }
-
-    void dispose() {
-        ast.release;
     }
 
     /// Returns: if the previous nodes is of kind `k`.
@@ -679,7 +671,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
 class BinaryOpVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
-    RefCounted!Ast ast;
+    Ast* ast;
     CodeMutantIndex* index;
     FragmentBuilder* fragment;
     FilesysIO fio;
@@ -694,7 +686,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
     /// The resulting fragments of the expression.
     Set!CodeMutant mutants;
 
-    this(RefCounted!Ast ast, CodeMutantIndex* index, FilesysIO fio, FragmentBuilder* fragment) {
+    this(Ast* ast, CodeMutantIndex* index, FilesysIO fio, FragmentBuilder* fragment) {
         this.ast = ast;
         this.index = index;
         this.fio = fio;

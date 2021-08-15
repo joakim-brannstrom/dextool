@@ -17,8 +17,6 @@ import std.format : formattedWrite;
 import std.range : retro, ElementType;
 import std.typecons : tuple, Tuple, scoped;
 
-import my.gc.refc : RefCounted;
-
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.analyze.ast;
@@ -28,11 +26,9 @@ import dextool.plugin.mutate.backend.type : Offset, Mutation, SourceLocRange, To
 
 @safe:
 
-CoverageResult toCoverage(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc) {
-    auto visitor = new CoverageVisitor(ast, fio, vloc);
-    scope (exit)
-        visitor.dispose;
-    ast.accept(visitor);
+CoverageResult toCoverage(Ast* ast, FilesysIO fio, ValidateLoc vloc) {
+    scope visitor = new CoverageVisitor(ast, fio, vloc);
+    () @trusted { ast.accept(visitor); }();
     return visitor.result;
 }
 
@@ -83,7 +79,7 @@ class CoverageResult {
 private:
 
 class CoverageVisitor : DepthFirstVisitor {
-    RefCounted!Ast ast;
+    Ast* ast;
     CoverageResult result;
 
     private {
@@ -102,7 +98,7 @@ class CoverageVisitor : DepthFirstVisitor {
 
     alias visit = DepthFirstVisitor.visit;
 
-    this(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc) {
+    this(Ast* ast, FilesysIO fio, ValidateLoc vloc) {
         this.ast = ast;
         result = new CoverageResult(fio, vloc);
 
@@ -111,10 +107,6 @@ class CoverageVisitor : DepthFirstVisitor {
         foreach (ref l; ast.locs.byValue) {
             result.put(l.file);
         }
-    }
-
-    void dispose() {
-        ast.release;
     }
 
     override void visit(Function n) {

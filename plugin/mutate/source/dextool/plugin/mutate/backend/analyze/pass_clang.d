@@ -63,7 +63,7 @@ ClangResult toMutateAst(const Cursor root, FilesysIO fio) @safe {
         visitor.dispose;
     auto ast = ClangAST!BaseVisitor(root);
     ast.accept(visitor);
-    visitor.ast.releaseCache;
+    visitor.ast.get.releaseCache;
 
     auto rval = ClangResult(visitor.ast, visitor.includes.data);
     return rval;
@@ -97,7 +97,7 @@ struct OperatorCursor {
 
     /// Add the result to the AST and astOp to the parent.
     /// astOp is set to have two children, lhs and rhs.
-    void put(analyze.Node parent, scope analyze.Ast* ast) @safe {
+    void put(analyze.Node parent, ref analyze.Ast ast) @safe {
         ast.put(astOp, exprLoc);
         ast.put(operator, opLoc);
 
@@ -113,7 +113,7 @@ struct OperatorCursor {
     }
 }
 
-Nullable!OperatorCursor operatorCursor(T)(scope Ast* ast, T node) {
+Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
     import dextool.clang_extensions : getExprOperator, OpKind, ValueKind, getUnderlyingExprNode;
 
     auto op = getExprOperator(node.cursor);
@@ -421,7 +421,7 @@ final class BaseVisitor : ExtendedVisitor {
             n.schemaBlacklist = n.schemaBlacklist || nstack[$ - 1].data.schemaBlacklist;
         nstack.put(n, indent);
         cstack.put(cKind, indent);
-        ast.put(n, l);
+        ast.get.put(n, l);
     }
 
     /// Returns: true if it is OK to modify the cursor
@@ -443,20 +443,20 @@ final class BaseVisitor : ExtendedVisitor {
 
         blacklist = Blacklist(v.cursor);
 
-        ast.root = ast.make!(analyze.TranslationUnit);
+        ast.get.root = ast.get.make!(analyze.TranslationUnit);
         auto loc = v.cursor.toLocation;
-        pushStack(v.cursor, ast.root, loc, v.cursor.kind);
+        pushStack(v.cursor, ast.get.root, loc, v.cursor.kind);
 
         // it is most often invalid
         switch (v.cursor.language) {
         case CXLanguageKind.c:
-            ast.lang = Language.c;
+            ast.get.lang = Language.c;
             break;
         case CXLanguageKind.cPlusPlus:
-            ast.lang = Language.cpp;
+            ast.get.lang = Language.cpp;
             break;
         default:
-            ast.lang = Language.assumeCpp;
+            ast.get.lang = Language.assumeCpp;
         }
 
         v.accept(this);
@@ -500,7 +500,7 @@ final class BaseVisitor : ExtendedVisitor {
         // it can't be assumed to be the only one.
         // by injecting a Poision node for a DeclStmt it signal that there are
         // hidden traps thus any mutation and schemata should be careful.
-        auto n = ast.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poision);
         pushStack(n, v);
 
         v.accept(this);
@@ -509,7 +509,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const ClassTemplate v) @trusted {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        auto n = ast.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poision);
         pushStack(n, v);
         v.accept(this);
     }
@@ -517,14 +517,14 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const ClassTemplatePartialSpecialization v) @trusted {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        auto n = ast.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poision);
         pushStack(n, v);
         v.accept(this);
     }
 
     override void visit(scope const FunctionTemplate v) @trusted {
         mixin(mixinNodeLog!());
-        auto n = ast.make!(analyze.Function);
+        auto n = ast.get.make!(analyze.Function);
         // it is too uncertain to inject mutant schematan inside a template
         // because the types are not known which lead to a high probability
         // that the schemata code will fail to compile.
@@ -562,7 +562,7 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitVar(T)(T v) @trusted {
-        pushStack(ast.make!(analyze.VarDecl), v);
+        pushStack(ast.get.make!(analyze.VarDecl), v);
     }
 
     override void visit(scope const Directive v) {
@@ -603,14 +603,14 @@ final class BaseVisitor : ExtendedVisitor {
             return;
         isVisited.add(v.cursor.toHash);
 
-        auto n = ast.make!(analyze.Expr);
+        auto n = ast.get.make!(analyze.Expr);
         n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
-        auto ue = deriveCursorType(ast, v.cursor);
-        ue.put(ast);
+        auto ue = deriveCursorType(ast.get, v.cursor);
+        ue.put(ast.get);
         if (ue.type !is null) {
-            ast.put(n, ue.id);
+            ast.get.put(n, ue.id);
         }
 
         // only deref a node which is a self-reference
@@ -654,7 +654,7 @@ final class BaseVisitor : ExtendedVisitor {
         // block schematan inside subscripts because some lead to compilation
         // errors. Need to investigate more to understand why and how to avoid.
         // For now they are blocked.
-        auto n = ast.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poision);
         n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
@@ -668,14 +668,14 @@ final class BaseVisitor : ExtendedVisitor {
             return;
         isVisited.add(h);
 
-        auto n = ast.make!(analyze.Expr);
+        auto n = ast.get.make!(analyze.Expr);
         n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
-        auto ue = deriveCursorType(ast, v.cursor);
-        ue.put(ast);
+        auto ue = deriveCursorType(ast.get, v.cursor);
+        ue.put(ast.get);
         if (ue.type !is null) {
-            ast.put(n, ue.id);
+            ast.get.put(n, ue.id);
         }
 
         pushStack(n, v);
@@ -688,9 +688,9 @@ final class BaseVisitor : ExtendedVisitor {
         const bool isCpp = v.cursor.spelling == "__cplusplus";
 
         if (isCpp)
-            ast.lang = Language.cpp;
-        else if (!isCpp && ast.lang != Language.cpp)
-            ast.lang = Language.c;
+            ast.get.lang = Language.cpp;
+        else if (!isCpp && ast.get.lang != Language.cpp)
+            ast.get.lang = Language.c;
 
         v.accept(this);
     }
@@ -699,9 +699,9 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
 
         // extract the boundaries of the enum to update the type db.
-        scope vis = new EnumVisitor(ast, indent);
+        scope vis = new EnumVisitor(ast.ptr, indent);
         vis.visit(v);
-        ast.types.set(vis.id, vis.toType);
+        ast.get.types.set(vis.id, vis.toType);
     }
 
     override void visit(scope const FunctionDecl v) @trusted {
@@ -712,7 +712,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const Constructor v) @trusted {
         mixin(mixinNodeLog!());
 
-        auto n = ast.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poision);
         n.schemaBlacklist = isConstExpr(v.cursor);
         pushStack(n, v);
 
@@ -724,7 +724,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const Destructor v) @trusted {
         mixin(mixinNodeLog!());
 
-        auto n = ast.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poision);
         n.schemaBlacklist = isConstExpr(v.cursor);
         pushStack(n, v);
 
@@ -765,7 +765,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const CompoundAssignOperator v) {
         mixin(mixinNodeLog!());
         // TODO: implement all aor assignment such as +=
-        pushStack(ast.make!(analyze.OpAssign), v);
+        pushStack(ast.get.make!(analyze.OpAssign), v);
         v.accept(this);
     }
 
@@ -781,7 +781,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // model a C++ exception as a return expression because that is
         // "basically" what happens.
-        auto n = ast.make!(analyze.Return);
+        auto n = ast.get.make!(analyze.Return);
         n.blacklist = true;
         pushStack(n, v);
         v.accept(this);
@@ -789,7 +789,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const InitListExpr v) {
         mixin(mixinNodeLog!());
-        pushStack(ast.make!(analyze.Constructor), v);
+        pushStack(ast.get.make!(analyze.Constructor), v);
         v.accept(this);
     }
 
@@ -803,7 +803,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const ReturnStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(ast.make!(analyze.Return), v);
+        pushStack(ast.get.make!(analyze.Return), v);
         v.accept(this);
     }
 
@@ -832,7 +832,7 @@ final class BaseVisitor : ExtendedVisitor {
                 auto loc = v.cursor.toLocation;
                 // there are unexposed nodes which has range [0,0]
                 if (loc.interval.begin < loc.interval.end) {
-                    auto n = ast.make!(analyze.Block);
+                    auto n = ast.get.make!(analyze.Block);
 
                     // important because it triggers an invalid path if the
                     // file shouldn't be manipulated
@@ -893,7 +893,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const ForStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(ast.make!(analyze.Loop), v);
+        pushStack(ast.get.make!(analyze.Loop), v);
 
         scope visitor = new FindVisitor!CompoundStmt;
         v.accept(visitor);
@@ -905,7 +905,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const CxxForRangeStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(ast.make!(analyze.Loop), v);
+        pushStack(ast.get.make!(analyze.Loop), v);
 
         scope visitor = new FindVisitor!CompoundStmt;
         v.accept(visitor);
@@ -917,19 +917,19 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const WhileStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(ast.make!(analyze.Loop), v);
+        pushStack(ast.get.make!(analyze.Loop), v);
         v.accept(this);
     }
 
     override void visit(scope const DoStmt v) {
         mixin(mixinNodeLog!());
-        pushStack(ast.make!(analyze.Loop), v);
+        pushStack(ast.get.make!(analyze.Loop), v);
         v.accept(this);
     }
 
     override void visit(scope const SwitchStmt v) {
         mixin(mixinNodeLog!());
-        auto n = ast.make!(analyze.BranchBundle);
+        auto n = ast.get.make!(analyze.BranchBundle);
         pushStack(n, v);
         v.accept(this);
 
@@ -943,11 +943,11 @@ final class BaseVisitor : ExtendedVisitor {
             incr;
             scope (exit)
                 decr;
-            auto block = ast.make!(analyze.Block);
-            auto l = ast.location(n);
+            auto block = ast.get.make!(analyze.Block);
+            auto l = ast.get.location(n);
             l.interval.end = l.interval.begin;
             pushStack(v.cursor, block, l, CXCursorKind.unexposedDecl);
-            rewriteSwitch(ast, n, block, caseVisitor.node.cursor.toLocation);
+            rewriteSwitch(ast.get, n, block, caseVisitor.node.cursor.toLocation);
         }
     }
 
@@ -956,7 +956,7 @@ final class BaseVisitor : ExtendedVisitor {
         // need to push a node because a ternery can contain function calls.
         // Without a node for the op it seems like it is in the body, which it
         // isn't, and then can be removed.
-        pushStack(ast.make!(analyze.Poision), v);
+        pushStack(ast.get.make!(analyze.Poision), v);
         v.accept(this);
     }
 
@@ -968,13 +968,13 @@ final class BaseVisitor : ExtendedVisitor {
             throw new Exception("max analyze depth reached (200)");
         }
 
-        pushStack(ast.make!(analyze.BranchBundle), v);
+        pushStack(ast.get.make!(analyze.BranchBundle), v);
         dextool.plugin.mutate.backend.analyze.extensions.accept(v, this);
     }
 
     override void visit(scope const IfStmtInit v) @trusted {
         mixin(mixinNodeLog!());
-        auto n = ast.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poision);
         n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
@@ -983,7 +983,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const IfStmtCond v) {
         mixin(mixinNodeLog!());
 
-        auto n = ast.make!(analyze.Condition);
+        auto n = ast.get.make!(analyze.Condition);
         pushStack(n, v);
 
         if (!visitOp(v, v.cursor.kind)) {
@@ -991,18 +991,18 @@ final class BaseVisitor : ExtendedVisitor {
         }
 
         if (!n.children.empty) {
-            auto tyId = ast.typeId(n.children[0]);
+            auto tyId = ast.get.typeId(n.children[0]);
             if (tyId.hasValue) {
-                ast.put(n, tyId.orElse(analyze.TypeId.init));
+                ast.get.put(n, tyId.orElse(analyze.TypeId.init));
             }
         }
 
-        rewriteCondition(ast, n);
+        rewriteCondition(ast.get, n);
     }
 
     override void visit(scope const IfStmtCondVar v) {
         mixin(mixinNodeLog!());
-        auto n = ast.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poision);
         n.schemaBlacklist = true;
         pushStack(n, v);
     }
@@ -1018,12 +1018,12 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitIfBranch(T)(scope const T v) @trusted {
-        pushStack(ast.make!(analyze.Branch), v);
+        pushStack(ast.get.make!(analyze.Branch), v);
         v.accept(this);
     }
 
     private bool visitOp(T)(scope const T v, const CXCursorKind cKind) @trusted {
-        auto op = operatorCursor(ast, v);
+        auto op = operatorCursor(ast.get, v);
         if (op.isNull) {
             return false;
         }
@@ -1049,7 +1049,7 @@ final class BaseVisitor : ExtendedVisitor {
         astOp.operator.blacklist = isBlacklist(cursor, op.opLoc);
         astOp.operator.schemaBlacklist = blockSchema;
 
-        op.put(nstack.back, ast);
+        op.put(nstack.back, ast.get);
         pushStack(cursor, astOp, op.exprLoc, cKind);
         incr;
         scope (exit)
@@ -1067,13 +1067,13 @@ final class BaseVisitor : ExtendedVisitor {
             }();
             if (b !is null && b != astOp) {
                 astOp.lhs = b;
-                auto ty = deriveCursorType(ast, op.lhs);
-                ty.put(ast);
+                auto ty = deriveCursorType(ast.get, op.lhs);
+                ty.put(ast.get);
                 if (ty.type !is null) {
-                    ast.put(b, ty.id);
+                    ast.get.put(b, ty.id);
                 }
                 if (ty.symbol !is null) {
-                    ast.put(b, ty.symId);
+                    ast.get.put(b, ty.symId);
                 }
             }
         }
@@ -1089,20 +1089,20 @@ final class BaseVisitor : ExtendedVisitor {
             }();
             if (b !is null && b != astOp) {
                 astOp.rhs = b;
-                auto ty = deriveCursorType(ast, op.rhs);
-                ty.put(ast);
+                auto ty = deriveCursorType(ast.get, op.rhs);
+                ty.put(ast.get);
                 if (ty.type !is null) {
-                    ast.put(b, ty.id);
+                    ast.get.put(b, ty.id);
                 }
                 if (ty.symbol !is null) {
-                    ast.put(b, ty.symId);
+                    ast.get.put(b, ty.symId);
                 }
             }
         }
 
         // TODO: this is crude and shouldn't be here as a check but we must
         // block aor/rorp schematan when the type is a pointer.
-        foreach (_; getChildrenTypes(ast, astOp).filter!(a => a.among(TypeKind.unordered,
+        foreach (_; getChildrenTypes(ast.get, astOp).filter!(a => a.among(TypeKind.unordered,
                 TypeKind.bottom))) {
             foreach (c; BreathFirstRange(astOp))
                 c.schemaBlacklist = true;
@@ -1127,7 +1127,7 @@ final class BaseVisitor : ExtendedVisitor {
         astOp.operator.blacklist = isBlacklist(cursor, op.opLoc);
         astOp.operator.schemaBlacklist = blockSchema;
 
-        op.put(nstack.back, ast);
+        op.put(nstack.back, ast.get);
         pushStack(cursor, astOp, op.exprLoc, cKind);
         incr;
         scope (exit)
@@ -1145,12 +1145,12 @@ final class BaseVisitor : ExtendedVisitor {
             }();
             if (b !is null && b != astOp) {
                 astOp.expr = b;
-                auto ty = deriveCursorType(ast, op.lhs);
-                ty.put(ast);
+                auto ty = deriveCursorType(ast.get, op.lhs);
+                ty.put(ast.get);
                 if (ty.type !is null)
-                    ast.put(b, ty.id);
+                    ast.get.put(b, ty.id);
                 if (ty.symbol !is null)
-                    ast.put(b, ty.symId);
+                    ast.get.put(b, ty.symId);
             }
         }
         if (op.rhs.isValid) {
@@ -1165,12 +1165,12 @@ final class BaseVisitor : ExtendedVisitor {
             }();
             if (b !is null && b != astOp) {
                 astOp.expr = b;
-                auto ty = deriveCursorType(ast, op.rhs);
-                ty.put(ast);
+                auto ty = deriveCursorType(ast.get, op.rhs);
+                ty.put(ast.get);
                 if (ty.type !is null)
-                    ast.put(b, ty.id);
+                    ast.get.put(b, ty.id);
                 if (ty.symbol !is null)
-                    ast.put(b, ty.symId);
+                    ast.get.put(b, ty.symId);
             }
         }
 
@@ -1183,21 +1183,21 @@ final class BaseVisitor : ExtendedVisitor {
             blacklistFunc = oldBlacklistFn;
 
         auto loc = v.cursor.toLocation;
-        auto n = ast.make!(analyze.Function);
+        auto n = ast.get.make!(analyze.Function);
         n.schemaBlacklist = isConstExpr(v.cursor);
         nstack.back.children ~= n;
         pushStack(v.cursor, n, loc, v.cursor.kind);
 
-        auto fRetval = ast.make!(analyze.Return);
-        auto rty = deriveType(ast, v.cursor.func.resultType);
-        rty.put(ast);
+        auto fRetval = ast.get.make!(analyze.Return);
+        auto rty = deriveType(ast.get, v.cursor.func.resultType);
+        rty.put(ast.get);
         if (rty.type !is null) {
-            ast.put(fRetval, loc);
+            ast.get.put(fRetval, loc);
             n.return_ = fRetval;
-            ast.put(fRetval, rty.id);
+            ast.get.put(fRetval, rty.id);
         }
         if (rty.symbol !is null)
-            ast.put(fRetval, rty.symId);
+            ast.get.put(fRetval, rty.symId);
 
         v.accept(this);
 
@@ -1208,15 +1208,15 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitCall(T)(scope const T v) @trusted {
-        auto n = ast.make!(analyze.Call);
+        auto n = ast.get.make!(analyze.Call);
         pushStack(n, v);
 
-        auto ty = deriveType(ast, v.cursor.type);
-        ty.put(ast);
+        auto ty = deriveType(ast.get, v.cursor.type);
+        ty.put(ast.get);
         if (ty.type !is null)
-            ast.put(n, ty.id);
+            ast.get.put(n, ty.id);
         if (ty.symbol !is null)
-            ast.put(n, ty.symId);
+            ast.get.put(n, ty.symId);
 
         v.accept(this);
     }
@@ -1337,7 +1337,7 @@ final class FindVisitor(T) : Visitor {
  * The problem is that the location of the Condition node will be OpGreater and
  * not the VarDecl.
  */
-void rewriteCondition(scope analyze.Ast* ast, analyze.Condition root) {
+void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
     import sumtype;
     import dextool.plugin.mutate.backend.analyze.ast : TypeId, VarDecl, Kind;
 
@@ -1349,7 +1349,7 @@ void rewriteCondition(scope analyze.Ast* ast, analyze.Condition root) {
     }
 }
 
-void rewriteSwitch(scope analyze.Ast* ast, analyze.BranchBundle root,
+void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root,
         analyze.Block block, Location firstCase) {
     import std.range : enumerate;
     import std.typecons : tuple;
@@ -1389,7 +1389,7 @@ struct DeriveTypeResult {
     analyze.SymbolId symId;
     analyze.Symbol symbol;
 
-    void put(scope analyze.Ast* ast) @safe {
+    void put(ref analyze.Ast ast) @safe {
         if (type !is null) {
             ast.types.require(id, type);
         }
@@ -1399,7 +1399,7 @@ struct DeriveTypeResult {
     }
 }
 
-DeriveTypeResult deriveType(scope Ast* ast, Type cty) {
+DeriveTypeResult deriveType(ref Ast ast, Type cty) {
     DeriveTypeResult rval;
 
     if (!cty.isValid)
@@ -1449,7 +1449,7 @@ struct DeriveCursorTypeResult {
  *
  * This is intended for expression nodes in the clang AST.
  */
-DeriveCursorTypeResult deriveCursorType(scope Ast* ast, scope const Cursor baseCursor) {
+DeriveCursorTypeResult deriveCursorType(ref Ast ast, scope const Cursor baseCursor) {
     auto c = Cursor(getUnderlyingExprNode(baseCursor));
     if (!c.isValid)
         return DeriveCursorTypeResult.init;
@@ -1534,7 +1534,7 @@ bool isConstExpr(const Cursor c) @trusted {
 }
 
 /// Returns: the types of the children
-auto getChildrenTypes(scope Ast* ast, Node parent) {
+auto getChildrenTypes(ref Ast ast, Node parent) {
     return BreathFirstRange(parent).map!(a => ast.type(a))
         .filter!(a => a !is null)
         .map!(a => a.kind);

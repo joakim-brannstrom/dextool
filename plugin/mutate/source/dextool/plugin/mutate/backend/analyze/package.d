@@ -913,11 +913,11 @@ struct Analyze {
             auto res = toMutateAst(tu.cursor, fio);
             ast = res.ast;
             saveDependencies(commandsForFileToAnalyze.flags, result.root, res.dependencies);
-            log!"analyze.pass_clang".trace(ast);
+            log!"analyze.pass_clang".trace(ast.get.toString);
         }
 
         auto codeMutants = () {
-            auto mutants = toMutants(ast, fio, valLoc, kinds);
+            auto mutants = toMutants(ast.ptr, fio, valLoc, kinds);
             log!"analyze.pass_mutant".trace(mutants);
 
             log!"analyze.pass_filter".trace("filter mutants");
@@ -929,10 +929,10 @@ struct Analyze {
         debug logger.trace(codeMutants);
 
         {
-            auto schemas = toSchemata(ast, fio, codeMutants);
+            auto schemas = toSchemata(ast.ptr, fio, codeMutants);
             log!"analyze.pass_schema".trace(schemas);
-            log.tracef("path dedup count:%s length_acc:%s", ast.paths.count,
-                    ast.paths.lengthAccum);
+            log.tracef("path dedup count:%s length_acc:%s",
+                    ast.get.paths.count, ast.get.paths.lengthAccum);
 
             result.schematas = schemas.getSchematas;
         }
@@ -948,7 +948,7 @@ struct Analyze {
         }
 
         if (conf.saveCoverage) {
-            auto cov = toCoverage(ast, fio, valLoc);
+            auto cov = toCoverage(ast.ptr, fio, valLoc);
             debug logger.trace(cov);
 
             foreach (a; cov.points.byKeyValue) {

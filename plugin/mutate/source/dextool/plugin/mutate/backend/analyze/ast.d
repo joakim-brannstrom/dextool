@@ -80,6 +80,7 @@ struct Ast {
         nodeTypes = null;
         nodeSymbols = null;
         locs = null;
+        root = null;
     }
 
     void releaseCache() {
