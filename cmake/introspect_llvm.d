@@ -109,6 +109,7 @@ string llvmMajorVersion() {
     versionToBinding[9] = 9;
     versionToBinding[10] = 10;
     versionToBinding[11] = 11;
+    versionToBinding[12] = 12;
 
     if (auto v = llvm.v.major in versionToBinding)
         return (*v).to!string;
