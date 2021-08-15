@@ -144,16 +144,17 @@ struct RefCounted(T) {
     }
 
     /// Returns: pointer to the item or null.
-    inout(T*) unsafePtr() inout scope return  {
+    inout(T*) ptr() inout scope return  {
         return item;
     }
 
-    alias unsafePtr this;
-
-    ref inout(T) get() inout {
-        assert(item, "Invalid refcounted access");
+    ref inout(T) get() inout
+    in (item !is null, "Invalid refcounted access") {
         return *item;
     }
+
+    // creates forwarding problem but is convenient.
+    //alias get this;
 
     size_t toHash() @safe pure nothrow const @nogc scope {
         return cast(size_t) impl;
@@ -163,8 +164,9 @@ struct RefCounted(T) {
         swap(impl, other.impl);
     }
 
-    void opAssign(T other)
-    in (impl !is null) {
+    void opAssign(T other) {
+        if (empty)
+            impl = alloc;
         move(other, impl.item);
     }
 
@@ -247,7 +249,7 @@ struct WeakRef(T) {
     alias Impl = ControlBlock!T;
     private Impl* impl;
 
-    this(RefCounted!T r) {
+    this(RefCounted!(T) r) {
         if (r.empty)
             return;
 
@@ -255,7 +257,7 @@ struct WeakRef(T) {
         impl = r.impl;
     }
 
-    this(ref RefCounted!T r) {
+    this(ref RefCounted!(T) r) {
         if (r.empty)
             return;
 
@@ -282,17 +284,17 @@ struct WeakRef(T) {
         swap(impl, other.impl);
     }
 
-    RefCounted!T asRefCounted() nothrow {
+    RefCounted!(T) asRefCounted() nothrow {
         if (impl is null) {
-            return RefCounted!T.init;
+            return typeof(return).init;
         }
 
         auto useCnt = atomicLoad(impl.useCnt);
         if (useCnt == 0)
-            return RefCounted!T.init;
+            return typeof(return).init;
 
         cas(&impl.useCnt, useCnt, useCnt + 1);
-        return RefCounted!T(impl);
+        return typeof(return)(impl);
     }
 
     /// Release the reference.
