@@ -35,6 +35,9 @@ Fixes for dextool mutate
    about test cases are spread out in the html report. This constructs an
    individual page per test case and a summary table in `index.html` for easy
    navigation.
+ * Updated llvm compatiblity to version 12. The bindings for version 11 worked
+   most of the time except for `new` expressions which could lead to mutant
+   schematan that didn't compile.
 
 # v3.3.0 Emerald
 
