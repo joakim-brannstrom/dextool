@@ -5,14 +5,17 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module my.actor.actor;
 
+import std.stdio : writeln, writefln;
+
 import core.thread : Thread;
 import logger = std.experimental.logger;
 import std.algorithm : schwartzSort, max, min, among;
 import std.array : empty;
 import std.datetime : SysTime, Clock, dur;
+import std.exception : collectException;
 import std.functional : toDelegate;
 import std.meta : staticMap;
-import std.traits : Parameters, Unqual, ReturnType, isFunctionPointer, isFunction, isDelegate;
+import std.traits : Parameters, Unqual, ReturnType, isFunctionPointer, isFunction;
 import std.typecons : Tuple, tuple;
 import std.variant : Variant;
 
@@ -25,8 +28,16 @@ import my.gc.refc;
 import sumtype;
 
 private struct PromiseData {
-    AddressPtr replyTo;
+    WeakAddress replyTo;
     ulong replyId;
+
+    /// Copy constructor
+    this(ref return scope typeof(this) rhs) @safe nothrow @nogc {
+        replyTo = rhs.replyTo;
+        replyId = rhs.replyId;
+    }
+
+    @disable this(this);
 }
 
 // deliver can only be called one time.
@@ -44,17 +55,20 @@ struct Promise(T) {
      *
      * A promise can only be delivered once.
      */
-    void deliver(ref T reply) @trusted {
+    void deliver(ref T reply) @trusted
+    in (!data.empty, "promise must be initialized") {
+        if (data.empty)
+            return;
         scope (exit)
             data.release;
 
         // TODO: should probably call delivering actor with an ErrorMsg if replyTo is closed.
-        if (!data.empty && data.replyTo().isOpen) {
+        if (auto replyTo = data.get.replyTo.lock.get) {
             enum wrapInTuple = !is(T : Tuple!U, U);
             static if (wrapInTuple)
-                data.replyTo().replies.put(Reply(data.replyId, Variant(tuple(reply))));
+                replyTo.put(Reply(data.get.replyId, Variant(tuple(reply))));
             else
-                data.replyTo().replies.put(Reply(data.replyId, Variant(reply)));
+                replyTo.put(Reply(data.get.replyId, Variant(reply)));
         }
     }
 
@@ -64,7 +78,7 @@ struct Promise(T) {
 
     /// True if the promise is not initialized.
     bool empty() {
-        return data.empty || data.replyId == 0;
+        return data.empty || data.get.replyId == 0;
     }
 
     /// Clear the promise.
@@ -95,7 +109,7 @@ struct RequestResult(T) {
 
 private alias MsgHandler = void delegate(void* ctx, ref Variant msg) @safe;
 private alias RequestHandler = void delegate(void* ctx, ref Variant msg,
-        ulong replyId, scope AddressPtr replyTo) @safe;
+        ulong replyId, WeakAddress replyTo) @safe;
 private alias ReplyHandler = void delegate(void* ctx, ref Variant msg) @safe;
 
 alias DefaultHandler = void delegate(ref Actor self, ref Variant msg) @safe nothrow;
@@ -180,7 +194,7 @@ struct ReplyHandlerTimeout {
     SysTime timeout;
 }
 
-private enum ActorState {
+package enum ActorState {
     /// waiting to be started.
     waiting,
     /// active and processing messages.
@@ -201,9 +215,11 @@ private struct AwaitReponse {
 }
 
 struct Actor {
-    package Address* addr;
+    import std.container.rbtree : RedBlackTree, redBlackTree;
+
+    package StrongAddress addr;
     // visible in the package for logging purpose.
-    package ActorState state_;
+    package ActorState state_ = ActorState.stopped;
 
     private {
         // TODO: rename to behavior.
@@ -218,16 +234,16 @@ struct Actor {
         ulong nextReplyId = 1;
 
         /// Delayed messages ordered by their trigger time.
-        DelayedMsg[] delayed;
+        RedBlackTree!(DelayedMsg*, "a.triggerAt < b.triggerAt", true) delayed;
 
         /// Used during shutdown to signal monitors and links why this actor is terminating.
         SystemError lastError;
 
         /// monitoring the actor lifetime.
-        Address*[void* ] monitors;
+        WeakAddress[size_t] monitors;
 
         /// strong, bidirectional link of the actors lifetime.
-        Address*[void* ] links;
+        WeakAddress[size_t] links;
 
         // Number of messages that has been processed.
         ulong messages_;
@@ -250,16 +266,22 @@ struct Actor {
     }
 
     invariant () {
-        assert(addr !is null);
-        assert(errorHandler_);
-        assert(exitHandler_);
-        assert(exceptionHandler_);
-        assert(defaultHandler_);
+        if (addr && !state_.among(ActorState.waiting, ActorState.shutdown)) {
+            assert(errorHandler_);
+            assert(exitHandler_);
+            assert(exceptionHandler_);
+            assert(defaultHandler_);
+        }
     }
 
-    this(Address* a) @trusted {
+    this(StrongAddress a) @trusted
+    in (!a.empty, "address is empty") {
+        state_ = ActorState.waiting;
+
         addr = a;
-        addr.setOpen;
+        addr.get.setOpen;
+        delayed = new typeof(delayed);
+
         errorHandler_ = toDelegate(&defaultErrorHandler);
         downHandler_ = null;
         exitHandler_ = toDelegate(&defaultExitHandler);
@@ -267,12 +289,12 @@ struct Actor {
         defaultHandler_ = toDelegate(&.defaultHandler);
     }
 
-    AddressPtr address() @safe pure nothrow @nogc {
-        return AddressPtr(addr);
+    WeakAddress address() @safe {
+        return addr.weakRef;
     }
 
-    ref Address addressRef() @safe pure nothrow @nogc {
-        return *addr;
+    package ref StrongAddress addressRef() return @safe pure nothrow @nogc {
+        return addr;
     }
 
     ref System homeSystem() @safe pure nothrow @nogc {
@@ -300,7 +322,7 @@ struct Actor {
     }
 
     ulong id() @safe pure nothrow const @nogc {
-        return cast(ulong) addr;
+        return addr.id;
     }
 
     /// Returns: the name of the actor.
@@ -338,14 +360,18 @@ struct Actor {
     // dfmt on
 
 package:
-    bool hasMessage() @safe pure nothrow const @nogc {
-        return addr.hasMessage;
+    bool hasMessage() @safe pure nothrow @nogc {
+        return addr && addr.get.hasMessage;
     }
 
     /// How long until a delayed message or a timeout fires.
-    Duration nextTimeout(const SysTime now, const Duration default_) @safe pure nothrow const @nogc {
-        return min(delayed.empty ? default_ : (delayed[0].triggerAt - now),
+    Duration nextTimeout(const SysTime now, const Duration default_) @safe {
+        return min(delayed.empty ? default_ : (delayed.front.triggerAt - now),
                 replyTimeouts.empty ? default_ : (replyTimeouts[0].timeout - now));
+    }
+
+    bool waitingForReply() @safe pure nothrow const @nogc {
+        return !awaitedResponses.empty;
     }
 
     /// Number of messages that has been processed.
@@ -358,7 +384,7 @@ package:
     }
 
     void cleanupBehavior() @trusted nothrow {
-        foreach (a; incoming.byValue) {
+        foreach (ref a; incoming.byValue) {
             try {
                 a.free;
             } catch (Exception e) {
@@ -366,7 +392,7 @@ package:
             }
         }
         incoming = null;
-        foreach (a; reqBehavior.byValue) {
+        foreach (ref a; reqBehavior.byValue) {
             try {
                 a.free;
             } catch (Exception e) {
@@ -376,13 +402,24 @@ package:
     }
 
     void cleanupAwait() @trusted nothrow {
-        foreach (a; awaitedResponses.byValue) {
+        foreach (ref a; awaitedResponses.byValue) {
             try {
                 a.behavior.free;
             } catch (Exception e) {
             }
         }
         awaitedResponses = null;
+    }
+
+    void cleanupDelayed() @trusted nothrow {
+        foreach (const _; 0 .. delayed.length) {
+            try {
+                delayed.front.msg = Msg.init;
+                delayed.removeFront;
+            } catch (Exception e) {
+            }
+        }
+        .destroy(delayed);
     }
 
     bool isAlive() @safe pure nothrow const @nogc {
@@ -402,39 +439,68 @@ package:
         }
     }
 
+    /// Accepting messages.
+    bool isAccepting() @safe pure nothrow const @nogc {
+        final switch (state_) {
+        case ActorState.waiting:
+            goto case;
+        case ActorState.active:
+            goto case;
+        case ActorState.shutdown:
+            return true;
+        case ActorState.forceShutdown:
+            goto case;
+        case ActorState.finishShutdown:
+            goto case;
+        case ActorState.stopped:
+            return false;
+        }
+    }
+
     ulong replyId() @safe {
         return nextReplyId++;
     }
 
     void process(const SysTime now) @safe nothrow {
+        import core.memory : GC;
+
+        assert(!GC.inFinalizer);
+
         messages_ = 0;
 
-        // philosophy of the order is that a timeout should only trigger if it
-        // is really required thus it is checked last.  This order then mean
-        // that a request may have triggered a timeout but because
-        // `processReply` is called before `checkReplyTimeout` it is *ignored*.
-        // Thus "better to accept even if it is timeout rather than fail".
-        try {
-            processSystemMsg();
-            processDelayed(now);
-            processIncoming();
-            processReply();
-            checkReplyTimeout(now);
-        } catch (Exception e) {
-            exceptionHandler_(this, e);
+        void tick() {
+            // philosophy of the order is that a timeout should only trigger if it
+            // is really required thus it is checked last.  This order then mean
+            // that a request may have triggered a timeout but because
+            // `processReply` is called before `checkReplyTimeout` it is *ignored*.
+            // Thus "better to accept even if it is timeout rather than fail".
+            try {
+                processSystemMsg();
+                processDelayed(now);
+                processIncoming();
+                processReply();
+                checkReplyTimeout(now);
+            } catch (Exception e) {
+                exceptionHandler_(this, e);
+            }
         }
+
+        assert(state_ == ActorState.stopped || addr, "no address");
 
         final switch (state_) {
         case ActorState.waiting:
             state_ = ActorState.active;
+            tick;
+            // the state can be changed before the actor have executed.
             break;
         case ActorState.active:
+            tick;
             // self terminate if the actor has no behavior.
-            if (incoming.empty && awaitedResponses.empty
-                    && reqBehavior.empty)
+            if (incoming.empty && awaitedResponses.empty && reqBehavior.empty)
                 state_ = ActorState.forceShutdown;
             break;
         case ActorState.shutdown:
+            tick;
             if (awaitedResponses.empty)
                 state_ = ActorState.finishShutdown;
             cleanupBehavior;
@@ -442,47 +508,52 @@ package:
         case ActorState.forceShutdown:
             state_ = ActorState.finishShutdown;
             cleanupBehavior;
+            addr.get.setClosed;
             break;
         case ActorState.finishShutdown:
             state_ = ActorState.stopped;
-            addr.setClosed;
 
-            sendToMonitors(DownMsg(addr, lastError));
-            monitors = null;
+            sendToMonitors(DownMsg(addr.weakRef, lastError));
 
-            sendToLinks(ExitMsg(addr, lastError));
-            links = null;
+            sendToLinks(ExitMsg(addr.weakRef, lastError));
 
-            delayed = null;
             replyTimeouts = null;
+            cleanupDelayed;
             cleanupAwait;
+
+            // must be last because sendToLinks and sendToMonitors uses addr.
+            addr.get.shutdown();
+            addr.release;
             break;
         case ActorState.stopped:
             break;
         }
     }
 
-    void sendToMonitors(DownMsg msg) @trusted nothrow {
-        // trusted. OK because the constness is just some weird thing with inout and byKey.
-        foreach (a; monitors.byValue) {
+    void sendToMonitors(DownMsg msg) @safe nothrow {
+        foreach (ref a; monitors.byValue) {
             try {
-                if (a.isOpen) {
-                    a.sysMsg.put(SystemMsg(msg));
-                }
+                if (auto rc = a.lock.get)
+                    rc.put(SystemMsg(msg));
+                a.release;
             } catch (Exception e) {
             }
         }
+
+        monitors = null;
     }
 
-    void sendToLinks(ExitMsg msg) @trusted nothrow {
-        // trusted. OK because the constness is just some weird thing with inout and byKey.
-        foreach (a; links.byValue) {
+    void sendToLinks(ExitMsg msg) @safe nothrow {
+        foreach (ref a; links.byValue) {
             try {
-                if (a.isOpen)
-                    a.sysMsg.put(SystemMsg(msg));
+                if (auto rc = a.lock.get)
+                    rc.put(SystemMsg(msg));
+                a.release;
             } catch (Exception e) {
             }
         }
+
+        links = null;
     }
 
     void checkReplyTimeout(const SysTime now) @safe {
@@ -495,7 +566,7 @@ package:
                 const id = replyTimeouts[i].id;
                 if (auto v = id in awaitedResponses) {
                     messages_++;
-                    v.onError(this, ErrorMsg(null, SystemError.requestTimeout));
+                    v.onError(this, ErrorMsg(addr.weakRef, SystemError.requestTimeout));
                     try {
                         () @trusted { v.behavior.free; }();
                     } catch (Exception e) {
@@ -516,38 +587,33 @@ package:
     }
 
     void processIncoming() @safe {
-        if (addr.incoming.empty)
+        if (addr.get.empty!Msg)
             return;
         messages_++;
 
-        auto front = addr.incoming.pop;
+        auto front = addr.get.pop!Msg;
+        scope (exit)
+            .destroy(front);
 
-        void doSend() {
-            if (auto v = front.signature in incoming) {
-                (*v)(front.data);
+        void doSend(ref MsgOneShot msg) {
+            if (auto v = front.get.signature in incoming) {
+                (*v)(msg.data);
             } else {
-                defaultHandler_(this, front.data);
+                defaultHandler_(this, msg.data);
             }
         }
 
-        void doRequest() @trusted {
-            auto um = front.data.get!(Tuple!(ulong, Address*, Variant));
-
-            if (auto v = front.signature in reqBehavior) {
-                (*v)(um[2], um[0], AddressPtr(um[1]));
+        void doRequest(ref MsgRequest msg) @trusted {
+            if (auto v = front.get.signature in reqBehavior) {
+                (*v)(msg.data, msg.replyId, msg.replyTo);
             } else {
-                defaultHandler_(this, um[2]);
+                defaultHandler_(this, msg.data);
             }
         }
 
-        final switch (front.type) {
-        case MsgType.oneShot:
-            doSend();
-            break;
-        case MsgType.request:
-            doRequest();
-            break;
-        }
+        front.get.type.match!((ref MsgOneShot a) { doSend(a); }, (ref MsgRequest a) {
+            doRequest(a);
+        });
     }
 
     /** All system messages are handled.
@@ -563,19 +629,30 @@ package:
      *    the actor system is out of scope.
      */
     void processSystemMsg() @safe {
-        while (!addr.sysMsg.empty) {
+        //() @trusted {
+        //logger.infof("run %X", cast(void*) &this);
+        //}();
+        while (!addr.get.empty!SystemMsg) {
             messages_++;
-            auto front = addr.sysMsg.pop;
+            //logger.infof("%X %s %s", addr.toHash, state_, messages_);
+            auto front = addr.get.pop!SystemMsg;
+            scope (exit)
+                .destroy(front);
 
-            front.match!((ref DownMsg a) {
+            front.get.match!((ref DownMsg a) {
                 if (downHandler_)
                     downHandler_(this, a);
-            }, (ref MonitorRequest a) { monitors[cast(void*) a.addr] = a.addr; },
-                    (ref DemonitorRequest a) { monitors.remove(a.addr); }, (ref LinkRequest a) {
-                links[cast(void*) a.addr] = a.addr;
-            }, (ref UnlinkRequest a) { links.remove(a.addr); }, (ref ErrorMsg a) {
-                errorHandler_(this, a);
-            }, (ref ExitMsg a) { exitHandler_(this, a); }, (ref SystemExitMsg a) {
+            }, (ref MonitorRequest a) { monitors[a.addr.toHash] = a.addr; }, (ref DemonitorRequest a) {
+                if (auto v = a.addr.toHash in monitors)
+                    v.release;
+                monitors.remove(a.addr.toHash);
+            }, (ref LinkRequest a) { links[a.addr.toHash] = a.addr; }, (ref UnlinkRequest a) {
+                if (auto v = a.addr.toHash in links)
+                    v.release;
+                links.remove(a.addr.toHash);
+            }, (ref ErrorMsg a) { errorHandler_(this, a); }, (ref ExitMsg a) {
+                exitHandler_(this, a);
+            }, (ref SystemExitMsg a) {
                 final switch (a.reason) {
                 case ExitReason.normal:
                     break;
@@ -591,7 +668,7 @@ package:
                 case ExitReason.kill:
                     exitHandler_(this, ExitMsg.init);
                     // the user do NOT have an option here
-                    this.forceShutdown;
+                    forceShutdown;
                     break;
                 }
             });
@@ -599,55 +676,48 @@ package:
     }
 
     void processReply() @safe {
-        if (addr.replies.empty)
+        if (addr.get.empty!Reply)
             return;
         messages_++;
 
-        auto front = addr.replies.pop;
+        auto front = addr.get.pop!Reply;
+        scope (exit)
+            .destroy(front);
 
-        if (auto v = front.id in awaitedResponses) {
+        if (auto v = front.get.id in awaitedResponses) {
             // TODO: reduce the lookups on front.id
-            v.behavior(front.data);
+            v.behavior(front.get.data);
             try {
                 () @trusted { v.behavior.free; }();
             } catch (Exception e) {
             }
-            awaitedResponses.remove(front.id);
-            removeReplyTimeout(front.id);
+            awaitedResponses.remove(front.get.id);
+            removeReplyTimeout(front.get.id);
         } else {
             // TODO: should probably be SystemError.unexpectedResponse?
-            defaultHandler_(this, front.data);
+            defaultHandler_(this, front.get.data);
         }
     }
 
     void processDelayed(const SysTime now) @trusted {
-        if (!addr.delayed.empty) {
+        if (!addr.get.empty!DelayedMsg) {
             // count as a message because handling them are "expensive".
             // Ignoring the case that the message right away is moved to the
             // incoming queue. This lead to "double accounting" but ohh well.
             // Don't use delayedSend when you should have used send.
             messages_++;
-            delayed ~= addr.delayed.pop;
-            if (delayed.length > 1)
-                schwartzSort!(a => a.triggerAt, (a, b) => a < b)(delayed);
+            delayed.insert(addr.get.pop!DelayedMsg.unsafeMove);
         } else if (delayed.empty) {
             return;
         }
 
-        size_t removeTo;
         foreach (const i; 0 .. delayed.length) {
-            if (now > delayed[i].triggerAt) {
-                addr.incoming.put(delayed[i].msg);
-                removeTo = i + 1;
+            if (now > delayed.front.triggerAt) {
+                addr.get.put(delayed.front.msg);
+                delayed.removeFront;
             } else {
                 break;
             }
-        }
-
-        if (removeTo >= delayed.length) {
-            delayed = null;
-        } else if (removeTo != 0) {
-            delayed = delayed[removeTo .. $];
         }
     }
 
@@ -663,6 +733,9 @@ package:
     }
 
     void register(ulong signature, Closure!(MsgHandler, void*) handler) @trusted {
+        if (!isAccepting)
+            return;
+
         if (auto v = signature in incoming) {
             try {
                 v.free;
@@ -673,6 +746,9 @@ package:
     }
 
     void register(ulong signature, Closure!(RequestHandler, void*) handler) @trusted {
+        if (!isAccepting)
+            return;
+
         if (auto v = signature in reqBehavior) {
             try {
                 v.free;
@@ -684,6 +760,9 @@ package:
 
     void register(ulong replyId, SysTime timeout, Closure!(ReplyHandler,
             void*) reply, ErrorHandler onError) @safe {
+        if (!isAccepting)
+            return;
+
         awaitedResponses[replyId] = AwaitReponse(reply, onError is null ? errorHandler_ : onError);
         replyTimeouts ~= ReplyHandlerTimeout(replyId, timeout);
         schwartzSort!(a => a.timeout, (a, b) => a < b)(replyTimeouts);
@@ -723,7 +802,7 @@ struct Closure(Fn, CtxT) {
 
 @("shall register a behavior to be called when msg received matching signature")
 unittest {
-    auto addr = makeAddress;
+    auto addr = makeAddress2;
     auto actor = Actor(addr);
 
     bool processedIncoming;
@@ -732,7 +811,7 @@ unittest {
     }
 
     actor.register(1, Closure!(MsgHandler, void*)(&fn));
-    addr.incoming.put(Msg(MsgType.oneShot, 1, Variant(42)));
+    addr.get.put(Msg(1, MsgType(MsgOneShot(Variant(42)))));
 
     actor.process(Clock.currTime);
 
@@ -742,25 +821,29 @@ unittest {
 private void cleanupCtx(CtxT)(void* ctx)
         if (is(CtxT == Tuple!T, T) || is(CtxT == void)) {
     import std.traits;
+    import my.actor.typed;
 
     static if (!is(CtxT == void)) {
         // trust that any use of this also pass on the correct context type.
         auto userCtx = () @trusted { return cast(CtxT*) ctx; }();
-        //*userCtx = CtxT.init;
         // release the context such as if it holds a rc object.
         alias Types = CtxT.Types;
+
         static foreach (const i; 0 .. CtxT.Types.length) {
             {
                 alias T = CtxT.Types[i];
-                //pragma(msg, "cleanupCtx " ~ T.stringof);
-                static if (is(Unqual!T == T)) {
-                    //pragma(msg, "mutable " ~ T.stringof ~ " " ~ typeof((*userCtx)[i]).stringof);
-                    static if (is(hasElaborateDestructor!T == T) && is(T == struct))
-                        (*userCtx)[i].__xdtor;
-                    else
-                        (*userCtx)[i] = T.init;
+                alias UT = Unqual!T;
+                static if (!is(T == UT)) {
+                    static assert(!is(UT : WeakAddress),
+                            "WeakAddress must NEVER be const or immutable");
+                    static assert(!is(UT : TypedAddress!M, M...),
+                            "WeakAddress must NEVER be const or immutable: " ~ T.stringof);
                 }
-                // TODO: add a version actor_ctx_diagnostic that prints when it is unable to deinit?
+                // TODO: add a -version actor_ctx_diagnostic that prints when it is unable to deinit?
+
+                static if (is(UT == T)) {
+                    .destroy((*userCtx)[i]);
+                }
             }
         }
     }
@@ -771,7 +854,6 @@ unittest {
     {
         auto x = tuple(cast(const) 42, 43);
         alias T = typeof(x);
-        //pragma(msg, T);
         cleanupCtx!T(cast(void*)&x);
         assert(x[0] == 42); // can't assign to const
         assert(x[1] == 0);
@@ -810,11 +892,9 @@ package auto makeAction(T, CtxT = void)(T handler) @safe
     void fn(void* ctx, ref Variant msg) @trusted {
         static if (is(CtxT == void)) {
             handler(msg.get!(Tuple!HArgs).expand);
-            //pragma(msg, "setHandler. reuse data");
         } else {
             auto userCtx = cast(CtxParam*) cast(CtxT*) ctx;
             handler(*userCtx, msg.get!(Tuple!HArgs).expand);
-            //pragma(msg, "setHandler. reuse data");
         }
     }
 
@@ -836,11 +916,9 @@ package Closure!(ReplyHandler, void*) makeReply(T, CtxT)(T handler) @safe {
     void fn(void* ctx, ref Variant msg) @trusted {
         static if (is(CtxT == void)) {
             handler(msg.get!(Tuple!HArgs).expand);
-            //pragma(msg, "setHandler. reuse data");
         } else {
             auto userCtx = cast(CtxParam*) cast(CtxT*) ctx;
             handler(*userCtx, msg.get!(Tuple!HArgs).expand);
-            //pragma(msg, "setHandler. reuse data");
         }
     }
 
@@ -897,47 +975,39 @@ package auto makeRequest(T, CtxT = void)(T handler) @safe {
 
     alias HArgs = staticMap!(Unqual, Params);
 
-    void fn(void* rawCtx, ref Variant msg, ulong replyId, scope AddressPtr replyTo) @trusted {
+    void fn(void* rawCtx, ref Variant msg, ulong replyId, WeakAddress replyTo) @trusted {
         static if (is(CtxT == void)) {
             auto r = handler(msg.get!(Tuple!HArgs).expand);
-            //pragma(msg, "setHandler. reuse data");
         } else {
             auto ctx = cast(CtxParam*) cast(CtxT*) rawCtx;
             auto r = handler(*ctx, msg.get!(Tuple!HArgs).expand);
-            //pragma(msg, "setHandler. reuse data");
         }
 
         static if (isReqResult) {
-            r.value.match!((ErrorMsg a) {
-                // TODO: replace null with the actor sending the message.
-                sendSystemMsg(replyTo, a);
-            }, (Promise!ReqT a) {
+            r.value.match!((ErrorMsg a) { sendSystemMsg(replyTo, a); }, (Promise!ReqT a) {
                 assert(!a.data.empty, "the promise MUST be constructed before it is returned");
-                a.data.replyId = replyId;
-                a.data.replyTo = replyTo;
+                a.data.get.replyId = replyId;
+                a.data.get.replyTo = replyTo;
             }, (data) {
-                // TODO: is this syntax for U one variable or variable. I want it to be variable.
                 enum wrapInTuple = !is(typeof(data) : Tuple!U, U);
-                if (replyTo().isOpen) {
+                if (auto rc = replyTo.lock.get) {
                     static if (wrapInTuple)
-                        replyTo().replies.put(Reply(replyId, Variant(tuple(data))));
+                        rc.put(Reply(replyId, Variant(tuple(data))));
                     else
-                        replyTo().replies.put(Reply(replyId, Variant(data)));
-                } else {
+                        rc.put(Reply(replyId, Variant(data)));
                 }
             });
         } else static if (isPromise) {
-            r.data.replyId = replyId;
-            r.data.replyTo = replyTo;
+            r.data.get.replyId = replyId;
+            r.data.get.replyTo = replyTo;
         } else {
             // TODO: is this syntax for U one variable or variable. I want it to be variable.
             enum wrapInTuple = !is(RType : Tuple!U, U);
-            if (replyTo().isOpen) {
+            if (auto rc = replyTo.lock.get) {
                 static if (wrapInTuple)
-                    replyTo().replies.put(Reply(replyId, Variant(tuple(r))));
+                    rc.put(Reply(replyId, Variant(tuple(r))));
                 else
-                    replyTo().replies.put(Reply(replyId, Variant(r)));
-            } else {
+                    rc.put(Reply(replyId, Variant(r)));
             }
         }
     }
@@ -953,8 +1023,10 @@ unittest {
         self.shutdown;
     }
 
-    auto a1 = build.set((int x) {}).exitHandler_(&countExits).finalize;
-    auto a2 = build.set((int x) {}).exitHandler_(&countExits).finalize;
+    auto aa1 = Actor(makeAddress2);
+    auto a1 = build(&aa1).set((int x) {}).exitHandler_(&countExits).finalize;
+    auto aa2 = Actor(makeAddress2);
+    auto a2 = build(&aa2).set((int x) {}).exitHandler_(&countExits).finalize;
 
     a1.linkTo(a2.address);
     a1.process(Clock.currTime);
@@ -964,7 +1036,7 @@ unittest {
     assert(a2.isAlive);
 
     sendExit(a1.address, ExitReason.userShutdown);
-    foreach (_; 0 .. 3) {
+    foreach (_; 0 .. 5) {
         a1.process(Clock.currTime);
         a2.process(Clock.currTime);
     }
@@ -981,8 +1053,10 @@ unittest {
         count++;
     }
 
-    auto a1 = build.set((int x) {}).downHandler_(&downMsg).finalize;
-    auto a2 = build.set((int x) {}).finalize;
+    auto aa1 = Actor(makeAddress2);
+    auto a1 = build(&aa1).set((int x) {}).downHandler_(&downMsg).finalize;
+    auto aa2 = Actor(makeAddress2);
+    auto a2 = build(&aa2).set((int x) {}).finalize;
 
     a1.monitor(a2.address);
     a1.process(Clock.currTime);
@@ -992,7 +1066,7 @@ unittest {
     assert(a2.isAlive);
 
     sendExit(a2.address, ExitReason.userShutdown);
-    foreach (_; 0 .. 3) {
+    foreach (_; 0 .. 5) {
         a1.process(Clock.currTime);
         a2.process(Clock.currTime);
     }
@@ -1003,8 +1077,6 @@ unittest {
 }
 
 private struct BuildActor {
-    import std.traits : isDelegate;
-
     Actor* actor;
 
     Actor* finalize() @safe {
@@ -1081,11 +1153,6 @@ package BuildActor build(Actor* a) @safe {
     return BuildActor(a);
 }
 
-/// ONLY used internally for unit testing
-private BuildActor build() @safe {
-    return BuildActor(new Actor(makeAddress));
-}
-
 /// Implement an actor.
 Actor* impl(Behavior...)(Actor* self, Behavior behaviors) {
     import my.actor.msg : isCapture, Capture;
@@ -1123,10 +1190,11 @@ unittest {
         return typeof(return)(42, "hej");
     }
 
-    auto actor = build.set(&fn3).set(&fn4).set(&fn5).finalize;
+    auto aa1 = Actor(makeAddress2);
+    auto a1 = build(&aa1).set(&fn3).set(&fn4).set(&fn5).finalize;
 }
 
-@safe unittest {
+unittest {
     bool delayOk;
     static void fn1(ref Tuple!(bool*, "delayOk") c, const string s) @safe {
         *c.delayOk = true;
@@ -1137,33 +1205,35 @@ unittest {
         *c.delayShouldNeverHappen = true;
     }
 
-    auto actor = build.set(&fn1, capture(&delayOk)).set(&fn2,
+    auto aa1 = Actor(makeAddress2);
+    auto actor = build(&aa1).set(&fn1, capture(&delayOk)).set(&fn2,
             capture(&delayShouldNeverHappen)).finalize;
     delayedSend(actor.address, Clock.currTime - 1.dur!"seconds", "foo");
     delayedSend(actor.address, Clock.currTime + 1.dur!"hours", 42);
 
-    assert(!actor.addressRef.delayed.empty);
-    assert(actor.addressRef.incoming.empty);
-    assert(actor.addressRef.replies.empty);
+    assert(!actor.addressRef.get.empty!DelayedMsg);
+    assert(actor.addressRef.get.empty!Msg);
+    assert(actor.addressRef.get.empty!Reply);
 
     actor.process(Clock.currTime);
 
-    assert(!actor.addressRef.delayed.empty);
-    assert(actor.addressRef.incoming.empty);
-    assert(actor.addressRef.replies.empty);
+    assert(!actor.addressRef.get.empty!DelayedMsg);
+    assert(actor.addressRef.get.empty!Msg);
+    assert(actor.addressRef.get.empty!Reply);
 
     actor.process(Clock.currTime);
+    actor.process(Clock.currTime);
 
-    assert(actor.addressRef.delayed.empty);
-    assert(actor.addressRef.incoming.empty);
-    assert(actor.addressRef.replies.empty);
+    assert(actor.addressRef.get.empty!DelayedMsg);
+    assert(actor.addressRef.get.empty!Msg);
+    assert(actor.addressRef.get.empty!Reply);
 
     assert(delayOk);
     assert(!delayShouldNeverHappen);
 }
 
-@("shall process a request->then chain")
-@safe unittest {
+@("shall process a request->then chain xyz")
+@system unittest {
     // checking capture is correctly setup/teardown by using captured rc.
 
     auto rcReq = refCounted(42);
@@ -1183,36 +1253,36 @@ unittest {
         assert(2 == ctx[1].refCount);
     }
 
-    // check that everything else is safe
-    auto actor = () @trusted {
-        return build.set(&fn, capture(&calledOk, rcReq)).finalize;
-    }();
+    auto aa1 = Actor(makeAddress2);
+    auto actor = build(&aa1).set(&fn, capture(&calledOk, rcReq)).finalize;
 
     assert(2 == rcReq.refCount);
     assert(1 == rcReply.refCount);
 
-    () @trusted {
-        actor.request(actor.address, infTimeout).send("apa", "foo")
-            .capture(&calledReply, rcReply).then(&reply);
-    }();
+    actor.request(actor.address, infTimeout).send("apa", "foo")
+        .capture(&calledReply, rcReply).then(&reply);
     assert(2 == rcReply.refCount);
 
-    assert(!actor.addr.incoming.empty);
-    assert(actor.addr.replies.empty);
+    assert(!actor.addr.get.empty!Msg);
+    assert(actor.addr.get.empty!Reply);
 
     actor.process(Clock.currTime);
-    assert(actor.addr.incoming.empty);
-    assert(actor.addr.replies.empty);
+    assert(actor.addr.get.empty!Msg);
+    assert(actor.addr.get.empty!Reply);
+
+    assert(2 == rcReq.refCount);
+    assert(1 == rcReply.refCount, "after the message is consumed the refcount should go back");
 
     assert(calledOk);
     assert(calledReply);
 
-    assert(2 == rcReq.refCount);
-    assert(1 == rcReply.refCount);
+    actor.shutdown;
+    while (actor.isAlive)
+        actor.process(Clock.currTime);
 }
 
 @("shall process a request->then chain using promises")
-@safe unittest {
+unittest {
     static struct A {
         string v;
     }
@@ -1241,17 +1311,12 @@ unittest {
             *ctx[0] += 1;
     }
 
-    auto actor = () @trusted {
-        return build.set(&fn1, capture(&calledOk, fn1p)).set(&fn2,
-                capture(&calledOk, fn2p)).finalize;
-    }();
+    auto aa1 = Actor(makeAddress2);
+    auto actor = build(&aa1).set(&fn1, capture(&calledOk, fn1p)).set(&fn2,
+            capture(&calledOk, fn2p)).finalize;
 
-    () @trusted {
-        actor.request(actor.address, infTimeout).send(A("apa"))
-            .capture(&calledReply).then(&reply);
-        actor.request(actor.address, infTimeout).send(B("apa"))
-            .capture(&calledReply).then(&reply);
-    }();
+    actor.request(actor.address, infTimeout).send(A("apa")).capture(&calledReply).then(&reply);
+    actor.request(actor.address, infTimeout).send(B("apa")).capture(&calledReply).then(&reply);
 
     actor.process(Clock.currTime);
     assert(calledOk == 1); // first request
@@ -1269,6 +1334,11 @@ unittest {
     actor.process(Clock.currTime);
 
     assert(calledReply == 2);
+
+    actor.shutdown;
+    while (actor.isAlive) {
+        actor.process(Clock.currTime);
+    }
 }
 
 /// The timeout triggered.
@@ -1295,62 +1365,63 @@ enum ScopedActorError : ubyte {
 
 /** Intended to be used in a local scope by a user.
  *
+ * `ScopedActor` is not thread safe.
  */
 struct ScopedActor {
-    import my.actor.typed : underlyingAddress;
+    import my.actor.typed : underlyingAddress, underlyingWeakAddress;
 
     private {
         static struct Data {
             Actor self;
             ScopedActorError errSt;
+
+            ~this() @safe {
+                if (self.addr.empty)
+                    return;
+
+                () @trusted {
+                    self.downHandler = null;
+                    self.defaultHandler = toDelegate(&.defaultHandler);
+                    self.errorHandler = toDelegate(&defaultErrorHandler);
+                }();
+
+                self.shutdown;
+                while (self.isAlive) {
+                    self.process(Clock.currTime);
+                }
+            }
         }
 
         RefCounted!Data data;
     }
 
-    this(Address* addr) @safe {
-        data = refCounted(Data(Actor(addr), ScopedActorError.none));
-        data.self.name = "ScopedActor";
-    }
-
-    ~this() @safe {
-        if (data.refCount == 1) {
-            data.self.shutdown;
-            while (data.self.isAlive)
-                data.self.process(Clock.currTime);
-        }
+    this(StrongAddress addr, string name) @safe {
+        data = refCounted(Data(Actor(addr)));
+        data.get.self.name = name;
     }
 
     private void reset() @safe nothrow {
-        data.errSt = ScopedActorError.none;
+        data.get.errSt = ScopedActorError.none;
     }
 
-    private void downHandler(ref Actor, DownMsg) @safe nothrow {
-        data.errSt = ScopedActorError.down;
-    }
-
-    private void errorHandler(ref Actor, ErrorMsg msg) @safe nothrow {
-        if (msg.reason == SystemError.requestTimeout)
-            data.errSt = ScopedActorError.timeout;
-        else
-            data.errSt = ScopedActorError.fatal;
-    }
-
-    private void unknownMsgHandler(ref Actor a, ref Variant msg) @safe nothrow {
-        logAndDropHandler(a, msg);
-        data.errSt = ScopedActorError.unknownMsg;
-    }
-
-    SRequestSend request(TAddress)(TAddress requestTo, SysTime timeout) {
+    SRequestSend request(TAddress)(TAddress requestTo, SysTime timeout)
+            if (isAddress!TAddress) {
         reset;
-        auto addr = underlyingAddress(requestTo);
-        auto rs = .request(&data.self, addr, timeout);
+        auto rs = .request(&data.get.self, underlyingWeakAddress(requestTo), timeout);
         return SRequestSend(rs, this);
     }
 
     private static struct SRequestSend {
         RequestSend rs;
         ScopedActor self;
+
+        /// Copy constructor
+        this(ref return typeof(this) rhs) @safe pure nothrow @nogc {
+            rs = rhs.rs;
+            self = rhs.self;
+        }
+
+        @disable this(this);
 
         SRequestSendThen send(Args...)(auto ref Args args) {
             return SRequestSendThen(.send(rs, args), self);
@@ -1360,8 +1431,17 @@ struct ScopedActor {
     private static struct SRequestSendThen {
         RequestSendThen rs;
         ScopedActor self;
-
         uint backoff;
+
+        /// Copy constructor
+        this(ref return typeof(this) rhs) {
+            rs = rhs.rs;
+            self = rhs.self;
+            backoff = rhs.backoff;
+        }
+
+        @disable this(this);
+
         void dynIntervalSleep() @trusted {
             // +100 usecs "feels good", magic number. current OS and
             // implementation of message passing isn't that much faster than
@@ -1371,16 +1451,48 @@ struct ScopedActor {
             backoff = min(backoff + 100, 20000);
         }
 
+        private static struct ValueCapture {
+            RefCounted!Data data;
+
+            void downHandler(ref Actor, DownMsg) @safe nothrow {
+                data.get.errSt = ScopedActorError.down;
+            }
+
+            void errorHandler(ref Actor, ErrorMsg msg) @safe nothrow {
+                if (msg.reason == SystemError.requestTimeout)
+                    data.get.errSt = ScopedActorError.timeout;
+                else
+                    data.get.errSt = ScopedActorError.fatal;
+            }
+
+            void unknownMsgHandler(ref Actor a, ref Variant msg) @safe nothrow {
+                logAndDropHandler(a, msg);
+                data.get.errSt = ScopedActorError.unknownMsg;
+            }
+        }
+
         void then(T)(T handler, ErrorHandler onError = null) {
             scope (exit)
                 demonitor(rs.rs.self, rs.rs.requestTo);
             monitor(rs.rs.self, rs.rs.requestTo);
 
+            auto callback = new ValueCapture(self.data);
+            self.data.get.self.downHandler = &callback.downHandler;
+            self.data.get.self.defaultHandler = &callback.unknownMsgHandler;
+            self.data.get.self.errorHandler = &callback.errorHandler;
+
             () @trusted { .thenUnsafe!(T, void)(rs, handler, null, onError); }();
 
-            self.data.self.downHandler = &self.downHandler;
-            self.data.self.defaultHandler = &self.unknownMsgHandler;
-            self.data.self.errorHandler = &self.errorHandler;
+            scope (exit)
+                () @trusted {
+                self.data.get.self.downHandler = null;
+                self.data.get.self.defaultHandler = toDelegate(&.defaultHandler);
+                self.data.get.self.errorHandler = toDelegate(&defaultErrorHandler);
+            }();
+
+            auto requestTo = rs.rs.requestTo.lock;
+            if (!requestTo)
+                throw new ScopedActorException(ScopedActorError.down);
 
             // TODO: this loop is stupid... should use a conditional variable
             // instead but that requires changing the mailbox. later
@@ -1389,22 +1501,22 @@ struct ScopedActor {
                 // force the actor to be alive even though there are no behaviors.
                 rs.rs.self.state_ = ActorState.waiting;
 
-                if (self.data.errSt == ScopedActorError.none) {
+                if (self.data.get.errSt == ScopedActorError.none) {
                     dynIntervalSleep;
-                    if (!rs.rs.requestTo.ptr.isOpen) {
-                        self.data.errSt = ScopedActorError.down;
-                    }
                 } else {
-                    throw new ScopedActorException(self.data.errSt);
+                    throw new ScopedActorException(self.data.get.errSt);
                 }
+
             }
-            while (rs.rs.self.messages == 0);
+            while (self.data.get.self.waitingForReply);
         }
     }
 }
 
-ScopedActor scopedActor() @safe {
-    return ScopedActor(makeAddress);
+ScopedActor scopedActor(string file = __FILE__, uint line = __LINE__)() @safe {
+    import std.format : format;
+
+    return ScopedActor(makeAddress2, format!"ScopedActor.%s:%s"(file, line));
 }
 
 @(
@@ -1425,7 +1537,7 @@ unittest {
     {
         auto self = scopedActor;
         bool excThrown;
-        auto stopAt = Clock.currTime + 1.dur!"seconds";
+        auto stopAt = Clock.currTime + 3.dur!"seconds";
         while (!excThrown && Clock.currTime < stopAt) {
             try {
                 self.request(a0, delay(1.dur!"nsecs")).send(42).then((int x) {});
@@ -1441,7 +1553,7 @@ unittest {
     {
         auto self = scopedActor;
         bool excThrown;
-        auto stopAt = Clock.currTime + 100.dur!"msecs";
+        auto stopAt = Clock.currTime + 3.dur!"seconds";
         while (!excThrown && Clock.currTime < stopAt) {
             try {
                 self.request(a0, delay(1.dur!"seconds")).send("hello").then((int x) {

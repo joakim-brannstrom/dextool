@@ -8,7 +8,6 @@ module my.actor.system;
 import core.sync.mutex : Mutex;
 import core.sync.condition : Condition;
 import core.thread : Thread;
-import logger = std.experimental.logger;
 import std.algorithm : min, max;
 import std.datetime : dur, Clock, Duration;
 import std.parallelism : Task, TaskPool, task;
@@ -18,7 +17,7 @@ import my.optional;
 
 public import my.actor.typed;
 public import my.actor.actor : Actor, build, makePromise, Promise, scopedActor, impl;
-public import my.actor.mailbox : Address, AddressPtr, makeAddress;
+public import my.actor.mailbox : Address, makeAddress2, WeakAddress;
 public import my.actor.msg;
 import my.actor.common;
 import my.actor.memory : ActorAlloc;
@@ -75,6 +74,7 @@ struct System {
         shutdown;
     }
 
+    /// Shutdown all actors as fast as possible.
     void shutdown() @safe {
         if (!running)
             return;
@@ -87,10 +87,23 @@ struct System {
         running = false;
     }
 
+    /// Wait for all actors to finish (terminate) before returning.
+    void wait() @safe {
+        if (!running)
+            return;
+
+        bg.shutdown;
+        if (ownsPool)
+            pool.finish(true);
+        pool = null;
+
+        running = false;
+    }
+
     /// spawn dynamic actor.
-    AddressPtr spawn(Fn, Args...)(Fn fn, auto ref Args args)
+    WeakAddress spawn(Fn, Args...)(Fn fn, auto ref Args args)
             if (is(Parameters!Fn[0] == Actor*) && is(ReturnType!Fn == Actor*)) {
-        auto actor = bg.alloc.make(makeAddress);
+        auto actor = bg.alloc.make(makeAddress2);
         return schedule(fn(actor, forward!args));
     }
 
@@ -98,7 +111,7 @@ struct System {
     auto spawn(Fn, Args...)(Fn fn, auto ref Args args)
             if (isTypedActorImpl!(Parameters!(Fn)[0])) {
         alias ActorT = TypedActor!(Parameters!(Fn)[0].AllowedMessages);
-        auto actor = bg.alloc.make(makeAddress);
+        auto actor = bg.alloc.make(makeAddress2);
         auto impl = fn(ActorT.Impl(actor), forward!args);
         schedule(actor);
         return impl.address;
@@ -106,11 +119,11 @@ struct System {
 
     // schedule an actor for execution in the thread pool.
     // Returns: the address of the actor.
-    private AddressPtr schedule(Actor* actor) @safe {
-        auto addr = actor.address;
+    private WeakAddress schedule(Actor* actor) @safe {
+        assert(bg.scheduler.isActive);
         actor.setHomeSystem(&this);
         bg.scheduler.putWaiting(actor);
-        return addr;
+        return actor.address;
     }
 }
 
@@ -218,7 +231,10 @@ struct Backend {
 
         scheduler.shutdown;
         scheduler = null;
-        () @trusted { .destroy(scheduler); GC.collect; malloc_trim(0); }();
+        //() @trusted { .destroy(scheduler); GC.collect; malloc_trim(0); }();
+        () @trusted { .destroy(scheduler); }();
+        () @trusted { GC.collect; }();
+        () @trusted { malloc_trim(0); }();
     }
 }
 
@@ -231,6 +247,8 @@ struct Backend {
  * workers are notified that there are actors waiting to be executed.
  */
 class Scheduler {
+    import core.atomic : atomicOp, atomicLoad;
+
     SystemConfig.Scheduler conf;
 
     ActorAlloc* alloc;
@@ -240,6 +258,9 @@ class Scheduler {
 
     /// Watcher will shutdown cleanly if this is false.
     bool isWatcher;
+
+    /// Shutdowner will shutdown cleanly if false;
+    bool isShutdown;
 
     // Workers waiting to be activated
     Mutex waitingWorkerMtx;
@@ -251,15 +272,21 @@ class Scheduler {
     // Actors waiting for messages to arrive thus they are inactive.
     Queue!(Actor*) inactive;
 
+    // Actors that are shutting down.
+    Queue!(Actor*) inShutdown;
+
     Task!(worker, Scheduler, const ulong)*[] workers;
     Task!(watchInactive, Scheduler)* watcher;
+    Task!(watchShutdown, Scheduler)* shutdowner;
 
     this(SystemConfig.Scheduler conf, TaskPool pool) {
         this.conf = conf;
         this.isActive = true;
         this.isWatcher = true;
+        this.isShutdown = true;
         this.waiting = typeof(waiting)(new Mutex);
         this.inactive = typeof(inactive)(new Mutex);
+        this.inShutdown = typeof(inShutdown)(new Mutex);
 
         this.waitingWorkerMtx = new Mutex;
         this.waitingWorker = new Condition(this.waitingWorkerMtx);
@@ -294,18 +321,15 @@ class Scheduler {
             Duration nextPoll = pollInterval;
 
             foreach (_; 0 .. runActors) {
-                if (auto a = sched.inactive.pop) {
-                    void moveToWaiting() {
-                        sched.putWaiting(a);
-                    }
+                if (auto a = sched.inactive.pop.unsafeMove) {
 
                     if (a.hasMessage) {
-                        moveToWaiting;
+                        sched.putWaiting(a);
                     } else {
                         const t = a.nextTimeout(Clock.currTime, maxPoll);
 
                         if (t < minPoll) {
-                            moveToWaiting;
+                            sched.putWaiting(a);
                         } else {
                             sched.putInactive(a);
                             nextPoll = inactive == 0 ? t : min(nextPoll, t);
@@ -328,12 +352,60 @@ class Scheduler {
             }
         }
 
-        while (sched.isWatcher) {
-            if (auto a = sched.inactive.pop) {
-                sched.waiting.put(a);
-                sched.wakeup;
+        while (sched.isWatcher || !sched.inactive.empty) {
+            if (auto a = sched.inactive.pop.unsafeMove) {
+                sched.inShutdown.put(a);
+            }
+        }
+    }
+
+    /// finish shutdown of actors that are shutting down.
+    private static void watchShutdown(Scheduler sched) {
+        import my.actor.msg : sendSystemMsgIfEmpty;
+        import my.actor.common : ExitReason;
+        import my.actor.mailbox : SystemExitMsg;
+
+        const shutdownPoll = sched.conf.pollInterval.orElse(20.dur!"msecs");
+
+        const minPoll = 100.dur!"usecs";
+        const stepPoll = minPoll;
+        const maxPoll = sched.conf.pollInterval.orElse(10.dur!"msecs");
+
+        Duration pollInterval = minPoll;
+
+        while (sched.isActive) {
+            const runActors = sched.inShutdown.length;
+            ulong alive;
+
+            foreach (_; 0 .. runActors) {
+                if (auto a = sched.inShutdown.pop.unsafeMove) {
+                    if (a.isAlive) {
+                        alive++;
+                        a.process(Clock.currTime);
+                        sched.inShutdown.put(a);
+                    } else {
+                        sched.alloc.dispose(a);
+                    }
+                }
+            }
+
+            if (alive == 0) {
+                () @trusted { Thread.sleep(pollInterval); }();
+                pollInterval = max(minPoll, pollInterval + stepPoll);
             } else {
-                () @trusted { Thread.sleep(shutdownPoll); }();
+                pollInterval = minPoll;
+            }
+        }
+
+        while (sched.isShutdown || !sched.inShutdown.empty) {
+            if (auto a = sched.inShutdown.pop.unsafeMove) {
+                if (a.isAlive) {
+                    sendSystemMsgIfEmpty(a.address, SystemExitMsg(ExitReason.kill));
+                    a.process(Clock.currTime);
+                    sched.inShutdown.put(a);
+                } else {
+                    sched.alloc.dispose(a);
+                }
             }
         }
     }
@@ -354,7 +426,6 @@ class Scheduler {
             foreach (_; 0 .. runActors) {
                 // reduce clock polling
                 const now = Clock.currTime;
-                //writefln("mark %s %s %s", now, lastActive, (now - lastActive));
                 if (auto ctx = sched.pop) {
                     ulong msgs;
                     ulong totalMsgs;
@@ -362,11 +433,8 @@ class Scheduler {
                         ctx.process(now);
                         msgs = ctx.messages;
                         totalMsgs += msgs;
-                        //writefln("%s tick %s %s", id, ctx.actor.name, msgs);
                     }
                     while (totalMsgs < maxThroughput && msgs != 0);
-
-                    //writefln("%s done %s %s", id, ctx.actor.name, totalMsgs);
 
                     if (totalMsgs == 0) {
                         sched.putInactive(ctx);
@@ -375,27 +443,19 @@ class Scheduler {
                         consecutiveInactive = 0;
                         sched.putWaiting(ctx);
                     }
-
-                    // nice logging. logg this to the actor framework or something
-                    //writeln(ctx.actor, " ", totalMsgs, " ", ctx.isAlive, " ", ctx.actor.addr.isOpen, " ", ctx.actor.state_);
-                    //() @trusted {
-                    //writeln(*ctx.actor);
-                    //}();
                 } else {
                     sched.wait(pollInterval);
-                    //writefln("%s short sleep", id);
                 }
             }
 
             // sleep if it is detected that actors are not sending messages
             if (consecutiveInactive == runActors) {
                 sched.wait(inactiveLimit);
-                //writefln("%s long sleep", id);
             }
         }
 
         while (!sched.waiting.empty) {
-            const sleepAfter = sched.waiting.length;
+            const sleepAfter = 1 + sched.waiting.length;
             for (size_t i; i < sleepAfter; ++i) {
                 if (auto ctx = sched.pop) {
                     sendSystemMsgIfEmpty(ctx.address, SystemExitMsg(ExitReason.kill));
@@ -418,6 +478,9 @@ class Scheduler {
         }
         watcher = task!watchInactive(this);
         watcher.executeInNewThread(Thread.PRIORITY_MIN);
+
+        shutdowner = task!watchShutdown(this);
+        shutdowner.executeInNewThread(Thread.PRIORITY_MIN);
     }
 
     void shutdown() {
@@ -435,15 +498,23 @@ class Scheduler {
             watcher.yieldForce;
         } catch (Exception e) {
         }
+
+        isShutdown = false;
+        try {
+            shutdowner.yieldForce;
+        } catch (Exception e) {
+        }
     }
 
     Actor* pop() {
-        return waiting.pop;
+        return waiting.pop.unsafeMove;
     }
 
     void putWaiting(Actor* a) @safe {
-        if (a.isAlive) {
+        if (a.isAccepting) {
             waiting.put(a);
+        } else if (a.isAlive) {
+            inShutdown.put(a);
         } else {
             // TODO: should terminated actors be logged?
             alloc.dispose(a);
@@ -451,6 +522,13 @@ class Scheduler {
     }
 
     void putInactive(Actor* a) @safe {
-        inactive.put(a);
+        if (a.isAccepting) {
+            inactive.put(a);
+        } else if (a.isAlive) {
+            inShutdown.put(a);
+        } else {
+            // TODO: should terminated actors be logged?
+            alloc.dispose(a);
+        }
     }
 }

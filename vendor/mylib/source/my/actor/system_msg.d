@@ -6,12 +6,13 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module my.actor.system_msg;
 
 import my.actor.common : SystemError, ExitReason;
-import my.actor.mailbox : Address;
+import my.actor.mailbox : WeakAddress;
+import my.typecons : CopyCtor;
 
 /// Sent to all links when an actor is terminated.
 struct ExitMsg {
     /// The source of this message, i.e., the terminated actor.
-    Address* source;
+    WeakAddress source;
 
     /// The exit reason of the terminated actor.
     SystemError reason;
@@ -26,7 +27,7 @@ struct SystemExitMsg {
 /// Sent to all actors monitoring an actor that is terminated.
 struct DownMsg {
     /// The source of this message, i.e., the terminated actor.
-    Address* source;
+    WeakAddress source;
 
     /// The exit reason of the terminated actor.
     SystemError reason;
@@ -34,7 +35,7 @@ struct DownMsg {
 
 struct ErrorMsg {
     /// The source of this message, i.e., the terminated actor.
-    Address* source;
+    WeakAddress source;
 
     /// The exit reason of the terminated actor.
     SystemError reason;
@@ -42,20 +43,20 @@ struct ErrorMsg {
 
 // Incoming requests to link to the actor using this address.
 struct MonitorRequest {
-    Address* addr;
+    WeakAddress addr;
 }
 
 // Request to remove `addr` as a monitor.
 struct DemonitorRequest {
-    Address* addr;
+    WeakAddress addr;
 }
 
 // Incoming requests to link to the actor using this address.
 struct LinkRequest {
-    Address* addr;
+    WeakAddress addr;
 }
 
 // Request to remove `addr` as a link.
 struct UnlinkRequest {
-    Address* addr;
+    WeakAddress addr;
 }

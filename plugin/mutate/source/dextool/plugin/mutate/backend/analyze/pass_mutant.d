@@ -17,8 +17,6 @@ import std.format : formattedWrite;
 import std.range : retro, ElementType;
 import std.typecons : tuple, Tuple;
 
-import my.gc.refc : RefCounted;
-
 static import colorlog;
 
 import dextool.type : AbsolutePath, Path;
@@ -38,11 +36,9 @@ shared static this() {
 @safe:
 
 /// Find mutants.
-MutantsResult toMutants(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) @safe {
-    auto visitor = new MutantVisitor(ast, fio, vloc, kinds);
-    scope (exit)
-        visitor.dispose;
-    ast.accept(visitor);
+MutantsResult toMutants(Ast* ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) {
+    scope visitor = new MutantVisitor(ast, fio, vloc, kinds);
+    () @trusted { ast.accept(visitor); }();
     return visitor.result;
 }
 
@@ -332,7 +328,7 @@ class MutantVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutations, DcrInfo;
     import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutations;
 
-    RefCounted!Ast ast;
+    Ast* ast;
     MutantsResult result;
 
     private {
@@ -342,7 +338,7 @@ class MutantVisitor : DepthFirstVisitor {
 
     alias visit = DepthFirstVisitor.visit;
 
-    this(RefCounted!Ast ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) {
+    this(Ast* ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) {
         this.ast = ast;
         result = new MutantsResult(ast.lang, fio, vloc, kinds);
 
@@ -351,10 +347,6 @@ class MutantVisitor : DepthFirstVisitor {
         foreach (ref l; ast.locs.byValue) {
             result.put(l.file);
         }
-    }
-
-    void dispose() {
-        ast.release;
     }
 
     override void visitPush(Node n) {
@@ -771,7 +763,7 @@ class MutantVisitor : DepthFirstVisitor {
  *  * not contain a `Return` that returns a type other than void.
  */
 class DeleteBlockVisitor : DepthFirstVisitor {
-    RefCounted!Ast ast;
+    Ast* ast;
 
     private {
         bool hasReturn;
@@ -780,7 +772,7 @@ class DeleteBlockVisitor : DepthFirstVisitor {
 
     alias visit = DepthFirstVisitor.visit;
 
-    this(RefCounted!Ast ast) {
+    this(Ast* ast) {
         this.ast = ast;
     }
 

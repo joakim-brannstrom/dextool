@@ -9,7 +9,7 @@ sudo apt-get upgrade
 
 **(Optional) Step 2:** Check which llvm, clang and libclang version to use.
 
-Dextool has been tested with libclang 4.0, 5.0, 6.0, 7.0, 8.0, 10.0 and 11.0
+Dextool has been tested with libclang 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 11.0 and 12.0
 
 Run the following to check which versions are available:
 
@@ -19,12 +19,12 @@ apt search clang-
 apt search libclang-
 ```
 
-You should see for example `libclang-11-dev`.
+You should see for example `libclang-12-dev`.
 
 **Step 3:** Install the dependencies:
 
 ```
-sudo apt install build-essential cmake llvm-11 llvm-11-dev clang-11 libclang-11-dev libsqlite3-dev
+sudo apt install build-essential cmake llvm-12 llvm-12-dev clang-12 libclang-12-dev libsqlite3-dev
 ```
 
 **Step 4:** Install the D compiler:

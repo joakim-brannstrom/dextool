@@ -39,12 +39,12 @@ struct MemFree {
     }
 
     ~this() @trusted {
-        if (data.empty || !data.isRunning)
+        if (data.empty || !data.get.isRunning)
             return;
 
         scope (exit)
-            data.isRunning = false;
-        send(data.bg, Msg.stop);
+            data.get.isRunning = false;
+        send(data.get.bg, Msg.stop);
     }
 
     /** Start a background thread to do the work.

@@ -478,24 +478,24 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
     static void start(ref Ctx ctx, Start, ToolVersion toolVersion) {
         log.trace("starting store actor");
 
-        ctx.state.isToolVersionDifferent = ctx.db.isToolVersionDifferent(toolVersion);
-        ctx.state.schemas = SchemataSaver(ctx.conf.schema.minMutantsPerSchema,
+        ctx.state.get.isToolVersionDifferent = ctx.db.get.isToolVersionDifferent(toolVersion);
+        ctx.state.get.schemas = SchemataSaver(ctx.conf.schema.minMutantsPerSchema,
                 ctx.conf.schema.mutantsPerSchema);
 
         if (ctx.conf.analyze.fastDbStore) {
             log.info(
                     "Turning OFF sqlite3 synchronization protection to improve the write performance");
             log.warning("Do NOT interrupt dextool in any way because it may corrupt the database");
-            ctx.db.run("PRAGMA synchronous = OFF");
-            ctx.db.run("PRAGMA journal_mode = MEMORY");
+            ctx.db.get.run("PRAGMA synchronous = OFF");
+            ctx.db.get.run("PRAGMA journal_mode = MEMORY");
         }
 
         {
-            auto trans = ctx.db.transaction;
+            auto trans = ctx.db.get.transaction;
             auto profile = Profile("prune old schemas");
-            if (ctx.state.isToolVersionDifferent) {
+            if (ctx.state.get.isToolVersionDifferent) {
                 log.info("Prune database of schematan created by the old version");
-                ctx.db.schemaApi.deleteAllSchemas;
+                ctx.db.get.schemaApi.deleteAllSchemas;
             }
             trans.commit;
         }
@@ -505,26 +505,26 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
     }
 
     static bool isDone(ref Ctx ctx, IsDone) {
-        return ctx.state.isDone;
+        return ctx.state.get.isDone;
     }
 
     static void startedAnalyzers(ref Ctx ctx, StartedAnalyzer) {
-        ctx.state.startedAnalyzers++;
+        ctx.state.get.startedAnalyzers++;
     }
 
     static void doneStartAnalyzers(ref Ctx ctx, DoneStartingAnalyzers) {
-        ctx.state.doneStarting = true;
+        ctx.state.get.doneStarting = true;
     }
 
     static void failedFileAnalyze(ref Ctx ctx, Token) {
         send(ctx.flowCtrl, ReturnTokenMsg.init);
         // a failed file has to count as well.
-        ctx.state.savedResult++;
+        ctx.state.get.savedResult++;
     }
 
     static void checkPostProcess(ref Ctx ctx, CheckPostProcess) {
-        if (ctx.state.doneStarting && ctx.state.savedTestFileResult
-                && (ctx.state.startedAnalyzers == ctx.state.savedResult))
+        if (ctx.state.get.doneStarting && ctx.state.get.savedTestFileResult
+                && (ctx.state.get.startedAnalyzers == ctx.state.get.savedResult))
             send(ctx.self, PostProcess.init);
         else
             delayedSend(ctx.self, delay(500.dur!"msecs"), CheckPostProcess.init);
@@ -533,23 +533,23 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
     static void savedTestFileResult(ref Ctx ctx, TestFileResult result) {
         auto profile = Profile("save test files");
 
-        ctx.state.savedTestFileResult = true;
+        ctx.state.get.savedTestFileResult = true;
 
         Set!Checksum old;
 
-        auto t = ctx.db.transaction;
+        auto t = ctx.db.get.transaction;
 
-        foreach (a; ctx.db.testFileApi.getTestFiles) {
+        foreach (a; ctx.db.get.testFileApi.getTestFiles) {
             old.add(a.checksum.get);
             if (a.checksum.get !in result.files) {
                 log.info("Removed test file ", a.file.get.toString);
-                ctx.db.testFileApi.removeFile(a.file);
+                ctx.db.get.testFileApi.removeFile(a.file);
             }
         }
 
         foreach (a; result.files.byValue.filter!(a => a.checksum.get !in old)) {
             log.info("Saving test file ", a.file.get.toString);
-            ctx.db.testFileApi.put(a);
+            ctx.db.get.testFileApi.put(a);
         }
 
         t.commit;
@@ -568,13 +568,14 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         // are saving the current one.
         send(ctx.flowCtrl, ReturnTokenMsg.init);
 
-        ctx.state.savedResult++;
-        log.infof("Analyzed file %s/%s", ctx.state.savedResult, ctx.state.startedAnalyzers);
+        ctx.state.get.savedResult++;
+        log.infof("Analyzed file %s/%s", ctx.state.get.savedResult,
+                ctx.state.get.startedAnalyzers);
 
-        auto getFileId = nullableCache!(string, FileId, (string p) => ctx.db.getFileId(p.Path))(256,
+        auto getFileId = nullableCache!(string, FileId, (string p) => ctx.db.get.getFileId(p.Path))(256,
                 30.dur!"seconds");
         auto getFileDbChecksum = nullableCache!(string, Checksum,
-                (string p) => ctx.db.getFileChecksum(p.Path))(256, 30.dur!"seconds");
+                (string p) => ctx.db.get.getFileChecksum(p.Path))(256, 30.dur!"seconds");
         auto getFileFsChecksum = nullableCache!(string, Checksum, (string p) {
             return checksum(ctx.fio.makeInput(AbsolutePath(Path(p))).content[]);
         })(256, 30.dur!"seconds");
@@ -589,53 +590,53 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             }
         }
 
-        auto trans = ctx.db.transaction;
+        auto trans = ctx.db.get.transaction;
 
         // mark files that have an unchanged checksum as "already saved"
         foreach (f; result.idFile
                 .byKey
-                .filter!(a => a !in ctx.state.savedFiles)
+                .filter!(a => a !in ctx.state.get.savedFiles)
                 .filter!(a => getFileDbChecksum(ctx.fio.toRelativeRoot(a)) == getFileFsChecksum(a)
-                    && !ctx.conf.analyze.forceSaveAnalyze && !ctx.state.isToolVersionDifferent)) {
+                    && !ctx.conf.analyze.forceSaveAnalyze && !ctx.state.get.isToolVersionDifferent)) {
             log.info("Unchanged ".color(Color.yellow), f);
-            ctx.state.savedFiles.add(f);
+            ctx.state.get.savedFiles.add(f);
         }
 
         // only saves mutation points to a file one time.
         {
             auto app = appender!(MutationPointEntry2[])();
-            bool isChanged = ctx.state.isToolVersionDifferent;
+            bool isChanged = ctx.state.get.isToolVersionDifferent;
             foreach (mp; result.mutationPoints
                     .map!(a => tuple!("data", "file")(a, ctx.fio.toAbsoluteRoot(a.file)))
-                    .filter!(a => a.file !in ctx.state.savedFiles)) {
+                    .filter!(a => a.file !in ctx.state.get.savedFiles)) {
                 app.put(mp.data);
             }
-            foreach (f; result.idFile.byKey.filter!(a => a !in ctx.state.savedFiles)) {
+            foreach (f; result.idFile.byKey.filter!(a => a !in ctx.state.get.savedFiles)) {
                 isChanged = true;
                 log.info("Saving ".color(Color.green), f);
                 const relp = ctx.fio.toRelativeRoot(f);
 
                 // this is critical in order to remove old data about a file.
-                ctx.db.removeFile(relp);
+                ctx.db.get.removeFile(relp);
 
                 const info = result.infoId[result.idFile[f]];
-                ctx.db.put(relp, info.checksum, info.language, f == result.root);
-                ctx.state.savedFiles.add(f);
+                ctx.db.get.put(relp, info.checksum, info.language, f == result.root);
+                ctx.state.get.savedFiles.add(f);
             }
-            ctx.db.mutantApi.put(app.data, ctx.fio.getOutputDir);
+            ctx.db.get.mutantApi.put(app.data, ctx.fio.getOutputDir);
 
-            if (result.root !in ctx.state.savedFiles) {
+            if (result.root !in ctx.state.get.savedFiles) {
                 // this occurs when the file is e.g. a unittest that uses a
                 // header only library. The unittests are not mutated thus
                 // no mutation points exists in them but we want dextool to
                 // still, if possible, track the unittests for changes.
                 isChanged = true;
                 const relp = ctx.fio.toRelativeRoot(result.root);
-                ctx.db.removeFile(relp);
+                ctx.db.get.removeFile(relp);
                 // the language do not matter because it is a file without
                 // any mutants.
-                ctx.db.put(relp, result.rootCs, Language.init, true);
-                ctx.state.savedFiles.add(ctx.fio.toAbsoluteRoot(result.root));
+                ctx.db.get.put(relp, result.rootCs, Language.init, true);
+                ctx.state.get.savedFiles.add(ctx.fio.toAbsoluteRoot(result.root));
             }
 
             // must always update dependencies because they may not contain
@@ -643,7 +644,8 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             // trigger isChanged to be true.
             try {
                 // not all files are tracked thus this may throw an exception.
-                ctx.db.dependencyApi.set(ctx.fio.toRelativeRoot(result.root), result.dependencies);
+                ctx.db.get.dependencyApi.set(ctx.fio.toRelativeRoot(result.root),
+                        result.dependencies);
             } catch (Exception e) {
             }
 
@@ -651,16 +653,16 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 foreach (a; result.coverage.byKeyValue) {
                     const fid = getFileId(ctx.fio.toRelativeRoot(result.fileId[a.key]));
                     if (!fid.isNull) {
-                        ctx.db.coverageApi.clearCoverageMap(fid.get);
-                        ctx.db.coverageApi.putCoverageMap(fid.get, a.value);
+                        ctx.db.get.coverageApi.clearCoverageMap(fid.get);
+                        ctx.db.get.coverageApi.putCoverageMap(fid.get, a.value);
                     }
                 }
 
                 // only save the schematas if mutation points where saved.
                 // This ensure that only schematas for changed/new files
                 // are saved.
-                ctx.state.schemas.put(ctx.fio, result.schematas);
-                ctx.state.schemas.intermediate(ctx.db);
+                ctx.state.get.schemas.put(ctx.fio, result.schematas);
+                ctx.state.get.schemas.intermediate(ctx.db.get);
             }
         }
 
@@ -679,7 +681,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                     app.put(LineMetadata(fid.get, md.line, md.attr));
                 }
             }
-            ctx.db.metaDataApi.put(app.data);
+            ctx.db.get.metaDataApi.put(app.data);
         }
 
         trans.commit;
@@ -690,16 +692,16 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
     static void postProcess(ref Ctx ctx, PostProcess) {
         import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
 
-        if (ctx.state.isDone)
+        if (ctx.state.get.isDone)
             return;
 
-        ctx.state.isDone = true;
+        ctx.state.get.isDone = true;
 
         void fastDbOff() {
             if (!ctx.conf.analyze.fastDbStore)
                 return;
-            ctx.db.run("PRAGMA synchronous = ON");
-            ctx.db.run("PRAGMA journal_mode = DELETE");
+            ctx.db.get.run("PRAGMA synchronous = ON");
+            ctx.db.get.run("PRAGMA journal_mode = DELETE");
         }
 
         void pruneFiles() {
@@ -708,16 +710,16 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             auto profile = Profile("prune files");
 
             log.info("Pruning the database of dropped files");
-            auto files = ctx.db.getFiles.map!(a => ctx.fio.toAbsoluteRoot(a)).toSet;
+            auto files = ctx.db.get.getFiles.map!(a => ctx.fio.toAbsoluteRoot(a)).toSet;
 
-            foreach (f; files.setDifference(ctx.state.savedFiles).toRange) {
+            foreach (f; files.setDifference(ctx.state.get.savedFiles).toRange) {
                 log.info("Removing ".color(Color.red), f);
-                ctx.db.removeFile(ctx.fio.toRelativeRoot(f));
+                ctx.db.get.removeFile(ctx.fio.toRelativeRoot(f));
             }
         }
 
         void addRoots() {
-            if (ctx.conf.analyze.forceSaveAnalyze || ctx.state.isToolVersionDifferent)
+            if (ctx.conf.analyze.forceSaveAnalyze || ctx.state.get.isToolVersionDifferent)
                 return;
 
             // add root files and their dependencies that has not been analyzed because nothing has changed.
@@ -726,64 +728,64 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             auto profile = Profile("add roots and dependencies");
             foreach (a; ctx.rootFiles) {
                 auto p = ctx.fio.toAbsoluteRoot(a);
-                if (p !in ctx.state.savedFiles) {
-                    ctx.state.savedFiles.add(p);
+                if (p !in ctx.state.get.savedFiles) {
+                    ctx.state.get.savedFiles.add(p);
                     // fejk text for the user to tell them that yes, the files have
                     // been analyzed.
                     log.info("Analyzing ", a);
                     log.info("Unchanged ".color(Color.yellow), a);
                 }
             }
-            foreach (a; ctx.rootFiles.map!(a => ctx.db.dependencyApi.get(a)).joiner) {
-                ctx.state.savedFiles.add(ctx.fio.toAbsoluteRoot(a));
+            foreach (a; ctx.rootFiles.map!(a => ctx.db.get.dependencyApi.get(a)).joiner) {
+                ctx.state.get.savedFiles.add(ctx.fio.toAbsoluteRoot(a));
             }
         }
 
         void finalizeSchema() {
-            auto trans = ctx.db.transaction;
-            ctx.state.schemas.finalize(ctx.db);
+            auto trans = ctx.db.get.transaction;
+            ctx.state.get.schemas.finalize(ctx.db.get);
             trans.commit;
-            ctx.state.schemas = SchemataSaver.init;
+            ctx.state.get.schemas = SchemataSaver.init;
         }
 
         finalizeSchema;
 
-        auto trans = ctx.db.transaction;
+        auto trans = ctx.db.get.transaction;
 
         addRoots;
 
         log.info("Resetting timeout context");
-        resetTimeoutContext(ctx.db);
+        resetTimeoutContext(ctx.db.get);
 
         log.info("Updating metadata");
-        ctx.db.metaDataApi.updateMetadata;
+        ctx.db.get.metaDataApi.updateMetadata;
 
         if (ctx.conf.analyze.prune) {
             pruneFiles();
             {
                 auto profile = Profile("remove orphaned mutants");
                 log.info("Removing orphaned mutants");
-                ctx.db.mutantApi.removeOrphanedMutants;
+                ctx.db.get.mutantApi.removeOrphanedMutants;
             }
             {
                 auto profile = Profile("prune schemas");
                 log.info("Prune the database of unused schemas");
-                ctx.db.schemaApi.pruneSchemas;
+                ctx.db.get.schemaApi.pruneSchemas;
             }
             {
                 auto profile = Profile("prune dependencies");
                 log.info("Prune dependencies");
-                ctx.db.dependencyApi.cleanup;
+                ctx.db.get.dependencyApi.cleanup;
             }
         }
 
         log.info("Updating manually marked mutants");
-        updateMarkedMutants(ctx.db);
-        printLostMarkings(ctx.db.markMutantApi.getLostMarkings);
+        updateMarkedMutants(ctx.db.get);
+        printLostMarkings(ctx.db.get.markMutantApi.getLostMarkings);
 
-        if (ctx.state.isToolVersionDifferent) {
+        if (ctx.state.get.isToolVersionDifferent) {
             log.info("Updating tool version");
-            ctx.db.updateToolVersion(ToolVersion(dextoolBinaryId));
+            ctx.db.get.updateToolVersion(ToolVersion(dextoolBinaryId));
         }
 
         log.info("Committing changes");
@@ -792,10 +794,10 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
         fastDbOff();
 
-        if (ctx.state.isToolVersionDifferent) {
+        if (ctx.state.get.isToolVersionDifferent) {
             auto profile = Profile("compact");
             log.info("Compacting the database");
-            ctx.db.vacuum;
+            ctx.db.get.vacuum;
         }
     }
 
@@ -911,11 +913,11 @@ struct Analyze {
             auto res = toMutateAst(tu.cursor, fio);
             ast = res.ast;
             saveDependencies(commandsForFileToAnalyze.flags, result.root, res.dependencies);
-            log!"analyze.pass_clang".trace(ast);
+            log!"analyze.pass_clang".trace(ast.get.toString);
         }
 
         auto codeMutants = () {
-            auto mutants = toMutants(ast, fio, valLoc, kinds);
+            auto mutants = toMutants(ast.ptr, fio, valLoc, kinds);
             log!"analyze.pass_mutant".trace(mutants);
 
             log!"analyze.pass_filter".trace("filter mutants");
@@ -927,10 +929,10 @@ struct Analyze {
         debug logger.trace(codeMutants);
 
         {
-            auto schemas = toSchemata(ast, fio, codeMutants);
+            auto schemas = toSchemata(ast.ptr, fio, codeMutants);
             log!"analyze.pass_schema".trace(schemas);
-            log.tracef("path dedup count:%s length_acc:%s", ast.paths.count,
-                    ast.paths.lengthAccum);
+            log.tracef("path dedup count:%s length_acc:%s",
+                    ast.get.paths.count, ast.get.paths.lengthAccum);
 
             result.schematas = schemas.getSchematas;
         }
@@ -946,7 +948,7 @@ struct Analyze {
         }
 
         if (conf.saveCoverage) {
-            auto cov = toCoverage(ast, fio, valLoc);
+            auto cov = toCoverage(ast.ptr, fio, valLoc);
             debug logger.trace(cov);
 
             foreach (a; cov.points.byKeyValue) {
