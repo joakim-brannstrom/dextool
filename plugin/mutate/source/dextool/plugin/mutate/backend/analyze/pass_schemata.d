@@ -969,6 +969,9 @@ struct BlockChain {
 
     /// Returns: the generated chain that can replace the original expression.
     const(ubyte)[] generate() {
+        if (mutants.data.empty)
+            return null;
+
         auto app = appender!(const(ubyte)[])();
 
         void addOriginal() {
@@ -977,17 +980,19 @@ struct BlockChain {
                 app.put(";".rewrite);
         }
 
-        app.put(format!"if (%s == 0) {"(schemataMutantIdentifier).rewrite);
-        addOriginal;
-        app.put("}".rewrite);
-
+        bool isFirst = true;
         foreach (const mutant; mutants.data) {
-            app.put(" else if (".rewrite);
+            if (isFirst) {
+                app.put("if (unlikely(".rewrite);
+                isFirst = false;
+            } else {
+                app.put(" else if (unlikely(".rewrite);
+            }
 
             app.put(format!"%s == "(schemataMutantIdentifier).rewrite);
             app.put(mutant.id.checksumToId.to!string.rewrite);
             app.put("u".rewrite);
-            app.put(") {".rewrite);
+            app.put(")) {".rewrite);
 
             app.put(mutant.value);
             if (!mutant.value.empty && mutant.value[$ - 1] != cast(ubyte) ';')
