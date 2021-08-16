@@ -26,6 +26,9 @@ New features for dextool mutate
    specifying the max total used memory of the host via
    `max_mem_usage_percentage`. If the limit is reached `test_cmd`s will be
    terminated.
+ * Use `__builtin_expect` to improve performance when executing binaries with
+   schemas by marking all mutant branches as `unlikely`. It may reduce the test
+   suite execution time when running with schemas by up to 20%.
 
 Fixes for dextool mutate
 
