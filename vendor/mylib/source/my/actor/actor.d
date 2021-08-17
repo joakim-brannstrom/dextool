@@ -470,16 +470,22 @@ package:
 
         void tick() {
             // philosophy of the order is that a timeout should only trigger if it
-            // is really required thus it is checked last.  This order then mean
+            // is really required thus it is checked last. This order then mean
             // that a request may have triggered a timeout but because
             // `processReply` is called before `checkReplyTimeout` it is *ignored*.
             // Thus "better to accept even if it is timeout rather than fail".
+            //
+            // NOTE: the assumption that a message that has timed out should be
+            // processed turned out to be... wrong. It is annoying that
+            // sometimes a timeout message triggers even though it shouldn't,
+            // because it is now too old to be useful!
+            // Thus the order is changed to first check for timeout, then process.
             try {
                 processSystemMsg();
+                checkReplyTimeout(now);
                 processDelayed(now);
                 processIncoming();
                 processReply();
-                checkReplyTimeout(now);
             } catch (Exception e) {
                 exceptionHandler_(this, e);
             }
@@ -695,7 +701,9 @@ package:
             removeReplyTimeout(front.get.id);
         } else {
             // TODO: should probably be SystemError.unexpectedResponse?
-            defaultHandler_(this, front.get.data);
+            //defaultHandler_(this, front.get.data);
+            // TODO: ignoring responses without a handler for now. It results
+            // in spam when the timeout triggers.
         }
     }
 
