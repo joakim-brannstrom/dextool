@@ -483,6 +483,9 @@ class SpinSqlTimeout : Exception {
     }
 }
 
+void silentLog(Args...)(auto ref Args args) {
+}
+
 /** Execute an SQL query until it succeeds.
  *
  * Note: If there are any errors in the query it will go into an infinite loop.
@@ -490,19 +493,24 @@ class SpinSqlTimeout : Exception {
 auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout, Duration minTime = 50.dur!"msecs",
         Duration maxTime = 150.dur!"msecs", const string file = __FILE__, const size_t line = __LINE__) {
     import core.thread : Thread;
-    import std.datetime.stopwatch : StopWatch, AutoStart;
+    import std.datetime : Clock;
     import std.exception : collectException;
     import std.format : format;
     import std.random : uniform;
 
-    const sw = StopWatch(AutoStart.yes);
-    const location = format!" [%s:%s]"(file, line);
+    const stopAfter = Clock.currTime + timeout;
+    // do not spam the log
+    auto nextLogMsg = Clock.currTime + maxTime * 10;
 
-    while (sw.peek < timeout) {
+    while (Clock.currTime < stopAfter) {
         try {
             return query();
         } catch (Exception e) {
-            logFn(e.msg, location).collectException;
+            if (Clock.currTime > nextLogMsg) {
+                const location = format!" [%s:%s]"(file, line);
+                logFn(e.msg, location).collectException;
+                nextLogMsg += maxTime * 10;
+            }
             // even though the database have a builtin sleep it still result in too much spam.
             () @trusted {
                 Thread.sleep(uniform(minTime.total!"msecs", maxTime.total!"msecs").dur!"msecs");
@@ -517,7 +525,7 @@ auto spinSql(alias query, alias logFn = logger.warning)(const string file = __FI
         const size_t line = __LINE__) nothrow {
     while (true) {
         try {
-            return spinSql!(query, logFn)(Duration.max, 50.dur!"msecs",
+            return spinSql!(query, logFn)(365.dur!"days", 50.dur!"msecs",
                     150.dur!"msecs", file, line);
         } catch (Exception e) {
         }

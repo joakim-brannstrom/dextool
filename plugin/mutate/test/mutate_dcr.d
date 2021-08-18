@@ -114,11 +114,11 @@ foreach (getValue; ["dcr_cc_ifstmt1.cpp", "dcr_cc_stmt1.cpp"]) {
         "from 'x > 2' to 'false'",
     ]).shouldBeIn(r.output);
 
-    r.output.joiner.count("'x == 0'").shouldEqual(2);
-    r.output.joiner.count("'x == 1'").shouldEqual(2);
-    r.output.joiner.count("'x == 2'").shouldEqual(2);
-    r.output.joiner.count("'y > 0'").shouldEqual(2);
-    r.output.joiner.count("'x > 2'").shouldEqual(2);
+    r.output.joiner.count("'x == 0'").shouldBeGreaterThan(1);
+    r.output.joiner.count("'x == 1'").shouldBeGreaterThan(1);
+    r.output.joiner.count("'x == 2'").shouldBeGreaterThan(1);
+    r.output.joiner.count("'y > 0'").shouldBeGreaterThan(1);
+    r.output.joiner.count("'x > 2'").shouldBeGreaterThan(1);
 }
 }
 

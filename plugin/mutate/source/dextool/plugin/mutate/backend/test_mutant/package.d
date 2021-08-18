@@ -11,18 +11,21 @@ module dextool.plugin.mutate.backend.test_mutant;
 
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
-import std.algorithm : map, filter, joiner, among;
+import std.algorithm : map, filter, joiner, among, max;
 import std.array : empty, array, appender;
 import std.datetime : SysTime, Clock;
 import std.datetime.stopwatch : StopWatch, AutoStart;
 import std.exception : collectException;
 import std.format : format;
 import std.random : randomCover;
-import std.typecons : Nullable, Tuple, Yes;
+import std.typecons : Nullable, Tuple, Yes, tuple;
 
 import blob_model : Blob;
+import miniorm : spinSql, silentLog;
+import my.actor;
 import my.container.vector;
 import my.fsm : Fsm, next, act, get, TypeDataMap;
+import my.gc.refc;
 import my.hash : Checksum64;
 import my.named_type;
 import my.optional;
@@ -32,11 +35,12 @@ import sumtype;
 static import my.fsm;
 
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,
-    NextMutationEntry, spinSql, TestFile, ChecksumTestCmdOriginal;
+    NextMutationEntry, TestFile, ChecksumTestCmdOriginal;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner,
     findExecutables, TestRunResult = TestResult;
+import dextool.plugin.mutate.backend.test_mutant.timeout : TimeoutFsm;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, ExitStatus;
 import dextool.plugin.mutate.config;
 import dextool.plugin.mutate.type : ShellCommand;
@@ -90,8 +94,8 @@ struct BuildTestMutant {
 
     ExitStatusType run(const AbsolutePath dbPath, FilesysIO fio) @trusted {
         try {
-            auto db = Database.make(dbPath);
-            return internalRun(db, fio);
+            auto db = spinSql!(() => Database.make(dbPath))(dbOpenTimeout);
+            return internalRun(dbPath, &db, fio);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
         }
@@ -99,16 +103,15 @@ struct BuildTestMutant {
         return ExitStatusType.Errors;
     }
 
-    private ExitStatusType internalRun(ref Database db, FilesysIO fio) {
-        // trusted because the lifetime of the database is guaranteed to outlive any instances in this scope
-        auto dbPtr = () @trusted { return &db; }();
+    private ExitStatusType internalRun(AbsolutePath dbPath, Database* db, FilesysIO fio) {
+        auto system = makeSystem;
 
         auto cleanup = new AutoCleanup;
         scope (exit)
             cleanup.cleanup;
 
-        auto test_driver = TestDriver(dbPtr, fio, data.kinds, cleanup,
-                data.config, data.covConf, data.schemaConf);
+        auto test_driver = TestDriver(dbPath, db, () @trusted { return &system; }(),
+                fio, data.kinds, cleanup, data.config, data.covConf, data.schemaConf);
 
         while (test_driver.isRunning) {
             test_driver.execute;
@@ -204,12 +207,13 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
 struct TestDriver {
     import std.datetime : SysTime;
     import dextool.plugin.mutate.backend.database : SchemataId, MutationStatusId;
-    import dextool.plugin.mutate.backend.report.analyzers : EstimateScore;
     import dextool.plugin.mutate.backend.test_mutant.source_mutant : MutationTestDriver;
     import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
     import dextool.plugin.mutate.type : MutationOrder;
 
     Database* db;
+    AbsolutePath dbPath;
+
     FilesysIO filesysIO;
     Mutation.Kind[] kinds;
     AutoCleanup autoCleanup;
@@ -217,6 +221,15 @@ struct TestDriver {
     ConfigMutationTest conf;
     ConfigSchema schemaConf;
     ConfigCoverage covConf;
+
+    System* system;
+    ScopedActor self;
+
+    /// Async communication with the database
+    DbSaveActor.Address dbSave;
+
+    /// Async stat update from the database every 30s.
+    StatActor.Address stat;
 
     /// Runs the test commands.
     TestRunner runner;
@@ -251,9 +264,6 @@ struct TestDriver {
 
     /// Test commands to execute.
     ShellCommand[] testCmds;
-
-    /// mutation score estimation
-    EstimateScore estimate;
 
     // The order to test mutants. It is either affected by the user directly or if pull request mode is activated.
     MutationOrder mutationOrder;
@@ -386,6 +396,16 @@ struct TestDriver {
         NamedType!(bool, Tag!"NoUnknown", bool.init, TagStringable, ImplicitConvertable) noUnknownMutantsLeft;
     }
 
+    static struct NextMutantData {
+        import dextool.plugin.mutate.backend.database.type : MutationId;
+
+        // because of the asynchronous nature it may be so that the result of
+        // the last executed hasn't finished being written to the DB when we
+        // request a new mutant. This is used to block repeating the same
+        // mutant.
+        MutationId lastTested;
+    }
+
     static struct HandleTestResult {
         MutationTestResult[] result;
     }
@@ -436,20 +456,26 @@ struct TestDriver {
             SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck,
             Coverage, PropagateCoverage, ContinuesCheckTestSuite,
             ChecksumTestCmds, SaveTestBinary);
-    alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData, PullRequestData,
-            ResetOldMutantData, NextSchemataData, ContinuesCheckTestSuiteData, MutationTestData);
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData, PullRequestData, ResetOldMutantData,
+            NextSchemataData, ContinuesCheckTestSuiteData, MutationTestData, NextMutantData);
 
     private {
         Fsm fsm;
         TypeDataMap!(LocalStateDataT, UpdateTimeout, CheckPullRequestMutant, PullRequest,
-                ResetOldMutant, NextSchemata, ContinuesCheckTestSuite, MutationTest) local;
+                ResetOldMutant, NextSchemata, ContinuesCheckTestSuite, MutationTest, NextMutant) local;
         bool isRunning_ = true;
         bool isDone = false;
     }
 
-    this(Database* db, FilesysIO filesysIO, Mutation.Kind[] kinds, AutoCleanup autoCleanup,
-            ConfigMutationTest conf, ConfigCoverage coverage, ConfigSchema schema) {
+    this(AbsolutePath dbPath, Database* db, System* sys, FilesysIO filesysIO, Mutation.Kind[] kinds,
+            AutoCleanup autoCleanup, ConfigMutationTest conf,
+            ConfigCoverage coverage, ConfigSchema schema) {
         this.db = db;
+        this.dbPath = dbPath;
+
+        this.system = sys;
+        this.self = scopedActor;
+
         this.filesysIO = filesysIO;
         this.kinds = kinds;
         this.autoCleanup = autoCleanup;
@@ -636,6 +662,14 @@ nothrow:
         logger.infof("Memory limit set minium %s Mbyte",
                 cast(ulong)(toMinMemory(conf.maxMemUsage.get) / (1024.0 * 1024.0)))
             .collectException;
+
+        try {
+            dbSave = system.spawn(&spawnDbSaveActor, dbPath);
+            stat = system.spawn(&spawnStatActor, dbPath);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            data.halt = true;
+        }
     }
 
     void opCall(Stop data) {
@@ -643,6 +677,15 @@ nothrow:
     }
 
     void opCall(Done data) {
+        try {
+            // it should NOT take more than five minutes to save the last
+            // results to the database.
+            self.request(dbSave, delay(5.dur!"minutes")).send(IsDone.init).then((bool a) {
+            });
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+
         logger.info("Done!").collectException;
         isDone = true;
     }
@@ -724,7 +767,6 @@ nothrow:
     }
 
     void opCall(ref ContinuesCheckTestSuite data) {
-        import std.algorithm : max;
         import colorlog : color;
 
         data.ok = true;
@@ -1123,7 +1165,7 @@ nothrow:
     }
 
     void opCall(ref MeasureTestSuite data) {
-        import std.algorithm : max, sum;
+        import std.algorithm : sum;
         import dextool.plugin.mutate.backend.database.type : TestCmdRuntime;
 
         if (!conf.mutationTesterRuntime.isNull) {
@@ -1235,14 +1277,26 @@ nothrow:
     void opCall(ref NextMutant data) {
         nextMutant = MutationEntry.init;
 
-        auto next = spinSql!(() {
-            return db.nextMutation(kinds, maxParallelInstances);
-        });
+        // it is OK to re-test the same mutant thus using a somewhat short timeout. It isn't fatal.
+        const giveUpAfter = Clock.currTime + 30.dur!"seconds";
+        NextMutationEntry next;
+        while (Clock.currTime < giveUpAfter) {
+            next = spinSql!(() => db.nextMutation(kinds, maxParallelInstances));
+
+            if (next.st == NextMutationEntry.Status.done)
+                break;
+            else if (!next.entry.isNull && next.entry.get.id != local.get!NextMutant.lastTested)
+                break;
+            else if (next.entry.isNull)
+                break;
+        }
 
         data.noUnknownMutantsLeft.get = next.st == NextMutationEntry.Status.done;
 
-        if (!next.entry.isNull)
+        if (!next.entry.isNull) {
             nextMutant = next.entry.get;
+            local.get!NextMutant.lastTested = next.entry.get.id;
+        }
     }
 
     void opCall(HandleTestResult data) {
@@ -1465,34 +1519,24 @@ nothrow:
     }
 
     void saveTestResult(MutationTestResult[] results) @safe nothrow {
-        void statusUpdate(MutationTestResult result) @safe {
-            import dextool.plugin.mutate.backend.test_mutant.timeout : updateMutantStatus;
-
-            estimate.update(result.status);
-
-            updateMutantStatus(*db, result.id, result.status,
-                    result.exitStatus, timeoutFsm.output.iter);
-            db.mutantApi.updateMutation(result.id, result.profile);
-            db.testCaseApi.updateMutationTestCases(result.id, result.testCases);
-            db.worklistApi.removeFromWorklist(result.id);
-
-            if (result.status == Mutation.Status.alive)
-                stopCheck.incrAliveMutants;
+        foreach (a; results.filter!(a => a.status == Mutation.Status.alive)) {
+            stopCheck.incrAliveMutants;
         }
 
-        const left = spinSql!(() @trusted {
-            auto t = db.transaction;
-            foreach (a; results) {
-                statusUpdate(a);
-            }
+        try {
+            send(dbSave, results, timeoutFsm);
+            send(stat, UnknownMutantTested.init, cast(long) results.length);
+        } catch (Exception e) {
+            logger.warning("Failed to send the result to the database: ", e.msg).collectException;
+        }
 
-            const left = db.worklistApi.getWorklistCount;
-            t.commit;
-            return left;
-        });
-
-        logger.infof("%s mutants left to test. Estimated mutation score %.3s (error %.3s)",
-                left, estimate.value.get, estimate.error.get).collectException;
+        try {
+            self.request(stat, delay(2.dur!"msecs")).send(GetMutantsLeft.init).then((long x) {
+                logger.infof("%s mutants left to test.", x).collectException;
+            });
+        } catch (Exception e) {
+            // just ignoring a slow answer
+        }
     }
 
     void saveTestBinaryDb(ref TestBinaryDb testBinaryDb) @safe nothrow {
@@ -1584,6 +1628,9 @@ void warnIfConflictingTestCaseIdentifiers(TestCase[] found_tcs) @safe nothrow {
 
 private:
 
+// feels good constant. If it takes more than 5 minutes to open the database something is wrong...
+immutable dbOpenTimeout = 5.dur!"minutes";
+
 /**
 DESCRIPTION
 
@@ -1606,4 +1653,129 @@ ulong toMinMemory(double percentageOfTotal) {
 
     return cast(ulong)((1.0 - (percentageOfTotal / 100.0)) * sysconf(
             _SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE));
+}
+
+struct IsDone {
+}
+
+struct Init {
+}
+
+// Save test results to the database.
+alias DbSaveActor = typedActor!( // init the actor by opening the database.
+        void function(Init, AbsolutePath dbPath),
+        // save the result to the database
+        void function(MutationTestResult[] results, TimeoutFsm timeoutFsm), // query if the has finished saving to the db.
+        bool function(IsDone));
+
+auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
+    static struct State {
+        Database db;
+    }
+
+    auto st = tuple!("self", "state")(self, refCounted(State.init));
+    alias Ctx = typeof(st);
+
+    static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath) nothrow {
+        try {
+            ctx.state.get.db = spinSql!(() => Database.make(dbPath), silentLog)(dbOpenTimeout);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            ctx.self.shutdown;
+        }
+    }
+
+    static void save(ref Ctx ctx, MutationTestResult[] results, TimeoutFsm timeoutFsm) @safe nothrow {
+        void statusUpdate(MutationTestResult result) @safe {
+            import dextool.plugin.mutate.backend.test_mutant.timeout : updateMutantStatus;
+
+            updateMutantStatus(ctx.state.get.db, result.id, result.status,
+                    result.exitStatus, timeoutFsm.output.iter);
+            ctx.state.get.db.mutantApi.updateMutation(result.id, result.profile);
+            ctx.state.get.db.testCaseApi.updateMutationTestCases(result.id, result.testCases);
+            ctx.state.get.db.worklistApi.removeFromWorklist(result.id);
+        }
+
+        spinSql!(() @trusted {
+            auto t = ctx.state.get.db.transaction;
+            foreach (a; results) {
+                statusUpdate(a);
+            }
+            t.commit;
+        });
+    }
+
+    static bool isDone(IsDone _) @safe nothrow {
+        // the mailbox is a FIFO queue. all results have been saved if this returns true.
+        return true;
+    }
+
+    self.name = "db";
+    send(self, Init.init, dbPath);
+    return impl(self, &init_, st, &save, st, &isDone);
+}
+
+struct GetMutantsLeft {
+}
+
+struct UnknownMutantTested {
+}
+
+struct Tick {
+}
+
+struct ForceUpdate {
+}
+
+// Progress statistics for the mutation testing such as how many that are left to test.
+alias StatActor = typedActor!( // init the actor by opening the database.
+        void function(Init, AbsolutePath dbPath),
+        long function(GetMutantsLeft), void function(Tick), // force an update of the statistics
+        void function(ForceUpdate), // a mutant has been tested and is done
+        void function(UnknownMutantTested, long));
+
+auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {
+    static struct State {
+        Database db;
+        long worklistCount;
+    }
+
+    auto st = tuple!("self", "state")(self, refCounted(State.init));
+    alias Ctx = typeof(st);
+
+    static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath) nothrow {
+        try {
+            ctx.state.get.db = spinSql!(() => Database.make(dbPath), silentLog)(dbOpenTimeout);
+            send(ctx.self, Tick.init);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            ctx.self.shutdown;
+        }
+    }
+
+    static void tick(ref Ctx ctx, Tick _) @safe nothrow {
+        try {
+            ctx.state.get.worklistCount = spinSql!(
+                    () => ctx.state.get.db.worklistApi.getWorklistCount, logger.trace);
+            delayedSend(ctx.self, delay(30.dur!"seconds"), Tick.init);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    static void unknownTested(ref Ctx ctx, UnknownMutantTested _, long tested) @safe nothrow {
+        ctx.state.get.worklistCount = max(0, ctx.state.get.worklistCount - tested);
+    }
+
+    static void forceUpdate(ref Ctx ctx, ForceUpdate _) @safe nothrow {
+        tick(ctx, Tick.init);
+    }
+
+    static long left(ref Ctx ctx, GetMutantsLeft _) @safe nothrow {
+        return ctx.state.get.worklistCount;
+    }
+
+    self.name = "stat";
+    send(self, Init.init, dbPath);
+    return impl(self, &init_, st, &tick, st, &left, st, &forceUpdate, st, &unknownTested, st);
 }

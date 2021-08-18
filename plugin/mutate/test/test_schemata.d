@@ -152,7 +152,6 @@ class ShallGenerateValidSchemaForOverload : SchemataFixutre {
                 "--mutant", "sdl", "--mutant", "aor", "--mutant", "rorp"
                 ]).addFlag("-std=c++11").run;
 
-        testAnyOrder!SubStr([`*this`,]).shouldNotBeIn(r.output);
         testAnyOrder!SubStr([`from '+'`,]).shouldNotBeIn(r.output);
         testAnyOrder!SubStr([`from '=='`,]).shouldNotBeIn(r.output);
     }
@@ -171,7 +170,6 @@ class ShallGenerateValidSchemaForNestedIf : SchemataFixutre {
 
         auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "sdl"]).run;
 
-        testAnyOrder!SubStr([`*this`,]).shouldNotBeIn(r.output);
         testAnyOrder!SubStr([`from '+'`,]).shouldNotBeIn(r.output);
         testAnyOrder!SubStr([`from '=='`,]).shouldNotBeIn(r.output);
 
