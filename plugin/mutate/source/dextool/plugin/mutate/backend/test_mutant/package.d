@@ -396,6 +396,16 @@ struct TestDriver {
         NamedType!(bool, Tag!"NoUnknown", bool.init, TagStringable, ImplicitConvertable) noUnknownMutantsLeft;
     }
 
+    static struct NextMutantData {
+        import dextool.plugin.mutate.backend.database.type : MutationId;
+
+        // because of the asynchronous nature it may be so that the result of
+        // the last executed hasn't finished being written to the DB when we
+        // request a new mutant. This is used to block repeating the same
+        // mutant.
+        MutationId lastTested;
+    }
+
     static struct HandleTestResult {
         MutationTestResult[] result;
     }
@@ -446,13 +456,13 @@ struct TestDriver {
             SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck,
             Coverage, PropagateCoverage, ContinuesCheckTestSuite,
             ChecksumTestCmds, SaveTestBinary);
-    alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData, PullRequestData,
-            ResetOldMutantData, NextSchemataData, ContinuesCheckTestSuiteData, MutationTestData);
+    alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData, PullRequestData, ResetOldMutantData,
+            NextSchemataData, ContinuesCheckTestSuiteData, MutationTestData, NextMutantData);
 
     private {
         Fsm fsm;
         TypeDataMap!(LocalStateDataT, UpdateTimeout, CheckPullRequestMutant, PullRequest,
-                ResetOldMutant, NextSchemata, ContinuesCheckTestSuite, MutationTest) local;
+                ResetOldMutant, NextSchemata, ContinuesCheckTestSuite, MutationTest, NextMutant) local;
         bool isRunning_ = true;
         bool isDone = false;
     }
@@ -1267,14 +1277,26 @@ nothrow:
     void opCall(ref NextMutant data) {
         nextMutant = MutationEntry.init;
 
-        auto next = spinSql!(() {
-            return db.nextMutation(kinds, maxParallelInstances);
-        });
+        // it is OK to re-test the same mutant thus using a somewhat short timeout. It isn't fatal.
+        const giveUpAfter = Clock.currTime + 30.dur!"seconds";
+        NextMutationEntry next;
+        while (Clock.currTime < giveUpAfter) {
+            next = spinSql!(() => db.nextMutation(kinds, maxParallelInstances));
+
+            if (next.st == NextMutationEntry.Status.done)
+                break;
+            else if (!next.entry.isNull && next.entry.get.id != local.get!NextMutant.lastTested)
+                break;
+            else if (next.entry.isNull)
+                break;
+        }
 
         data.noUnknownMutantsLeft.get = next.st == NextMutationEntry.Status.done;
 
-        if (!next.entry.isNull)
+        if (!next.entry.isNull) {
             nextMutant = next.entry.get;
+            local.get!NextMutant.lastTested = next.entry.get.id;
+        }
     }
 
     void opCall(HandleTestResult data) {
