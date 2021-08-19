@@ -106,6 +106,7 @@ immutable nomutDataTable = "nomut_data";
 immutable nomutTable = "nomut";
 immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable runtimeHistoryTable = "test_cmd_runtime_history";
+immutable schemaMutantQTable = "schema_mutant_q";
 immutable schemaVersionTable = "schema_version";
 immutable schemataFragmentTable = "schemata_fragment";
 immutable schemataMutantTable = "schemata_mutant";
@@ -527,7 +528,11 @@ struct SchemataTable {
 @TableName(schemataUsedTable)
 @TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
 struct SchemataUsedTable {
+    import dextool.plugin.mutate.backend.database.type : SchemaStatus;
+
     long id;
+
+    SchemaStatus status;
 }
 
 @TableName(schemataFragmentTable)
@@ -552,6 +557,16 @@ struct SchemataFragmentTable {
     uint offsetBegin;
     @ColumnName("offset_end")
     uint offsetEnd;
+}
+
+@TableName(schemaMutantQTable)
+@TablePrimaryKey("kind")
+struct SchemaMutantKindQ {
+    /// mutant subtype
+    long kind;
+
+    // max 100
+    long probability;
 }
 
 /** The runtime of the test commands.
@@ -804,9 +819,9 @@ void upgradeV0(ref Miniorm db) {
             MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl,
             NomutDataTbl, SchemataTable, SchemataFragmentTable,
             SchemataMutantTable,
-            SchemataUsedTable, MutantWorklistTbl, RuntimeHistoryTable,
-            MutationScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
-            CoverageInfoTable, CoverageTimeTtampTable,
+            SchemataUsedTable, SchemaMutantKindQ, MutantWorklistTbl,
+            RuntimeHistoryTable, MutationScoreHistoryTable, TestFilesTable,
+            CoverageCodeRegionTable, CoverageInfoTable, CoverageTimeTtampTable,
             DependencyFileTable, DependencyRootTable, DextoolVersionTable,
             TestCmdOriginalTable, TestCmdMutatedTable));
 
@@ -1366,6 +1381,12 @@ void upgradeV20(ref Miniorm db) {
 
 /// 2020-11-28
 void upgradeV21(ref Miniorm db) {
+    @TableName(schemataUsedTable)
+    @TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
+    struct SchemataUsedTable {
+        long id;
+    }
+
     db.run("DROP TABLE " ~ invalidSchemataTable);
     db.run(buildSchema!(SchemataUsedTable));
 }
@@ -1688,6 +1709,12 @@ void upgradeV43(ref Miniorm db) {
         SELECT id,mp_id,st_id,kind FROM %s WHERE st_id NOT NULL",
             newTbl, mutationTable));
     replaceTbl(db, newTbl, mutationTable);
+}
+
+void upgradeV44(ref Miniorm db) {
+    db.run(format("DROP TABLE %s", schemataUsedTable));
+    db.run(buildSchema!(SchemataUsedTable, SchemaMutantKindQ));
+
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

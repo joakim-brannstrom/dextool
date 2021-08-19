@@ -1354,16 +1354,17 @@ nothrow:
     }
 
     void opCall(ref SchemataTest data) {
+        import dextool.plugin.mutate.backend.database : SchemaStatus;
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         // only remove schemas that are of no further use.
-        bool remove;
+        bool allKilled;
         void updateRemove(MutationTestResult[] result) {
             // only remove if there actually are any results utherwise we do
             // not know if it is a good idea to remove it.
             // same with the overload. if mutation testing is stopped because
             // of a halt command then keep the schema.
-            remove = !(result.empty || stopCheck.isHalt != TestStopCheck.HaltReason.none);
+            allKilled = !(result.empty || stopCheck.isHalt != TestStopCheck.HaltReason.none);
 
             foreach (a; data.result) {
                 final switch (a.status) with (Mutation.Status) {
@@ -1376,7 +1377,7 @@ nothrow:
                 case noCoverage:
                     goto case;
                 case alive:
-                    remove = false;
+                    allKilled = false;
                     return;
                 case killed:
                     goto case;
@@ -1414,18 +1415,18 @@ nothrow:
 
             data.fatalError = driver.hasFatalError;
 
+            SchemaStatus schemaStatus;
             if (driver.hasFatalError) {
                 // do nothing
             } else if (driver.isInvalidSchema) {
+                schemaStatus = SchemaStatus.broken;
                 local.get!NextSchemata.invalidSchematas++;
             } else {
+                schemaStatus = allKilled ? SchemaStatus.allKilled : SchemaStatus.ok;
                 save(driver.popResult);
             }
 
-            if (remove) {
-                spinSql!(() => db.schemaApi.markUsed(data.id));
-            }
-
+            spinSql!(() => db.schemaApi.markUsed(data.id, schemaStatus));
         } catch (Exception e) {
             logger.info(e.msg).collectException;
             logger.warning("Failed executing schemata ", data.id).collectException;
@@ -1433,18 +1434,7 @@ nothrow:
     }
 
     void opCall(SchemataPruneUsed data) {
-        try {
-            const removed = db.schemaApi.pruneUsedSchemas;
-
-            if (removed != 0) {
-                logger.infof("Removed %s schemas from the database", removed);
-                // vacuum the database because schemas take up a significant
-                // amount of space.
-                db.vacuum;
-            }
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
+        // TODO: remove this node in the future, maybe
     }
 
     void opCall(LoadSchematas data) {

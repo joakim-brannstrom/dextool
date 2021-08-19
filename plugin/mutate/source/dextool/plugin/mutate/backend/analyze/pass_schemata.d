@@ -155,11 +155,18 @@ class SchemataResult {
 struct SchemataBuilder {
     import std.algorithm : any, all;
     import my.container.vector;
+    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
 
     alias Fragment = Tuple!(SchemataFragment, "fragment", CodeMutant[], "mutants");
 
     alias ET = Tuple!(SchemataFragment[], "fragments", CodeMutant[], "mutants",
             SchemataChecksum, "checksum");
+
+    /// Controls the probability that a mutant is part of the currently generating schema.
+    SchemaQ schemaQ;
+
+    /// use probability for if a mutant is injected or not
+    bool useProbability;
 
     ///
     bool discardMinScheman;
@@ -231,6 +238,12 @@ struct SchemataBuilder {
 
             // if any of the mutants in the schema has already been included.
             if (any!(a => a in local)(a.mutants)) {
+                rest.put(a);
+                continue;
+            }
+
+            // if any of the mutants fail the probability to be included
+            if (useProbability && any!(a => !schemaQ.use(a.mut.kind))(a.mutants)) {
                 rest.put(a);
                 continue;
             }

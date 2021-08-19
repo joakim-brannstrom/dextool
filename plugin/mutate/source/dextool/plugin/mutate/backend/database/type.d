@@ -349,3 +349,14 @@ alias ChecksumTestCmdOriginal = NamedType!(Checksum64,
 
 alias ChecksumTestCmdMutated = NamedType!(Checksum64,
         Tag!"ChecksumTestCmdMutated", Checksum64.init, TagStringable);
+
+enum SchemaStatus {
+    /// no status exist
+    none,
+    /// the schema compiled and the test suite executed OK
+    ok,
+    /// either it failed to compile or the test suite failed
+    broken,
+    /// the schema only contain killed mutants
+    allKilled,
+}
