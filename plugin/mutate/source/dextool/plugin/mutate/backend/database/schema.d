@@ -78,15 +78,15 @@ module dextool.plugin.mutate.backend.database.schema;
 
 import logger = std.experimental.logger;
 import std.array : array, empty;
-import std.datetime : SysTime;
+import std.datetime : SysTime, dur, Clock;
 import std.exception : collectException;
 import std.format : format;
 
 import dextool.plugin.mutate.backend.type : Language;
 
 import d2sqlite3 : SqlDatabase = Database;
-import miniorm : Miniorm, TableName, buildSchema, ColumnParam, TableForeignKey,
-    TableConstraint, TablePrimaryKey, KeyRef, KeyParam, ColumnName, delete_, insert, select;
+import miniorm : Miniorm, TableName, buildSchema, ColumnParam, TableForeignKey, TableConstraint,
+    TablePrimaryKey, KeyRef, KeyParam, ColumnName, delete_, insert, select, spinSql;
 
 immutable allTestCaseTable = "all_test_case";
 immutable depFileTable = "dependency_file";
@@ -136,7 +136,7 @@ in {
     assert(p.length != 0);
 }
 do {
-    import std.parallelism : totalCPUs;
+    import std.file : exists;
     import d2sqlite3 : SQLITE_OPEN_CREATE, SQLITE_OPEN_READWRITE;
 
     static void setPragmas(ref SqlDatabase db) {
@@ -152,7 +152,10 @@ do {
         }
     }
 
+    const isOldDb = exists(p);
     SqlDatabase sqliteDb;
+    scope (success)
+        setPragmas(sqliteDb);
 
     try {
         sqliteDb = SqlDatabase(p, SQLITE_OPEN_READWRITE);
@@ -164,15 +167,30 @@ do {
 
     auto db = Miniorm(sqliteDb);
 
+    auto tbl = makeUpgradeTable;
+    if (isOldDb && spinSql!(() => getSchemaVersion(db))(10.dur!"minutes") >= tbl
+            .latestSchemaVersion)
+        return db;
+
     // TODO: remove all key off in upgrade schemas.
-    db.run("PRAGMA foreign_keys=OFF;");
-    try {
-        upgrade(db);
-    } catch (Exception e) {
-        logger.error("Unable to upgrade the database to the latest schema");
-        throw e;
+    const giveUpAfter = Clock.currTime + 10.dur!"minutes";
+    bool failed = true;
+    while (failed && Clock.currTime < giveUpAfter) {
+        try {
+            auto trans = db.transaction;
+            db.run("PRAGMA foreign_keys=OFF;");
+            upgrade(db, tbl);
+            trans.commit;
+            failed = false;
+        } catch (Exception e) {
+            logger.trace(e.msg);
+        }
     }
-    setPragmas(sqliteDb);
+
+    if (failed) {
+        logger.error("Unable to upgrade the database to the latest schema");
+        throw new Exception(null);
+    }
 
     return db;
 }
@@ -692,40 +710,34 @@ void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
     }
 }
 
-long getSchemaVersion(ref Miniorm db) nothrow {
-    try {
-        auto v = db.run(select!VersionTbl);
-        return v.empty ? 0 : v.front.version_;
-    } catch (Exception e) {
-    }
-    return 0;
+long getSchemaVersion(ref Miniorm db) {
+    auto v = db.run(select!VersionTbl);
+    return v.empty ? 0 : v.front.version_;
 }
 
-void upgrade(ref Miniorm db) {
+void upgrade(ref Miniorm db, UpgradeTable tbl) {
     import d2sqlite3;
 
     immutable maxIndex = 30;
 
     alias upgradeFunc = void function(ref Miniorm db);
-    auto tbl = makeUpgradeTable;
 
     bool hasUpdated;
 
     bool running = true;
     while (running) {
-        long version_ = 0;
-
-        try {
-            version_ = getSchemaVersion(db);
-        } catch (Exception e) {
-            logger.trace(e.msg).collectException;
-            // try again
-            continue;
-        }
+        const version_ = () {
+            // first time the version table do not exist thus fail.
+            try {
+                return getSchemaVersion(db);
+            } catch (Exception e) {
+            }
+            return 0;
+        }();
 
         if (version_ >= tbl.latestSchemaVersion) {
             running = false;
-            continue;
+            break;
         }
 
         logger.infof("Upgrading database from %s", version_).collectException;
@@ -743,13 +755,11 @@ void upgrade(ref Miniorm db) {
 
         if (auto f = version_ in tbl) {
             try {
-                auto trans = db.transaction;
                 hasUpdated = true;
 
                 (*f)(db);
                 if (version_ != 0)
                     updateSchemaVersion(db, version_ + 1);
-                trans.commit;
             } catch (Exception e) {
                 logger.trace(e).collectException;
                 logger.error(e.msg).collectException;
@@ -757,7 +767,7 @@ void upgrade(ref Miniorm db) {
                         version_).collectException;
                 logger.warning("This might impact the functionality. It is unwise to continue")
                     .collectException;
-                return;
+                throw e;
             }
         } else {
             logger.info("Upgrade successful").collectException;
@@ -768,7 +778,6 @@ void upgrade(ref Miniorm db) {
     // add indexes assuming the lastest database schema
     if (hasUpdated)
         try {
-            auto trans = db.transaction;
             int i;
             db.run(format!"CREATE INDEX i%s ON %s(path)"(i++, filesTable));
             db.run(format!"CREATE INDEX i%s ON %s(path)"(i++, testFilesTable));
@@ -800,7 +809,6 @@ void upgrade(ref Miniorm db) {
             db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, depRootTable));
 
             assert(i <= maxIndex);
-            trans.commit;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
             logger.warning("Unable to create database indexes").collectException;
@@ -1714,7 +1722,6 @@ void upgradeV43(ref Miniorm db) {
 void upgradeV44(ref Miniorm db) {
     db.run(format("DROP TABLE %s", schemataUsedTable));
     db.run(buildSchema!(SchemataUsedTable, SchemaMutantKindQ));
-
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
