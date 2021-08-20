@@ -79,8 +79,7 @@ HandleTestResult --> CheckStopCond
 CheckTimeout --> Done : unchanged
 CheckTimeout --> UpdateTimeout : changed
 
-Done --> SchemataPruneUsed
-SchemataPruneUsed --> SaveMutationScore
+Done --> SaveMutationScore
 SaveMutationScore --> SaveTestBinary
 SaveTestBinary --> Stop
 

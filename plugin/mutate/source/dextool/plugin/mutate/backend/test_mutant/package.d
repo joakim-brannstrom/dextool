@@ -371,9 +371,6 @@ struct TestDriver {
         bool fatalError;
     }
 
-    static struct SchemataPruneUsed {
-    }
-
     static struct Done {
     }
 
@@ -453,9 +450,8 @@ struct TestDriver {
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
             UpdateTimeout, CheckStopCond, PullRequest, CheckPullRequestMutant, ParseStdin,
             FindTestCmds, ChooseMode, NextSchemata, SchemataTest, LoadSchematas,
-            SchemataPruneUsed, Stop, SaveMutationScore, OverloadCheck,
-            Coverage, PropagateCoverage, ContinuesCheckTestSuite,
-            ChecksumTestCmds, SaveTestBinary);
+            Stop, SaveMutationScore, OverloadCheck, Coverage,
+            PropagateCoverage, ContinuesCheckTestSuite, ChecksumTestCmds, SaveTestBinary);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData, PullRequestData, ResetOldMutantData,
             NextSchemataData, ContinuesCheckTestSuiteData, MutationTestData, NextMutantData);
 
@@ -612,9 +608,7 @@ struct TestDriver {
             if (a.timeoutUnchanged)
                 return fsm(Done.init);
             return fsm(UpdateTimeout.init);
-        }, (SchemataPruneUsed a) => SaveMutationScore.init,
-                (Done a) => fsm(SchemataPruneUsed.init),
-                (Error a) => fsm(Stop.init), (Stop a) => fsm(a));
+        }, (Done a) => fsm(SaveMutationScore.init), (Error a) => fsm(Stop.init), (Stop a) => fsm(a));
 
         self.fsm.act!(self);
     }
@@ -872,6 +866,12 @@ nothrow:
             if (data.failed) {
                 logger.infof("Some or all tests have status %s (exit code %s)",
                         res.status.to!string.color.fgRed, res.exitStatus.get);
+                try {
+                    // TODO: this is a lazy way to execute the test suite again
+                    // to show the failing tests. prettify....
+                    measureTestCommand(runner, 1);
+                } catch (Exception e) {
+                }
                 logger.warning("Failing test suite");
             }
 
@@ -1431,10 +1431,6 @@ nothrow:
             logger.info(e.msg).collectException;
             logger.warning("Failed executing schemata ", data.id).collectException;
         }
-    }
-
-    void opCall(SchemataPruneUsed data) {
-        // TODO: remove this node in the future, maybe
     }
 
     void opCall(LoadSchematas data) {

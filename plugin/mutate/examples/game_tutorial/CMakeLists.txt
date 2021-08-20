@@ -32,14 +32,14 @@ add_library(variant INTERFACE)
 target_include_directories(variant INTERFACE "deps")
 
 add_executable(rl ${SRC} src/main.cpp)
-target_compile_options(rl PRIVATE "-std=c++14")
+target_compile_options(rl PRIVATE "-std=c++14" "-O3")
 target_link_libraries(rl variant termbox m)
 target_include_directories(rl PUBLIC src)
 
 add_executable(rl_test ${TEST_SRC} ${SRC})
 add_test(rl_test rl_test)
 target_link_libraries(rl_test gtest variant termbox m)
-target_compile_options(rl_test PRIVATE "-std=c++14")
+target_compile_options(rl_test PRIVATE "-std=c++14" "-O3")
 target_compile_definitions(rl_test PRIVATE -DNO_WINDOW)
 target_include_directories(rl_test PUBLIC src)
 

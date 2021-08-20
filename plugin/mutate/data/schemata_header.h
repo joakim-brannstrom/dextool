@@ -7,7 +7,7 @@ extern void dextool_init_mutid(void);
 extern unsigned int dextool_get_mutid(void);
 
 #ifndef unlikely
-/* __builtin_expect added in gcc <4.0 */
+/* __builtin_expect added in gcc >4.0 */
 #if (__GNUC__ > 4)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 #else
