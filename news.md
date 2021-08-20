@@ -29,6 +29,9 @@ New features for dextool mutate
  * Use `__builtin_expect` to improve performance when executing binaries with
    schemas by marking all mutant branches as `unlikely`. It may reduce the test
    suite execution time when running with schemas by up to 20%.
+ * Somewhat solve the problem of scheman that fail to compile by letting a
+   failed schema influence how future scheman are generated. "Adapt" future
+   scheman based on passed failures.
 
 Fixes for dextool mutate
 

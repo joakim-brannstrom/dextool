@@ -422,11 +422,21 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         }
 
         /// Consume fragments used by scheman containing >min mutants.
-        void intermediate(ref Database db) {
+        void setIntermediate() {
             builder.discardMinScheman = false;
+            builder.useProbability = true;
             builder.mutantsPerSchema = mutantsPerSchema.get;
             builder.minMutantsPerSchema = mutantsPerSchema.get;
+        }
 
+        void setReducedIntermediate() {
+            builder.discardMinScheman = false;
+            builder.useProbability = true;
+            builder.mutantsPerSchema = mutantsPerSchema.get;
+            builder.minMutantsPerSchema = minMutantsPerSchema.get;
+        }
+
+        void run(ref Database db) {
             while (!builder.isDone) {
                 process(db, builder.next);
             }
@@ -437,6 +447,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         /// Consume all fragments or discard.
         void finalize(ref Database db) {
             builder.discardMinScheman = true;
+            builder.useProbability = false;
             builder.mutantsPerSchema = mutantsPerSchema.get;
             builder.minMutantsPerSchema = minMutantsPerSchema.get;
 
@@ -476,6 +487,9 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
     alias Ctx = typeof(st);
 
     static void start(ref Ctx ctx, Start, ToolVersion toolVersion) {
+        import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
+        import dextool.plugin.mutate.backend.database : SchemaStatus;
+
         log.trace("starting store actor");
 
         ctx.state.get.isToolVersionDifferent = ctx.db.get.isToolVersionDifferent(toolVersion);
@@ -492,10 +506,34 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
         {
             auto trans = ctx.db.get.transaction;
+            auto profile = Profile("update schema probability");
+            log.info("Update schema probability");
+
+            auto sq = SchemaQ.make;
+            sq.state = ctx.db.get.schemaApi.getMutantProbability;
+            sq.update((SchemaStatus s) => ctx.db.get.schemaApi.getSchemaUsedKinds(s));
+            ctx.db.get.schemaApi.saveMutantProbability(sq.state);
+            ctx.state.get.schemas.builder.schemaQ = sq;
+
+            trans.commit;
+        }
+        {
+            auto trans = ctx.db.get.transaction;
             auto profile = Profile("prune old schemas");
             if (ctx.state.get.isToolVersionDifferent) {
-                log.info("Prune database of schematan created by the old version");
+                log.info("Prune database of scheman created by the old version");
                 ctx.db.get.schemaApi.deleteAllSchemas;
+            }
+            trans.commit;
+        }
+        {
+            auto trans = ctx.db.get.transaction;
+            auto profile = Profile("prune used schemas");
+            log.info("Prune the database of used schemas");
+            auto removed = ctx.db.get.schemaApi.pruneUsedSchemas;
+            if (removed != 0) {
+                logger.infof("Removed %s schemas", removed);
+                ctx.db.get.vacuum;
             }
             trans.commit;
         }
@@ -662,7 +700,8 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 // This ensure that only schematas for changed/new files
                 // are saved.
                 ctx.state.get.schemas.put(ctx.fio, result.schematas);
-                ctx.state.get.schemas.intermediate(ctx.db.get);
+                ctx.state.get.schemas.setIntermediate;
+                ctx.state.get.schemas.run(ctx.db.get);
             }
         }
 
@@ -743,7 +782,12 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
         void finalizeSchema() {
             auto trans = ctx.db.get.transaction;
+
+            ctx.state.get.schemas.setReducedIntermediate;
+            ctx.state.get.schemas.run(ctx.db.get);
+
             ctx.state.get.schemas.finalize(ctx.db.get);
+
             trans.commit;
             ctx.state.get.schemas = SchemataSaver.init;
         }
@@ -768,8 +812,8 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 ctx.db.get.mutantApi.removeOrphanedMutants;
             }
             {
-                auto profile = Profile("prune schemas");
-                log.info("Prune the database of unused schemas");
+                auto profile = Profile("prune mangled schemas");
+                log.info("Prune the database of mangled schemas");
                 ctx.db.get.schemaApi.pruneSchemas;
             }
             {

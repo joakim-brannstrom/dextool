@@ -255,6 +255,7 @@ nothrow:
         return hasFatalError_;
     }
 
+    /// if the schema failed to compile or the test suite failed.
     bool isInvalidSchema() {
         return isInvalidSchema_;
     }
@@ -401,7 +402,6 @@ nothrow:
 
             logger.info("Skipping schema because it failed to compile".color(Color.yellow))
                 .collectException;
-            spinSql!(() => db.schemaApi.markUsed(schemataId));
             return;
         }
 
@@ -418,7 +418,7 @@ nothrow:
         if (data.error) {
             logger.info("Skipping the schemata because the test suite failed".color(Color.yellow))
                 .collectException;
-            spinSql!(() => db.schemaApi.markUsed(schemataId));
+            isInvalidSchema_ = true;
         } else {
             logger.info("Ok".color(Color.green)).collectException;
         }

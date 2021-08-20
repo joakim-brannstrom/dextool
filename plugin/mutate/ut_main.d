@@ -13,6 +13,7 @@ int main(string[] args) {
                           "dextool.plugin.mutate.backend.analyze",
                           "dextool.plugin.mutate.backend.analyze.pass_clang",
                           "dextool.plugin.mutate.backend.analyze.pass_schemata",
+                          "dextool.plugin.mutate.backend.analyze.schema_ml",
                           "dextool.plugin.mutate.backend.diff_parser",
                           "dextool.plugin.mutate.backend.report.analyzers",
                           "dextool.plugin.mutate.backend.report.html",

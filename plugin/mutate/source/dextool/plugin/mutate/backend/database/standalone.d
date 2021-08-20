@@ -2271,10 +2271,12 @@ struct DbSchema {
     }
 
     /// Mark a schemata as used.
-    void markUsed(const SchemataId id) @trusted {
-        static immutable sql = format!"INSERT OR IGNORE INTO %1$s VALUES(:id)"(schemataUsedTable);
+    void markUsed(const SchemataId id, const SchemaStatus status) @trusted {
+        static immutable sql = format!"INSERT OR IGNORE INTO %1$s VALUES(:id, :status)"(
+                schemataUsedTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
+        stmt.get.bind(":status", status);
         stmt.get.execute;
     }
 
@@ -2377,7 +2379,8 @@ struct DbSchema {
         auto remove = () {
             auto remove = appender!(long[])();
 
-            static immutable sqlUsed = format!"SELECT id FROM %1$s"(schemataUsedTable);
+            static immutable sqlUsed = format!"SELECT id FROM %1$s WHERE status IN (%2$s, %3$s)"(schemataUsedTable,
+                    cast(long) SchemaStatus.allKilled, cast(long) SchemaStatus.broken);
             auto stmt = db.prepare(sqlUsed);
             foreach (a; stmt.get.execute) {
                 remove.put(a.peek!long(0));
@@ -2396,6 +2399,43 @@ struct DbSchema {
         return remove.length;
     }
 
+    int[Mutation.Kind] getMutantProbability() @trusted {
+        typeof(return) rval;
+
+        auto stmt = db.prepare(format!"SELECT kind,probability FROM %1$s"(schemaMutantQTable));
+        foreach (ref r; stmt.get.execute) {
+            rval[r.peek!long(0).to!(Mutation.Kind)] = r.peek!int(1);
+        }
+        return rval;
+    }
+
+    void saveMutantProbability(int[Mutation.Kind] stat) @trusted {
+        auto stmt = db.prepare(
+                format!"INSERT OR REPLACE INTO %1$s (kind, probability) VALUES(:kind, :q)"(
+                schemaMutantQTable));
+        foreach (a; stat.byKeyValue) {
+            stmt.get.bind(":kind", cast(long) a.key);
+            stmt.get.bind(":q", cast(long) a.value);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
+    }
+
+    /// Returns: all mutant subtypes that has `status`, can occur multiple times.
+    Mutation.Kind[] getSchemaUsedKinds(SchemaStatus status) @trusted {
+        static immutable schemaIdSql = format!"SELECT id FROM %1$s WHERE status=:status"(
+                schemataUsedTable);
+
+        auto schemaIdStmt = db.prepare(schemaIdSql);
+        schemaIdStmt.get.bind(":status", cast(long) status);
+
+        auto app = appender!(Mutation.Kind[])();
+        foreach (ref r; schemaIdStmt.get.execute) {
+            app.put(getSchemataKinds(SchemataId(r.peek!long(0))));
+        }
+
+        return app.data;
+    }
 }
 
 struct DbMetaData {
