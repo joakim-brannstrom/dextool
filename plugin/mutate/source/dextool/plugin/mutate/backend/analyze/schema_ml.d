@@ -27,7 +27,7 @@ import dextool.plugin.mutate.backend.database.type : SchemaStatus;
 
 immutable MinState = 0;
 immutable MaxState = 100;
-immutable LearnRate = 0.9;
+immutable LearnRate = 0.1;
 
 struct SchemaQ {
     import std.random : uniform01, MinstdRand0, unpredictableSeed;
@@ -47,13 +47,16 @@ struct SchemaQ {
         import std.range : only;
         import std.traits : EnumMembers;
 
-        // punish harder for a failure than reward.
+        // punish
         foreach (k; data(SchemaStatus.broken))
-            state.update(k, () => cast(int)(MaxState * 0.9), (ref int x) {
-                x = cast(int) min(x - 1, cast(int)(x * LearnRate));
+            state.update(k, () => cast(int)(MaxState * (1.0 - LearnRate)), (ref int x) {
+                x = cast(int) min(x - 1, cast(int)(x * (1.0 - LearnRate)));
             });
+        // reward
         foreach (k; only(data(SchemaStatus.ok), data(SchemaStatus.allKilled)).joiner)
-            state.update(k, () => cast(int) MaxState, (ref int x) { x++; });
+            state.update(k, () => cast(int) MaxState, (ref int x) {
+                x = max(x + 1, cast(int)(x * (1.0 + LearnRate)));
+            });
 
         // clamp values
         foreach (k; [EnumMembers!(Mutation.Kind)])
@@ -98,5 +101,5 @@ unittest {
 
     q.update(&r2);
     assert(q.state[Mutation.Kind.rorLE] == 81);
-    assert(q.state[Mutation.Kind.rorLT] == 91);
+    assert(q.state[Mutation.Kind.rorLT] == 99);
 }
