@@ -866,6 +866,12 @@ nothrow:
             if (data.failed) {
                 logger.infof("Some or all tests have status %s (exit code %s)",
                         res.status.to!string.color.fgRed, res.exitStatus.get);
+                try {
+                    // TODO: this is a lazy way to execute the test suite again
+                    // to show the failing tests. prettify....
+                    measureTestCommand(runner, 1);
+                } catch (Exception e) {
+                }
                 logger.warning("Failing test suite");
             }
 
