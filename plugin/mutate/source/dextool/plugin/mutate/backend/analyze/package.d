@@ -807,11 +807,6 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         if (ctx.conf.analyze.prune) {
             pruneFiles();
             {
-                auto profile = Profile("remove orphaned mutants");
-                log.info("Removing orphaned mutants");
-                ctx.db.get.mutantApi.removeOrphanedMutants;
-            }
-            {
                 auto profile = Profile("prune mangled schemas");
                 log.info("Prune the database of mangled schemas");
                 ctx.db.get.schemaApi.pruneSchemas;
@@ -820,6 +815,11 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 auto profile = Profile("prune dependencies");
                 log.info("Prune dependencies");
                 ctx.db.get.dependencyApi.cleanup;
+            }
+            {
+                auto profile = Profile("remove orphaned mutants");
+                log.info("Removing orphaned mutants");
+                ctx.db.get.mutantApi.removeOrphanedMutants;
             }
         }
 

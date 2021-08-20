@@ -1100,15 +1100,6 @@ final class BaseVisitor : ExtendedVisitor {
             }
         }
 
-        // TODO: this is crude and shouldn't be here as a check but we must
-        // block aor/rorp schematan when the type is a pointer.
-        foreach (_; getChildrenTypes(ast.get, astOp).filter!(a => a.among(TypeKind.unordered,
-                TypeKind.bottom))) {
-            foreach (c; BreathFirstRange(astOp))
-                c.schemaBlacklist = true;
-            break;
-        }
-
         return true;
     }
 
@@ -1531,13 +1522,6 @@ bool isConstExpr(const Cursor c) @trusted {
     import dextool.clang_extensions;
 
     return dex_isPotentialConstExpr(c);
-}
-
-/// Returns: the types of the children
-auto getChildrenTypes(ref Ast ast, Node parent) {
-    return BreathFirstRange(parent).map!(a => ast.type(a))
-        .filter!(a => a !is null)
-        .map!(a => a.kind);
 }
 
 /// Locations that should not be mutated with scheman
