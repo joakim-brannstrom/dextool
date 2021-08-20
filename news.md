@@ -31,7 +31,10 @@ New features for dextool mutate
    suite execution time when running with schemas by up to 20%.
  * Somewhat solve the problem of scheman that fail to compile by letting a
    failed schema influence how future scheman are generated. "Adapt" future
-   scheman based on passed failures.
+   scheman based on passed failures. This allows the schema generator to be
+   less pessimistic about pointers because a code base that use "pointer
+   tricks" which lead to many failing scheman will over time *adjust* how the
+   scheman are generated.
 
 Fixes for dextool mutate
 
