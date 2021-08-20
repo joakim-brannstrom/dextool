@@ -531,11 +531,11 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             auto profile = Profile("prune used schemas");
             log.info("Prune the database of used schemas");
             auto removed = ctx.db.get.schemaApi.pruneUsedSchemas;
+            trans.commit;
             if (removed != 0) {
                 logger.infof("Removed %s schemas", removed);
                 ctx.db.get.vacuum;
             }
-            trans.commit;
         }
 
         send(ctx.self, CheckPostProcess.init);
