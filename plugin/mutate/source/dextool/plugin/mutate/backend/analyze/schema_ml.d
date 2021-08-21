@@ -43,7 +43,7 @@ struct SchemaQ {
 
     /// Update the state for all mutants.
     void update(StatusData data) {
-        import std.algorithm : joiner;
+        import std.algorithm : joiner, clamp;
         import std.range : only;
         import std.traits : EnumMembers;
 
@@ -58,10 +58,10 @@ struct SchemaQ {
                 x = max(x + 1, cast(int)(x * (1.0 + LearnRate)));
             });
 
-        // clamp values
+        // fix probability to be max P(1)
         foreach (k; [EnumMembers!(Mutation.Kind)])
             state.update(k, () => cast(int) MaxState, (ref int x) {
-                x = cast(int) min(MaxState, max(0, x));
+                x = clamp(x, 0, MaxState);
             });
     }
 
