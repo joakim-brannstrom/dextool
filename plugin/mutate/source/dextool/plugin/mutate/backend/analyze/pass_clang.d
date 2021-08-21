@@ -510,6 +510,9 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
+        // "high" probability that a schema inside a template lead to failing
+        // test suite or fail to compile.
+        n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
@@ -518,6 +521,9 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
+        // "high" probability that a schema inside a template lead to failing
+        // test suite or fail to compile.
+        n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }

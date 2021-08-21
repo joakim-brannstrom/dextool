@@ -47,6 +47,7 @@ Fixes for dextool mutate
  * Updated llvm compatiblity to version 12. The bindings for version 11 worked
    most of the time except for `new` expressions which could lead to mutant
    schematan that didn't compile.
+ * Block schema generation inside template classes.
 
 # v3.3.0 Emerald
 
