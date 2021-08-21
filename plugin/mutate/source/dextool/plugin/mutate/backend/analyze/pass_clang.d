@@ -506,13 +506,21 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    // This note covers ClassTemplate, ClassTemplatePartialSpecialization and
+    // FunctionTemplate.
+    // NOTE: to future self. I tried to block scheman inside template
+    // classes but it turned out to be a bad idea. Most of the time they
+    // actually work OK. If it is turned modern c++ code takes a loooong
+    // time to run mutation testing on. There are some corner cases wherein
+    // an infinite recursion loop can occur which I haven't been able to
+    // figure out why.
+    // With the introduction of ML for schema generation the tool will adapt
+    // how scheman are composed based on the compilation failures.
+
     override void visit(scope const ClassTemplate v) @trusted {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
-        // "high" probability that a schema inside a template lead to failing
-        // test suite or fail to compile.
-        n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
@@ -521,9 +529,6 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
-        // "high" probability that a schema inside a template lead to failing
-        // test suite or fail to compile.
-        n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
@@ -531,12 +536,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const FunctionTemplate v) @trusted {
         mixin(mixinNodeLog!());
         auto n = ast.get.make!(analyze.Function);
-        // it is too uncertain to inject mutant schematan inside a template
-        // because the types are not known which lead to a high probability
-        // that the schemata code will fail to compile.
-        n.schemaBlacklist = true;
         pushStack(n, v);
-
         v.accept(this);
     }
 
