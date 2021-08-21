@@ -35,6 +35,10 @@ New features for dextool mutate
    less pessimistic about pointers because a code base that use "pointer
    tricks" which lead to many failing scheman will over time *adjust* how the
    scheman are generated.
+ * Speedup testing of heavy templated libraries by allowing scheman to also
+   cover the templated functions. This may initially lead to many failing
+   scheman but this will lead to adaption of how the scheman are composed which
+   should over time self heal.
 
 Fixes for dextool mutate
 
@@ -47,7 +51,6 @@ Fixes for dextool mutate
  * Updated llvm compatiblity to version 12. The bindings for version 11 worked
    most of the time except for `new` expressions which could lead to mutant
    schematan that didn't compile.
- * Block schema generation inside template classes.
 
 # v3.3.0 Emerald
 
