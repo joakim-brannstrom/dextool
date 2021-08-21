@@ -606,16 +606,24 @@ struct TestStopCheck {
         return Clock.currTime > stopAt;
     }
 
-    double load15() nothrow const @nogc @trusted {
+    private double[3] load() nothrow const @nogc @trusted {
         import my.libc : getloadavg;
 
         double[3] load;
         const nr = getloadavg(&load[0], 3);
         if (nr <= 0 || nr > load.length) {
-            return 0.0;
+            return [0.0, 0.0, 0.0];
         }
-        return load[nr - 1];
+        return load;
     };
+
+    private double load1() @safe nothrow const @nogc {
+        return load[0];
+    }
+
+    private double load15() @safe nothrow const @nogc {
+        return load[2];
+    }
 
     /// Pause the current thread by sleeping.
     void pause() @trusted nothrow {
@@ -627,7 +635,7 @@ struct TestStopCheck {
         Thread.sleep(sleepFor);
 
         // make it more sensitive if the system is still overloaded.
-        if (load15 > loadThreshold.get)
+        if (load1 > loadThreshold.get)
             loadThreshold.get = max(1, baseLoadThreshold.get - 1);
         else
             loadThreshold = baseLoadThreshold;

@@ -39,6 +39,8 @@ New features for dextool mutate
    cover the templated functions. This may initially lead to many failing
    scheman but this will lead to adaption of how the scheman are composed which
    should over time self heal.
+ * The slowdown mode now reacts faster to a system overload by using loadavg1
+   instead of 15.
 
 Fixes for dextool mutate
 
