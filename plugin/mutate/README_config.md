@@ -120,6 +120,16 @@ git diff|dextool mutate report --diff-from-stdin
 The operations in dextool are not free especially the more complex reports.
 This option print a table of what the tool internally spent time on.
 
+```sh
+# set logging for all modules
+--verbose trace # same as debug
+# set logging for a specific module, comma separated
+--verbose-module analyze.pass_schema=trace,analyze=trace
+```
+This option is hidden from normal view. It is used to output specific logging
+for an internal submodule. To see all modules run `--verbose-module` with some
+nonsense and it will print them.
+
 ## Admin
 
 Admin-mode for the plugin. Is used to execute administrative commands and to
