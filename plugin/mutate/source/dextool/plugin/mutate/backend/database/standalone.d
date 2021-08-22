@@ -2160,6 +2160,8 @@ struct DbCoverage {
 }
 
 struct DbSchema {
+    import my.hash : Checksum64;
+
     private Miniorm* db;
     private Database* wrapperDb;
 
@@ -2210,7 +2212,7 @@ struct DbSchema {
         return rval;
     }
 
-    /// Returns: number of mutants in a schemata that are marked for testing.
+    /// Returns: number of mutants in a schema that are marked for testing.
     long schemataMutantsCount(const SchemataId id, const Mutation.Kind[] kinds) @trusted {
         const sql = format!"SELECT count(*)
         FROM %s t1, %s t2, %s t3, %s t4
@@ -2399,39 +2401,70 @@ struct DbSchema {
         return remove.length;
     }
 
-    int[Mutation.Kind] getMutantProbability() @trusted {
+    int[Mutation.Kind][Checksum64] getMutantProbability() @trusted {
         typeof(return) rval;
 
-        auto stmt = db.prepare(format!"SELECT kind,probability FROM %1$s"(schemaMutantQTable));
+        auto stmt = db.prepare(
+                format!"SELECT kind,probability,path FROM %1$s"(schemaMutantQTable));
         foreach (ref r; stmt.get.execute) {
-            rval[r.peek!long(0).to!(Mutation.Kind)] = r.peek!int(1);
+            const ch = Checksum64(cast(ulong) r.peek!long(2));
+            rval.require(ch, (int[Mutation.Kind]).init);
+            rval[ch][r.peek!long(0).to!(Mutation.Kind)] = r.peek!int(1);
         }
         return rval;
     }
 
-    void saveMutantProbability(int[Mutation.Kind] stat) @trusted {
+    void removeMutantProbability(const Checksum64 p) @trusted {
+        static immutable sql = format!"DELETE FROM %1$s WHERE path=:path"(schemaMutantQTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":path", p.c0);
+        stmt.get.execute;
+    }
+
+    /** Save the probability state for a path.
+     *
+     * Only states other than 100 are saved.
+     *
+     * Params:
+     *  p = checksum of the path.
+     */
+    void saveMutantProbability(const Checksum64 p, int[Mutation.Kind] state, const int skipMax) @trusted {
         auto stmt = db.prepare(
-                format!"INSERT OR REPLACE INTO %1$s (kind, probability) VALUES(:kind, :q)"(
+                format!"INSERT OR REPLACE INTO %1$s (kind,probability,path) VALUES(:kind,:q,:path)"(
                 schemaMutantQTable));
-        foreach (a; stat.byKeyValue) {
-            stmt.get.bind(":kind", cast(long) a.key);
-            stmt.get.bind(":q", cast(long) a.value);
-            stmt.get.execute;
-            stmt.get.reset;
+        foreach (a; state.byKeyValue) {
+            if (a.value != skipMax) {
+                stmt.get.bind(":kind", cast(long) a.key);
+                stmt.get.bind(":q", cast(long) a.value);
+                stmt.get.bind(":path", cast(long) p.c0);
+                stmt.get.execute;
+                stmt.get.reset;
+            }
         }
     }
 
     /// Returns: all mutant subtypes that has `status`, can occur multiple times.
-    Mutation.Kind[] getSchemaUsedKinds(SchemaStatus status) @trusted {
-        static immutable schemaIdSql = format!"SELECT id FROM %1$s WHERE status=:status"(
-                schemataUsedTable);
+    Mutation.Kind[] getSchemaUsedKinds(const Path p, SchemaStatus status) @trusted {
+        static immutable sql = format!"SELECT DISTINCT t1.kind
+            FROM %1$s t0, %2$s t1, %3$s t2, %4$s t3, %5$s t4
+            WHERE
+            t4.status = :status AND
+            t4.id = t0.schem_id AND
+            t0.st_id = t1.st_id AND
+            t1.mp_id = t2.id AND
+            t2.file_id = t3.id AND
+            t3.path = :path
+            "(schemataMutantTable,
+                mutationTable, mutationPointTable, filesTable, schemataUsedTable);
 
-        auto schemaIdStmt = db.prepare(schemaIdSql);
-        schemaIdStmt.get.bind(":status", cast(long) status);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":status", cast(long) status);
+        stmt.get.bind(":path", p.toString);
 
         auto app = appender!(Mutation.Kind[])();
-        foreach (ref r; schemaIdStmt.get.execute) {
-            app.put(getSchemataKinds(SchemataId(r.peek!long(0))));
+        foreach (ref r; stmt.get.execute) {
+            auto k = r.peek!long(0).to!(Mutation.Kind);
+            app.put(k);
         }
 
         return app.data;

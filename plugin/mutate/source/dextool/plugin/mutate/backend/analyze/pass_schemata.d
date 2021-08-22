@@ -243,7 +243,7 @@ struct SchemataBuilder {
             }
 
             // if any of the mutants fail the probability to be included
-            if (useProbability && any!(a => !schemaQ.use(a.mut.kind))(a.mutants)) {
+            if (useProbability && any!(b => !schemaQ.use(a.fragment.file, b.mut.kind))(a.mutants)) {
                 rest.put(a);
                 continue;
             }

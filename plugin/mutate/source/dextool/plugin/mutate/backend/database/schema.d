@@ -297,7 +297,7 @@ struct FilesTbl {
 
     string path;
 
-    /// checksum is 128bit.
+    // checksum of the file content, 128bit.
     long checksum0;
     long checksum1;
     Language lang;
@@ -578,13 +578,18 @@ struct SchemataFragmentTable {
 }
 
 @TableName(schemaMutantQTable)
-@TablePrimaryKey("kind")
+@TableConstraint("unique_ UNIQUE (kind, path)")
 struct SchemaMutantKindQ {
+    long id;
+
     /// mutant subtype
     long kind;
 
     // max 100
     long probability;
+
+    // 64 bit checksum of the path
+    long path;
 }
 
 /** The runtime of the test commands.
@@ -1720,8 +1725,23 @@ void upgradeV43(ref Miniorm db) {
 }
 
 void upgradeV44(ref Miniorm db) {
+    @TableName(schemaMutantQTable)
+    @TablePrimaryKey("kind")
+    struct SchemaMutantKindQ {
+        /// mutant subtype
+        long kind;
+
+        // max 100
+        long probability;
+    }
+
     db.run(format("DROP TABLE %s", schemataUsedTable));
     db.run(buildSchema!(SchemataUsedTable, SchemaMutantKindQ));
+}
+
+void upgradeV45(ref Miniorm db) {
+    db.run(format("DROP TABLE %s", schemaMutantQTable));
+    db.run(buildSchema!(SchemaMutantKindQ));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

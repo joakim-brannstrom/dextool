@@ -509,10 +509,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             auto profile = Profile("update schema probability");
             log.info("Update schema probability");
 
-            auto sq = SchemaQ.make;
-            sq.state = ctx.db.get.schemaApi.getMutantProbability;
-            sq.update((SchemaStatus s) => ctx.db.get.schemaApi.getSchemaUsedKinds(s));
-            ctx.db.get.schemaApi.saveMutantProbability(sq.state);
+            auto sq = updateSchemaQ(ctx.db.get);
             ctx.state.get.schemas.builder.schemaQ = sq;
 
             trans.commit;
@@ -1367,4 +1364,37 @@ bool isFileSupported(FilesysIO fio, AbsolutePath p) @safe {
                 p);
 
     return res != 0;
+}
+
+auto updateSchemaQ(ref Database db) {
+    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ, MaxState;
+    import dextool.plugin.mutate.backend.database : SchemaStatus;
+    import my.hash : Checksum64;
+    import my.set;
+
+    auto sq = SchemaQ.make;
+    sq.state = db.schemaApi.getMutantProbability;
+
+    auto paths = db.getFiles;
+    Set!Checksum64 latestFiles;
+
+    foreach (path; paths) {
+        scope getPath = (SchemaStatus s) => db.schemaApi.getSchemaUsedKinds(path, s);
+        sq.update(path, getPath);
+        latestFiles.add(sq.pathCache[path]);
+        debug logger.tracef("updating %s %s", path, sq.pathCache[path]);
+    }
+
+    foreach (p; sq.state.byKey.toSet.setDifference(latestFiles).toRange) {
+        db.schemaApi.removeMutantProbability(p);
+        sq.state.remove(p);
+        debug logger.trace("removing ", p);
+    }
+
+    foreach (p; sq.state.byKeyValue) {
+        db.schemaApi.saveMutantProbability(p.key, p.value, MaxState);
+        debug logger.tracef("saving %s with %s values", p.key, p.value.length);
+    }
+
+    return sq;
 }

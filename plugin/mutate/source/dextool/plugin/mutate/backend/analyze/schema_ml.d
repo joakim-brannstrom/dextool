@@ -18,8 +18,6 @@ executed the test suite OK.
 */
 module dextool.plugin.mutate.backend.analyze.schema_ml;
 
-import std.algorithm : min, max;
-
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.backend.database.type : SchemaStatus;
 
@@ -30,52 +28,77 @@ immutable MaxState = 100;
 immutable LearnRate = 0.1;
 
 struct SchemaQ {
+    import std.algorithm : min, max;
     import std.random : uniform01, MinstdRand0, unpredictableSeed;
+    import std.traits : EnumMembers;
+    import my.hash;
+    import my.path : Path;
 
     alias StatusData = Mutation.Kind[]delegate(SchemaStatus);
 
     MinstdRand0 rnd0;
-    int[Mutation.Kind] state;
+    int[Mutation.Kind][Checksum64] state;
+    Checksum64[Path] pathCache;
 
     static auto make() {
         return SchemaQ(MinstdRand0(unpredictableSeed));
     }
 
+    /// Add a state for the `p` if it doesn't exist.
+    void addIfNew(const Path p) {
+        if (checksum(p) !in state) {
+            state[checksum(p)] = (int[Mutation.Kind]).init;
+        }
+    }
+
     /// Update the state for all mutants.
-    void update(StatusData data) {
+    void update(const Path path, scope StatusData data) {
         import std.algorithm : joiner, clamp;
         import std.range : only;
-        import std.traits : EnumMembers;
+
+        addIfNew(path);
+        const ch = checksum(path);
 
         // punish
         foreach (k; data(SchemaStatus.broken))
-            state.update(k, () => cast(int)(MaxState * (1.0 - LearnRate)), (ref int x) {
+            state[ch].update(k, () => cast(int)(MaxState * (1.0 - LearnRate)), (ref int x) {
                 x = cast(int) min(x - 1, cast(int)(x * (1.0 - LearnRate)));
             });
         // reward
         foreach (k; only(data(SchemaStatus.ok), data(SchemaStatus.allKilled)).joiner)
-            state.update(k, () => cast(int) MaxState, (ref int x) {
+            state[ch].update(k, () => cast(int) MaxState, (ref int x) {
                 x = max(x + 1, cast(int)(x * (1.0 + LearnRate)));
             });
 
         // fix probability to be max P(1)
         foreach (k; [EnumMembers!(Mutation.Kind)])
-            state.update(k, () => cast(int) MaxState, (ref int x) {
+            state[ch].update(k, () => cast(int) MaxState, (ref int x) {
                 x = clamp(x, 0, MaxState);
             });
     }
 
     /// Return: random value using the mutation subtype probability.
-    bool use(Mutation.Kind k) {
-        auto p = state.require(k, MaxState) / 100.0;
-        return uniform01 < p;
+    bool use(const Path p, Mutation.Kind k) {
+        return uniform01 < getState(p, k) / 100.0;
+    }
+
+    private Checksum64 checksum(const Path p) {
+        return pathCache.require(p, makeChecksum64(cast(const(ubyte)[]) p.toString));
+    }
+
+    private int getState(const Path p, Mutation.Kind k) {
+        if (auto st = checksum(p) in state)
+            return (*st)[k];
+        return MaxState;
     }
 }
 
 @("shall update the table")
 unittest {
     import std.random : MinstdRand0;
+    import my.path : Path;
 
+    const foo = Path("foo");
     SchemaQ q;
     q.rnd0 = MinstdRand0(42);
 
@@ -87,9 +110,10 @@ unittest {
         return null;
     }
 
-    q.update(&r1);
-    assert(q.state[Mutation.Kind.rorLE] == 90);
-    assert(q.state[Mutation.Kind.rorLT] == 100);
+    q.update(foo, &r1);
+    const ch = q.pathCache[foo];
+    assert(q.state[ch][Mutation.Kind.rorLE] == 90);
+    assert(q.state[ch][Mutation.Kind.rorLT] == 100);
 
     Mutation.Kind[] r2(SchemaStatus s) {
         if (s == SchemaStatus.broken)
@@ -99,7 +123,7 @@ unittest {
         return null;
     }
 
-    q.update(&r2);
-    assert(q.state[Mutation.Kind.rorLE] == 81);
-    assert(q.state[Mutation.Kind.rorLT] == 99);
+    q.update(foo, &r2);
+    assert(q.state[ch][Mutation.Kind.rorLE] == 81);
+    assert(q.state[ch][Mutation.Kind.rorLT] == 99);
 }
