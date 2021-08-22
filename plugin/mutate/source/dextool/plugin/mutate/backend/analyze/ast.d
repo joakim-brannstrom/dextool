@@ -219,9 +219,14 @@ class AstPrintVisitor : DepthFirstVisitor {
                     return " !schema".color(Color.magenta).toString;
                 return "";
             }();
-            formattedWrite(buf, "%s %s%s%s",
+            auto covBl = () {
+                if (n.covBlacklist)
+                    return " !cov".color(Color.magenta).toString;
+                return "";
+            }();
+            formattedWrite(buf, "%s %s%s%s%s",
                     n.kind.to!string.color(Color.lightGreen),
-                    n.id.to!string.color(Color.lightYellow), bl, schemaBl);
+                    n.id.to!string.color(Color.lightYellow), bl, schemaBl, covBl);
         }
 
         void printTypeSymbol(Node n) {
@@ -353,6 +358,11 @@ abstract class Node {
      * operators are overloaded.
      */
     bool schemaBlacklist;
+
+    /** Block nodes that have a high probability of failing from being coverage instrumented.
+     *
+     */
+    bool covBlacklist;
 
     bool opEquals(Kind k) {
         return kind == k;

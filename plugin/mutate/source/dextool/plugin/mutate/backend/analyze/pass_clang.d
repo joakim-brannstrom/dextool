@@ -417,6 +417,7 @@ final class BaseVisitor : ExtendedVisitor {
             const CXCursorKind cKind) @trusted {
         n.blacklist = n.blacklist || isBlacklist(cursor, l);
         n.schemaBlacklist = n.blacklist || n.schemaBlacklist;
+        n.covBlacklist = n.blacklist || n.schemaBlacklist || n.covBlacklist;
         if (!nstack.empty)
             n.schemaBlacklist = n.schemaBlacklist || nstack[$ - 1].data.schemaBlacklist;
         nstack.put(n, indent);
@@ -521,6 +522,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
+        n.covBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
@@ -529,6 +531,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
+        n.covBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
@@ -536,6 +539,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const FunctionTemplate v) @trusted {
         mixin(mixinNodeLog!());
         auto n = ast.get.make!(analyze.Function);
+        n.covBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
