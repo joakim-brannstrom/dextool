@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.analyze.pass_schemata;
 
 import logger = std.experimental.logger;
-import std.algorithm : among, map, sort, filter, canFind, copy, uniq, any;
+import std.algorithm : among, map, sort, filter, canFind, copy, uniq, any, sum, joiner;
 import std.array : appender, empty, array, Appender;
 import std.conv : to;
 import std.exception : collectException;
@@ -254,7 +254,10 @@ struct SchemataBuilder {
         }
 
         if (local.length < minMutantsPerSchema) {
-            if (!discardMinScheman) {
+            if (discardMinScheman) {
+                log.tracef("discarding fragments %s with mutants %s",
+                        app.data.length, app.data.map!(a => a.mutants.length).sum);
+            } else {
                 rest.put(app.data);
             }
             return none!ET;

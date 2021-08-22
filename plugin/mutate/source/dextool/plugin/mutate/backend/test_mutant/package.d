@@ -1434,12 +1434,14 @@ nothrow:
     }
 
     void opCall(LoadSchematas data) {
+        import dextool.plugin.mutate.backend.database.type : SchemaStatus;
+
         if (!schemaConf.use) {
             return;
         }
 
         auto app = appender!(SchemataId[])();
-        foreach (id; spinSql!(() => db.schemaApi.getSchematas())) {
+        foreach (id; spinSql!(() => db.schemaApi.getSchematas(SchemaStatus.broken))) {
             if (spinSql!(() => db.schemaApi.schemataMutantsCount(id,
                     kinds)) >= schemataMutantsThreshold(schemaConf.minMutantsPerSchema.get, 0, 0)) {
                 app.put(id);

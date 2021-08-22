@@ -423,6 +423,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
         /// Consume fragments used by scheman containing >min mutants.
         void setIntermediate() {
+            log.trace("schema generator phase: intermediate");
             builder.discardMinScheman = false;
             builder.useProbability = true;
             builder.mutantsPerSchema = mutantsPerSchema.get;
@@ -430,6 +431,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         }
 
         void setReducedIntermediate() {
+            log.trace("schema generator phase: reduced");
             builder.discardMinScheman = false;
             builder.useProbability = true;
             builder.mutantsPerSchema = mutantsPerSchema.get;
@@ -446,6 +448,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
         /// Consume all fragments or discard.
         void finalize(ref Database db) {
+            log.trace("schema generator phase: finalize");
             builder.discardMinScheman = true;
             builder.useProbability = false;
             builder.mutantsPerSchema = mutantsPerSchema.get;
@@ -524,10 +527,20 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             trans.commit;
         }
         {
+            import std.traits : EnumMembers;
+
             auto trans = ctx.db.get.transaction;
             auto profile = Profile("prune used schemas");
             log.info("Prune the database of used schemas");
-            auto removed = ctx.db.get.schemaApi.pruneUsedSchemas;
+            const removed = () {
+                if (ctx.conf.analyze.forceSaveAnalyze)
+                    return ctx.db.get.schemaApi.pruneUsedSchemas([
+                            EnumMembers!SchemaStatus
+                            ]);
+                return ctx.db.get.schemaApi.pruneUsedSchemas([
+                        SchemaStatus.allKilled, SchemaStatus.broken
+                        ]);
+            }();
             trans.commit;
             if (removed != 0) {
                 logger.infof("Removed %s schemas", removed);
