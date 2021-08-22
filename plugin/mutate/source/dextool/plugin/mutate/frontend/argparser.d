@@ -469,6 +469,7 @@ struct ArgParser {
                    "schema-log", "write mutant schematan to a separate file for later inspection", &schema.log,
                    "schema-min-mutants", "mini number of mutants per schema", schema.minMutantsPerSchema.getPtr,
                    "schema-only", "stop testing after the last schema has been executed", &schema.stopAfterLastSchema,
+                   "schema-train", "train the schema generator by only compiling the scheman", schema.onlyCompile.getPtr,
                    "schema-use", "use schematas to speed-up testing", &schema.use,
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
                    "test-case-analyze-cmd", "program used to find what test cases killed the mutant", &mutationTestCaseAnalyze,

@@ -65,10 +65,6 @@ struct SchemataTestDriver {
         Duration compileTime;
         StopWatch swCompile;
 
-        // Write the instrumented source code to .cov.<ext> for separate
-        // inspection.
-        const bool log;
-
         ShellCommand buildCmd;
         Duration buildCmdTimeout;
 
@@ -81,7 +77,7 @@ struct SchemataTestDriver {
 
         TestStopCheck stopCheck;
 
-        SchemaRuntime runtime;
+        ConfigSchema conf;
     }
 
     static struct None {
@@ -110,19 +106,14 @@ struct SchemataTestDriver {
         bool error;
     }
 
-    static struct NextMutantData {
-        /// Mutants to test.
-        InjectIdResult mutants;
-    }
-
     static struct NextMutant {
         bool done;
         InjectIdResult.InjectId inject;
     }
 
-    static struct TestMutantData {
-        /// If the user has configured that the test cases should be analyzed.
-        bool hasTestCaseOutputAnalyzer;
+    static struct NextMutantData {
+        /// Mutants to test.
+        InjectIdResult mutants;
     }
 
     static struct TestMutant {
@@ -133,6 +124,11 @@ struct SchemataTestDriver {
         // if there are mutants status id's related to a file but the mutants
         // have been removed.
         bool mutantIdError;
+    }
+
+    static struct TestMutantData {
+        /// If the user has configured that the test cases should be analyzed.
+        bool hasTestCaseOutputAnalyzer;
     }
 
     static struct TestCaseAnalyzeData {
@@ -169,13 +165,12 @@ struct SchemataTestDriver {
         this.fio = fio;
         this.runner = runner;
         this.db = db;
+        this.conf = conf;
         this.schemataId = id;
         this.stopCheck = stopCheck;
         this.kinds = kinds;
         this.buildCmd = buildCmd;
         this.buildCmdTimeout = buildCmdTimeout;
-        this.log = conf.log;
-        this.runtime = conf.runtime;
 
         this.local.get!TestCaseAnalyze.testCaseAnalyzer = testCaseAnalyzer;
         this.local.get!TestMutant.hasTestCaseOutputAnalyzer = !testCaseAnalyzer.empty;
@@ -193,7 +188,7 @@ struct SchemataTestDriver {
         self.fsm.next!((None a) => fsm(Initialize.init), (Initialize a) {
             if (a.error)
                 return fsm(Done.init);
-            if (self.runtime == SchemaRuntime.inject)
+            if (self.conf.runtime == SchemaRuntime.inject)
                 return fsm(InitializeRoots.init);
             return fsm(InjectSchema.init);
         }, (InitializeRoots a) {
@@ -205,7 +200,7 @@ struct SchemataTestDriver {
                 return fsm(Restore.init);
             return fsm(Compile.init);
         }, (Compile a) {
-            if (a.error)
+            if (a.error || self.conf.onlyCompile)
                 return fsm(Restore.init);
             return fsm(OverloadCheck.init);
         }, (OverloadCheck a) {
@@ -372,7 +367,7 @@ nothrow:
                 auto s = makeSchemata(f, fragments(fio.toRelativeRoot(fname)), extra);
                 fio.makeOutput(fname).write(s);
 
-                if (log) {
+                if (conf.log) {
                     const ext = fname.toString.extension;
                     fio.makeOutput(AbsolutePath(format!"%s.%s.schema%s"(fname.toString.stripExtension,
                             schemataId.get, ext).Path)).write(s);
@@ -407,12 +402,14 @@ nothrow:
 
         logger.info("Ok".color(Color.green)).collectException;
 
-        try {
-            logger.info("Sanity check of the generated schemata");
-            auto res = runner.run;
-            data.error = res.status != TestResult.Status.passed;
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
+        if (conf.sanityCheckSchemata) {
+            try {
+                logger.info("Sanity check of the generated schemata");
+                auto res = runner.run;
+                data.error = res.status != TestResult.Status.passed;
+            } catch (Exception e) {
+                logger.warning(e.msg).collectException;
+            }
         }
 
         if (data.error) {
