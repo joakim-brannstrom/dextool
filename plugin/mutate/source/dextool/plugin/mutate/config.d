@@ -283,6 +283,7 @@ struct ConfigSchema {
     bool sanityCheckSchemata;
 
     /// If the schematas should be written to a separate file for offline inspection.
+    /// Write the instrumented source code to .cov.<ext> for separate inspection.
     bool log;
 
     /// Stop mutation testing after the last schemata has been executed
@@ -291,6 +292,9 @@ struct ConfigSchema {
     /// allows a user to control exactly which files the coverage and schemata
     /// runtime is injected in.
     UserRuntime[] userRuntimeCtrl;
+
+    /// Only compile and execute the test suite. Used to train the schema generator.
+    NamedType!(bool, Tag!"SchemaTrainGenerator", bool.init, TagStringable) onlyCompile;
 }
 
 struct ConfigCoverage {

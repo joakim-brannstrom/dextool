@@ -286,6 +286,15 @@ Minimum number of mutants that must exist in a schema for it to be saved and
 then later on used in the test phase. It is used to avoid storing "junk"
 schemas that actually do not speed up the mutation testing phase.
 
+
+```sh
+--schema-train
+```
+This option is used to *quickly* train the adaptable scheman on the code base
+by only compiling the scheman. By running `analyze` first with `--force-save`
+and then `test` with `--schema-train` and `--schema-only` 4-5 times it is
+possible to finish a training round in a short time.
+
 ```sh
 --threads
 ```
