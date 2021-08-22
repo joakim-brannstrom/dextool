@@ -527,10 +527,20 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             trans.commit;
         }
         {
+            import std.traits : EnumMembers;
+
             auto trans = ctx.db.get.transaction;
             auto profile = Profile("prune used schemas");
             log.info("Prune the database of used schemas");
-            auto removed = ctx.db.get.schemaApi.pruneUsedSchemas;
+            const removed = () {
+                if (ctx.conf.analyze.forceSaveAnalyze)
+                    return ctx.db.get.schemaApi.pruneUsedSchemas([
+                            EnumMembers!SchemaStatus
+                            ]);
+                return ctx.db.get.schemaApi.pruneUsedSchemas([
+                        SchemaStatus.allKilled, SchemaStatus.broken
+                        ]);
+            }();
             trans.commit;
             if (removed != 0) {
                 logger.infof("Removed %s schemas", removed);

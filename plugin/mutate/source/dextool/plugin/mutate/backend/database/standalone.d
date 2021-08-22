@@ -2378,12 +2378,12 @@ struct DbSchema {
      *
      * Returns: number of schemas removed.
      */
-    long pruneUsedSchemas() @trusted {
+    long pruneUsedSchemas(const SchemaStatus[] status) @trusted {
         auto remove = () {
             auto remove = appender!(long[])();
 
-            static immutable sqlUsed = format!"SELECT id FROM %1$s WHERE status IN (%2$s, %3$s)"(schemataUsedTable,
-                    cast(long) SchemaStatus.allKilled, cast(long) SchemaStatus.broken);
+            auto sqlUsed = format!"SELECT id FROM %s WHERE status IN (%(%s,%))"(schemataUsedTable,
+                    status.map!(a => cast(long) a));
             auto stmt = db.prepare(sqlUsed);
             foreach (a; stmt.get.execute) {
                 remove.put(a.peek!long(0));
