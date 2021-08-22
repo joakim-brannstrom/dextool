@@ -2167,13 +2167,14 @@ struct DbSchema {
 
     /// Returns: all schematas excluding those that are known to not be
     /// possible to compile.
-    SchemataId[] getSchematas() @trusted {
+    SchemataId[] getSchematas(const SchemaStatus exclude) @trusted {
         static immutable sql = format!"SELECT t0.id
             FROM %1$s t0
             WHERE
-            t0.id NOT IN (SELECT id FROM %2$s)"(
+            t0.id NOT IN (SELECT id FROM %2$s WHERE status = :status)"(
                 schemataTable, schemataUsedTable);
         auto stmt = db.prepare(sql);
+        stmt.get.bind(":status", cast(long) exclude);
         auto app = appender!(SchemataId[])();
         foreach (a; stmt.get.execute) {
             app.put(SchemataId(a.peek!long(0)));
