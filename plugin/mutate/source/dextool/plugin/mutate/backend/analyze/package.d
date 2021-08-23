@@ -426,16 +426,20 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             log.trace("schema generator phase: intermediate");
             builder.discardMinScheman = false;
             builder.useProbability = true;
+            builder.useProbablitySmallSize = false;
             builder.mutantsPerSchema = mutantsPerSchema.get;
             builder.minMutantsPerSchema = mutantsPerSchema.get;
         }
 
-        void setReducedIntermediate() {
-            log.trace("schema generator phase: reduced");
+        void setReducedIntermediate(long part) {
+            import std.algorithm : max;
+
+            log.trace("schema generator phase: reduced ", part);
             builder.discardMinScheman = false;
             builder.useProbability = true;
+            builder.useProbablitySmallSize = true;
             builder.mutantsPerSchema = mutantsPerSchema.get;
-            builder.minMutantsPerSchema = minMutantsPerSchema.get;
+            builder.minMutantsPerSchema = max(minMutantsPerSchema.get, mutantsPerSchema.get / part);
         }
 
         void run(ref Database db) {
@@ -451,6 +455,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             log.trace("schema generator phase: finalize");
             builder.discardMinScheman = true;
             builder.useProbability = false;
+            builder.useProbablitySmallSize = true;
             builder.mutantsPerSchema = mutantsPerSchema.get;
             builder.minMutantsPerSchema = minMutantsPerSchema.get;
 
@@ -793,9 +798,19 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         void finalizeSchema() {
             auto trans = ctx.db.get.transaction;
 
-            ctx.state.get.schemas.setReducedIntermediate;
-            ctx.state.get.schemas.run(ctx.db.get);
+            // sort the fragments by file which should allow those with high
+            // probability to result in larger scheman while those with smaller
+            // end up with small scheman. Smaller are thus those that higly
+            // likely fail to compile.
+            ctx.state.get.schemas.builder.sort;
 
+            // 10 is just a magic number
+            foreach (i; 1 .. 10) {
+                ctx.state.get.schemas.setReducedIntermediate(i);
+                ctx.state.get.schemas.run(ctx.db.get);
+            }
+
+            ctx.state.get.schemas.builder.sort;
             ctx.state.get.schemas.finalize(ctx.db.get);
 
             trans.commit;
