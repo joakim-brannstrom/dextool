@@ -227,7 +227,6 @@ struct SchemataBuilder {
             if (all!(a => a in isUsed)(a.mutants)) {
                 // all mutants in the fragment have already been used in
                 // schemas, discard.
-                rest.put(a);
                 continue;
             }
 
