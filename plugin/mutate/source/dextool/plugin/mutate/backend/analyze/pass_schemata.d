@@ -168,6 +168,9 @@ struct SchemataBuilder {
     /// use probability for if a mutant is injected or not
     bool useProbability;
 
+    /// if the probability should also influence if the scheam is smaller.
+    bool useProbablitySmallSize;
+
     ///
     bool discardMinScheman;
 
@@ -243,6 +246,10 @@ struct SchemataBuilder {
 
             // if any of the mutants fail the probability to be included
             if (useProbability && any!(b => !schemaQ.use(a.fragment.file, b.mut.kind))(a.mutants)) {
+                // TODO: remove this line of code in the future. used for now,
+                // ugly, to see that it behavies as expected.
+                //log.tracef("probability postpone fragment with mutants %s %s",
+                //        a.mutants.length, a.mutants.map!(a => a.mut.kind));
                 rest.put(a);
                 continue;
             }
@@ -250,6 +257,11 @@ struct SchemataBuilder {
             app.put(a);
             local.add(a.mutants);
             index.put(a.fragment.file, a.fragment.offset);
+
+            if (useProbablitySmallSize && local.length > minMutantsPerSchema
+                    && any!(b => !schemaQ.use(a.fragment.file, b.mut.kind))(a.mutants)) {
+                break;
+            }
         }
 
         if (local.length < minMutantsPerSchema) {
@@ -277,7 +289,9 @@ struct SchemataBuilder {
     void restart() @safe pure nothrow @nogc {
         current = rest;
         rest.clear;
-        isUsed = typeof(isUsed).init;
+        // TODO: may need to cap the size if it would grow to 100's of Mbyte.
+        // But that also would require 100's of millions of mutants.
+        //isUsed = typeof(isUsed).init;
     }
 }
 

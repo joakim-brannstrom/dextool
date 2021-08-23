@@ -426,6 +426,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             log.trace("schema generator phase: intermediate");
             builder.discardMinScheman = false;
             builder.useProbability = true;
+            builder.useProbablitySmallSize = false;
             builder.mutantsPerSchema = mutantsPerSchema.get;
             builder.minMutantsPerSchema = mutantsPerSchema.get;
         }
@@ -434,6 +435,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             log.trace("schema generator phase: reduced");
             builder.discardMinScheman = false;
             builder.useProbability = true;
+            builder.useProbablitySmallSize = true;
             builder.mutantsPerSchema = mutantsPerSchema.get;
             builder.minMutantsPerSchema = minMutantsPerSchema.get;
         }
@@ -451,6 +453,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             log.trace("schema generator phase: finalize");
             builder.discardMinScheman = true;
             builder.useProbability = false;
+            builder.useProbablitySmallSize = true;
             builder.mutantsPerSchema = mutantsPerSchema.get;
             builder.minMutantsPerSchema = minMutantsPerSchema.get;
 
