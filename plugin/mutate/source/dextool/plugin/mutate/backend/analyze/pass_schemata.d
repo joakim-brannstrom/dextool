@@ -266,7 +266,7 @@ struct SchemataBuilder {
 
         if (local.length < minMutantsPerSchema) {
             if (discardMinScheman) {
-                log.tracef("discarding fragments %s with mutants %s",
+                log.tracef("discarding %s fragments with %s mutants",
                         app.data.length, app.data.map!(a => a.mutants.length).sum);
             } else {
                 rest.put(app.data);
@@ -292,6 +292,14 @@ struct SchemataBuilder {
         // TODO: may need to cap the size if it would grow to 100's of Mbyte.
         // But that also would require 100's of millions of mutants.
         //isUsed = typeof(isUsed).init;
+    }
+
+    /// Sort the fragments by file.
+    void sort() @safe pure nothrow {
+        import std.algorithm : sort;
+
+        // TODO: this sort is memory inefficient
+        current = current.array.sort!((a, b) => a.fragment.file < b.fragment.file);
     }
 }
 

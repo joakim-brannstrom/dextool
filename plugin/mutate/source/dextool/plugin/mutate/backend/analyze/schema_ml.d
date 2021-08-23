@@ -78,15 +78,16 @@ struct SchemaQ {
     }
 
     /// Return: random value using the mutation subtype probability.
-    bool use(const Path p, Mutation.Kind k) {
-        return uniform01 < getState(p, k) / 100.0;
+    bool use(const Path p, const Mutation.Kind k) {
+        const r = uniform01;
+        return r < getState(p, k) / 100.0;
     }
 
     private Checksum64 checksum(const Path p) {
         return pathCache.require(p, makeChecksum64(cast(const(ubyte)[]) p.toString));
     }
 
-    private int getState(const Path p, Mutation.Kind k) {
+    private int getState(const Path p, const Mutation.Kind k) {
         if (auto st = checksum(p) in state)
             return (*st)[k];
         return MaxState;
