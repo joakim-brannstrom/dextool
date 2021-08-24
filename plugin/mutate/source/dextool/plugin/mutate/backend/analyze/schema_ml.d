@@ -77,10 +77,19 @@ struct SchemaQ {
             });
     }
 
-    /// Return: random value using the mutation subtype probability.
-    bool use(const Path p, const Mutation.Kind k) {
-        const r = uniform01;
-        return r < getState(p, k) / cast(double) MaxState;
+    /** Roll the dice to see if the mutant should be used.
+     *
+     * Params:
+     *  p = path the mutant is located at.
+     *  k = kind of mutant
+     *  threshold = the mutants probability must be above the threshold
+     *  otherwise it will automatically fail.
+     *
+     * Return: true if the roll is positive, use the mutant.
+     */
+    bool use(const Path p, const Mutation.Kind k, const double threshold) {
+        const s = getState(p, k) / cast(double) MaxState;
+        return s >= threshold && uniform01 < s;
     }
 
     private Checksum64 checksum(const Path p) {

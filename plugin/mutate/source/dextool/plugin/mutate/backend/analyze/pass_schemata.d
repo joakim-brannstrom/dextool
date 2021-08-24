@@ -214,6 +214,7 @@ struct SchemataBuilder {
         Index!Path index;
         auto app = appender!(Fragment[])();
         Set!CodeMutant local;
+        auto threshold = () => cast(double) local.length / cast(double) mutantsPerSchema;
 
         while (!current.empty) {
             if (local.length >= mutantsPerSchema) {
@@ -245,7 +246,8 @@ struct SchemataBuilder {
             }
 
             // if any of the mutants fail the probability to be included
-            if (useProbability && any!(b => !schemaQ.use(a.fragment.file, b.mut.kind))(a.mutants)) {
+            if (useProbability && any!(b => !schemaQ.use(a.fragment.file,
+                    b.mut.kind, threshold()))(a.mutants)) {
                 // TODO: remove this line of code in the future. used for now,
                 // ugly, to see that it behavies as expected.
                 //log.tracef("probability postpone fragment with mutants %s %s",
@@ -259,7 +261,7 @@ struct SchemataBuilder {
             index.put(a.fragment.file, a.fragment.offset);
 
             if (useProbablitySmallSize && local.length > minMutantsPerSchema
-                    && any!(b => !schemaQ.use(a.fragment.file, b.mut.kind))(a.mutants)) {
+                    && any!(b => !schemaQ.use(a.fragment.file, b.mut.kind, threshold()))(a.mutants)) {
                 break;
             }
         }
