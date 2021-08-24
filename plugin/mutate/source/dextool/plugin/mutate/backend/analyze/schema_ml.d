@@ -73,14 +73,14 @@ struct SchemaQ {
         // fix probability to be max P(1)
         foreach (k; [EnumMembers!(Mutation.Kind)])
             state[ch].update(k, () => cast(int) MaxState, (ref int x) {
-                x = clamp(x, 0, MaxState);
+                x = clamp(x, MinState, MaxState);
             });
     }
 
     /// Return: random value using the mutation subtype probability.
     bool use(const Path p, const Mutation.Kind k) {
         const r = uniform01;
-        return r < getState(p, k) / 100.0;
+        return r < getState(p, k) / cast(double) MaxState;
     }
 
     private Checksum64 checksum(const Path p) {
@@ -114,7 +114,7 @@ unittest {
     q.update(foo, &r1);
     const ch = q.pathCache[foo];
     assert(q.state[ch][Mutation.Kind.rorLE] == 90);
-    assert(q.state[ch][Mutation.Kind.rorLT] == 100);
+    assert(q.state[ch][Mutation.Kind.rorLT] == MaxState);
 
     Mutation.Kind[] r2(SchemaStatus s) {
         if (s == SchemaStatus.broken)
