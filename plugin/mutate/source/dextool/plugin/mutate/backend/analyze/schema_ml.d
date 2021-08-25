@@ -73,14 +73,23 @@ struct SchemaQ {
         // fix probability to be max P(1)
         foreach (k; [EnumMembers!(Mutation.Kind)])
             state[ch].update(k, () => cast(int) MaxState, (ref int x) {
-                x = clamp(x, 0, MaxState);
+                x = clamp(x, MinState, MaxState);
             });
     }
 
-    /// Return: random value using the mutation subtype probability.
-    bool use(const Path p, const Mutation.Kind k) {
-        const r = uniform01;
-        return r < getState(p, k) / 100.0;
+    /** Roll the dice to see if the mutant should be used.
+     *
+     * Params:
+     *  p = path the mutant is located at.
+     *  k = kind of mutant
+     *  threshold = the mutants probability must be above the threshold
+     *  otherwise it will automatically fail.
+     *
+     * Return: true if the roll is positive, use the mutant.
+     */
+    bool use(const Path p, const Mutation.Kind k, const double threshold) {
+        const s = getState(p, k) / cast(double) MaxState;
+        return s >= threshold && uniform01 < s;
     }
 
     private Checksum64 checksum(const Path p) {
@@ -114,7 +123,7 @@ unittest {
     q.update(foo, &r1);
     const ch = q.pathCache[foo];
     assert(q.state[ch][Mutation.Kind.rorLE] == 90);
-    assert(q.state[ch][Mutation.Kind.rorLT] == 100);
+    assert(q.state[ch][Mutation.Kind.rorLT] == MaxState);
 
     Mutation.Kind[] r2(SchemaStatus s) {
         if (s == SchemaStatus.broken)
