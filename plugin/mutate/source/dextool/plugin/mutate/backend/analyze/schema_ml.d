@@ -162,11 +162,12 @@ struct SchemaSizeQ {
     alias StatusData = long delegate(SchemaStatus);
 
     MinstdRand0 rnd0;
-    long currentSize;
     long minSize;
+    long maxSize;
+    long currentSize;
 
-    static auto make() {
-        return SchemaSizeQ(MinstdRand0(unpredictableSeed));
+    static auto make(const long minSize, const long maxSize) {
+        return SchemaSizeQ(MinstdRand0(unpredictableSeed), minSize, maxSize);
     }
 
     void update(scope StatusData data) {
@@ -174,7 +175,7 @@ struct SchemaSizeQ {
 
         double newValue = currentSize;
         scope (exit)
-            currentSize = cast(long) newValue;
+            currentSize = clamp(cast(long) newValue, minSize, maxSize);
 
         if (auto v = data(SchemaStatus.broken))
             newValue = min(newValue - v, newValue * pow(1.0 - LearnRate, v));

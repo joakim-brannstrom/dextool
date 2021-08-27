@@ -1438,7 +1438,8 @@ auto updateSchemaSizeQ(ref Database db, const long userInit, const long minSize)
     import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaSizeQ;
     import dextool.plugin.mutate.backend.database : SchemaStatus;
 
-    auto sq = SchemaSizeQ.make;
+    // *3 is a magic number. it feels good.
+    auto sq = SchemaSizeQ.make(minSize, userInit * 3);
     sq.currentSize = db.schemaApi.getSchemaSize(userInit);
     sq.minSize = minSize;
     scope getStatusCnt = (SchemaStatus s) => db.schemaApi.schemaCount(s);
