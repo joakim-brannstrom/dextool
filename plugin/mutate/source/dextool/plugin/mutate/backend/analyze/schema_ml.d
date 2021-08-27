@@ -18,6 +18,9 @@ executed the test suite OK.
 */
 module dextool.plugin.mutate.backend.analyze.schema_ml;
 
+import std.algorithm : joiner, clamp, min, max;
+import std.random : uniform01, MinstdRand0, unpredictableSeed;
+
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.backend.database.type : SchemaStatus;
 
@@ -28,8 +31,6 @@ immutable MaxState = 100;
 immutable LearnRate = 0.1;
 
 struct SchemaQ {
-    import std.algorithm : min, max;
-    import std.random : uniform01, MinstdRand0, unpredictableSeed;
     import std.traits : EnumMembers;
     import my.hash;
     import my.path : Path;
@@ -53,7 +54,6 @@ struct SchemaQ {
 
     /// Update the state for all mutants.
     void update(const Path path, scope StatusData data) {
-        import std.algorithm : joiner, clamp;
         import std.range : only;
 
         addIfNew(path);
@@ -103,6 +103,25 @@ struct SchemaQ {
     }
 }
 
+struct Feature {
+    import my.hash;
+
+    // The path is extremly important because it allows the tool to clear out old data.
+    Checksum64 path;
+
+    Mutation.Kind kind;
+
+    Checksum64[] context;
+
+    size_t toHash() @safe pure nothrow const @nogc {
+        auto rval = (cast(size_t) kind).hashOf();
+        rval = path.c0.hashOf(rval);
+        foreach (a; context)
+            rval = a.c0.hashOf(rval);
+        return rval;
+    }
+}
+
 @("shall update the table")
 unittest {
     import std.random : MinstdRand0;
@@ -136,4 +155,31 @@ unittest {
     q.update(foo, &r2);
     assert(q.state[ch][Mutation.Kind.rorLE] == 81);
     assert(q.state[ch][Mutation.Kind.rorLT] == 99);
+}
+
+struct SchemaSizeQ {
+    // Returns: nr of scheman with the status.
+    alias StatusData = long delegate(SchemaStatus);
+
+    MinstdRand0 rnd0;
+    long currentSize;
+    long minSize;
+
+    static auto make() {
+        return SchemaSizeQ(MinstdRand0(unpredictableSeed));
+    }
+
+    void update(scope StatusData data) {
+        import std.math : pow;
+
+        double newValue = currentSize;
+        scope (exit)
+            currentSize = cast(long) newValue;
+
+        if (auto v = data(SchemaStatus.broken))
+            newValue = min(newValue - v, newValue * pow(1.0 - LearnRate, v));
+        if (auto v = (data(SchemaStatus.allKilled) + data(SchemaStatus.ok)))
+            newValue = max(newValue + v, newValue * pow(1.0 + LearnRate, v));
+        newValue = max(newValue, cast(double) minSize);
+    }
 }
