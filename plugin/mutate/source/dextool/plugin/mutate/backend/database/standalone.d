@@ -2445,7 +2445,7 @@ struct DbSchema {
     }
 
     /// Returns: all mutant subtypes that has `status`, can occur multiple times.
-    Mutation.Kind[] getSchemaUsedKinds(const Path p, SchemaStatus status) @trusted {
+    Mutation.Kind[] getSchemaUsedKinds(const Path p, const SchemaStatus status) @trusted {
         static immutable sql = format!"SELECT DISTINCT t1.kind
             FROM %1$s t0, %2$s t1, %3$s t2, %4$s t3, %5$s t4
             WHERE
@@ -2469,6 +2469,31 @@ struct DbSchema {
         }
 
         return app.data;
+    }
+
+    long schemaCount(const SchemaStatus status) @trusted {
+        static immutable sql = "SELECT count(*) FROM " ~ schemataUsedTable ~ " WHERE status=:status";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":status", cast(long) status);
+        foreach (ref r; stmt.get.execute)
+            return r.peek!long(0);
+        return 0;
+    }
+
+    long getSchemaSize(const long defaultValue) @trusted {
+        static immutable sql = "SELECT size FROM " ~ schemaSizeQTable ~ " WHERE id=0";
+        auto stmt = db.prepare(sql);
+        foreach (ref r; stmt.get.execute)
+            return r.peek!long(0);
+        return defaultValue;
+    }
+
+    void saveSchemaSize(const long v) @trusted {
+        static immutable sql = "INSERT OR REPLACE INTO " ~ schemaSizeQTable
+            ~ " (id,size) VALUES(0,:size)";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":size", v);
+        stmt.get.execute;
     }
 }
 

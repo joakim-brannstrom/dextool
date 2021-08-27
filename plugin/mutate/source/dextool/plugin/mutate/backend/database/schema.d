@@ -107,6 +107,7 @@ immutable nomutTable = "nomut";
 immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable runtimeHistoryTable = "test_cmd_runtime_history";
 immutable schemaMutantQTable = "schema_mutant_q";
+immutable schemaSizeQTable = "schema_size_q";
 immutable schemaVersionTable = "schema_version";
 immutable schemataFragmentTable = "schemata_fragment";
 immutable schemataMutantTable = "schemata_mutant";
@@ -590,7 +591,7 @@ struct SchemataFragmentTable {
 
 @TableName(schemaMutantQTable)
 @TableConstraint("unique_ UNIQUE (kind, path)")
-struct SchemaMutantKindQ {
+struct SchemaMutantKindQTable {
     long id;
 
     /// mutant subtype
@@ -601,6 +602,12 @@ struct SchemaMutantKindQ {
 
     // 64 bit checksum of the path
     long path;
+}
+
+@TableName(schemaSizeQTable)
+struct SchemaSizeQTable {
+    long id;
+    long size;
 }
 
 /** The runtime of the test commands.
@@ -843,9 +850,10 @@ void upgradeV0(ref Miniorm db) {
             MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl,
             NomutDataTbl, SchemataTable, SchemataFragmentTable,
             SchemataMutantTable,
-            SchemataUsedTable, SchemaMutantKindQ, MutantWorklistTbl,
-            RuntimeHistoryTable, MutationScoreHistoryTable, TestFilesTable,
-            CoverageCodeRegionTable, CoverageInfoTable, CoverageTimeTtampTable,
+            SchemataUsedTable, SchemaMutantKindQTable, SchemaSizeQTable,
+            MutantWorklistTbl, RuntimeHistoryTable, MutationScoreHistoryTable,
+            TestFilesTable, CoverageCodeRegionTable, CoverageInfoTable,
+            CoverageTimeTtampTable,
             DependencyFileTable, DependencyRootTable, DextoolVersionTable,
             TestCmdOriginalTable, TestCmdMutatedTable));
 
@@ -1752,7 +1760,11 @@ void upgradeV44(ref Miniorm db) {
 
 void upgradeV45(ref Miniorm db) {
     db.run(format("DROP TABLE %s", schemaMutantQTable));
-    db.run(buildSchema!(SchemaMutantKindQ));
+    db.run(buildSchema!(SchemaMutantKindQTable));
+}
+
+void upgradeV46(ref Miniorm db) {
+    db.run(buildSchema!SchemaSizeQTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

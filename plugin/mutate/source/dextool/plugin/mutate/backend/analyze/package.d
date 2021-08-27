@@ -517,8 +517,10 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             auto profile = Profile("update schema probability");
             log.info("Update schema probability");
 
-            auto sq = updateSchemaQ(ctx.db.get);
-            ctx.state.get.schemas.builder.schemaQ = sq;
+            ctx.state.get.schemas.builder.schemaQ = updateSchemaQ(ctx.db.get);
+            ctx.state.get.schemas.builder.mutantsPerSchema = updateSchemaSizeQ(ctx.db.get,
+                    ctx.conf.schema.mutantsPerSchema.get, ctx.conf.schema.minMutantsPerSchema.get)
+                .currentSize;
 
             trans.commit;
         }
@@ -1424,5 +1426,18 @@ auto updateSchemaQ(ref Database db) {
         debug logger.tracef("saving %s with %s values", p.key, p.value.length);
     }
 
+    return sq;
+}
+
+auto updateSchemaSizeQ(ref Database db, const long userInit, const long minSize) {
+    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaSizeQ;
+    import dextool.plugin.mutate.backend.database : SchemaStatus;
+
+    auto sq = SchemaSizeQ.make;
+    sq.currentSize = db.schemaApi.getSchemaSize(userInit);
+    sq.minSize = minSize;
+    scope getStatusCnt = (SchemaStatus s) => db.schemaApi.schemaCount(s);
+    sq.update(getStatusCnt);
+    db.schemaApi.saveSchemaSize(sq.currentSize);
     return sq;
 }
