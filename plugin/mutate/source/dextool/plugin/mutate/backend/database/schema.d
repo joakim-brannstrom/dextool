@@ -86,7 +86,7 @@ import dextool.plugin.mutate.backend.type : Language;
 
 import d2sqlite3 : SqlDatabase = Database;
 import miniorm : Miniorm, TableName, buildSchema, ColumnParam, TableForeignKey, TableConstraint,
-    TablePrimaryKey, KeyRef, KeyParam, ColumnName, delete_, insert, select, spinSql;
+    TablePrimaryKey, KeyRef, KeyParam, ColumnName, delete_, insert, select, spinSql, silentLog;
 
 immutable allTestCaseTable = "all_test_case";
 immutable depFileTable = "dependency_file";
@@ -137,6 +137,9 @@ in {
 }
 do {
     import std.file : exists;
+    import my.file : followSymlink;
+    import my.optional;
+    import my.path : Path;
     import d2sqlite3 : SQLITE_OPEN_CREATE, SQLITE_OPEN_READWRITE;
 
     static void setPragmas(ref SqlDatabase db) {
@@ -152,11 +155,12 @@ do {
         }
     }
 
-    const isOldDb = exists(p);
+    const isOldDb = exists(followSymlink(Path(p)).orElse(Path(p)).toString);
     SqlDatabase sqliteDb;
     scope (success)
         setPragmas(sqliteDb);
 
+    logger.trace("Opening database ", p);
     try {
         sqliteDb = SqlDatabase(p, SQLITE_OPEN_READWRITE);
     } catch (Exception e) {
@@ -168,12 +172,19 @@ do {
     auto db = Miniorm(sqliteDb);
 
     auto tbl = makeUpgradeTable;
-    if (isOldDb && spinSql!(() => getSchemaVersion(db))(10.dur!"minutes") >= tbl
-            .latestSchemaVersion)
+    const longTimeout = 10.dur!"minutes";
+    try {
+        if (isOldDb && spinSql!(() => getSchemaVersion(db),
+                silentLog)(10.dur!"seconds") >= tbl.latestSchemaVersion)
+            return db;
+    } catch (Exception e) {
+        logger.info("The database is probably locked. Will keep trying to open for ", longTimeout);
+    }
+    if (isOldDb && spinSql!(() => getSchemaVersion(db))(longTimeout) >= tbl.latestSchemaVersion)
         return db;
 
     // TODO: remove all key off in upgrade schemas.
-    const giveUpAfter = Clock.currTime + 10.dur!"minutes";
+    const giveUpAfter = Clock.currTime + longTimeout;
     bool failed = true;
     while (failed && Clock.currTime < giveUpAfter) {
         try {
