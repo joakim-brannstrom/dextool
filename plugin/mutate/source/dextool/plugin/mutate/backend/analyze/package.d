@@ -1402,7 +1402,7 @@ bool isFileSupported(FilesysIO fio, AbsolutePath p) @safe {
 }
 
 auto updateSchemaQ(ref Database db) {
-    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ, MaxState;
+    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
     import dextool.plugin.mutate.backend.database : SchemaStatus;
     import my.hash : Checksum64;
     import my.set;
@@ -1427,7 +1427,7 @@ auto updateSchemaQ(ref Database db) {
     }
 
     foreach (p; sq.state.byKeyValue) {
-        db.schemaApi.saveMutantProbability(p.key, p.value, MaxState);
+        db.schemaApi.saveMutantProbability(p.key, p.value, SchemaQ.MaxState);
         debug logger.tracef("saving %s with %s values", p.key, p.value.length);
     }
 
@@ -1441,8 +1441,8 @@ auto updateSchemaSizeQ(ref Database db, const long userInit, const long minSize)
     // *3 is a magic number. it feels good.
     auto sq = SchemaSizeQ.make(minSize, userInit * 3);
     sq.currentSize = db.schemaApi.getSchemaSize(userInit);
-    sq.minSize = minSize;
-    scope getStatusCnt = (SchemaStatus s) => db.schemaApi.schemaCount(s);
+    scope getStatusCnt = (SchemaStatus s, string cond) => db.schemaApi.schemaCount(s,
+            userInit, cond);
     sq.update(getStatusCnt);
     db.schemaApi.saveSchemaSize(sq.currentSize);
     return sq;

@@ -26,14 +26,14 @@ import dextool.plugin.mutate.backend.database.type : SchemaStatus;
 
 @safe:
 
-immutable MinState = 0;
-immutable MaxState = 100;
-immutable LearnRate = 0.1;
-
 struct SchemaQ {
     import std.traits : EnumMembers;
     import my.hash;
     import my.path : Path;
+
+    static immutable MinState = 0;
+    static immutable MaxState = 100;
+    static immutable LearnRate = 0.1;
 
     alias StatusData = Mutation.Kind[]delegate(SchemaStatus);
 
@@ -142,7 +142,7 @@ unittest {
     q.update(foo, &r1);
     const ch = q.pathCache[foo];
     assert(q.state[ch][Mutation.Kind.rorLE] == 90);
-    assert(q.state[ch][Mutation.Kind.rorLT] == MaxState);
+    assert(q.state[ch][Mutation.Kind.rorLT] == SchemaQ.MaxState);
 
     Mutation.Kind[] r2(SchemaStatus s) {
         if (s == SchemaStatus.broken)
@@ -158,8 +158,10 @@ unittest {
 }
 
 struct SchemaSizeQ {
+    static immutable LearnRate = 0.01;
+
     // Returns: nr of scheman with the status.
-    alias StatusData = long delegate(SchemaStatus);
+    alias StatusData = long delegate(SchemaStatus, string condition);
 
     MinstdRand0 rnd0;
     long minSize;
@@ -177,9 +179,9 @@ struct SchemaSizeQ {
         scope (exit)
             currentSize = clamp(cast(long) newValue, minSize, maxSize);
 
-        if (auto v = data(SchemaStatus.broken))
+        if (auto v = data(SchemaStatus.broken, "<"))
             newValue = min(newValue - v, newValue * pow(1.0 - LearnRate, v));
-        if (auto v = (data(SchemaStatus.allKilled) + data(SchemaStatus.ok)))
+        if (auto v = (data(SchemaStatus.allKilled, ">") + data(SchemaStatus.ok, ">")))
             newValue = max(newValue + v, newValue * pow(1.0 + LearnRate, v));
         newValue = max(newValue, cast(double) minSize);
     }

@@ -2471,10 +2471,14 @@ struct DbSchema {
         return app.data;
     }
 
-    long schemaCount(const SchemaStatus status) @trusted {
-        static immutable sql = "SELECT count(*) FROM " ~ schemataUsedTable ~ " WHERE status=:status";
+    long schemaCount(const SchemaStatus status, const long value, string condition) @trusted {
+        const sql = format!"SELECT count(*) FROM %1$s t0
+            WHERE status=:status AND
+            (SELECT count(*) FROM %2$s WHERE schem_id=t0.id) %3$s :value"(
+                schemataUsedTable, schemataMutantTable, condition);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
+        stmt.get.bind(":value", value);
         foreach (ref r; stmt.get.execute)
             return r.peek!long(0);
         return 0;
