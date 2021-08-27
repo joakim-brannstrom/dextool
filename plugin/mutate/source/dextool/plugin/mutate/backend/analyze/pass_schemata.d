@@ -171,8 +171,12 @@ struct SchemataBuilder {
     /// if the probability should also influence if the scheam is smaller.
     bool useProbablitySmallSize;
 
-    ///
+    // if fragments that are part of scheman that didn't reach the min
+    // threshold should be discarded.
     bool discardMinScheman;
+
+    /// The threshold start at this value.
+    double thresholdStartValue = 0.0;
 
     /// Max mutants per schema.
     long mutantsPerSchema;
@@ -211,10 +215,13 @@ struct SchemataBuilder {
      * contain multiple mutation kinds and span over multiple files.
      */
     Optional!ET next() {
+        import std.algorithm : max;
+
         Index!Path index;
         auto app = appender!(Fragment[])();
         Set!CodeMutant local;
-        auto threshold = () => cast(double) local.length / cast(double) mutantsPerSchema;
+        auto threshold = () => max(thresholdStartValue,
+                cast(double) local.length / cast(double) mutantsPerSchema);
 
         while (!current.empty) {
             if (local.length >= mutantsPerSchema) {

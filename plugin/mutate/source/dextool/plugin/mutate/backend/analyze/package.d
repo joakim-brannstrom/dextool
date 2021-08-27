@@ -429,6 +429,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             builder.useProbablitySmallSize = false;
             builder.mutantsPerSchema = mutantsPerSchema.get;
             builder.minMutantsPerSchema = mutantsPerSchema.get;
+            builder.thresholdStartValue = 1.0;
         }
 
         void setReducedIntermediate(long part) {
@@ -440,6 +441,9 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             builder.useProbablitySmallSize = true;
             builder.mutantsPerSchema = mutantsPerSchema.get;
             builder.minMutantsPerSchema = max(minMutantsPerSchema.get, mutantsPerSchema.get / part);
+            // TODO: interresting effect. this need to be studied. I think this
+            // is the behavior that is "best".
+            builder.thresholdStartValue = 1.0 - (cast(double) part / 100.0);
         }
 
         void run(ref Database db) {
@@ -458,6 +462,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             builder.useProbablitySmallSize = true;
             builder.mutantsPerSchema = mutantsPerSchema.get;
             builder.minMutantsPerSchema = minMutantsPerSchema.get;
+            builder.thresholdStartValue = 0;
 
             // two loops to pass over all mutants and retry new schema
             // compositions. Any schema that is less than the minimum will be
