@@ -179,11 +179,18 @@ struct SchemaSizeQ {
             currentSize = clamp(cast(long) newValue, minSize, maxSize);
 
         double adjust = 1.0;
-        foreach (const v; data(SchemaStatus.broken).filter!(a => a < currentSize))
+        // ensure there is at least some change even though there is rounding
+        // errors or some schemas are small.
+        long fixed;
+        foreach (const v; data(SchemaStatus.broken).filter!(a => a < currentSize)) {
             adjust -= LearnRate * (cast(double) v / cast(double) totalMutants);
+            fixed--;
+        }
         foreach (const v; only(data(SchemaStatus.allKilled), data(SchemaStatus.ok)).joiner.filter!(
-                a => a > currentSize))
+                a => a > currentSize)) {
             adjust += LearnRate * (cast(double) v / cast(double) totalMutants);
-        newValue = newValue * adjust;
+            fixed++;
+        }
+        newValue = newValue * adjust + fixed;
     }
 }
