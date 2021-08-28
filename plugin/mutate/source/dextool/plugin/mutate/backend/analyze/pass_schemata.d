@@ -263,6 +263,11 @@ struct SchemataBuilder {
                 continue;
             }
 
+            // no use in using a mutant that has zero probability because then, it will always fail.
+            if (any!(b => schemaQ.isZero(a.fragment.file, b.mut.kind))(a.mutants)) {
+                continue;
+            }
+
             app.put(a);
             local.add(a.mutants);
             index.put(a.fragment.file, a.fragment.offset);

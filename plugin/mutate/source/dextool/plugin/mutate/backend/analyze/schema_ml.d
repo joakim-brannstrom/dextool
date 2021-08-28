@@ -76,6 +76,16 @@ struct SchemaQ {
             });
     }
 
+    /** To allow those with zero probability to self heal give them a random +1 now and then.
+     */
+    void scatterTick() {
+        foreach (p; state.byKeyValue) {
+            foreach (k; p.value.byKeyValue.filter!(a => a.value == 0 && uniform01(rnd0) < 0.05)) {
+                state[p.key][k.key] = 1;
+            }
+        }
+    }
+
     /** Roll the dice to see if the mutant should be used.
      *
      * Params:
@@ -88,7 +98,12 @@ struct SchemaQ {
      */
     bool use(const Path p, const Mutation.Kind k, const double threshold) {
         const s = getState(p, k) / cast(double) MaxState;
-        return s >= threshold && uniform01 < s;
+        return s >= threshold && uniform01(rnd0) < s;
+    }
+
+    /// Returns: true if the probability of success is zero.
+    bool isZero(const Path p, const Mutation.Kind k) {
+        return getState(p, k) == 0;
     }
 
     private Checksum64 checksum(const Path p) {
