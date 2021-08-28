@@ -1426,6 +1426,8 @@ auto updateSchemaQ(ref Database db) {
         debug logger.trace("removing ", p);
     }
 
+    sq.scatterTick;
+
     foreach (p; sq.state.byKeyValue) {
         db.schemaApi.saveMutantProbability(p.key, p.value, SchemaQ.MaxState);
         debug logger.tracef("saving %s with %s values", p.key, p.value.length);
