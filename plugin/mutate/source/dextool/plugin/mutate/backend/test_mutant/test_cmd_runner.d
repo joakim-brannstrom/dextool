@@ -319,13 +319,19 @@ string[] findExecutables(AbsolutePath root) @trusted {
 RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env, TestRunner.MaxCaptureBytes maxOutputCapture,
         TestRunner.MinAvailableMemBytes minAvailableMem, Signal earlyStop,
         Mutex mtx, Condition condDone) @trusted nothrow {
-    import core.sys.posix.unistd : _SC_AVPHYS_PAGES, _SC_PAGESIZE, sysconf;
     import std.algorithm : copy;
     static import std.process;
 
-    const pageSize = sysconf(_SC_PAGESIZE);
+    auto availMem = AvailableMem.make();
+    scope (exit)
+        () {
+        try {
+            .destroy(availMem);
+        } catch (Exception e) {
+        }
+    }();
     bool isMemLimitTrigger() {
-        return sysconf(_SC_AVPHYS_PAGES) * pageSize < minAvailableMem.get;
+        return availMem.available < minAvailableMem.get;
     }
 
     scope (exit)
@@ -364,7 +370,7 @@ RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env, T
             }
             if (isMemLimitTrigger) {
                 logger.infof("Available memory below limit. Stopping %s (%s < %s)",
-                        cmd, sysconf(_SC_AVPHYS_PAGES) * pageSize, minAvailableMem.get);
+                        cmd, availMem.available, minAvailableMem.get);
                 p.kill;
                 rval.status = RunResult.Status.timeout;
                 break;
@@ -566,4 +572,44 @@ ExitStatus mergeExitStatus(ExitStatus old, ExitStatus new_) {
     // a value 128+n is a value from the OS which is pretty bad such as a segmentation fault.
     // those <128 are user created.
     return max(old.get, new_.get).ExitStatus;
+}
+
+struct AvailableMem {
+    import std.conv : to;
+    import std.datetime : SysTime;
+    import std.stdio : File;
+    import std.string : startsWith, split;
+
+    static const Duration pollFreq = 5.dur!"seconds";
+    File procMem;
+    SysTime nextPoll;
+    long current = long.max;
+
+    static AvailableMem* make() @safe nothrow {
+        try {
+            return new AvailableMem(File("/proc/meminfo"), Clock.currTime);
+        } catch (Exception e) {
+            logger.warning("Unable to open /proc/meminfo").collectException;
+        }
+        return new AvailableMem(File.init, Clock.currTime);
+    }
+
+    long available() @trusted nothrow {
+        if (Clock.currTime > nextPoll && procMem.isOpen) {
+            try {
+                procMem.rewind;
+                foreach (l; procMem.byLine
+                        .filter!(l => l.startsWith("MemAvailable"))
+                        .map!(a => a.split)
+                        .filter!(a => a.length != 3)) {
+                    current = to!long(l[1]) * 1024;
+                }
+            } catch (Exception e) {
+                current = long.max;
+            }
+            nextPoll = Clock.currTime + pollFreq;
+        }
+
+        return current;
+    }
 }
