@@ -2471,6 +2471,7 @@ struct DbSchema {
         return app.data;
     }
 
+    /// Returns: number of scheman matching the condition.
     long schemaCount(const SchemaStatus status, const long value, string condition) @trusted {
         const sql = format!"SELECT count(*) FROM %1$s t0
             WHERE status=:status AND
@@ -2482,6 +2483,19 @@ struct DbSchema {
         foreach (ref r; stmt.get.execute)
             return r.peek!long(0);
         return 0;
+    }
+
+    /// Returns: an array of the mutants that are in schemas with the specific status
+    long[] schemaMutantCount(const SchemaStatus status) @trusted {
+        static immutable sql = format!"SELECT (SELECT count(*) FROM %2$s WHERE schem_id=t0.id)
+            FROM %1$s t0 WHERE status=:status"(
+                schemataUsedTable, schemataMutantTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":status", cast(long) status);
+        auto app = appender!(long[])();
+        foreach (ref r; stmt.get.execute)
+            app.put(r.peek!long(0));
+        return app.data;
     }
 
     long getSchemaSize(const long defaultValue) @trusted {

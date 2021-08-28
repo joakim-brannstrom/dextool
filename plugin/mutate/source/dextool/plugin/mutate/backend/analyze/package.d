@@ -1435,15 +1435,17 @@ auto updateSchemaQ(ref Database db) {
 }
 
 auto updateSchemaSizeQ(ref Database db, const long userInit, const long minSize) {
+    import std.traits : EnumMembers;
     import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaSizeQ;
     import dextool.plugin.mutate.backend.database : SchemaStatus;
 
     // *3 is a magic number. it feels good.
     auto sq = SchemaSizeQ.make(minSize, userInit * 3);
     sq.currentSize = db.schemaApi.getSchemaSize(userInit);
-    scope getStatusCnt = (SchemaStatus s, string cond) => db.schemaApi.schemaCount(s,
-            userInit, cond);
-    sq.update(getStatusCnt);
+    scope getStatusCnt = (SchemaStatus s) => db.schemaApi.schemaMutantCount(s);
+    const kinds = [EnumMembers!(Mutation.Kind)];
+    sq.update(getStatusCnt, db.mutantApi.totalSrcMutants(kinds)
+            .count + db.mutantApi.unknownSrcMutants(kinds).count);
     db.schemaApi.saveSchemaSize(sq.currentSize);
     return sq;
 }
