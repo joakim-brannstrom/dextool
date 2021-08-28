@@ -18,8 +18,9 @@ executed the test suite OK.
 */
 module dextool.plugin.mutate.backend.analyze.schema_ml;
 
-import std.algorithm : joiner, clamp, min, max;
+import std.algorithm : joiner, clamp, min, max, filter;
 import std.random : uniform01, MinstdRand0, unpredictableSeed;
+import std.range : only;
 
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.backend.database.type : SchemaStatus;
@@ -54,8 +55,6 @@ struct SchemaQ {
 
     /// Update the state for all mutants.
     void update(const Path path, scope StatusData data) {
-        import std.range : only;
-
         addIfNew(path);
         const ch = checksum(path);
 
@@ -160,8 +159,8 @@ unittest {
 struct SchemaSizeQ {
     static immutable LearnRate = 0.01;
 
-    // Returns: nr of scheman with the status.
-    alias StatusData = long delegate(SchemaStatus, string condition);
+    // Returns: an array of the nr of mutants schemas matching the condition.
+    alias StatusData = long[]delegate(SchemaStatus);
 
     MinstdRand0 rnd0;
     long minSize;
@@ -172,17 +171,19 @@ struct SchemaSizeQ {
         return SchemaSizeQ(MinstdRand0(unpredictableSeed), minSize, maxSize);
     }
 
-    void update(scope StatusData data) {
+    void update(scope StatusData data, const long totalMutants) {
         import std.math : pow;
 
         double newValue = currentSize;
         scope (exit)
             currentSize = clamp(cast(long) newValue, minSize, maxSize);
 
-        if (auto v = data(SchemaStatus.broken, "<"))
-            newValue = min(newValue - v, newValue * pow(1.0 - LearnRate, v));
-        if (auto v = (data(SchemaStatus.allKilled, ">") + data(SchemaStatus.ok, ">")))
-            newValue = max(newValue + v, newValue * pow(1.0 + LearnRate, v));
-        newValue = max(newValue, cast(double) minSize);
+        double adjust = 1.0;
+        foreach (const v; data(SchemaStatus.broken).filter!(a => a < currentSize))
+            adjust -= LearnRate * (cast(double) v / cast(double) totalMutants);
+        foreach (const v; only(data(SchemaStatus.allKilled), data(SchemaStatus.ok)).joiner.filter!(
+                a => a > currentSize))
+            adjust += LearnRate * (cast(double) v / cast(double) totalMutants);
+        newValue = newValue * adjust;
     }
 }
