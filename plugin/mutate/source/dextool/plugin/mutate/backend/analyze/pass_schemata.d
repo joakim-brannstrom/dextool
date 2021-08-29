@@ -30,6 +30,7 @@ static import colorlog;
 import dextool.type : AbsolutePath, Path;
 
 import dextool.plugin.mutate.backend.analyze.ast : Interval, Location;
+import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.internal;
 import dextool.plugin.mutate.backend.analyze.utility;
@@ -54,7 +55,7 @@ immutable schemataMutantIdentifier = "dextool_get_mutid()";
 immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
 /// Translate a mutation AST to a schemata.
-SchemataResult toSchemata(Ast* ast, FilesysIO fio, CodeMutantsResult cresult) @safe {
+SchemataResult toSchemata(Ast* ast, FilesysIO fio, CodeMutantsResult cresult, SchemaQ sq) @safe {
     auto rval = new SchemataResult;
     auto index = new CodeMutantIndex(cresult);
 
@@ -64,7 +65,7 @@ SchemataResult toSchemata(Ast* ast, FilesysIO fio, CodeMutantsResult cresult) @s
     case Language.assumeCpp:
         goto case;
     case Language.cpp:
-        scope visitor = new CppSchemataVisitor(ast, index, fio, rval);
+        scope visitor = new CppSchemataVisitor(ast, index, sq, fio, rval);
         () @trusted { ast.accept(visitor); }();
         break;
     }
@@ -110,11 +111,9 @@ class SchemataResult {
 
     /// Assuming that all fragments for a file should be merged to one huge.
     private void putFragment(AbsolutePath file, Fragment sf) {
-        if (auto v = file in schematas) {
-            (*v).fragments ~= sf;
-        } else {
-            schematas[file] = Schemata([sf]);
-        }
+        schematas.update(file, () => Schemata([sf]), (ref Schemata a) {
+            a.fragments ~= sf;
+        });
     }
 
     override string toString() @safe {
@@ -303,9 +302,8 @@ struct SchemataBuilder {
     void restart() @safe pure nothrow @nogc {
         current = rest;
         rest.clear;
-        // TODO: may need to cap the size if it would grow to 100's of Mbyte.
-        // But that also would require 100's of millions of mutants.
-        //isUsed = typeof(isUsed).init;
+        // allow a fragment to be reused in other schemas, just not this "run".
+        isUsed = typeof(isUsed).init;
     }
 
     /// Sort the fragments by file.
@@ -355,12 +353,16 @@ struct FragmentBuilder {
         const(ubyte)[] mod;
     }
 
+    SchemaQ sq;
     Appender!(Part[]) parts;
     const(ubyte)[] original;
+    Path file;
     Location loc;
     Interval interval;
 
-    void start(Location l, const(ubyte)[] original) {
+    void start(Path file, Location l, const(ubyte)[] original) {
+        parts.clear;
+        this.file = file;
         this.loc = l;
         this.interval = l.interval;
         this.original = original;
@@ -379,26 +381,44 @@ struct FragmentBuilder {
     }
 
     SchemataResult.Fragment[] finalize() {
-        Set!ulong mutantIds;
         typeof(return) rval;
+        Set!ulong mutantIds;
         auto m = appender!(CodeMutant[])();
         auto schema = BlockChain(original);
+        void makeFragment() {
+            if (!mutantIds.empty) {
+                rval ~= SchemataResult.Fragment(loc.interval, schema.generate, m.data.dup);
+                m.clear;
+                schema = BlockChain(original);
+                mutantIds = typeof(mutantIds).init;
+            }
+        }
+
         foreach (p; parts.data) {
+            // do not add any fragments that are almost certain to fail. but
+            // keep it at 1 because then they will be randomly tested for
+            // succes now and then.
+            if (!sq.use(file, p.mutant.mut.kind, 0.01)) {
+                makeFragment;
+            }
+
+            // the ID cannot be duplicated because then two mutants would be
+            // activated at the same time.
             if (p.id !in mutantIds) {
                 schema.put(p.id, p.mod);
                 m.put(p.mutant);
                 mutantIds.add(p.id);
             }
-        }
-        rval ~= SchemataResult.Fragment(loc.interval, schema.generate, m.data);
-        return rval;
-    }
 
-    void reset() {
-        parts.clear;
-        original = null;
-        loc = typeof(loc).init;
-        interval = typeof(interval).init;
+            // isolate always failing fragments.
+            if (sq.isZero(file, p.mutant.mut.kind)) {
+                makeFragment;
+            }
+        }
+
+        makeFragment;
+
+        return rval;
     }
 }
 
@@ -445,12 +465,13 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     alias visit = DepthFirstVisitor.visit;
 
-    this(Ast* ast, CodeMutantIndex index, FilesysIO fio, SchemataResult result)
+    this(Ast* ast, CodeMutantIndex index, SchemaQ sq, FilesysIO fio, SchemataResult result)
     in (ast !is null) {
         this.ast = ast;
         this.index = index;
         this.fio = fio;
         this.result = result;
+        fragment.sq = sq;
     }
 
     /// Returns: if the previous nodes is of kind `k`.
@@ -492,8 +513,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
             saveFragment = true;
             auto fin = fio.makeInput(loc.file);
 
-            fragment.reset;
-            fragment.start(loc, () {
+            fragment.start(fio.toRelativeRoot(loc.file), loc, () {
                 // must be at least length 1 because ChainT look at the last
                 // value
                 if (loc.interval.begin >= loc.interval.end)
@@ -509,7 +529,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
                 result.putFragment(loc.file, f);
             }
 
-            fragment.reset;
             saveFragment = false;
         }
     }
@@ -1052,12 +1071,6 @@ struct BlockChain {
 
         auto app = appender!(const(ubyte)[])();
 
-        void addOriginal() {
-            app.put(original);
-            if (!original.empty && original[$ - 1] != cast(ubyte) ';')
-                app.put(";".rewrite);
-        }
-
         bool isFirst = true;
         foreach (const mutant; mutants.data) {
             if (isFirst) {
@@ -1080,7 +1093,9 @@ struct BlockChain {
         }
 
         app.put(" else {".rewrite);
-        addOriginal;
+        app.put(original);
+        if (!original.empty && original[$ - 1] != cast(ubyte) ';')
+            app.put(";".rewrite);
         app.put("}".rewrite);
 
         return app.data;

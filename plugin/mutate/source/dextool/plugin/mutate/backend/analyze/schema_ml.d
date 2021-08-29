@@ -33,8 +33,8 @@ struct SchemaQ {
     import my.path : Path;
 
     static immutable MinState = 0;
-    static immutable MaxState = 100;
-    static immutable LearnRate = 0.1;
+    static immutable MaxState = 1000;
+    static immutable LearnRate = 0.01;
 
     alias StatusData = Mutation.Kind[]delegate(SchemaStatus);
 
@@ -46,6 +46,28 @@ struct SchemaQ {
         return SchemaQ(MinstdRand0(unpredictableSeed));
     }
 
+    this(MinstdRand0 rnd) {
+        this.rnd0 = rnd;
+    }
+
+    this(typeof(state) st) {
+        rnd0 = MinstdRand0(unpredictableSeed);
+        state = st;
+    }
+
+    /// Deep copy.
+    SchemaQ dup() {
+        typeof(state) st;
+        foreach (a; state.byKeyValue) {
+            int[Mutation.Kind] v;
+            foreach (b; a.value.byKeyValue) {
+                v[b.key] = b.value;
+            }
+            st[a.key] = v;
+        }
+        return SchemaQ(st);
+    }
+
     /// Add a state for the `p` if it doesn't exist.
     void addIfNew(const Path p) {
         if (checksum(p) !in state) {
@@ -55,25 +77,40 @@ struct SchemaQ {
 
     /// Update the state for all mutants.
     void update(const Path path, scope StatusData data) {
+        import std.math : round;
+
         addIfNew(path);
         const ch = checksum(path);
 
+        double[Mutation.Kind] change;
+
         // punish
         foreach (k; data(SchemaStatus.broken))
-            state[ch].update(k, () => cast(int)(MaxState * (1.0 - LearnRate)), (ref int x) {
-                x = cast(int) min(x - 1, cast(int)(x * (1.0 - LearnRate)));
+            change.update(k, () => (1.0 - LearnRate), (ref double x) {
+                x -= LearnRate;
             });
         // reward
         foreach (k; only(data(SchemaStatus.ok), data(SchemaStatus.allKilled)).joiner)
-            state[ch].update(k, () => cast(int) MaxState, (ref int x) {
-                x = max(x + 1, cast(int)(x * (1.0 + LearnRate)));
+            change.update(k, () => (1.0 + LearnRate), (ref double x) {
+                x += LearnRate;
             });
 
+        // apply change
+        foreach (v; change.byKeyValue.filter!(a => a.value != 1.0)) {
+            state[ch].update(v.key, () => cast(int) round(MaxState * v.value), (ref int x) {
+                if (v.value > 1.0)
+                    x = max(x + 1, cast(int) round(x * v.value));
+                else
+                    x = min(x - 1, cast(int) round(x * v.value));
+            });
+        }
+
         // fix probability to be max P(1)
-        foreach (k; [EnumMembers!(Mutation.Kind)])
-            state[ch].update(k, () => cast(int) MaxState, (ref int x) {
+        foreach (k; change.byKey) {
+            state[ch].update(k, () => MaxState, (ref int x) {
                 x = clamp(x, MinState, MaxState);
             });
+        }
     }
 
     /** To allow those with zero probability to self heal give them a random +1 now and then.
@@ -112,7 +149,7 @@ struct SchemaQ {
 
     private int getState(const Path p, const Mutation.Kind k) {
         if (auto st = checksum(p) in state)
-            return (*st)[k];
+            return (*st).require(k, MaxState);
         return MaxState;
     }
 }
@@ -155,7 +192,7 @@ unittest {
 
     q.update(foo, &r1);
     const ch = q.pathCache[foo];
-    assert(q.state[ch][Mutation.Kind.rorLE] == 90);
+    assert(q.state[ch][Mutation.Kind.rorLE] == 990);
     assert(q.state[ch][Mutation.Kind.rorLT] == SchemaQ.MaxState);
 
     Mutation.Kind[] r2(SchemaStatus s) {
@@ -167,8 +204,9 @@ unittest {
     }
 
     q.update(foo, &r2);
-    assert(q.state[ch][Mutation.Kind.rorLE] == 81);
-    assert(q.state[ch][Mutation.Kind.rorLT] == 99);
+    assert(q.state[ch][Mutation.Kind.rorLE] == 980);
+    // in the last run it was one broken and one OK thus the change where 1.0.
+    assert(q.state[ch][Mutation.Kind.rorLT] == SchemaQ.MaxState);
 }
 
 struct SchemaSizeQ {

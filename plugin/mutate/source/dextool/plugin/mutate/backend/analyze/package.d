@@ -38,6 +38,7 @@ static import colorlog;
 
 import dextool.utility : dextoolBinaryId;
 
+import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB,
     ParsedCompileCommandRange, ParsedCompileCommand, ParseFlags, SystemIncludePath;
 import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
@@ -94,6 +95,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
 
     // if a dependency of a root file has been changed.
     auto changedDeps = dependencyAnalyze(db.get, fio);
+    auto schemaQ = SchemaQ(db.get.schemaApi.getMutantProbability);
 
     auto store = sys.spawn(&spawnStoreActor, flowCtrl, db,
             StoreConfig(analyzeConf, schemaConf, covConf), fio, changedDeps.byKeyValue
@@ -129,7 +131,14 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
 
             // TODO: how to "slow down" if store is working too slow.
 
-            auto a = sys.spawn(&spawnAnalyzer, flowCtrl, store, kinds, f, valLoc.dup, fio.dup, AnalyzeConfig(compilerConf, analyzeConf, covConf));
+            // must dup schemaQ or we run into multithreaded bugs because a
+            // SchemaQ have mutable caches internally.  also must allocate on
+            // the GC because otherwise they share the same associative array.
+            // Don't ask me how that happens because `.dup` should have created
+            // a unique one. If you print the address here of `.state` and the
+            // receiving end you will see that they are re-used between actors!
+            auto sq = new SchemaQ(schemaQ.dup.state);
+            auto a = sys.spawn(&spawnAnalyzer, flowCtrl, store, kinds, f, valLoc.dup, fio.dup, AnalyzeConfig(compilerConf, analyzeConf, covConf, sq));
             send(store, StartedAnalyzer.init);
         } catch (Exception e) {
             log.trace(e);
@@ -225,9 +234,12 @@ struct StoreDoneMsg {
 }
 
 struct AnalyzeConfig {
+    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
+
     ConfigCompiler compiler;
     ConfigAnalyze analyze;
     ConfigCoverage coverage;
+    SchemaQ* sq;
 }
 
 struct WaitForToken {
@@ -261,7 +273,7 @@ auto spawnAnalyzer(AnalyzeActor.Impl self, FlowControlActor.Address flowCtrl, St
             log.tracef("%s begin", ctx.fileToAnalyze.cmd.absoluteFile);
             auto analyzer = Analyze(ctx.kinds, ctx.vloc, ctx.fio,
                     Analyze.Config(ctx.conf.compiler.forceSystemIncludes,
-                        ctx.conf.coverage.use, ctx.conf.compiler.allowErrors.get));
+                        ctx.conf.coverage.use, ctx.conf.compiler.allowErrors.get, *ctx.conf.sq));
             analyzer.process(ctx.fileToAnalyze);
 
             foreach (a; analyzer.result.idFile.byKey) {
@@ -432,18 +444,19 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             builder.thresholdStartValue = 1.0;
         }
 
-        void setReducedIntermediate(long part) {
+        void setReducedIntermediate(long sizeDiv, long threshold) {
             import std.algorithm : max;
 
-            log.trace("schema generator phase: reduced ", part);
+            log.tracef("schema generator phase: reduced size:%s threshold:%s", sizeDiv, threshold);
             builder.discardMinScheman = false;
             builder.useProbability = true;
-            builder.useProbablitySmallSize = true;
+            builder.useProbablitySmallSize = false;
             builder.mutantsPerSchema = mutantsPerSchema.get;
-            builder.minMutantsPerSchema = max(minMutantsPerSchema.get, mutantsPerSchema.get / part);
+            builder.minMutantsPerSchema = max(minMutantsPerSchema.get,
+                    mutantsPerSchema.get / sizeDiv);
             // TODO: interresting effect. this need to be studied. I think this
             // is the behavior that is "best".
-            builder.thresholdStartValue = 1.0 - (cast(double) part / 100.0);
+            builder.thresholdStartValue = 1.0 - (cast(double) threshold / 100.0);
         }
 
         void run(ref Database db) {
@@ -811,10 +824,13 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             // likely fail to compile.
             ctx.state.get.schemas.builder.sort;
 
-            // 10 is just a magic number
-            foreach (i; 1 .. 10) {
-                ctx.state.get.schemas.setReducedIntermediate(i);
-                ctx.state.get.schemas.run(ctx.db.get);
+            immutable magic = 10; // reduce the size until it is 1/10 of the original
+            immutable magic2 = 5; // if it goes <95% then it is too high probability to fail
+            foreach (sizeDiv; 1 .. magic) {
+                foreach (threshold; 0 .. magic2) {
+                    ctx.state.get.schemas.setReducedIntermediate(sizeDiv, threshold);
+                    ctx.state.get.schemas.run(ctx.db.get);
+                }
             }
 
             ctx.state.get.schemas.builder.sort;
@@ -897,6 +913,7 @@ struct Analyze {
         bool forceSystemIncludes;
         bool saveCoverage;
         bool allowErrors;
+        SchemaQ sq;
     }
 
     private {
@@ -1005,7 +1022,7 @@ struct Analyze {
         debug logger.trace(codeMutants);
 
         {
-            auto schemas = toSchemata(ast.ptr, fio, codeMutants);
+            auto schemas = toSchemata(ast.ptr, fio, codeMutants, conf.sq);
             log!"analyze.pass_schema".trace(schemas);
             log.tracef("path dedup count:%s length_acc:%s",
                     ast.get.paths.count, ast.get.paths.lengthAccum);
