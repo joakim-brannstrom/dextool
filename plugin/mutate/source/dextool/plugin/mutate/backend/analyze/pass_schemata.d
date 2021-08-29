@@ -347,11 +347,59 @@ class CodeMutantIndex {
     }
 }
 
+/// Build a fragment for a schema.
 struct FragmentBuilder {
-    BlockChain schema;
-    Appender!(CodeMutant[]) mutants;
+    static struct Part {
+        CodeMutant mutant;
+        ulong id;
+        const(ubyte)[] mod;
+    }
+
+    Appender!(Part[]) parts;
+    const(ubyte)[] original;
+    Location loc;
     Interval interval;
-    const(ubyte)[] content;
+
+    void start(Location l, const(ubyte)[] original) {
+        this.loc = l;
+        this.interval = l.interval;
+        this.original = original;
+    }
+
+    void put(CodeMutant mutant, ulong id, const(ubyte)[] mods) {
+        parts.put(Part(mutant, id, mods));
+    }
+
+    void put(T...)(CodeMutant mutant, ulong id, auto ref T mods) {
+        auto app = appender!(const(ubyte)[])();
+        static foreach (a; mods) {
+            app.put(a);
+        }
+        this.put(mutant, id, app.data);
+    }
+
+    SchemataResult.Fragment[] finalize() {
+        Set!ulong mutantIds;
+        typeof(return) rval;
+        auto m = appender!(CodeMutant[])();
+        auto schema = BlockChain(original);
+        foreach (p; parts.data) {
+            if (p.id !in mutantIds) {
+                schema.put(p.id, p.mod);
+                m.put(p.mutant);
+                mutantIds.add(p.id);
+            }
+        }
+        rval ~= SchemataResult.Fragment(loc.interval, schema.generate, m.data);
+        return rval;
+    }
+
+    void reset() {
+        parts.clear;
+        original = null;
+        loc = typeof(loc).init;
+        interval = typeof(interval).init;
+    }
 }
 
 struct MutantHelper {
@@ -360,18 +408,18 @@ struct MutantHelper {
             if (offs.begin <= fragment.interval.begin)
                 return null;
             const d = offs.begin - fragment.interval.begin;
-            if (d > fragment.content.length)
-                return fragment.content;
-            return fragment.content[0 .. d];
+            if (d > fragment.original.length)
+                return fragment.original;
+            return fragment.original[0 .. d];
         }();
 
         post = () {
             if (offs.end <= fragment.interval.begin)
                 return null;
             const d = offs.end - fragment.interval.begin;
-            if (d > fragment.content.length)
-                return fragment.content;
-            return fragment.content[d .. $];
+            if (d > fragment.original.length)
+                return fragment.original;
+            return fragment.original[d .. $];
         }();
     }
 
@@ -444,25 +492,24 @@ class CppSchemataVisitor : DepthFirstVisitor {
             saveFragment = true;
             auto fin = fio.makeInput(loc.file);
 
-            fragment = FragmentBuilder.init;
-            fragment.interval = loc.interval;
-            fragment.content = () {
+            fragment.reset;
+            fragment.start(loc, () {
                 // must be at least length 1 because ChainT look at the last
                 // value
                 if (loc.interval.begin >= loc.interval.end)
                     return " ".rewrite;
                 return fin.content[loc.interval.begin .. loc.interval.end];
-            }();
-            fragment.schema = BlockChain(fragment.content);
+            }());
         }
 
         accept(n, this);
 
         if (saveFragment) {
-            result.putFragment(loc.file, rewrite(loc, fragment.schema.generate,
-                    fragment.mutants.data));
+            foreach (f; fragment.finalize) {
+                result.putFragment(loc.file, f);
+            }
 
-            fragment = FragmentBuilder.init;
+            fragment.reset;
             saveFragment = false;
         }
     }
@@ -640,13 +687,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
         auto helper = MutantHelper(fragment, loc.interval);
 
-        foreach (const mutant; mutants) {
-            fragment.schema.put(mutant.id.c0, helper.pre,
+        foreach (mutant; mutants) {
+            fragment.put(mutant, mutant.id.c0, helper.pre,
                     makeMutation(mutant.mut.kind, ast.lang).mutate(
                         fin.content[loc.interval.begin .. loc.interval.end]), helper.post);
         }
-
-        fragment.mutants.put(mutants);
     }
 
     private void visitBlock(T)(T n, bool requireSyntaxBlock = false) {
@@ -671,17 +716,15 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return fin.content[offs.begin .. offs.end];
         }();
 
-        foreach (const mutant; mutants) {
+        foreach (mutant; mutants) {
             auto mut = () {
                 auto mut = makeMutation(mutant.mut.kind, ast.lang).mutate(content);
                 if (mut.empty && requireSyntaxBlock)
                     return "{}".rewrite;
                 return mut;
             }();
-            fragment.schema.put(mutant.id.c0, helper.pre, mut, helper.post);
+            fragment.put(mutant, mutant.id.c0, helper.pre, mut, helper.post);
         }
-
-        fragment.mutants.put(mutants);
     }
 
     private void visitUnaryOp(T)(T n) {
@@ -697,13 +740,11 @@ class CppSchemataVisitor : DepthFirstVisitor {
         auto fin = fio.makeInput(loc.file);
         auto helper = MutantHelper(fragment, loc.interval);
 
-        foreach (const mutant; mutants) {
-            fragment.schema.put(mutant.id.c0, helper.pre,
+        foreach (mutant; mutants) {
+            fragment.put(mutant, mutant.id.c0, helper.pre,
                     makeMutation(mutant.mut.kind, ast.lang).mutate(
                         fin.content[loc.interval.begin .. loc.interval.end]), helper.post);
         }
-
-        fragment.mutants.put(mutants);
     }
 
     private void visitBinaryOp(T)(T n) @trusted {
@@ -711,7 +752,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
             if (saveFragment) {
                 scope v = new BinaryOpVisitor(ast, &index, fio, &fragment);
                 v.startVisit(n);
-                fragment.mutants.put(v.mutants.toArray);
             }
         } catch (Exception e) {
         }
@@ -733,9 +773,6 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
     /// Content of the file that contains the mutant.
     const(ubyte)[] content;
-
-    /// The resulting fragments of the expression.
-    Set!CodeMutant mutants;
 
     this(Ast* ast, CodeMutantIndex* index, FilesysIO fio, FragmentBuilder* fragment) {
         this.ast = ast;
@@ -868,10 +905,9 @@ class BinaryOpVisitor : DepthFirstVisitor {
 
         if (locExpr.interval.begin < locOp.interval.begin
                 && locOp.interval.end < locExpr.interval.end) {
-            foreach (const mutant; opMutants) {
+            foreach (mutant; opMutants) {
                 // dfmt off
-                fragment.schema.
-                    put(mutant.id.c0,
+                fragment.put(mutant, mutant.id.c0,
                         helper.pre,
                         left,
                         content[locExpr.interval.begin .. locOp.interval.begin],
@@ -885,9 +921,9 @@ class BinaryOpVisitor : DepthFirstVisitor {
         }
 
         if (offsLhs.end < locExpr.interval.end) {
-            foreach (const mutant; lhsMutants) {
+            foreach (mutant; lhsMutants) {
                 // dfmt off
-                fragment.schema.put(mutant.id.c0,
+                fragment.put(mutant, mutant.id.c0,
                     helper.pre,
                     left,
                     makeMutation(mutant.mut.kind, ast.lang).mutate(content[offsLhs.begin .. offsLhs.end]),
@@ -900,9 +936,9 @@ class BinaryOpVisitor : DepthFirstVisitor {
         }
 
         if (locExpr.interval.begin < offsRhs.begin) {
-            foreach (const mutant; rhsMutants) {
+            foreach (mutant; rhsMutants) {
                 // dfmt off
-                fragment.schema.put(mutant.id.c0,
+                fragment.put(mutant, mutant.id.c0,
                     helper.pre,
                     left,
                     content[locExpr.interval.begin .. offsRhs.begin],
@@ -914,9 +950,9 @@ class BinaryOpVisitor : DepthFirstVisitor {
             }
         }
 
-        foreach (const mutant; exprMutants) {
+        foreach (mutant; exprMutants) {
             // dfmt off
-            fragment.schema.put(mutant.id.c0,
+            fragment.put(mutant, mutant.id.c0,
                 helper.pre,
                 left,
                 makeMutation(mutant.mut.kind, ast.lang).mutate(content[locExpr.interval.begin .. locExpr.interval.end]),
@@ -925,11 +961,6 @@ class BinaryOpVisitor : DepthFirstVisitor {
                 );
             // dfmt on
         }
-
-        mutants.add(opMutants);
-        mutants.add(lhsMutants);
-        mutants.add(rhsMutants);
-        mutants.add(exprMutants);
     }
 }
 
@@ -988,7 +1019,6 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
  */
 struct BlockChain {
     alias Mutant = Tuple!(ulong, "id", const(ubyte)[], "value");
-    Set!ulong mutantIds;
     Appender!(Mutant[]) mutants;
     const(ubyte)[] original;
 
@@ -1002,10 +1032,7 @@ struct BlockChain {
 
     /// Returns: `value`
     const(ubyte)[] put(ulong id, const(ubyte)[] value) {
-        if (id !in mutantIds) {
-            mutantIds.add(id);
-            mutants.put(Mutant(id, value));
-        }
+        mutants.put(Mutant(id, value));
         return value;
     }
 
