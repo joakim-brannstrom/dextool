@@ -1767,6 +1767,7 @@ void upgradeV45(ref Miniorm db) {
 
 // 2021-08-30
 void upgradeV46(ref Miniorm db) {
+    db.run(buildSchema!SchemaSizeQTable);
     // drop probability because max state where changed thus all previous values are now 10x off
     db.run("DELETE FROM " ~ schemaMutantQTable);
 }
