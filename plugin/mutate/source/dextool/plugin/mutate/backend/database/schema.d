@@ -1743,6 +1743,7 @@ void upgradeV43(ref Miniorm db) {
     replaceTbl(db, newTbl, mutationTable);
 }
 
+// 2021-08-30
 void upgradeV44(ref Miniorm db) {
     @TableName(schemaMutantQTable)
     @TablePrimaryKey("kind")
@@ -1758,13 +1759,16 @@ void upgradeV44(ref Miniorm db) {
     db.run(buildSchema!(SchemataUsedTable, SchemaMutantKindQ));
 }
 
+// 2021-08-30
 void upgradeV45(ref Miniorm db) {
     db.run(format("DROP TABLE %s", schemaMutantQTable));
     db.run(buildSchema!(SchemaMutantKindQTable));
 }
 
+// 2021-08-30
 void upgradeV46(ref Miniorm db) {
-    db.run(buildSchema!SchemaSizeQTable);
+    // drop probability because max state where changed thus all previous values are now 10x off
+    db.run("DELETE FROM " ~ schemaMutantQTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
