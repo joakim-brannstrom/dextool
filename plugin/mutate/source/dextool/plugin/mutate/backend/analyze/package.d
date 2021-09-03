@@ -460,6 +460,16 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         }
 
         void run(ref Database db) {
+            // sort the fragments by file which should allow those with high
+            // probability to result in larger scheman while those with smaller
+            // end up with small scheman. Smaller are thus those that higly
+            // likely fail to compile.
+            // 2021-09-03: sorting the fragments where a bad idea. It lead to
+            // very large schemas in one and the same file which failed
+            // compilation because the computer ran out of memory.
+            // Therefor testing a strategy of shuffling instead.
+            builder.shuffle;
+
             while (!builder.isDone) {
                 process(db, builder.next);
             }
@@ -818,12 +828,6 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         void finalizeSchema() {
             auto trans = ctx.db.get.transaction;
 
-            // sort the fragments by file which should allow those with high
-            // probability to result in larger scheman while those with smaller
-            // end up with small scheman. Smaller are thus those that higly
-            // likely fail to compile.
-            ctx.state.get.schemas.builder.sort;
-
             immutable magic = 10; // reduce the size until it is 1/10 of the original
             immutable magic2 = 5; // if it goes <95% then it is too high probability to fail
             foreach (sizeDiv; 1 .. magic) {
@@ -833,7 +837,6 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 }
             }
 
-            ctx.state.get.schemas.builder.sort;
             ctx.state.get.schemas.finalize(ctx.db.get);
 
             trans.commit;
