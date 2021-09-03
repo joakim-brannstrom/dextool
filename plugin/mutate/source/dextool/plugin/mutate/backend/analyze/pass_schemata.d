@@ -306,12 +306,12 @@ struct SchemataBuilder {
         isUsed = typeof(isUsed).init;
     }
 
-    /// Sort the fragments by file.
-    void sort() @safe pure nothrow {
-        import std.algorithm : sort;
+    /// Shuffle the fragments to try to "evenly" spread out a schema over multiple files.
+    void shuffle() @safe nothrow {
+        import std.random : randomShuffle;
 
-        // TODO: this sort is memory inefficient
-        current = current.array.sort!((a, b) => a.fragment.file < b.fragment.file);
+        // TODO: this is...... inefficient but works
+        current = current.array.randomShuffle.array;
     }
 }
 
