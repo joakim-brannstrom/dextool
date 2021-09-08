@@ -2418,7 +2418,7 @@ struct DbSchema {
     void removeMutantProbability(const Checksum64 p) @trusted {
         static immutable sql = format!"DELETE FROM %1$s WHERE path=:path"(schemaMutantQTable);
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":path", p.c0);
+        stmt.get.bind(":path", cast(long) p.c0);
         stmt.get.execute;
     }
 
