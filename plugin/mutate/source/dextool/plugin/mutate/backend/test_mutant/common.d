@@ -568,8 +568,8 @@ struct TestStopCheck {
         maxRuntime = conf.maxRuntime;
     }
 
-    void incrAliveMutants() @safe pure nothrow @nogc {
-        ++aliveMutants_;
+    void incrAliveMutants(int number = 1) @safe pure nothrow @nogc {
+        aliveMutants_ += number;
     }
 
     long aliveMutants() @safe pure nothrow const @nogc {

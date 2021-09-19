@@ -40,6 +40,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner,
     findExecutables, TestRunResult = TestResult;
+import dextool.plugin.mutate.backend.test_mutant.common_actors : DbSaveActor, StatActor;
 import dextool.plugin.mutate.backend.test_mutant.timeout : TimeoutFsm;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, ExitStatus;
 import dextool.plugin.mutate.config;
@@ -223,7 +224,6 @@ struct TestDriver {
     ConfigCoverage covConf;
 
     System* system;
-    ScopedActor self;
 
     /// Async communication with the database
     DbSaveActor.Address dbSave;
@@ -367,7 +367,6 @@ struct TestDriver {
 
     static struct SchemataTest {
         SchemataId id;
-        MutationTestResult[] result;
         bool fatalError;
     }
 
@@ -470,7 +469,6 @@ struct TestDriver {
         this.dbPath = dbPath;
 
         this.system = sys;
-        this.self = scopedActor;
 
         this.filesysIO = filesysIO;
         this.kinds = kinds;
@@ -671,11 +669,16 @@ nothrow:
     }
 
     void opCall(Done data) {
+        import dextool.plugin.mutate.backend.test_mutant.common_actors : IsDone;
+
         try {
+            auto self = scopedActor;
             // it should NOT take more than five minutes to save the last
             // results to the database.
             self.request(dbSave, delay(5.dur!"minutes")).send(IsDone.init).then((bool a) {
             });
+        } catch (ScopedActorException e) {
+            logger.trace(e.error).collectException;
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
@@ -1354,82 +1357,65 @@ nothrow:
     }
 
     void opCall(ref SchemataTest data) {
+        import core.thread : Thread;
+        import core.time : dur;
         import dextool.plugin.mutate.backend.database : SchemaStatus;
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
-        // only remove schemas that are of no further use.
-        bool allKilled;
-        void updateRemove(MutationTestResult[] result) {
-            // only remove if there actually are any results utherwise we do
-            // not know if it is a good idea to remove it.
-            // same with the overload. if mutation testing is stopped because
-            // of a halt command then keep the schema.
-            allKilled = !(result.empty || stopCheck.isHalt != TestStopCheck.HaltReason.none);
-
-            foreach (a; data.result) {
-                final switch (a.status) with (Mutation.Status) {
-                case skipped:
-                    goto case;
-                case unknown:
-                    goto case;
-                case equivalent:
-                    goto case;
-                case noCoverage:
-                    goto case;
-                case alive:
-                    allKilled = false;
-                    return;
-                case killed:
-                    goto case;
-                case timeout:
-                    goto case;
-                case killedByCompiler:
-                    break;
-                }
-            }
-        }
-
-        void save(MutationTestResult[] result) {
-            updateRemove(result);
-            saveTestResult(result);
-            logger.infof(result.length > 0, "Saving %s schemata mutant results",
-                    result.length).collectException;
-        }
-
         try {
-            auto driver = SchemataTestDriver(filesysIO, &runner, db, &testCaseAnalyzer, schemaConf,
-                    data.id, stopCheck, kinds, conf.mutationCompile, conf.buildCmdTimeout);
+            auto driver = system.spawn(&spawnSchema, filesysIO, &runner, dbPath, &testCaseAnalyzer,
+                    schemaConf, data.id, stopCheck, kinds, conf.mutationCompile,
+                    conf.buildCmdTimeout, dbSave, stat, timeoutFsm);
+            scope (exit)
+                sendExit(driver, ExitReason.userShutdown);
+            auto self = scopedActor;
 
-            const saveResultInterval = 20.dur!"minutes";
-            auto nextSave = Clock.currTime + saveResultInterval;
-            while (driver.isRunning) {
-                driver.execute;
-
-                // to avoid loosing results in case of a crash etc save them
-                // continuously
-                if (Clock.currTime > nextSave && !driver.hasFatalError) {
-                    save(driver.popResult);
-                    nextSave = Clock.currTime + saveResultInterval;
+            {
+                bool waiting = true;
+                while (waiting) {
+                    try {
+                        self.request(driver, infTimeout).send(IsDone.init).then((bool x) {
+                            waiting = !x;
+                        });
+                    } catch (ScopedActorException e) {
+                        if (e.error != ScopedActorError.timeout) {
+                            logger.trace(e.error);
+                            return;
+                        }
+                    }
+                    () @trusted { Thread.sleep(100.dur!"msecs"); }();
                 }
             }
 
-            data.fatalError = driver.hasFatalError;
-
-            SchemaStatus schemaStatus;
-            if (driver.hasFatalError) {
-                // do nothing
-            } else if (driver.isInvalidSchema) {
-                schemaStatus = SchemaStatus.broken;
-                local.get!NextSchemata.invalidSchematas++;
-            } else {
-                schemaStatus = allKilled ? SchemaStatus.allKilled : SchemaStatus.ok;
-                save(driver.popResult);
+            FinalResult fr;
+            {
+                try {
+                    self.request(driver, delay(1.dur!"minutes"))
+                        .send(GetDoneStatus.init).then((FinalResult x) { fr = x; });
+                    logger.trace("final schema status ", fr.status);
+                } catch (ScopedActorException e) {
+                    logger.trace(e.error);
+                    return;
+                }
             }
 
-            spinSql!(() => db.schemaApi.markUsed(data.id, schemaStatus));
+            final switch (fr.status) with (FinalResult.Status) {
+            case fatalError:
+                data.fatalError = true;
+                break;
+            case invalidSchema:
+                local.get!NextSchemata.invalidSchematas++;
+                break;
+            case ok:
+                break;
+            }
+
+            stopCheck.incrAliveMutants(fr.alive);
+            timeoutFsm = fr.timeoutFsm;
         } catch (Exception e) {
             logger.info(e.msg).collectException;
             logger.warning("Failed executing schemata ", data.id).collectException;
+            spinSql!(() => db.schemaApi.markUsed(data.id, SchemaStatus.broken));
         }
     }
 
@@ -1507,6 +1493,9 @@ nothrow:
     }
 
     void saveTestResult(MutationTestResult[] results) @safe nothrow {
+        import dextool.plugin.mutate.backend.test_mutant.common_actors : GetMutantsLeft,
+            UnknownMutantTested;
+
         foreach (a; results.filter!(a => a.status == Mutation.Status.alive)) {
             stopCheck.incrAliveMutants;
         }
@@ -1519,6 +1508,7 @@ nothrow:
         }
 
         try {
+            auto self = scopedActor;
             self.request(stat, delay(2.dur!"msecs")).send(GetMutantsLeft.init).then((long x) {
                 logger.infof("%s mutants left to test.", x).collectException;
             });
@@ -1616,25 +1606,7 @@ void warnIfConflictingTestCaseIdentifiers(TestCase[] found_tcs) @safe nothrow {
 
 private:
 
-// feels good constant. If it takes more than 5 minutes to open the database something is wrong...
-immutable dbOpenTimeout = 5.dur!"minutes";
-
-/**
-DESCRIPTION
-
-     The getloadavg() function returns the number of processes in the system
-     run queue averaged over various periods of time.  Up to nelem samples are
-     retrieved and assigned to successive elements of loadavg[].  The system
-     imposes a maximum of 3 samples, representing averages over the last 1, 5,
-     and 15 minutes, respectively.
-
-
-DIAGNOSTICS
-
-     If the load average was unobtainable, -1 is returned; otherwise, the num-
-     ber of samples actually retrieved is returned.
- */
-extern (C) int getloadavg(double* loadavg, int nelem) nothrow;
+import dextool.plugin.mutate.backend.database : dbOpenTimeout;
 
 ulong toMinMemory(double percentageOfTotal) {
     import core.sys.posix.unistd : _SC_PHYS_PAGES, _SC_PAGESIZE, sysconf;
@@ -1643,20 +1615,9 @@ ulong toMinMemory(double percentageOfTotal) {
             _SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE));
 }
 
-struct IsDone {
-}
-
-struct Init {
-}
-
-// Save test results to the database.
-alias DbSaveActor = typedActor!( // init the actor by opening the database.
-        void function(Init, AbsolutePath dbPath),
-        // save the result to the database
-        void function(MutationTestResult[] results, TimeoutFsm timeoutFsm), // query if the has finished saving to the db.
-        bool function(IsDone));
-
 auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
+    import dextool.plugin.mutate.backend.test_mutant.common_actors : Init, IsDone;
+
     static struct State {
         Database db;
     }
@@ -1703,26 +1664,10 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
     return impl(self, &init_, st, &save, st, &isDone);
 }
 
-struct GetMutantsLeft {
-}
-
-struct UnknownMutantTested {
-}
-
-struct Tick {
-}
-
-struct ForceUpdate {
-}
-
-// Progress statistics for the mutation testing such as how many that are left to test.
-alias StatActor = typedActor!( // init the actor by opening the database.
-        void function(Init, AbsolutePath dbPath),
-        long function(GetMutantsLeft), void function(Tick), // force an update of the statistics
-        void function(ForceUpdate), // a mutant has been tested and is done
-        void function(UnknownMutantTested, long));
-
 auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {
+    import dextool.plugin.mutate.backend.test_mutant.common_actors : Init,
+        GetMutantsLeft, UnknownMutantTested, Tick, ForceUpdate;
+
     static struct State {
         Database db;
         long worklistCount;

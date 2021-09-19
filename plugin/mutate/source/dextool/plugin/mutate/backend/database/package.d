@@ -30,6 +30,10 @@ import dextool.plugin.mutate.type : MutationOrder;
 public import dextool.plugin.mutate.backend.database.standalone;
 public import dextool.plugin.mutate.backend.database.type;
 
+// feels good constant. If it takes more than 5 minutes to open the database
+// something is wrong...
+immutable dbOpenTimeout = 5.dur!"minutes";
+
 /** Wrapper for a sqlite3 database that provide a uniform, easy-to-use
  * interface for the mutation testing plugin.
  */
