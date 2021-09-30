@@ -32,6 +32,9 @@ To build and run dextool, you will need the following packages:
  * [sqlite3](https://sqlite.org/download.html) >= 3.24.0
  * [D compiler](https://dlang.org/download.html) (dmd >= 2.096.1 or ldc >= 1.26.0)
 
+**NOTE** only ldc is able to build a release build of dextool. dmd is for debug
+build. Which mean that for a *normal* user it is ldc that you should use.
+
 Most of them can be installed using your package manager.
 
 Installation instructions for Ubuntu is available in the [doc/install](doc/install) directory.
