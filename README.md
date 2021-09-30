@@ -110,6 +110,51 @@ libclang_interop.hpp:13:10: fatal error: clang/Analysis/CFG.h: No such file or d
 It means that you need to install `llvm-x.y-dev` and `libclang-x.y-dev` for the
 version that Dextool detected.
 
+### Bypass llvm-config
+
+`cmake/introspect_llvm_.d` try to derive the version of llvm/clang from
+`llvm-config`. If this fail or you want to force a specific version of
+llvm/clang you do it with these flags:
+
+The following variables are defined:
+* LIBCLANG_LDFLAGS          - flags to use when linking with libclang
+* LIBLLVM_VERSION           - libLLVM full version (e.g. 8_0_1)
+* LIBLLVM_MAJOR_VERSION     - libLLVM major version (e.g. 8)
+* LIBLLVM_LDFLAGS           - flags to use when linking with libllvm
+* LIBLLVM_CXX_FLAGS         - the required flags to build C++ code using LLVM
+* LIBLLVM_CXX_EXTRA_FLAGS   - extra flags to use when build C++ code using LLVM
+* LIBLLVM_FLAGS             - the required flags by llvm-d such as version
+* LIBLLVM_LIBS              - the required libraries for linking LLVM
+
+Lets say you have version `8.0.1` of LLVM installed but llvm-config returns
+`0.0.0`. `introspect_llvm.d` will in this case fail to detect the version of
+LLVM thus what version of the bindings is unknown, which will default to the
+latest known by `introspect_llvm.d`. This is probably not the version you have.
+To tell cmake what version it is you can do the following:
+
+```sh
+# llvm-config --version
+cmake -DLIBLLVM_VERSION="8_0_1" \
+-DLIBLLVM_MAJOR_VERSION="8"
+```
+
+If you also need to provide the includes and libs you would need to add the
+rest of the flags, otherwise they are derived from whatever `llvm-config` that
+is in `$PATH`.
+
+```sh
+# uses llvm-config --libdir to find where libclang.so is installed. Some
+# additional flags are added but these are optional.
+-DLIBLCANG_LDFLAGS="-Wl,--enable-new-dtags -Wl,--no-as-needed -L/foo/bar/libs -Wl,-rpath,/foo/bar/libs -l:libclang.so.8"
+# llvm-config --cxxflags
+-DLIBLLVM_CXX_FLAGS="-I/foo/bar/llvm-include -std=c++11 -fno-exceptions -fno-rtti"
+# llvm-config --ldflags
+-DLLVM_LDFLAGS="-L/foo/smurf/libs -Wl,-rpath,/foo/smurf/libs"
+# use llvm-config --libs and llvm-config --system-libs to find all libraries to link with.
+# all those that are prefixed with libLLVM.
+-DLLVM_LIBS="-lLLVMXRay -lLLVMTextApi /*and maaaany more or just one depending on how you have installed LLVM*/"
+```
+
 #### SQLite link or missing
 
 The sqlite3 library source code with a CMake build file in the vendor's
