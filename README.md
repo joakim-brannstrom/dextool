@@ -26,6 +26,7 @@ The plugins in a standard installation of Dextool are:
 To build and run dextool, you will need the following packages:
 
  * [llvm](http://releases.llvm.org/download.html) >= 4.0
+   Tested versions are 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 11.0 and 12.0
  * llvm-xyz-dev >= 4.0
  * libclang-xyz-dev >= 4.0
  * [cmake](https://cmake.org/download) >= 3.5
