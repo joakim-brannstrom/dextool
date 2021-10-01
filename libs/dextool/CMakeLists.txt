@@ -35,5 +35,5 @@ list(APPEND SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/ut_main.d")
 compile_d_unittest(dextool_dextool
     "${SRC_FILES}"
     "${flags}"
-    ""
+    "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}"
     "dextool_cpptooling;dextool_libclang;dextool_colorlog")

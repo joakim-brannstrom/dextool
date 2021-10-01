@@ -59,6 +59,6 @@ compile_d_static_lib(dextool_cpptooling
     "dextool_clang;dextool_dextool;dextool_libclang_ast;dextool_dsrcgen;dextool_libclang;dextool_blob_model;dextool_mylib;dextool_sumtype;dextool_colorlog")
 
 list(APPEND SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/ut_main.d")
-compile_d_unittest(dextool_cpptooling "${SRC_FILES}" "${flags}" "" "dextool_clang;dextool_dextool;dextool_libclang_ast;dextool_libclang;dextool_dsrcgen;dextool_blob_model;dextool_mylib;dextool_sumtype;dextool_colorlog")
+compile_d_unittest(dextool_cpptooling "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}" "dextool_clang;dextool_dextool;dextool_libclang_ast;dextool_libclang;dextool_dsrcgen;dextool_blob_model;dextool_mylib;dextool_sumtype;dextool_colorlog")
 
 add_subdirectory(test)

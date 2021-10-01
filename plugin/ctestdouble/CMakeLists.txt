@@ -25,7 +25,7 @@ build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
     "${flags}"
-    ""
+    "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}"
     "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
 )
 
@@ -38,7 +38,7 @@ list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main
 list(APPEND SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
-compile_d_unittest(ctestdouble "${SRC_FILES}" "${flags}" "" "dextool_dextool;dextool_cpptooling;dextool_colorlog;dextool_mylib;dextool_sumtype")
+compile_d_unittest(ctestdouble "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}" "dextool_dextool;dextool_cpptooling;dextool_colorlog;dextool_mylib;dextool_sumtype")
 
 setup_integration_testing_env()
 
