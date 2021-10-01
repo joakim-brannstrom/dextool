@@ -1,0 +1,24 @@
+FROM fedora:34
+MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+
+RUN dnf -y install ca-certificates
+RUN update-ca-trust enable
+RUN dnf -y upgrade
+RUN dnf -y update
+
+# base
+RUN dnf -y install curl git xz
+
+# toolchain
+RUN dnf -y install gcc binutils gcc-c++
+
+# dextool dependencies
+RUN dnf -y install clang11-devel
+RUN dnf -y install llvm11-devel
+RUN dnf -y install make
+RUN dnf -y install cmake3
+RUN dnf -y install sqlite-devel
+
+RUN yum clean packages
+
+WORKDIR /opt

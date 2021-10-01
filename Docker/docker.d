@@ -79,6 +79,12 @@ int main(string[] args) {
                     "prepare_release_build_ubuntu", "build_release"
                 ]), tag.next);
     };
+    tests["ldc-fedora-latest-release"] ~= () {
+        build(mergeFiles([
+                    "fedora_base", "ldc_latest_version", "ldc", "fix_repo",
+                    "prepare_release_build_fedora", "build_release"
+                ]), tag.next);
+    };
     tests["dmd-ubuntu-min-test"] ~= () {
         build(mergeFiles([
                     "ubuntu_minimal_base", "dmd_min_version", "dmd", "fix_repo",
@@ -132,7 +138,8 @@ void prepareTarBall(string tarName) {
 /// Build a docker image.
 void build(string dockerFile, string tag) {
     if (spawnProcess([
-                "docker", "image", "build", "-f", dockerFile, "-t", tag, "."
+                "docker", "image", "build", "--network", "host", "-f", dockerFile,
+                "-t", tag, "."
             ]).wait != 0)
         throw new Exception("Failed building " ~ dockerFile ~ " " ~ tag);
 }
