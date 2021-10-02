@@ -85,6 +85,12 @@ int main(string[] args) {
                     "prepare_release_build_fedora", "build_release"
                 ]), tag.next);
     };
+    tests["ldc-centos7-min-release"] ~= () {
+        build(mergeFiles([
+                    "centos7_base", "ldc_min_version", "ldc", "fix_repo",
+                    "prepare_release_build_centos7", "build_release"
+                ]), tag.next);
+    };
     tests["dmd-ubuntu-min-test"] ~= () {
         build(mergeFiles([
                     "ubuntu_minimal_base", "dmd_min_version", "dmd", "fix_repo",
@@ -97,22 +103,10 @@ int main(string[] args) {
                     "fix_repo", "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
-    tests["dmd-ubuntu-latest-release"] ~= () {
-        build(mergeFiles([
-                    "ubuntu_latest_base", "dmd_latest_version", "dmd", "fix_repo",
-                    "prepare_release_build_ubuntu", "build_release", "examples"
-                ]), tag.next);
-    };
     tests["dmd-ubuntu-latest-dub"] ~= () {
         build(mergeFiles([
                     "ubuntu_latest_base", "dmd_latest_version", "dmd",
                     "fix_repo", "build_with_dub"
-                ]), tag.next);
-    };
-    tests["dmd-centos7-min-release"] ~= () {
-        build(mergeFiles([
-                    "centos7_base", "dmd_min_version", "dmd", "fix_repo",
-                    "prepare_release_build_centos7", "build_release"
                 ]), tag.next);
     };
 
