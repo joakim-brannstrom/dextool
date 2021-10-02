@@ -38,11 +38,16 @@ build. Which mean that for a *normal* user it is ldc that you should use.
 
 Most of them can be installed using your package manager.
 
-Installation instructions for Ubuntu is available in the [doc/install](doc/install) directory.
+Installation instructions for Ubuntu is available [here](doc/install).
+Dockerfile are another alternative (they MAY be outdated until the CI is fixed
+to check them so if they fail for you ping me on github):
+
+* [Ubuntu](Docker/dextool-ubuntu-focal)
+* [Fedora](Docker/dextool-fedora-34)
 
 ### Build and Install
 
-The easiest way to build and run dextool is to do it via `dub`.
+The easiest way to build and run dextool is to do it via `dub`:
 ```sh
 dub run dextool -- -h
 ```
@@ -62,6 +67,25 @@ Done! Have fun.
 Don't be shy to report any issue that you find.
 
 ### Common Build Errors
+
+#### ldc is killed
+
+To build dextool comfortably you need ~16Gbyte of RAM. Compiling
+`dextool-mutate.o` consume ~9Gbyte.
+
+You probably ran out of memory when compiling `dextool-mutate.o`. Run cmake
+with `-DLOW_MEM=ON` and single threaded.
+
+#### `dub` run dextool fail
+
+This method of running dextool assume that the `llvm-config` commands found in
+`$PATH` is named and behave as the ones on Ubuntu. Such that `llvm-config-12`
+returns the flags for llvm-12 and clang-12. There are also some assumptions of
+what the libraries that are installed are named. On Fedora for example the
+clang-libraries are `clang-cpp` and `clang`. So if this method of running
+dextool fail and you are on ubuntu then you need to install the necessary
+dependencies otherwise use the other installation method together with the more
+complex flags for specifying the llvm/clang versions.
 
 #### component_tests Fail
 
