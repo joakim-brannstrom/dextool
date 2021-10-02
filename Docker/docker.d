@@ -103,9 +103,9 @@ int main(string[] args) {
                     "fix_repo", "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
-    tests["dmd-ubuntu-latest-dub"] ~= () {
+    tests["ldc-ubuntu-latest-dub"] ~= () {
         build(mergeFiles([
-                    "ubuntu_latest_base", "dmd_latest_version", "dmd",
+                    "ubuntu_latest_base", "ldc_latest_version", "ldc",
                     "fix_repo", "build_with_dub"
                 ]), tag.next);
     };
