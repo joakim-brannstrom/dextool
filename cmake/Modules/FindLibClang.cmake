@@ -7,6 +7,7 @@
 #
 # The following variables are defined:
 #   LIBCLANG_LDFLAGS        - flags to use when linking
+#   LIBCLANG_LIBS           - clang libs to use when linking
 #   LIBLLVM_LDFLAGS         - flags to use when linking
 #   LIBLLVM_CXX_FLAGS       - the required flags to build C++ code using LLVM
 #   LIBLLVM_CXX_EXTRA_FLAGS - the required flags to build C++ code using LLVM
@@ -66,6 +67,11 @@ execute_process(COMMAND ${LLVM_CMD} libs
     RESULT_VARIABLE llvm_config_LIBS_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+execute_process(COMMAND ${LLVM_CMD} libclang
+    OUTPUT_VARIABLE clang_config_LIBS
+    RESULT_VARIABLE clang_config_LIBS_status
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 execute_process(COMMAND ${LLVM_CMD} libclang-flags
     OUTPUT_VARIABLE clang_config_LDFLAGS
     RESULT_VARIABLE clang_config_LDFLAGS_status
@@ -89,10 +95,11 @@ function(try_clang_from_user_config)
 endfunction()
 
 function(try_find_libclang)
-    if (clang_config_LDFLAGS_status)
+    if (clang_config_LDFLAGS_status OR clang_config_LIBS_status)
         return()
     endif()
 
+    set(LIBCLANG_LIBS "${clang_config_LIBS}" CACHE STRING "Linker libraries for libclang")
     set(LIBCLANG_LDFLAGS "${clang_config_LDFLAGS}" CACHE STRING "Linker flags for libclang")
 
     set(LIBCLANG_CONFIG_DONE YES CACHE BOOL "CLANG Configuration status" FORCE)
@@ -147,6 +154,7 @@ set(LIBLLVM_TARGET "LLVM_Target_X86")
 set(LIBLLVM_FLAGS "-version=${LIBLLVM_VERSION} -version=${LIBLLVM_TARGET}" CACHE STRING "D version flags for libLLVM")
 
 message(STATUS "libclang config status : ${LIBCLANG_CONFIG_DONE}")
+message(STATUS "libclang libs: ${LIBCLANG_LIBS}")
 message(STATUS "libclang linker flags: ${LIBCLANG_LDFLAGS}")
 
 message(STATUS "libLLVM config status: ${LIBLLVM_CONFIG_DONE}")

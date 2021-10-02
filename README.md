@@ -138,7 +138,7 @@ To tell cmake what version it is you can do the following:
 
 ```sh
 # llvm-config --version
-cmake -DLIBLLVM_VERSION="8_0_1" \
+cmake -DLIBLLVM_VERSION="LLVM_8_0_1" \
 -DLIBLLVM_MAJOR_VERSION="8"
 ```
 
@@ -150,13 +150,15 @@ is in `$PATH`.
 # uses llvm-config --libdir to find where libclang.so is installed. Some
 # additional flags are added but these are optional.
 -DLIBLCANG_LDFLAGS="-Wl,--enable-new-dtags -Wl,--no-as-needed -L/foo/bar/libs -Wl,-rpath,/foo/bar/libs -l:libclang.so.8"
+# llvm-config --libdir is searched for these libraries.
+-DLIBCLANG_LIBS="-lclangFrontendTool -lclangRewriteFrontend -lclangDynamicASTMatchers -lclangFrontend -lclangASTMatchers -lclangParse -lclangSerialization -lclangRewrite -lclangSema -lclangEdit -lclangAnalysis -lclangAST -lclangLex -lclangBasic -l:libclang.so"
 # llvm-config --cxxflags
 -DLIBLLVM_CXX_FLAGS="-I/foo/bar/llvm-include -std=c++11 -fno-exceptions -fno-rtti"
 # llvm-config --ldflags
--DLLVM_LDFLAGS="-L/foo/smurf/libs -Wl,-rpath,/foo/smurf/libs"
+-DLIBLLVM_LDFLAGS="-L/foo/smurf/libs -Wl,-rpath,/foo/smurf/libs"
 # use llvm-config --libs and llvm-config --system-libs to find all libraries to link with.
 # all those that are prefixed with libLLVM.
--DLLVM_LIBS="-lLLVMXRay -lLLVMTextApi /*and maaaany more or just one depending on how you have installed LLVM*/"
+-DLIBLLVM_LIBS="-lLLVMXRay -lLLVMTextApi /*and maaaany more or just one depending on how you have installed LLVM*/"
 ```
 
 #### SQLite link or missing

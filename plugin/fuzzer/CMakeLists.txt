@@ -24,7 +24,7 @@ build_d_executable(
     ${EXE_NAME}
     "${SRC_FILES}"
     "${flags}"
-    ""
+    "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}"
     "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_colorlog;dextool_mylib;dextool_sumtype"
 )
 

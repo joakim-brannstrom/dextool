@@ -127,8 +127,22 @@ string llvmLibdir() {
 }
 
 string llvmLibClang() {
-    return findLib("libclang.so", PartialLibrary("clang")).visit!(
-            (AbsLibrary a) => cast(string) a, (PartialLibrary a) => cast(string) a);
+    import std.conv : text;
+
+    string[] rval;
+    foreach (lib; [
+            "clangFrontendTool", "clangRewriteFrontend", "clangDynamicASTMatchers",
+            "clangFrontend", "clangASTMatchers", "clangParse",
+            "clangSerialization", "clangRewrite", "clangSema", "clangEdit",
+            "clangAnalysis", "clangAST", "clangLex", "clangBasic"
+        ]) {
+        rval ~= "-l" ~ findLibOrBackup(lib, lib);
+    }
+
+    rval ~= findLib("libclang.so", PartialLibrary("clang")).visit!(
+            (AbsLibrary a) => cast(string) "-l:" ~ a, (PartialLibrary a) => cast(string) "-l" ~ a);
+
+    return rval.joiner(" ").text;
 }
 
 string llvmClangFlags() {
@@ -136,10 +150,7 @@ string llvmClangFlags() {
 
     const string[] libdir = ["-L" ~ llvmLibdir, "-Wl,-rpath", llvmLibdir];
 
-    const string lib = findLib("libclang.so", PartialLibrary("clang")).visit!(
-            (AbsLibrary a) => "-l:" ~ cast(string) a, (PartialLibrary a) => "-l" ~ cast(string) a);
-
-    return (base ~ libdir ~ [lib].dup).joiner(" ").toUTF8;
+    return (base ~ libdir).dup.joiner(" ").toUTF8;
 }
 
 alias PartialLibrary = Typedef!(string, null, "PartialLibrary");
@@ -162,6 +173,22 @@ Library findLib(string lib, PartialLibrary backup) {
     // dfmt on
 
     return backup.Library;
+}
+
+string findLibOrBackup(string lib, string backup) {
+    // dfmt off
+    foreach (p; llvmSearchPaths
+             .filter!(a => exists(a))
+             .map!(a => dirEntries(a, SpanMode.shallow))
+             .joiner
+             .filter!(a => a.isFile)
+             .map!(a => std.path.baseName(a.name))
+             .filter!(a => a.canFind(lib))) {
+        return lib;
+    }
+    // dfmt on
+
+    return backup;
 }
 
 /** The order the paths are listed affects the priority. The higher up the

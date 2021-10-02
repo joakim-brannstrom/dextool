@@ -19,21 +19,7 @@ set_target_properties(dextool_cpp_clang_extension PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/
     )
 
-target_link_libraries(dextool_cpp_clang_extension
-    -lclangFrontendTool
-    -lclangRewriteFrontend
-    -lclangDynamicASTMatchers
-    -lclangFrontend
-    -lclangASTMatchers
-    -lclangParse
-    -lclangSerialization
-    -lclangRewrite
-    -lclangSema
-    -lclangEdit
-    -lclangAnalysis
-    -lclangAST
-    -lclangLex
-    -lclangBasic)
+target_link_libraries(dextool_cpp_clang_extension ${LIBCLANG_LIBS})
 target_link_libraries(dextool_cpp_clang_extension ${LIBLLVM_LIBS})
 
 # the D library

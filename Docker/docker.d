@@ -79,6 +79,18 @@ int main(string[] args) {
                     "prepare_release_build_ubuntu", "build_release"
                 ]), tag.next);
     };
+    tests["ldc-fedora-latest-release"] ~= () {
+        build(mergeFiles([
+                    "fedora_base", "ldc_latest_version", "ldc", "fix_repo",
+                    "prepare_release_build_fedora", "build_release"
+                ]), tag.next);
+    };
+    tests["ldc-centos7-min-release"] ~= () {
+        build(mergeFiles([
+                    "centos7_base", "ldc_min_version", "ldc", "fix_repo",
+                    "prepare_release_build_centos7", "build_release"
+                ]), tag.next);
+    };
     tests["dmd-ubuntu-min-test"] ~= () {
         build(mergeFiles([
                     "ubuntu_minimal_base", "dmd_min_version", "dmd", "fix_repo",
@@ -91,22 +103,10 @@ int main(string[] args) {
                     "fix_repo", "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
-    tests["dmd-ubuntu-latest-release"] ~= () {
+    tests["ldc-ubuntu-latest-dub"] ~= () {
         build(mergeFiles([
-                    "ubuntu_latest_base", "dmd_latest_version", "dmd", "fix_repo",
-                    "prepare_release_build_ubuntu", "build_release", "examples"
-                ]), tag.next);
-    };
-    tests["dmd-ubuntu-latest-dub"] ~= () {
-        build(mergeFiles([
-                    "ubuntu_latest_base", "dmd_latest_version", "dmd",
+                    "ubuntu_latest_base", "ldc_latest_version", "ldc",
                     "fix_repo", "build_with_dub"
-                ]), tag.next);
-    };
-    tests["dmd-centos7-min-release"] ~= () {
-        build(mergeFiles([
-                    "centos7_base", "dmd_min_version", "dmd", "fix_repo",
-                    "prepare_release_build_centos7", "build_release"
                 ]), tag.next);
     };
 
@@ -132,7 +132,8 @@ void prepareTarBall(string tarName) {
 /// Build a docker image.
 void build(string dockerFile, string tag) {
     if (spawnProcess([
-                "docker", "image", "build", "-f", dockerFile, "-t", tag, "."
+                "docker", "image", "build", "--network", "host", "-f", dockerFile,
+                "-t", tag, "."
             ]).wait != 0)
         throw new Exception("Failed building " ~ dockerFile ~ " " ~ tag);
 }

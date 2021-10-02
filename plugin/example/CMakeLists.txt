@@ -22,7 +22,7 @@ build_d_executable(
     -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
     -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
     -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source"
-    ""
+    "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}"
     "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
 )
 
