@@ -41,7 +41,7 @@ RUN git clone --depth 1 https://github.com/joakim-brannstrom/dextool.git
 # the correct headers are used otherwise the final result is, "undefined.
 # See README.md for other example of the flags and how to derive the specific
 # for your llvm installation.
-RUN mkdir -p build && cd build && cmake ../dextool -DCMAKE_BUILD_TYPE=Release -DLOW_MEM=ON -DLIBLLVM_VERSION="LLVM_11_0_0" -DLIBLLVM_MAJOR_VERSION="11" -DLIBLLVM_LIBS="-lLLVM-11" -DLIBLLVM_CXX_FLAGS="-I/usr/lib64/llvm11/include -std=c++14 -fno-exceptions -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"  -DLIBCLANG_LDFLAGS="-Wl,--enable-new-dtags -Wl,--no-as-needed -L/usr/lib64/llvm11/lib -Wl,-rpath,/usr/lib64/llvm11/lib" -DLIBCLANG_LIBS="-lclang-cpp -lclang"
+RUN mkdir -p build && cd build && cmake ../dextool -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/dextool_install -DLOW_MEM=ON -DLIBLLVM_VERSION="LLVM_11_0_0" -DLIBLLVM_MAJOR_VERSION="11" -DLIBLLVM_LIBS="-lLLVM-11" -DLIBLLVM_CXX_FLAGS="-I/usr/lib64/llvm11/include -std=c++14 -fno-exceptions -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"  -DLIBCLANG_LDFLAGS="-Wl,--enable-new-dtags -Wl,--no-as-needed -L/usr/lib64/llvm11/lib -Wl,-rpath,/usr/lib64/llvm11/lib" -DLIBCLANG_LIBS="-lclang-cpp -lclang"
 
 # build_release
 RUN cd build && make all VERBOSE=1
