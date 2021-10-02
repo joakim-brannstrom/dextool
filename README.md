@@ -68,6 +68,14 @@ Don't be shy to report any issue that you find.
 
 ### Common Build Errors
 
+#### ldc is killed
+
+To build dextool comfortably you need ~16Gbyte of RAM. Compiling
+`dextool-mutate.o` consume ~9Gbyte.
+
+You probably ran out of memory when compiling `dextool-mutate.o`. Run cmake
+with `-DLOW_MEM=ON` and single threaded.
+
 #### `dub` run dextool fail
 
 This method of running dextool assume that the `llvm-config` commands found in
