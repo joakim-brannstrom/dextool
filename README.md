@@ -38,7 +38,12 @@ build. Which mean that for a *normal* user it is ldc that you should use.
 
 Most of them can be installed using your package manager.
 
-Installation instructions for Ubuntu is available in the [doc/install](doc/install) directory.
+Installation instructions for Ubuntu is available [here](doc/install).
+Dockerfile are another alternative (they MAY be outdated until the CI is fixed
+to check them so if they fail for you ping me on github):
+
+* [Ubuntu](Docker/dextool-ubuntu-focal)
+* [Fedora](Docker/dextool-fedora-34)
 
 ### Build and Install
 
