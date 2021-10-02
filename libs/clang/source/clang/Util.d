@@ -83,7 +83,9 @@ mixin template CX(string name = "") {
         static if (__traits(hasMember, clang.c.Index, methodName))
             mixin(methodCall);
         else
-            pragma(msg, "warning: clang dispose not found: " ~ methodName);
+            pragma(msg,
+                    "info: (this is not an error or problem, just a note to dextool developers) clang dispose not found: "
+                    ~ methodName);
 
         cx = CType.init;
     }
