@@ -42,7 +42,7 @@ Installation instructions for Ubuntu is available in the [doc/install](doc/insta
 
 ### Build and Install
 
-The easiest way to build and run dextool is to do it via `dub`.
+The easiest way to build and run dextool is to do it via `dub`:
 ```sh
 dub run dextool -- -h
 ```
@@ -62,6 +62,17 @@ Done! Have fun.
 Don't be shy to report any issue that you find.
 
 ### Common Build Errors
+
+#### `dub` run dextool fail
+
+This method of running dextool assume that the `llvm-config` commands found in
+`$PATH` is named and behave as the ones on Ubuntu. Such that `llvm-config-12`
+returns the flags for llvm-12 and clang-12. There are also some assumptions of
+what the libraries that are installed are named. On Fedora for example the
+clang-libraries are `clang-cpp` and `clang`. So if this method of running
+dextool fail and you are on ubuntu then you need to install the necessary
+dependencies otherwise use the other installation method together with the more
+complex flags for specifying the llvm/clang versions.
 
 #### component_tests Fail
 
