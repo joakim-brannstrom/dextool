@@ -1,3 +1,10 @@
+# vNext
+
+Fixes
+
+ * Fixed build instructions and cmake config to allow greater control over what
+   llvm/clang libs are linked. This allows dextool to be built for Fedora-34.
+
 # v4.0.0 Smooth Road
 
 New features for dextool mutate
