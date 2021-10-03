@@ -15,8 +15,8 @@ help: ## Show this help message.
 	@echo "$$HELP"
 ###
 
-IMAGE_NAME=docker-image-dextool-dextool-xenail
-CONTAINER_NAME=docker-container-dextool-ubuntu-xenial
+IMAGE_NAME=docker-image-dextool-ubuntu
+CONTAINER_NAME=docker-container-dextool-ubuntu
 
 container.run: ## Run container (image and container must exist).
 	docker start -ai $(CONTAINER_NAME)
