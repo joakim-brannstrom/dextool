@@ -46,6 +46,6 @@ RUN mkdir -p build && cd build && cmake ../dextool -DCMAKE_BUILD_TYPE=Release -D
 # build_release
 RUN cd build && make all VERBOSE=1
 RUN cd build && make install VERBOSE=1
-RUN rm -rf build
+RUN rm -rf build dextool
 
 ENV PATH "/opt/dextool_install/bin:$PATH"

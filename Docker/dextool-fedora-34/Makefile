@@ -15,8 +15,8 @@ help: ## Show this help message.
 	@echo "$$HELP"
 ###
 
-IMAGE_NAME=docker-image-dextool-ubuntu
-CONTAINER_NAME=docker-container-dextool-ubuntu
+IMAGE_NAME=docker-image-dextool-fedora34
+CONTAINER_NAME=docker-container-dextool-fedora34
 
 container.run: ## Run container (image and container must exist).
 	docker start -ai $(CONTAINER_NAME)
@@ -27,10 +27,13 @@ container.create: ## Create container (create before running with .run).
 		--security-opt seccomp=unconfined \
 		-v $(PWD):/opt/docker-shared \
 		-w /opt \
-		-ti --name=$(CONTAINER_NAME) $(IMAGE_NAME):latest
+		-ti --name=$(CONTAINER_NAME) $(IMAGE_NAME)
 
 container.delete: ## Delete container.
 	docker rm $(CONTAINER_NAME)
+
+pull:
+	docker pull ubuntu:xenial
 
 image.create: ## Creates dextool docker image.
 	docker build -t $(IMAGE_NAME) . -f Dockerfile

@@ -1,6 +1,6 @@
 # Docker image for running Dextool on Ubuntu
 
-## Mac OS
+The `Dockerfile` in this directory use a pre-built image maintained by Joakim B.
 
 ### Giving permissions to access shared folder
 
