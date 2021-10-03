@@ -27,13 +27,10 @@ container.create: ## Create container (create before running with .run).
 		--security-opt seccomp=unconfined \
 		-v $(PWD):/opt/docker-shared \
 		-w /opt \
-		-ti --name=$(CONTAINER_NAME) $(IMAGE_NAME)
+		-ti --name=$(CONTAINER_NAME) $(IMAGE_NAME):latest
 
 container.delete: ## Delete container.
 	docker rm $(CONTAINER_NAME)
-
-pull:
-	docker pull ubuntu:xenial
 
 image.create: ## Creates dextool docker image.
 	docker build -t $(IMAGE_NAME) . -f Dockerfile
