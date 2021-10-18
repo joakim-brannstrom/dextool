@@ -1,7 +1,7 @@
 # See https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema
 
 variables:
-  HOST_LDC_VERSION: 1.14.0
+  HOST_LDC_VERSION: 1.20.0
 
 trigger:
   - master
@@ -10,7 +10,7 @@ jobs:
 - job: Linux
   timeoutInMinutes: 120
   pool:
-    vmImage: 'ubuntu-18.04'
+    vmImage: 'ubuntu-20.04'
   variables:
     CI_OS: linux
   steps:
