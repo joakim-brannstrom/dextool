@@ -799,9 +799,12 @@ struct DoneMsg {
 struct GenerateReportMsg {
 }
 
+struct FailMsg {
+}
+
 alias FileReportActor = typedActor!(void function(InitMsg, AbsolutePath dbPath, AbsolutePath logFilesDir),
-        void function(AbsolutePath logFilesDir),
-        void function(GenerateReportMsg), void function(DoneMsg));
+        void function(AbsolutePath logFilesDir), void function(GenerateReportMsg),
+        void function(DoneMsg), void function(FailMsg));
 
 auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtrl,
         FileReportCollectorActor.Address collector,
@@ -830,30 +833,36 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
         send(ctx.self, logFilesDir);
     }
 
-    static void start(ref Ctx ctx, AbsolutePath logFilesDir) @safe {
+    static void start(ref Ctx ctx, AbsolutePath logFilesDir) @safe nothrow {
         import dextool.plugin.mutate.backend.report.html.utility : pathToHtml;
 
-        const original = ctx.state.get.fileRow.file.idup.pathToHtml;
-        const report = (original ~ HtmlStyle.ext).Path;
+        try {
+            const original = ctx.state.get.fileRow.file.idup.pathToHtml;
+            const report = (original ~ HtmlStyle.ext).Path;
+            ctx.state.get.reportFile = report;
 
-        const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
+            const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
-        auto raw = ctx.fio.makeInput(AbsolutePath(buildPath(ctx.fio.getOutputDir,
-                ctx.state.get.fileRow.file)));
+            auto raw = ctx.fio.makeInput(AbsolutePath(buildPath(ctx.fio.getOutputDir,
+                    ctx.state.get.fileRow.file)));
 
-        auto tc_info = ctx.state.get.db.testCaseApi.getAllTestCaseInfo2(
-                ctx.state.get.fileRow.id, ctx.state.get.kinds);
+            auto tc_info = ctx.state.get.db.testCaseApi.getAllTestCaseInfo2(
+                    ctx.state.get.fileRow.id, ctx.state.get.kinds);
 
-        ctx.state.get.reportFile = report;
-        ctx.state.get.ctx = FileCtx.make(original, ctx.state.get.fileRow.id, raw, tc_info);
-        ctx.state.get.ctx.processFile = ctx.state.get.fileRow.file;
-        ctx.state.get.ctx.out_ = File(out_path, "w");
-        ctx.state.get.ctx.span = Spanner(tokenize(ctx.fio.getOutputDir, ctx.state.get.fileRow.file));
+            ctx.state.get.ctx = FileCtx.make(original, ctx.state.get.fileRow.id, raw, tc_info);
+            ctx.state.get.ctx.processFile = ctx.state.get.fileRow.file;
+            ctx.state.get.ctx.out_ = File(out_path, "w");
+            ctx.state.get.ctx.span = Spanner(tokenize(ctx.fio.getOutputDir,
+                    ctx.state.get.fileRow.file));
 
-        send(ctx.self, GenerateReportMsg.init);
+            send(ctx.self, GenerateReportMsg.init);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            send(ctx.self, FailMsg.init).collectException;
+        }
     }
 
-    static void run(ref Ctx ctx, GenerateReportMsg) @safe {
+    static void run(ref Ctx ctx, GenerateReportMsg) @safe nothrow {
         auto profile = Profile("html file report " ~ ctx.state.get.fileRow.file);
         void fn(const ref FileMutantRow fr) {
             import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
@@ -875,19 +884,40 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
                     cleanup(txt.mutation), fr.mutation));
         }
 
-        ctx.state.get.db.iterateFileMutants(ctx.state.get.kinds, ctx.state.get.fileRow.file, &fn);
-        generateFile(ctx.state.get.db, ctx.state.get.ctx);
+        try {
+            ctx.state.get.db.iterateFileMutants(ctx.state.get.kinds,
+                    ctx.state.get.fileRow.file, &fn);
+            generateFile(ctx.state.get.db, ctx.state.get.ctx);
 
-        send(ctx.self, DoneMsg.init);
+            send(ctx.self, DoneMsg.init);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            send(ctx.self, FailMsg.init).collectException;
+        }
     }
 
-    static void done(ref Ctx ctx, DoneMsg) @safe {
+    static void done(ref Ctx ctx, DoneMsg) @safe nothrow {
         import dextool.plugin.mutate.backend.report.analyzers : reportScore;
 
-        auto stat = reportScore(ctx.state.get.db, ctx.state.get.kinds, ctx.state.get.fileRow.file);
-        send(ctx.state.get.collector, FileIndex(ctx.state.get.reportFile,
-                ctx.state.get.fileRow.file, stat));
+        try {
+            auto stat = reportScore(ctx.state.get.db, ctx.state.get.kinds,
+                    ctx.state.get.fileRow.file);
+            send(ctx.state.get.collector, FileIndex(ctx.state.get.reportFile,
+                    ctx.state.get.fileRow.file, stat));
 
+            ctx.self.shutdown;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            send(ctx.self, FailMsg.init).collectException;
+        }
+    }
+
+    static void failed(ref Ctx ctx, FailMsg) @safe {
+        import dextool.plugin.mutate.backend.report.analyzers : MutationScore;
+
+        logger.warning("Failed to generate a HTML report for ", ctx.state.get.fileRow.file);
+        send(ctx.state.get.collector, FileIndex(ctx.state.get.reportFile,
+                ctx.state.get.fileRow.file, MutationScore.init));
         ctx.self.shutdown;
     }
 
@@ -897,7 +927,7 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
                 InitMsg.init, ctx[1], ctx[2]));
 
     return impl(self, &init_, capture(st), &start, capture(st), &done,
-            capture(st), &run, capture(st));
+            capture(st), &run, capture(st), &failed, capture(st));
 }
 
 struct GetIndexesMsg {

@@ -10,6 +10,7 @@ steps:
     cd ..
     export DEBIAN_FRONTEND=noninteractive
     sudo dpkg --add-architecture i386
+    sudo apt install xz-utils
   displayName: Setup
 - script: |
     cd ..
