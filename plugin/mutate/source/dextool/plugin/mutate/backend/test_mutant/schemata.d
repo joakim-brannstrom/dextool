@@ -13,15 +13,18 @@ import logger = std.experimental.logger;
 import std.algorithm : sort, map, filter, among;
 import std.array : empty, array, appender;
 import std.conv : to;
-import std.datetime : Duration;
+import std.datetime : Duration, dur, Clock, SysTime;
 import std.datetime.stopwatch : StopWatch, AutoStart;
 import std.exception : collectException;
 import std.format : format;
-import std.typecons : Tuple;
+import std.typecons : Tuple, tuple;
 
+import blob_model;
+import miniorm : spinSql, silentLog;
+import my.actor;
+import my.gc.refc;
 import proc : DrainElement;
 import sumtype;
-import blob_model;
 
 import my.fsm : Fsm, next, act, get, TypeDataMap;
 import my.path;
@@ -32,13 +35,221 @@ import dextool.plugin.mutate.backend.database : MutationStatusId, Database,
     spinSql, SchemataId, Schemata;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
+import dextool.plugin.mutate.backend.test_mutant.common_actors : DbSaveActor, StatActor;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
+import dextool.plugin.mutate.backend.test_mutant.timeout : TimeoutFsm;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, Checksum;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand,
     UserRuntime, SchemaRuntime;
 import dextool.plugin.mutate.config : ConfigSchema;
 
 @safe:
+
+private {
+    struct Init {
+    }
+
+    struct Tick {
+    }
+
+    struct UpdateWorkList {
+    }
+
+    struct SaveResult {
+    }
+
+    immutable pollWorklistPeriod = 1.dur!"minutes";
+}
+
+struct IsDone {
+}
+
+struct GetDoneStatus {
+}
+
+struct Mark {
+}
+
+struct FinalResult {
+    enum Status {
+        fatalError,
+        invalidSchema,
+        ok
+    }
+
+    Status status;
+    int alive;
+    TimeoutFsm timeoutFsm;
+}
+
+alias SchemaActor = typedActor!(void function(Init), bool function(IsDone), void function(Tick),
+        void function(UpdateWorkList), FinalResult function(GetDoneStatus),
+        void function(SaveResult), void function(Mark, FinalResult.Status));
+
+auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, TestRunner* runner, AbsolutePath dbPath,
+        TestCaseAnalyzer* testCaseAnalyzer, ConfigSchema conf, SchemataId id,
+        TestStopCheck stopCheck, Mutation.Kind[] kinds,
+        ShellCommand buildCmd, Duration buildCmdTimeout,
+        DbSaveActor.Address dbSave, StatActor.Address stat, TimeoutFsm timeoutFsm) @trusted {
+
+    static struct State {
+        SchemataId id;
+        Mutation.Kind[] kinds;
+        TestStopCheck stopCheck;
+        DbSaveActor.Address dbSave;
+        StatActor.Address stat;
+        TimeoutFsm timeoutFsm;
+
+        Database db;
+
+        SchemataTestDriver driver;
+
+        bool allKilled = true;
+        int alive;
+    }
+
+    auto st = tuple!("self", "state")(self, refCounted(State(id, kinds,
+            stopCheck, dbSave, stat, timeoutFsm)));
+    alias Ctx = typeof(st);
+
+    static void init_(ref Ctx ctx, Init _) {
+        send(ctx.self, Tick.init);
+    }
+
+    static bool isDone(ref Ctx ctx, IsDone _) {
+        return !ctx.state.get.driver.isRunning;
+    }
+
+    static void mark(ref Ctx ctx, Mark _, FinalResult.Status status) {
+        import dextool.plugin.mutate.backend.database : SchemaStatus;
+
+        SchemaStatus schemaStatus;
+        final switch (status) with (FinalResult.Status) {
+        case fatalError:
+            break;
+        case invalidSchema:
+            schemaStatus = SchemaStatus.broken;
+            break;
+        case ok:
+            schemaStatus = ctx.state.get.allKilled ? SchemaStatus.allKilled : SchemaStatus.ok;
+            break;
+        }
+
+        spinSql!(() => ctx.state.get.db.schemaApi.markUsed(ctx.state.get.id, schemaStatus));
+    }
+
+    static void tick(ref Ctx ctx, Tick _) {
+        for (int i = 0; i < 3 && ctx.state.get.driver.isRunning; ++i)
+            ctx.state.get.driver.execute;
+        if (ctx.state.get.driver.isRunning)
+            send(ctx.self, Tick.init);
+        if (ctx.state.get.driver.hasResult)
+            send(ctx.self, SaveResult.init);
+    }
+
+    static void updateWlist(ref Ctx ctx, UpdateWorkList _) {
+        if (!ctx.state.get.driver.isRunning)
+            return;
+        delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkList.init);
+
+        try {
+            auto wlist = spinSql!(() => ctx.state.get.db.schemaApi.getSchemataMutants(ctx.state.get.id,
+                    ctx.state.get.kinds)).toSet;
+            ctx.state.get.driver.putWorklist(wlist);
+            debug logger.trace("update schema worklist: ", wlist.toRange);
+        } catch (Exception e) {
+            logger.trace(e.msg);
+        }
+    }
+
+    static FinalResult doneStatus(ref Ctx ctx, GetDoneStatus _) {
+        FinalResult.Status status = () {
+            if (ctx.state.get.driver.hasFatalError)
+                return FinalResult.Status.fatalError;
+            if (ctx.state.get.driver.isInvalidSchema)
+                return FinalResult.Status.invalidSchema;
+            return FinalResult.Status.ok;
+        }();
+
+        if (!ctx.state.get.driver.isRunning)
+            send(ctx.self, Mark.init, status);
+
+        return FinalResult(status, ctx.state.get.alive, ctx.state.get.timeoutFsm);
+    }
+
+    static void save(ref Ctx ctx, SaveResult _) {
+        import dextool.plugin.mutate.backend.test_mutant.common_actors : GetMutantsLeft,
+            UnknownMutantTested;
+
+        void update(MutationTestResult[] result) {
+            // only remove if there actually are any results utherwise we do
+            // not know if it is a good idea to remove it.
+            // same with the overload. if mutation testing is stopped because
+            // of a halt command then keep the schema.
+            ctx.state.get.allKilled = ctx.state.get.allKilled
+                && !(result.empty || ctx.state.get.stopCheck.isHalt != TestStopCheck
+                        .HaltReason.none);
+
+            foreach (a; result) {
+                final switch (a.status) with (Mutation.Status) {
+                case skipped:
+                    goto case;
+                case unknown:
+                    goto case;
+                case equivalent:
+                    goto case;
+                case noCoverage:
+                    goto case;
+                case alive:
+                    ctx.state.get.allKilled = false;
+                    ctx.state.get.alive++;
+                    return;
+                case killed:
+                    goto case;
+                case timeout:
+                    goto case;
+                case killedByCompiler:
+                    break;
+                }
+            }
+        }
+
+        auto result = ctx.state.get.driver.popResult;
+        if (result.empty)
+            return;
+
+        update(result);
+
+        send(ctx.state.get.dbSave, result, ctx.state.get.timeoutFsm);
+        send(ctx.state.get.stat, UnknownMutantTested.init, cast(long) result.length);
+
+        // an error handler is required because the stat actor can be held up
+        // for more than a minute.
+        ctx.self.request(ctx.state.get.stat, delay(1.dur!"seconds"))
+            .send(GetMutantsLeft.init).then((long x) {
+                logger.infof("%s mutants left to test.", x);
+            }, (ref Actor self, ErrorMsg) {});
+    }
+
+    import std.functional : toDelegate;
+    import dextool.plugin.mutate.backend.database : dbOpenTimeout;
+
+    self.name = "schemaDriver";
+    self.exceptionHandler = toDelegate(&logExceptionHandler);
+    try {
+        st.state.get.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
+        st.state.get.driver = SchemataTestDriver(fio, runner, &st.state.get.db,
+                testCaseAnalyzer, conf, id, stopCheck, kinds, buildCmd, buildCmdTimeout);
+        send(self, Init.init);
+        send(self, UpdateWorkList.init);
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+        self.shutdown;
+    }
+
+    return impl(self, &init_, st, &isDone, st, &tick, st, &updateWlist, st,
+            &doneStatus, st, &save, st, &mark, st);
+}
 
 struct SchemataTestDriver {
     private {
@@ -114,6 +325,10 @@ struct SchemataTestDriver {
     static struct NextMutantData {
         /// Mutants to test.
         InjectIdResult mutants;
+
+        // updated each minute with the mutants that are in the worklist in
+        // case there are multiple instances.
+        Set!MutationStatusId whiteList;
     }
 
     static struct TestMutant {
@@ -232,12 +447,6 @@ struct SchemataTestDriver {
 
 nothrow:
 
-    MutationTestResult[] popResult() {
-        auto tmp = result_;
-        result_ = null;
-        return tmp;
-    }
-
     void execute() {
         try {
             execute_(this);
@@ -259,14 +468,31 @@ nothrow:
         return isRunning_;
     }
 
+    bool hasResult() {
+        return !result_.empty;
+    }
+
+    MutationTestResult[] popResult() {
+        auto tmp = result_;
+        result_ = null;
+        return tmp;
+    }
+
+    void putWorklist(Set!MutationStatusId wlist) {
+        local.get!NextMutant.whiteList = wlist;
+    }
+
     void opCall(None data) {
     }
 
     void opCall(ref Initialize data) {
+        import std.random : randomCover;
+
         swCompile = StopWatch(AutoStart.yes);
 
         InjectIdBuilder builder;
-        foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(schemataId, kinds))) {
+        foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(schemataId, kinds))
+                .randomCover.array) {
             auto cs = spinSql!(() => db.mutantApi.getChecksum(mutant));
             if (!cs.isNull)
                 builder.put(mutant, cs.get);
@@ -410,26 +636,31 @@ nothrow:
             } catch (Exception e) {
                 logger.warning(e.msg).collectException;
             }
-        }
 
-        if (data.error) {
-            logger.info("Skipping the schemata because the test suite failed".color(Color.yellow))
-                .collectException;
-            isInvalidSchema_ = true;
-        } else {
-            logger.info("Ok".color(Color.green)).collectException;
+            if (data.error) {
+                logger.info("Skipping the schemata because the test suite failed".color(Color.yellow))
+                    .collectException;
+                isInvalidSchema_ = true;
+            } else {
+                logger.info("Ok".color(Color.green)).collectException;
+            }
         }
 
         compileTime = swCompile.peek;
     }
 
-    void opCall(ref NextMutant data) {
-        data.done = local.get!NextMutant.mutants.empty;
-
-        if (!data.done) {
-            data.inject = local.get!NextMutant.mutants.front;
+    void opCall(ref NextMutant data) @trusted {
+        while (!local.get!NextMutant.mutants.empty) {
+            auto m = local.get!NextMutant.mutants.front;
             local.get!NextMutant.mutants.popFront;
+
+            if (m.statusId in local.get!NextMutant.whiteList) {
+                data.inject = m;
+                return;
+            }
         }
+
+        data.done = true;
     }
 
     void opCall(ref TestMutant data) {

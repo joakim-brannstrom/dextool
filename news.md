@@ -5,6 +5,20 @@ Fixes
  * Fixed build instructions and cmake config to allow greater control over what
    llvm/clang libs are linked. This allows dextool to be built for Fedora-34.
 
+Fixes for dextool mutate
+
+ * HTML file report could fail. Added code to catch exceptions during report
+   generation which should fix the problem.
+ * Running parallel instances didn't work that great when testing mutants in
+   large scheman because an instances didn't update the mutants to test with
+   those that had already been tested by another instances. This has now been
+   fixed by polling the database each minute to remove those mutants that have
+   been tested.
+   Multiple instances have also been changed to test the mutants in a schema in
+   random order. This should further reduce the "overlap". The final result is
+   that for a schema that have 500 mutants and there are 5 instances running in
+   parallel then each should only need to test ~100 mutants each.
+
 # v4.0.0 Smooth Road
 
 New features for dextool mutate
