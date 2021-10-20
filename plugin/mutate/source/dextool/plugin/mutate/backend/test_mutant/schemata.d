@@ -57,8 +57,6 @@ private {
 
     struct SaveResult {
     }
-
-    immutable pollWorklistPeriod = 1.dur!"minutes";
 }
 
 struct IsDone {
@@ -156,6 +154,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, TestRunner* runner, Absol
             auto wlist = spinSql!(() => ctx.state.get.db.schemaApi.getSchemataMutants(ctx.state.get.id,
                     ctx.state.get.kinds)).toSet;
             ctx.state.get.driver.putWorklist(wlist);
+            logger.trace("update schema worklist mutants: ", wlist.length);
             debug logger.trace("update schema worklist: ", wlist.toRange);
         } catch (Exception e) {
             logger.trace(e.msg);
@@ -486,13 +485,10 @@ nothrow:
     }
 
     void opCall(ref Initialize data) {
-        import std.random : randomCover;
-
         swCompile = StopWatch(AutoStart.yes);
 
         InjectIdBuilder builder;
-        foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(schemataId, kinds))
-                .randomCover.array) {
+        foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(schemataId, kinds))) {
             auto cs = spinSql!(() => db.mutantApi.getChecksum(mutant));
             if (!cs.isNull)
                 builder.put(mutant, cs.get);
@@ -802,10 +798,11 @@ struct InjectIdBuilder {
         }
     }
 
-    InjectIdResult finalize() @safe pure nothrow {
+    InjectIdResult finalize() @safe nothrow {
         import std.array : array;
+        import std.random : randomCover;
 
-        return InjectIdResult(result.byValue.array);
+        return InjectIdResult(result.byValue.array.randomCover.array);
     }
 }
 
