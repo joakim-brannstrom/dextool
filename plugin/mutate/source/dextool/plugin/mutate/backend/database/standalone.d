@@ -1873,7 +1873,7 @@ struct DbWorklist {
 
     /** Add all mutants with the specific status to the worklist.
      */
-    void updateWorklist(const Mutation.Kind[] kinds, const Mutation.Status[] status,
+    void update(const Mutation.Kind[] kinds, const Mutation.Status[] status,
             const long basePrio = 100, const MutationOrder userOrder = MutationOrder.random) @trusted {
         const order = fromOrder(userOrder);
 
@@ -1889,7 +1889,7 @@ struct DbWorklist {
     }
 
     /// Add a mutant to the worklist.
-    void addToWorklist(const MutationStatusId id, const long basePrio = 0,
+    void add(const MutationStatusId id, const long basePrio = 0,
             const MutationOrder userOrder = MutationOrder.consecutive) @trusted {
         const order = fromOrder(userOrder);
         const sql = format!"INSERT OR REPLACE INTO %s (id,prio)
@@ -1902,8 +1902,8 @@ struct DbWorklist {
     }
 
     /// Remove a mutant from the worklist.
-    void removeFromWorklist(const MutationStatusId id) @trusted {
-        static immutable sql = format!"DELETE FROM %1$s WHERE id = :id"(mutantWorklistTable);
+    void remove(const MutationStatusId id) @trusted {
+        static immutable sql = "DELETE FROM " ~ mutantWorklistTable ~ " WHERE id = :id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         stmt.get.execute;
@@ -1911,20 +1911,20 @@ struct DbWorklist {
 
     /// Remove all mutants with `status` from the worklist.
     void remove(const Mutation.Status status) @trusted {
-        static immutable sql = "DELETE FROM " ~ mutantWorklistTable ~ " WHERE " ~
-            " id IN (SELECT id FROM " ~ mutationStatusTable ~ " WHERE status=:status)";
+        static immutable sql = "DELETE FROM " ~ mutantWorklistTable ~ " WHERE "
+            ~ " id IN (SELECT id FROM " ~ mutationStatusTable ~ " WHERE status=:status)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(ubyte) status);
         stmt.get.execute;
     }
 
-    void clearWorklist() @trusted {
+    void clear() @trusted {
         static immutable sql = format!"DELETE FROM %1$s"(mutantWorklistTable);
         auto stmt = db.prepare(sql);
         stmt.get.execute;
     }
 
-    long getWorklistCount() @trusted {
+    long getCount() @trusted {
         static immutable sql = format!"SELECT count(*) FROM %1$s"(mutantWorklistTable);
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;
@@ -1932,7 +1932,7 @@ struct DbWorklist {
     }
 
     /// All mutants in the worklist ordred by their priority
-    WorklistItem[] getWorklist() @trusted {
+    WorklistItem[] getAll() @trusted {
         static immutable sql = "SELECT id,prio FROM " ~ mutantWorklistTable ~ " ORDER BY prio DESC";
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;

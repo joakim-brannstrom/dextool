@@ -491,7 +491,7 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     auto profile = Profile(ReportSection.summary);
 
     const untested = spinSql!(() => db.mutantApi.unknownSrcMutants(kinds, file));
-    const worklist = spinSql!(() => db.worklistApi.getWorklistCount);
+    const worklist = spinSql!(() => db.worklistApi.getCount);
     const killedByCompiler = spinSql!(() => db.mutantApi.killedByCompilerSrcMutants(kinds, file));
 
     MutationStat st;

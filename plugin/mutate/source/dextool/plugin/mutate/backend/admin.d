@@ -312,7 +312,7 @@ ExitStatusType stopTimeoutTest(ref Database db) @trusted nothrow {
 
         db.timeoutApi.resetMutantTimeoutWorklist(Mutation.Status.timeout);
         db.timeoutApi.clearMutantTimeoutWorklist;
-        db.worklistApi.clearWorklist;
+        db.worklistApi.clear;
 
         MutantTimeoutCtx ctx;
         ctx.iter = MaxTimeoutIterations;

@@ -80,7 +80,7 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
         return format!"%s#%s"(buildPath(HtmlStyle.fileDir, pathToHtmlLink(path)), id);
     }
 
-    foreach (data; spinSql!(() => db.worklistApi.getWorklist).map!(
+    foreach (data; spinSql!(() => db.worklistApi.getAll).map!(
             a => spinSql!(() => tuple(a.prio, db.mutantApi.getMutantInfo(a.id))))
             .filter!(a => a[1].hasValue)
             .map!(a => tuple(a[0], a[1].orElse(MutantInfo2.init)))) {
