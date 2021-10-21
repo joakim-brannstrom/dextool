@@ -360,3 +360,8 @@ enum SchemaStatus {
     /// the schema only contain killed mutants
     allKilled,
 }
+
+struct WorklistItem {
+    MutationStatusId id;
+    MutantPrio prio;
+}

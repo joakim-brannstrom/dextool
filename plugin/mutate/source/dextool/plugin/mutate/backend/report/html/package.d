@@ -1204,7 +1204,8 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
                 ctx.state.get.flow);
 
         runAnalyzer!makeStats(ctx.self, ctx.state.get.flow, collector,
-                SubContent("Overview", "#overview", null), dbPath, ctx.state.get.kinds);
+                SubContent("Overview", "#overview", null), dbPath, ctx.state.get.kinds,
+                AbsolutePath(ctx.state.get.logDir ~ Path("worklist" ~ HtmlStyle.ext)));
 
         runAnalyzer!makeMutantPage(ctx.self, ctx.state.get.flow, collector,
                 SubContent("Mutants", "#mutants", null), dbPath, ctx.state.get.conf,

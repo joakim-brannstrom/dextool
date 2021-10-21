@@ -1921,6 +1921,15 @@ struct DbWorklist {
         auto res = stmt.get.execute;
         return res.oneValue!long;
     }
+
+    /// All mutants in the worklist ordred by their priority
+    WorklistItem[] getWorklist() @trusted {
+        static immutable sql = "SELECT id,prio FROM " ~ mutantWorklistTable ~ " ORDER BY prio DESC";
+        auto stmt = db.prepare(sql);
+        auto res = stmt.get.execute;
+        return res.map!(a => WorklistItem(a.peek!long(0).MutationStatusId,
+                a.peek!long(1).MutantPrio)).array;
+    }
 }
 
 struct DbMarkMutant {
@@ -2638,8 +2647,7 @@ struct DbTestFile {
     }
 
     TestFile[] getTestFiles() @trusted {
-        static immutable sql = format!"SELECT path,checksum0,checksum1,timestamp FROM %s"(
-                testFilesTable);
+        static immutable sql = "SELECT path,checksum0,checksum1,timestamp FROM " ~ testFilesTable;
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;
 
@@ -2655,9 +2663,9 @@ struct DbTestFile {
 
     /// Returns: the oldest test file, if it exists.
     Optional!TestFile getNewestTestFile() @trusted {
-        auto stmt = db.prepare(format!"SELECT path,checksum0,checksum1,timestamp
-            FROM %s ORDER BY datetime(timestamp) DESC LIMIT 1"(
-                testFilesTable));
+        auto stmt = db.prepare("SELECT path,checksum0,checksum1,timestamp
+            FROM "
+                ~ testFilesTable ~ " ORDER BY datetime(timestamp) DESC LIMIT 1");
         auto res = stmt.get.execute;
 
         foreach (ref r; res) {
@@ -2671,7 +2679,7 @@ struct DbTestFile {
 
     /// Remove the file with all mutations that are coupled to it.
     void removeFile(const TestFilePath p) @trusted {
-        auto stmt = db.prepare(format!"DELETE FROM %s WHERE path=:path"(testFilesTable));
+        auto stmt = db.prepare("DELETE FROM " ~ testFilesTable ~ " WHERE path=:path");
         stmt.get.bind(":path", p.get.toString);
         stmt.get.execute;
     }
