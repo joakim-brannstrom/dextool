@@ -642,7 +642,7 @@ nothrow:
             status ~= Mutation.Status.skipped;
 
         spinSql!(() {
-            db.worklistApi.updateWorklist(kinds, status, unknownWeight, mutationOrder);
+            db.worklistApi.update(kinds, status, unknownWeight, mutationOrder);
         });
 
         // detect if the system is overloaded before trying to do something
@@ -773,7 +773,7 @@ nothrow:
 
         enum forceCheckEach = 1.dur!"hours";
 
-        const wlist = spinSql!(() => db.worklistApi.getWorklistCount);
+        const wlist = spinSql!(() => db.worklistApi.getCount);
         if (local.get!ContinuesCheckTestSuite.lastWorklistCnt == 0) {
             // first time, just initialize.
             local.get!ContinuesCheckTestSuite.lastWorklistCnt = wlist;
@@ -917,8 +917,9 @@ nothrow:
                     }
                 }
                 if (update) {
-                    db.worklistApi.updateWorklist(kinds,
-                            [Mutation.Status.unknown, Mutation.Status.skipped]);
+                    db.worklistApi.update(kinds, [
+                            Mutation.Status.unknown, Mutation.Status.skipped
+                            ]);
                 }
                 break;
             }
@@ -942,10 +943,10 @@ nothrow:
                 && conf.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
             logger.info("Adding alive mutants to worklist").collectException;
             spinSql!(() {
-                db.worklistApi.updateWorklist(kinds, [
+                db.worklistApi.update(kinds, [
                         Mutation.Status.alive, Mutation.Status.skipped,
                         // if these mutants are covered by the tests then they will be
-                        // emoved from the worklist in PropagateCoverage.
+                        // removed from the worklist in PropagateCoverage.
                         Mutation.Status.noCoverage
                     ]);
             });
@@ -968,7 +969,7 @@ nothrow:
         if (conf.onOldMutants == ConfigMutationTest.OldMutant.nothing) {
             return;
         }
-        if (spinSql!(() => db.worklistApi.getWorklistCount) != 0) {
+        if (spinSql!(() => db.worklistApi.getCount) != 0) {
             // do not re-test any old mutants if there are still work to do in the worklist.
             return;
         }
@@ -1006,7 +1007,7 @@ nothrow:
             foreach (const old; oldest.enumerate) {
                 logger.infof("%s Last updated %s", old.index + 1,
                     old.value.updated).collectException;
-                db.worklistApi.addToWorklist(old.value.id);
+                db.worklistApi.add(old.value.id);
             }
         });
     }
@@ -1152,11 +1153,10 @@ nothrow:
                 mutantIds.length).collectException;
         spinSql!(() {
             foreach (id; mutantIds.toArray.sort)
-                db.worklistApi.addToWorklist(id, pullRequestWeight, MutationOrder.bySize);
+                db.worklistApi.add(id, pullRequestWeight, MutationOrder.bySize);
         });
 
-        local.get!CheckPullRequestMutant.startWorklistCnt = spinSql!(
-                () => db.worklistApi.getWorklistCount);
+        local.get!CheckPullRequestMutant.startWorklistCnt = spinSql!(() => db.worklistApi.getCount);
         local.get!CheckPullRequestMutant.stopAfter = mutantIds.length;
 
         if (mutantIds.empty) {
@@ -1268,7 +1268,7 @@ nothrow:
     }
 
     void opCall(ref CheckPullRequestMutant data) {
-        const left = spinSql!(() => db.worklistApi.getWorklistCount);
+        const left = spinSql!(() => db.worklistApi.getCount);
         data.noUnknownMutantsLeft.get = (
                 local.get!CheckPullRequestMutant.startWorklistCnt - left) >= local
             .get!CheckPullRequestMutant.stopAfter;
@@ -1479,10 +1479,9 @@ nothrow:
             auto trans = db.transaction;
 
             auto noCov = db.coverageApi.getNotCoveredMutants;
-            foreach (id; noCov) {
+            foreach (id; noCov)
                 db.mutantApi.updateMutationStatus(id, Mutation.Status.noCoverage, ExitStatus(0));
-                db.worklistApi.removeFromWorklist(id);
-            }
+            db.worklistApi.remove(Mutation.Status.noCoverage);
 
             trans.commit;
             logger.infof("Marked %s mutants as alive because they where not covered by any test",
@@ -1642,7 +1641,7 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
                     result.exitStatus, timeoutFsm.output.iter);
             ctx.state.get.db.mutantApi.updateMutation(result.id, result.profile);
             ctx.state.get.db.testCaseApi.updateMutationTestCases(result.id, result.testCases);
-            ctx.state.get.db.worklistApi.removeFromWorklist(result.id);
+            ctx.state.get.db.worklistApi.remove(result.id);
         }
 
         spinSql!(() @trusted {
@@ -1688,8 +1687,8 @@ auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {
 
     static void tick(ref Ctx ctx, Tick _) @safe nothrow {
         try {
-            ctx.state.get.worklistCount = spinSql!(
-                    () => ctx.state.get.db.worklistApi.getWorklistCount, logger.trace);
+            ctx.state.get.worklistCount = spinSql!(() => ctx.state.get.db.worklistApi.getCount,
+                    logger.trace);
             delayedSend(ctx.self, delay(30.dur!"seconds"), Tick.init);
         } catch (Exception e) {
             logger.error(e.msg).collectException;

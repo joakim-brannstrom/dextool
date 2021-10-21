@@ -208,7 +208,7 @@ struct TimeoutFsm {
     private static void step(ref TimeoutFsm self, ref Database db) @safe {
         bool noUnknown() {
             return db.mutantApi.unknownSrcMutants(self.global.kinds, null)
-                .count == 0 && db.worklistApi.getWorklistCount == 0;
+                .count == 0 && db.worklistApi.getCount == 0;
         }
 
         self.fsm.next!((Init a) {
