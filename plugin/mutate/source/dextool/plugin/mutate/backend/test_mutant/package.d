@@ -1479,10 +1479,9 @@ nothrow:
             auto trans = db.transaction;
 
             auto noCov = db.coverageApi.getNotCoveredMutants;
-            foreach (id; noCov) {
+            foreach (id; noCov)
                 db.mutantApi.updateMutationStatus(id, Mutation.Status.noCoverage, ExitStatus(0));
-                db.worklistApi.removeFromWorklist(id);
-            }
+            db.worklistApi.remove(Mutation.Status.noCoverage);
 
             trans.commit;
             logger.infof("Marked %s mutants as alive because they where not covered by any test",

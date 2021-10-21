@@ -1909,6 +1909,15 @@ struct DbWorklist {
         stmt.get.execute;
     }
 
+    /// Remove all mutants with `status` from the worklist.
+    void remove(const Mutation.Status status) @trusted {
+        static immutable sql = "DELETE FROM " ~ mutantWorklistTable ~ " WHERE " ~
+            " id IN (SELECT id FROM " ~ mutationStatusTable ~ " WHERE status=:status)";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":status", cast(ubyte) status);
+        stmt.get.execute;
+    }
+
     void clearWorklist() @trusted {
         static immutable sql = format!"DELETE FROM %1$s"(mutantWorklistTable);
         auto stmt = db.prepare(sql);
