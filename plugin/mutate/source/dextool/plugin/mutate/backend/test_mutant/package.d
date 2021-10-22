@@ -301,7 +301,7 @@ struct TestDriver {
         TestCase[][ShellCommand] foundTestCases;
     }
 
-    static struct ResetOldMutant {
+    static struct RetestOldMutant {
     }
 
     static struct ResetOldMutantData {
@@ -444,7 +444,7 @@ struct TestDriver {
     }
 
     alias Fsm = my.fsm.Fsm!(None, Initialize, SanityCheck,
-            AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, ResetOldMutant,
+            AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, RetestOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
             UpdateTimeout, CheckStopCond, PullRequest, CheckPullRequestMutant, ParseStdin,
@@ -457,7 +457,7 @@ struct TestDriver {
     private {
         Fsm fsm;
         TypeDataMap!(LocalStateDataT, UpdateTimeout, CheckPullRequestMutant, PullRequest,
-                ResetOldMutant, NextSchemata, ContinuesCheckTestSuite, MutationTest, NextMutant) local;
+                RetestOldMutant, NextSchemata, ContinuesCheckTestSuite, MutationTest, NextMutant) local;
         bool isRunning_ = true;
         bool isDone = false;
     }
@@ -480,8 +480,8 @@ struct TestDriver {
         this.timeoutFsm = TimeoutFsm(kinds);
         this.hardcodedTimeout = !conf.mutationTesterRuntime.isNull;
         local.get!PullRequest.constraint = conf.constraint;
-        local.get!ResetOldMutant.maxReset = conf.oldMutantsNr;
-        local.get!ResetOldMutant.resetPercentage = conf.oldMutantPercentage;
+        local.get!RetestOldMutant.maxReset = conf.oldMutantsNr;
+        local.get!RetestOldMutant.resetPercentage = conf.oldMutantPercentage;
         this.testCmds = conf.mutationTester;
         this.mutationOrder = conf.mutationOrder;
 
@@ -529,14 +529,16 @@ struct TestDriver {
             if (a.failed)
                 return fsm(Error.init);
             return fsm(UpdateAndResetAliveMutants(a.foundTestCases));
-        }, (UpdateAndResetAliveMutants a) => fsm(CheckMutantsLeft.init),
-                (ResetOldMutant a) => fsm(UpdateTimeout.init), (Cleanup a) {
+        }, (UpdateAndResetAliveMutants a) {
+            if (self.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
+                return fsm(RetestOldMutant.init);
+            return fsm(CheckMutantsLeft.init);
+        }, (RetestOldMutant a) => fsm(CheckMutantsLeft.init), (Cleanup a) {
             if (self.local.get!PullRequest.constraint.empty)
                 return fsm(NextSchemata.init);
             return fsm(CheckPullRequestMutant.init);
         }, (CheckMutantsLeft a) {
-            if (a.allMutantsTested && self.conf.onOldMutants == ConfigMutationTest
-                .OldMutant.nothing)
+            if (a.allMutantsTested)
                 return fsm(Done.init);
             if (self.conf.testCmdChecksum.get)
                 return fsm(ChecksumTestCmds.init);
@@ -568,7 +570,7 @@ struct TestDriver {
                 return fsm(PropagateCoverage.init);
             return fsm(LoadSchematas.init);
         }, (PropagateCoverage a) => LoadSchematas.init,
-                (LoadSchematas a) => fsm(ResetOldMutant.init), (CheckPullRequestMutant a) {
+                (LoadSchematas a) => fsm(UpdateTimeout.init), (CheckPullRequestMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(Done.init);
             return fsm(NextMutant.init);
@@ -953,7 +955,7 @@ nothrow:
         }
     }
 
-    void opCall(ResetOldMutant data) {
+    void opCall(RetestOldMutant data) {
         import std.range : enumerate;
         import dextool.plugin.mutate.backend.database.type;
 
@@ -990,13 +992,13 @@ nothrow:
         }
 
         const long testCnt = () {
-            if (local.get!ResetOldMutant.resetPercentage.get == 0.0) {
-                return local.get!ResetOldMutant.maxReset;
+            if (local.get!RetestOldMutant.resetPercentage.get == 0.0) {
+                return local.get!RetestOldMutant.maxReset;
             }
 
             const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds).count);
-            const rval = cast(long)(1 + total * local.get!ResetOldMutant.resetPercentage.get
-                    / 100.0);
+            const rval = cast(long)(1 + total
+                    * local.get!RetestOldMutant.resetPercentage.get / 100.0);
             return rval;
         }();
 
