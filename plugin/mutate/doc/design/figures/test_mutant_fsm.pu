@@ -19,13 +19,16 @@ FindTestCmds -> ChooseMode
 
 ChooseMode --> AnalyzeTestCmdForTestCase : hasAnalyzer
 ChooseMode --> PullRequest : hasConstraint
+ChooseMode --> RetestOldMutant : resetOld
 ChooseMode --> CheckMutantsLeft
 
 PullRequest -> CheckMutantsLeft
 
 AnalyzeTestCmdForTestCase --> UpdateAndResetAliveMutants
 
-UpdateAndResetAliveMutants --> CheckMutantsLeft
+UpdateAndResetAliveMutants --> RetestOldMutant : resetOld
+UpdateAndResetAliveMutants --> CheckMutantsLeft : resetOld
+RetestOldMutant --> CheckMutantsLeft
 
 UpdateTimeout --> OverloadCheck
 
@@ -40,8 +43,8 @@ Cleanup --> NextSchemata
 Cleanup --> CheckPullRequestMutant : hasConstraint
 
 CheckMutantsLeft --> ChecksumTestCmds : checksum
-CheckMutantsLeft --> MeasureTestSuite : !allTested || resetOld
-CheckMutantsLeft --> Done : !resetOld && allTested
+CheckMutantsLeft --> MeasureTestSuite : !allTested
+CheckMutantsLeft --> Done : allTested
 
 ChecksumTestCmds --> MeasureTestSuite
 
@@ -53,9 +56,7 @@ Coverage --> PropagateCov : !error
 Coverage --> LoadSchematas : error
 PropagateCov --> LoadSchematas
 
-LoadSchematas --> ResetOldMutant
-
-ResetOldMutant --> UpdateTimeout
+LoadSchematas --> UpdateTimeout
 
 CheckStopCond --> UpdateTimeout
 CheckStopCond --> Done : runtime>max

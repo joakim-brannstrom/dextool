@@ -806,7 +806,7 @@ class ShallRetrieveOldestMutant : DatabaseFixture {
         // act
         const oldest = db.mutantApi.getOldestMutants([
                 EnumMembers!(Mutation.Kind)
-                ], 1);
+                ], 1, [EnumMembers!(Mutation.Status)]);
 
         // assert
         oldest.length.shouldEqual(1);
