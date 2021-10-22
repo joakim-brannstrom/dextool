@@ -5,6 +5,11 @@ Fixes
  * Fixed build instructions and cmake config to allow greater control over what
    llvm/clang libs are linked. This allows dextool to be built for Fedora-34.
 
+New features for dextool mutate
+
+ * Add a page to HTML report which show the worklist. This is to help a user to
+   understand what is being worked on by the tool.
+
 Fixes for dextool mutate
 
  * HTML file report could fail. Added code to catch exceptions during report
@@ -18,6 +23,12 @@ Fixes for dextool mutate
    random order. This should further reduce the "overlap". The final result is
    that for a schema that have 500 mutants and there are 5 instances running in
    parallel then each should only need to test ~100 mutants each.
+ * Retest of old mutants could get stuck on those marked with `noCoverage`
+   because the logic would add them to the worklist during initialization and
+   then be removed by before the test phase started. It
+   is now changed to only add mutants not with the `noCoverage` status to the
+   worklist.
+ * Populate the worklist with re-test of old mutants if it is below the specified retest number.
 
 # v4.0.0 Smooth Road
 

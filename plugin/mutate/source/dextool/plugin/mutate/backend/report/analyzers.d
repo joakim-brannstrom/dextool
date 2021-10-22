@@ -839,7 +839,7 @@ class MutantSample {
     MutationEntry[MutationStatusId] mutants;
 
     /// The mutant that had its status updated the furthest back in time.
-    MutationStatusTime[] oldest;
+    //MutationStatusTime[] oldest;
 
     /// The mutant that has survived the longest in the system.
     MutationStatus[] highestPrio;
@@ -862,12 +862,12 @@ MutantSample reportSelectedAliveMutants(ref Database db, const(Mutation.Kind)[] 
             rval.mutants[mutst.statusId] = db.mutantApi.getMutation(ids[0]).get;
     }
 
-    rval.oldest = db.mutantApi.getOldestMutants(kinds, historyNr);
-    foreach (const mutst; rval.oldest) {
-        auto ids = db.mutantApi.getMutationIds(kinds, [mutst.id]);
-        if (ids.length != 0)
-            rval.mutants[mutst.id] = db.mutantApi.getMutation(ids[0]).get;
-    }
+    //rval.oldest = db.mutantApi.getOldestMutants(kinds, historyNr, [EnumMembers!(Mutation.Status)].filter!(a => a != Mutation.Status.noCoverage).array);
+    //foreach (const mutst; rval.oldest) {
+    //    auto ids = db.mutantApi.getMutationIds(kinds, [mutst.id]);
+    //    if (ids.length != 0)
+    //        rval.mutants[mutst.id] = db.mutantApi.getMutation(ids[0]).get;
+    //}
 
     return rval;
 }
@@ -1318,6 +1318,7 @@ struct SyncStatus {
 
 SyncStatus reportSyncStatus(ref Database db, const(Mutation.Kind)[] kinds, const long nrMutants) {
     import std.datetime : Clock;
+    import std.traits : EnumMembers;
     import dextool.plugin.mutate.backend.database : TestFile, TestFileChecksum, TestFilePath;
 
     typeof(return) rval;
@@ -1325,7 +1326,9 @@ SyncStatus reportSyncStatus(ref Database db, const(Mutation.Kind)[] kinds, const
         .orElse(TestFile(TestFilePath.init, TestFileChecksum.init, Clock.currTime)).timeStamp;
     rval.code = spinSql!(() => db.getNewestFile).orElse(Clock.currTime);
     rval.coverage = spinSql!(() => db.coverageApi.getCoverageTimeStamp).orElse(Clock.currTime);
-    rval.mutants = spinSql!(() => db.mutantApi.getOldestMutants(kinds, nrMutants));
+    rval.mutants = spinSql!(() => db.mutantApi.getOldestMutants(kinds,
+            nrMutants,
+            [EnumMembers!(Mutation.Status)].filter!(a => a != Mutation.Status.noCoverage).array));
     return rval;
 }
 

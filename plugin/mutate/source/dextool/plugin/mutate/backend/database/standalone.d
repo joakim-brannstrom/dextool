@@ -1445,14 +1445,16 @@ struct DbMutant {
     }
 
     /// Returns: the `nr` mutants that where the longst since they where tested.
-    MutationStatusTime[] getOldestMutants(const(Mutation.Kind)[] kinds, const long nr) @trusted {
+    MutationStatusTime[] getOldestMutants(const(Mutation.Kind)[] kinds,
+            const long nr, const Mutation.Status[] status) @trusted {
         const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
                     WHERE
                     t0.update_ts IS NOT NULL AND
                     t1.st_id = t0.id AND
-                    t1.kind IN (%(%s,%))
-                    ORDER BY datetime(t0.update_ts) ASC LIMIT :limit",
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+                    t1.kind IN (%(%s,%)) AND
+                    t0.status IN (%(%s,%))
+                    ORDER BY datetime(t0.update_ts) ASC LIMIT :limit", mutationStatusTable,
+                mutationTable, kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
 

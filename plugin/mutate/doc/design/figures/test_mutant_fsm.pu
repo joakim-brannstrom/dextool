@@ -19,6 +19,7 @@ FindTestCmds -> ChooseMode
 
 ChooseMode --> AnalyzeTestCmdForTestCase : hasAnalyzer
 ChooseMode --> PullRequest : hasConstraint
+ChooseMode --> RetestOldMutant : resetOld
 ChooseMode --> CheckMutantsLeft
 
 PullRequest -> CheckMutantsLeft

@@ -530,7 +530,7 @@ struct TestDriver {
                 return fsm(Error.init);
             return fsm(UpdateAndResetAliveMutants(a.foundTestCases));
         }, (UpdateAndResetAliveMutants a) {
-            if (self.conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
+            if (self.conf.onOldMutants == ConfigMutationTest.OldMutant.test)
                 return fsm(RetestOldMutant.init);
             return fsm(CheckMutantsLeft.init);
         }, (RetestOldMutant a) => fsm(CheckMutantsLeft.init), (Cleanup a) {
@@ -556,6 +556,8 @@ struct TestDriver {
             if (!self.conf.mutationTestCaseAnalyze.empty
                 || !self.conf.mutationTestCaseBuiltin.empty)
                 return fsm(AnalyzeTestCmdForTestCase.init);
+            if (self.conf.onOldMutants == ConfigMutationTest.OldMutant.test)
+                return fsm(RetestOldMutant.init);
             return fsm(CheckMutantsLeft.init);
         }, (PullRequest a) => fsm(CheckMutantsLeft.init), (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
@@ -891,8 +893,6 @@ nothrow:
     }
 
     void opCall(UpdateAndResetAliveMutants data) {
-        import std.traits : EnumMembers;
-
         // the test cases before anything has potentially changed.
         auto old_tcs = spinSql!(() {
             Set!string old_tcs;
@@ -957,7 +957,11 @@ nothrow:
 
     void opCall(RetestOldMutant data) {
         import std.range : enumerate;
+        import std.traits : EnumMembers;
         import dextool.plugin.mutate.backend.database.type;
+
+        const statusTypes = [EnumMembers!(Mutation.Status)].filter!(
+                a => a != Mutation.Status.noCoverage).array;
 
         void printStatus(T0)(T0 oldestMutant, SysTime newestTest, SysTime newestFile) {
             logger.info("Tests last changed ", newestTest).collectException;
@@ -971,12 +975,7 @@ nothrow:
         if (conf.onOldMutants == ConfigMutationTest.OldMutant.nothing) {
             return;
         }
-        if (spinSql!(() => db.worklistApi.getCount) != 0) {
-            // do not re-test any old mutants if there are still work to do in the worklist.
-            return;
-        }
-
-        const oldestMutant = spinSql!(() => db.mutantApi.getOldestMutants(kinds, 1));
+        const oldestMutant = spinSql!(() => db.mutantApi.getOldestMutants(kinds, 1, statusTypes));
         const newestTest = spinSql!(() => db.testFileApi.getNewestTestFile).orElse(
                 TestFile.init).timeStamp;
         const newestFile = spinSql!(() => db.getNewestFile).orElse(SysTime.init);
@@ -991,6 +990,8 @@ nothrow:
             printStatus(oldestMutant, newestTest, newestFile);
         }
 
+        const wlist = spinSql!(() => db.worklistApi.getCount);
+
         const long testCnt = () {
             if (local.get!RetestOldMutant.resetPercentage.get == 0.0) {
                 return local.get!RetestOldMutant.maxReset;
@@ -1002,7 +1003,13 @@ nothrow:
             return rval;
         }();
 
-        auto oldest = spinSql!(() => db.mutantApi.getOldestMutants(kinds, testCnt));
+        if (wlist >= testCnt) {
+            // do not re-test any old mutants because the worklist is already more than the threshold.
+            return;
+        }
+
+        auto oldest = spinSql!(() => db.mutantApi.getOldestMutants(kinds,
+                testCnt - wlist, statusTypes));
 
         logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
         spinSql!(() {
