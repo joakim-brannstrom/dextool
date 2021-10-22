@@ -45,6 +45,7 @@ private:
 void makePage(ref Database db, const AbsolutePath pageFname) @system {
     import std.algorithm : map, filter;
     import std.path : buildPath;
+    import std.range : enumerate;
     import dextool.plugin.mutate.backend.database : IterateMutantRow2, MutationId;
 
     auto doc = tmplBasicPage.dashboardCss;
@@ -74,7 +75,9 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
     root.addChild("p", "Priority: in what order the mutants are tested, highest priority first.");
     root.addChild("p", "Tested: date when the mutant was last tested/executed.");
 
-    auto tbl = tmplSortableTable(root, ["Link", "Priority", "Tested", "Status"]);
+    auto tbl = tmplSortableTable(root, [
+            "Order", "ID", "Link", "Priority", "Tested", "Status"
+            ]);
 
     static string toLinkPath(Path path, MutationId id) {
         return format!"%s#%s"(buildPath(HtmlStyle.fileDir, pathToHtmlLink(path)), id);
@@ -83,13 +86,16 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
     foreach (data; spinSql!(() => db.worklistApi.getAll).map!(
             a => spinSql!(() => tuple(a.prio, db.mutantApi.getMutantInfo(a.id))))
             .filter!(a => a[1].hasValue)
-            .map!(a => tuple(a[0], a[1].orElse(MutantInfo2.init)))) {
-        auto mut = data[1];
+            .map!(a => tuple(a[0], a[1].orElse(MutantInfo2.init)))
+            .enumerate) {
+        auto mut = data.value[1];
         auto r = tbl.appendRow;
 
+        r.addChild("td", data.index.to!string);
+        r.addChild("td", mut.id.get.to!string);
         r.addChild("td").addChild("a", format("%s:%s", mut.file,
                 mut.sloc.line)).href = toLinkPath(mut.file, mut.id);
-        r.addChild("td", data[0].get.to!string);
+        r.addChild("td", data.value[0].get.to!string);
         r.addChild("td", mut.status == Mutation.Status.unknown ? "" : mut.updated.toShortDate);
         r.addChild("td", mut.status.to!string);
     }
