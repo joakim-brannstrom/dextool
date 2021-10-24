@@ -49,6 +49,7 @@ struct TestRunner {
         alias TestTask = Task!(spawnRunTest, ShellCommand, Duration, string[string],
                 MaxCaptureBytes, MinAvailableMemBytes, Signal, Mutex, Condition);
         TaskPool pool;
+        bool ownsPool;
         Duration timeout_;
 
         Signal earlyStopSignal;
@@ -74,12 +75,31 @@ struct TestRunner {
     }
 
     this(int poolSize_) {
+        this.ownsPool = true;
         this.poolSize(poolSize_);
         this.earlyStopSignal = new Signal(false);
     }
 
+    this(TaskPool pool, Duration timeout_, TestCmd[] commands, long nrOfRuns,
+            bool captureAllOutput, MaxCaptureBytes maxOutput, MinAvailableMemBytes minAvailableMem_) {
+        this.pool = pool;
+        this.timeout_ = timeout_;
+        this.earlyStopSignal = new Signal(false);
+        this.commands = commands;
+        this.nrOfRuns = nrOfRuns;
+        this.captureAllOutput = captureAllOutput;
+        this.maxOutput = maxOutput;
+        this.minAvailableMem_ = minAvailableMem_;
+    }
+
     ~this() {
-        pool.stop;
+        if (ownsPool)
+            pool.stop;
+    }
+
+    TestRunner dup() {
+        return TestRunner(pool, timeout_, commands, nrOfRuns, captureAllOutput,
+                maxOutput, minAvailableMem_);
     }
 
     string[string] getDefaultEnv() @safe pure nothrow @nogc {

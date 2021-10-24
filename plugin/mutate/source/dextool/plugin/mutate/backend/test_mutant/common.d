@@ -626,11 +626,10 @@ struct TestStopCheck {
     }
 
     /// Pause the current thread by sleeping.
-    void pause() @trusted nothrow {
+    void pause(Duration sleepFor = 30.dur!"seconds") @trusted nothrow {
         import core.thread : Thread;
         import std.algorithm : max;
 
-        const sleepFor = 30.dur!"seconds";
         logger.infof("Sleeping %s", sleepFor).collectException;
         Thread.sleep(sleepFor);
 

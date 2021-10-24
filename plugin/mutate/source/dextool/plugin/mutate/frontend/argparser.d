@@ -14,7 +14,7 @@ module dextool.plugin.mutate.frontend.argparser;
 
 import core.time : dur;
 import logger = std.experimental.logger;
-import std.algorithm : joiner, sort, map, filter;
+import std.algorithm : joiner, sort, map, filter, max;
 import std.array : empty, array, appender;
 import std.exception : collectException;
 import std.parallelism : totalCPUs;
@@ -163,6 +163,9 @@ struct ArgParser {
                 "# If specified then the coverage and schemata runtime is only injected in these files.");
         app.put("# paths are relative to root.");
         app.put(`# inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]`);
+        app.put(null);
+        app.put("# Number of schema mutants to test in parallel (default is the number of cores).");
+        app.put(format!"# parallel_mutants = %s"(totalCPUs));
         app.put(null);
         app.put("# minimum number of mutants per schema.");
         app.put(format!"# min_mutants_per_schema = %s"(schema.minMutantsPerSchema.get));
@@ -442,6 +445,7 @@ struct ArgParser {
             string[] testConstraint;
 
             mutationTest.loadThreshold.get = totalCPUs + 1;
+            schema.parallelMutants = totalCPUs;
 
             data.toolMode = ToolMode.test_mutants;
             // dfmt off
@@ -469,6 +473,7 @@ struct ArgParser {
                    "schema-log", "write mutant schematan to a separate file for later inspection", &schema.log,
                    "schema-min-mutants", "mini number of mutants per schema", schema.minMutantsPerSchema.getPtr,
                    "schema-only", "stop testing after the last schema has been executed", &schema.stopAfterLastSchema,
+                   "schema-parallel-mutants", "nr of mutants to test in parallel", &schema.parallelMutants,
                    "schema-train", "train the schema generator by only compiling the scheman", schema.onlyCompile.getPtr,
                    "schema-use", "use schematas to speed-up testing", &schema.use,
                    "test-case-analyze-builtin", "builtin analyzer of output from testing frameworks to find failing test cases", &mutationTest.mutationTestCaseBuiltin,
@@ -479,6 +484,8 @@ struct ArgParser {
                    "use-early-stop", "stop executing tests for a mutant as soon as one kill a mutant to speed-up testing", &mutationTest.useEarlyTestCmdStop,
                    );
             // dfmt on
+
+            schema.parallelMutants = max(1, schema.parallelMutants);
 
             if (maxAlive > 0)
                 mutationTest.maxAlive = maxAlive;
@@ -941,6 +948,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     };
     callbacks["schema.check_schemata"] = (ref ArgParser c, ref TOMLValue v) {
         c.schema.sanityCheckSchemata = v == true;
+    };
+    callbacks["schema.parallel_mutants"] = (ref ArgParser c, ref TOMLValue v) {
+        c.schema.parallelMutants = max(1, cast(int) v.integer);
     };
 
     callbacks["database.db"] = (ref ArgParser c, ref TOMLValue v) {
