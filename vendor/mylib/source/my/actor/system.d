@@ -5,10 +5,11 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module my.actor.system;
 
-import core.sync.mutex : Mutex;
 import core.sync.condition : Condition;
+import core.sync.mutex : Mutex;
 import core.thread : Thread;
-import std.algorithm : min, max;
+import logger = std.experimental.logger;
+import std.algorithm : min, max, clamp;
 import std.datetime : dur, Clock, Duration;
 import std.parallelism : Task, TaskPool, task;
 import std.traits : Parameters, ReturnType;
@@ -322,7 +323,6 @@ class Scheduler {
 
             foreach (_; 0 .. runActors) {
                 if (auto a = sched.inactive.pop.unsafeMove) {
-
                     if (a.hasMessage) {
                         sched.putWaiting(a);
                     } else {
@@ -340,7 +340,7 @@ class Scheduler {
             }
 
             if (inactive != 0) {
-                pollInterval = max(minPoll, nextPoll);
+                pollInterval = clamp(nextPoll, minPoll, maxPoll);
             }
 
             if (inactive == runActors) {
@@ -424,17 +424,19 @@ class Scheduler {
             ulong consecutiveInactive;
 
             foreach (_; 0 .. runActors) {
-                // reduce clock polling
-                const now = Clock.currTime;
                 if (auto ctx = sched.pop) {
                     ulong msgs;
+                    ulong prevMsgs;
                     ulong totalMsgs;
                     do {
+                        // reduce clock polling
+                        const now = Clock.currTime;
                         ctx.process(now);
+                        prevMsgs = msgs;
                         msgs = ctx.messages;
                         totalMsgs += msgs;
                     }
-                    while (totalMsgs < maxThroughput && msgs != 0);
+                    while (totalMsgs < maxThroughput && msgs != prevMsgs);
 
                     if (totalMsgs == 0) {
                         sched.putInactive(ctx);

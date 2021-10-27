@@ -589,9 +589,9 @@ class Document : Element
          * if (d1 == d2) { }
          * --------------
          */
-        override bool opEquals(scope const Object o) const
+        override bool opEquals(scope const Object o) const @trusted
         {
-            const doc = toType!(const Document)(o);
+            const scope doc = toType!(const Document)(o);
             return prolog == doc.prolog
                 && (cast(const) this).Element.opEquals(cast(const) doc)
                 && epilog == doc.epilog;
@@ -609,9 +609,9 @@ class Document : Element
          * if (d1 < d2) { }
          * --------------
          */
-        override int opCmp(scope const Object o) scope const
+        override int opCmp(scope const Object o) scope const @trusted
         {
-            const doc = toType!(const Document)(o);
+            const scope doc = toType!(const Document)(o);
             if (prolog != doc.prolog)
                 return prolog < doc.prolog ? -1 : 1;
             if (int cmp = this.Element.opCmp(doc))
@@ -840,9 +840,9 @@ class Element : Item
      * if (e1 == e2) { }
      * --------------
      */
-    override bool opEquals(scope const Object o) const
+    override bool opEquals(scope const Object o) const @trusted
     {
-        const element = toType!(const Element)(o);
+        const scope element = toType!(const Element)(o);
         immutable len = items.length;
         if (len != element.items.length) return false;
         foreach (i; 0 .. len)
@@ -864,9 +864,9 @@ class Element : Item
      * if (e1 < e2) { }
      * --------------
      */
-    override int opCmp(scope const Object o) @safe const
+    override int opCmp(scope const Object o) @trusted const
     {
-        const element = toType!(const Element)(o);
+        const scope element = toType!(const Element)(o);
         for (uint i=0; ; ++i)
         {
             if (i == items.length && i == element.items.length) return 0;
@@ -1275,9 +1275,9 @@ class Comment : Item
      * if (item1 == item2) { }
      * --------------
      */
-    override bool opEquals(scope const Object o) const
+    override bool opEquals(scope const Object o) const @trusted
     {
-        const item = toType!(const Item)(o);
+        const scope item = toType!(const Item)(o);
         const t = cast(const Comment) item;
         return t !is null && content == t.content;
     }
@@ -1294,9 +1294,9 @@ class Comment : Item
      * if (item1 < item2) { }
      * --------------
      */
-    override int opCmp(scope const Object o) scope const
+    override int opCmp(scope const Object o) scope const @trusted
     {
-        const item = toType!(const Item)(o);
+        const scope item = toType!(const Item)(o);
         const t = cast(const Comment) item;
         return t !is null && (content != t.content
             ? (content < t.content ? -1 : 1 ) : 0 );
@@ -1363,9 +1363,9 @@ class CData : Item
      * if (item1 == item2) { }
      * --------------
      */
-    override bool opEquals(scope const Object o) const
+    override bool opEquals(scope const Object o) const @trusted
     {
-        const item = toType!(const Item)(o);
+        const scope item = toType!(const Item)(o);
         const t = cast(const CData) item;
         return t !is null && content == t.content;
     }
@@ -1382,9 +1382,9 @@ class CData : Item
      * if (item1 < item2) { }
      * --------------
      */
-    override int opCmp(scope const Object o) scope const
+    override int opCmp(scope const Object o) scope const @trusted
     {
-        const item = toType!(const Item)(o);
+        const scope item = toType!(const Item)(o);
         const t = cast(const CData) item;
         return t !is null && (content != t.content
             ? (content < t.content ? -1 : 1 ) : 0 );
@@ -1440,9 +1440,9 @@ class Text : Item
      * if (item1 == item2) { }
      * --------------
      */
-    override bool opEquals(scope const Object o) const
+    override bool opEquals(scope const Object o) const @trusted
     {
-        const item = toType!(const Item)(o);
+        const scope item = toType!(const Item)(o);
         const t = cast(const Text) item;
         return t !is null && content == t.content;
     }
@@ -1459,9 +1459,9 @@ class Text : Item
      * if (item1 < item2) { }
      * --------------
      */
-    override int opCmp(scope const Object o) scope const
+    override int opCmp(scope const Object o) scope const @trusted
     {
-        const item = toType!(const Item)(o);
+        const scope item = toType!(const Item)(o);
         const t = cast(const Text) item;
         return t !is null
             && (content != t.content ? (content < t.content ? -1 : 1 ) : 0 );
@@ -1523,9 +1523,9 @@ class XMLInstruction : Item
      * if (item1 == item2) { }
      * --------------
      */
-    override bool opEquals(scope const Object o) const
+    override bool opEquals(scope const Object o) const @trusted
     {
-        const item = toType!(const Item)(o);
+        const scope item = toType!(const Item)(o);
         const t = cast(const XMLInstruction) item;
         return t !is null && content == t.content;
     }
@@ -1542,9 +1542,9 @@ class XMLInstruction : Item
      * if (item1 < item2) { }
      * --------------
      */
-    override int opCmp(scope const Object o) scope const
+    override int opCmp(scope const Object o) scope const @trusted
     {
-        const item = toType!(const Item)(o);
+        const scope item = toType!(const Item)(o);
         const t = cast(const XMLInstruction) item;
         return t !is null
             && (content != t.content ? (content < t.content ? -1 : 1 ) : 0 );
@@ -1603,9 +1603,9 @@ class ProcessingInstruction : Item
      * if (item1 == item2) { }
      * --------------
      */
-    override bool opEquals(scope const Object o) const
+    override bool opEquals(scope const Object o) const @trusted
     {
-        const item = toType!(const Item)(o);
+        const scope item = toType!(const Item)(o);
         const t = cast(const ProcessingInstruction) item;
         return t !is null && content == t.content;
     }
@@ -1622,9 +1622,9 @@ class ProcessingInstruction : Item
      * if (item1 < item2) { }
      * --------------
      */
-    override int opCmp(scope const Object o) scope const
+    override int opCmp(scope const Object o) scope const @trusted
     {
-        const item = toType!(const Item)(o);
+        const scope item = toType!(const Item)(o);
         const t = cast(const ProcessingInstruction) item;
         return t !is null
             && (content != t.content ? (content < t.content ? -1 : 1 ) : 0 );

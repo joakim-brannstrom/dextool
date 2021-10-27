@@ -87,7 +87,8 @@ bool isLocalScope(CXCursorKind kind) @safe pure nothrow @nogc {
 }
 
 /// Determine if a cursor is in the global or namespace scope.
-bool isGlobalOrNamespaceScope(scope const Cursor c) @safe {
+// TODO: change back to safe
+bool isGlobalOrNamespaceScope(scope const Cursor c) @trusted {
     import std.algorithm : among;
     import clang.c.Index : CXCursorKind;
 

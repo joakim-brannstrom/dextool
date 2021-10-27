@@ -494,7 +494,10 @@ auto analyzeCxxBaseSpecified(scope const CxxBaseSpecifier v, ref Container conta
     if (c_ref.kind == CXCursorKind.noDeclFound) {
         namespace = backtrackScopeRange(c_ref).map!(a => CppNs(a.spelling)).array();
     } else {
-        namespace = backtrackScopeRange(v.cursor).map!(a => CppNs(a.spelling)).array();
+        // TODO: remove this workaround.
+        () @trusted {
+            namespace = backtrackScopeRange(v.cursor).map!(a => CppNs(a.spelling)).array();
+        }();
     }
 
     if (namespace.length > 0) {

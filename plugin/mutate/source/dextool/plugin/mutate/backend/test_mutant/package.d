@@ -1372,8 +1372,8 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         try {
-            auto driver = system.spawn(&spawnSchema, filesysIO, &runner, dbPath, &testCaseAnalyzer,
-                    schemaConf, data.id, stopCheck, kinds, conf.mutationCompile,
+            auto driver = system.spawn(&spawnSchema, filesysIO, runner, dbPath, testCaseAnalyzer, schemaConf,
+                    data.id, stopCheck, kinds, conf.mutationCompile,
                     conf.buildCmdTimeout, dbSave, stat, timeoutFsm);
             scope (exit)
                 sendExit(driver, ExitReason.userShutdown);
@@ -1420,7 +1420,6 @@ nothrow:
             }
 
             stopCheck.incrAliveMutants(fr.alive);
-            timeoutFsm = fr.timeoutFsm;
         } catch (Exception e) {
             logger.info(e.msg).collectException;
             logger.warning("Failed executing schemata ", data.id).collectException;
@@ -1509,7 +1508,8 @@ nothrow:
         }
 
         try {
-            send(dbSave, results, timeoutFsm);
+            foreach (result; results)
+                send(dbSave, result, timeoutFsm);
             send(stat, UnknownMutantTested.init, cast(long) results.length);
         } catch (Exception e) {
             logger.warning("Failed to send the result to the database: ", e.msg).collectException;
@@ -1642,7 +1642,7 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
         }
     }
 
-    static void save(ref Ctx ctx, MutationTestResult[] results, TimeoutFsm timeoutFsm) @safe nothrow {
+    static void save(ref Ctx ctx, MutationTestResult result, TimeoutFsm timeoutFsm) @safe nothrow {
         void statusUpdate(MutationTestResult result) @safe {
             import dextool.plugin.mutate.backend.test_mutant.timeout : updateMutantStatus;
 
@@ -1655,9 +1655,7 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
 
         spinSql!(() @trusted {
             auto t = ctx.state.get.db.transaction;
-            foreach (a; results) {
-                statusUpdate(a);
-            }
+            statusUpdate(result);
             t.commit;
         });
     }

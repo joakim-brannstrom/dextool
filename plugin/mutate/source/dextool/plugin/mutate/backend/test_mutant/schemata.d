@@ -20,16 +20,17 @@ import std.format : format;
 import std.typecons : Tuple, tuple;
 
 import blob_model;
+import colorlog;
 import miniorm : spinSql, silentLog;
 import my.actor;
 import my.gc.refc;
+import my.optional;
+import my.container.vector;
 import proc : DrainElement;
 import sumtype;
 
-import my.fsm : Fsm, next, act, get, TypeDataMap;
 import my.path;
 import my.set;
-static import my.fsm;
 
 import dextool.plugin.mutate.backend.database : MutationStatusId, Database,
     spinSql, SchemataId, Schemata;
@@ -49,13 +50,25 @@ private {
     struct Init {
     }
 
-    struct Tick {
-    }
-
     struct UpdateWorkList {
     }
 
-    struct SaveResult {
+    struct Mark {
+    }
+
+    struct InjectAndCompile {
+    }
+
+    struct ScheduleTestMsg {
+    }
+
+    struct RestoreMsg {
+    }
+
+    struct StartTestMsg {
+    }
+
+    struct CheckStopCondMsg {
     }
 }
 
@@ -63,9 +76,6 @@ struct IsDone {
 }
 
 struct GetDoneStatus {
-}
-
-struct Mark {
 }
 
 struct FinalResult {
@@ -77,15 +87,16 @@ struct FinalResult {
 
     Status status;
     int alive;
-    TimeoutFsm timeoutFsm;
 }
 
-alias SchemaActor = typedActor!(void function(Init), bool function(IsDone), void function(Tick),
-        void function(UpdateWorkList), FinalResult function(GetDoneStatus),
-        void function(SaveResult), void function(Mark, FinalResult.Status));
+alias SchemaActor = typedActor!(void function(Init, AbsolutePath, ShellCommand, Duration),
+        bool function(IsDone), void function(UpdateWorkList), FinalResult function(GetDoneStatus),
+        void function(SchemaTestResult), void function(Mark, FinalResult.Status), void function(InjectAndCompile,
+            ShellCommand, Duration), void function(RestoreMsg), void function(StartTestMsg),
+        void function(ScheduleTestMsg), void function(CheckStopCondMsg));
 
-auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, TestRunner* runner, AbsolutePath dbPath,
-        TestCaseAnalyzer* testCaseAnalyzer, ConfigSchema conf, SchemataId id,
+auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, AbsolutePath dbPath,
+        TestCaseAnalyzer testCaseAnalyzer, ConfigSchema conf, SchemataId id,
         TestStopCheck stopCheck, Mutation.Kind[] kinds,
         ShellCommand buildCmd, Duration buildCmdTimeout,
         DbSaveActor.Address dbSave, StatActor.Address stat, TimeoutFsm timeoutFsm) @trusted {
@@ -97,25 +108,71 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, TestRunner* runner, Absol
         DbSaveActor.Address dbSave;
         StatActor.Address stat;
         TimeoutFsm timeoutFsm;
+        FilesysIO fio;
+        TestRunner runner;
+        TestCaseAnalyzer analyzer;
+        ConfigSchema conf;
 
         Database db;
 
-        SchemataTestDriver driver;
+        AbsolutePath[] modifiedFiles;
+
+        InjectIdResult injectIds;
+
+        ScheduleTest scheduler;
+
+        Set!MutationStatusId whiteList;
+
+        Duration compileTime;
 
         bool allKilled = true;
         int alive;
+
+        bool hasFatalError;
+        bool isInvalidSchema;
+
+        bool isRunning;
     }
 
-    auto st = tuple!("self", "state")(self, refCounted(State(id, kinds,
-            stopCheck, dbSave, stat, timeoutFsm)));
+    auto st = tuple!("self", "state")(self, refCounted(State(id, kinds, stopCheck,
+            dbSave, stat, timeoutFsm, fio.dup, runner.dup, testCaseAnalyzer, conf)));
     alias Ctx = typeof(st);
 
-    static void init_(ref Ctx ctx, Init _) {
-        send(ctx.self, Tick.init);
+    static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath,
+            ShellCommand buildCmd, Duration buildCmdTimeout) nothrow {
+        import dextool.plugin.mutate.backend.database : dbOpenTimeout;
+
+        try {
+            ctx.state.get.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
+            ctx.state.get.scheduler = () {
+                TestMutantActor.Address[] testers;
+                foreach (_0; 0 .. ctx.state.get.conf.parallelMutants) {
+                    auto a = ctx.self.homeSystem.spawn(&spawnTestMutant,
+                            ctx.state.get.runner.dup, ctx.state.get.analyzer);
+                    a.linkTo(ctx.self.address);
+                    testers ~= a;
+                }
+                return ScheduleTest(testers);
+            }();
+
+            ctx.state.get.injectIds = mutantsFromSchema(ctx.state.get.db,
+                    ctx.state.get.id, ctx.state.get.kinds);
+
+            if (!ctx.state.get.injectIds.empty) {
+                send(ctx.self, UpdateWorkList.init);
+                send(ctx.self, InjectAndCompile.init, buildCmd, buildCmdTimeout);
+                send(ctx.self, CheckStopCondMsg.init);
+
+                ctx.state.get.isRunning = true;
+            }
+        } catch (Exception e) {
+            ctx.state.get.hasFatalError = true;
+            logger.error(e.msg).collectException;
+        }
     }
 
     static bool isDone(ref Ctx ctx, IsDone _) {
-        return !ctx.state.get.driver.isRunning;
+        return !ctx.state.get.isRunning;
     }
 
     static void mark(ref Ctx ctx, Mark _, FinalResult.Status status) {
@@ -136,633 +193,263 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, TestRunner* runner, Absol
         spinSql!(() => ctx.state.get.db.schemaApi.markUsed(ctx.state.get.id, schemaStatus));
     }
 
-    static void tick(ref Ctx ctx, Tick _) {
-        for (int i = 0; i < 3 && ctx.state.get.driver.isRunning; ++i)
-            ctx.state.get.driver.execute;
-        if (ctx.state.get.driver.isRunning)
-            send(ctx.self, Tick.init);
-        if (ctx.state.get.driver.hasResult)
-            send(ctx.self, SaveResult.init);
-    }
-
-    static void updateWlist(ref Ctx ctx, UpdateWorkList _) {
-        if (!ctx.state.get.driver.isRunning)
+    static void updateWlist(ref Ctx ctx, UpdateWorkList _) @safe nothrow {
+        if (!ctx.state.get.isRunning)
             return;
-        delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkList.init);
+
+        delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkList.init).collectException;
+        // TODO: should injectIds be updated too?
 
         try {
-            auto wlist = spinSql!(() => ctx.state.get.db.schemaApi.getSchemataMutants(ctx.state.get.id,
+            ctx.state.get.whiteList = spinSql!(
+                    () => ctx.state.get.db.schemaApi.getSchemataMutants(ctx.state.get.id,
                     ctx.state.get.kinds)).toSet;
-            ctx.state.get.driver.putWorklist(wlist);
-            logger.trace("update schema worklist mutants: ", wlist.length);
-            debug logger.trace("update schema worklist: ", wlist.toRange);
+            logger.trace("update schema worklist mutants: ", ctx.state.get.whiteList.length);
+            debug logger.trace("update schema worklist: ", ctx.state.get.whiteList.toRange);
         } catch (Exception e) {
-            logger.trace(e.msg);
+            logger.trace(e.msg).collectException;
         }
     }
 
-    static FinalResult doneStatus(ref Ctx ctx, GetDoneStatus _) {
+    static FinalResult doneStatus(ref Ctx ctx, GetDoneStatus _) @safe nothrow {
         FinalResult.Status status = () {
-            if (ctx.state.get.driver.hasFatalError)
+            if (ctx.state.get.hasFatalError)
                 return FinalResult.Status.fatalError;
-            if (ctx.state.get.driver.isInvalidSchema)
+            if (ctx.state.get.isInvalidSchema)
                 return FinalResult.Status.invalidSchema;
             return FinalResult.Status.ok;
         }();
 
-        if (!ctx.state.get.driver.isRunning)
-            send(ctx.self, Mark.init, status);
+        if (!ctx.state.get.isRunning)
+            send(ctx.self, Mark.init, status).collectException;
 
-        return FinalResult(status, ctx.state.get.alive, ctx.state.get.timeoutFsm);
+        return FinalResult(status, ctx.state.get.alive);
     }
 
-    static void save(ref Ctx ctx, SaveResult _) {
+    static void save(ref Ctx ctx, SchemaTestResult data) {
         import dextool.plugin.mutate.backend.test_mutant.common_actors : GetMutantsLeft,
             UnknownMutantTested;
 
-        void update(MutationTestResult[] result) {
+        void update(MutationTestResult a) {
             // only remove if there actually are any results utherwise we do
             // not know if it is a good idea to remove it.
             // same with the overload. if mutation testing is stopped because
             // of a halt command then keep the schema.
             ctx.state.get.allKilled = ctx.state.get.allKilled
-                && !(result.empty || ctx.state.get.stopCheck.isHalt != TestStopCheck
-                        .HaltReason.none);
+                && !(ctx.state.get.stopCheck.isHalt != TestStopCheck.HaltReason.none);
 
-            foreach (a; result) {
-                final switch (a.status) with (Mutation.Status) {
-                case skipped:
-                    goto case;
-                case unknown:
-                    goto case;
-                case equivalent:
-                    goto case;
-                case noCoverage:
-                    goto case;
-                case alive:
-                    ctx.state.get.allKilled = false;
-                    ctx.state.get.alive++;
-                    return;
-                case killed:
-                    goto case;
-                case timeout:
-                    goto case;
-                case killedByCompiler:
-                    break;
-                }
+            final switch (a.status) with (Mutation.Status) {
+            case skipped:
+                goto case;
+            case unknown:
+                goto case;
+            case equivalent:
+                goto case;
+            case noCoverage:
+                goto case;
+            case alive:
+                ctx.state.get.allKilled = false;
+                ctx.state.get.alive++;
+                ctx.state.get.stopCheck.incrAliveMutants(1);
+                return;
+            case killed:
+                goto case;
+            case timeout:
+                goto case;
+            case killedByCompiler:
+                break;
             }
         }
 
-        auto result = ctx.state.get.driver.popResult;
-        if (result.empty)
-            return;
+        debug logger.trace(data);
 
-        update(result);
+        if (!data.unstable.empty) {
+            logger.warningf("Unstable test cases found: [%-(%s, %)]", data.unstable);
+            logger.info(
+                    "As configured the result is ignored which will force the mutant to be re-tested");
+            return;
+        }
+
+        update(data.result);
+
+        auto result = data.result;
+        result.profile = MutantTimeProfile(ctx.state.get.compileTime, data.testTime);
+        ctx.state.get.compileTime = Duration.zero;
+
+        logger.infof("%s:%s (%s)", data.result.status,
+                data.result.exitStatus.get, result.profile).collectException;
+        logger.infof(!data.result.testCases.empty, `killed by [%-(%s, %)]`,
+                data.result.testCases.sort.map!"a.name").collectException;
 
         send(ctx.state.get.dbSave, result, ctx.state.get.timeoutFsm);
-        send(ctx.state.get.stat, UnknownMutantTested.init, cast(long) result.length);
+        send(ctx.state.get.stat, UnknownMutantTested.init, 1L);
 
         // an error handler is required because the stat actor can be held up
         // for more than a minute.
-        ctx.self.request(ctx.state.get.stat, delay(1.dur!"seconds"))
+        ctx.self.request(ctx.state.get.stat, delay(5.dur!"seconds"))
             .send(GetMutantsLeft.init).then((long x) {
                 logger.infof("%s mutants left to test.", x);
             }, (ref Actor self, ErrorMsg) {});
+
+        if (ctx.state.get.injectIds.empty)
+            send(ctx.self, RestoreMsg.init).collectException;
+    }
+
+    static void injectAndCompile(ref Ctx ctx, InjectAndCompile _,
+            ShellCommand buildCmd, Duration buildCmdTimeout) @safe nothrow {
+        try {
+            auto sw = StopWatch(AutoStart.yes);
+            scope (exit)
+                ctx.state.get.compileTime = sw.peek;
+
+            auto codeInject = CodeInject(ctx.state.get.fio, ctx.state.get.conf, ctx.state.get.id);
+            ctx.state.get.modifiedFiles = codeInject.inject(ctx.state.get.db);
+            codeInject.compile(buildCmd, buildCmdTimeout);
+
+            if (ctx.state.get.conf.sanityCheckSchemata) {
+                logger.info("Sanity check of the generated schemata");
+                if (sanityCheck(ctx.state.get.runner)) {
+                    logger.info("Ok".color(Color.green)).collectException;
+                    send(ctx.self, StartTestMsg.init);
+                } else {
+                    logger.info("Skipping the schemata because the test suite failed".color(Color.yellow)
+                            .toString);
+                    ctx.state.get.isInvalidSchema = true;
+                    send(ctx.self, RestoreMsg.init).collectException;
+                }
+            } else {
+                send(ctx.self, StartTestMsg.init);
+            }
+        } catch (Exception e) {
+            ctx.state.get.isInvalidSchema = true;
+            send(ctx.self, RestoreMsg.init).collectException;
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    static void restore(ref Ctx ctx, RestoreMsg _) @safe nothrow {
+        try {
+            restoreFiles(ctx.state.get.modifiedFiles, ctx.state.get.fio);
+            ctx.state.get.isRunning = false;
+        } catch (Exception e) {
+            ctx.state.get.hasFatalError = true;
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    static void startTest(ref Ctx ctx, StartTestMsg _) @safe nothrow {
+        try {
+            foreach (_0; 0 .. ctx.state.get.scheduler.testers.length)
+                send(ctx.self, ScheduleTestMsg.init);
+
+            logger.tracef("sent %s ScheduleTestMsg", ctx.state.get.scheduler.testers.length);
+        } catch (Exception e) {
+            ctx.state.get.hasFatalError = true;
+            ctx.state.get.isRunning = false;
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    static void test(ref Ctx ctx, ScheduleTestMsg _) nothrow {
+        // TODO: move this printer to another thread because it perform
+        // significant DB lookup and can potentially slow down the testing.
+        void print(MutationStatusId statusId) {
+            import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
+
+            auto id = spinSql!(() => ctx.state.get.db.mutantApi.getMutationId(statusId));
+            if (id.isNull)
+                return;
+            auto entry_ = spinSql!(() => ctx.state.get.db.mutantApi.getMutation(id.get));
+            if (entry_.isNull)
+                return;
+            auto entry = entry_.get;
+
+            try {
+                const file = ctx.state.get.fio.toAbsoluteRoot(entry.file);
+                auto txt = makeMutationText(ctx.state.get.fio.makeInput(file),
+                        entry.mp.offset, entry.mp.mutations[0].kind, entry.lang);
+                debug logger.trace(entry);
+                logger.infof("from '%s' to '%s' in %s:%s:%s", txt.original,
+                        txt.mutation, file, entry.sloc.line, entry.sloc.column);
+            } catch (Exception e) {
+                logger.info(e.msg).collectException;
+            }
+        }
+
+        try {
+            if (!ctx.state.get.isRunning)
+                return;
+
+            if (ctx.state.get.injectIds.empty) {
+                logger.trace("no mutants left to test");
+                return;
+            }
+
+            if (ctx.state.get.scheduler.empty) {
+                logger.trace("no free worker");
+                delayedSend(ctx.self, 1.dur!"seconds".delay, ScheduleTestMsg.init);
+                return;
+            }
+
+            if (ctx.state.get.stopCheck.isOverloaded) {
+                logger.info(ctx.state.get.stopCheck.overloadToString).collectException;
+                delayedSend(ctx.self, 30.dur!"seconds".delay, ScheduleTestMsg.init);
+                ctx.state.get.stopCheck.pause;
+                return;
+            }
+
+            auto m = ctx.state.get.injectIds.front;
+            ctx.state.get.injectIds.popFront;
+
+            if (m.statusId in ctx.state.get.whiteList) {
+                auto testerId = ctx.state.get.scheduler.pop;
+                auto tester = ctx.state.get.scheduler.get(testerId);
+                print(m.statusId);
+                ctx.self.request(tester, infTimeout).send(m).capture(ctx,
+                        testerId).then((ref Capture!(Ctx, size_t) ctx, SchemaTestResult x) {
+                    ctx[0].state.get.scheduler.put(ctx[1]);
+                    send(ctx[0].self, x);
+                    send(ctx[0].self, ScheduleTestMsg.init);
+                });
+            } else {
+                debug logger.tracef("%s not in whitelist. Skipping", m);
+                send(ctx.self, ScheduleTestMsg.init);
+            }
+        } catch (Exception e) {
+            ctx.state.get.hasFatalError = true;
+            ctx.state.get.isRunning = false;
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    static void checkHaltCond(ref Ctx ctx, CheckStopCondMsg _) @safe nothrow {
+        if (!ctx.state.get.isRunning)
+            return;
+        try {
+            delayedSend(ctx.self, 5.dur!"seconds".delay, CheckStopCondMsg.init).collectException;
+
+            if (ctx.state.get.stopCheck.isHalt != TestStopCheck.HaltReason.none) {
+                ctx.state.get.isRunning = false;
+                logger.info(ctx.state.get.stopCheck.overloadToString).collectException;
+            }
+        } catch (Exception e) {
+        }
     }
 
     import std.functional : toDelegate;
-    import dextool.plugin.mutate.backend.database : dbOpenTimeout;
 
     self.name = "schemaDriver";
     self.exceptionHandler = toDelegate(&logExceptionHandler);
     try {
-        st.state.get.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
-        st.state.get.driver = SchemataTestDriver(fio, runner, &st.state.get.db,
-                testCaseAnalyzer, conf, id, stopCheck, kinds, buildCmd, buildCmdTimeout);
-        send(self, Init.init);
-        send(self, UpdateWorkList.init);
+        send(self, Init.init, dbPath, buildCmd, buildCmdTimeout);
     } catch (Exception e) {
         logger.error(e.msg).collectException;
         self.shutdown;
     }
 
-    return impl(self, &init_, st, &isDone, st, &tick, st, &updateWlist, st,
-            &doneStatus, st, &save, st, &mark, st);
-}
-
-struct SchemataTestDriver {
-    private {
-        /// True as long as the schemata driver is running.
-        bool isRunning_ = true;
-        bool hasFatalError_;
-        bool isInvalidSchema_;
-
-        FilesysIO fio;
-
-        Database* db;
-
-        /// Runs the test commands.
-        TestRunner* runner;
-
-        Mutation.Kind[] kinds;
-
-        SchemataId schemataId;
-
-        /// Result of testing the mutants.
-        MutationTestResult[] result_;
-
-        /// Time it took to compile the schemata.
-        Duration compileTime;
-        StopWatch swCompile;
-
-        ShellCommand buildCmd;
-        Duration buildCmdTimeout;
-
-        /// The full schemata that is used..
-        Schemata schemata;
-
-        AbsolutePath[] modifiedFiles;
-
-        Set!AbsolutePath roots;
-
-        TestStopCheck stopCheck;
-
-        ConfigSchema conf;
-    }
-
-    static struct None {
-    }
-
-    static struct Initialize {
-        bool error;
-    }
-
-    static struct InitializeRoots {
-        bool hasRoot;
-    }
-
-    static struct InjectSchema {
-        bool error;
-    }
-
-    static struct Compile {
-        bool error;
-    }
-
-    static struct Done {
-    }
-
-    static struct Restore {
-        bool error;
-    }
-
-    static struct NextMutant {
-        bool done;
-        InjectIdResult.InjectId inject;
-    }
-
-    static struct NextMutantData {
-        /// Mutants to test.
-        InjectIdResult mutants;
-
-        // updated each minute with the mutants that are in the worklist in
-        // case there are multiple instances.
-        Set!MutationStatusId whiteList;
-    }
-
-    static struct TestMutant {
-        InjectIdResult.InjectId inject;
-
-        MutationTestResult result;
-        bool hasTestOutput;
-        // if there are mutants status id's related to a file but the mutants
-        // have been removed.
-        bool mutantIdError;
-    }
-
-    static struct TestMutantData {
-        /// If the user has configured that the test cases should be analyzed.
-        bool hasTestCaseOutputAnalyzer;
-    }
-
-    static struct TestCaseAnalyzeData {
-        TestCaseAnalyzer* testCaseAnalyzer;
-        DrainElement[][ShellCommand] output;
-    }
-
-    static struct TestCaseAnalyze {
-        MutationTestResult result;
-        bool unstableTests;
-    }
-
-    static struct StoreResult {
-        MutationTestResult result;
-    }
-
-    static struct OverloadCheck {
-        bool halt;
-        bool sleep;
-    }
-
-    alias Fsm = my.fsm.Fsm!(None, Initialize, InitializeRoots, Done, NextMutant, TestMutant,
-            TestCaseAnalyze, StoreResult, InjectSchema, Compile, Restore, OverloadCheck);
-    alias LocalStateDataT = Tuple!(TestMutantData, TestCaseAnalyzeData, NextMutantData);
-
-    private {
-        Fsm fsm;
-        TypeDataMap!(LocalStateDataT, TestMutant, TestCaseAnalyze, NextMutant) local;
-    }
-
-    this(FilesysIO fio, TestRunner* runner, Database* db, TestCaseAnalyzer* testCaseAnalyzer,
-            ConfigSchema conf, SchemataId id, TestStopCheck stopCheck,
-            Mutation.Kind[] kinds, ShellCommand buildCmd, Duration buildCmdTimeout) {
-        this.fio = fio;
-        this.runner = runner;
-        this.db = db;
-        this.conf = conf;
-        this.schemataId = id;
-        this.stopCheck = stopCheck;
-        this.kinds = kinds;
-        this.buildCmd = buildCmd;
-        this.buildCmdTimeout = buildCmdTimeout;
-
-        this.local.get!TestCaseAnalyze.testCaseAnalyzer = testCaseAnalyzer;
-        this.local.get!TestMutant.hasTestCaseOutputAnalyzer = !testCaseAnalyzer.empty;
-
-        foreach (a; conf.userRuntimeCtrl) {
-            auto p = fio.toAbsoluteRoot(a.file);
-            roots.add(p);
-        }
-
-        if (logger.globalLogLevel.among(logger.LogLevel.trace, logger.LogLevel.all))
-            fsm.logger = (string s) { logger.trace(s); };
-    }
-
-    static void execute_(ref SchemataTestDriver self) @trusted {
-        self.fsm.next!((None a) => fsm(Initialize.init), (Initialize a) {
-            if (a.error)
-                return fsm(Done.init);
-            if (self.conf.runtime == SchemaRuntime.inject)
-                return fsm(InitializeRoots.init);
-            return fsm(InjectSchema.init);
-        }, (InitializeRoots a) {
-            if (a.hasRoot)
-                return fsm(InjectSchema.init);
-            return fsm(Done.init);
-        }, (InjectSchema a) {
-            if (a.error)
-                return fsm(Restore.init);
-            return fsm(Compile.init);
-        }, (Compile a) {
-            if (a.error || self.conf.onlyCompile)
-                return fsm(Restore.init);
-            return fsm(OverloadCheck.init);
-        }, (OverloadCheck a) {
-            if (a.halt)
-                return fsm(Restore.init);
-            if (a.sleep)
-                return fsm(OverloadCheck.init);
-            return fsm(NextMutant.init);
-        }, (NextMutant a) {
-            if (a.done)
-                return fsm(Restore.init);
-            return fsm(TestMutant(a.inject));
-        }, (TestMutant a) {
-            if (a.mutantIdError)
-                return fsm(OverloadCheck.init);
-            if (a.result.status == Mutation.Status.killed
-                && self.local.get!TestMutant.hasTestCaseOutputAnalyzer && a.hasTestOutput) {
-                return fsm(TestCaseAnalyze(a.result));
-            }
-            return fsm(StoreResult(a.result));
-        }, (TestCaseAnalyze a) {
-            if (a.unstableTests)
-                return fsm(OverloadCheck.init);
-            return fsm(StoreResult(a.result));
-        }, (StoreResult a) => fsm(OverloadCheck.init), (Restore a) => Done.init, (Done a) => a);
-
-        self.fsm.act!(self);
-    }
-
-nothrow:
-
-    void execute() {
-        try {
-            execute_(this);
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-        }
-    }
-
-    bool hasFatalError() {
-        return hasFatalError_;
-    }
-
-    /// if the schema failed to compile or the test suite failed.
-    bool isInvalidSchema() {
-        return isInvalidSchema_;
-    }
-
-    bool isRunning() {
-        return isRunning_;
-    }
-
-    bool hasResult() {
-        return !result_.empty;
-    }
-
-    MutationTestResult[] popResult() {
-        auto tmp = result_;
-        result_ = null;
-        return tmp;
-    }
-
-    void putWorklist(Set!MutationStatusId wlist) {
-        local.get!NextMutant.whiteList = wlist;
-    }
-
-    void opCall(None data) {
-    }
-
-    void opCall(ref Initialize data) {
-        swCompile = StopWatch(AutoStart.yes);
-
-        InjectIdBuilder builder;
-        foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(schemataId, kinds))) {
-            auto cs = spinSql!(() => db.mutantApi.getChecksum(mutant));
-            if (!cs.isNull)
-                builder.put(mutant, cs.get);
-        }
-        debug logger.trace(builder).collectException;
-
-        local.get!NextMutant.mutants = builder.finalize;
-
-        schemata = spinSql!(() => db.schemaApi.getSchemata(schemataId)).get;
-
-        try {
-            modifiedFiles = schemata.fragments.map!(a => fio.toAbsoluteRoot(a.file))
-                .toSet.toRange.array;
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-            hasFatalError_ = true;
-            data.error = true;
-        }
-    }
-
-    void opCall(ref InitializeRoots data) {
-        if (roots.empty) {
-            auto allRoots = () {
-                AbsolutePath[] tmp;
-                try {
-                    tmp = spinSql!(() => db.getRootFiles).map!(a => db.getFile(a).get)
-                        .map!(a => fio.toAbsoluteRoot(a))
-                        .array;
-                    if (tmp.empty) {
-                        // no root found. Inject the runtime in all files and "hope for
-                        // the best". it will be less efficient but the weak symbol
-                        // should still mean that it link correctly.
-                        tmp = modifiedFiles;
-                    }
-                } catch (Exception e) {
-                    logger.error(e.msg).collectException;
-                }
-                return tmp;
-            }();
-
-            foreach (r; allRoots) {
-                roots.add(r);
-            }
-        }
-
-        auto mods = modifiedFiles.toSet;
-        foreach (r; roots.toRange) {
-            if (r !in mods)
-                modifiedFiles ~= r;
-        }
-
-        data.hasRoot = !roots.empty;
-
-        if (roots.empty) {
-            logger.warning("No root file found to inject the schemata runtime in").collectException;
-        }
-    }
-
-    void opCall(Done data) {
-        isRunning_ = false;
-    }
-
-    void opCall(ref InjectSchema data) {
-        import std.path : extension, stripExtension;
-        import dextool.plugin.mutate.backend.database.type : SchemataFragment;
-
-        scope (exit)
-            schemata = Schemata.init; // release the memory back to the GC
-
-        Blob makeSchemata(Blob original, SchemataFragment[] fragments, Edit[] extra) {
-            auto edits = appender!(Edit[])();
-            edits.put(extra);
-            foreach (a; fragments) {
-                edits ~= new Edit(Interval(a.offset.begin, a.offset.end), a.text);
-            }
-            auto m = merge(original, edits.data);
-            return change(new Blob(original.uri, original.content), m.edits);
-        }
-
-        SchemataFragment[] fragments(Path p) {
-            return schemata.fragments.filter!(a => a.file == p).array;
-        }
-
-        try {
-            foreach (fname; modifiedFiles) {
-                auto f = fio.makeInput(fname);
-                auto extra = () {
-                    if (fname in roots) {
-                        logger.trace("Injecting schemata runtime in ", fname);
-                        return makeRootImpl(f.content.length);
-                    }
-                    return makeHdr;
-                }();
-
-                logger.info("Injecting schema in ", fname);
-
-                // writing the schemata.
-                auto s = makeSchemata(f, fragments(fio.toRelativeRoot(fname)), extra);
-                fio.makeOutput(fname).write(s);
-
-                if (conf.log) {
-                    const ext = fname.toString.extension;
-                    fio.makeOutput(AbsolutePath(format!"%s.%s.schema%s"(fname.toString.stripExtension,
-                            schemataId.get, ext).Path)).write(s);
-
-                    fio.makeOutput(AbsolutePath(format!"%s.%s.kinds.txt"(fname,
-                            schemataId.get).Path)).write(format("%s", kinds));
-                }
-            }
-        } catch (Exception e) {
-            logger.warning(e.msg).collectException;
-            data.error = true;
-        }
-    }
-
-    void opCall(ref Compile data) {
-        import colorlog;
-        import dextool.plugin.mutate.backend.test_mutant.common : compile;
-
-        logger.infof("Compile schema %s", schemataId.get).collectException;
-
-        compile(buildCmd, buildCmdTimeout, PrintCompileOnFailure(true)).match!((Mutation.Status a) {
-            data.error = true;
-        }, (bool success) { data.error = !success; });
-
-        if (data.error) {
-            isInvalidSchema_ = true;
-
-            logger.info("Skipping schema because it failed to compile".color(Color.yellow))
-                .collectException;
-            return;
-        }
-
-        logger.info("Ok".color(Color.green)).collectException;
-
-        if (conf.sanityCheckSchemata) {
-            try {
-                logger.info("Sanity check of the generated schemata");
-                auto res = runner.run;
-                data.error = res.status != TestResult.Status.passed;
-            } catch (Exception e) {
-                logger.warning(e.msg).collectException;
-            }
-
-            if (data.error) {
-                logger.info("Skipping the schemata because the test suite failed".color(Color.yellow))
-                    .collectException;
-                isInvalidSchema_ = true;
-            } else {
-                logger.info("Ok".color(Color.green)).collectException;
-            }
-        }
-
-        compileTime = swCompile.peek;
-    }
-
-    void opCall(ref NextMutant data) @trusted {
-        while (!local.get!NextMutant.mutants.empty) {
-            auto m = local.get!NextMutant.mutants.front;
-            local.get!NextMutant.mutants.popFront;
-
-            if (m.statusId in local.get!NextMutant.whiteList) {
-                data.inject = m;
-                return;
-            }
-        }
-
-        data.done = true;
-    }
-
-    void opCall(ref TestMutant data) {
-        import std.datetime.stopwatch : StopWatch, AutoStart;
-        import dextool.plugin.mutate.backend.analyze.pass_schemata : schemataMutantEnvKey,
-            checksumToId;
-        import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
-
-        auto sw = StopWatch(AutoStart.yes);
-
-        data.result.id = data.inject.statusId;
-
-        auto id = spinSql!(() => db.mutantApi.getMutationId(data.inject.statusId));
-        if (id.isNull) {
-            data.mutantIdError = true;
-            return;
-        }
-        auto entry_ = spinSql!(() => db.mutantApi.getMutation(id.get));
-        if (entry_.isNull) {
-            data.mutantIdError = true;
-            return;
-        }
-        auto entry = entry_.get;
-
-        try {
-            const file = fio.toAbsoluteRoot(entry.file);
-            auto txt = makeMutationText(fio.makeInput(file), entry.mp.offset,
-                    entry.mp.mutations[0].kind, entry.lang);
-            debug logger.trace(entry);
-            logger.infof("from '%s' to '%s' in %s:%s:%s", txt.original,
-                    txt.mutation, file, entry.sloc.line, entry.sloc.column);
-        } catch (Exception e) {
-            logger.info(e.msg).collectException;
-        }
-
-        auto env = runner.getDefaultEnv;
-        env[schemataMutantEnvKey] = data.inject.injectId.to!string;
-
-        auto res = runTester(*runner, env);
-        data.result.profile = MutantTimeProfile(compileTime, sw.peek);
-        // the first tested mutant also get the compile time of the schema.
-        compileTime = Duration.zero;
-
-        data.result.mutId = id.get;
-        data.result.status = res.status;
-        data.result.exitStatus = res.exitStatus;
-        data.hasTestOutput = !res.output.empty;
-        local.get!TestCaseAnalyze.output = res.output;
-
-        logger.infof("%s:%s (%s)", data.result.status,
-                data.result.exitStatus.get, data.result.profile).collectException;
-        logger.tracef("%s %s injectId:%s", id, data.result.id,
-                data.inject.injectId).collectException;
-    }
-
-    void opCall(ref TestCaseAnalyze data) {
-        scope (exit)
-            local.get!TestCaseAnalyze.output = null;
-
-        foreach (testCmd; local.get!TestCaseAnalyze.output.byKeyValue) {
-            try {
-                auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(testCmd.key,
-                        testCmd.value);
-
-                analyze.match!((TestCaseAnalyzer.Success a) {
-                    data.result.testCases ~= a.failed ~ a.testCmd;
-                }, (TestCaseAnalyzer.Unstable a) {
-                    logger.warningf("Unstable test cases found: [%-(%s, %)]", a.unstable);
-                    logger.info(
-                        "As configured the result is ignored which will force the mutant to be re-tested");
-                    data.unstableTests = true;
-                }, (TestCaseAnalyzer.Failed a) {
-                    logger.warning("The parser that analyze the output from test case(s) failed");
-                });
-            } catch (Exception e) {
-                logger.warning(e.msg).collectException;
-            }
-        }
-
-        logger.infof(!data.result.testCases.empty, `killed by [%-(%s, %)]`,
-                data.result.testCases.sort.map!"a.name").collectException;
-    }
-
-    void opCall(StoreResult data) {
-        result_ ~= data.result;
-    }
-
-    void opCall(ref OverloadCheck data) {
-        data.halt = stopCheck.isHalt != TestStopCheck.HaltReason.none;
-        data.sleep = stopCheck.isOverloaded;
-
-        if (data.sleep) {
-            logger.info(stopCheck.overloadToString).collectException;
-            stopCheck.pause;
-        }
-    }
-
-    void opCall(ref Restore data) {
-        try {
-            restoreFiles(modifiedFiles, fio);
-        } catch (Exception e) {
-            logger.error(e.msg).collectException;
-            data.error = true;
-            hasFatalError_ = true;
-        }
-    }
+    return impl(self, &init_, st, &isDone, st, &updateWlist, st,
+            &doneStatus, st, &save, st, &mark, st, &injectAndCompile, st,
+            &restore, st, &startTest, st, &test, st, &checkHaltCond, st);
 }
 
 /** Generate schemata injection IDs (32bit) from mutant checksums (128bit).
@@ -807,7 +494,11 @@ struct InjectIdBuilder {
 }
 
 struct InjectIdResult {
-    alias InjectId = Tuple!(MutationStatusId, "statusId", uint, "injectId");
+    struct InjectId {
+        MutationStatusId statusId;
+        uint injectId;
+    }
+
     InjectId[] ids;
 
     InjectId front() @safe pure nothrow {
@@ -823,6 +514,19 @@ struct InjectIdResult {
     bool empty() @safe pure nothrow const @nogc {
         return ids.empty;
     }
+}
+
+/// Extract the mutants that are part of the schema.
+InjectIdResult mutantsFromSchema(ref Database db, const SchemataId id, const Mutation.Kind[] kinds) {
+    InjectIdBuilder builder;
+    foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(id, kinds))) {
+        auto cs = spinSql!(() => db.mutantApi.getChecksum(mutant));
+        if (!cs.isNull)
+            builder.put(mutant, cs.get);
+    }
+    debug logger.trace(builder);
+
+    return builder.finalize;
 }
 
 @("shall detect a collision and make sure it is never part of the result")
@@ -850,4 +554,247 @@ Edit[] makeHdr() {
     import dextool.plugin.mutate.backend.resource : schemataHeader;
 
     return [new Edit(Interval(0, 0), cast(const(ubyte)[]) schemataHeader)];
+}
+
+/** Injects the schema and runtime.
+ *
+ * Uses exceptions to signal failure.
+ */
+struct CodeInject {
+    FilesysIO fio;
+
+    SchemataId schemataId;
+
+    Set!AbsolutePath roots;
+
+    bool logSchema;
+
+    this(FilesysIO fio, ConfigSchema conf, SchemataId id) {
+        this.fio = fio;
+        this.schemataId = id;
+        this.logSchema = conf.log;
+
+        foreach (a; conf.userRuntimeCtrl) {
+            auto p = fio.toAbsoluteRoot(a.file);
+            roots.add(p);
+        }
+    }
+
+    /// Throws an error on failure.
+    /// Returns: modified files.
+    AbsolutePath[] inject(ref Database db) {
+        auto schemata = spinSql!(() => db.schemaApi.getSchemata(schemataId)).get;
+        auto modifiedFiles = schemata.fragments.map!(a => fio.toAbsoluteRoot(a.file))
+            .toSet.toRange.array;
+
+        void initRoots(ref Database db) {
+            if (roots.empty) {
+                auto allRoots = () {
+                    AbsolutePath[] tmp;
+                    try {
+                        tmp = spinSql!(() => db.getRootFiles).map!(a => db.getFile(a).get)
+                            .map!(a => fio.toAbsoluteRoot(a))
+                            .array;
+                        if (tmp.empty) {
+                            // no root found. Inject the runtime in all files and "hope for
+                            // the best". it will be less efficient but the weak symbol
+                            // should still mean that it link correctly.
+                            tmp = modifiedFiles;
+                        }
+                    } catch (Exception e) {
+                        logger.error(e.msg).collectException;
+                    }
+                    return tmp;
+                }();
+
+                foreach (r; allRoots) {
+                    roots.add(r);
+                }
+            }
+
+            auto mods = modifiedFiles.toSet;
+            foreach (r; roots.toRange) {
+                if (r !in mods)
+                    modifiedFiles ~= r;
+            }
+
+            if (roots.empty)
+                throw new Exception("No root file found to inject the schemata runtime in");
+        }
+
+        void injectCode() {
+            import std.path : extension, stripExtension;
+            import dextool.plugin.mutate.backend.database.type : SchemataFragment;
+
+            Blob makeSchemata(Blob original, SchemataFragment[] fragments, Edit[] extra) {
+                auto edits = appender!(Edit[])();
+                edits.put(extra);
+                foreach (a; fragments) {
+                    edits ~= new Edit(Interval(a.offset.begin, a.offset.end), a.text);
+                }
+                auto m = merge(original, edits.data);
+                return change(new Blob(original.uri, original.content), m.edits);
+            }
+
+            SchemataFragment[] fragments(Path p) {
+                return schemata.fragments.filter!(a => a.file == p).array;
+            }
+
+            foreach (fname; modifiedFiles) {
+                auto f = fio.makeInput(fname);
+                auto extra = () {
+                    if (fname in roots) {
+                        logger.trace("Injecting schemata runtime in ", fname);
+                        return makeRootImpl(f.content.length);
+                    }
+                    return makeHdr;
+                }();
+
+                logger.info("Injecting schema in ", fname);
+
+                // writing the schemata.
+                auto s = makeSchemata(f, fragments(fio.toRelativeRoot(fname)), extra);
+                fio.makeOutput(fname).write(s);
+
+                if (logSchema) {
+                    const ext = fname.toString.extension;
+                    fio.makeOutput(AbsolutePath(format!"%s.%s.schema%s"(fname.toString.stripExtension,
+                            schemataId.get, ext).Path)).write(s);
+                }
+            }
+        }
+
+        initRoots(db);
+        injectCode;
+
+        return modifiedFiles;
+    }
+
+    void compile(ShellCommand buildCmd, Duration buildCmdTimeout) {
+        import dextool.plugin.mutate.backend.test_mutant.common : compile;
+
+        logger.infof("Compile schema %s", schemataId.get).collectException;
+
+        compile(buildCmd, buildCmdTimeout, PrintCompileOnFailure(true)).match!((Mutation.Status a) {
+            throw new Exception("Skipping schema because it failed to compile".color(Color.yellow)
+                .toString);
+        }, (bool success) {
+            if (!success) {
+                throw new Exception("Skipping schema because it failed to compile".color(Color.yellow)
+                    .toString);
+            }
+        });
+
+        logger.info("Ok".color(Color.green)).collectException;
+    }
+}
+
+// Check that the test suite successfully execute "passed".
+// Returns: true on success.
+bool sanityCheck(ref TestRunner runner) {
+    auto res = runner.run;
+    return res.status == TestResult.Status.passed;
+}
+
+/// Round robin scheduling of mutants for testing from the worker pool.
+struct ScheduleTest {
+    TestMutantActor.Address[] testers;
+    Vector!size_t free;
+
+    this(TestMutantActor.Address[] testers) {
+        this.testers = testers;
+        foreach (size_t i; 0 .. testers.length)
+            free.put(i);
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return free.empty;
+    }
+
+    size_t pop()
+    in (free.length <= testers.length) {
+        scope (exit)
+            free.popFront();
+        return free.front;
+    }
+
+    void put(size_t x)
+    in (x < testers.length)
+    out (; free.length <= testers.length)do {
+        free.put(x);
+    }
+
+    TestMutantActor.Address get(size_t x)
+    in (free.length <= testers.length)
+    in (x < testers.length) {
+        return testers[x];
+    }
+}
+
+struct SchemaTestResult {
+    MutationTestResult result;
+    Duration testTime;
+    TestCase[] unstable;
+}
+
+alias TestMutantActor = typedActor!(SchemaTestResult function(InjectIdResult.InjectId id));
+
+auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnalyzer analyzer) {
+    static struct State {
+        TestRunner runner;
+        TestCaseAnalyzer analyzer;
+    }
+
+    auto st = tuple!("self", "state")(self, refCounted(State(runner, analyzer)));
+    alias Ctx = typeof(st);
+
+    static SchemaTestResult run(ref Ctx ctx, InjectIdResult.InjectId id) @safe nothrow {
+        import std.datetime.stopwatch : StopWatch, AutoStart;
+        import dextool.plugin.mutate.backend.analyze.pass_schemata : schemataMutantEnvKey;
+
+        SchemaTestResult analyzeForTestCase(SchemaTestResult rval,
+                ref DrainElement[][ShellCommand] output) @safe nothrow {
+            foreach (testCmd; output.byKeyValue) {
+                try {
+                    auto analyze = ctx.state.get.analyzer.analyze(testCmd.key, testCmd.value);
+
+                    analyze.match!((TestCaseAnalyzer.Success a) {
+                        rval.result.testCases ~= a.failed ~ a.testCmd;
+                    }, (TestCaseAnalyzer.Unstable a) {
+                        rval.unstable ~= a.unstable;
+                        // must re-test the mutant
+                        rval.result.status = Mutation.Status.unknown;
+                    }, (TestCaseAnalyzer.Failed a) {
+                        logger.tracef("The parsers that analyze the output from %s failed",
+                            testCmd.key);
+                    });
+                } catch (Exception e) {
+                    logger.warning(e.msg).collectException;
+                }
+            }
+            return rval;
+        }
+
+        auto sw = StopWatch(AutoStart.yes);
+
+        SchemaTestResult rval;
+
+        rval.result.id = id.statusId;
+
+        auto env = ctx.state.get.runner.getDefaultEnv;
+        env[schemataMutantEnvKey] = id.injectId.to!string;
+
+        auto res = runTester(ctx.state.get.runner, env);
+        rval.result.status = res.status;
+        rval.result.exitStatus = res.exitStatus;
+
+        if (!ctx.state.get.analyzer.empty)
+            rval = analyzeForTestCase(rval, res.output);
+
+        rval.testTime = sw.peek;
+        return rval;
+    }
+
+    self.name = "testMutant";
+    return impl(self, &run, st);
 }

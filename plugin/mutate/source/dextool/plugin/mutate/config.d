@@ -295,6 +295,9 @@ struct ConfigSchema {
 
     /// Only compile and execute the test suite. Used to train the schema generator.
     NamedType!(bool, Tag!"SchemaTrainGenerator", bool.init, TagStringable) onlyCompile;
+
+    /// Number of schema mutants to test in parallel.
+    int parallelMutants;
 }
 
 struct ConfigCoverage {

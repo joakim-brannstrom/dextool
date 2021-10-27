@@ -161,6 +161,19 @@ unittest {
             ]);
 }
 
+GlobFilter merge(GlobFilter a, GlobFilter b) {
+    return GlobFilter(a.include ~ b.include, a.exclude ~ b.exclude);
+}
+
+@("shall merge two filters")
+unittest {
+    auto a = GlobFilter(["foo*"], ["*bar*", "*batman"]);
+    auto b = GlobFilter(["fun*"], ["*fun*"]);
+    auto c = merge(a, b);
+    assert(c.include == ["foo*", "fun*"]);
+    assert(c.exclude == ["*bar*", "*batman", "*fun*"]);
+}
+
 struct GlobFilterClosestMatch {
     GlobFilter filter;
     AbsolutePath base;

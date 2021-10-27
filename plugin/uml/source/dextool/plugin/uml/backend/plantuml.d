@@ -1065,7 +1065,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     }
 
     this(TypeKindAttr type, CppNs[] reside_in_ns, ControllerT ctrl,
-            ref ReceiveT recv, ref Container container, in uint indent) {
+            ref ReceiveT recv, ref Container container, in uint indent) @trusted {
         this.ctrl = ctrl;
         this.recv = &recv;
         this.container = &container;

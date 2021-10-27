@@ -632,6 +632,7 @@ struct Monitor {
     private {
         Set!AbsolutePath roots;
         FileWatch fw;
+        // global additives to subFilters.
         GlobFilter fileFilter;
         GlobFilter[AbsolutePath] subFilters;
         uint events;
@@ -672,7 +673,7 @@ struct Monitor {
     static bool isInteresting(GlobFilter rootFilter, ref GlobFilter[AbsolutePath] subFilters,
             string p) nothrow {
         import my.file : existsAnd;
-        import my.filter : closest, GlobFilterClosestMatch;
+        import my.filter : closest, GlobFilterClosestMatch, merge;
 
         try {
             const ap = AbsolutePath(p);
@@ -681,6 +682,7 @@ struct Monitor {
                 return true;
             auto f = closest(subFilters, ap).orElse(GlobFilterClosestMatch(rootFilter,
                     AbsolutePath(".")));
+            f.filter = merge(f.filter, rootFilter);
             return f.match(ap.toString);
         } catch (Exception e) {
             collectException(logger.trace(e.msg));

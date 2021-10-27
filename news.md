@@ -9,6 +9,14 @@ New features for dextool mutate
 
  * Add a page to HTML report which show the worklist. This is to help a user to
    understand what is being worked on by the tool.
+ * Parallel testing of mutants in a schema. Previously the total number of
+   cores where not fully utilized because only one mutant where tested at a
+   time. This usually meant that there ended up being idle cores because the
+   test suite had one or more slow tests that "held back" the testing of
+   mutants. This is now fixed by running multiple mutants at the same time
+   which mean that there will *probably* always be tests that are being
+   executed on all cores.
+   From some casual testing this lead to 2-10x faster testing.
 
 Fixes for dextool mutate
 

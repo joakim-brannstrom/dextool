@@ -701,9 +701,7 @@ package:
             removeReplyTimeout(front.get.id);
         } else {
             // TODO: should probably be SystemError.unexpectedResponse?
-            //defaultHandler_(this, front.get.data);
-            // TODO: ignoring responses without a handler for now. It results
-            // in spam when the timeout triggers.
+            defaultHandler_(this, front.get.data);
         }
     }
 

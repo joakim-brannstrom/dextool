@@ -544,14 +544,6 @@ Only use schematan for the test phase. Depending on the operators this mean
 that between 50-100% of the mutants can be tested pretty fast.
 
 ```sh
---pull-request-seed <nr>
-```
-The order the mutants are tested when running mutation testing on a diff.
-Normally the year+week is used as a seed in order to keep the mutants that are
-tested stabel over multiple updates of a pull request. This option can be used
-to force a specific seed to be used.
-
-```sh
 --schema-use
 ```
 If schematan should be used. Dextool will start by trying to use all schematan
@@ -566,6 +558,11 @@ This is the starting value of the filtering process. Each schema that fail will
 increase the threshold because the tool assume that the probability of a schema
 to fail compiling is related to how many that have already failed to compile.
 This is to reduce the amount of wasted work (compiling invalid schemas).
+
+```sh
+--schema-parallel-mutants
+```
+How many mutants to test in parallel in a schema.
 
 ```sh
 --use-early-stop
