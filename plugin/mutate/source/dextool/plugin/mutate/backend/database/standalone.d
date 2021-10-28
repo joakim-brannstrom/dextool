@@ -1568,6 +1568,26 @@ struct DbMutant {
         return rval;
     }
 
+    /// Returns: the `nr` mutants that where last tested.
+    MutantTestTime[] getLatestMutantTimes(const(Mutation.Kind)[] kinds, const long nr) @trusted {
+        const sql = format("SELECT t0.id,t0.status,t0.compile_time_ms,t0.test_time_ms FROM %s t0, %s t1
+                    WHERE
+                    t0.update_ts IS NOT NULL AND
+                    t1.st_id = t0.id AND
+                    t1.kind IN (%(%s,%))
+                    ORDER BY datetime(t0.update_ts) DESC LIMIT :limit",
+                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":limit", nr);
+
+        auto app = appender!(MutantTestTime[])();
+        foreach (res; stmt.get.execute)
+            app.put(MutantTestTime(MutationStatusId(res.peek!long(0)),
+                    res.peek!long(1).to!(Mutation.Status), res.peek!long(2)
+                    .dur!"msecs", res.peek!long(3).dur!"msecs"));
+        return app.data;
+    }
+
     import dextool.plugin.mutate.backend.type;
 
     alias aliveSrcMutants = countMutants!([
