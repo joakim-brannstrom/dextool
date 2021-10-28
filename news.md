@@ -37,6 +37,7 @@ Fixes for dextool mutate
    is now changed to only add mutants not with the `noCoverage` status to the
    worklist.
  * Populate the worklist with re-test of old mutants if it is below the specified retest number.
+ * Fix memory overload check. It failed to parse `/proc/meminfo`.
 
 # v4.0.0 Smooth Road
 
