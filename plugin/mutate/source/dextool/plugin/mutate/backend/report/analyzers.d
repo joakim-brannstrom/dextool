@@ -16,7 +16,7 @@ import logger = std.experimental.logger;
 import std.algorithm : sum, map, sort, filter, count, cmp, joiner, among;
 import std.array : array, appender, empty;
 import std.conv : to;
-import std.datetime : SysTime;
+import std.datetime : SysTime, Duration;
 import std.exception : collectException;
 import std.format : format;
 import std.range : take, retro, only;
@@ -500,8 +500,17 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.killedByCompiler = killedByCompiler.count;
     st.worklist = worklist;
 
-    st.predictedDone = st.total > 0 ? (st.worklist * (st.totalTime.sum / st.total)) : 0
-        .dur!"msecs";
+    st.predictedDone = () {
+        if (st.total == 0)
+            return Duration.zero;
+        auto times = spinSql!(() => db.mutantApi.getLatestMutantTimes(kinds, 100));
+        const avg = (times.map!(a => a.compileTime)
+                .sum
+                .total!"msecs" + times.map!(a => a.testTime)
+                .sum
+                .total!"msecs") / times.length;
+        return (avg * st.worklist).dur!"msecs";
+    }();
     st.killedByCompilerTime = killedByCompiler.time;
 
     return st;

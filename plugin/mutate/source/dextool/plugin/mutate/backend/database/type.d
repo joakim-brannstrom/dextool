@@ -157,6 +157,13 @@ struct MutationStatusTime {
     SysTime updated;
 }
 
+struct MutantTestTime {
+    MutationStatusId id;
+    Mutation.Status status;
+    Duration compileTime;
+    Duration testTime;
+}
+
 alias MutantPrio = NamedType!(long, Tag!"MutantPriority", long.init, TagStringable);
 
 struct MutationStatus {
