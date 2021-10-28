@@ -621,8 +621,9 @@ struct AvailableMem {
                 foreach (l; procMem.byLine
                         .filter!(l => l.startsWith("MemAvailable"))
                         .map!(a => a.split)
-                        .filter!(a => a.length != 3)) {
+                        .filter!(a => a.length >= 3)) {
                     current = to!long(l[1]) * 1024;
+                    break;
                 }
             } catch (Exception e) {
                 current = long.max;
