@@ -618,6 +618,7 @@ struct AvailableMem {
         if (Clock.currTime > nextPoll && procMem.isOpen) {
             try {
                 procMem.rewind;
+                procMem.flush;
                 foreach (l; procMem.byLine
                         .filter!(l => l.startsWith("MemAvailable"))
                         .map!(a => a.split)
