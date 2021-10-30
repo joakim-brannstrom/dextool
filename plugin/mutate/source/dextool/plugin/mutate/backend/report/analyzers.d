@@ -501,15 +501,8 @@ MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, stri
     st.worklist = worklist;
 
     st.predictedDone = () {
-        if (st.total == 0)
-            return Duration.zero;
-        auto times = spinSql!(() => db.mutantApi.getLatestMutantTimes(kinds, 100));
-        const avg = (times.map!(a => a.compileTime)
-                .sum
-                .total!"msecs" + times.map!(a => a.testTime)
-                .sum
-                .total!"msecs") / times.length;
-        return (avg * st.worklist).dur!"msecs";
+        auto avg = calcAvgPerMutant(db, kinds);
+        return (st.worklist * avg.total!"msecs").dur!"msecs";
     }();
     st.killedByCompilerTime = killedByCompiler.time;
 
@@ -1458,4 +1451,23 @@ TestCaseMetadata parseTestCaseMetadata(AbsolutePath metadataPath) @trusted {
     }
 
     return rval;
+}
+
+alias AverageTimePerMutant = NamedType!(Duration, Tag!"AverageTimePerMutant",
+        Duration.init, TagStringable, ImplicitConvertable);
+
+/// Based on the last 100 tested mutants.
+AverageTimePerMutant calcAvgPerMutant(ref Database db, const Mutation.Kind[] kinds) nothrow {
+    import core.time : dur;
+
+    auto times = spinSql!(() => db.mutantApi.getLatestMutantTimes(kinds, 100));
+    if (times.length == 0)
+        return AverageTimePerMutant.init;
+
+    const avg = (times.map!(a => a.compileTime)
+            .sum
+            .total!"msecs" + times.map!(a => a.testTime)
+            .sum
+            .total!"msecs") / times.length;
+    return avg.dur!"msecs".AverageTimePerMutant;
 }

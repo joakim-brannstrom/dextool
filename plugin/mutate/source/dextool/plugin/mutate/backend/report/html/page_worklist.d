@@ -29,7 +29,7 @@ import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     dashboardCss, tmplSortableTable;
-import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink, toShortDate;
+import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink, toShortDate, toShortTime;
 import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation;
 
@@ -47,6 +47,7 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
     import std.path : buildPath;
     import std.range : enumerate;
     import dextool.plugin.mutate.backend.database : IterateMutantRow2, MutationId;
+    import dextool.plugin.mutate.backend.report.analyzers : calcAvgPerMutant;
 
     auto doc = tmplBasicPage.dashboardCss;
     scope (success)
@@ -72,16 +73,18 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
     }
 
     auto root = doc.mainBody;
-    root.addChild("p", "Priority: in what order the mutants are tested, highest priority first.");
     root.addChild("p", "Tested: date when the mutant was last tested/executed.");
+    root.addChild("p", "Finished: prediction for when the mutan is executed");
 
     auto tbl = tmplSortableTable(root, [
-            "Order", "ID", "Link", "Priority", "Tested", "Status"
+            "Order", "ID", "Link", "Priority", "Tested", "Status", "Finished"
             ]);
 
     static string toLinkPath(Path path, MutationId id) {
         return format!"%s#%s"(buildPath(HtmlStyle.fileDir, pathToHtmlLink(path)), id);
     }
+
+    const avg = calcAvgPerMutant(db, [EnumMembers!(Mutation.Kind)]);
 
     foreach (data; spinSql!(() => db.worklistApi.getAll).map!(
             a => spinSql!(() => tuple(a.prio, db.mutantApi.getMutantInfo(a.id))))
@@ -98,5 +101,6 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
         r.addChild("td", data.value[0].get.to!string);
         r.addChild("td", mut.status == Mutation.Status.unknown ? "" : mut.updated.toShortDate);
         r.addChild("td", mut.status.to!string);
+        r.addChild("td", (data.index * avg.get).toShortTime);
     }
 }

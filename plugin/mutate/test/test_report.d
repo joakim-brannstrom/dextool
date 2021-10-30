@@ -409,6 +409,25 @@ class ShallProduceHtmlReport : SimpleAnalyzeFixture {
     }
 }
 
+class ShallProduceHtmlReportWithWorklist : SimpleAnalyzeFixture {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextool(testEnv)
+            .addArg(["test"])
+            .addPostArg(["--max-runtime", "0 seconds"])
+            .run;
+
+        makeDextoolReport(testEnv, testData.dirName)
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
+        exists(buildPath(testEnv.outdir.toString, "html", "worklist.html")).shouldBeTrue;
+    }
+}
+
 class ShallProduceHtmlReportOfMultiLineComment : SimpleAnalyzeFixture {
     override string programFile() {
         return (testData ~ "report_multi_line_comment.cpp").toString;
