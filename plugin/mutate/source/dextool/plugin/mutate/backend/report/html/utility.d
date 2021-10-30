@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.report.html.utility;
 
-import std.datetime : SysTime;
+import std.datetime : SysTime, Duration, dur;
 
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.type : Path;
@@ -33,4 +33,24 @@ string toShortDate(SysTime ts) {
     import std.format : format;
 
     return format("%04s-%02s-%02s", ts.year, cast(ushort) ts.month, ts.day);
+}
+
+string toShortTime(Duration d) {
+    import std.conv : to;
+    import std.format : format;
+
+    immutable Units = ["days", "hours", "minutes", "seconds"];
+
+    static foreach (UnitIdx; 0 .. Units.length - 1) {
+        {
+            if (d.total!(Units[UnitIdx]) > 0) {
+                enum unit0 = Units[UnitIdx];
+                enum unit1 = Units[UnitIdx + 1];
+                return format("%s%s %s%s", d.total!unit0, unit0[0], (d - d.total!unit0
+                        .dur!unit0).total!unit1, unit1[0]);
+            }
+        }
+    }
+
+    return format!"%ss"(d.total!"seconds");
 }
