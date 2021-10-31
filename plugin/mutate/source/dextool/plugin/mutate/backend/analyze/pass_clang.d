@@ -540,6 +540,9 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         auto n = ast.get.make!(analyze.Function);
         n.covBlacklist = true;
+        if (isConstExpr(v))
+            n.schemaBlacklist = true;
+
         pushStack(n, v);
         v.accept(this);
     }
@@ -1528,10 +1531,18 @@ uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind) @trusted {
     return sr.end;
 }
 
-bool isConstExpr(const Cursor c) @trusted {
+bool isConstExpr(scope const Cursor c) @trusted {
     import dextool.clang_extensions;
 
     return dex_isPotentialConstExpr(c);
+}
+
+import libclang_ast.ast : FunctionTemplate;
+
+bool isConstExpr(scope const FunctionTemplate v) @trusted {
+    import dextool.clang_extensions;
+
+    return dex_isFunctionTemplateConstExpr(v.cursor);
 }
 
 /// Locations that should not be mutated with scheman

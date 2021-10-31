@@ -251,6 +251,9 @@ extern (C++,dextool_clang_extension) {
 
     /// Whether this is a (C++11) constexpr function or constexpr constructor.
     extern (C++) bool dex_isPotentialConstExpr(const CXCursor cx);
+
+    /// Whether this is a (C++11) constexpr template function or constexpr constructor.
+    extern (C++) bool dex_isFunctionTemplateConstExpr(const CXCursor cx);
 }
 
 Operator getExprOperator(scope const CXCursor expr) @trusted {
