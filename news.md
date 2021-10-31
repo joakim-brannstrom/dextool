@@ -38,6 +38,9 @@ Fixes for dextool mutate
    worklist.
  * Populate the worklist with re-test of old mutants if it is below the specified retest number.
  * Fix memory overload check. It failed to parse `/proc/meminfo`.
+ * Block scheman inside constexpr template functions. This reduces the number
+   of failed scheman thus improve the overall speed.
+   This fix is only available with clang-12+.
 
 # v4.0.0 Smooth Road
 
