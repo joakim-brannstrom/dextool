@@ -23,4 +23,25 @@ bool dex_isPotentialConstExpr(const CXCursor cx) {
     return fnDecl->isConstexpr();
 }
 
+bool dex_isFunctionTemplateConstExpr(const CXCursor cx) {
+    // only tested with clang-12. May work with versions below it.
+#if CINDEX_VERSION < 61
+    // be conservative
+    return true;
+#else
+    const clang::Decl* decl = getCursorDecl(cx);
+
+    if (decl == nullptr || !llvm::isa<clang::FunctionTemplateDecl>(decl))
+        return false;
+    const clang::FunctionTemplateDecl* fnDecl = llvm::cast<const clang::FunctionTemplateDecl>(decl);
+    if (fnDecl == nullptr || fnDecl->getTemplatedDecl() == nullptr)
+        return false;
+    const auto tmpl = fnDecl->getTemplatedDecl();
+    if (tmpl == nullptr)
+        return false;
+
+    return tmpl->isConstexpr();
+#endif
+}
+
 } // namespace dextool_clang_extension

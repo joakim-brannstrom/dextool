@@ -2,7 +2,9 @@
 /// @date 2021
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
+#include <array>
 #include <string>
+#include <type_traits>
 
 constexpr bool kind1() { return true; }
 
@@ -20,6 +22,22 @@ class Foo {
 };
 
 constexpr char get_ch(int x) { return 'a' + x; }
+
+/// Wraps tag types for static dispatching.
+struct inspector_access_type {
+    /// Flags types with `std::tuple`-like API.
+    struct tuple {};
+
+    /// Flags types without any default access.
+    struct none {};
+};
+
+template <class Inspector, class T> constexpr auto inspect_access_type() {
+    if constexpr (std::is_array<T>::value)
+        return inspector_access_type::tuple{};
+    else
+        return inspector_access_type::none{};
+}
 
 int main(int argc, char** argv) {
     int x = 42;

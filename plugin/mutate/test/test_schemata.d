@@ -226,6 +226,13 @@ class ShallGenerateValidSchemaForConstexpr : SchemataFixutre {
         return (testData ~ "schemata_constexpr.cpp").toString;
     }
 
+    override string scriptBuild() {
+        return "#!/bin/bash
+set -e
+g++ -std=c++14 -fsyntax-only -c %s -o %s
+";
+    }
+
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
