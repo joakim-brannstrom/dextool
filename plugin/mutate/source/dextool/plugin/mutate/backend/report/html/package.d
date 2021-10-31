@@ -486,38 +486,52 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     // in the list. It is especially annoying when they are marked with dark
     // green.
     bool hasSuppressed;
+    auto noMutants = appender!(FileIndex[])();
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
-        auto r = tbl.appendRow();
-        r.addChild("td").addChild("a", f.display).href = buildPath(htmlFileDir, f.path);
+        if (f.stat.total == 0) {
+            noMutants.put(f);
+        } else {
+            auto r = tbl.appendRow();
+            r.addChild("td").addChild("a", f.display).href = buildPath(htmlFileDir, f.path);
 
-        const score = f.stat.score;
-        const style = () {
-            if (f.stat.total == 0)
-                return "background-color: lightgrey";
-            if (f.stat.killed == f.stat.total)
-                return "background-color: green";
-            if (score < 0.3)
-                return "background-color: red";
-            if (score < 0.5)
-                return "background-color: salmon";
-            if (score < 0.8)
-                return "background-color: lightyellow";
-            if (score < 1.0)
-                return "background-color: lightgreen";
-            return null;
-        }();
+            const score = f.stat.score;
+            const style = () {
+                if (f.stat.total == 0)
+                    return "background-color: lightgrey";
+                if (f.stat.killed == f.stat.total)
+                    return "background-color: green";
+                if (score < 0.3)
+                    return "background-color: red";
+                if (score < 0.5)
+                    return "background-color: salmon";
+                if (score < 0.8)
+                    return "background-color: lightyellow";
+                if (score < 1.0)
+                    return "background-color: lightgreen";
+                return null;
+            }();
 
-        r.addChild("td", format!"%.3s"(score)).style = style;
-        r.addChild("td", f.stat.alive.to!string);
-        r.addChild("td", f.stat.aliveNoMut.to!string);
-        r.addChild("td", f.stat.total.to!string);
-        r.addChild("td", f.stat
-                .totalTime
-                .sum
-                .total!"minutes"
-                .to!string);
+            r.addChild("td", format!"%.3s"(score)).style = style;
+            r.addChild("td", f.stat.alive.to!string);
+            r.addChild("td", f.stat.aliveNoMut.to!string);
+            r.addChild("td", f.stat.total.to!string);
+            r.addChild("td", f.stat
+                    .totalTime
+                    .sum
+                    .total!"minutes"
+                    .to!string);
 
-        hasSuppressed = hasSuppressed || f.stat.aliveNoMut != 0;
+            hasSuppressed = hasSuppressed || f.stat.aliveNoMut != 0;
+        }
+    }
+
+    if (!noMutants.data.empty) {
+        root.addChild("p", "Analyzed files with no mutants in them.");
+        auto noMutTbl = tmplSortableTable(root, ["Path"]);
+        foreach (f; noMutants.data) {
+            auto r = noMutTbl.appendRow();
+            r.addChild("td").addChild("a", f.display).href = buildPath(htmlFileDir, f.path);
+        }
     }
 
     if (hasSuppressed) {
