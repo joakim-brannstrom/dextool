@@ -13,14 +13,26 @@ namespace dextool_clang_extension {
 
 bool dex_isPotentialConstExpr(const CXCursor cx) {
     const clang::Decl* decl = getCursorDecl(cx);
+    if (decl != nullptr) {
+        if (llvm::isa<clang::FunctionDecl>(decl)) {
+            const clang::FunctionDecl* fnDecl = llvm::cast<const clang::FunctionDecl>(decl);
+            if (fnDecl == nullptr)
+                return false;
+            return fnDecl->isConstexpr();
+        }
+    }
 
-    if (decl == nullptr || !llvm::isa<clang::FunctionDecl>(decl))
-        return false;
-    const clang::FunctionDecl* fnDecl = llvm::cast<const clang::FunctionDecl>(decl);
-    if (fnDecl == nullptr)
-        return false;
+    const clang::Stmt* stmt = getCursorStmt(cx);
+    if (stmt != nullptr) {
+        if (llvm::isa<clang::IfStmt>(stmt)) {
+            const clang::IfStmt* ifStmt = llvm::cast<const clang::IfStmt>(stmt);
+            if (ifStmt == nullptr)
+                return false;
+            return ifStmt->isConstexpr();
+        }
+    }
 
-    return fnDecl->isConstexpr();
+    return false;
 }
 
 bool dex_isFunctionTemplateConstExpr(const CXCursor cx) {

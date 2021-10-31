@@ -981,7 +981,10 @@ final class BaseVisitor : ExtendedVisitor {
             throw new Exception("max analyze depth reached (200)");
         }
 
-        pushStack(ast.get.make!(analyze.BranchBundle), v);
+        auto n = ast.get.make!(analyze.BranchBundle);
+        if (isConstExpr(v.cursor))
+            n.schemaBlacklist = true;
+        pushStack(n, v);
         dextool.plugin.mutate.backend.analyze.extensions.accept(v, this);
     }
 
