@@ -445,7 +445,10 @@ struct ArgParser {
             string[] mutationTester;
             string[] testConstraint;
 
-            mutationTest.loadThreshold.get = totalCPUs + 1;
+            // the default threshold need to be a bit more than the total CPUs
+            // because the algorithm will by default hover around totalCPUs
+            // when running schematan.
+            mutationTest.loadThreshold.get = totalCPUs + 3;
 
             data.toolMode = ToolMode.test_mutants;
             // dfmt off
