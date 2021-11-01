@@ -343,6 +343,14 @@ private ulong uniqueNodeId() {
 }
 
 abstract class Node {
+    private enum Property {
+        blacklist = 0x1,
+        schemaBlacklist = 0x2,
+        covBlacklist = 0x4
+    }
+
+    private ubyte prop;
+
     Kind kind() const;
     ulong id() @safe pure nothrow const @nogc scope;
 
@@ -351,18 +359,45 @@ abstract class Node {
     /** If the node is blacklisted from being mutated. This is for example when
      * the node covers a C macro.
      */
-    bool blacklist;
+    bool blacklist() {
+        return Property.blacklist & prop;
+    }
+
+    void blacklist(bool x) {
+        if (x)
+            prop |= Property.blacklist;
+        else
+            prop &= ~Property.blacklist;
+    }
 
     /** If the node should not be part of mutant schemata because it is highly
      * likely to introduce compilation errors. It is for example likely when
      * operators are overloaded.
      */
-    bool schemaBlacklist;
+    bool schemaBlacklist() {
+        return (Property.schemaBlacklist & prop) != 0;
+    }
+
+    void schemaBlacklist(bool x) {
+        if (x)
+            prop |= Property.schemaBlacklist;
+        else
+            prop &= ~Property.schemaBlacklist;
+    }
 
     /** Block nodes that have a high probability of failing from being coverage instrumented.
      *
      */
-    bool covBlacklist;
+    bool covBlacklist() {
+        return (Property.covBlacklist & prop) != 0;
+    }
+
+    void covBlacklist(bool x) {
+        if (x)
+            prop |= Property.covBlacklist;
+        else
+            prop &= ~Property.covBlacklist;
+    }
 
     bool opEquals(Kind k) {
         return kind == k;
