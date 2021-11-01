@@ -389,6 +389,13 @@ class ShallGenerateValidSchemaForTemplate : SchemataFixutre {
         return (testData ~ "schemata_template.cpp").toString;
     }
 
+    override string scriptBuild() {
+        return "#!/bin/bash
+set -e
+g++ -std=c++14 %s -o %s
+";
+    }
+
     override void test() {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
