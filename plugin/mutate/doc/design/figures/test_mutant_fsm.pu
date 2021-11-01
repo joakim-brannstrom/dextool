@@ -81,7 +81,8 @@ CheckTimeout --> Done : unchanged
 CheckTimeout --> UpdateTimeout : changed
 
 Done --> SaveMutationScore
-SaveMutationScore --> SaveTestBinary
+SaveMutationScore --> UpdateTestCaseTag
+UpdateTestCaseTag --> SaveTestBinary
 SaveTestBinary --> Stop
 
 Error --> Stop
