@@ -592,7 +592,7 @@ struct DbTestCase {
         } catch (Exception e) {
         }
 
-        static immutable add_if_non_exist_tc_sql = format!"INSERT OR IGNORE INTO %s (name) SELECT :name1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)"(
+        static immutable add_if_non_exist_tc_sql = format!"INSERT OR IGNORE INTO %s (name,is_new) SELECT :name1,1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)"(
                 allTestCaseTable, allTestCaseTable);
         auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
 
@@ -692,7 +692,7 @@ struct DbTestCase {
         //While it may not be the most performant method possible in all cases,
         //it should work in basically every database engine ever that attempts
         //to implement ANSI 92 SQL
-        const add_missing_sql = format!"INSERT OR IGNORE INTO %s (name) SELECT t1.name FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL"(
+        const add_missing_sql = format!"INSERT OR IGNORE INTO %s (name,is_new) SELECT t1.name,1 FROM %s t1 LEFT JOIN %s t2 ON t2.name = t1.name WHERE t2.name IS NULL"(
                 allTestCaseTable, tmp_tbl, allTestCaseTable);
         db.run(add_missing_sql);
     }
@@ -1007,6 +1007,20 @@ struct DbTestCase {
             app.put(MutationStatusId(res.peek!long(0)));
 
         return app.data;
+    }
+
+    TestCaseId[] getNewTestCases() @trusted {
+        auto rval = appender!(TestCaseId[])();
+        db.run(select!AllTestCaseTbl).filter!(a => a.isNew)
+            .map!(a => TestCaseId(a.id))
+            .copy(rval);
+        return rval.data;
+    }
+
+    void removeNewTestCaseTag() @trusted {
+        immutable sql = "UPDATE " ~ allTestCaseTable ~ " SET is_new=0";
+        auto stmt = db.prepare(sql);
+        stmt.get.execute;
     }
 }
 
@@ -1948,6 +1962,15 @@ struct DbWorklist {
 
     long getCount() @trusted {
         static immutable sql = format!"SELECT count(*) FROM %1$s"(mutantWorklistTable);
+        auto stmt = db.prepare(sql);
+        auto res = stmt.get.execute;
+        return res.oneValue!long;
+    }
+
+    long getCount(Mutation.Status[] status) @trusted {
+        const sql = format("SELECT count(*) FROM " ~ mutantWorklistTable ~ " t0, "
+                ~ mutationStatusTable ~ " t1 WHERE t0.id=t1.id AND t1.status IN (%(%s,%))",
+                status.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;
         return res.oneValue!long;

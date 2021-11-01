@@ -81,6 +81,8 @@ void makeTestCases(ref Database db, string tag, Element root, ref const ConfigRe
         tabContent[a] = tmplSortableTable(div, ["Name", "Tests", "Killed"]);
     }
 
+    auto newTestCases = spinSql!(() => db.testCaseApi.getNewTestCases).toSet;
+    logger.trace("new test cases ", newTestCases);
     long[Classification] classCnt;
     foreach (tcId; spinSql!(() => db.testCaseApi.getDetectedTestCaseIds)) {
         const name = spinSql!(() => db.testCaseApi.getTestCaseName(tcId));
@@ -98,15 +100,21 @@ void makeTestCases(ref Database db, string tag, Element root, ref const ConfigRe
         });
 
         auto classification = classify(TestCase(name), summary, data.classifier, metaData);
-        classCnt[classification] += 1;
+        if (classification == Classification.Buggy && tcId in newTestCases) {
+            logger.trace("test case is new and tagged as buggy: ", name);
+            // only report test cases as buggy if all alive mutants have been
+            // tested. it is only then we can be sure that they actually are buggy.
+        } else {
+            classCnt[classification] += 1;
 
-        auto r = tabContent[classification].appendRow;
-        {
-            auto td = r.addChild("td");
-            td.addChild("a", name).href = buildPath(HtmlStyle.testCaseDir, reportFname);
+            auto r = tabContent[classification].appendRow;
+            {
+                auto td = r.addChild("td");
+                td.addChild("a", name).href = buildPath(HtmlStyle.testCaseDir, reportFname);
+            }
+            r.addChild("td", summary.score.to!string);
+            r.addChild("td", summary.kills.to!string);
         }
-        r.addChild("td", summary.score.to!string);
-        r.addChild("td", summary.kills.to!string);
     }
 
     foreach (a; classCnt.byKeyValue) {

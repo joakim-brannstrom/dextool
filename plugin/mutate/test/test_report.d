@@ -750,6 +750,48 @@ class ShallReportTestCaseUniqueness : LinesWithNoMut {
     }
 }
 
+class ShallExcludeNewTcFromBuggy : LinesWithNoMut {
+    override void test() {
+        import std.json;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
+
+        import dextool.plugin.mutate.backend.type : TestCase;
+
+        // Arrange
+        const tc1 = TestCase("tc_1");
+        db.testCaseApi.setDetectedTestCases([tc1]);
+
+        // Act
+        makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", (testEnv.outdir ~ "excluded").toString])
+            .run;
+
+        db.testCaseApi.removeNewTestCaseTag;
+
+        makeDextoolReport(testEnv, testData.dirName)
+            .addPostArg(["--mutant", "all"])
+            .addArg(["--style", "html"])
+            .addArg(["--logdir", testEnv.outdir.toString])
+            .run;
+
+        testConsecutiveSparseOrder!SubStr([
+                `Test Cases</h2>`, `>Unique<`, `>Redundant<`, `>Buggy 1<`
+                ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html",
+                "index.html")).byLineCopy.array);
+
+        testConsecutiveSparseOrder!SubStr([
+                `Test Cases</h2>`, `>Unique<`, `>Redundant<`, `>Buggy<`
+                ]).shouldBeIn(File(buildPath((testEnv.outdir ~ "excluded").toString, "html",
+                "index.html")).byLineCopy.array);
+    }
+}
+
 class ShallReportMutationScoreTrend : SimpleAnalyzeFixture {
     override void test() {
         import std.json;

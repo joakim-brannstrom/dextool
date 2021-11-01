@@ -320,6 +320,9 @@ struct TestDriver {
     static struct SaveMutationScore {
     }
 
+    static struct UpdateTestCaseTag {
+    }
+
     static struct ParseStdin {
     }
 
@@ -449,8 +452,9 @@ struct TestDriver {
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
             UpdateTimeout, CheckStopCond, PullRequest, CheckPullRequestMutant, ParseStdin,
             FindTestCmds, ChooseMode, NextSchemata, SchemataTest, LoadSchematas,
-            Stop, SaveMutationScore, OverloadCheck, Coverage,
-            PropagateCoverage, ContinuesCheckTestSuite, ChecksumTestCmds, SaveTestBinary);
+            Stop, SaveMutationScore, UpdateTestCaseTag, OverloadCheck,
+            Coverage, PropagateCoverage, ContinuesCheckTestSuite,
+            ChecksumTestCmds, SaveTestBinary);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData, PullRequestData, ResetOldMutantData,
             NextSchemataData, ContinuesCheckTestSuiteData, MutationTestData, NextMutantData);
 
@@ -543,7 +547,8 @@ struct TestDriver {
             if (self.conf.testCmdChecksum.get)
                 return fsm(ChecksumTestCmds.init);
             return fsm(MeasureTestSuite.init);
-        }, (ChecksumTestCmds a) => MeasureTestSuite.init, (SaveMutationScore a) => SaveTestBinary.init,
+        }, (ChecksumTestCmds a) => MeasureTestSuite.init, (SaveMutationScore a) => UpdateTestCaseTag.init,
+                (UpdateTestCaseTag a) => SaveTestBinary.init,
                 (SaveTestBinary a) => Stop.init, (PreCompileSut a) {
             if (a.compilationError)
                 return fsm(Error.init);
@@ -1083,6 +1088,15 @@ nothrow:
             db.trimMutationScore(10000);
             t.commit;
         });
+    }
+
+    void opCall(UpdateTestCaseTag data) {
+        if (spinSql!(() => db.worklistApi.getCount([
+                    Mutation.Status.alive, Mutation.Status.unknown
+                ])) != 0) {
+            spinSql!(() => db.testCaseApi.removeNewTestCaseTag);
+            logger.info("All alive in worklist tested. Removing 'new test' tag.").collectException;
+        }
     }
 
     void opCall(SaveTestBinary data) {

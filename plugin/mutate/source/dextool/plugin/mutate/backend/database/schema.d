@@ -409,6 +409,9 @@ struct TestCaseKilledTbl {
 struct AllTestCaseTbl {
     long id;
     string name;
+
+    @ColumnName("is_new")
+    bool isNew;
 }
 
 /**
@@ -1508,6 +1511,13 @@ void upgradeV26(ref Miniorm db) {
 
 /// 2020-12-25
 void upgradeV27(ref Miniorm db) {
+    @TableName(allTestCaseTable)
+    @TableConstraint("unique_ UNIQUE (name)")
+    struct AllTestCaseTbl {
+        long id;
+        string name;
+    }
+
     immutable newTbl = "new_" ~ allTestCaseTable;
     db.run(buildSchema!AllTestCaseTbl("new_"));
 
@@ -1770,6 +1780,16 @@ void upgradeV46(ref Miniorm db) {
     db.run(buildSchema!SchemaSizeQTable);
     // drop probability because max state where changed thus all previous values are now 10x off
     db.run("DELETE FROM " ~ schemaMutantQTable);
+}
+
+// 2021-11-01
+void upgradeV47(ref Miniorm db) {
+    immutable newTbl = "new_" ~ allTestCaseTable;
+    db.run(buildSchema!AllTestCaseTbl("new_"));
+
+    db.run(format("INSERT INTO %s (id,name,is_new) SELECT id,name,0 FROM %s",
+            newTbl, allTestCaseTable));
+    replaceTbl(db, newTbl, allTestCaseTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
