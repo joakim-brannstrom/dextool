@@ -429,7 +429,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
             delayedSend(ctx.self, 5.dur!"seconds".delay, CheckStopCondMsg.init).collectException;
 
             if (ctx.state.get.stopCheck.isHalt != TestStopCheck.HaltReason.none) {
-                ctx.state.get.isRunning = false;
+                send(ctx.self, RestoreMsg.init);
                 logger.info(ctx.state.get.stopCheck.overloadToString).collectException;
             }
         } catch (Exception e) {
