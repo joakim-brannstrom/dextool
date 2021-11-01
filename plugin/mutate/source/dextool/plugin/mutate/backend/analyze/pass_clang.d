@@ -523,6 +523,8 @@ final class BaseVisitor : ExtendedVisitor {
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
         n.covBlacklist = true;
+        n.schemaBlacklist = n.schemaBlacklist
+            || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
         pushStack(n, v);
         v.accept(this);
     }
@@ -532,6 +534,28 @@ final class BaseVisitor : ExtendedVisitor {
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
         n.covBlacklist = true;
+        n.schemaBlacklist = n.schemaBlacklist
+            || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
+        pushStack(n, v);
+        v.accept(this);
+    }
+
+    override void visit(scope const ClassDecl v) @trusted {
+        mixin(mixinNodeLog!());
+        // by adding the node it is possible to search for it in cstack
+        auto n = ast.get.make!(analyze.Poision);
+        n.schemaBlacklist = n.schemaBlacklist
+            || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
+        pushStack(n, v);
+        v.accept(this);
+    }
+
+    override void visit(scope const StructDecl v) @trusted {
+        mixin(mixinNodeLog!());
+        // by adding the node it is possible to search for it in cstack
+        auto n = ast.get.make!(analyze.Poision);
+        n.schemaBlacklist = n.schemaBlacklist
+            || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
         pushStack(n, v);
         v.accept(this);
     }
