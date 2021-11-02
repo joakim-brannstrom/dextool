@@ -1588,7 +1588,8 @@ struct DbMutant {
                     WHERE
                     t0.update_ts IS NOT NULL AND
                     t1.st_id = t0.id AND
-                    t1.kind IN (%(%s,%))
+                    t1.kind IN (%(%s,%)) AND
+                    (t0.compile_time_ms + t0.test_time_ms) > 0
                     ORDER BY datetime(t0.update_ts) DESC LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
