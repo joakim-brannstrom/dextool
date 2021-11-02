@@ -335,14 +335,15 @@ struct MutationScore {
     long noCoverage;
     long equivalent;
     long skipped;
+    long memOverload;
     MutantTimeProfile totalTime;
 
     // Nr of mutants that are alive but tagged with nomut.
     long aliveNoMut;
 
     double score() @safe pure nothrow const @nogc {
-        if (total > 0) {
-            return cast(double)(killed + timeout) / cast(double)(total - aliveNoMut);
+        if ((total - aliveNoMut) > 0) {
+            return cast(double)(killed + timeout + memOverload) / cast(double)(total - aliveNoMut);
         }
         return 0.0;
     }
@@ -359,6 +360,7 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     rval.noCoverage = spinSql!(() => db.mutantApi.noCovSrcMutants(kinds, file)).count;
     rval.equivalent = spinSql!(() => db.mutantApi.equivalentMutants(kinds, file)).count;
     rval.skipped = spinSql!(() => db.mutantApi.skippedMutants(kinds, file)).count;
+    rval.memOverload = spinSql!(() => db.mutantApi.memOverloadMutants(kinds, file)).count;
 
     const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds, file));
     rval.totalTime = total.time;
@@ -403,6 +405,10 @@ struct MutationStat {
 
     long skipped() @safe pure nothrow const @nogc {
         return scoreData.skipped;
+    }
+
+    long memOverload() @safe pure nothrow const @nogc {
+        return scoreData.memOverload;
     }
 
     long total() @safe pure nothrow const @nogc {
@@ -1128,6 +1134,8 @@ struct EstimateScore {
             case killed:
                 goto case;
             case timeout:
+                goto case;
+            case memOverload:
                 goto case;
             case equivalent:
                 return 1.0;

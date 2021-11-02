@@ -15,6 +15,7 @@ import std.array : Appender, appender, array, empty;
 import std.datetime : dur;
 import std.exception : collectException;
 import std.format : format;
+import std.functional : toDelegate;
 import std.path : buildPath, baseName, relativePath;
 import std.range : only;
 import std.stdio : File;
@@ -555,11 +556,12 @@ struct MetaSpan {
         alive,
         killed,
         timeout,
+        memOverload,
         killedByCompiler,
         skipped,
         unknown,
         none,
-        noCoverage
+        noCoverage,
     }
 
     StatusColor status;
@@ -603,6 +605,10 @@ MetaSpan.StatusColor pickColor(const FileMutant m,
     case Mutation.Status.timeout:
         if (status > MetaSpan.StatusColor.timeout)
             status = MetaSpan.StatusColor.timeout;
+        break;
+    case Mutation.Status.memOverload:
+        if (status > MetaSpan.StatusColor.memOverload)
+            status = MetaSpan.StatusColor.memOverload;
         break;
     case Mutation.Status.skipped:
         if (status > MetaSpan.StatusColor.skipped)
@@ -935,6 +941,8 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
         ctx.self.shutdown;
     }
 
+    self.exceptionHandler = toDelegate(&logExceptionHandler);
+
     self.request(flowCtrl, infTimeout).send(TakeTokenMsg.init)
         .capture(self.address, dbPath, logFilesDir).then((ref Tuple!(FileReportActor.Address,
                 AbsolutePath, AbsolutePath) ctx, my.actor.utility.limiter.Token _) => send(ctx[0],
@@ -987,13 +995,13 @@ auto spawnFileReportCollector(FileReportCollectorActor.Impl self, FlowControlAct
     static void index(ref Ctx ctx, FileIndex fi) {
         ctx.state.get.files ~= fi;
 
+        send(ctx.state.get.flow, ReturnTokenMsg.init);
+        logger.infof("Generated %s (%s)", fi.display, fi.stat.score);
+
         if (ctx.state.get.done && !ctx.state.get.promise.empty) {
             ctx.state.get.promise.deliver(ctx.state.get.files);
             ctx.self.shutdown;
         }
-
-        send(ctx.state.get.flow, ReturnTokenMsg.init);
-        logger.infof("Generated %s (%s)", fi.display, fi.stat.score);
     }
 
     static RequestResult!(FileIndex[]) getIndexes(ref Ctx ctx, GetIndexesMsg) {
@@ -1009,6 +1017,9 @@ auto spawnFileReportCollector(FileReportCollectorActor.Impl self, FlowControlAct
         return typeof(return)(ctx.state.get.promise);
     }
 
+    self.exceptionHandler = () @trusted {
+        return toDelegate(&logExceptionHandler);
+    }();
     return impl(self, &started, capture(st), &doneStarting, capture(st),
             &index, capture(st), &getIndexes, capture(st));
 }
@@ -1092,6 +1103,9 @@ auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
         return typeof(return)(ctx.state.get.promise);
     }
 
+    self.exceptionHandler = () @trusted {
+        return toDelegate(&logExceptionHandler);
+    }();
     return impl(self, &started, capture(st), &doneStarting, capture(st),
             &subPage, capture(st), &checkDone, capture(st), &getPages,
             capture(st), &subContent, capture(st));
@@ -1372,6 +1386,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
                 index.toPrettyString);
     }
 
+    self.exceptionHandler = toDelegate(&logExceptionHandler);
     send(self, InitMsg.init, dbPath);
     return impl(self, &init_, capture(st), &startFileReportes, capture(st),
             &waitForDone, capture(st), &checkDone, capture(st), &genIndex,

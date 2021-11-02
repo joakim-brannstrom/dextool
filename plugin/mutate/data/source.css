@@ -7,6 +7,7 @@
 .status_killed {background-color: lightgreen;}
 .status_killedByCompiler {background-color: #eeeeee;}
 .status_timeout {background-color: lightgreen;}
+.status_memOverload {background-color: lightgreen;}
 .status_unknown {background-color: lightyellow;}
 .hover_alive {color: lightpink;}
 .hover_noCoverage {color: lightpink;}
@@ -14,6 +15,7 @@
 .hover_killed {color: lightgreen;}
 .hover_killedByCompiler {color: #eeeeee;}
 .hover_timeout {color: lightgreen;}
+.hover_memOverload {color: lightgreen;}
 .hover_unknown {color: lightyellow;}
 .literal {color: darkred;}
 .keyword {color: blue;}

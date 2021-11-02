@@ -326,6 +326,10 @@ struct Database {
         return typeof(return)(&db, &this);
     }
 
+    DbMemOverload memOverloadApi() return @safe {
+        return typeof(return)(&db);
+    }
+
     DbMarkMutant markMutantApi() return @safe {
         return typeof(return)(&db, &this);
     }
@@ -1613,11 +1617,12 @@ struct DbMutant {
     alias noCovSrcMutants = countMutants!([Mutation.Status.noCoverage]);
     alias equivalentMutants = countMutants!([Mutation.Status.equivalent]);
     alias skippedMutants = countMutants!([Mutation.Status.skipped]);
+    alias memOverloadMutants = countMutants!([Mutation.Status.memOverload]);
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.killed,
-            Mutation.Status.timeout, Mutation.Status.noCoverage
+            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout,
+            Mutation.Status.noCoverage, Mutation.Status.memOverload,
             ]);
 
     alias unknownSrcMutants = countMutants!([Mutation.Status.unknown]);
@@ -1985,6 +1990,43 @@ struct DbWorklist {
         return res.map!(a => WorklistItem(a.peek!long(0).MutationStatusId,
                 a.peek!long(1).MutantPrio)).array;
     }
+
+    /// Add all mutants with `status` to worklist
+    void statusToWorklist(const Mutation.Status status, const long prio = 100) @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %1$s (id,prio)
+            SELECT id,%3$s+prio FROM %2$s WHERE status=:status"(
+                mutantWorklistTable, mutationStatusTable, prio);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":status", cast(int) status);
+        stmt.get.execute;
+    }
+}
+
+struct DbMemOverload {
+    private Miniorm* db;
+
+    void put(const MutationStatusId id) @trusted {
+        immutable sql = "INSERT OR IGNORE INTO "
+            ~ mutantMemOverloadWorklistTable ~ " (id) VALUES (:id)";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+        stmt.get.execute;
+    }
+
+    /// Copy the memory overload mutants to the worklist of mutants to test.
+    void toWorklist(const long prio = 100) @trusted {
+        immutable sql = format!"INSERT OR IGNORE INTO %1$s (id,prio)
+            SELECT id,%3$s FROM %2$s"(mutantWorklistTable,
+                mutantMemOverloadWorklistTable, prio);
+        auto stmt = db.prepare(sql);
+        stmt.get.execute;
+
+    }
+
+    void clear() @trusted {
+        immutable sql = "DELETE FROM " ~ mutantMemOverloadWorklistTable;
+        db.run(sql);
+    }
 }
 
 struct DbMarkMutant {
@@ -2069,8 +2111,9 @@ struct DbTimeout {
         db.run(insert!MutantTimeoutCtx.insert, ctx);
     }
 
-    void putMutantInTimeoutWorklist(const MutationStatusId id) @trusted {
-        const sql = format!"INSERT OR IGNORE INTO %s (id) VALUES (:id)"(mutantTimeoutWorklistTable);
+    void put(const MutationStatusId id) @trusted {
+        static immutable sql = "INSERT OR IGNORE INTO "
+            ~ mutantTimeoutWorklistTable ~ " (id) VALUES (:id)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         stmt.get.execute;
@@ -2080,10 +2123,8 @@ struct DbTimeout {
      * mutation status timeout.
      */
     void reduceMutantTimeoutWorklist() @trusted {
-        static immutable sql = format!"DELETE FROM %1$s
-            WHERE
-            id IN (SELECT id FROM %2$s WHERE status != :status)"(
-                mutantTimeoutWorklistTable, mutationStatusTable);
+        static immutable sql = "DELETE FROM " ~ mutantTimeoutWorklistTable
+            ~ " WHERE id IN (SELECT id FROM " ~ mutationStatusTable ~ " WHERE status != :status)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(ubyte) Mutation.Status.timeout);
         stmt.get.execute;
@@ -2091,13 +2132,13 @@ struct DbTimeout {
 
     /// Remove all mutants from the worklist.
     void clearMutantTimeoutWorklist() @trusted {
-        static immutable sql = format!"DELETE FROM %1$s"(mutantTimeoutWorklistTable);
+        static immutable sql = "DELETE FROM " ~ mutantTimeoutWorklistTable;
         db.run(sql);
     }
 
     /// Returns: the number of mutants in the worklist.
     long countMutantTimeoutWorklist() @trusted {
-        static immutable sql = format!"SELECT count(*) FROM %1$s"(mutantTimeoutWorklistTable);
+        static immutable sql = "SELECT count(*) FROM " ~ mutantTimeoutWorklistTable;
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute();
         return res.oneValue!long;
@@ -2120,7 +2161,6 @@ struct DbTimeout {
         auto stmt = db.prepare(sql);
         stmt.get.execute;
     }
-
 }
 
 struct DbCoverage {

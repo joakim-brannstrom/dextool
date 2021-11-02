@@ -97,6 +97,7 @@ immutable killedTestCaseTable = "killed_test_case";
 immutable markedMutantTable = "marked_mutant";
 immutable mutantTimeoutCtxTable = "mutant_timeout_ctx";
 immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
+immutable mutantMemOverloadWorklistTable = "mutant_memoverload_worklist";
 immutable mutantWorklistTable = "mutant_worklist";
 immutable mutationPointTable = "mutation_point";
 immutable mutationScoreHistoryTable = "mutation_score_history";
@@ -466,6 +467,14 @@ struct MutationStatusTbl {
 struct MutantWorklistTbl {
     long id;
     long prio;
+}
+
+/** Memory overload mutants that are re-tested one extra time.
+ */
+@TableName(mutantMemOverloadWorklistTable)
+@TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+struct MutantMemOverloadtWorklistTbl {
+    long id;
 }
 
 /** Timeout mutants that are re-tested until none of them change status from
@@ -855,10 +864,11 @@ void upgradeV0(ref Miniorm db) {
             SchemataMutantTable,
             SchemataUsedTable, SchemaMutantKindQTable, SchemaSizeQTable,
             MutantWorklistTbl, RuntimeHistoryTable, MutationScoreHistoryTable,
-            TestFilesTable, CoverageCodeRegionTable, CoverageInfoTable,
-            CoverageTimeTtampTable,
-            DependencyFileTable, DependencyRootTable, DextoolVersionTable,
-            TestCmdOriginalTable, TestCmdMutatedTable));
+            TestFilesTable, CoverageCodeRegionTable,
+            CoverageInfoTable, CoverageTimeTtampTable, DependencyFileTable,
+            DependencyRootTable,
+            DextoolVersionTable, TestCmdOriginalTable, TestCmdMutatedTable,
+            MutantMemOverloadtWorklistTbl));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1790,6 +1800,11 @@ void upgradeV47(ref Miniorm db) {
     db.run(format("INSERT INTO %s (id,name,is_new) SELECT id,name,0 FROM %s",
             newTbl, allTestCaseTable));
     replaceTbl(db, newTbl, allTestCaseTable);
+}
+
+// 2021-11-02
+void upgradeV48(ref Miniorm db) {
+    db.run(buildSchema!MutantMemOverloadtWorklistTbl);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
