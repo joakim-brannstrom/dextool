@@ -406,6 +406,8 @@ nothrow:
                 break;
             case Status.timeout:
                 goto case;
+            case Status.memOverload:
+                goto case;
             case Status.noCoverage:
                 goto case;
             case Status.killedByCompiler:

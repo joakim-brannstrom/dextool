@@ -74,6 +74,8 @@ shared static this() @trusted {
         : "The compiler found and killed the mutant.",
         MutantStatus.timeout
         : "The test suite never terminate, infinite loop, when the mutant is tested.",
+        MutantStatus.memOverload
+        : "The test suite where terminated because the system memory limit triggered.",
         MutantStatus.noCoverage: "The mutant is never executed by the test suite.",
         MutantStatus.equivalent
         : "No change in the test case binaries happens when the mutant is injected and compiled.",
@@ -90,6 +92,7 @@ shared static this() @trusted {
         MutantStatus.killed: "background-color: #b3ff99",
         MutantStatus.killedByCompiler: "background-color: #b3ff99",
         MutantStatus.timeout: "background-color: #b3ff99",
+        MutantStatus.memOverload: "background-color: #b3ff99",
         MutantStatus.noCoverage: "background-color: #ff9980",
         //Mutation.Status.equivalent:,
         //Mutation.Status.skipped:,

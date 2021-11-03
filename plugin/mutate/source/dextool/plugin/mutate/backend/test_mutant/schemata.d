@@ -256,6 +256,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
                 goto case;
             case timeout:
                 goto case;
+            case memOverload:
+                goto case;
             case killedByCompiler:
                 break;
             }

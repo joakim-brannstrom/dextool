@@ -190,6 +190,8 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
                 goto case;
             case Status.timeout:
                 goto case;
+            case Status.memOverload:
+                goto case;
             case Status.error:
                 failed = true;
                 printFailing(res.result);

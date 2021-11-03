@@ -265,6 +265,8 @@ struct Mutation {
         equivalent,
         /// if the mutant where never tested because reasons
         skipped,
+        /// the mutant where killed because of a memory overload
+        memOverload,
     }
 
     Kind kind;

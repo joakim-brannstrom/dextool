@@ -220,7 +220,9 @@ struct TestRunner {
                 break;
             case RunResult.Status.timeout:
                 result.status = TestResult.Status.timeout;
-                result.output[res.cmd] = res.output;
+                break;
+            case RunResult.Status.memOverload:
+                result.status = TestResult.Status.memOverload;
                 break;
             case RunResult.Status.error:
                 result.status = TestResult.Status.error;
@@ -309,6 +311,8 @@ struct TestResult {
         failed,
         /// At least one test command timed out.
         timeout,
+        /// memory overload
+        memOverload,
         /// Something happend when the test command executed thus the result should not be used.
         error
     }
@@ -392,7 +396,7 @@ RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env, T
                 logger.infof("Available memory below limit. Stopping %s (%s < %s)",
                         cmd, availMem.available, minAvailableMem.get);
                 p.kill;
-                rval.status = RunResult.Status.timeout;
+                rval.status = RunResult.Status.memOverload;
                 break;
             }
         }
@@ -428,6 +432,8 @@ struct RunResult {
         error,
         /// The test command timed out.
         timeout,
+        /// memory overload
+        memOverload
     }
 
     /// The command that where executed.
@@ -522,8 +528,7 @@ unittest {
     auto res = runner.run(1.dur!"seconds");
 
     res.status.shouldEqual(TestResult.Status.timeout);
-    res.output.byKey.count.shouldEqual(1);
-    res.output.byValue.joiner.filter!(a => a.byUTF8.array.strip == "foo").count.shouldEqual(1);
+    res.output.byKey.count.shouldEqual(0); // no output should be saved
 }
 
 @("shall only capture at most ")

@@ -72,12 +72,18 @@ void updateMutantStatus(ref Database db, const MutationStatusId id,
         const Mutation.Status st, const ExitStatus ecode, const long usedIter) @trusted {
     import std.typecons : Yes;
 
+    // TODO: ugly hack to integrate memory overload with timeout. Refactor in
+    // the future. It is just, the most convenient place to do it at the
+    // moment.
+
     const ctx = db.timeoutApi.getMutantTimeoutCtx;
 
     final switch (ctx.state) with (MutantTimeoutCtx.State) {
     case init_:
         if (st == Mutation.Status.timeout)
-            db.timeoutApi.putMutantInTimeoutWorklist(id);
+            db.timeoutApi.put(id);
+        else if (st == Mutation.Status.memOverload)
+            db.memOverloadApi.put(id);
         db.mutantApi.updateMutationStatus(id, st, ecode, Yes.updateTs);
         break;
     case running:
@@ -247,6 +253,9 @@ struct TimeoutFsm {
 
     void opCall(ResetWorkList) {
         global.db.timeoutApi.copyMutantTimeoutWorklist;
+
+        global.db.memOverloadApi.toWorklist;
+        global.db.memOverloadApi.clear;
     }
 
     void opCall(UpdateCtx) {

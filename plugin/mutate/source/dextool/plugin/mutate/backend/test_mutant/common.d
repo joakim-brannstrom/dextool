@@ -510,6 +510,9 @@ TestResult runTester(Args...)(ref TestRunner runner, auto ref Args args) nothrow
         case timeout:
             rval.status = Mutation.Status.timeout;
             break;
+        case memOverload:
+            rval.status = Mutation.Status.memOverload;
+            break;
         case error:
             rval.status = Mutation.Status.unknown;
             break;
