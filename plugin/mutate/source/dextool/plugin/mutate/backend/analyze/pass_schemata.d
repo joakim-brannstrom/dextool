@@ -381,13 +381,13 @@ struct FragmentBuilder {
     }
 
     SchemataResult.Fragment[] finalize() {
-        typeof(return) rval;
+        auto rval = appender!(typeof(return))();
         Set!ulong mutantIds;
         auto m = appender!(CodeMutant[])();
         auto schema = BlockChain(original);
         void makeFragment() {
             if (!mutantIds.empty) {
-                rval ~= SchemataResult.Fragment(loc.interval, schema.generate, m.data.dup);
+                rval.put(SchemataResult.Fragment(loc.interval, schema.generate, m.data.dup));
                 m.clear;
                 schema = BlockChain(original);
                 mutantIds = typeof(mutantIds).init;
@@ -418,7 +418,7 @@ struct FragmentBuilder {
 
         makeFragment;
 
-        return rval;
+        return rval.data;
     }
 }
 
