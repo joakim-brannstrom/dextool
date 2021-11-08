@@ -381,13 +381,13 @@ struct FragmentBuilder {
     }
 
     SchemataResult.Fragment[] finalize() {
-        typeof(return) rval;
+        auto rval = appender!(typeof(return))();
         Set!ulong mutantIds;
         auto m = appender!(CodeMutant[])();
         auto schema = BlockChain(original);
         void makeFragment() {
             if (!mutantIds.empty) {
-                rval ~= SchemataResult.Fragment(loc.interval, schema.generate, m.data.dup);
+                rval.put(SchemataResult.Fragment(loc.interval, schema.generate, m.data.dup));
                 m.clear;
                 schema = BlockChain(original);
                 mutantIds = typeof(mutantIds).init;
@@ -414,11 +414,21 @@ struct FragmentBuilder {
             if (sq.isZero(file, p.mutant.mut.kind)) {
                 makeFragment;
             }
+
+            // too large fragments blow up the compilation time.  This is a
+            // magic number that should be configurable.  Must check that there
+            // is at least one mutant in the fragment because otherwise we
+            // could end up with fragments that only contain the original.
+            // There are namely function bodies that are very large such as the
+            // main function in "grep".
+            if (mutantIds.length > 0 && schema.length > 10000) {
+                makeFragment;
+            }
         }
 
         makeFragment;
 
-        return rval;
+        return rval.data;
     }
 }
 
@@ -1040,9 +1050,11 @@ struct BlockChain {
     alias Mutant = Tuple!(ulong, "id", const(ubyte)[], "value");
     Appender!(Mutant[]) mutants;
     const(ubyte)[] original;
+    size_t length;
 
     this(const(ubyte)[] original) {
         this.original = original;
+        this.length += original.length;
     }
 
     bool empty() @safe pure nothrow const @nogc {
@@ -1051,6 +1063,10 @@ struct BlockChain {
 
     /// Returns: `value`
     const(ubyte)[] put(ulong id, const(ubyte)[] value) {
+        // 100 is a magic number that assume that each fragment also result in
+        //     ~100 characters extra "overhead" by somewhat manually
+        //     calculating what is in `generate`.
+        length += value.length + 100;
         mutants.put(Mutant(id, value));
         return value;
     }
