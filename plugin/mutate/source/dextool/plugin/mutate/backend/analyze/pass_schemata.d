@@ -395,33 +395,34 @@ struct FragmentBuilder {
         }
 
         foreach (p; parts.data) {
-            // do not add any fragments that are almost certain to fail. but
-            // keep it at 1 because then they will be randomly tested for
-            // succes now and then.
             if (!sq.use(file, p.mutant.mut.kind, 0.01)) {
+                // do not add any fragments that are almost certain to fail.
+                // but keep it at 1 because then they will be randomly tested
+                // for succes now and then.
                 makeFragment;
-            }
-
-            // the ID cannot be duplicated because then two mutants would be
-            // activated at the same time.
-            if (p.id !in mutantIds) {
+            } else if (p.id !in mutantIds) {
+                // the ID cannot be duplicated because then two mutants would
+                // be activated at the same time.
                 schema.put(p.id, p.mod);
                 m.put(p.mutant);
                 mutantIds.add(p.id);
-            }
-
-            // isolate always failing fragments.
-            if (sq.isZero(file, p.mutant.mut.kind)) {
+            } else if (sq.isZero(file, p.mutant.mut.kind)) {
+                // isolate always failing fragments.
                 makeFragment;
-            }
-
-            // too large fragments blow up the compilation time.  This is a
-            // magic number that should be configurable.  Must check that there
-            // is at least one mutant in the fragment because otherwise we
-            // could end up with fragments that only contain the original.
-            // There are namely function bodies that are very large such as the
-            // main function in "grep".
-            if (mutantIds.length > 0 && schema.length > 10000) {
+            } else if (mutantIds.length > 0 && schema.length > 100000) {
+                // too large fragments blow up the compilation time. Must check that
+                // there is at least one mutant in the fragment because
+                // otherwise we could end up with fragments that only contain
+                // the original. There are namely function bodies that are
+                // very large such as the main function in "grep".
+                // The number 100k is based on running on
+                // examples/game_tutorial and observe how large the scheman are
+                // together with how many mutants are left after the scheman
+                // have executed. With a limit of:
+                // 10k result in 53 scheman and 233 mutants left after executed.
+                // 100k result in 8 scheman and 148 mutants left after executed.
+                // 1 milj results in 4 shceman and 147 mutants left after executed.
+                // thus 100k is chosen.
                 makeFragment;
             }
         }
