@@ -78,6 +78,9 @@ void updateMutantStatus(ref Database db, const MutationStatusId id,
 
     const ctx = db.timeoutApi.getMutantTimeoutCtx;
 
+    assert(MaxTimeoutIterations - 1 > 0,
+            "MaxTimeoutIterations configured too low for memOverload to use it");
+
     final switch (ctx.state) with (MutantTimeoutCtx.State) {
     case init_:
         if (st == Mutation.Status.timeout)
@@ -87,8 +90,12 @@ void updateMutantStatus(ref Database db, const MutationStatusId id,
         db.mutantApi.updateMutationStatus(id, st, ecode, Yes.updateTs);
         break;
     case running:
-        if (usedIter == ctx.iter)
+        if (usedIter == ctx.iter) {
+            // the overloaded need to be re-tested a couple of times.
+            if (st == Mutation.Status.memOverload && usedIter < MaxTimeoutIterations - 1)
+                db.memOverloadApi.put(id);
             db.mutantApi.updateMutationStatus(id, st, ecode, Yes.updateTs);
+        }
         break;
     case done:
         break;
@@ -290,6 +297,9 @@ struct TimeoutFsm {
 
     void opCall(ClearWorkList) {
         global.db.timeoutApi.clearMutantTimeoutWorklist;
+
+        global.db.memOverloadApi.toWorklist;
+        global.db.memOverloadApi.clear;
     }
 
     void opCall(Stop) {
