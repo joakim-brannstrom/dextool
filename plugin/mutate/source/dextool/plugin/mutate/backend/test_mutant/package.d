@@ -1095,7 +1095,7 @@ nothrow:
     void opCall(UpdateTestCaseTag data) {
         if (spinSql!(() => db.worklistApi.getCount([
                     Mutation.Status.alive, Mutation.Status.unknown
-                ])) != 0) {
+                ])) == 0) {
             spinSql!(() => db.testCaseApi.removeNewTestCaseTag);
             logger.info("All alive in worklist tested. Removing 'new test' tag.").collectException;
         }
