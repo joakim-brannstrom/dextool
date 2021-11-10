@@ -1729,7 +1729,9 @@ struct DbMutant {
     }
 
     /// ditto.
-    alias aliveNoMutSrcMutants = countNoMutMutants!([Mutation.Status.alive], true);
+    alias aliveNoMutSrcMutants = countNoMutMutants!([
+            Mutation.Status.alive, Mutation.Status.noCoverage
+            ], true);
 
     Nullable!Checksum getChecksum(MutationStatusId id) @trusted {
         static immutable sql = format!"SELECT checksum0, checksum1 FROM %s WHERE id=:id"(
