@@ -50,7 +50,7 @@ void overallStat(const MutationStat s, Element base) {
     }
 
     PieGraph("score", [
-            PieGraph.Item("alive", "red", s.alive),
+            PieGraph.Item("alive", "red", s.alive - s.aliveNoMut),
             PieGraph.Item("killed", "green", s.killed),
             PieGraph.Item("Untested", "grey", s.untested),
             PieGraph.Item("Timeout", "lightgreen", s.timeout)

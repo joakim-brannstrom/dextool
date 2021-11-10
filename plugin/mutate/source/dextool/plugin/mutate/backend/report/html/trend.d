@@ -30,7 +30,7 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
 
     auto ts = TimeScalePointGraph("ScoreHistory");
 
-    const history = reportMutationScoreHistory(db);
+    const history = reportMutationScoreHistory(db).rollingAvg;
     if (history.data.length > 2 && history.estimate.x != SysTime.init) {
         foreach (v; history.data) {
             ts.put("Score", TimeScalePointGraph.Point(v.timeStamp, v.score.get));

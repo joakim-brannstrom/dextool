@@ -1258,6 +1258,19 @@ struct MutationScoreHistory {
         estimate.predScore = min(1.0, dy * xDiff.total!"days" / 2.0 + values[$ - 1].score.get);
         estimate.posTrend = estimate.predScore > values[$ - 1].score.get;
     }
+
+    const(MutationScoreHistory) rollingAvg() @safe const {
+        immutable avgDays = 7;
+        if (data.length < avgDays)
+            return this;
+
+        auto app = appender!(MutationScore[])();
+        foreach (i; 0 .. data.length - avgDays)
+            app.put(MutationScore(data[i + avgDays].timeStamp,
+                    typeof(MutationScore.score)(data[i .. i + avgDays].map!(a => a.score.get)
+                    .sum / cast(double) avgDays)));
+        return MutationScoreHistory(app.data);
+    }
 }
 
 MutationScoreHistory reportMutationScoreHistory(ref Database db) @safe {
