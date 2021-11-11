@@ -8,7 +8,7 @@ representation.
 */
 module dextool.plugin.ctestdouble.backend.cvariant;
 
-import std.typecons : Flag, Yes;
+import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule, CppHModule;
@@ -64,6 +64,7 @@ import cpptooling.type : MainName, StubPrefix, CustomHeader, MainNs, MainInterfa
         Path impl;
         Path globals;
         Path gmock;
+        Path gmock_impl;
         Path pre_incl;
         Path post_incl;
     }
@@ -147,13 +148,14 @@ struct Generator {
 
     private static struct Modules {
         static Modules make() @safe {
-            return Modules(new CppModule, new CppModule, new CppModule, new CppModule);
+            return Modules(new CppModule, new CppModule, new CppModule, new CppModule, new CppModule);
         }
 
         CppModule hdr;
         CppModule impl;
         CppModule globals;
         CppModule gmock;
+        CppModule gmock_impl;
     }
 
     ///
@@ -193,7 +195,8 @@ struct Generator {
                 implementation.kind, implementation.globals, implementation.adapterKind);
 
         auto m = Modules.make();
-        generate(implementation, ctrl, params, container, m.hdr, m.impl, m.globals, m.gmock);
+        generate(implementation, ctrl, params, container, m.hdr, m.impl,
+                m.globals, m.gmock, m.gmock_impl);
 
         postProcess(m, ctrl, params, products);
     }
@@ -253,11 +256,14 @@ private:
 
         //TODO refactor. should never reach this stage.
         if (ctrl.doGoogleMock) {
-            import cpptooling.generator.gmock : generateGmockHdr;
+            import cpptooling.generator.gmock : generateGmockHdr, generateGmockImpl;
 
             prod.putFile(params.getFiles.gmock, generateGmockHdr(params.getFiles.hdr,
                     params.getFiles.gmock, params.getToolVersion,
                     params.getCustomHeader, modules.gmock));
+            prod.putFile(params.getFiles.gmock_impl, generateGmockImpl(params.getFiles.gmock,
+                    params.getFiles.gmock_impl, params.getToolVersion,
+                    params.getCustomHeader, modules.gmock_impl));
         }
     }
 }
@@ -560,7 +566,7 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
 }
 
 void generate(ref ImplData data, Controller ctrl, Parameters params, ref Container container,
-        CppModule hdr, CppModule impl, CppModule globals, CppModule gmock) {
+        CppModule hdr, CppModule impl, CppModule globals, CppModule gmock, CppModule gmock_impl) {
     import cpptooling.data.symbol.types : USRType;
     import cpptooling.generator.func : generateFuncImpl;
     import cpptooling.generator.includes : generateWrapIncludeInExternC;
@@ -582,8 +588,8 @@ void generate(ref ImplData data, Controller ctrl, Parameters params, ref Contain
                     cast(Flag!"locationAsComment") ctrl.doLocationAsComment, params, hdr, gmock,
                     (USRType usr) => container.find!LocationTag(usr), (size_t id) => data.lookup(
                         id));
-            generateNsTestDoubleImpl(ns, impl, mutable_extern_hook, data,
-                    params.getArtifactPrefix, container);
+            generateNsTestDoubleImpl(ns, params, impl, gmock_impl,
+                    mutable_extern_hook, data, params.getArtifactPrefix, container);
             break;
 
         default:
@@ -688,22 +694,27 @@ void generateNsTestDoubleHdr(LookupT, KindLookupT)(ref CppNamespace ns, Flag!"lo
             break;
         case Kind.gmock:
             auto mock_ns = gmock.namespace(params.getMainNs).noIndent;
-            generateGmock(class_, mock_ns);
+            generateGmock(class_, mock_ns, No.inlineCtorDtor);
             break;
         default:
         }
     }
 }
 
-void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl,
+void generateNsTestDoubleImpl(ref CppNamespace ns, Parameters params, CppModule impl, CppModule gmock_impl,
         CppModule mutable_extern_hook, ref ImplData data, StubPrefix prefix, ref Container container) {
     import dextool.plugin.ctestdouble.backend.global : generateGlobalExterns,
         generateInitGlobalsToZero;
     import dextool.plugin.ctestdouble.backend.adapter : generateClassImplAdapter = generateImpl;
+    import cpptooling.generator.gmock : generateGmockImpl;
 
     auto test_double_ns = impl.namespace(ns.name);
     test_double_ns.suppressIndent(1);
     impl.sep(2);
+
+    auto gmock_ns = gmock_impl.namespace(ns.name);
+    gmock_ns.suppressIndent(1);
+    gmock_ns.sep(2);
 
     auto lookup(USRType usr) {
         return usr in data.adapterKind;
@@ -720,6 +731,10 @@ void generateNsTestDoubleImpl(ref CppNamespace ns, CppModule impl,
             generateGlobalExterns(data.globals[],
                     mutable_extern_hook, container);
             generateInitGlobalsToZero(class_, test_double_ns, prefix, &data.lookupGlobal);
+            break;
+
+        case Kind.gmock:
+            generateGmockImpl(class_, gmock_ns);
             break;
 
         default:

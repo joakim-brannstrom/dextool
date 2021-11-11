@@ -183,7 +183,7 @@ private void genMethod(CppMethod m, CppModule hdr) {
  *   hdr = Header to generate the code in.
  *   ns_name = namespace the mock is generated in.
  */
-void generateGmock(CppClass in_c, CppModule hdr)
+void generateGmock(CppClass in_c, CppModule hdr, Flag!"inlineCtorDtor" inlineCtorDtor)
 in {
     assert(in_c.isVirtual);
 }
@@ -201,7 +201,13 @@ do {
     // dfmt on
     auto c = hdr.class_("Mock" ~ in_c.name, base_class);
     auto pub = c.public_();
-    pub.dtor(Yes.isVirtual, "Mock" ~ in_c.name)[$.end = " {}" ~ newline];
+
+    if (inlineCtorDtor) {
+        pub.dtor(Yes.isVirtual, "Mock" ~ in_c.name)[$.end = " {}" ~ newline];
+    } else {
+        pub.ctor("Mock" ~ in_c.name);
+        pub.dtor(Yes.isVirtual, "Mock" ~ in_c.name);
+    }
 
     foreach (m; in_c.methodRange()) {
         // dfmt off
@@ -216,6 +222,17 @@ do {
     hdr.sep(2);
 }
 
+void generateGmockImpl(CppClass in_c, CppModule impl)
+in {
+    assert(in_c.isVirtual);
+}
+do {
+    impl.ctor_body("Mock" ~ in_c.name);
+    impl.sep(2);
+    impl.dtor_body("Mock" ~ in_c.name);
+    impl.sep(2);
+}
+
 auto generateGmockHdr(Path if_file, Path incl_guard, DextoolVersion ver,
         CustomHeader custom_hdr, CppModule gmock) {
     import std.path : baseName;
@@ -228,6 +245,22 @@ auto generateGmockHdr(Path if_file, Path incl_guard, DextoolVersion ver,
     o.content.include("gmock/gmock.h");
     o.content.sep(2);
     o.content.append(gmock);
+
+    return o;
+}
+
+auto generateGmockImpl(Path if_file, Path hdr, DextoolVersion ver,
+        CustomHeader custom_hdr, CppModule gmock) {
+    import std.path : baseName;
+    import dsrcgen.cpp : CppModule;
+    import cpptooling.generator.includes : convToIncludeGuard, makeHeader;
+
+    auto o = new CppModule;
+    o.suppressIndent(1);
+    o.append(makeHeader(hdr, ver, custom_hdr));
+    o.include(if_file.baseName);
+    o.sep(2);
+    o.append(gmock);
 
     return o;
 }

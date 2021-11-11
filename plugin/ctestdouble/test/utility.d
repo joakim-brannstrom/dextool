@@ -37,6 +37,7 @@ struct TestParams {
     Path out_impl;
     Path out_global;
     Path out_gmock;
+    Path out_gmock_impl;
 
     // dextool parameters;
     string[] dexParams;
@@ -61,6 +62,7 @@ TestParams genTestParams(string f, const ref TestEnv testEnv) {
     p.out_impl = testEnv.outdir ~ "test_double.cpp";
     p.out_global = testEnv.outdir ~ "test_double_global.cpp";
     p.out_gmock = testEnv.outdir ~ "test_double_gmock.hpp";
+    p.out_gmock_impl = testEnv.outdir ~ "test_double_gmock.cpp";
 
     p.dexParams = ["--DRT-gcopt=profile:1", "ctestdouble", "--debug"];
     p.dexFlags = [];
@@ -108,7 +110,9 @@ void runTestFile(const ref TestParams p, ref TestEnv testEnv,
                       GR(base.toString.setExtension(".hpp.ref").Path, p.out_hdr),
                       GR(base.toString.setExtension(".cpp.ref").Path, p.out_impl),
                       GR(Path(base.toString ~ "_global.cpp.ref"), p.out_global),
-                      GR(Path(base.toString ~ "_gmock.hpp.ref"), p.out_gmock));
+                      GR(Path(base.toString ~ "_gmock.hpp.ref"), p.out_gmock),
+                      GR(Path(base.toString ~ "_gmock.cpp.ref"), p.out_gmock_impl),
+                      );
         // dfmt on
     }
 

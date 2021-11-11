@@ -6,7 +6,8 @@
 namespace TestDouble {
 class MockI_TestDouble : public I_TestDouble {
 public:
-    virtual ~MockI_TestDouble() {}
+    MockI_TestDouble();
+    virtual ~MockI_TestDouble();
 
     MOCK_METHOD1(c_func_with_struct, void(const struct A *a));
     MOCK_METHOD1(cyber, func_type *(const unsigned int baz));

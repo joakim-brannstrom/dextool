@@ -6,7 +6,8 @@
 namespace TestDouble {
 class MockI_TestDouble : public I_TestDouble {
 public:
-    virtual ~MockI_TestDouble() {}
+    MockI_TestDouble();
+    virtual ~MockI_TestDouble();
 
     MOCK_METHOD0(dup, void());
     MOCK_METHOD0(file1, void());
