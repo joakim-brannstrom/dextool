@@ -76,30 +76,17 @@ void updateMutantStatus(ref Database db, const MutationStatusId id,
     // the future. It is just, the most convenient place to do it at the
     // moment.
 
-    const ctx = db.timeoutApi.getMutantTimeoutCtx;
-
     assert(MaxTimeoutIterations - 1 > 0,
             "MaxTimeoutIterations configured too low for memOverload to use it");
 
-    final switch (ctx.state) with (MutantTimeoutCtx.State) {
-    case init_:
-        if (st == Mutation.Status.timeout)
-            db.timeoutApi.put(id);
-        else if (st == Mutation.Status.memOverload)
-            db.memOverloadApi.put(id);
-        db.mutantApi.updateMutationStatus(id, st, ecode, Yes.updateTs);
-        break;
-    case running:
-        if (usedIter == ctx.iter) {
-            // the overloaded need to be re-tested a couple of times.
-            if (st == Mutation.Status.memOverload && usedIter < MaxTimeoutIterations - 1)
-                db.memOverloadApi.put(id);
-            db.mutantApi.updateMutationStatus(id, st, ecode, Yes.updateTs);
-        }
-        break;
-    case done:
-        break;
+    if (st == Mutation.Status.timeout) {
+        db.timeoutApi.put(id, usedIter);
+    } else if (st == Mutation.Status.memOverload && usedIter < MaxTimeoutIterations - 1) {
+        // the overloaded need to be re-tested a couple of times.
+        db.memOverloadApi.put(id);
     }
+
+    db.mutantApi.updateMutationStatus(id, st, ecode, Yes.updateTs);
 }
 
 /** FSM for handling mutants during the test phase.
@@ -259,7 +246,7 @@ struct TimeoutFsm {
     }
 
     void opCall(ResetWorkList) {
-        global.db.timeoutApi.copyMutantTimeoutWorklist;
+        global.db.timeoutApi.copyMutantTimeoutWorklist(global.ctx.iter);
 
         global.db.memOverloadApi.toWorklist;
         global.db.memOverloadApi.clear;
@@ -276,7 +263,7 @@ struct TimeoutFsm {
     }
 
     void opCall(ref Purge data) {
-        global.db.timeoutApi.reduceMutantTimeoutWorklist;
+        global.db.timeoutApi.reduceMutantTimeoutWorklist(global.ctx.iter);
 
         if (global.db.timeoutApi.countMutantTimeoutWorklist == global.ctx.worklistCount) {
             data.ev = Purge.Event.same;
