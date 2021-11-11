@@ -2113,22 +2113,24 @@ struct DbTimeout {
         db.run(insert!MutantTimeoutCtx.insert, ctx);
     }
 
-    void put(const MutationStatusId id) @trusted {
-        static immutable sql = "INSERT OR IGNORE INTO "
-            ~ mutantTimeoutWorklistTable ~ " (id) VALUES (:id)";
+    void put(const MutationStatusId id, const long iter) @trusted {
+        static immutable sql = "INSERT OR REPLACE INTO "
+            ~ mutantTimeoutWorklistTable ~ " (id,iter) VALUES (:id,:iter)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
+        stmt.get.bind(":iter", iter);
         stmt.get.execute;
     }
 
-    /** Remove all mutants that are in the worklist that do NOT have the
-     * mutation status timeout.
+    /** Remove all mutants that are in the worklist of the iteration run `iter`
+     * that do NOT have the mutation status timeout.
      */
-    void reduceMutantTimeoutWorklist() @trusted {
-        static immutable sql = "DELETE FROM " ~ mutantTimeoutWorklistTable
-            ~ " WHERE id IN (SELECT id FROM " ~ mutationStatusTable ~ " WHERE status != :status)";
+    void reduceMutantTimeoutWorklist(const long iter) @trusted {
+        static immutable sql = "DELETE FROM " ~ mutantTimeoutWorklistTable ~ " WHERE id IN (SELECT id FROM "
+            ~ mutationStatusTable ~ " WHERE status != :status)" ~ " AND iter=:iter";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(ubyte) Mutation.Status.timeout);
+        stmt.get.bind(":iter", iter);
         stmt.get.execute;
     }
 
@@ -2156,11 +2158,12 @@ struct DbTimeout {
     }
 
     /// Copy the timeout mutants to the worklist of mutants to test.
-    void copyMutantTimeoutWorklist(const long prio = 100) @trusted {
+    void copyMutantTimeoutWorklist(const long iter, const long prio = 100) @trusted {
         immutable sql = format!"INSERT OR IGNORE INTO %1$s (id,prio)
-            SELECT id,%3$s FROM %2$s"(mutantWorklistTable,
-                mutantTimeoutWorklistTable, prio);
+            SELECT id,%3$s FROM %2$s WHERE iter=:iter"(
+                mutantWorklistTable, mutantTimeoutWorklistTable, prio);
         auto stmt = db.prepare(sql);
+        stmt.get.bind(":iter", iter);
         stmt.get.execute;
     }
 }

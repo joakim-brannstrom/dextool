@@ -484,6 +484,8 @@ struct MutantMemOverloadtWorklistTbl {
 @TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 struct MutantTimeoutWorklistTbl {
     long id;
+    /// iterations that the mutant have been tested.
+    long iter;
 }
 
 /** The defaults for the schema is the state that the state machine start in.
@@ -1298,6 +1300,15 @@ void upgradeV11(ref Miniorm db) {
 
 /// 2019-08-28
 void upgradeV12(ref Miniorm db) {
+    /** Timeout mutants that are re-tested until none of them change status from
+     * timeout.
+     */
+    @TableName(mutantTimeoutWorklistTable)
+    @TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+    struct MutantTimeoutWorklistTbl {
+        long id;
+    }
+
     db.run(buildSchema!(MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl));
 }
 
@@ -1805,6 +1816,16 @@ void upgradeV47(ref Miniorm db) {
 // 2021-11-02
 void upgradeV48(ref Miniorm db) {
     db.run(buildSchema!MutantMemOverloadtWorklistTbl);
+}
+
+// 2021-11-02
+void upgradeV49(ref Miniorm db) {
+    immutable newTbl = "new_" ~ mutantTimeoutWorklistTable;
+    db.run(buildSchema!MutantTimeoutWorklistTbl("new_"));
+
+    db.run("INSERT INTO " ~ newTbl ~ " (id,iter) SELECT id,0 FROM " ~ mutantTimeoutWorklistTable);
+
+    replaceTbl(db, newTbl, mutantTimeoutWorklistTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
