@@ -258,6 +258,7 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         Path main_file_impl;
         Path main_file_globals;
         Path gmock_file;
+        Path gmock_impl_file;
         Path pre_incl_file;
         Path post_incl_file;
         Path config_file;
@@ -335,6 +336,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
         this.main_file_globals = Path(buildPath(cast(string) output_dir,
                 base_filename ~ "_global" ~ implExt));
         this.gmock_file = Path(buildPath(cast(string) output_dir, base_filename ~ "_gmock" ~ hdrExt));
+        this.gmock_impl_file = Path(buildPath(cast(string) output_dir,
+                base_filename ~ "_gmock" ~ implExt));
         this.pre_incl_file = Path(buildPath(cast(string) output_dir,
                 base_filename ~ "_pre_includes" ~ hdrExt));
         this.post_incl_file = Path(buildPath(cast(string) output_dir,
@@ -549,8 +552,8 @@ class CTestDoubleVariant : Controller, Parameters, Products {
     }
 
     Parameters.Files getFiles() {
-        return Parameters.Files(main_file_hdr, main_file_impl,
-                main_file_globals, gmock_file, pre_incl_file, post_incl_file);
+        return Parameters.Files(main_file_hdr, main_file_impl, main_file_globals,
+                gmock_file, gmock_impl_file, pre_incl_file, post_incl_file);
     }
 
     MainName getMainName() {

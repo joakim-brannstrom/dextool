@@ -1,0 +1,11 @@
+#include "test_double_gmock.hpp"
+
+namespace TestDouble {
+
+MockI_TestDouble::MockI_TestDouble() {
+}
+
+MockI_TestDouble::~MockI_TestDouble() {
+}
+
+} //NS:TestDouble

@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.cpptestdouble.backend.generate_cpp;
 
+import std.typecons : Yes;
+
 import cpptooling.data : CppNamespace, LocationTag, CppNs, CppClassName;
 import cpptooling.data.symbol : Container;
 
@@ -61,7 +63,7 @@ void generate(ref ImplData impl, Controller ctrl, Parameters params,
     foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gmock)) {
         auto mock_ns = ns_data.gmock(a.resideInNs, a.name)
             .base.namespace(params.getMainNs).noIndent;
-        generateGmock(a, mock_ns);
+        generateGmock(a, mock_ns, Yes.inlineCtorDtor);
     }
 
     foreach (a; impl.root.classRange.filter!(a => impl.lookup(a.id) == Kind.gtestPrettyPrint)) {
@@ -247,7 +249,7 @@ void generateNsTestDoubleHdr(LookupT)(CppNamespace ns, Parameters params,
         case Kind.gmock:
             auto mock_ns = gmock(c.resideInNs, c.name)
                 .base.namespace(params.getMainNs).noIndent;
-            generateGmock(c, mock_ns);
+            generateGmock(c, mock_ns, Yes.inlineCtorDtor);
             break;
         default:
             break;
