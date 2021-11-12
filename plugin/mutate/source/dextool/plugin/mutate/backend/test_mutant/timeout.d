@@ -36,7 +36,7 @@ import dextool.plugin.mutate.backend.type : Mutation, ExitStatus;
 
 /// Reset the state of the timeout algorithm to its inital state.
 void resetTimeoutContext(ref Database db) @trusted {
-    db.timeoutApi.putMutantTimeoutCtx(MutantTimeoutCtx.init);
+    db.timeoutApi.put(MutantTimeoutCtx.init);
 }
 
 /// Calculate the timeout to use based on the context.
@@ -80,7 +80,10 @@ void updateMutantStatus(ref Database db, const MutationStatusId id,
             "MaxTimeoutIterations configured too low for memOverload to use it");
 
     if (st == Mutation.Status.timeout) {
-        db.timeoutApi.put(id, usedIter);
+        if (usedIter == 0)
+            db.timeoutApi.put(id, usedIter);
+        else
+            db.timeoutApi.update(id, usedIter);
     } else if (st == Mutation.Status.memOverload && usedIter < MaxTimeoutIterations - 1) {
         // the overloaded need to be re-tested a couple of times.
         db.memOverloadApi.put(id);
@@ -199,7 +202,7 @@ struct TimeoutFsm {
             }
         }
 
-        db.timeoutApi.putMutantTimeoutCtx(self.global.ctx);
+        db.timeoutApi.put(self.global.ctx);
         t.commit;
 
         self.output.iter = self.global.ctx.iter;

@@ -2108,7 +2108,7 @@ struct DbTimeout {
         return MutantTimeoutCtx.init;
     }
 
-    void putMutantTimeoutCtx(const MutantTimeoutCtx ctx) @trusted {
+    void put(const MutantTimeoutCtx ctx) @trusted {
         db.run(delete_!MutantTimeoutCtx);
         db.run(insert!MutantTimeoutCtx.insert, ctx);
     }
@@ -2116,6 +2116,15 @@ struct DbTimeout {
     void put(const MutationStatusId id, const long iter) @trusted {
         static immutable sql = "INSERT OR REPLACE INTO "
             ~ mutantTimeoutWorklistTable ~ " (id,iter) VALUES (:id,:iter)";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+        stmt.get.bind(":iter", iter);
+        stmt.get.execute;
+    }
+
+    void update(const MutationStatusId id, const long iter) @trusted {
+        static immutable sql = "UPDATE " ~ mutantTimeoutWorklistTable
+            ~ " SET iter=:iter WHERE id=:id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         stmt.get.bind(":iter", iter);
