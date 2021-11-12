@@ -41,6 +41,10 @@ Fixes for dextool mutate
  * Block scheman inside constexpr template functions. This reduces the number
    of failed scheman thus improve the overall speed.
    This fix is only available with clang-12+.
+ * If `test` is run without finishing and then `analyze` is ran the handling of
+   timeout mutants will lead to an ever increasing list.
+   The system basically livelock over time.  This is now fixed by tracking the
+   timeout iteration per mutant instead of globally.
 
 # v4.0.0 Smooth Road
 
