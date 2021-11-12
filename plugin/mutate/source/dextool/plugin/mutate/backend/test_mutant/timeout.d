@@ -79,12 +79,12 @@ void updateMutantStatus(ref Database db, const MutationStatusId id,
     assert(MaxTimeoutIterations - 1 > 0,
             "MaxTimeoutIterations configured too low for memOverload to use it");
 
-    if (st == Mutation.Status.timeout) {
-        if (usedIter == 0)
-            db.timeoutApi.put(id, usedIter);
-        else
-            db.timeoutApi.update(id, usedIter);
-    } else if (st == Mutation.Status.memOverload && usedIter < MaxTimeoutIterations - 1) {
+    if (st == Mutation.Status.timeout && usedIter == 0)
+        db.timeoutApi.put(id, usedIter);
+    else
+        db.timeoutApi.update(id, usedIter);
+
+    if (st == Mutation.Status.memOverload && usedIter < MaxTimeoutIterations - 1) {
         // the overloaded need to be re-tested a couple of times.
         db.memOverloadApi.put(id);
     }
