@@ -317,7 +317,7 @@ ExitStatusType stopTimeoutTest(ref Database db) @trusted nothrow {
         MutantTimeoutCtx ctx;
         ctx.iter = MaxTimeoutIterations;
         ctx.state = MutantTimeoutCtx.State.done;
-        db.timeoutApi.putMutantTimeoutCtx(ctx);
+        db.timeoutApi.put(ctx);
 
         t.commit;
         return ExitStatusType.Ok;
