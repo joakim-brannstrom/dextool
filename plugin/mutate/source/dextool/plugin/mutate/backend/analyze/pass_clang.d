@@ -40,7 +40,7 @@ import dextool.plugin.mutate.backend.analyze.ast : Interval, Location, TypeKind,
     Node, Ast, BreathFirstRange;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.utility;
-import dextool.plugin.mutate.backend.interface_ : FilesysIO, InvalidPathException;
+import dextool.plugin.mutate.backend.interface_ : FilesysIO, InvalidPathException, ValidateLoc;
 import dextool.plugin.mutate.backend.type : Language, SourceLoc, Offset, SourceLocRange;
 
 import analyze = dextool.plugin.mutate.backend.analyze.ast;
@@ -55,10 +55,10 @@ shared static this() {
 
 /** Translate a clang AST to a mutation AST.
  */
-ClangResult toMutateAst(const Cursor root, FilesysIO fio) @safe {
+ClangResult toMutateAst(const Cursor root, FilesysIO fio, ValidateLoc vloc) @safe {
     import libclang_ast.ast;
 
-    auto visitor = new BaseVisitor(fio);
+    auto visitor = new BaseVisitor(fio, vloc);
     scope (exit)
         visitor.dispose;
     auto ast = ClangAST!BaseVisitor(root);
@@ -373,11 +373,13 @@ final class BaseVisitor : ExtendedVisitor {
     Set!size_t isVisited;
 
     FilesysIO fio;
+    ValidateLoc vloc;
 
     Blacklist blacklist;
 
-    this(FilesysIO fio) nothrow {
+    this(FilesysIO fio, ValidateLoc vloc) nothrow {
         this.fio = fio;
+        this.vloc = vloc;
         this.ast = analyze.Ast.init;
     }
 
@@ -395,6 +397,15 @@ final class BaseVisitor : ExtendedVisitor {
         if (cstack.empty)
             return false;
         return cstack[$ - 1].data == k;
+    }
+
+    /** If a node should be visited and in that case mark it as visited to
+     * block infinite recursion. */
+    bool shouldSkipOrMark(size_t h) @safe {
+        if (h in isVisited)
+            return true;
+        isVisited.add(h);
+        return false;
     }
 
     override void incr() scope @safe {
@@ -562,13 +573,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const FunctionTemplate v) @trusted {
         mixin(mixinNodeLog!());
-        auto n = ast.get.make!(analyze.Function);
-        n.covBlacklist = true;
-        if (isConstExpr(v))
-            n.schemaBlacklist = true;
-
-        pushStack(n, v);
-        v.accept(this);
+        visitFunc(v);
     }
 
     override void visit(scope const TemplateTypeParameter v) {
@@ -636,9 +641,8 @@ final class BaseVisitor : ExtendedVisitor {
 
         mixin(mixinNodeLog!());
 
-        if (v.cursor.toHash in isVisited)
+        if (shouldSkipOrMark(v.cursor.toHash))
             return;
-        isVisited.add(v.cursor.toHash);
 
         auto n = ast.get.make!(analyze.Expr);
         n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
@@ -700,10 +704,8 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const Expression v) {
         mixin(mixinNodeLog!());
 
-        const h = v.cursor.toHash;
-        if (h in isVisited)
+        if (shouldSkipOrMark(v.cursor.toHash))
             return;
-        isVisited.add(h);
 
         auto n = ast.get.make!(analyze.Expr);
         n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
@@ -750,7 +752,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
 
         auto n = ast.get.make!(analyze.Poision);
-        n.schemaBlacklist = isConstExpr(v.cursor);
+        n.schemaBlacklist = isConstExpr(v);
         pushStack(n, v);
 
         // skip all "= default"
@@ -762,7 +764,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
 
         auto n = ast.get.make!(analyze.Poision);
-        n.schemaBlacklist = isConstExpr(v.cursor);
+        n.schemaBlacklist = isConstExpr(v);
         pushStack(n, v);
 
         // skip all "= default"
@@ -1006,7 +1008,7 @@ final class BaseVisitor : ExtendedVisitor {
         }
 
         auto n = ast.get.make!(analyze.BranchBundle);
-        if (isConstExpr(v.cursor))
+        if (isConstExpr(v))
             n.schemaBlacklist = true;
         pushStack(n, v);
         dextool.plugin.mutate.backend.analyze.extensions.accept(v, this);
@@ -1062,11 +1064,15 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    /// Returns: true if the node where visited
     private bool visitOp(T)(scope const T v, const CXCursorKind cKind) @trusted {
         auto op = operatorCursor(ast.get, v);
-        if (op.isNull) {
+        if (op.isNull)
             return false;
-        }
+
+        // it was meant to be visited but has already been visited so skipping.
+        if (shouldSkipOrMark(v.cursor.toHash))
+            return true;
 
         if (visitBinaryOp(v.cursor, op.get, cKind))
             return true;
@@ -1144,7 +1150,7 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     /// Returns: true if it added a binary operator, false otherwise.
-    private bool visitUnaryOp(Cursor cursor, ref OperatorCursor op, CXCursorKind cKind) @trusted {
+    private bool visitUnaryOp(scope Cursor cursor, ref OperatorCursor op, CXCursorKind cKind) @trusted {
         import libclang_ast.ast : dispatch;
 
         auto astOp = cast(analyze.UnaryOp) op.astOp;
@@ -1214,8 +1220,12 @@ final class BaseVisitor : ExtendedVisitor {
             blacklistFunc = oldBlacklistFn;
 
         auto loc = v.cursor.toLocation;
+        // no use in visiting a function that should never be mutated.
+        if (!vloc.shouldMutate(loc.file))
+            return;
+
         auto n = ast.get.make!(analyze.Function);
-        n.schemaBlacklist = isConstExpr(v.cursor);
+        n.schemaBlacklist = isConstExpr(v);
         nstack.back.children ~= n;
         pushStack(v.cursor, n, loc, v.cursor.kind);
 
@@ -1239,6 +1249,9 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitCall(T)(scope const T v) @trusted {
+        if (shouldSkipOrMark(v.cursor.toHash))
+            return;
+
         auto n = ast.get.make!(analyze.Call);
         pushStack(n, v);
 
@@ -1249,7 +1262,13 @@ final class BaseVisitor : ExtendedVisitor {
         if (ty.symbol !is null)
             ast.get.put(n, ty.symId);
 
-        v.accept(this);
+        // TODO: there is a recursion bug wherein the visitor end up in a loop.
+        // Adding the nodes to isVisited do not work because they seem to
+        // always have a new checksum.  This is thus an ugly fix to just block
+        // when it is too deep.
+        if (indent < 200) {
+            v.accept(this);
+        }
     }
 }
 
@@ -1558,17 +1577,35 @@ uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind) @trusted {
     return sr.end;
 }
 
-bool isConstExpr(scope const Cursor c) @trusted {
-    import dextool.clang_extensions;
+import dextool.clang_extensions : dex_isPotentialConstExpr, dex_isFunctionTemplateConstExpr;
+import libclang_ast.ast : FunctionTemplate, FunctionDecl, IfStmt, Constructor,
+    Destructor, CxxMethod, LambdaExpr;
 
-    return dex_isPotentialConstExpr(c);
+bool isConstExpr(scope const Constructor v) @trusted {
+    return dex_isPotentialConstExpr(v.cursor);
 }
 
-import libclang_ast.ast : FunctionTemplate;
+bool isConstExpr(scope const Destructor v) @trusted {
+    return dex_isPotentialConstExpr(v.cursor);
+}
+
+bool isConstExpr(scope const CxxMethod v) @trusted {
+    return dex_isPotentialConstExpr(v.cursor);
+}
+
+bool isConstExpr(scope const LambdaExpr v) @trusted {
+    return dex_isPotentialConstExpr(v.cursor);
+}
+
+bool isConstExpr(scope const FunctionDecl v) @trusted {
+    return dex_isPotentialConstExpr(v.cursor);
+}
+
+bool isConstExpr(scope const IfStmt v) @trusted {
+    return dex_isPotentialConstExpr(v.cursor);
+}
 
 bool isConstExpr(scope const FunctionTemplate v) @trusted {
-    import dextool.clang_extensions;
-
     return dex_isFunctionTemplateConstExpr(v.cursor);
 }
 
