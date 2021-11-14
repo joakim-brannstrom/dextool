@@ -1006,7 +1006,7 @@ struct Analyze {
                 }
             }
 
-            auto res = toMutateAst(tu.cursor, fio);
+            auto res = toMutateAst(tu.cursor, fio, valLoc);
             ast = res.ast;
             saveDependencies(commandsForFileToAnalyze.flags, result.root, res.dependencies);
             log!"analyze.pass_clang".trace(ast.get.toString);

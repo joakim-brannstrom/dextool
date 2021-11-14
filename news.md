@@ -45,6 +45,8 @@ Fixes for dextool mutate
    timeout mutants will lead to an ever increasing list.
    The system basically livelock over time.  This is now fixed by tracking the
    timeout iteration per mutant instead of globally.
+ * Fix an infinite recursion bug that lead to crash when analysing. Happened
+   for example when analysing llvm.
 
 # v4.0.0 Smooth Road
 
