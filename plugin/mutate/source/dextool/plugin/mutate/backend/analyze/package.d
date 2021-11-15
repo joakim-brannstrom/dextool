@@ -410,6 +410,10 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         typeof(ConfigSchema.mutantsPerSchema) mutantsPerSchema;
         SchemataBuilder builder;
 
+        size_t cacheSize() @safe pure nothrow const @nogc {
+            return builder.cacheSize;
+        }
+
         void put(FilesysIO fio, SchemataResult.Schemata[AbsolutePath] a) {
             builder.put(fio, a);
         }
@@ -424,8 +428,8 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                         .array;
                     if (!mutants.empty) {
                         const id = db.schemaApi.putSchemata(a.checksum, a.fragments, mutants);
-                        log.tracef(!id.isNull, "Saving schema %s with %s mutants",
-                            id.get.get, mutants.length);
+                        log.infof(!id.isNull, "Saving schema with %s mutants (cache %0.2f Mbyte)",
+                            mutants.length, cast(double) cacheSize / (1024 * 1024));
                     }
                 } catch (Exception e) {
                     log.trace(e.msg);
@@ -747,6 +751,17 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 ctx.state.get.schemas.put(ctx.fio, result.schematas);
                 ctx.state.get.schemas.setIntermediate;
                 ctx.state.get.schemas.run(ctx.db.get);
+
+                // seems like 200 Mbyte is large enough to generate scheman
+                // with >1000 mutants easily when analyzing LLVM.
+                enum MaxCache = 200 * 1024 * 1024;
+                if (ctx.state.get.schemas.cacheSize > MaxCache) {
+                    // panic mode, just empty it as fast as possible.
+                    logger.infof("Schema cache is %s bytes (limit %s). Producing as many schemas as possible to flush the cache.",
+                            ctx.state.get.schemas.cacheSize, MaxCache);
+                    ctx.state.get.schemas.finalize(ctx.db.get);
+                    ctx.state.get.schemas.setIntermediate;
+                }
             }
         }
 
