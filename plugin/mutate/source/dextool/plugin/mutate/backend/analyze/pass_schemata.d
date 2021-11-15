@@ -186,9 +186,11 @@ struct SchemataBuilder {
     /// All mutants that have been used in any generated schema.
     Set!CodeMutant isUsed;
 
-    // schemas that in pass1 is less than the threshold
     Vector!Fragment current;
     Vector!Fragment rest;
+
+    /// Size in bytes of the cache of fragments.
+    size_t cacheSize;
 
     /// Save fragments to use them to build schematan.
     void put(scope FilesysIO fio, SchemataResult.Schemata[AbsolutePath] raw) {
@@ -196,6 +198,11 @@ struct SchemataBuilder {
             const file = fio.toRelativeRoot(schema.key);
             put(schema.value.fragments, file);
         }
+    }
+
+    private void incrCache(ref SchemataFragment a) @safe pure nothrow @nogc {
+        cacheSize += a.text.length + (cast(const(ubyte)[]) a.file.toString).length + typeof(a)
+            .sizeof;
     }
 
     /** Merge analyze fragments into larger schemata fragments. If a schemata
@@ -207,6 +214,7 @@ struct SchemataBuilder {
     private void put(SchemataResult.Fragment[] fragments, const Path file) {
         foreach (a; fragments) {
             current.put(Fragment(SchemataFragment(file, a.offset, a.text), a.mutants));
+            incrCache(current[$ - 1].fragment);
         }
     }
 
@@ -304,6 +312,10 @@ struct SchemataBuilder {
         rest.clear;
         // allow a fragment to be reused in other schemas, just not this "run".
         isUsed = typeof(isUsed).init;
+
+        cacheSize = 0;
+        foreach (a; current[])
+            incrCache(a.fragment);
     }
 
     /// Shuffle the fragments to try to "evenly" spread out a schema over multiple files.
