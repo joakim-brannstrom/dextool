@@ -354,7 +354,11 @@ struct FragmentBuilder {
     }
 
     SchemaQ sq;
+
     Appender!(Part[]) parts;
+    /// Length of the fragments in parts.
+    size_t partsLn;
+
     const(ubyte)[] original;
     Path file;
     Location loc;
@@ -369,12 +373,22 @@ struct FragmentBuilder {
     }
 
     void put(CodeMutant mutant, ulong id, const(ubyte)[] mods) {
-        parts.put(Part(mutant, id, mods));
+        // happens sometimes that a very large functions with an extrem amount
+        // of mutants in it blow up the number of fragments. This is to limit
+        // it to a reasonable overall fragment size. Without this the memory on
+        // a 64Gbyte computer will run out.
+        enum TenMb = 1024 * 1024 * 10;
+        if (partsLn < TenMb) {
+            parts.put(Part(mutant, id, mods));
+        } else {
+            log.tracef("Total fragment size %s > %s. Discarding", partsLn, TenMb);
+        }
+        partsLn += mods.length;
     }
 
     void put(T...)(CodeMutant mutant, ulong id, auto ref T mods) {
         auto app = appender!(const(ubyte)[])();
-        static foreach (a; mods) {
+        foreach (a; mods) {
             app.put(a);
         }
         this.put(mutant, id, app.data);
