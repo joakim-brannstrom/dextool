@@ -497,13 +497,13 @@ class ShallReportAliveMutantsOnChangedLine : SimpleAnalyzeFixture {
 
         testConsecutiveSparseOrder!SubStr([
             "Diff View",
-            "Mutation Score <b>0.7",
+            "Mutation Score <b>0.8",
             "Analyzed Diff",
             "plugin_testdata/report_one_ror_mutation_point.cpp",
         ]).shouldBeIn(File((testEnv.outdir ~ "html/diff_view.html").toString).byLineCopy.array);
 
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["diff"];
-        (cast(int) (10 * j["score"].floating)).shouldEqual(7);
+        (cast(int) (10 * j["score"].floating)).shouldEqual(8);
     }
 }
 
@@ -547,12 +547,12 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
         // assert
         testConsecutiveSparseOrder!Re([
             "Score:.*0.6",
-            "Total:.*7",
+            "Total:.*8",
             "Alive:.*4",
-            "Killed:.*3",
+            "Killed:.*4",
             "Timeout:.*0",
             "Killed by compiler:.*0",
-            "Suppressed .nomut.:.*2 .0.28",
+            "Suppressed .nomut.:.*2 .0.25",
         ]).shouldBeIn(plain.output);
     }
 }
@@ -579,13 +579,13 @@ class ShallReportHtmlMutationScoreAdjustedByNoMut : LinesWithNoMut {
         testConsecutiveSparseOrder!SubStr([
             "Mutation Score <b>0</b>",
             "Total",
-            "7",
+            "8",
             "Killed by compiler",
             "0",
             "NoMut",
             "3",
             "NoMut/total",
-            "0.4",
+            "0.3",
         ]).shouldBeIn(File(buildPath(testEnv.outdir.toString, "html", "index.html")).byLineCopy.array);
     }
 }

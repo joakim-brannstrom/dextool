@@ -419,6 +419,9 @@ auto makeMutation(Mutation.Kind kind, Language lang) {
     case lcrbRhs:
         m.mutate = (const(ubyte)[] expr) { return toB(""); };
         break;
+    case crZero:
+        m.mutate = (const(ubyte)[] expr) { return toB("0"); };
+        break;
     }
 
     return m;

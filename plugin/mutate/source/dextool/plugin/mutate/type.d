@@ -32,7 +32,9 @@ enum MutationKind {
     /// Logical Connector Replacement Bit-wise
     lcrb,
     /// rithmetic operator replacement simple
-    aors
+    aors,
+    /// constant replacement
+    cr,
 }
 
 /// The order the mutations are done when running in test_mutants mode
