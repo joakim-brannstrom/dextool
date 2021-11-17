@@ -489,6 +489,7 @@ alias Nodes = AliasSeq!(
     UnaryOp,
     VarDecl,
     VarRef,
+    Literal,
 );
 
 // It should be possible to generate the enum from Nodes. How?
@@ -502,6 +503,7 @@ enum Kind {
     Constructor,
     Expr,
     Function,
+    Literal,
     Loop,
     Node,
     OpAdd,
@@ -565,6 +567,7 @@ alias ExpressionKind = AliasSeq!(
     Kind.UnaryOp,
     Kind.VarDecl,
     Kind.VarRef,
+    Kind.Literal,
 );
 // dfmt on
 
@@ -635,6 +638,11 @@ class Constructor : Expr {
 
 /// A function call.
 class Call : Expr {
+    mixin(nodeImpl!(typeof(this)));
+}
+
+/// A constant.
+class Literal : Expr {
     mixin(nodeImpl!(typeof(this)));
 }
 

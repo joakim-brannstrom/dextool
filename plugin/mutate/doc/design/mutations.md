@@ -475,3 +475,12 @@ body is deleted and test cases do not kill the mutant that the function is
 *unused* or *dead code*.
 
 The plugin shall remove the content of the specified void function body.
+
+## Constant Replacement (CR) {id="design-mutantion_cr"}
+
+The operator replace literal values with other constants such as zero. The main
+purpose is to see that the constants and how they are used are tested.
+
+| Original Expression | Mutant 1 |
+| ------------------- | -------- |
+| `<literal>`         | `0`      |

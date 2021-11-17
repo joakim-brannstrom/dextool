@@ -245,6 +245,8 @@ struct Mutation {
         aorsDivAssign,
         aorsAddAssign,
         aorsSubAssign,
+        // cr
+        crZero
     }
 
     /// The status of a mutant.

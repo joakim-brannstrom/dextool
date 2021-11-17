@@ -13,6 +13,7 @@ int main(string[] args) {
                           "dextool_test.generate_mutant",
                           "dextool_test.mutate_aor",
                           "dextool_test.mutate_dcr",
+                          "dextool_test.mutate_cr",
                           "dextool_test.mutate_lcr",
                           "dextool_test.mutate_lcrb",
                           "dextool_test.mutate_ror",

@@ -1174,7 +1174,7 @@ exit 1
                 "--mutant", "all"
                 ]).run;
 
-        testConsecutiveSparseOrder!Re(["Equivalent:.*4"]).shouldBeIn(r1.output);
+        testConsecutiveSparseOrder!Re(["Equivalent:.*6"]).shouldBeIn(r1.output);
     }
 }
 
