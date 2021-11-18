@@ -18,6 +18,7 @@ import std.datetime.stopwatch : StopWatch, AutoStart;
 import std.exception : collectException;
 import std.format : format;
 import std.random : randomCover;
+import std.traits : EnumMembers;
 import std.typecons : Nullable, Tuple, Yes, tuple;
 
 import blob_model : Blob;
@@ -964,7 +965,6 @@ nothrow:
 
     void opCall(RetestOldMutant data) {
         import std.range : enumerate;
-        import std.traits : EnumMembers;
         import dextool.plugin.mutate.backend.database.type;
 
         const statusTypes = [EnumMembers!(Mutation.Status)].filter!(
@@ -1363,7 +1363,7 @@ nothrow:
             // TODO: replace with my.collection.vector
             const id = schematas[0];
             schematas = schematas[1 .. $];
-            const mutants = spinSql!(() => db.schemaApi.schemataMutantsCount(id, kinds));
+            const mutants = spinSql!(() => db.schemaApi.countMutantsInWorklist(id, kinds));
 
             logger.infof("Schema %s has %s mutants (threshold %s)", id.get,
                     mutants, threshold).collectException;
@@ -1452,7 +1452,7 @@ nothrow:
 
         auto app = appender!(SchemataId[])();
         foreach (id; spinSql!(() => db.schemaApi.getSchematas(SchemaStatus.broken))) {
-            if (spinSql!(() => db.schemaApi.schemataMutantsCount(id,
+            if (spinSql!(() => db.schemaApi.countMutantsInWorklist(id,
                     kinds)) >= schemataMutantsThreshold(schemaConf.minMutantsPerSchema.get, 0, 0)) {
                 app.put(id);
             }
