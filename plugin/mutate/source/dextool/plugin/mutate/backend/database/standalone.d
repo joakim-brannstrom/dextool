@@ -2331,8 +2331,27 @@ struct DbSchema {
         return rval;
     }
 
-    /// Returns: number of mutants in a schema that are marked for testing.
-    long schemataMutantsCount(const SchemataId id, const Mutation.Kind[] kinds) @trusted {
+    /// Returns: number of mutants in a schema with `status`.
+    long countMutants(const SchemataId id, const Mutation.Kind[] kinds,
+            const Mutation.Status[] status) @trusted {
+        const sql = format!"SELECT count(*)
+        FROM %s t1, %s t2, %s t3
+        WHERE
+        t1.schem_id = :id AND
+        t1.st_id = t2.id AND
+        t3.st_id = t1.st_id AND
+        t3.kind IN (%(%s,%)) AND
+        t2.status IN (%(%s,%))
+        "(schemataMutantTable, mutationStatusTable,
+                mutationTable, kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
+
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", id.get);
+        return stmt.get.execute.oneValue!long;
+    }
+
+    /// Returns: number of mutants in a schema that are marked for testing and in the worklist.
+    long countMutantsInWorklist(const SchemataId id, const Mutation.Kind[] kinds) @trusted {
         const sql = format!"SELECT count(*)
         FROM %s t1, %s t2, %s t3, %s t4
         WHERE
@@ -2587,20 +2606,6 @@ struct DbSchema {
         }
 
         return app.data;
-    }
-
-    /// Returns: number of scheman matching the condition.
-    long schemaCount(const SchemaStatus status, const long value, string condition) @trusted {
-        const sql = format!"SELECT count(*) FROM %1$s t0
-            WHERE status=:status AND
-            (SELECT count(*) FROM %2$s WHERE schem_id=t0.id) %3$s :value"(
-                schemataUsedTable, schemataMutantTable, condition);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":status", cast(long) status);
-        stmt.get.bind(":value", value);
-        foreach (ref r; stmt.get.execute)
-            return r.peek!long(0);
-        return 0;
     }
 
     /// Returns: an array of the mutants that are in schemas with the specific status

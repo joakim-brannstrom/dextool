@@ -125,7 +125,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
 
         Duration compileTime;
 
-        bool allKilled = true;
         int alive;
 
         bool hasFatalError;
@@ -176,6 +175,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
     }
 
     static void mark(ref Ctx ctx, Mark _, FinalResult.Status status) {
+        import std.traits : EnumMembers;
         import dextool.plugin.mutate.backend.database : SchemaStatus;
 
         SchemaStatus schemaStatus;
@@ -186,7 +186,14 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
             schemaStatus = SchemaStatus.broken;
             break;
         case ok:
-            schemaStatus = ctx.state.get.allKilled ? SchemaStatus.allKilled : SchemaStatus.ok;
+            const total = spinSql!(() => ctx.state.get.db.schemaApi.countMutants(ctx.state.get.id,
+                    ctx.state.get.kinds, [EnumMembers!(Mutation.Status)]));
+            const killed = spinSql!(() => ctx.state.get.db.schemaApi.countMutants(ctx.state.get.id,
+                    ctx.state.get.kinds, [
+                        Mutation.Status.killed, Mutation.Status.timeout,
+                        Mutation.Status.memOverload
+                    ]));
+            schemaStatus = (total == killed) ? SchemaStatus.allKilled : SchemaStatus.ok;
             break;
         }
 
@@ -231,13 +238,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
             UnknownMutantTested;
 
         void update(MutationTestResult a) {
-            // only remove if there actually are any results utherwise we do
-            // not know if it is a good idea to remove it.
-            // same with the overload. if mutation testing is stopped because
-            // of a halt command then keep the schema.
-            ctx.state.get.allKilled = ctx.state.get.allKilled
-                && !(ctx.state.get.stopCheck.isHalt != TestStopCheck.HaltReason.none);
-
             final switch (a.status) with (Mutation.Status) {
             case skipped:
                 goto case;
@@ -248,7 +248,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
             case noCoverage:
                 goto case;
             case alive:
-                ctx.state.get.allKilled = false;
                 ctx.state.get.alive++;
                 ctx.state.get.stopCheck.incrAliveMutants(1);
                 return;
