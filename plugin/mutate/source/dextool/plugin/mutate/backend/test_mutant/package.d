@@ -1079,11 +1079,20 @@ nothrow:
 
         if (spinSql!(() => db.mutantApi.unknownSrcMutants(kinds)).count != 0)
             return;
+        // users are unhappy when the score go first up and then down because
+        // mutants are first classified as "timeout" (killed) and then changed
+        // to alive when the timeout is increased. This lead to a trend graph
+        // that always looks like /\ which inhibit the "motivational drive" to
+        // work with mutation testing.  Thus if there are any timeout mutants
+        // to test, do not sample the score. It avoids the "hill" behavior in
+        // the trend.
+        if (spinSql!(() => db.timeoutApi.countMutantTimeoutWorklist) != 0)
+            return;
 
         const score = reportScore(*db, kinds).score;
 
         // 10000 mutation scores is only ~80kbyte. Should be enough entries
-        // without taking up unresonable amount of space.
+        // without taking up unreasonable amount of space.
         spinSql!(() @trusted {
             auto t = db.transaction;
             db.putMutationScore(MutationScore(Clock.currTime, typeof(MutationScore.score)(score)));
