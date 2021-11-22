@@ -36,24 +36,40 @@ Fixes for dextool mutate
    then be removed by before the test phase started. It
    is now changed to only add mutants not with the `noCoverage` status to the
    worklist.
- * Populate the worklist with re-test of old mutants if it is below the specified retest number.
+ * Populate the worklist with re-test of old mutants if it is below the
+   specified retest number.
  * Fix memory overload check. It failed to parse `/proc/meminfo`.
  * Block scheman inside constexpr template functions. This reduces the number
    of failed scheman thus improve the overall speed.
    This fix is only available with clang-12+.
  * If `test` is run without finishing and then `analyze` is ran the handling of
    timeout mutants will lead to an ever increasing list.
-   The system basically livelock over time.  This is now fixed by tracking the
+   The system basically live lock over time.  This is now fixed by tracking the
    timeout iteration per mutant instead of globally.
- * Fix an infinite recursion bug that lead to crash when analysing. Happened
-   for example when analysing llvm.
+ * Fix an infinite recursion bug that lead to crash when analyzing. Happened
+   for example when analyzing llvm.
+ * (html) The trend graph would look like a "hill" /\ when there where a
+   significant amount of mutants with the timeout status while the timeout
+   algorithm where still testing them. Because first they where classified as
+   timeout (killed) and then later on changed to alive when the timeout where
+   increased. This where detrimental to a teams "motivational drive" to work
+   with mutation testing and improving the test suite. They expected the first
+   sample, which showed an improvement, to be "true" and which lead to a
+   positive feeling. Then later on it started to go down without the team
+   actually "doing" anything with the test suite.
+   The change is to only update the trend score graph when there are no timeout
+   mutants to re-test.
+ * (html) Make the trend graphs prediction color "robust" to small changes
+   (fluctuations) by using grey color when it is below one 1%. This thus
+   mean that when it is red the team know that "we have to act", and vice versa
+   when it is green they know that "it is going well now!".
 
 # v4.0.0 Smooth Road
 
 New features for dextool mutate
 
  * Speedup the test phase by skipping mutants inside SDL mutants. Because a SDL
-   delete the code it is higly unlikely that mutants inside such a region would
+   delete the code it is highly unlikely that mutants inside such a region would
    be killed. This is basically an extension of using coverage to skip mutants
    to test.
  * Automatic classification of test cases as either unique, bad or buggy. It
@@ -70,7 +86,7 @@ New features for dextool mutate
 [{"name": "tc_1", "redundant": true, "text": "<p>a text with <br> html <a href=\"foo.html\">links</a>.</p>", "location": {"file": "../../tc_1.cpp", "line": 42}}]
 ```
 
- * When `test_cmd`s are executed the host could run out of memry. It resulted
+ * When `test_cmd`s are executed the host could run out of memory. It resulted
    in either the tool hanging, the linux OOM killer reaping processes etc. In
    summary the system and tool became unstable. The tool now have support for
    specifying the max total used memory of the host via
@@ -85,8 +101,8 @@ New features for dextool mutate
    less pessimistic about pointers because a code base that use "pointer
    tricks" which lead to many failing scheman will over time *adjust* how the
    scheman are generated.
- * Speedup testing of heavy templated libraries by allowing scheman to also
-   cover the templated functions. This may initially lead to many failing
+ * Speedup testing of heavy template libraries by allowing scheman to also
+   cover the template functions. This may initially lead to many failing
    scheman but this will lead to adaption of how the scheman are composed which
    should over time self heal.
  * The slowdown mode now reacts faster to a system overload by using loadavg1
@@ -100,7 +116,7 @@ Fixes for dextool mutate
    about test cases are spread out in the html report. This constructs an
    individual page per test case and a summary table in `index.html` for easy
    navigation.
- * Updated llvm compatiblity to version 12. The bindings for version 11 worked
+ * Updated llvm compatibility to version 12. The bindings for version 11 worked
    most of the time except for `new` expressions which could lead to mutant
    schematan that didn't compile.
  * Fix bug when the path to the database is a symlink.

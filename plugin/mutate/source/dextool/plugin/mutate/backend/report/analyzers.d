@@ -1222,18 +1222,24 @@ ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db, const Mutation.K
 
 /** History of how the mutation score have evolved over time.
  *
- * The history is ordered iascending by date. Each day is the average of the
+ * The history is ordered in ascending by date. Each day is the average of the
  * recorded mutation score.
  */
 struct MutationScoreHistory {
     import dextool.plugin.mutate.backend.database.type : MutationScore;
+
+    enum Trend {
+        undecided,
+        negative,
+        positive
+    }
 
     static struct Estimate {
         SysTime x;
         double avg = 0;
         SysTime predX;
         double predScore = 0;
-        bool posTrend = 0;
+        Trend trend;
     }
 
     /// only one score for each date.
@@ -1248,15 +1254,26 @@ struct MutationScoreHistory {
             return;
 
         const values = data[$ - 5 .. $];
-        const avg = sum(values.map!(a => a.score.get)) / 5.0;
-        const xDiff = values[$ - 1].timeStamp - values[0].timeStamp;
-        const dy = (values[$ - 1].score.get - avg) / (xDiff.total!"days" / 2.0);
+        {
+            const avg = sum(values.map!(a => a.score.get)) / 5.0;
+            const xDiff = values[$ - 1].timeStamp - values[0].timeStamp;
+            const dy = (values[$ - 1].score.get - avg) / (xDiff.total!"days" / 2.0);
 
-        estimate.x = values[0].timeStamp + xDiff / 2;
-        estimate.avg = avg;
-        estimate.predX = values[$ - 1].timeStamp + xDiff / 2;
-        estimate.predScore = min(1.0, dy * xDiff.total!"days" / 2.0 + values[$ - 1].score.get);
-        estimate.posTrend = estimate.predScore > values[$ - 1].score.get;
+            estimate.x = values[0].timeStamp + xDiff / 2;
+            estimate.avg = avg;
+            estimate.predX = values[$ - 1].timeStamp + xDiff / 2;
+            estimate.predScore = min(1.0, dy * xDiff.total!"days" / 2.0 + values[$ - 1].score.get);
+        }
+
+        {
+            // small changes / fluctuations are ignored
+            immutable limit = 0.001;
+            const diff = estimate.predScore - values[$ - 1].score.get;
+            if (diff < limit)
+                estimate.trend = Trend.negative;
+            else if (diff > limit)
+                estimate.trend = Trend.positive;
+        }
     }
 
     const(MutationScoreHistory) rollingAvg() @safe const {
