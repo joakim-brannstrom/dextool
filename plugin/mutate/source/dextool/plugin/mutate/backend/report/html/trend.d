@@ -16,7 +16,7 @@ import arsd.dom : Element, Link;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : reportTrendByCodeChange,
-    reportMutationScoreHistory;
+    reportMutationScoreHistory, MutationScoreHistory;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.type : Mutation;
 
@@ -42,7 +42,16 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
                 history.data[$ - 1].score.get));
         ts.put("Trend", TimeScalePointGraph.Point(history.estimate.predX,
                 history.estimate.predScore));
-        ts.setColor("Trend", history.estimate.posTrend ? "green" : "red");
+        ts.setColor("Trend", () {
+            final switch (history.estimate.trend) with (MutationScoreHistory.Trend) {
+            case undecided:
+                return "grey";
+            case negative:
+                return "red";
+            case positive:
+                return "green";
+            }
+        }());
 
         ts.html(base, TimeScalePointGraph.Width(80));
         base.addChild("p")
