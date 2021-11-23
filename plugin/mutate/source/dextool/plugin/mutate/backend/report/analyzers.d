@@ -1269,7 +1269,7 @@ struct MutationScoreHistory {
             // small changes / fluctuations are ignored
             immutable limit = 0.001;
             const diff = estimate.predScore - values[$ - 1].score.get;
-            if (diff < limit)
+            if (diff < -limit)
                 estimate.trend = Trend.negative;
             else if (diff > limit)
                 estimate.trend = Trend.positive;
