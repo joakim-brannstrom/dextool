@@ -31,7 +31,12 @@ To build and run dextool, you will need the following packages:
  * libclang-xyz-dev >= 4.0
  * [cmake](https://cmake.org/download) >= 3.5
  * [sqlite3](https://sqlite.org/download.html) >= 3.24.0
- * [D compiler](https://dlang.org/download.html) (dmd >= 2.096.1 or ldc >= 1.26.0)
+ * [D compiler](https://dlang.org/download.html). See the following files for
+   the tested versions. They are guaranteed to work.
+   * [dmd minimal version](Docker/partial/dmd_min_version)
+   * [dmd max version](Docker/partial/dmd_latest_version)
+   * [ldc minimal version](Docker/partial/ldc_min_version)
+   * [ldc max version](Docker/partial/ldc_latest_version)
 
 **NOTE** only ldc is able to build a release build of dextool. dmd is for debug
 build. Which mean that for a *normal* user it is ldc that you should use.
