@@ -49,8 +49,8 @@ endif()
 file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR})
 
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
-# activate these flags when the minimal compiler is upgraded to e.g. 2.091.0
-# -preview=dip25 -preview=dip1000
+# -preview=dip1000 crash with dmd-2.098.0
+# activate dip1000 when the crashing bug is fixed.
 set(DDMD_DFLAGS "-w -wi -vcolumns -preview=dip1000")
 set(DDMD_LFLAGS "")
 set(DDMD_COV_FLAG "-cov")
@@ -75,7 +75,8 @@ else()
     if("${D_COMPILER_ID}" STREQUAL "LDMD")
         append("-enable-inlining -O5" DDMD_DFLAGS)
     else()
-        append("-release" DDMD_DFLAGS)
+        # -release do not work with dmd
+        #append("-release" DDMD_DFLAGS)
     endif()
 endif()
 
