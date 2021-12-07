@@ -33,6 +33,7 @@ alias DbSaveActor = typedActor!(
         void function(Init, AbsolutePath dbPath),
         // save the result to the database
         void function(MutationTestResult result, TimeoutFsm timeoutFsm),
+        void function(MutationTestResult result, long timeoutIter),
         // query if it has finished saving to the db.
         bool function(IsDone));
 // dfmt on

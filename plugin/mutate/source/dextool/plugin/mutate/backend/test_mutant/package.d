@@ -156,7 +156,7 @@ MeasureTestDurationResult measureTestCommand(ref TestRunner runner, int samples)
 
     auto runTest() @safe {
         auto sw = StopWatch(AutoStart.yes);
-        auto res = runner.run(999.dur!"hours");
+        auto res = runner.run(4.dur!"hours");
         return Rval(res, sw.peek);
     }
 
@@ -212,7 +212,7 @@ struct TestDriver {
     import std.datetime : SysTime;
     import dextool.plugin.mutate.backend.database : SchemataId, MutationStatusId;
     import dextool.plugin.mutate.backend.test_mutant.source_mutant : MutationTestDriver;
-    import dextool.plugin.mutate.backend.test_mutant.timeout : calculateTimeout, TimeoutFsm;
+    import dextool.plugin.mutate.backend.test_mutant.timeout : TimeoutFsm, TimeoutConfig;
     import dextool.plugin.mutate.type : MutationOrder;
 
     Database* db;
@@ -255,15 +255,10 @@ struct TestDriver {
 
     TimeoutFsm timeoutFsm;
 
-    /// The time it takes to execute the test suite when no mutant is injected.
-    Duration testSuiteRuntime;
-
     /// the next mutant to test, if there are any.
     MutationEntry nextMutant;
 
-    // when the user manually configure the timeout it means that the
-    // timeout algorithm should not be used.
-    bool hardcodedTimeout;
+    TimeoutConfig timeout;
 
     /// Test commands to execute.
     ShellCommand[] testCmds;
@@ -485,7 +480,10 @@ struct TestDriver {
         this.schemaConf = schema;
 
         this.timeoutFsm = TimeoutFsm(kinds);
-        this.hardcodedTimeout = !conf.mutationTesterRuntime.isNull;
+
+        if (!conf.mutationTesterRuntime.isNull)
+            timeout.userConfigured(conf.mutationTesterRuntime.get);
+
         local.get!PullRequest.constraint = conf.constraint;
         local.get!RetestOldMutant.maxReset = conf.oldMutantsNr;
         local.get!RetestOldMutant.resetPercentage = conf.oldMutantPercentage;
@@ -1205,8 +1203,8 @@ nothrow:
         import std.algorithm : sum;
         import dextool.plugin.mutate.backend.database.type : TestCmdRuntime;
 
-        if (!conf.mutationTesterRuntime.isNull) {
-            testSuiteRuntime = conf.mutationTesterRuntime.get;
+        if (timeout.isUserConfig) {
+            runner.timeout = timeout.base;
             return;
         }
 
@@ -1231,13 +1229,9 @@ nothrow:
             }
 
             auto mean = sum(measures.map!(a => a.runtime), Duration.zero) / measures.length;
-
-            // The sampling of the test suite become too unreliable when the timeout is <1s.
-            // This is a quick and dirty fix.
-            // A proper fix requires an update of the sampler in runTester.
-            auto t = mean < 1.dur!"seconds" ? 1.dur!"seconds" : mean;
-            logger.info("Test command runtime: ", t).collectException;
-            testSuiteRuntime = t;
+            logger.info("Test command runtime: ", mean).collectException;
+            timeout.set(mean);
+            runner.timeout = timeout.value;
 
             spinSql!(() @trusted {
                 auto t = db.transaction;
@@ -1282,7 +1276,7 @@ nothrow:
     }
 
     void opCall(ref CheckTimeout data) {
-        data.timeoutUnchanged = hardcodedTimeout || timeoutFsm.output.done;
+        data.timeoutUnchanged = timeout.isUserConfig || timeoutFsm.output.done;
     }
 
     void opCall(UpdateTimeout) {
@@ -1291,14 +1285,14 @@ nothrow:
         const lastIter = local.get!UpdateTimeout.lastTimeoutIter;
 
         if (lastIter != timeoutFsm.output.iter) {
+            const old = timeout.value;
+            timeout.updateIteration(timeoutFsm.output.iter);
             logger.infof("Changed the timeout from %s to %s (iteration %s)",
-                    calculateTimeout(lastIter, testSuiteRuntime),
-                    calculateTimeout(timeoutFsm.output.iter, testSuiteRuntime),
-                    timeoutFsm.output.iter).collectException;
+                    old, timeout.value, timeoutFsm.output.iter).collectException;
             local.get!UpdateTimeout.lastTimeoutIter = timeoutFsm.output.iter;
         }
 
-        runner.timeout = calculateTimeout(timeoutFsm.output.iter, testSuiteRuntime);
+        runner.timeout = timeout.value;
     }
 
     void opCall(ref CheckPullRequestMutant data) {
@@ -1399,7 +1393,7 @@ nothrow:
         try {
             auto driver = system.spawn(&spawnSchema, filesysIO, runner, dbPath, testCaseAnalyzer, schemaConf,
                     data.id, stopCheck, kinds, conf.mutationCompile,
-                    conf.buildCmdTimeout, dbSave, stat, timeoutFsm);
+                    conf.buildCmdTimeout, dbSave, stat, timeout);
             scope (exit)
                 sendExit(driver, ExitReason.userShutdown);
             auto self = scopedActor;
@@ -1667,12 +1661,20 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
         }
     }
 
-    static void save(ref Ctx ctx, MutationTestResult result, TimeoutFsm timeoutFsm) @safe nothrow {
+    static void save2(ref Ctx ctx, MutationTestResult result, TimeoutFsm timeoutFsm) @safe nothrow {
+        try {
+            send(ctx.self, result, timeoutFsm.output.iter);
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    static void save(ref Ctx ctx, MutationTestResult result, long timeoutIter) @safe nothrow {
         void statusUpdate(MutationTestResult result) @safe {
             import dextool.plugin.mutate.backend.test_mutant.timeout : updateMutantStatus;
 
             updateMutantStatus(ctx.state.get.db, result.id, result.status,
-                    result.exitStatus, timeoutFsm.output.iter);
+                    result.exitStatus, timeoutIter);
             ctx.state.get.db.mutantApi.updateMutation(result.id, result.profile);
             ctx.state.get.db.testCaseApi.updateMutationTestCases(result.id, result.testCases);
             ctx.state.get.db.worklistApi.remove(result.id);
@@ -1692,7 +1694,7 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
 
     self.name = "db";
     send(self, Init.init, dbPath);
-    return impl(self, &init_, st, &save, st, &isDone);
+    return impl(self, &init_, st, &save, st, &save2, st, &isDone);
 }
 
 auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {
