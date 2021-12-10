@@ -38,7 +38,7 @@ import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.common_actors : DbSaveActor, StatActor;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
-import dextool.plugin.mutate.backend.test_mutant.timeout : TimeoutFsm;
+import dextool.plugin.mutate.backend.test_mutant.timeout : TimeoutFsm, TimeoutConfig;
 import dextool.plugin.mutate.backend.type : Mutation, TestCase, Checksum;
 import dextool.plugin.mutate.type : TestCaseAnalyzeBuiltin, ShellCommand,
     UserRuntime, SchemaRuntime;
@@ -98,8 +98,8 @@ alias SchemaActor = typedActor!(void function(Init, AbsolutePath, ShellCommand, 
 auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, AbsolutePath dbPath,
         TestCaseAnalyzer testCaseAnalyzer, ConfigSchema conf, SchemataId id,
         TestStopCheck stopCheck, Mutation.Kind[] kinds,
-        ShellCommand buildCmd, Duration buildCmdTimeout,
-        DbSaveActor.Address dbSave, StatActor.Address stat, TimeoutFsm timeoutFsm) @trusted {
+        ShellCommand buildCmd, Duration buildCmdTimeout, DbSaveActor.Address dbSave,
+        StatActor.Address stat, TimeoutConfig timeoutConf) @trusted {
 
     static struct State {
         SchemataId id;
@@ -107,7 +107,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         TestStopCheck stopCheck;
         DbSaveActor.Address dbSave;
         StatActor.Address stat;
-        TimeoutFsm timeoutFsm;
+        TimeoutConfig timeoutConf;
         FilesysIO fio;
         TestRunner runner;
         TestCaseAnalyzer analyzer;
@@ -134,7 +134,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
     }
 
     auto st = tuple!("self", "state")(self, refCounted(State(id, kinds, stopCheck,
-            dbSave, stat, timeoutFsm, fio.dup, runner.dup, testCaseAnalyzer, conf)));
+            dbSave, stat, timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf)));
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath,
@@ -282,7 +282,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         logger.infof(!data.result.testCases.empty, `killed by [%-(%s, %)]`,
                 data.result.testCases.sort.map!"a.name").collectException;
 
-        send(ctx.state.get.dbSave, result, ctx.state.get.timeoutFsm);
+        send(ctx.state.get.dbSave, result, ctx.state.get.timeoutConf.iter);
         send(ctx.state.get.stat, UnknownMutantTested.init, 1L);
 
         // an error handler is required because the stat actor can be held up
@@ -309,8 +309,15 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
 
             if (ctx.state.get.conf.sanityCheckSchemata) {
                 logger.info("Sanity check of the generated schemata");
-                if (sanityCheck(ctx.state.get.runner)) {
-                    logger.info("Ok".color(Color.green)).collectException;
+                const sanity = sanityCheck(ctx.state.get.runner);
+                if (sanity.isOk) {
+                    if (ctx.state.get.timeoutConf.base < sanity.runtime) {
+                        ctx.state.get.timeoutConf.set(sanity.runtime);
+                        ctx.state.get.runner.timeout = ctx.state.get.timeoutConf.value;
+                    }
+
+                    logger.info("Ok".color(Color.green), ". Using test suite timeout ",
+                            ctx.state.get.timeoutConf.value).collectException;
                     send(ctx.self, StartTestMsg.init);
                 } else {
                     logger.info("Skipping the schemata because the test suite failed".color(Color.yellow)
@@ -692,9 +699,10 @@ struct CodeInject {
 
 // Check that the test suite successfully execute "passed".
 // Returns: true on success.
-bool sanityCheck(ref TestRunner runner) {
+Tuple!(bool, "isOk", Duration, "runtime") sanityCheck(ref TestRunner runner) {
+    auto sw = StopWatch(AutoStart.yes);
     auto res = runner.run;
-    return res.status == TestResult.Status.passed;
+    return typeof(return)(res.status == TestResult.Status.passed, sw.peek);
 }
 
 /// Round robin scheduling of mutants for testing from the worker pool.

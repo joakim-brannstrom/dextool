@@ -63,6 +63,11 @@ Fixes for dextool mutate
    (fluctuations) by using grey color when it is below one 1%. This thus
    mean that when it is red the team know that "we have to act", and vice versa
    when it is green they know that "it is going well now!".
+ * A binary that contains a mutation schema could sometimes result in a
+   significant slower test suite. This would lead to a high number of mutants
+   being initially tagged as "timeout" which slowed down the mutation testing
+   process significantly. This is now fixed by updating the test suite timeout
+   by measuring the test suite with the schema injected.
 
 # v4.0.0 Smooth Road
 
