@@ -56,15 +56,8 @@ struct TimeoutConfig {
 
     /// Only set the timeout if it isnt set by the user.
     void set(Duration t) @safe pure nothrow @nogc {
-        import std.algorithm : max;
-        import std.datetime : dur;
-
-        if (userConfigured_)
-            return;
-
-        // Assuming that a timeout <1s is too strict because of OS jitter and load.
-        // It would lead to "false" timeout status of mutants.
-        baseTimeout = max(1.dur!"seconds", t);
+        if (!userConfigured_)
+            baseTimeout = t;
     }
 
     void updateIteration(long x) @safe pure nothrow @nogc {
@@ -76,7 +69,12 @@ struct TimeoutConfig {
     }
 
     Duration value() @safe pure nothrow const @nogc {
-        return calculateTimeout(iteration, baseTimeout);
+        import std.algorithm : max;
+        import std.datetime : dur;
+
+        // Assuming that a timeout <1s is too strict because of OS jitter and load.
+        // It would lead to "false" timeout status of mutants.
+        return max(1.dur!"seconds", calculateTimeout(iteration, baseTimeout));
     }
 
     Duration base() @safe pure nothrow const @nogc {
