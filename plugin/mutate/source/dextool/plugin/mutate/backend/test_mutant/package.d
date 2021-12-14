@@ -977,9 +977,16 @@ nothrow:
             }
         }
 
-        if (conf.onOldMutants == ConfigMutationTest.OldMutant.nothing) {
+        if (conf.onOldMutants == ConfigMutationTest.OldMutant.nothing)
             return;
-        }
+
+        // do not add mutants to worklist if there already are mutants there
+        // because other states and functions need it to sooner or late reach
+        // zero.
+        const wlist = spinSql!(() => db.worklistApi.getCount);
+        if (wlist != 0)
+            return;
+
         const oldestMutant = spinSql!(() => db.mutantApi.getOldestMutants(kinds, 1, statusTypes));
         const newestTest = spinSql!(() => db.testFileApi.getNewestTestFile).orElse(
                 TestFile.init).timeStamp;
@@ -995,8 +1002,6 @@ nothrow:
             printStatus(oldestMutant, newestTest, newestFile);
         }
 
-        const wlist = spinSql!(() => db.worklistApi.getCount);
-
         const long testCnt = () {
             if (local.get!RetestOldMutant.resetPercentage.get == 0.0) {
                 return local.get!RetestOldMutant.maxReset;
@@ -1008,13 +1013,7 @@ nothrow:
             return rval;
         }();
 
-        if (wlist >= testCnt) {
-            // do not re-test any old mutants because the worklist is already more than the threshold.
-            return;
-        }
-
-        auto oldest = spinSql!(() => db.mutantApi.getOldestMutants(kinds,
-                testCnt - wlist, statusTypes));
+        auto oldest = spinSql!(() => db.mutantApi.getOldestMutants(kinds, testCnt, statusTypes));
 
         logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
         spinSql!(() {
