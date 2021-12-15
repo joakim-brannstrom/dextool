@@ -509,6 +509,9 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         int savedResult;
         bool doneStarting;
 
+        // if a file is modified then the timeout context need to be reset
+        bool resetTimeoutCtx;
+
         /// Set when the whole process is done.
         bool isDone;
 
@@ -736,6 +739,8 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             } catch (Exception e) {
             }
 
+            ctx.state.get.resetTimeoutCtx = ctx.state.get.resetTimeoutCtx || isChanged;
+
             if (isChanged) {
                 foreach (a; result.coverage.byKeyValue) {
                     const fid = getFileId(ctx.fio.toRelativeRoot(result.fileId[a.key]));
@@ -864,8 +869,10 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
         addRoots;
 
-        log.info("Resetting timeout context");
-        resetTimeoutContext(ctx.db.get);
+        if (ctx.state.get.resetTimeoutCtx) {
+            log.info("Resetting timeout context");
+            resetTimeoutContext(ctx.db.get);
+        }
 
         log.info("Updating metadata");
         ctx.db.get.metaDataApi.updateMetadata;
