@@ -964,6 +964,7 @@ nothrow:
     void opCall(RetestOldMutant data) {
         import std.range : enumerate;
         import dextool.plugin.mutate.backend.database.type;
+        import dextool.plugin.mutate.backend.test_mutant.timeout : resetTimeoutContext;
 
         const statusTypes = [EnumMembers!(Mutation.Status)].filter!(
                 a => a != Mutation.Status.noCoverage).array;
@@ -1022,6 +1023,12 @@ nothrow:
                     old.value.updated).collectException;
                 db.worklistApi.add(old.value.id);
             }
+
+            // because the mutants are zero it is assumed that they it is
+            // starting from scratch thus the timeout algorithm need to
+            // re-start from its initial state.
+            logger.info("Resetting timeout context");
+            resetTimeoutContext(*db);
         });
     }
 
