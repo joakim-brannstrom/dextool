@@ -1014,14 +1014,15 @@ nothrow:
             return rval;
         }();
 
-        auto oldest = spinSql!(() => db.mutantApi.getOldestMutants(kinds, testCnt, statusTypes));
-
-        logger.infof("Adding %s old mutants to worklist", oldest.length).collectException;
         spinSql!(() {
-            foreach (const old; oldest.enumerate) {
-                logger.infof("%s Last updated %s", old.index + 1,
-                    old.value.updated).collectException;
-                db.worklistApi.add(old.value.id);
+            auto oldest = db.mutantApi.getOldestMutants(kinds, testCnt, statusTypes);
+            logger.infof("Adding %s old mutants to the worklist", oldest.length);
+            foreach (const old; oldest) {
+                db.worklistApi.add(old.id);
+            }
+            if (oldest.length > 3) {
+                logger.infof("Range of when the added mutants where last tested is %s -> %s",
+                    oldest[0].updated, oldest[$ - 1].updated);
             }
 
             // because the mutants are zero it is assumed that they it is
