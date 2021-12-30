@@ -635,9 +635,26 @@ ValueKind dex_getExprValueKind(const CXCursor cx_expr) {
     if (expr->isLValue()) {
         return ValueKind::lvalue;
     }
+
+// the API has changed from 13+.
+// From LLVM documentation in Expr.h
+//
+// C++11 divides the concept of "r-value" into pure r-values
+// ("pr-values") and so-called expiring values ("x-values"), which
+// identify specific objects that can be safely cannibalized for
+// their resources.
+//
+// Using isPRValue for now on the assumption that that excludes those that can
+// be moved and that is the intention.
+#if CINDEX_VERSION < 62
     if (expr->isRValue()) {
         return ValueKind::rvalue;
     }
+#else
+    if (expr->isPRValue()) {
+        return ValueKind::rvalue;
+    }
+#endif
     if (expr->isXValue()) {
         return ValueKind::xvalue;
     }
