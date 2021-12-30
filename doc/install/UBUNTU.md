@@ -22,24 +22,25 @@ You should see for example `libclang-12-dev`.
 **Step 3:** Install the dependencies:
 
 ```
-sudo apt install build-essential cmake llvm-12 llvm-12-dev clang-12 libclang-12-dev libsqlite3-dev
+sudo apt install build-essential cmake llvm-13 llvm-13-dev clang-13 libclang-13-dev libsqlite3-dev
 ```
 
 **Step 4:** Install the D compiler:
 
 Download and install the latest LDC compiler from [the official distribution page](https://github.com/ldc-developers/ldc/releases).
 
-Example (2021-01-07):
+Example (2021-12-30):
 
 ```sh
-wget https://github.com/ldc-developers/ldc/releases/download/v1.24.0/ldc2-1.24.0-linux-x86_64.tar.xz
+export LDC_VERSION=<see Docker/partial/ldc_latest_version>
+wget https://github.com/ldc-developers/ldc/releases/download/v${LDC_VERSION}/ldc2-${LDC_VERSION}-linux-x86_64.tar.xz
 mkdir -p ~/dlang
-tar -xf ldc2-1.24.0-linux-x86_64.tar.xz -C ~/dlang
+tar -xf ldc2-${LDC_VERSION}-linux-x86_64.tar.xz -C ~/dlang
 ```
 
 Add it to your `$PATH`:
-```
-export PATH=~/dlang/ldc2-1.24.0-linux-x86_64/bin:$PATH
+```sh
+export PATH=~/dlang/ldc2-${LDC_VERSION}-linux-x86_64/bin:$PATH
 ```
 
 You are now ready to build dextool. Go to the section [Build and Install](../../README.md#build-and-install) in README.md

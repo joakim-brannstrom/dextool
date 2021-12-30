@@ -14,6 +14,4 @@ available during the cmake generation step.
 
 Open `{git root}/cmake/introspect_llvm.d`
 
-Search for a sequence of lines with `versionToBinding`. Add the new binding.
-
 Remove all build directories to re-generate with cmake.
