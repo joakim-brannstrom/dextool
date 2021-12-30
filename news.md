@@ -69,6 +69,7 @@ Fixes for dextool mutate
    being initially tagged as "timeout" which slowed down the mutation testing
    process significantly. This is now fixed by updating the test suite timeout
    by measuring the test suite with the schema injected.
+ * Fixed implementation of pointer aware ROR when generating mutants for  `==` and `!=`.
 
 # v4.0.0 Smooth Road
 
