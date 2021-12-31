@@ -5,54 +5,46 @@
  */
 module unit_threaded.assertions;
 
-import unit_threaded.exception: fail, UnitTestException;
+import unit_threaded.exception : fail, UnitTestException;
 import std.traits; // too many to list
 import std.range; // also
-
 
 /**
  * Verify that the condition is `true`.
  * Throws: UnitTestException on failure.
  */
-void shouldBeTrue(E)(lazy E condition, in string file = __FILE__, in size_t line = __LINE__)
-{
-    shouldEqual(cast(bool)condition, true, file, line);
+void shouldBeTrue(E)(lazy E condition, in string file = __FILE__, in size_t line = __LINE__) {
+    shouldEqual(cast(bool) condition, true, file, line);
 }
 
 ///
-@safe pure unittest
-{
+@safe pure unittest {
     shouldBeTrue(true);
 }
-
 
 /**
  * Verify that the condition is `false`.
  * Throws: UnitTestException on failure.
  */
-void shouldBeFalse(E)(lazy E condition, in string file = __FILE__, in size_t line = __LINE__)
-{
-    shouldEqual(cast(bool)condition, false, file, line);
+void shouldBeFalse(E)(lazy E condition, in string file = __FILE__, in size_t line = __LINE__) {
+    shouldEqual(cast(bool) condition, false, file, line);
 }
 
 ///
-@safe pure unittest
-{
+@safe pure unittest {
     shouldBeFalse(false);
 }
-
 
 /**
  * Verify that two values are the same.
  * Floating point values are compared using $(D std.math.approxEqual).
  * Throws: UnitTestException on failure
  */
-void shouldEqual(V, E)(scope auto ref V value, scope auto ref E expected, in string file = __FILE__, in size_t line = __LINE__)
-{
-    if (!isEqual(value, expected))
-    {
-        const msg = formatValueInItsOwnLine("Expected: ", expected) ~
-                    formatValueInItsOwnLine("     Got: ", value);
+void shouldEqual(V, E)(scope auto ref V value, scope auto ref E expected,
+        in string file = __FILE__, in size_t line = __LINE__) @trusted {
+    if (!isEqual(value, expected)) {
+        const msg = formatValueInItsOwnLine("Expected: ", expected) ~ formatValueInItsOwnLine("     Got: ",
+                value);
         throw new UnitTestException(msg, file, line);
     }
 }
@@ -61,9 +53,9 @@ void shouldEqual(V, E)(scope auto ref V value, scope auto ref E expected, in str
 @safe pure unittest {
     shouldEqual(true, true);
     shouldEqual(false, false);
-    shouldEqual(1, 1) ;
-    shouldEqual("foo", "foo") ;
-    shouldEqual([2, 3], [2, 3]) ;
+    shouldEqual(1, 1);
+    shouldEqual("foo", "foo");
+    shouldEqual([2, 3], [2, 3]);
 
     shouldEqual(iota(3), [0, 1, 2]);
     shouldEqual([[0, 1], [0, 1, 2]], [[0, 1], [0, 1, 2]]);
@@ -72,27 +64,23 @@ void shouldEqual(V, E)(scope auto ref V value, scope auto ref E expected, in str
 
 }
 
-
 /**
  * Verify that two values are not the same.
  * Throws: UnitTestException on failure
  */
-void shouldNotEqual(V, E)(V value, E expected, in string file = __FILE__, in size_t line = __LINE__)
-{
-    if (isEqual(value, expected))
-    {
-        const msg = ["Value:",
-                     formatValueInItsOwnLine("", value).join(""),
-                     "is not expected to be equal to:",
-                     formatValueInItsOwnLine("", expected).join("")
-            ];
+void shouldNotEqual(V, E)(V value, E expected, in string file = __FILE__, in size_t line = __LINE__) {
+    if (isEqual(value, expected)) {
+        const msg = [
+            "Value:", formatValueInItsOwnLine("", value).join(""),
+            "is not expected to be equal to:",
+            formatValueInItsOwnLine("", expected).join("")
+        ];
         throw new UnitTestException(msg, file, line);
     }
 }
 
 ///
-@safe pure unittest
-{
+@safe pure unittest {
     shouldNotEqual(true, false);
     shouldNotEqual(1, 2);
     shouldNotEqual("f", "b");
@@ -104,46 +92,42 @@ void shouldNotEqual(V, E)(V value, E expected, in string file = __FILE__, in siz
     shouldNotEqual(1.0, 2.0);
 }
 
-
-
 /**
  * Verify that the value is null.
  * Throws: UnitTestException on failure
  */
-void shouldBeNull(T)(in auto ref T value, in string file = __FILE__, in size_t line = __LINE__)
-{
+void shouldBeNull(T)(in auto ref T value, in string file = __FILE__, in size_t line = __LINE__) {
     if (value !is null)
         fail("Value is not null", file, line);
 }
 
 ///
-@safe pure unittest
-{
+@safe pure unittest {
     shouldBeNull(null);
 }
-
 
 /**
  * Verify that the value is not null.
  * Throws: UnitTestException on failure
  */
-void shouldNotBeNull(T)(in auto ref T value, in string file = __FILE__, in size_t line = __LINE__)
-{
+void shouldNotBeNull(T)(in auto ref T value, in string file = __FILE__, in size_t line = __LINE__) {
     if (value is null)
         fail("Value is null", file, line);
 }
 
 ///
-@safe pure unittest
-{
-    class Foo
-    {
-        this(int i) { this.i = i; }
-        override string toString() const
-        {
-            import std.conv: to;
+@safe pure unittest {
+    class Foo {
+        this(int i) {
+            this.i = i;
+        }
+
+        override string toString() const {
+            import std.conv : to;
+
             return i.to!string;
         }
+
         int i;
     }
 
@@ -151,27 +135,27 @@ void shouldNotBeNull(T)(in auto ref T value, in string file = __FILE__, in size_
 }
 
 enum isLikeAssociativeArray(T, K) = is(typeof({
-    if(K.init in T) { }
-    if(K.init !in T) { }
-}));
+            if (K.init in T) {
+            }
+            if (K.init !in T) {
+            }
+        }));
 
 static assert(isLikeAssociativeArray!(string[string], string));
 static assert(!isLikeAssociativeArray!(string[string], int));
-
 
 /**
  * Verify that the value is in the container.
  * Throws: UnitTestException on failure
 */
-void shouldBeIn(T, U)(in auto ref T value, in auto ref U container, in string file = __FILE__, in size_t line = __LINE__)
-    if (isLikeAssociativeArray!(U, T))
-{
-    import std.conv: to;
+void shouldBeIn(T, U)(in auto ref T value, in auto ref U container,
+        in string file = __FILE__, in size_t line = __LINE__)
+        if (isLikeAssociativeArray!(U, T)) {
+    import std.conv : to;
 
-    if (value !in container)
-    {
-        fail(formatValueInItsOwnLine("Value ", value) ~ formatValueInItsOwnLine("not in ", container),
-             file, line);
+    if (value !in container) {
+        fail(formatValueInItsOwnLine("Value ",
+                value) ~ formatValueInItsOwnLine("not in ", container), file, line);
     }
 }
 
@@ -193,41 +177,36 @@ void shouldBeIn(T, U)(in auto ref T value, in auto ref U container, in string fi
  * Verify that the value is in the container.
  * Throws: UnitTestException on failure
  */
-void shouldBeIn(T, U)(in auto ref T value, U container, in string file = __FILE__, in size_t line = __LINE__)
-    if (!isLikeAssociativeArray!(U, T) && isInputRange!U)
-{
-    import std.algorithm: find;
-    import std.conv: to;
+void shouldBeIn(T, U)(in auto ref T value, U container, in string file = __FILE__,
+        in size_t line = __LINE__) @trusted
+        if (!isLikeAssociativeArray!(U, T) && isInputRange!U) {
+    import std.algorithm : find;
+    import std.conv : to;
 
-    if (find(container, value).empty)
-    {
-        fail(formatValueInItsOwnLine("Value ", value) ~ formatValueInItsOwnLine("not in ", container),
-             file, line);
+    if (find(container, value).empty) {
+        fail(formatValueInItsOwnLine("Value ",
+                value) ~ formatValueInItsOwnLine("not in ", container), file, line);
     }
 }
 
 ///
-@safe pure unittest
-{
+@safe pure unittest {
     shouldBeIn(4, [1, 2, 4]);
-    shouldBeIn("foo", ["foo" : 1]);
+    shouldBeIn("foo", ["foo": 1]);
 }
-
 
 /**
  * Verify that the value is not in the container.
  * Throws: UnitTestException on failure
  */
 void shouldNotBeIn(T, U)(in auto ref T value, in auto ref U container,
-                         in string file = __FILE__, in size_t line = __LINE__)
-    if (isLikeAssociativeArray!(U, T))
-{
-    import std.conv: to;
+        in string file = __FILE__, in size_t line = __LINE__)
+        if (isLikeAssociativeArray!(U, T)) {
+    import std.conv : to;
 
-    if (value in container)
-    {
-        fail(formatValueInItsOwnLine("Value ", value) ~ formatValueInItsOwnLine("is in ", container),
-             file, line);
+    if (value in container) {
+        fail(formatValueInItsOwnLine("Value ",
+                value) ~ formatValueInItsOwnLine("is in ", container), file, line);
     }
 }
 
@@ -245,55 +224,47 @@ void shouldNotBeIn(T, U)(in auto ref T value, in auto ref U container,
     5.shouldNotBeIn(AA(4));
 }
 
-
 /**
  * Verify that the value is not in the container.
  * Throws: UnitTestException on failure
  */
-void shouldNotBeIn(T, U)(in auto ref T value, U container,
-                         in string file = __FILE__, in size_t line = __LINE__)
-    if (!isLikeAssociativeArray!(U, T) && isInputRange!U)
-{
-    import std.algorithm: find;
-    import std.conv: to;
+void shouldNotBeIn(T, U)(in auto ref T value, U container, in string file = __FILE__,
+        in size_t line = __LINE__)
+        if (!isLikeAssociativeArray!(U, T) && isInputRange!U) {
+    import std.algorithm : find;
+    import std.conv : to;
 
-    if (!find(container, value).empty)
-    {
-        fail(formatValueInItsOwnLine("Value ", value) ~ formatValueInItsOwnLine("is in ", container),
-             file, line);
+    if (!find(container, value).empty) {
+        fail(formatValueInItsOwnLine("Value ",
+                value) ~ formatValueInItsOwnLine("is in ", container), file, line);
     }
 }
 
 ///
-@safe unittest
-{
-    auto arrayRangeWithoutLength(T)(T[] array)
-    {
-        struct ArrayRangeWithoutLength(T)
-        {
+@safe unittest {
+    auto arrayRangeWithoutLength(T)(T[] array) {
+        struct ArrayRangeWithoutLength(T) {
         private:
             T[] array;
         public:
-            T front() const @property
-            {
+            T front() const @property {
                 return array[0];
             }
 
-            void popFront()
-            {
+            void popFront() {
                 array = array[1 .. $];
             }
 
-            bool empty() const @property
-            {
+            bool empty() const @property {
                 return array.empty;
             }
         }
+
         return ArrayRangeWithoutLength!T(array);
     }
 
     shouldNotBeIn(3.5, [1.1, 2.2, 4.4]);
-    shouldNotBeIn(1.0, [2.0 : 1, 3.0 : 2]);
+    shouldNotBeIn(1.0, [2.0: 1, 3.0: 2]);
     shouldNotBeIn(1, arrayRangeWithoutLength([2, 3, 4]));
 }
 
@@ -305,17 +276,18 @@ void shouldNotBeIn(T, U)(in auto ref T value, U container,
  * Throws: UnitTestException on failure (when expr does not
  * throw the expected exception)
  */
-auto shouldThrow(T : Throwable = Exception, E)
-                (lazy E expr, in string file = __FILE__, in size_t line = __LINE__)
-{
-    import std.conv: text;
+auto shouldThrow(T : Throwable = Exception, E)(lazy E expr,
+        in string file = __FILE__, in size_t line = __LINE__) {
+    import std.conv : text;
 
     return () @trusted { // @trusted because of catching Throwable
         try {
-           const result = threw!T(expr);
-           if (result) return result.throwable;
-        } catch(Throwable t)
-            fail(text("Expression threw ", typeid(t), " instead of the expected ", T.stringof, ":\n", t.msg), file, line);
+            const result = threw!T(expr);
+            if (result)
+                return result.throwable;
+        } catch (Throwable t)
+            fail(text("Expression threw ", typeid(t),
+                    " instead of the expected ", T.stringof, ":\n", t.msg), file, line);
 
         fail("Expression did not throw", file, line);
         assert(0);
@@ -324,36 +296,44 @@ auto shouldThrow(T : Throwable = Exception, E)
 
 ///
 @safe pure unittest {
-    void funcThrows(string msg) { throw new Exception(msg); }
+    void funcThrows(string msg) {
+        throw new Exception(msg);
+    }
+
     try {
         auto exception = funcThrows("foo bar").shouldThrow;
         assert(exception.msg == "foo bar");
-    } catch(Exception e) {
+    } catch (Exception e) {
         assert(false, "should not have thrown anything and threw: " ~ e.msg);
     }
 }
 
 ///
 @safe pure unittest {
-    void func() {}
+    void func() {
+    }
+
     try {
         func.shouldThrow;
         assert(false, "Should never get here");
-    } catch(Exception e)
+    } catch (Exception e)
         assert(e.msg == "Expression did not throw");
 }
 
 ///
 @safe pure unittest {
-    void funcAsserts() { assert(false, "Oh noes"); }
+    void funcAsserts() {
+        assert(false, "Oh noes");
+    }
+
     try {
         funcAsserts.shouldThrow;
         assert(false, "Should never get here");
-    } catch(Exception e)
-        assert(e.msg ==
-               "Expression threw core.exception.AssertError instead of the expected Exception:\nOh noes");
+    } catch (Exception e)
+        assert(
+                e.msg
+                == "Expression threw core.exception.AssertError instead of the expected Exception:\nOh noes");
 }
-
 
 /**
  * Verify that expr throws the templated Exception class.
@@ -364,9 +344,8 @@ auto shouldThrow(T : Throwable = Exception, E)
  * throw the expected exception)
  */
 auto shouldThrowExactly(T : Throwable = Exception, E)(lazy E expr,
-    in string file = __FILE__, in size_t line = __LINE__)
-{
-    import std.conv: text;
+        in string file = __FILE__, in size_t line = __LINE__) {
+    import std.conv : text;
 
     const threw = threw!T(expr);
     if (!threw)
@@ -376,7 +355,7 @@ auto shouldThrowExactly(T : Throwable = Exception, E)(lazy E expr,
     const sameType = () @trusted { return threw.typeInfo == typeid(T); }();
     if (!sameType)
         fail(text("Expression threw wrong type ", threw.typeInfo,
-            "instead of expected type ", typeid(T)), file, line);
+                "instead of expected type ", typeid(T)), file, line);
 
     return threw.throwable;
 }
@@ -385,21 +364,17 @@ auto shouldThrowExactly(T : Throwable = Exception, E)(lazy E expr,
  * Verify that expr does not throw the templated Exception class.
  * Throws: UnitTestException on failure
  */
-void shouldNotThrow(T: Throwable = Exception, E)(lazy E expr,
-    in string file = __FILE__, in size_t line = __LINE__)
-{
+void shouldNotThrow(T : Throwable = Exception, E)(lazy E expr,
+        in string file = __FILE__, in size_t line = __LINE__) {
     if (threw!T(expr))
         fail("Expression threw", file, line);
 }
 
-
 /**
  * Verify that an exception is thrown with the right message
  */
-void shouldThrowWithMessage(T : Throwable = Exception, E)(lazy E expr,
-                                                          string msg,
-                                                          string file = __FILE__,
-                                                          size_t line = __LINE__) {
+void shouldThrowWithMessage(T : Throwable = Exception, E)(lazy E expr, string msg,
+        string file = __FILE__, size_t line = __LINE__) {
     auto threw = threw!T(expr);
     if (!threw)
         fail("Expression did not throw", file, line);
@@ -409,57 +384,52 @@ void shouldThrowWithMessage(T : Throwable = Exception, E)(lazy E expr,
 
 ///
 @safe pure unittest {
-    void funcThrows(string msg) { throw new Exception(msg); }
+    void funcThrows(string msg) {
+        throw new Exception(msg);
+    }
+
     funcThrows("foo bar").shouldThrowWithMessage!Exception("foo bar");
     funcThrows("foo bar").shouldThrowWithMessage("foo bar");
 }
 
-
 //@trusted because the user might want to catch a throwable
 //that's not derived from Exception, such as RangeError
-private auto threw(T : Throwable, E)(lazy E expr) @trusted
-{
+private auto threw(T : Throwable, E)(lazy E expr) @trusted {
 
-    static struct ThrowResult
-    {
+    static struct ThrowResult {
         bool threw;
         TypeInfo typeInfo;
         string msg;
         immutable(T) throwable;
 
-        T opCast(T)() @safe @nogc const pure if (is(T == bool))
-        {
+        T opCast(T)() @safe @nogc const pure if (is(T == bool)) {
             return threw;
         }
     }
 
     import std.stdio;
-    try
-    {
+
+    try {
         expr();
-    }
-    catch (T e)
-    {
-        return ThrowResult(true, typeid(e), e.msg.dup, cast(immutable)e);
+    } catch (T e) {
+        return ThrowResult(true, typeid(e), e.msg.dup, cast(immutable) e);
     }
 
     return ThrowResult(false);
 }
 
-
-
 // Formats output in different lines
 private string[] formatValueInItsOwnLine(T)(in string prefix, scope auto ref T value) {
 
-    import std.conv: to;
-    import std.traits: isSomeString;
-    import std.range.primitives: isInputRange;
+    import std.conv : to;
+    import std.traits : isSomeString;
+    import std.range.primitives : isInputRange;
 
-    static if(isSomeString!T) {
+    static if (isSomeString!T) {
         // isSomeString is true for wstring and dstring,
         // so call .to!string anyway
-        return [ prefix ~ `"` ~ value.to!string ~ `"`];
-    } else static if(isInputRange!T) {
+        return [prefix ~ `"` ~ value.to!string ~ `"`];
+    } else static if (isInputRange!T) {
         return formatRange(prefix, value);
     } else {
         return [prefix ~ convertToString(value)];
@@ -468,70 +438,67 @@ private string[] formatValueInItsOwnLine(T)(in string prefix, scope auto ref T v
 
 // helper function for non-copyable types
 string convertToString(T)(scope auto ref T value) { // std.conv.to sometimes is @system
-    import std.conv: to;
-    import std.traits: Unqual;
+    import std.conv : to;
+    import std.traits : Unqual;
 
-    static if(__traits(compiles, () @trusted { return value.to!string; }()))
+    static if (__traits(compiles, ()@trusted { return value.to!string; }()))
         return () @trusted { return value.to!string; }();
-    else static if(__traits(compiles, value.toString)) {
-        static if(isObject!T)
-            return () @trusted { return (cast(Unqual!T)value).toString; }();
+    else static if (__traits(compiles, value.toString)) {
+        static if (isObject!T)
+            return () @trusted { return (cast(Unqual!T) value).toString; }();
         else
             return value.toString;
     } else
         return T.stringof ~ "<cannot print>";
 }
 
-
 private string[] formatRange(T)(in string prefix, scope auto ref T value) {
-    import std.conv: text;
-    import std.range: ElementType;
-    import std.algorithm: map, reduce, max;
+    import std.conv : text;
+    import std.range : ElementType;
+    import std.algorithm : map, reduce, max;
 
     //some versions of `text` are @system
     auto defaultLines = () @trusted { return [prefix ~ value.text]; }();
 
     static if (!isInputRange!(ElementType!T))
         return defaultLines;
-    else
-    {
-        import std.array: array;
-        const maxElementSize = value.empty ? 0 : value.map!(a => a.array.length).reduce!max;
-        const tooBigForOneLine = (value.array.length > 5 && maxElementSize > 5) || maxElementSize > 10;
+    else {
+        import std.array : array;
+
+        const maxElementSize = value.empty ? 0 : value.map!(a => a.array.length)
+            .reduce!max;
+        const tooBigForOneLine = (value.array.length > 5 && maxElementSize > 5)
+            || maxElementSize > 10;
         if (!tooBigForOneLine)
             return defaultLines;
-        return [prefix ~ "["] ~
-            value.map!(a => formatValueInItsOwnLine("              ", a).join("") ~ ",").array ~
-            "          ]";
+        return [prefix ~ "["] ~ value.map!(a => formatValueInItsOwnLine("              ",
+                a).join("") ~ ",").array ~ "          ]";
     }
 }
 
 private enum isObject(T) = is(T == class) || is(T == interface);
 
 bool isEqual(V, E)(in auto ref V value, in auto ref E expected)
- if (!isObject!V &&
-     !isFloatingPoint!V && !isFloatingPoint!E &&
-     is(typeof(value == expected) == bool))
-{
+        if (!isObject!V && !isFloatingPoint!V && !isFloatingPoint!E
+            && is(typeof(value == expected) == bool)) {
     return value == expected;
 }
 
 bool isEqual(V, E)(in V value, in E expected)
- if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E) && is(typeof(value == expected) == bool))
-{
+        if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E)
+            && is(typeof(value == expected) == bool)) {
     return value == expected;
 }
 
+void shouldApproxEqual(V, E)(in V value, in E expected, double maxRelDiff = 1e-2,
+        double maxAbsDiff = 1e-5, string file = __FILE__, size_t line = __LINE__)
+        if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E)
+            && is(typeof(value == expected) == bool)) {
+    import std.math : approxEqual;
 
-void shouldApproxEqual(V, E)(in V value, in E expected, double maxRelDiff = 1e-2, double maxAbsDiff = 1e-5, string file = __FILE__, size_t line = __LINE__)
- if (!isObject!V && (isFloatingPoint!V || isFloatingPoint!E) && is(typeof(value == expected) == bool))
-{
-    import std.math: approxEqual;
-    if (!approxEqual(value, expected, maxRelDiff, maxAbsDiff))
-    {
-        const msg =
-            formatValueInItsOwnLine("Expected approx: ", expected) ~
-            formatValueInItsOwnLine("     Got       : ", value);
+    if (!approxEqual(value, expected, maxRelDiff, maxAbsDiff)) {
+        const msg = formatValueInItsOwnLine("Expected approx: ", expected)
+            ~ formatValueInItsOwnLine("     Got       : ", value);
         throw new UnitTestException(msg, file, line);
     }
 }
@@ -541,14 +508,13 @@ void shouldApproxEqual(V, E)(in V value, in E expected, double maxRelDiff = 1e-2
     1.0.shouldApproxEqual(1.0001);
 }
 
-
 bool isEqual(V, E)(scope V value, scope E expected)
-    if (!isObject!V && isInputRange!V && isInputRange!E && !isSomeString!V &&
-        is(typeof(isEqual(value.front, expected.front))))
-{
+        if (!isObject!V && isInputRange!V && isInputRange!E
+            && !isSomeString!V && is(typeof(isEqual(value.front, expected.front)))) {
 
     while (!value.empty && !expected.empty) {
-        if(!isEqual(value.front, expected.front)) return false;
+        if (!isEqual(value.front, expected.front))
+            return false;
         value.popFront;
         expected.popFront;
     }
@@ -557,49 +523,52 @@ bool isEqual(V, E)(scope V value, scope E expected)
 }
 
 bool isEqual(V, E)(scope V value, scope E expected)
-    if (!isObject!V && isInputRange!V && isInputRange!E && isSomeString!V && isSomeString!E &&
-        is(typeof(isEqual(value.front, expected.front))))
-{
-    if(value.length != expected.length) return false;
+        if (!isObject!V && isInputRange!V && isInputRange!E
+            && isSomeString!V && isSomeString!E && is(typeof(isEqual(value.front, expected.front)))) {
+    if (value.length != expected.length)
+        return false;
     // prevent auto-decoding
-    foreach(i; 0 .. value.length)
-        if(value[i] != expected[i]) return false;
+    foreach (i; 0 .. value.length)
+        if (value[i] != expected[i])
+            return false;
 
     return true;
 }
 
-template IsField(A...) if(A.length == 1) {
+template IsField(A...) if (A.length == 1) {
     enum IsField = __traits(compiles, A[0].init);
 }
 
+bool isEqual(V, E)(scope V value, scope E expected) if (isObject!V && isObject!E) {
+    import std.meta : staticMap, Filter, staticIndexOf;
 
-bool isEqual(V, E)(scope V value, scope E expected)
-    if (isObject!V && isObject!E)
-{
-    import std.meta: staticMap, Filter, staticIndexOf;
+    static assert(is(typeof(() {
+                string s1 = value.toString;
+                string s2 = expected.toString;
+            })), "Cannot compare instances of " ~ V.stringof ~ " or "
+            ~ E.stringof ~ " unless toString is overridden for both");
 
-    static assert(is(typeof(() { string s1 = value.toString; string s2 = expected.toString;})),
-                  "Cannot compare instances of " ~ V.stringof ~
-                  " or " ~ E.stringof ~ " unless toString is overridden for both");
-
-    if(value  is null && expected !is null) return false;
-    if(value !is null && expected  is null) return false;
-    if(value  is null && expected  is null) return true;
+    if (value is null && expected !is null)
+        return false;
+    if (value !is null && expected is null)
+        return false;
+    if (value is null && expected is null)
+        return true;
 
     // If it has opEquals, use it
-    static if(staticIndexOf!("opEquals", __traits(derivedMembers, V)) != -1) {
+    static if (staticIndexOf!("opEquals", __traits(derivedMembers, V)) != -1) {
         return value.opEquals(expected);
     } else {
 
         template IsFieldOf(T, string s) {
-            static if(__traits(compiles, IsField!(typeof(__traits(getMember, T.init, s)))))
+            static if (__traits(compiles, IsField!(typeof(__traits(getMember, T.init, s)))))
                 enum IsFieldOf = IsField!(typeof(__traits(getMember, T.init, s)));
             else
                 enum IsFieldOf = false;
         }
 
         auto members(T)(T obj) {
-            import std.typecons: Tuple;
+            import std.typecons : Tuple;
 
             alias Member(string name) = typeof(__traits(getMember, T, name));
             alias IsFieldOfT(string s) = IsFieldOf!(T, s);
@@ -607,28 +576,27 @@ bool isEqual(V, E)(scope V value, scope E expected)
             alias FieldTypes = staticMap!(Member, FieldNames);
 
             Tuple!FieldTypes ret;
-            foreach(i, name; FieldNames)
+            foreach (i, name; FieldNames)
                 ret[i] = __traits(getMember, obj, name);
 
             return ret;
         }
 
-        static if(is(V == interface))
+        static if (is(V == interface))
             return false;
         else
             return members(value) == members(expected);
     }
 }
 
-
 /**
  * Verify that rng is empty.
  * Throws: UnitTestException on failure.
  */
 void shouldBeEmpty(R)(in auto ref R rng, in string file = __FILE__, in size_t line = __LINE__)
-if (isInputRange!R)
-{
-    import std.conv: text;
+        if (isInputRange!R) {
+    import std.conv : text;
+
     if (!rng.empty)
         fail(text("Range not empty: ", rng), file, line);
 }
@@ -638,28 +606,28 @@ if (isInputRange!R)
  * Throws: UnitTestException on failure.
  */
 void shouldBeEmpty(R)(auto ref shared(R) rng, in string file = __FILE__, in size_t line = __LINE__)
-if (isInputRange!R)
-{
-    import std.conv: text;
+        if (isInputRange!R) {
+    import std.conv : text;
+
     if (!rng.empty)
         fail(text("Range not empty: ", rng), file, line);
 }
-
 
 /**
  * Verify that aa is empty.
  * Throws: UnitTestException on failure.
  */
 void shouldBeEmpty(T)(auto ref T aa, in string file = __FILE__, in size_t line = __LINE__)
-if (isAssociativeArray!T)
-{
+        if (isAssociativeArray!T) {
     //keys is @system
-    () @trusted{ if (!aa.keys.empty) fail("AA not empty", file, line); }();
+    () @trusted {
+        if (!aa.keys.empty)
+            fail("AA not empty", file, line);
+    }();
 }
 
 ///
-@safe pure unittest
-{
+@safe pure unittest {
     int[] ints;
     string[] strings;
     string[string] aa;
@@ -673,14 +641,12 @@ if (isAssociativeArray!T)
     aa["foo"] = "bar";
 }
 
-
 /**
  * Verify that rng is not empty.
  * Throws: UnitTestException on failure.
  */
 void shouldNotBeEmpty(R)(R rng, in string file = __FILE__, in size_t line = __LINE__)
-if (isInputRange!R)
-{
+        if (isInputRange!R) {
     if (rng.empty)
         fail("Range empty", file, line);
 }
@@ -690,16 +656,16 @@ if (isInputRange!R)
  * Throws: UnitTestException on failure.
  */
 void shouldNotBeEmpty(T)(in auto ref T aa, in string file = __FILE__, in size_t line = __LINE__)
-if (isAssociativeArray!T)
-{
+        if (isAssociativeArray!T) {
     //keys is @system
-    () @trusted{ if (aa.keys.empty)
-        fail("AA empty", file, line); }();
+    () @trusted {
+        if (aa.keys.empty)
+            fail("AA empty", file, line);
+    }();
 }
 
 ///
-@safe pure unittest
-{
+@safe pure unittest {
     int[] ints;
     string[] strings;
     string[string] aa;
@@ -718,59 +684,52 @@ if (isAssociativeArray!T)
  * Throws: UnitTestException on failure.
  */
 void shouldBeGreaterThan(T, U)(in auto ref T t, in auto ref U u,
-                               in string file = __FILE__, in size_t line = __LINE__)
-{
-    import std.conv: text;
+        in string file = __FILE__, in size_t line = __LINE__) {
+    import std.conv : text;
+
     if (t <= u)
         fail(text(t, " is not > ", u), file, line);
 }
 
 ///
-@safe pure unittest
-{
+@safe pure unittest {
     shouldBeGreaterThan(7, 5);
 }
-
 
 /**
  * Verify that t is smaller than u.
  * Throws: UnitTestException on failure.
  */
 void shouldBeSmallerThan(T, U)(in auto ref T t, in auto ref U u,
-                               in string file = __FILE__, in size_t line = __LINE__)
-{
-    import std.conv: text;
+        in string file = __FILE__, in size_t line = __LINE__) {
+    import std.conv : text;
+
     if (t >= u)
         fail(text(t, " is not < ", u), file, line);
 }
 
 ///
-@safe pure unittest
-{
+@safe pure unittest {
     shouldBeSmallerThan(5, 7);
 }
-
-
 
 /**
  * Verify that t and u represent the same set (ordering is not important).
  * Throws: UnitTestException on failure.
  */
-void shouldBeSameSetAs(V, E)(auto ref V value, auto ref E expected, in string file = __FILE__, in size_t line = __LINE__)
-if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front) == bool))
-{
-    if (!isSameSet(value, expected))
-    {
-        const msg = formatValueInItsOwnLine("Expected: ", expected) ~
-                    formatValueInItsOwnLine("     Got: ", value);
+void shouldBeSameSetAs(V, E)(auto ref V value, auto ref E expected,
+        in string file = __FILE__, in size_t line = __LINE__)
+        if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front) == bool)) {
+    if (!isSameSet(value, expected)) {
+        const msg = formatValueInItsOwnLine("Expected: ", expected) ~ formatValueInItsOwnLine("     Got: ",
+                value);
         throw new UnitTestException(msg, file, line);
     }
 }
 
 ///
-@safe pure unittest
-{
-    import std.range: iota;
+@safe pure unittest {
+    import std.range : iota;
 
     auto inOrder = iota(4);
     auto noOrder = [2, 3, 0, 1];
@@ -779,8 +738,7 @@ if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front)
     inOrder.shouldBeSameSetAs(noOrder);
     inOrder.shouldBeSameSetAs(oops).shouldThrow!UnitTestException;
 
-    struct Struct
-    {
+    struct Struct {
         int i;
     }
 
@@ -788,16 +746,17 @@ if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front)
 }
 
 private bool isSameSet(T, U)(auto ref T t, auto ref U u) {
-    import std.algorithm: canFind;
+    import std.algorithm : canFind;
 
     //sort makes the element types have to implement opCmp
     //instead, try one by one
     auto ta = t.array;
     auto ua = u.array;
-    if (ta.length != ua.length) return false;
-    foreach(element; ta)
-    {
-        if (!ua.canFind(element)) return false;
+    if (ta.length != ua.length)
+        return false;
+    foreach (element; ta) {
+        if (!ua.canFind(element))
+            return false;
     }
 
     return true;
@@ -807,24 +766,21 @@ private bool isSameSet(T, U)(auto ref T t, auto ref U u) {
  * Verify that value and expected do not represent the same set (ordering is not important).
  * Throws: UnitTestException on failure.
  */
-void shouldNotBeSameSetAs(V, E)(auto ref V value, auto ref E expected, in string file = __FILE__, in size_t line = __LINE__)
-if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front) == bool))
-{
-    if (isSameSet(value, expected))
-    {
-        const msg = ["Value:",
-                     formatValueInItsOwnLine("", value).join(""),
-                     "is not expected to be equal to:",
-                     formatValueInItsOwnLine("", expected).join("")
-            ];
+void shouldNotBeSameSetAs(V, E)(auto ref V value, auto ref E expected,
+        in string file = __FILE__, in size_t line = __LINE__)
+        if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front) == bool)) {
+    if (isSameSet(value, expected)) {
+        const msg = [
+            "Value:", formatValueInItsOwnLine("", value).join(""),
+            "is not expected to be equal to:",
+            formatValueInItsOwnLine("", expected).join("")
+        ];
         throw new UnitTestException(msg, file, line);
     }
 }
 
-
 ///
-@safe pure unittest
-{
+@safe pure unittest {
     auto inOrder = iota(4);
     auto noOrder = [2, 3, 0, 1];
     auto oops = [2, 3, 4, 5];
@@ -833,24 +789,18 @@ if (isInputRange!V && isInputRange!E && is(typeof(value.front != expected.front)
     inOrder.shouldNotBeSameSetAs(noOrder).shouldThrow!UnitTestException;
 }
 
-
-
-
 /**
    If two strings represent the same JSON regardless of formatting
  */
-void shouldBeSameJsonAs(in string actual,
-                        in string expected,
-                        in string file = __FILE__,
-                        in size_t line = __LINE__)
-    @trusted // not @safe pure due to parseJSON
-{
-    import std.json: parseJSON, JSONException;
+void shouldBeSameJsonAs(in string actual, in string expected,
+        in string file = __FILE__, in size_t line = __LINE__) @trusted // not @safe pure due to parseJSON
+        {
+    import std.json : parseJSON, JSONException;
 
     auto parse(in string str) {
         try
             return str.parseJSON;
-        catch(JSONException ex)
+        catch (JSONException ex)
             throw new UnitTestException("Error parsing JSON: " ~ ex.msg, file, line);
     }
 
@@ -864,78 +814,56 @@ void shouldBeSameJsonAs(in string actual,
     `{"foo":"bar"}`.shouldBeSameJsonAs(`{"foo": "baz"}`).shouldThrow!UnitTestException;
     try
         `oops`.shouldBeSameJsonAs(`oops`);
-    catch(Exception e)
+    catch (Exception e)
         assert(e.msg == "Error parsing JSON: Unexpected character 'o'. (Line 1:1)");
 }
 
+auto should(V)(scope auto ref V value) {
 
-
-auto should(V)(scope auto ref V value){
-
-    import std.functional: forward;
+    import std.functional : forward;
 
     struct ShouldNot {
 
-        bool opEquals(U)(auto ref U other,
-                         in string file = __FILE__,
-                         in size_t line = __LINE__)
-        {
+        bool opEquals(U)(auto ref U other, in string file = __FILE__, in size_t line = __LINE__) {
             shouldNotEqual(forward!value, other, file, line);
             return true;
         }
 
-        void opBinary(string op, R)(R range,
-                                    in string file = __FILE__,
-                                    in size_t line = __LINE__) const if(op == "in") {
+        void opBinary(string op, R)(R range, in string file = __FILE__, in size_t line = __LINE__) const
+                if (op == "in") {
             shouldNotBeIn(forward!value, range, file, line);
         }
 
-        void opBinary(string op, R)(R range,
-                                    in string file = __FILE__,
-                                    in size_t line = __LINE__) const
-            if(op == "~" && isInputRange!R)
-        {
+        void opBinary(string op, R)(R range, in string file = __FILE__, in size_t line = __LINE__) const
+                if (op == "~" && isInputRange!R) {
             shouldThrow!UnitTestException(shouldBeSameSetAs(forward!value, range), file, line);
         }
 
-        void opBinary(string op, E)
-                     (in E expected, string file = __FILE__, size_t line = __LINE__)
-            if (isFloatingPoint!E)
-        {
+        void opBinary(string op, E)(in E expected, string file = __FILE__, size_t line = __LINE__)
+                if (isFloatingPoint!E) {
             shouldThrow!UnitTestException(shouldApproxEqual(forward!value, expected), file, line);
         }
     }
 
     struct Should {
 
-        bool opEquals(U)(auto ref U other,
-                         in string file = __FILE__,
-                         in size_t line = __LINE__)
-        {
+        bool opEquals(U)(auto ref U other, in string file = __FILE__, in size_t line = __LINE__) {
             shouldEqual(forward!value, other, file, line);
             return true;
         }
 
-        void opBinary(string op, R)(R range,
-                                    in string file = __FILE__,
-                                    in size_t line = __LINE__) const
-            if(op == "in")
-        {
+        void opBinary(string op, R)(R range, in string file = __FILE__, in size_t line = __LINE__) const
+                if (op == "in") {
             shouldBeIn(forward!value, range, file, line);
         }
 
-        void opBinary(string op, R)(R range,
-                                    in string file = __FILE__,
-                                    in size_t line = __LINE__) const
-            if(op == "~" && isInputRange!R)
-        {
+        void opBinary(string op, R)(R range, in string file = __FILE__, in size_t line = __LINE__) const
+                if (op == "~" && isInputRange!R) {
             shouldBeSameSetAs(forward!value, range, file, line);
         }
 
-        void opBinary(string op, E)
-                     (in E expected, string file = __FILE__, size_t line = __LINE__)
-            if (isFloatingPoint!E)
-        {
+        void opBinary(string op, E)(in E expected, string file = __FILE__, size_t line = __LINE__)
+                if (isFloatingPoint!E) {
             shouldApproxEqual(forward!value, expected, 1e-2, 1e-5, file, line);
         }
 
@@ -946,8 +874,6 @@ auto should(V)(scope auto ref V value){
 
     return Should();
 }
-
-
 
 T be(T)(T sh) {
     return sh;
@@ -961,18 +887,13 @@ T be(T)(T sh) {
     4.should.not.be in [1, 2, 3];
 }
 
-
 /**
    Asserts that `lowerBound` <= `actual` < `upperBound`
  */
-void shouldBeBetween(A, L, U)
-    (auto ref A actual,
-     auto ref L lowerBound,
-     auto ref U upperBound,
-     in string file = __FILE__,
-     in size_t line = __LINE__)
-{
-    import std.conv: text;
-    if(actual < lowerBound || actual >= upperBound)
+void shouldBeBetween(A, L, U)(auto ref A actual, auto ref L lowerBound,
+        auto ref U upperBound, in string file = __FILE__, in size_t line = __LINE__) {
+    import std.conv : text;
+
+    if (actual < lowerBound || actual >= upperBound)
         fail(text(actual, " is not between ", lowerBound, " and ", upperBound), file, line);
 }

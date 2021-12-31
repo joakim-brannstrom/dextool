@@ -139,10 +139,10 @@ auto rorMutations(RorInfo info) {
     void unorderedSchema() {
         switch (info.operator) with (Mutation.Kind) {
         case Kind.OpEqual:
-            rval.op = [rorLE, rorGE, rorpNE];
+            rval.op = [rorNE, rorpNE];
             break;
         case Kind.OpNotEqual:
-            rval.op = [rorLT, rorGT, rorpEQ];
+            rval.op = [rorEQ, rorpEQ];
             break;
         default:
         }

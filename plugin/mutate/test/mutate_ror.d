@@ -16,31 +16,15 @@ import unit_threaded;
 
 // dfmt off
 
-@(testId ~ "shall produce all ROR mutations")
+struct Ex {
+    string[] ops;
+    string expr;
+}
+
+@(testId ~ "shall produce all ROR mutations for primitives")
 unittest {
-foreach (getValue; ["ror_primitive.cpp", "ror_overload.cpp"]) {
-    mixin(envSetup(globalTestdir, No.setupEnv));
-    testEnv.outputSuffix(getValue);
-    testEnv.setupEnv;
+    mixin(envSetup(globalTestdir));
 
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ getValue)
-        .run;
-    auto r = makeDextool(testEnv)
-        .addArg(["test"])
-        .addArg(["--mutant", "ror"])
-        .run;
-    verifyRor(r.output);
-}
-}
-
-void verifyRor(string[] txt) {
-    import std.algorithm;
-
-    static struct Ex {
-        string[2] ops;
-        string expr;
-    }
     Ex[string] tbl = [
         "<": Ex(["<=", "!="], "false"),
         ">": Ex([">=", "!="], "false"),
@@ -50,16 +34,48 @@ void verifyRor(string[] txt) {
         "!=": Ex(["<", ">"], "true"),
     ];
 
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "ror_primitive.cpp")
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["test"])
+        .addArg(["--mutant", "ror"])
+        .run;
+    verifyRor(r.output, tbl);
+}
+
+@(testId ~ "shall produce all ROR mutants for overloads")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+    Ex[string] tbl = [
+        "<": Ex(["<=", "!="], "false"),
+        ">": Ex([">=", "!="], "false"),
+        "<=": Ex(["<", "=="], "true"),
+        ">=": Ex([">", "=="], "true"),
+        "==": Ex(["!="], "false"),
+        "!=": Ex(["=="], "true"),
+    ];
+
+    makeDextoolAnalyze(testEnv)
+        .addInputArg(testData ~ "ror_overload.cpp")
+        .run;
+    auto r = makeDextool(testEnv)
+        .addArg(["test"])
+        .addArg(["--mutant", "ror"])
+        .run;
+    verifyRor(r.output, tbl);
+}
+
+void verifyRor(string[] txt, Ex[string] tbl) {
     foreach (mut; tbl.byKeyValue) {
         foreach (op; mut.value.ops) {
             auto expected = format("from '%s' to '%s'", mut.key, op);
-            logger.info("Testing: ", expected);
-            txt.sliceContains(expected).shouldBeTrue;
+            testAnyOrder!SubStr([expected]).shouldBeIn(txt);
         }
 
         auto expected = format("from 'a %s b' to '%s'", mut.key, mut.value.expr);
-        logger.info("Testing: ", expected);
-        txt.sliceContains(expected).shouldBeTrue;
+        testAnyOrder!SubStr([expected]).shouldBeIn(txt);
     }
 }
 

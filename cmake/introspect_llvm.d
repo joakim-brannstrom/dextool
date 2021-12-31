@@ -22,10 +22,12 @@ import std.utf;
 import std.variant;
 
 int main(string[] args) {
-    if (args.length != 2) {
-        writeln("Missing command");
+    if (args.length != 3) {
+        writefln("Usage: %s CMAKE_SOURCE_DIR COMMAND", args[0]);
         return 1;
     }
+
+    chdir(args[1]);
 
     alias Fun = string function();
     Fun[string] cmds;
@@ -39,7 +41,7 @@ int main(string[] args) {
     cmds["libclang-flags"] = &llvmClangFlags;
     cmds["print-llvm-config-candidates"] = &llvmPrintCandidates;
 
-    if (auto f = args[1] in cmds)
+    if (auto f = args[2] in cmds)
         write((*f)().strip);
     else {
         writeln("Unknown commad: ", args[1]);
@@ -100,21 +102,25 @@ string llvmVersion() {
 string llvmMajorVersion() {
     auto llvm = llvmCmd();
 
+    immutable defaultVersion = 8;
     int[int] versionToBinding;
-    versionToBinding[4] = 8;
-    versionToBinding[5] = 8;
-    versionToBinding[6] = 8;
-    versionToBinding[7] = 8;
-    versionToBinding[8] = 8;
-    versionToBinding[9] = 9;
-    versionToBinding[10] = 10;
-    versionToBinding[11] = 11;
-    versionToBinding[12] = 12;
+    // known to work but missing specific bindings
+    versionToBinding[4] = defaultVersion;
+    versionToBinding[5] = defaultVersion;
+    versionToBinding[6] = defaultVersion;
+    versionToBinding[7] = defaultVersion;
 
-    if (auto v = llvm.v.major in versionToBinding)
-        return (*v).to!string;
-    // assume latest supported
-    return versionToBinding.byKey.array.maxElement.to!string;
+    foreach (d; dirEntries("libs/libclang", SpanMode.shallow)) {
+        try {
+            const version_ = d.baseName.to!int;
+            versionToBinding[version_] = version_;
+        } catch (Exception e) {
+        }
+    }
+
+    // if no matching is found assume latest supported
+    return versionToBinding.require(llvm.v.major,
+            versionToBinding.byKey.array.maxElement).to!string;
 }
 
 string llvmCppFlags() {

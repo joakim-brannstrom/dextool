@@ -4,6 +4,7 @@ Fixes
 
  * Fixed build instructions and cmake config to allow greater control over what
    llvm/clang libs are linked. This allows dextool to be built for Fedora-34.
+ * Support llvm/clang 13.
 
 New features for dextool mutate
 
@@ -68,6 +69,7 @@ Fixes for dextool mutate
    being initially tagged as "timeout" which slowed down the mutation testing
    process significantly. This is now fixed by updating the test suite timeout
    by measuring the test suite with the schema injected.
+ * Fixed implementation of pointer aware ROR when generating mutants for  `==` and `!=`.
 
 # v4.0.0 Smooth Road
 

@@ -31,48 +31,48 @@ if (llvm_config_CMD_status)
     message(FATAL_ERROR "Unable to compile the LLVM introspector: ${D_COMPILER} ${cmdflags} ${LLVM_CMD_SRC} -of${LLVM_CMD}")
 endif()
 
-execute_process(COMMAND ${LLVM_CMD} print-llvm-config-candidates
+execute_process(COMMAND ${LLVM_CMD} ${CMAKE_SOURCE_DIR} print-llvm-config-candidates
     OUTPUT_VARIABLE llvm_config_CANDIDATES
     RESULT_VARIABLE llvm_config_CANDIDATES_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 message(STATUS "${llvm_config_CANDIDATES_status} ${llvm_config_CANDIDATES}")
 
-execute_process(COMMAND ${LLVM_CMD} ldflags
+execute_process(COMMAND ${LLVM_CMD} ${CMAKE_SOURCE_DIR}  ldflags
     OUTPUT_VARIABLE llvm_config_LDFLAGS
     RESULT_VARIABLE llvm_config_LDFLAGS_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND ${LLVM_CMD} version
+execute_process(COMMAND ${LLVM_CMD} ${CMAKE_SOURCE_DIR} version
     OUTPUT_VARIABLE llvm_config_VERSION
     RESULT_VARIABLE llvm_config_VERSION_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND ${LLVM_CMD} major_version
+execute_process(COMMAND ${LLVM_CMD} ${CMAKE_SOURCE_DIR} major_version
     OUTPUT_VARIABLE llvm_config_MAJOR_VERSION
     RESULT_VARIABLE llvm_config_MAJOR_VERSION_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND ${LLVM_CMD} cpp-flags
+execute_process(COMMAND ${LLVM_CMD} ${CMAKE_SOURCE_DIR} cpp-flags
     OUTPUT_VARIABLE llvm_config_CPPFLAGS
     RESULT_VARIABLE llvm_config_INCLUDE_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND ${LLVM_CMD} libdir
+execute_process(COMMAND ${LLVM_CMD} ${CMAKE_SOURCE_DIR} libdir
     OUTPUT_VARIABLE llvm_config_LIBDIR
     RESULT_VARIABLE llvm_config_LIBDIR_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND ${LLVM_CMD} libs
+execute_process(COMMAND ${LLVM_CMD} ${CMAKE_SOURCE_DIR} libs
     OUTPUT_VARIABLE llvm_config_LIBS
     RESULT_VARIABLE llvm_config_LIBS_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND ${LLVM_CMD} libclang
+execute_process(COMMAND ${LLVM_CMD} ${CMAKE_SOURCE_DIR} libclang
     OUTPUT_VARIABLE clang_config_LIBS
     RESULT_VARIABLE clang_config_LIBS_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-execute_process(COMMAND ${LLVM_CMD} libclang-flags
+execute_process(COMMAND ${LLVM_CMD} ${CMAKE_SOURCE_DIR} libclang-flags
     OUTPUT_VARIABLE clang_config_LDFLAGS
     RESULT_VARIABLE clang_config_LDFLAGS_status
     OUTPUT_STRIP_TRAILING_WHITESPACE)
