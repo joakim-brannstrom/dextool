@@ -21,11 +21,6 @@ import dextool.plugin.fuzzer.backend.interface_;
 
 /// Data derived during analyze of one translation unit.
 struct AnalyzeData {
-    static auto make() {
-        auto r = AnalyzeData(CppRoot.make);
-        return r;
-    }
-
     CppRoot root;
     alias root this;
 
@@ -103,7 +98,6 @@ final class TUVisitor : Visitor {
 
     this(NullableRef!Container container) {
         this.container = container;
-        this.root = AnalyzeData.make;
     }
 
     override void visit(scope const UnexposedDecl v) {

@@ -169,7 +169,6 @@ CppNamespace makeSingleton(CppNs namespace_name, CppClassName type_name, string 
  */
 void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
         StubPrefix prefix, CppModule impl, LookupKindT lookup) {
-    import std.variant : visit;
     import cpptooling.data : CppVariable, CppCtor, CppMethodOp, CppDtor,
         CppMethod, joinParams, joinParamNames;
     import dsrcgen.c : E;
@@ -270,7 +269,7 @@ void generateImpl(LookupKindT)(CppClass adapter, MutableGlobal[] globals,
     foreach (m; adapter.methodPublicRange()) {
         // dfmt off
         () @trusted{
-            m.visit!(
+            m.match!(
                 (CppMethod m) => genMethod(adapter, m, impl),
                 (CppMethodOp m) => genOp(adapter, m, impl),
                 (CppCtor m) => genCtor(adapter, m, impl),
@@ -291,7 +290,7 @@ void generateSingleton(CppNamespace in_ns, CppModule impl) {
     ns.suppressIndent(1);
     impl.sep(2);
 
-    foreach (g; in_ns.globalRange.map!(a => a.payload)) {
+    foreach (g; in_ns.globalRange) {
         auto stmt = E(g.type.toStringDecl(g.name));
         g.type.kind.info.match!((const TypeKind.PointerInfo t) { stmt = E("0"); }, (_) {
         });

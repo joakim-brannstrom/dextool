@@ -31,17 +31,16 @@ TODO Implement uniqueness for namespaces and classes via e.g. RedBlackTree's
 */
 module cpptooling.data.representation;
 
-import std.array : Appender;
+import logger = std.experimental.logger;
+import std.algorithm : joiner, map, filter, makeIndex;
+import std.array : Appender, array;
 import std.format : format, FormatSpec;
 import std.range : isInputRange;
 import std.traits : Unqual;
 import std.typecons : Tuple, Flag, Yes, No, Nullable;
-import std.variant : Algebraic;
-import logger = std.experimental.logger;
 
 public import cpptooling.data.type;
 
-import sumtype;
 import my.sumtype;
 
 import cpptooling.data.kind_type;
@@ -78,10 +77,9 @@ USRType makeUniqueUSR() @safe nothrow {
 
 void funcToString(Writer, Char)(CppClass.CppFunc func, scope Writer w, in Char[] fmt) @trusted {
     import std.format : formattedWrite;
-    import std.variant : visit;
 
     //dfmt off
-    func.visit!((CppMethod a) => formattedWrite(w, fmt, a),
+    func.match!((CppMethod a) => formattedWrite(w, fmt, a),
                 (CppMethodOp a) => formattedWrite(w, fmt, a),
                 (CppCtor a) => formattedWrite(w, fmt, a),
                 (CppDtor a) => formattedWrite(w, fmt, a));
@@ -102,10 +100,8 @@ string funcToString(CppClass.CppFunc func) @safe {
 }
 
 string methodNameToString(CppClass.CppFunc func) @trusted {
-    import std.variant : visit;
-
     //dfmt off
-    return func.visit!((CppMethod a) => a.name,
+    return func.match!((CppMethod a) => a.name,
                        (CppMethodOp a) => a.name,
                        (CppCtor a) => a.name.get,
                        (CppDtor a) => a.name);
@@ -114,10 +110,8 @@ string methodNameToString(CppClass.CppFunc func) @trusted {
 
 /// Convert a CxParam to a string.
 string paramTypeToString(CxParam p, string id = "") @trusted {
-    import std.variant : visit;
-
     // dfmt off
-    return p.visit!(
+    return p.match!(
         (TypeKindVariable tk) { return tk.type.toStringDecl(id); },
         (TypeKindAttr t) { return t.toStringDecl; },
         (VariadicType a) { return "..."; }
@@ -127,10 +121,8 @@ string paramTypeToString(CxParam p, string id = "") @trusted {
 
 /// Convert a CxParam to a string.
 string paramNameToString(CxParam p, string id = "") @trusted {
-    import std.variant : visit;
-
     // dfmt off
-    return p.visit!(
+    return p.match!(
         (TypeKindVariable tk) { return tk.name; },
         (TypeKindAttr t) { return id; },
         (VariadicType a) { return "..."; }
@@ -235,10 +227,8 @@ private template mixinCommentHelper() {
 
 /// Convert a CxParam to a string.
 string toInternal(CxParam p) @trusted {
-    import std.variant : visit;
-
     // dfmt off
-    return p.visit!(
+    return p.match!(
         (TypeKindVariable tk) {return tk.type.toStringDecl(tk.name);},
         (TypeKindAttr t) { return t.toStringDecl; },
         (VariadicType a) { return "..."; }
@@ -253,15 +243,12 @@ string toInternal(TypeKindVariable tk) @trusted {
 
 /// Join a range of CxParams to a string separated by ", ".
 string joinParams(CxParam[] r) @safe {
-    import std.algorithm : joiner, map;
     import std.conv : text;
     import std.range : enumerate;
 
     static string getTypeName(CxParam p, ulong uid) @trusted {
-        import std.variant : visit;
-
         // dfmt off
-        auto x = p.visit!(
+        auto x = p.match!(
             (TypeKindVariable t) {return t.type.toStringDecl(t.name);},
             (TypeKindAttr t) { return t.toStringDecl("x" ~ text(uid)); },
             (VariadicType a) { return "..."; }
@@ -286,10 +273,8 @@ string joinParamNames(T)(T r) @safe if (isInputRange!T) {
     import std.range : enumerate;
 
     static string getName(CxParam p, ulong uid) @trusted {
-        import std.variant : visit;
-
         // dfmt off
-        return p.visit!(
+        return p.match!(
             (TypeKindVariable tk) {return tk.name;},
             (TypeKindAttr t) { return "x" ~ text(uid); },
             (VariadicType a) { return ""; }
@@ -324,10 +309,8 @@ string joinParamTypes(CxParam[] r) @safe {
 
 /// Get the name of a C++ method.
 string getName()(ref CppClass.CppFunc method) @trusted {
-    import std.variant : visit;
-
     // dfmt off
-    return method.visit!(
+    return method.match!(
                          (CppMethod m) => m.name,
                          (CppMethodOp m) => "",
                          (CppCtor m) => m.name.get,
@@ -338,10 +321,8 @@ string getName()(ref CppClass.CppFunc method) @trusted {
 /// Get the name of a parameter or the default.
 string getName(CxParam p, string default_) @safe {
     static string getName(CxParam p, string default_) @trusted {
-        import std.variant : visit;
-
         // dfmt off
-        return p.visit!(
+        return p.match!(
             (TypeKindVariable tk) {return tk.name;},
             (TypeKindAttr t) { return default_; },
             (VariadicType a) { return default_; }
@@ -354,9 +335,7 @@ string getName(CxParam p, string default_) @safe {
 
 /// Get the parameter type as a string.
 string getType(CxParam p) @trusted {
-    import std.variant : visit;
-
-    return p.visit!((TypeKindVariable t) { return t.type.toStringDecl; }, (TypeKindAttr t) {
+    return p.match!((TypeKindVariable t) { return t.type.toStringDecl; }, (TypeKindAttr t) {
         return t.toStringDecl;
     }, (VariadicType a) { return "..."; });
 }
@@ -381,13 +360,11 @@ struct UnpackParamResult {
 
 /// Unpack a CxParam.
 UnpackParamResult unpackParam(CxParam p) @safe {
-    import std.variant : visit;
-
     UnpackParamResult rval;
 
     // dfmt off
     () @trusted {
-        p.visit!((TypeKindVariable v) => rval.type = v.type,
+        p.match!((TypeKindVariable v) => rval.type = v.type,
                  (TypeKindAttr v) => rval.type = v,
                  (VariadicType v) { rval.isVariadic = true; return rval.type; });
     }();
@@ -396,15 +373,13 @@ UnpackParamResult unpackParam(CxParam p) @safe {
     return rval;
 }
 
-private void assertVisit(CxParam p) @trusted {
-    import std.variant : visit;
-
+private void assertVisit(const CxParam p) @trusted {
     // dfmt off
-    p.visit!(
-        (TypeKindVariable v) { assert(v.name.length > 0);
+    p.match!(
+        (const TypeKindVariable v) { assert(v.name.length > 0);
                                      assert(v.type.toStringDecl.length > 0);},
-        (TypeKindAttr v)     { assert(v.toStringDecl.length > 0); },
-        (VariadicType v)     {});
+        (const TypeKindAttr v)     { assert(v.toStringDecl.length > 0); },
+        (const VariadicType v)     {});
     // dfmt on
 }
 
@@ -1039,12 +1014,11 @@ struct CppInherit {
 }
 
 struct CppClass {
-    import std.variant : Algebraic;
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     static import cpptooling.data.class_classification;
 
-    alias CppFunc = Algebraic!(CppMethod, CppMethodOp, CppCtor, CppDtor);
+    alias CppFunc = SumType!(CppMethod, CppMethodOp, CppCtor, CppDtor);
 
     Nullable!USRType usr;
 
@@ -1227,10 +1201,8 @@ struct CppClass {
 
     void put(CppFunc f) {
         static void internalPut(T)(ref T class_, CppFunc f) @trusted {
-            import std.variant : visit;
-
             // dfmt off
-            f.visit!((CppMethod a) => class_.put(a),
+            f.match!((CppMethod a) => class_.put(a),
                      (CppMethodOp a) => class_.put(a),
                      (CppCtor a) => class_.put(a),
                      (CppDtor a) => class_.put(a));
@@ -1412,8 +1384,10 @@ enum MergeMode {
 }
 
 @safe struct CppNamespace {
-    import std.container : RedBlackTree;
+    import std.algorithm : sort, map;
+    import std.array : array;
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
+    import my.set;
 
     mixin mixinUniqueId!size_t;
 
@@ -1424,8 +1398,12 @@ enum MergeMode {
 
         CppClass[] classes;
         CppNamespace[] namespaces;
-        RedBlackTree!(SortByString!CxGlobalVariable, (a, b) => a.id < b.id) globals;
-        RedBlackTree!(SortByString!CFunction, (a, b) => a.id < b.id) funcs;
+
+        CxGlobalVariable[] globals;
+        Set!string globalIds;
+
+        CFunction[] funcs;
+        Set!string funcIds;
     }
 
     static auto makeAnonymous() nothrow {
@@ -1447,8 +1425,6 @@ enum MergeMode {
         import std.utf : byChar;
 
         this.stack = CppNsStack(stack.dup);
-        this.globals = make!(typeof(this.globals));
-        this.funcs = make!(typeof(this.funcs));
 
         if (stack.length > 0) {
             this.name_ = stack[$ - 1];
@@ -1485,7 +1461,7 @@ enum MergeMode {
 
         put(w, newline);
 
-        foreach (range; AliasSeq!("globals[]", "funcs[]", "classes", "namespaces")) {
+        foreach (range; AliasSeq!("globalRange()", "funcRange()", "classes", "namespaces")) {
             foreach (a; mixin(range)) {
                 a.toString(w, fmt);
                 put(w, newline);
@@ -1507,13 +1483,10 @@ enum MergeMode {
      * will affect both.
      */
     void merge(ref CppNamespace other_ns, MergeMode mode) @safe pure nothrow {
-        import std.meta : AliasSeq;
-
-        foreach (kind; AliasSeq!("funcRange", "globalRange")) {
-            foreach (ref item; __traits(getMember, other_ns, kind)) {
-                put(item.payload);
-            }
-        }
+        foreach (item; other_ns.funcs)
+            put(item);
+        foreach (item; other_ns.globals)
+            put(item);
 
         // not a RedBlackTree so must ensure deduplication via a AA
 
@@ -1567,12 +1540,13 @@ enum MergeMode {
     }
 
     /// Put item in storage.
-    void put(CFunction f) pure nothrow {
-        auto tmp = SortByString!CFunction(f, f.usr.get);
+    void put(CFunction f) @trusted pure nothrow {
+        if (f.usr.isNull)
+            return;
 
-        try {
-            () @trusted pure{ funcs.insert(tmp); }();
-        } catch (Exception ex) {
+        if (f.usr.get !in funcIds) {
+            funcs ~= f;
+            funcIds.add(f.usr.get);
         }
     }
 
@@ -1596,12 +1570,10 @@ enum MergeMode {
     }
 
     /// ditto
-    void put(CxGlobalVariable g) pure nothrow {
-        auto tmp = SortByString!CxGlobalVariable(g, g.name);
-
-        try {
-            () @trusted pure{ globals.insert(tmp); }();
-        } catch (Exception ex) {
+    void put(CxGlobalVariable g) @trusted pure nothrow {
+        if (g.name !in globalIds) {
+            globals ~= g;
+            globalIds.add(g.name);
         }
     }
 
@@ -1622,8 +1594,16 @@ enum MergeMode {
     }
 
     /// Range of free functions residing in this namespace.
-    auto funcRange() @nogc pure nothrow {
-        return funcs[];
+    auto funcRange() @trusted pure nothrow {
+        // TODO: there is a bug with sort which corrupts the USR of the elements.
+        // repeatable by calling globalRange two times. The second time one
+        // element is corrupted.
+        auto indexes = new size_t[funcs.length];
+        try {
+            makeIndex!((a, b) => a.usr.get < b.usr.get)(funcs, indexes);
+        } catch (Exception e) {
+        }
+        return indexes.map!(a => funcs[a]).array;
     }
 
     /// Range of namespaces residing in this namespace.
@@ -1632,8 +1612,16 @@ enum MergeMode {
     }
 
     /// Global variables residing in this namespace.
-    auto globalRange() @nogc pure nothrow {
-        return globals[];
+    auto globalRange() @trusted pure nothrow {
+        // TODO: there is a bug with sort which corrupts the USR of the elements.
+        // repeatable by calling globalRange two times. The second time one
+        // element is corrupted.
+        auto indexes = new size_t[globals.length];
+        try {
+            makeIndex!((a, b) => a.name < b.name)(globals, indexes);
+        } catch (Exception e) {
+        }
+        return indexes.map!(a => globals[a]).array;
     }
 
     mixin(standardToString);
@@ -1680,40 +1668,23 @@ enum MergeMode {
     }
 }
 
-/// Use to get sorting in e.g. a binary tree by a string.
-private struct SortByString(T) {
-    mixin mixinUniqueId!string;
-    T payload;
-    alias payload this;
-
-    this(T a, string sort_by) {
-        payload = a;
-        setUniqueId(sort_by);
-    }
-}
-
 /** The root of the data structure of the semantic representation of the
  * analyzed C++ source.
  */
 struct CppRoot {
-    import std.container : RedBlackTree;
+    import std.algorithm : sort, map;
+    import std.array : array;
+    import my.set;
 
     private {
         CppNamespace[] ns;
         CppClass[] classes;
-        RedBlackTree!(SortByString!CxGlobalVariable, "a.id < b.id") globals;
-        RedBlackTree!(SortByString!CFunction, "a.id < b.id") funcs;
-    }
 
-    /// Returns: An initialized CppRootX
-    static CppRoot make() @safe {
-        import std.container : make;
+        CxGlobalVariable[] globals;
+        Set!string globalIds;
 
-        CppRoot r;
-        r.globals = make!(typeof(this.globals));
-        r.funcs = make!(typeof(this.funcs));
-
-        return r;
+        CFunction[] funcs;
+        Set!string funcIds;
     }
 
     /// Recrusive stringify the content for human readability.
@@ -1722,7 +1693,7 @@ struct CppRoot {
         import std.meta : AliasSeq;
         import std.range : put;
 
-        foreach (range; AliasSeq!("globals[]", "funcs[]", "classes", "ns")) {
+        foreach (range; AliasSeq!("globalRange()", "funcRange()", "classes", "ns")) {
             foreach (a; mixin(range)) {
                 a.toString(w, fmt);
                 put(w, newline);
@@ -1735,17 +1706,14 @@ struct CppRoot {
     /** Merge the roots.
      *
      * Implemented to be cheap but we aware that after this operation the two
-     * root's will point to the same elements.  A mutation in one of them will
+     * root's will point to the same elements. A mutation in one of them will
      * affect both.
      */
-    void merge(ref CppRoot root, MergeMode mode) pure nothrow {
-        import std.meta : AliasSeq;
-
-        foreach (kind; AliasSeq!("funcRange", "globalRange")) {
-            foreach (ref item; __traits(getMember, root, kind)) {
-                put(item.payload);
-            }
-        }
+    void merge(ref CppRoot root, MergeMode mode) nothrow {
+        foreach (item; root.funcs)
+            put(item);
+        foreach (item; root.globals)
+            put(item);
 
         // not a RedBlackTree so must ensure deduplication via a AA
 
@@ -1797,12 +1765,13 @@ struct CppRoot {
     }
 
     /// Put item in storage.
-    void put(CFunction f) pure nothrow {
-        auto tmp = SortByString!CFunction(f, f.usr.get);
+    void put(CFunction f) @trusted pure nothrow {
+        if (f.usr.isNull)
+            return;
 
-        try {
-            () @trusted pure{ funcs.insert(tmp); }();
-        } catch (Exception ex) {
+        if (f.usr.get !in funcIds) {
+            funcs ~= f;
+            funcIds.add(f.usr.get);
         }
     }
 
@@ -1826,12 +1795,10 @@ struct CppRoot {
     }
 
     /// ditto
-    void put(CxGlobalVariable g) pure nothrow {
-        auto tmp = SortByString!CxGlobalVariable(g, g.name);
-
-        try {
-            () @trusted pure{ globals.insert(tmp); }();
-        } catch (Exception ex) {
+    void put(CxGlobalVariable g) @trusted nothrow {
+        if (!g.usr.isNull && g.name !in globalIds) {
+            globals ~= g;
+            globalIds.add(g.name);
         }
     }
 
@@ -1846,13 +1813,29 @@ struct CppRoot {
     }
 
     /// ditto
-    auto funcRange() @nogc {
-        return funcs[];
+    auto funcRange() @trusted {
+        // TODO: there is a bug with sort which corrupts the USR of the elements.
+        // repeatable by calling globalRange two times. The second time one
+        // element is corrupted.
+        auto indexes = new size_t[funcs.length];
+        try {
+            makeIndex!((a, b) => a.usr.get < b.usr.get)(funcs, indexes);
+        } catch (Exception e) {
+        }
+        return indexes.map!(a => funcs[a]).array;
     }
 
     /// ditto
-    auto globalRange() @nogc {
-        return globals[];
+    auto globalRange() @trusted {
+        // TODO: there is a bug with sort which corrupts the USR of the elements.
+        // repeatable by calling globalRange two times. The second time one
+        // element is corrupted.
+        auto indexes = new size_t[globals.length];
+        try {
+            makeIndex!((a, b) => a.name < b.name)(globals, indexes);
+        } catch (Exception e) {
+        }
+        return indexes.map!(a => globals[a]).array;
     }
 
     /// Cast to string representation
@@ -2194,7 +2177,7 @@ unittest {
 
 @("Test of toString for CppRoot")
 unittest {
-    auto root = CppRoot.make();
+    CppRoot root;
 
     { // free function
         auto f = CFunction(dummyUSR, CFunctionName("nothing"));
@@ -2284,7 +2267,7 @@ unittest {
 unittest {
     auto v = CxGlobalVariable(dummyUSR, TypeKindVariable(makeSimple("int"), CppVariable("x")));
     auto n = CppNamespace.makeAnonymous();
-    auto r = CppRoot.make();
+    CppRoot r;
     n.put(v);
     r.put(v);
     r.put(n);
@@ -2302,7 +2285,7 @@ unittest {
 
     auto v0 = CxGlobalVariable(dummyUSR, TypeKindVariable(makeSimple("int"), CppVariable("x")));
     auto v1 = CxGlobalVariable(dummyUSR, TypeKindVariable(makeSimple("int"), CppVariable("x")));
-    auto r = CppRoot.make();
+    CppRoot r;
     r.put(v0);
     r.put(v1);
     r.put(v0);

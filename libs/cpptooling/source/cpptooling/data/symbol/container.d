@@ -134,10 +134,6 @@ private @safe struct DeclLocation {
     import std.range : only, dropOne;
     import std.typecons : Nullable;
 
-    this(DeclLocation other) @safe {
-        this = other;
-    }
-
     // TODO change name to anyOfDeclaratoinOrDefinition to be self explaining
     /** A range of one location if any is set.
      *

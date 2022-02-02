@@ -106,7 +106,6 @@ CppNamespace makeSingleton(MainNs main_ns, MainInterface main_if) {
  * The global is expected to be named test_double_inst.
  */
 void generateImpl(CppClass c, CppModule impl) {
-    import std.variant : visit;
     import cpptooling.data;
     import dsrcgen.c : E;
 
@@ -117,7 +116,7 @@ void generateImpl(CppClass c, CppModule impl) {
         TypeKindVariable p0 = () @trusted {
             import std.array;
 
-            return m.paramRange().front.visit!(
+            return m.paramRange().front.match!(
                 (TypeKindVariable tkv) => tkv,
                 (TypeKindAttr tk) => TypeKindVariable(tk, CppVariable("inst")),
                 (VariadicType vt) {
@@ -160,7 +159,7 @@ void generateImpl(CppClass c, CppModule impl) {
     foreach (m; c.methodPublicRange()) {
         // dfmt off
         () @trusted{
-            m.visit!(
+            m.match!(
                 (CppMethod m) => genMethod(c, m, impl),
                 (CppMethodOp m) => genOp(c, m, impl),
                 (CppCtor m) => genCtor(c, m, impl),

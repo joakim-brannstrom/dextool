@@ -24,12 +24,6 @@ import dextool.plugin.cpptestdouble.backend.interface_;
 struct AnalyzeData {
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
-    static auto make() {
-        AnalyzeData r;
-        r.root = CppRoot.make;
-        return r;
-    }
-
     CppRoot root;
 
     /// Classes found during src analysis.
@@ -80,7 +74,6 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
             this.prod = prod;
             this.analyze_data = analyze;
             this.container = container;
-            this.root = CppRoot.make;
         }
     } else {
         CppNamespace root;

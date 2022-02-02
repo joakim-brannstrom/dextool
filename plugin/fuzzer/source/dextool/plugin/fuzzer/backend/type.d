@@ -39,10 +39,6 @@ struct ImplData {
 
     /// ID's for all symbols, both user specified and newly discovered.
     ulong[FullyQualifiedNameType] symbolId;
-
-    static auto make() {
-        return ImplData(CppRoot.make);
-    }
 }
 
 struct IgnoreSymbol {

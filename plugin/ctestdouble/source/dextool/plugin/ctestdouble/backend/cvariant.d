@@ -8,8 +8,10 @@ representation.
 */
 module dextool.plugin.ctestdouble.backend.cvariant;
 
+import std.algorithm : filter, each, map, joiner;
 import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
+import std.array : array, empty;
 
 import dsrcgen.cpp : CppModule, CppHModule;
 import my.sumtype;
@@ -163,7 +165,6 @@ struct Generator {
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
-        this.filtered = CppRoot.make;
     }
 
     /** Filter and aggregate data for future processing.
@@ -291,11 +292,10 @@ final class CVisitor : Visitor {
     this(Controller ctrl, Products prod) {
         this.ctrl = ctrl;
         this.prod = prod;
-        this.root = CppRoot.make;
     }
 
     void clearRoot() @safe {
-        this.root = CppRoot.make;
+        this.root = CppRoot.init;
     }
 
     override void visit(scope const VarDecl v) {
@@ -393,10 +393,6 @@ struct ImplData {
     /// Constructor kinds for ctors in an adapter
     AdapterKind[USRType] adapterKind;
 
-    static auto make() {
-        return ImplData(CppRoot.make);
-    }
-
     void tag(size_t id, Kind kind_) {
         kind[id] = kind_;
     }
@@ -450,7 +446,6 @@ enum Kind {
  */
 void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
         ref CppRoot filtered, LookupT lookup) {
-    import std.algorithm : filter, each;
     import std.range : tee;
     import cpptooling.data : StorageClass;
     import cpptooling.generator.utility : filterAnyLocation;
@@ -459,10 +454,10 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
     input.funcRange
         .filter!(a => !a.usr.isNull)
         // by definition static functions can't be replaced by test doubles
-        .filter!(a => a.payload.storageClass != StorageClass.Static)
+        .filter!(a => a.storageClass != StorageClass.Static)
         // ask controller if the user wants to generate a test double function for the symbol.
         // note: using the fact that C do NOT have name mangling.
-        .filter!(a => ctrl.doSymbol(a.payload.name))
+        .filter!(a => ctrl.doSymbol(a.name))
         // ask controller if to generate a test double for the function
         .filterAnyLocation!(a => ctrl.doFile(a.location.file, cast(string) a.value.name))(lookup)
         // pass on location as a product to be used to calculate #include
@@ -470,6 +465,7 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
         .each!(a => filtered.put(a.value));
 
     input.globalRange()
+        .filter!(a => !a.usr.isNull)
         // ask controller if the user wants to generate a global for the symbol.
         // note: using the fact that C do NOT have name mangling.
         .filter!(a => ctrl.doSymbol(a.name))
@@ -490,8 +486,6 @@ void rawFilter(LookupT)(ref CppRoot input, Controller ctrl, Products prod,
  */
 auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
         ref Container container) @trusted {
-    import std.algorithm : filter;
-    import std.array : array;
     import cpptooling.data : CppNamespace, CppNs, CppClassName, CppInherit,
         CppAccess, AccessType, makeUniqueUSR, nextUniqueID, MergeMode;
     import cpptooling.generator.func : makeFuncInterface;
@@ -500,7 +494,7 @@ auto makeImplementation(ref CppRoot root, Controller ctrl, Parameters params,
     import dextool.plugin.ctestdouble.backend.global : makeGlobalInterface,
         makeZeroGlobal, filterMutable;
 
-    ImplData impl = ImplData.make;
+    ImplData impl;
     impl.root.merge(root, MergeMode.shallow);
 
     impl.globals = impl.globalRange.filterMutable(container).array;
@@ -617,7 +611,6 @@ void generateGlobal(RangeT)(RangeT r, Controller ctrl, Parameters params,
             }), (_) {});
     }
     do {
-        import std.algorithm : map, joiner;
         import std.format : format;
         import std.string : toUpper;
 

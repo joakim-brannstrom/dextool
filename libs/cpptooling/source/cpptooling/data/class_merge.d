@@ -9,6 +9,8 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module cpptooling.data.class_merge;
 
+import my.sumtype;
+
 import cpptooling.data.representation : CppClass;
 import cpptooling.data.symbol : Container;
 import cpptooling.data.symbol.types : FullyQualifiedNameType;
@@ -44,11 +46,10 @@ CppClass mergeClassInherit(ref CppClass class_, ref Container container, LookupT
 private:
 
 bool isMethodOrOperator(T)(T method) @trusted {
-    import std.variant : visit;
     import cpptooling.data.representation : CppMethod, CppMethodOp, CppCtor, CppDtor;
 
     // dfmt off
-    return method.visit!((CppMethod a) => true,
+    return method.match!((CppMethod a) => true,
                          (CppMethodOp a) => true,
                          (CppCtor a) => false,
                          (CppDtor a) => false);
@@ -85,11 +86,10 @@ auto dedup(CppClass.CppFunc[] methods) @trusted {
     import cpptooling.data.representation : funcToString;
 
     static auto getUniqeId(T)(ref T method) {
-        import std.variant : visit;
         import cpptooling.data : CppMethod, CppMethodOp, CppCtor, CppDtor;
 
         // dfmt off
-        return method.visit!((CppMethod a) => a.id,
+        return method.match!((CppMethod a) => a.id,
                              (CppMethodOp a) => a.id,
                              (CppCtor a) => a.id,
                              (CppDtor a) => a.id);
