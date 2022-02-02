@@ -27,20 +27,38 @@ sudo apt install build-essential cmake llvm-13 llvm-13-dev clang-13 libclang-13-
 
 **Step 4:** Install the D compiler:
 
-Download and install the latest LDC compiler from [the official distribution page](https://github.com/ldc-developers/ldc/releases).
+The supported compiler versions are found at:
+   * [dmd minimal version](Docker/partial/dmd_min_version)
+   * [dmd max version](Docker/partial/dmd_latest_version)
+   * [ldc minimal version](Docker/partial/ldc_min_version)
+   * [ldc max version](Docker/partial/ldc_latest_version)
+
+You can install them via the install script at dlang.org.
 
 Example (2021-12-30):
 
 ```sh
-export LDC_VERSION=<see Docker/partial/ldc_latest_version>
-wget https://github.com/ldc-developers/ldc/releases/download/v${LDC_VERSION}/ldc2-${LDC_VERSION}-linux-x86_64.tar.xz
 mkdir -p ~/dlang
-tar -xf ldc2-${LDC_VERSION}-linux-x86_64.tar.xz -C ~/dlang
+wget https://dlang.org/install.sh -O ~/dlang/install.sh
+sudo chmod +777 ~/dlang/install.sh
+~/dlang/install.sh install dmd-2.097.2
+~/dlang/install.sh install ldc-1.28.0
+~/dlang/install.sh install dub 
 ```
 
-Add it to your `$PATH`:
+Add the compilers to your `$PATH` variable:
 ```sh
-export PATH=~/dlang/ldc2-${LDC_VERSION}-linux-x86_64/bin:$PATH
+source ~/dlang/dmd-2.097.2/activate
+source ~/dlang/ldc-1.28.0/activate
+source ~/dlang/dub-1.22.0/activate
 ```
 
 You are now ready to build dextool. Go to the section [Build and Install](../../README.md#build-and-install) in README.md
+
+```sh
+git clone https://github.com/joakim-brannstrom/dextool.git
+mkdir dextool/build
+cd dextool/build
+cmake -DCMAKE_INSTALL_PREFIX=$HOME/local ..
+make install
+```
