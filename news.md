@@ -1,5 +1,7 @@
 # vNext
 
+# v4.1.0 Polished Gem
+
 Fixes
 
  * Fixed build instructions and cmake config to allow greater control over what
@@ -25,7 +27,7 @@ Fixes for dextool mutate
  * HTML file report could fail. Added code to catch exceptions during report
    generation which should fix the problem.
  * Running parallel instances didn't work that great when testing mutants in
-   large scheman because an instances didn't update the mutants to test with
+   large schemas because an instances didn't update the mutants to test with
    those that had already been tested by another instances. This has now been
    fixed by polling the database each minute to remove those mutants that have
    been tested.
@@ -41,8 +43,8 @@ Fixes for dextool mutate
  * Populate the worklist with re-test of old mutants if it is below the
    specified retest number.
  * Fix memory overload check. It failed to parse `/proc/meminfo`.
- * Block scheman inside constexpr template functions. This reduces the number
-   of failed scheman thus improve the overall speed.
+ * Block schemas inside constexpr template functions. This reduces the number
+   of failed schemas thus improve the overall speed.
    This fix is only available with clang-12+.
  * If `test` is run without finishing and then `analyze` is ran the handling of
    timeout mutants will lead to an ever increasing list.
