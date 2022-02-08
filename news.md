@@ -5,6 +5,7 @@ Fixes
  * Fixed build instructions and cmake config to allow greater control over what
    llvm/clang libs are linked. This allows dextool to be built for Fedora-34.
  * Support llvm/clang 13.
+ * Fix compilation with latest dmd-compiler (2.097.2)
 
 New features for dextool mutate
 
