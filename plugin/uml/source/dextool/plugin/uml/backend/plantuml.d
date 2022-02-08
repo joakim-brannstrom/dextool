@@ -1959,11 +1959,10 @@ UMLClassDiagram.Key makeClassKey(in USRType key) @trusted {
 
 private auto unpackParam(CxParam p) @trusted {
     import std.range : only, dropOne;
-    import std.variant : visit;
     import cpptooling.data : TypeKindVariable, VariadicType;
 
     // dfmt off
-    return p.visit!(
+    return p.match!(
                     (TypeKindVariable v) => only(v.type),
                     (TypeKindAttr v) => only(v),
                     (VariadicType v) {
@@ -2062,12 +2061,11 @@ private ClassRelate getTypeRelation(LookupT)(TypeKindAttr tk, LookupT lookup) {
 private auto getClassMethodRelation(LookupT)(CxParam[] params, LookupT lookup) {
     import std.array : array;
     import std.algorithm : among, map, filter;
-    import std.variant : visit;
     import cpptooling.data : TypeKind, TypeAttr, TypeKindAttr, toStringDecl, VariadicType;
 
     static ClassRelate genParam(CxParam p, LookupT lookup) @trusted {
         // dfmt off
-        return p.visit!(
+        return p.match!(
             (TypeKindVariable tkv) => getTypeRelation(tkv.type, lookup),
             (TypeKindAttr tk) => getTypeRelation(tk, lookup),
             (VariadicType vk)

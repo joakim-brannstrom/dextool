@@ -11,6 +11,8 @@ module cpptooling.generator.classes;
 
 import std.typecons : Yes, No, Flag;
 
+import my.sumtype;
+
 import dsrcgen.cpp : CppModule;
 
 import cpptooling.data : CppClass, LocationTag;
@@ -91,7 +93,7 @@ void generateHdr(LookupT)(CppClass in_c, CppModule hdr, Flag!"locationAsComment"
              .array
              .indexSort!((ref a, ref b) => getName(a) < getName(b))
              ) {
-        m.visit!(
+        m.match!(
             (CppMethod m) => genMethod(m, pub, loc_as_comment, lookup),
             (CppMethodOp m) => genOp(m, pub),
             (CppCtor m) => genCtor(m, pub),

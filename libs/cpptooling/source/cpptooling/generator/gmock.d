@@ -13,9 +13,10 @@ import std.conv : text;
 import std.format : format;
 import std.range : chain, only, retro, takeOne;
 import std.typecons : Yes, No, Flag;
-import std.variant : visit;
 
 import logger = std.experimental.logger;
+
+import my.sumtype;
 
 import dsrcgen.cpp : CppModule, noIndent;
 
@@ -212,7 +213,7 @@ do {
     foreach (m; in_c.methodRange()) {
         // dfmt off
         () @trusted {
-        m.visit!((CppMethod m) => genMethod(m, pub),
+        m.match!((CppMethod m) => genMethod(m, pub),
                  (CppMethodOp m) => genOp(m, pub),
                  (CppCtor m) => ignore(),
                  (CppDtor m) => ignore());
@@ -271,7 +272,6 @@ auto generateGmockImpl(Path if_file, Path hdr, DextoolVersion ver,
  */
 auto makeGmock(CppClass c) @trusted {
     import std.array : array;
-    import std.variant : visit;
     import cpptooling.data : makeUniqueUSR, nextUniqueID, getName, CppAccess,
         CppConstMethod, CppVirtualMethod, AccessType, MemberVirtualType;
     import cpptooling.utility.sort : indexSort;
@@ -302,7 +302,7 @@ auto makeGmock(CppClass c) @trusted {
              .indexSort!((ref a, ref b) => getName(a) < getName(b))
              ) {
         () @trusted{
-            m_in.visit!((CppMethod m) => m.isVirtual ? rclass.put(conv(m)) : false,
+            m_in.match!((CppMethod m) => m.isVirtual ? rclass.put(conv(m)) : false,
                         (CppMethodOp m) => m.isVirtual ? rclass.put(conv(m)) : false,
                         (CppCtor m) {},
                         (CppDtor m) => m.isVirtual ? rclass.put(m) : false);

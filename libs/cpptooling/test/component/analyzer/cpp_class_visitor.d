@@ -10,12 +10,12 @@ module test.component.analyzer.cpp_class_visitor;
 import std.conv : to;
 import std.format : format;
 import std.typecons : scoped, Yes;
-import std.variant : visit;
 import logger = std.experimental.logger;
 
 import unit_threaded;
 import test.clang_util;
 import blob_model;
+import my.sumtype;
 
 // TODO this is a mega import. Reduce it
 import cpptooling.data;
@@ -118,7 +118,7 @@ public:
     CppMethod method;
 
     // dfmt off
-    visitor.classes[0].methodPublicRange[0].visit!(
+    visitor.classes[0].methodPublicRange[0].match!(
         (const CppMethod a) { method = cast(CppMethod) a; return; },
         (const CppMethodOp a) => 0.shouldEqual(1),
         (const CppCtor a) => 0.shouldEqual(1),

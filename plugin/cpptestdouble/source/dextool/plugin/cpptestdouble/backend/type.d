@@ -48,10 +48,6 @@ struct ImplData {
     /// Classes found during src analysis.
     CppClass[FullyQualifiedNameType] classes;
 
-    static auto make() {
-        return ImplData(CppRoot.make);
-    }
-
     /// Tag an ID with a kind.
     void tag(size_t id, Kind kind_) {
         kind[id] = kind_;

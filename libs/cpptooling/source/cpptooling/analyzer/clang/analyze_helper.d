@@ -275,13 +275,12 @@ do {
         auto params = toCxParam(data.tr.primary.type.kind, container);
 
         VariadicType is_variadic;
+
         // according to C/C++ standard the last parameter is the only one
         // that can be a variadic, therefor only needing to peek at that
         // one.
         if (params.length > 0) {
-            is_variadic = cast(VariadicType)() @trusted {
-                return params[$ - 1].peek!VariadicType;
-            }();
+            is_variadic = params[$ - 1].match!((VariadicType a) => a, _ => VariadicType.init);
         }
 
         auto attrs = data.tr.primary.type.kind.info.match!(a => a.returnAttr, _ => TypeAttr.init);

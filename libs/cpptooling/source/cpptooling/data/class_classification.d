@@ -14,6 +14,8 @@ module cpptooling.data.class_classification;
 import std.typecons : Flag;
 import logger = std.experimental.logger;
 
+import my.sumtype;
+
 import cpptooling.data.representation : CppClass, CppMethod, CppMethodOp, CppCtor, CppDtor;
 import cpptooling.data.type : MemberVirtualType;
 
@@ -51,10 +53,8 @@ out (result) {
     assert(result.value != MemberVirtualType.Unknown);
 }
 do {
-    import std.variant : visit;
-
     //dfmt off
-    return func.visit!(
+    return func.match!(
         (CppMethod a) => InData(a.classification(), MethodKind.Method),
         (CppMethodOp a) => InData(a.classification(), MethodKind.Method),
         // A ctor can't be anything else than Normal

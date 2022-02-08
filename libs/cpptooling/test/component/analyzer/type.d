@@ -12,7 +12,6 @@ import std.conv : to;
 import std.format : format;
 import std.range : take;
 import std.typecons : scoped, Yes;
-import std.variant : visit;
 
 import unit_threaded;
 import test.clang_util;
@@ -345,12 +344,8 @@ unittest {
 
         foreach (param; visitor.funcs[0].params) {
             TypeKindAttr type;
-            // dfmt off
-        param.visit!(
-                     (TypeKindVariable v) => type = v.type,
-                     (TypeKindAttr v) => type = v,
-                     (VariadicType v) => type = type);
-        // dfmt on
+            param.match!((TypeKindVariable v) => type = v.type,
+                    (TypeKindAttr v) => type = v, (VariadicType v) => type = type);
 
             type.kind.info.match!(ignore!(TypeKind.PrimitiveInfo), (_) {
                 assert(0, "wrong type");
@@ -449,12 +444,8 @@ const void* const func(const MadeUp** const zzzz, const Struct** const yyyy);
     auto ast = ClangAST!(typeof(visitor))(tu.cursor);
     ast.accept(visitor);
 
-    // dfmt off
-    visitor.funcs[0].params[0]
-        .visit!((TypeKindVariable a) => writelnUt(a.type.kind.usr),
-                (TypeKindAttr a) => writelnUt(a.kind.usr),
-                (VariadicType a) => writelnUt("variadic"));
-    // dfmt on
+    visitor.funcs[0].params[0].match!((TypeKindVariable a) => writelnUt(a.type.kind.usr),
+            (TypeKindAttr a) => writelnUt(a.kind.usr), (VariadicType a) => writelnUt("variadic"));
 
     // assert
     checkForCompilerErrors(tu).shouldBeFalse;

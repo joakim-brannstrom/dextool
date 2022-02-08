@@ -48,7 +48,6 @@ TypeKind resolveTypedef(TypeKind type, ref Container container) @trusted nothrow
 auto filterMutable(RangeT)(RangeT range, ref Container container) {
     import std.algorithm : filter, map;
     import std.range : ElementType;
-    import std.range : tee;
 
     static bool isNotConst(ref ElementType!RangeT element) {
         auto info = element.type.kind.info;
@@ -63,8 +62,6 @@ auto filterMutable(RangeT)(RangeT range, ref Container container) {
         return info.match!((const TypeKind.FuncPtrInfo t) => handler(t),
                 (const TypeKind.PointerInfo t) => handler(t), _ => !element.type.attr.isConst);
     }
-
-    resolveTypedef(range.front.type.kind, container);
 
     return range.filter!(a => isNotConst(a))
         .map!(a => MutableGlobal(a, resolveTypedef(a.type.kind, container)));
@@ -131,7 +128,6 @@ CppClass makeZeroGlobal(RangeT)(RangeT range, CppClassName main_if,
 void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
         StubPrefix prefix, LookupGlobalT lookup) @safe {
     import std.typecons : No;
-    import std.variant : visit;
     import cpptooling.data : CppMethod, CppMethodOp, CppCtor, CppDtor;
     import dsrcgen.c : E;
 
@@ -223,7 +219,7 @@ void generateInitGlobalsToZero(LookupGlobalT)(ref CppClass c, CppModule impl,
     foreach (m; c.methodPublicRange()) {
         // dfmt off
         () @trusted{
-            m.visit!(
+            m.match!(
                 (CppMethod m) => genMethod(c, m, prefix, impl, need_memzero),
                 (CppMethodOp m) => noop,
                 (CppCtor m) => genCtor(c.name, impl),

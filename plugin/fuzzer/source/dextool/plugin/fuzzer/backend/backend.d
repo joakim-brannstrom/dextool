@@ -32,7 +32,6 @@ struct Backend {
             Regex!char strip_incl) {
         import std.typecons : Yes;
 
-        this.analyze = AnalyzeData.make();
         this.ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         this.ctrl = ctrl;
         this.params = params;
@@ -70,7 +69,7 @@ struct Backend {
                 (Nullable!USRType usr) @safe => container.find!LocationTag(usr.get));
         // dfmt on
 
-        analyze.get.root.merge(filtered, MergeMode.full);
+        analyze.root.merge(filtered, MergeMode.full);
 
         gen_code_includes.process();
 
@@ -81,15 +80,13 @@ struct Backend {
         import std.algorithm : map;
         import std.array : array;
 
-        assert(!analyze.isNull);
-
         debug {
             logger.trace(container.toString);
-            logger.tracef("Filtered:\n%u", analyze.get.root);
+            logger.tracef("Filtered:\n%u", analyze.root);
         }
 
-        auto impl_data = translate(analyze.get.root, syms, container);
-        analyze.nullify();
+        auto impl_data = translate(analyze.root, syms, container);
+        analyze = AnalyzeData.init;
 
         debug {
             logger.tracef("Translated to implementation:\n%u", impl_data.root);
@@ -105,7 +102,7 @@ struct Backend {
 private:
     ClangContext ctx;
     Container container;
-    Nullable!AnalyzeData analyze;
+    AnalyzeData analyze;
     GeneratedData gen_data;
 
     Controller ctrl;
@@ -144,7 +141,7 @@ AnalyzeData rawFilter(PutLocT, LookupT)(AnalyzeData input, Controller ctrl,
         putLoc(input.fileOfTranslationUnit, LocationType.Root, input.languageOfTranslationUnit);
     }
 
-    auto filtered = AnalyzeData.make;
+    AnalyzeData filtered;
 
     // dfmt off
     input.funcRange
@@ -174,7 +171,7 @@ ImplData translate(SymbolsT)(CppRoot root, ref SymbolsT symbols, ref Container c
     import dextool.plugin.fuzzer.type : Symbol, FullyQualifiedNameType, Param;
 
     Sequence!ulong test_case_seq_generator;
-    auto impl = ImplData.make();
+    ImplData impl;
 
     void updateSeq(ref Symbol sym) {
         Symbol s = sym;

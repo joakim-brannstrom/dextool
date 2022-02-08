@@ -54,7 +54,6 @@ struct Backend {
 
     ///
     this(Controller ctrl, Parameters params, Products products, Transform transform) {
-        this.analyze = AnalyzeData.make;
         this.ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
         this.ctrl = ctrl;
         this.params = params;
@@ -68,7 +67,7 @@ struct Backend {
         import cpptooling.data : MergeMode;
 
         NullableRef!Container cont_ = &container;
-        NullableRef!AnalyzeData analyz = &analyze.get();
+        NullableRef!AnalyzeData analyz = &analyze;
         auto visitor = new CppTUVisitor(ctrl, products, analyz, cont_);
 
         if (analyzeFile(abs_in_file, use_cflags, visitor, ctx) == ExitStatusType.Errors) {
@@ -81,7 +80,7 @@ struct Backend {
                 (Nullable!USRType usr) => container.find!LocationTag(usr.get),
                 (USRType usr) => container.find!LocationTag(usr));
 
-        analyze.get.root.merge(fl, MergeMode.full);
+        analyze.root.merge(fl, MergeMode.full);
 
         return ExitStatusType.Ok;
     }
@@ -104,18 +103,16 @@ struct Backend {
     void process() {
         import cpptooling.data.symbol.types : USRType;
 
-        assert(!analyze.isNull);
-
         debug logger.trace(container.toString);
 
-        logger.tracef("Filtered:\n%u", analyze.get.root);
+        logger.tracef("Filtered:\n%u", analyze.root);
 
-        auto impl_data = ImplData.make();
+        ImplData impl_data;
         impl_data.includeHooks = IncludeHooks.make(transform);
 
-        impl_data.putForLookup(analyze.get.classes);
-        translate(analyze.get.root, container, ctrl, params, impl_data);
-        analyze.nullify();
+        impl_data.putForLookup(analyze.classes);
+        translate(analyze.root, container, ctrl, params, impl_data);
+        analyze = AnalyzeData.init;
 
         logger.tracef("Translated to implementation:\n%u", impl_data.root);
         logger.trace("kind:\n", impl_data.kind);
@@ -130,7 +127,7 @@ private:
     ClangContext ctx;
     Controller ctrl;
     Container container;
-    Nullable!AnalyzeData analyze;
+    AnalyzeData analyze;
     Parameters params;
     Products products;
     Transform transform;
@@ -165,7 +162,7 @@ CppT rawFilter(CppT, LookupT, LookupT2)(CppT input, Controller ctrl,
 
     // setup
     static if (is(CppT == CppRoot)) {
-        auto filtered = CppRoot.make;
+        CppRoot filtered;
     } else static if (is(CppT == CppNamespace)) {
         auto filtered = CppNamespace(input.resideInNs);
         assert(!input.isAnonymous);
@@ -221,6 +218,7 @@ CppT rawFilter(CppT, LookupT, LookupT2)(CppT input, Controller ctrl,
 void translate(CppRoot root, ref Container container, Controller ctrl,
         Parameters params, ref ImplData impl) {
     import std.algorithm : map, filter, each;
+    import std.array : empty;
     import cpptooling.data : mergeClassInherit, FullyQualifiedNameType;
 
     if (!root.funcRange.empty) {

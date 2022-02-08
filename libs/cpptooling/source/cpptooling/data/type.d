@@ -11,7 +11,8 @@ module cpptooling.data.type;
 
 import std.traits : isSomeString;
 import std.typecons : Flag;
-import std.variant : Algebraic;
+
+import my.sumtype;
 
 public import cpptooling.data.symbol.types : USRType;
 import cpptooling.data.kind_type : TypeKind, TypeAttr, TypeKindAttr, TypeResult, toStringDecl;
@@ -269,7 +270,7 @@ struct CFunctionName {
 
 // Shared types between C and Cpp
 alias VariadicType = Flag!"isVariadic";
-alias CxParam = Algebraic!(TypeKindVariable, TypeKindAttr, VariadicType);
+alias CxParam = SumType!(TypeKindVariable, TypeKindAttr, VariadicType);
 
 struct CxReturnType {
     TypeKindAttr payload;

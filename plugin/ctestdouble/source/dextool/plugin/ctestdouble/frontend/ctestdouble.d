@@ -628,7 +628,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] userCflags,
     import dextool.plugin.ctestdouble.backend.cvariant : CVisitor, Generator;
     import dextool.utility : prependDefaultFlags, PreferLang, analyzeFile;
 
-    auto visitor = new CVisitor(variant, variant);
+    scope visitor = new CVisitor(variant, variant);
     auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
     auto generator = Generator(variant, variant, variant);
 
