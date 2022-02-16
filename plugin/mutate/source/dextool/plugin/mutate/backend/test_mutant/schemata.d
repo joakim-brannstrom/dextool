@@ -328,6 +328,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
 
                     logger.info("Ok".color(Color.green), ". Using test suite timeout ",
                             ctx.state.get.timeoutConf.value).collectException;
+                    send(ctx.self, StartTestMsg.init);
                 } else {
                     logger.info("Skipping the schemata because the test suite failed".color(Color.yellow)
                             .toString);
@@ -816,7 +817,6 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
 
     static void doConf(ref Ctx ctx, TimeoutConfig conf) @safe nothrow {
         ctx.state.get.runner.timeout = conf.value;
-        logger.info("smurf ", conf.value).collectException;
     }
 
     self.name = "testMutant";
