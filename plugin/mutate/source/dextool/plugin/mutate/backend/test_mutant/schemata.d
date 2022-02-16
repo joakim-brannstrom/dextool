@@ -89,11 +89,14 @@ struct FinalResult {
     int alive;
 }
 
+struct ConfTesters {
+}
+
 alias SchemaActor = typedActor!(void function(Init, AbsolutePath, ShellCommand, Duration),
         bool function(IsDone), void function(UpdateWorkList), FinalResult function(GetDoneStatus),
         void function(SchemaTestResult), void function(Mark, FinalResult.Status), void function(InjectAndCompile,
             ShellCommand, Duration), void function(RestoreMsg), void function(StartTestMsg),
-        void function(ScheduleTestMsg), void function(CheckStopCondMsg));
+        void function(ScheduleTestMsg), void function(CheckStopCondMsg), void function(ConfTesters));
 
 auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, AbsolutePath dbPath,
         TestCaseAnalyzer testCaseAnalyzer, ConfigSchema conf, SchemataId id,
@@ -143,6 +146,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
 
         try {
             ctx.state.get.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
+
             ctx.state.get.scheduler = () {
                 TestMutantActor.Address[] testers;
                 foreach (_0; 0 .. ctx.state.get.conf.parallelMutants) {
@@ -167,6 +171,12 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         } catch (Exception e) {
             ctx.state.get.hasFatalError = true;
             logger.error(e.msg).collectException;
+        }
+    }
+
+    static void confTesters(ref Ctx ctx, ConfTesters _) {
+        foreach (a; ctx.state.get.scheduler.testers) {
+            send(a, ctx.state.get.timeoutConf);
         }
     }
 
@@ -313,12 +323,11 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
                 if (sanity.isOk) {
                     if (ctx.state.get.timeoutConf.base < sanity.runtime) {
                         ctx.state.get.timeoutConf.set(sanity.runtime);
-                        ctx.state.get.runner.timeout = ctx.state.get.timeoutConf.value;
+                        send(ctx.self, ConfTesters.init);
                     }
 
                     logger.info("Ok".color(Color.green), ". Using test suite timeout ",
                             ctx.state.get.timeoutConf.value).collectException;
-                    send(ctx.self, StartTestMsg.init);
                 } else {
                     logger.info("Skipping the schemata because the test suite failed".color(Color.yellow)
                             .toString);
@@ -457,7 +466,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
 
     return impl(self, &init_, st, &isDone, st, &updateWlist, st,
             &doneStatus, st, &save, st, &mark, st, &injectAndCompile, st,
-            &restore, st, &startTest, st, &test, st, &checkHaltCond, st);
+            &restore, st, &startTest, st, &test, st, &checkHaltCond, st, &confTesters, st);
 }
 
 /** Generate schemata injection IDs (32bit) from mutant checksums (128bit).
@@ -746,7 +755,8 @@ struct SchemaTestResult {
     TestCase[] unstable;
 }
 
-alias TestMutantActor = typedActor!(SchemaTestResult function(InjectIdResult.InjectId id));
+alias TestMutantActor = typedActor!(
+        SchemaTestResult function(InjectIdResult.InjectId id), void function(TimeoutConfig));
 
 auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnalyzer analyzer) {
     static struct State {
@@ -804,6 +814,11 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
         return rval;
     }
 
+    static void doConf(ref Ctx ctx, TimeoutConfig conf) @safe nothrow {
+        ctx.state.get.runner.timeout = conf.value;
+        logger.info("smurf ", conf.value).collectException;
+    }
+
     self.name = "testMutant";
-    return impl(self, &run, st);
+    return impl(self, &run, st, &doConf, st);
 }

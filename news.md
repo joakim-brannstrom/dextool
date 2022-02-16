@@ -1,5 +1,14 @@
 # vNext
 
+Fixes for dextool mutate
+
+ * Schematan may, and do, affect the runtime of a test suite. This mean that
+ the timeout need to be measured and adjusted per schema. This feature exists
+ and is done but the timeout where set after all test workers where spawned
+ which meant it had no effect.  The fix is to send a signal to all test workers
+ to update the timeout, if it is needed. The end result is that scheman should
+ result in less mutants with `timeout` status.
+
 # v4.1.0 Polished Gem
 
 Fixes
