@@ -1856,7 +1856,8 @@ struct DbMutant {
     MutationStatusId[] getSurroundingAliveMutants(const MutationStatusId id) @trusted {
         long mp_id;
         {
-            auto stmt = db.prepare("SELECT mp_id FROM " ~ mutationStatusTable ~ " WHERE st_id=:id");
+            auto stmt = db.prepare(
+                    "SELECT DISTINCT mp_id FROM " ~ mutationTable ~ " WHERE st_id=:id");
             stmt.get.bind(":id", id.get);
             auto res = stmt.get.execute;
             if (res.empty)
