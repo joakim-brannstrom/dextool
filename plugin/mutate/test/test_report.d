@@ -352,10 +352,9 @@ unittest {
         .run;
 
     // assert
-    testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)
-        "| File ", "        | Line | Column | Mutation         | Status           | Rationale                      |",
-        "|------", "--------|------|--------|------------------|------------------|--------------------------------|",
-        "|", `fibonacci.cpp | 8    | 8      | 'x < 0'->'false' | killedByCompiler | "Marked mutant to be reported" |`,
+    testAnyOrder!Re([ // only check filename, not absolutepath (order is assumed in stdout)
+        "| File ", "        | Line | Column | Mutation.*| Status.*| Rationale                      |",
+        "|", `fibonacci.cpp |.*|.*| '.*'->'.*' |.*| "Marked mutant to be reported" |`,
     ]).shouldBeIn(r.output);
 }
 
