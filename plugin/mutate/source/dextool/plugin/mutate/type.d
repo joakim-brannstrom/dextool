@@ -217,3 +217,8 @@ enum CoverageRuntime : ubyte {
     inject,
     library,
 }
+
+enum MutantIdGeneratorConfig : ubyte {
+    strict,
+    relaxed
+}

@@ -637,6 +637,23 @@ Generic options that affect all phases that. The most important to configure
 here is the mutation operators to use (`mutants`). It affects what mutants are
 saved in the database, which ones are mutated and reported.
 
+## [analyze]
+
+Options that affects the analyze phase.
+
+`id_algo`: Configures what algorithm to use when generating unique IDs for
+mutants.
+The default algorithm is `strict`. If any code in a file is changed
+then all mutants in that file are re-tested. The *diff* for testing is
+basically per file. The problem is obvious for this because the most common
+change is just a couple of lines in a file. This algorithm is *safe* but lead
+to unnecessary testing of mutants.
+The second algorithm is `relaxed`. It is *scope* aware. Mutants are unique
+within a file and within a scope. Only mutants within a scope are re-tested if
+the source code in the scope is changed. This thus basically mean that the
+algorithm works like "git diff". It only test mutants in scopes that have
+changed. It makes it faster to test a code change.
+
 ## [schema]
 
 Schemata is a technique that inject multiple mutants at the same time in the

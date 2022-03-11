@@ -1,4 +1,4 @@
-/**cpptooling.analyzer.clang
+/**
 Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
@@ -52,7 +52,7 @@ import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : statusToString, Table;
 import dextool.plugin.mutate.backend.utility : checksum, Checksum, getProfileResult, Profile;
 import dextool.plugin.mutate.backend.type : Mutation;
-import dextool.plugin.mutate.type : MutationKind;
+import dextool.plugin.mutate.type : MutationKind, MutantIdGeneratorConfig;
 import dextool.plugin.mutate.config : ConfigCompiler, ConfigAnalyze, ConfigSchema, ConfigCoverage;
 import dextool.type : ExitStatusType, AbsolutePath, Path;
 
@@ -111,18 +111,8 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
     sys.spawn(&spawnTestPathActor, store, analyzeConf.testPaths, analyzeConf.testFileMatcher, fio);
 
     auto kinds = toInternal(userKinds);
-    //int taskCnt;
-    Set!AbsolutePath alreadyAnalyzed;
-    // dfmt off
-    foreach (f; frange
-            // The tool only supports analyzing a file one time.
-            // This optimize it in some cases where the same file occurs
-            // multiple times in the compile commands database.
-            .filter!(a => a.cmd.absoluteFile !in alreadyAnalyzed)
-            .tee!(a => alreadyAnalyzed.add(a.cmd.absoluteFile))
-            .cache
-            .filter!(a => shouldAnalyze(a.cmd.absoluteFile))
-            ) {
+
+    foreach (f; frange.filter!(a => shouldAnalyze(a.cmd.absoluteFile))) {
         try {
             if (auto v = fio.toRelativeRoot(f.cmd.absoluteFile) in changedDeps) {
                 if (!(*v || analyzeConf.forceSaveAnalyze))
@@ -138,14 +128,14 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
             // a unique one. If you print the address here of `.state` and the
             // receiving end you will see that they are re-used between actors!
             auto sq = new SchemaQ(schemaQ.dup.state);
-            auto a = sys.spawn(&spawnAnalyzer, flowCtrl, store, kinds, f, valLoc.dup, fio.dup, AnalyzeConfig(compilerConf, analyzeConf, covConf, sq));
+            auto a = sys.spawn(&spawnAnalyzer, flowCtrl, store, kinds, f, valLoc.dup,
+                    fio.dup, AnalyzeConfig(compilerConf, analyzeConf, covConf, sq));
             send(store, StartedAnalyzer.init);
         } catch (Exception e) {
             log.trace(e);
             log.warning(e.msg);
         }
     }
-    // dfmt on
 
     send(store, DoneStartingAnalyzers.init);
 
@@ -274,7 +264,7 @@ auto spawnAnalyzer(AnalyzeActor.Impl self, FlowControlActor.Address flowCtrl, St
             auto analyzer = Analyze(ctx.kinds, ctx.vloc, ctx.fio,
                     Analyze.Config(ctx.conf.compiler.forceSystemIncludes,
                         ctx.conf.coverage.use, ctx.conf.compiler.allowErrors.get, *ctx.conf.sq));
-            analyzer.process(ctx.fileToAnalyze);
+            analyzer.process(ctx.fileToAnalyze, ctx.conf.analyze.idGenConfig);
 
             foreach (a; analyzer.result.idFile.byKey) {
                 if (!isFileSupported(ctx.fio, a)) {
@@ -504,24 +494,31 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
     }
 
     static struct State {
-        // analyze of src
-        int startedAnalyzers;
-        int savedResult;
+        // conditions governing when the analyze is done
+        // if all analyze workers have been started and thus it is time to
+        // start checking if startedAnalyzers == savedResult.
         bool doneStarting;
+        // number of analyze workers that have been started.
+        int startedAnalyzers;
+        // number of saved results.
+        int savedResult;
+        // if checksums of all test files have been saved to disk
+        bool savedTestFileResult;
 
         // if a file is modified then the timeout context need to be reset
         bool resetTimeoutCtx;
 
-        /// Set when the whole process is done.
+        /// Set when the whole analyze process is done and all results are saved to the database.
         bool isDone;
-
-        bool savedTestFileResult;
 
         bool isToolVersionDifferent;
 
-        // A file is at most saved one time to the database.
+        // files that have been saved to the database.
         Set!AbsolutePath savedFiles;
+        // clearing a file should only happen once.
+        Set!AbsolutePath clearedFiles;
 
+        // generates scheman from fragments.
         SchemataSaver schemas;
     }
 
@@ -663,12 +660,12 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 ctx.state.get.startedAnalyzers);
 
         auto getFileId = nullableCache!(string, FileId, (string p) => ctx.db.get.getFileId(p.Path))(256,
-                30.dur!"seconds");
+                10.dur!"seconds");
         auto getFileDbChecksum = nullableCache!(string, Checksum,
                 (string p) => ctx.db.get.getFileChecksum(p.Path))(256, 30.dur!"seconds");
         auto getFileFsChecksum = nullableCache!(string, Checksum, (string p) {
             return checksum(ctx.fio.makeInput(AbsolutePath(Path(p))).content[]);
-        })(256, 30.dur!"seconds");
+        })(256, 10.dur!"seconds");
 
         static struct Files {
             Checksum[Path] value;
@@ -682,38 +679,50 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
         auto trans = ctx.db.get.transaction;
 
+        // keeps both absolute and relative because then less transformations
+        // are needed. mutation points use relative...
+        Set!Path skipFile;
+
         // mark files that have an unchanged checksum as "already saved"
-        foreach (f; result.idFile
-                .byKey
-                .filter!(a => a !in ctx.state.get.savedFiles)
-                .filter!(a => getFileDbChecksum(ctx.fio.toRelativeRoot(a)) == getFileFsChecksum(a)
-                    && !ctx.conf.analyze.forceSaveAnalyze && !ctx.state.get.isToolVersionDifferent)) {
-            log.info("Unchanged ".color(Color.yellow), f);
-            ctx.state.get.savedFiles.add(f);
+        foreach (f; result.idFile.byKey.filter!(a => a !in ctx.state.get.clearedFiles)) {
+            const relp = ctx.fio.toRelativeRoot(f);
+
+            if (getFileDbChecksum(relp) != getFileFsChecksum(f)
+                    || ctx.conf.analyze.forceSaveAnalyze || ctx.state.get.isToolVersionDifferent) {
+                // this is critical in order to remove old data about a file.
+                if (f !in ctx.state.get.clearedFiles) {
+                    ctx.db.get.removeFile(relp);
+                    ctx.state.get.clearedFiles.add(f);
+                }
+            } else {
+                log.info("Unchanged ".color(Color.yellow), f);
+                ctx.state.get.savedFiles.add(f);
+                skipFile.add(f);
+                skipFile.add(relp);
+            }
         }
 
-        // only saves mutation points to a file one time.
         {
-            auto app = appender!(MutationPointEntry2[])();
             bool isChanged = ctx.state.get.isToolVersionDifferent;
-            foreach (mp; result.mutationPoints
-                    .map!(a => tuple!("data", "file")(a, ctx.fio.toAbsoluteRoot(a.file)))
-                    .filter!(a => a.file !in ctx.state.get.savedFiles)) {
-                app.put(mp.data);
-            }
-            foreach (f; result.idFile.byKey.filter!(a => a !in ctx.state.get.savedFiles)) {
+
+            foreach (f; result.idFile.byKey.filter!(a => a !in skipFile)) {
                 isChanged = true;
                 log.info("Saving ".color(Color.green), f);
+
                 const relp = ctx.fio.toRelativeRoot(f);
-
-                // this is critical in order to remove old data about a file.
-                ctx.db.get.removeFile(relp);
-
                 const info = result.infoId[result.idFile[f]];
                 ctx.db.get.put(relp, info.checksum, info.language, f == result.root);
+
                 ctx.state.get.savedFiles.add(f);
             }
-            ctx.db.get.mutantApi.put(app.data, ctx.fio.getOutputDir);
+
+            {
+                auto app = appender!(MutationPointEntry2[])();
+                foreach (mp; result.mutationPoints.filter!(a => a.file !in skipFile)) {
+                    app.put(mp);
+                }
+                ctx.db.get.mutantApi.put(app.data, ctx.fio.getOutputDir);
+            }
 
             if (result.root !in ctx.state.get.savedFiles) {
                 // this occurs when the file is e.g. a unittest that uses a
@@ -890,9 +899,19 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 ctx.db.get.dependencyApi.cleanup;
             }
             {
+                import std.functional : toDelegate;
+
                 auto profile = Profile("remove orphaned mutants");
                 log.info("Removing orphaned mutants");
-                ctx.db.get.mutantApi.removeOrphanedMutants;
+                auto progress = (size_t i, size_t total, const Duration avgRemoveTime,
+                        const Duration timeLeft, SysTime predDoneAt) {
+                    logger.infof("%s/%s removed (average %sms) (%s) (%s)", i,
+                            total, avgRemoveTime, timeLeft, predDoneAt.toSimpleString);
+                };
+                auto done = (size_t total) {
+                    logger.infof(total > 0, "%1$s/%1$s removed", total, total);
+                };
+                ctx.db.get.mutantApi.removeOrphanedMutants(progress.toDelegate, done.toDelegate);
             }
         }
 
@@ -968,7 +987,7 @@ struct Analyze {
         this.conf = conf;
     }
 
-    void process(ParsedCompileCommand commandsForFileToAnalyze) @safe {
+    void process(ParsedCompileCommand commandsForFileToAnalyze, MutantIdGeneratorConfig idGenConf) @safe {
         import std.file : exists;
 
         commandsForFileToAnalyze.flags.forceSystemIncludes = conf.forceSystemIncludes;
@@ -992,7 +1011,7 @@ struct Analyze {
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
             auto tstream = new TokenStreamImpl(ctx);
 
-            analyzeForMutants(commandsForFileToAnalyze, result.root, ctx, tstream);
+            analyzeForMutants(commandsForFileToAnalyze, result.root, ctx, tstream, idGenConf);
             foreach (f; result.fileId.byValue)
                 analyzeForComments(f, tstream);
         } catch (Exception e) {
@@ -1003,8 +1022,8 @@ struct Analyze {
         }
     }
 
-    void analyzeForMutants(ParsedCompileCommand commandsForFileToAnalyze,
-            AbsolutePath fileToAnalyze, ref ClangContext ctx, TokenStream tstream) @safe {
+    void analyzeForMutants(ParsedCompileCommand commandsForFileToAnalyze, AbsolutePath fileToAnalyze,
+            ref ClangContext ctx, TokenStream tstream, MutantIdGeneratorConfig idGenConf) @safe {
         import my.gc.refc : RefCounted;
         import dextool.plugin.mutate.backend.analyze.ast : Ast;
         import dextool.plugin.mutate.backend.analyze.pass_clang;
@@ -1042,7 +1061,7 @@ struct Analyze {
             mutants = filterMutants(fio, mutants);
             log!"analyze.pass_filter".trace(mutants);
 
-            return toCodeMutants(mutants, fio, tstream);
+            return toCodeMutants(mutants, fio, tstream, idGenConf);
         }();
         debug logger.trace(codeMutants);
 
@@ -1055,9 +1074,16 @@ struct Analyze {
             result.schematas = schemas.getSchematas;
         }
 
-        result.mutationPoints = codeMutants.points.byKeyValue.map!(
-                a => a.value.map!(b => MutationPointEntry2(fio.toRelativeRoot(a.key),
-                b.offset, b.sloc.begin, b.sloc.end, b.mutants))).joiner.array;
+        {
+            auto app = appender!(MutationPointEntry2[])();
+            foreach (a; codeMutants.points.byKeyValue) {
+                foreach (b; a.value) {
+                    app.put(MutationPointEntry2(fio.toRelativeRoot(a.key),
+                            b.offset, b.sloc.begin, b.sloc.end, b.mutants));
+                }
+            }
+            result.mutationPoints = app.data;
+        }
         foreach (f; codeMutants.points.byKey) {
             const id = Result.LocalFileId(result.idFile.length);
             result.idFile[f] = id;
@@ -1217,18 +1243,6 @@ class TokenStreamImpl : TokenStream {
         // Filter a stream of tokens for those that should affect the checksum.
         return tokenize(*ctx, p).filter!(a => a.kind != CXTokenKind.comment).array;
     }
-}
-
-/// Returns: true if `f` is inside any `roots`.
-bool isPathInsideAnyRoot(AbsolutePath[] roots, AbsolutePath f) @safe {
-    import dextool.utility : isPathInsideRoot;
-
-    foreach (root; roots) {
-        if (isPathInsideRoot(root, f))
-            return true;
-    }
-
-    return false;
 }
 
 /** Update the connection between the marked mutants and their mutation status

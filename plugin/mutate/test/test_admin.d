@@ -300,10 +300,9 @@ unittest {
         .addArg("--force-save").run;
 
     // assert
-    testAnyOrder!SubStr([ // only check filename, not absolutepath (order is assumed in stdout)
+    testAnyOrder!Re([ // only check filename, not absolutepath (order is assumed in stdout)
         "| ID |", " File ", "    | Line | Column | Status           | Rationale |",
-        "|----|", "--------------|------|--------|------------------|-----------|",
-        "| 3  |", `fibonacci.cpp | 8    | 8      | killedByCompiler | "Lost"    |`,
+        "| 3  |", `fibonacci.cpp |.*|.*|.*| "Lost"    |`,
     ]).shouldBeIn(r.output);
     // dfmt on
 }

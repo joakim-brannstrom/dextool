@@ -26,6 +26,7 @@ import dextool.plugin.mutate.backend.analyze.internal : TokenStream;
 import dextool.plugin.mutate.backend.analyze.utility;
 import dextool.plugin.mutate.backend.interface_ : ValidateLoc, FilesysIO;
 import dextool.plugin.mutate.backend.type : Language, Offset, Mutation, SourceLocRange, Token;
+import dextool.plugin.mutate.type : MutantIdGeneratorConfig;
 
 alias log = colorlog.log!"analyze.pass_mutant";
 
@@ -43,13 +44,13 @@ MutantsResult toMutants(Ast* ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind
 }
 
 /// Filter the mutants and add checksums.
-CodeMutantsResult toCodeMutants(MutantsResult mutants, FilesysIO fio, TokenStream tstream) {
-    auto result = new CodeMutantsResult(mutants.lang, fio, tstream);
+CodeMutantsResult toCodeMutants(MutantsResult mutants, FilesysIO fio,
+        scope TokenStream tstream, MutantIdGeneratorConfig idGenConf) {
+    auto result = new CodeMutantsResult(mutants.lang, fio, idGenConf);
     result.put(mutants.files);
 
-    foreach (f; mutants.files.map!(a => a.path)) {
-        foreach (mp; mutants.getMutationPoints(f).array.sort!((a,
-                b) => a.point.offset < b.point.offset)) {
+    foreach (f; mutants.files.map!(a => a.path).array.sort) {
+        foreach (mp; mutants.getMutationPoints(f).filter!(a => !a.kind.empty)) {
             // use this to easily find zero length mutants.
             // note though that it can't always be active because it has
             // some false positives such as dccBomb
@@ -62,10 +63,14 @@ CodeMutantsResult toCodeMutants(MutantsResult mutants, FilesysIO fio, TokenStrea
                 log.warningf("Malformed mutant (begin > end), dropping. %s %s %s %s",
                         mp.kind, mp.point.offset, mp.point.sloc, f);
             } else {
+                result.updateContentWindow(mp.point.content);
+                result.changeActiveFile(f, tstream);
                 result.put(f, mp.point.offset, mp.point.sloc, mp.kind);
             }
         }
     }
+
+    // logger.info(result);
 
     return result;
 }
@@ -77,6 +82,7 @@ class MutantsResult {
     static struct MutationPoint {
         Offset offset;
         SourceLocRange sloc;
+        Offset content;
 
         size_t toHash() @safe pure nothrow const @nogc {
             return offset.toHash;
@@ -93,8 +99,9 @@ class MutantsResult {
         }
 
         void toString(Writer)(ref Writer w) const {
-            formattedWrite!"[%s:%s-%s:%s]:[%s:%s]"(w, sloc.begin.line,
-                    sloc.begin.column, sloc.end.line, sloc.end.column, offset.begin, offset.end);
+            formattedWrite!"%s [%s-%s:%s]:[%s:%s][%s:%s]"(w, sloc.begin.line,
+                    sloc.begin.column, sloc.end.line, sloc.end.column,
+                    offset.begin, offset.end, content.begin, content.end);
         }
     }
 
@@ -196,7 +203,7 @@ class MutantsResult {
 class CodeMutantsResult {
     import my.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
     import dextool.plugin.mutate.backend.type : CodeMutant, CodeChecksum, Mutation, Checksum;
-    import dextool.plugin.mutate.backend.analyze.id_factory : MutationIdFactory;
+    import dextool.plugin.mutate.backend.analyze.id_factory : MutantIdFactory;
 
     const Language lang;
     Tuple!(AbsolutePath, "path", Checksum, "cs")[] files;
@@ -232,19 +239,43 @@ class CodeMutantsResult {
     private {
         FilesysIO fio;
 
-        TokenStream tstream;
-
         /// Current filename that the id factory is initialized with.
         AbsolutePath idFileName;
-        MutationIdFactory idFactory;
+        MutantIdFactory idFactory;
+
         /// Tokens of the current file that idFactory is configured for.
         Token[] tokens;
+
+        Offset contentWindow;
     }
 
-    this(Language lang, FilesysIO fio, TokenStream tstream) {
+    this(Language lang, FilesysIO fio, MutantIdGeneratorConfig idGenConf) {
         this.lang = lang;
         this.fio = fio;
-        this.tstream = tstream;
+        this.idFactory = () {
+            import dextool.plugin.mutate.backend.analyze.id_factory : StrictImpl, RelaxedImpl;
+
+            final switch (idGenConf) {
+            case MutantIdGeneratorConfig.strict:
+                return cast(MutantIdFactory) new StrictImpl;
+            case MutantIdGeneratorConfig.relaxed:
+                return cast(MutantIdFactory) new RelaxedImpl;
+            }
+        }();
+    }
+
+    /// Expected to be updated for each new mutation point.
+    void updateContentWindow(const Offset v) {
+        contentWindow = v;
+    }
+
+    private void changeActiveFile(AbsolutePath p, scope TokenStream tstream) @trusted {
+        if (p == idFileName)
+            return;
+
+        idFileName = p;
+        tokens = () @trusted { return tstream.getFilteredTokens(p); }();
+        idFactory.changeFile(fio.toRelativeRoot(p), tokens);
     }
 
     private void put(typeof(MutantsResult.files) mfiles) {
@@ -255,52 +286,19 @@ class CodeMutantsResult {
         }
     }
 
-    /// Returns: a tuple of two elements. The tokens before and after the mutation point.
-    private static auto splitByMutationPoint(Token[] toks, Offset offset) {
-        import std.algorithm : countUntil;
-        import std.typecons : Tuple;
-
-        Tuple!(size_t, "pre", size_t, "post") rval;
-
-        const pre_idx = toks.countUntil!((a, b) => a.offset.begin > b.begin)(offset);
-        if (pre_idx == -1) {
-            rval.pre = toks.length;
-            return rval;
-        }
-
-        rval.pre = pre_idx;
-        toks = toks[pre_idx .. $];
-
-        const post_idx = toks.countUntil!((a, b) => a.offset.end > b.end)(offset);
-        if (post_idx != -1) {
-            rval.post = toks.length - post_idx;
-        }
-
-        return rval;
-    }
-
     // the mutation points must be added in sorted order by their offset
     private void put(AbsolutePath p, Offset offset, SourceLocRange sloc, Mutation.Kind[] kinds) @safe {
         import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
-        if (p != idFileName) {
-            idFileName = p;
-            tokens = tstream.getFilteredTokens(p);
-            idFactory = MutationIdFactory(fio.toRelativeRoot(p), tokens);
-        }
-
-        auto split = splitByMutationPoint(tokens, offset);
-
-        idFactory.updatePosition(split.pre, split.post);
+        idFactory.update(contentWindow, offset, tokens);
 
         auto fin = fio.makeInput(p);
         auto cmuts = appender!(CodeMutant[])();
         foreach (kind; kinds) {
             auto txt = makeMutationText(fin, offset, kind, lang);
-            auto cm = idFactory.makeMutant(Mutation(kind), txt.rawMutation);
+            auto cm = idFactory.make(Mutation(kind), txt.rawMutation);
             cmuts.put(cm);
         }
-
         points[p] ~= MutationPoint(cmuts.data, offset, sloc);
     }
 
@@ -330,6 +328,7 @@ class MutantVisitor : DepthFirstVisitor {
 
     Ast* ast;
     MutantsResult result;
+    Offset content;
 
     private {
         uint depth;
@@ -410,8 +409,32 @@ class MutantVisitor : DepthFirstVisitor {
             return;
 
         foreach (kind; kinds) {
-            result.put(loc.file, MutantsResult.MutationPoint(loc.interval, loc.sloc), kind);
+            result.put(loc.file, MutantsResult.MutationPoint(loc.interval,
+                    loc.sloc, content), kind);
         }
+    }
+
+    override void visit(TranslationUnit n) {
+        content = ast.location(n).interval;
+        accept(n, this);
+    }
+
+    override void visit(Constructor n) {
+        // auto old = content;
+        // scope (exit)
+        // content = old;
+        // if (isDirectParent(Kind.TranslationUnit))
+        // content = ast.location(n).interval;
+        accept(n, this);
+    }
+
+    override void visit(Function n) {
+        auto old = content;
+        scope (exit)
+            content = old;
+        if (isDirectParent(Kind.TranslationUnit))
+            content = ast.location(n).interval;
+        accept(n, this);
     }
 
     override void visit(Expr n) {
@@ -464,13 +487,11 @@ class MutantVisitor : DepthFirstVisitor {
             // a bit restricive to be begin with to only delete void returning
             // functions. Extend it in the future when it can "see" that the
             // return value is discarded.
-            auto loc = ast.location(n);
-            put(loc, stmtDelMutations(n.kind), n.blacklist);
+            put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         }
 
         if (isDirectParent(Kind.Return) && isParentBoolFunc) {
-            auto loc = ast.location(n);
-            put(loc, dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);
+            put(ast.location(n), dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);
         }
 
         // should call visitOp
@@ -756,7 +777,7 @@ class MutantVisitor : DepthFirstVisitor {
 
     private void sdlBlock(T)(T n, Location delLoc, Mutation.Kind[] op) @trusted {
         scope sdlAnalyze = new DeleteBlockVisitor(ast);
-        sdlAnalyze.startVisit(n);
+        sdlAnalyze.startVisit(n, delLoc);
 
         if (sdlAnalyze.canRemove)
             put(delLoc, op, n.blacklist);
@@ -792,8 +813,7 @@ class DeleteBlockVisitor : DepthFirstVisitor {
     }
 
     /// The node to start analysis from.
-    void startVisit(Node n) {
-        auto l = ast.location(n);
+    void startVisit(Node n, Location l) {
         hasInnerNodes = !n.children.empty;
 
         if (hasInnerNodes && l.interval.begin < l.interval.end)

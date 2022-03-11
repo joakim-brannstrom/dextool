@@ -40,6 +40,8 @@ test_paths = ["test"]
 # test_include = ["*/*.ext"]
 # test_exclude = []
 
+id_algo = "relaxed"
+
 [schema]
 # Use scheman to reduce the compile+link time
 use = true
