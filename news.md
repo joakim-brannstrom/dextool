@@ -9,6 +9,18 @@ Fixes for dextool mutate
  to update the timeout, if it is needed. The end result is that scheman should
  result in less mutants with `timeout` status.
 
+New features for dextool mutate
+
+ * Add an alternative algorithm for calculating IDs for mutants. The new
+   algorithm is *scope* aware. Mutants are unique within a file and within a
+   scope. Only mutants within a scope are re-tested if the source code in the
+   scope is changed. This thus basically mean that the algorithm works like
+   "git diff". It only test mutants in scopes that have changed.
+   It makes it faster to test a code change and not lose the report for the
+   whole program compared to a "git diff" that only test and report for the
+   changed lines.
+   The option is activated via `id_algo` in the configuration file.
+
 # v4.1.0 Polished Gem
 
 Fixes

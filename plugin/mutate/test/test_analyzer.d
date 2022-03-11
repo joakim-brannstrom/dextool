@@ -154,3 +154,22 @@ unittest {
 
     testConsecutiveSparseOrder!Re(["info: Saving.*analyze_compile_error.cpp"]).shouldBeIn(r.output);
 }
+
+@(testId ~ "shall not drop mutants when analyzing with different -D")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+
+    copy((testData ~ "id_gen_algo/program.cpp").toString, (testEnv.outdir ~ "program.cpp").toString);
+    copy((testData ~ "id_gen_algo/compile_commands.json").toString, (testEnv.outdir ~ "compile_commands.json").toString);
+
+    auto r1 = makeDextoolAnalyze(testEnv)
+        .addPostArg(["--compile-db", (testEnv.outdir ~ "compile_commands.json").toString])
+        .addPostArg(["--id-algorithm", "relaxed"])
+        .addPostArg(["--threads", "1"])
+        .run;
+
+    testConsecutiveSparseOrder!Re(["info: Removing orphaned.*"]).shouldBeIn(r1.output);
+    testConsecutiveSparseOrder!Re(["info: Removing orphaned.*",
+                                  "info: .*/.* removed.*"
+    ]).shouldNotBeIn(r1.output);
+}

@@ -185,8 +185,7 @@ struct Database {
     }
 
     Nullable!Checksum getFileChecksum(const Path p) @trusted {
-        static immutable sql = format!"SELECT checksum0,checksum1 FROM %s WHERE path=:path"(
-                filesTable);
+        static immutable sql = "SELECT checksum0,checksum1 FROM " ~ filesTable ~ " WHERE path=:path";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", p.toString);
         auto res = stmt.get.execute;
@@ -201,9 +200,8 @@ struct Database {
 
     /// Returns: the timestamp of the newest file that was added.
     Optional!SysTime getNewestFile() @trusted {
-        auto stmt = db.prepare(format!"SELECT timestamp
-            FROM %s ORDER BY datetime(timestamp) DESC LIMIT 1"(
-                filesTable));
+        auto stmt = db.prepare(
+                "SELECT timestamp FROM " ~ filesTable ~ " ORDER BY datetime(timestamp) DESC LIMIT 1");
         auto res = stmt.get.execute;
 
         foreach (ref r; res) {
@@ -213,7 +211,7 @@ struct Database {
         return none!SysTime;
     }
 
-    void put(const Path p, Checksum cs, const Language lang, bool isRoot) @trusted {
+    void put(const Path p, Checksum cs, const Language lang, const bool isRoot) @trusted {
         static immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang, timestamp, root)
             VALUES (:path, :checksum0, :checksum1, :lang, :time, :root)"(
                 filesTable);
@@ -237,13 +235,13 @@ struct Database {
      * may reconnect with a mutation status.
      */
     void removeAllMutationPoints() @trusted {
-        static immutable sql = format!"DELETE FROM %s"(mutationPointTable);
+        static immutable sql = "DELETE FROM " ~ mutationPointTable;
         db.run(sql);
     }
 
     /// ditto
     void removeAllFiles() @trusted {
-        static immutable sql = format!"DELETE FROM %s"(filesTable);
+        static immutable sql = "DELETE FROM " ~ filesTable;
         db.run(sql);
     }
 
@@ -1752,13 +1750,11 @@ struct DbMutant {
         if (mps.empty)
             return;
 
-        static immutable insert_mp_sql = format("INSERT OR IGNORE INTO %s
+        static immutable insert_mp_sql = "INSERT OR IGNORE INTO "
+            ~ mutationPointTable ~ "
             (file_id, offset_begin, offset_end, line, column, line_end, column_end)
             SELECT id,:begin,:end,:line,:column,:line_end,:column_end
-            FROM %s
-            WHERE
-            path = :path",
-                mutationPointTable, filesTable);
+            FROM " ~ filesTable ~ " WHERE path = :path";
         auto mp_stmt = db.prepare(insert_mp_sql);
 
         foreach (mp; mps) {
@@ -1774,10 +1770,9 @@ struct DbMutant {
             mp_stmt.get.reset;
         }
 
-        static immutable insert_cmut_sql = format("INSERT OR IGNORE INTO %s
-            (status,exit_code,compile_time_ms,test_time_ms,update_ts,added_ts,checksum0,checksum1,prio)
-            VALUES(:st,0,0,0,:update_ts,:added_ts,:c0,:c1,:prio)",
-                mutationStatusTable);
+        static immutable insert_cmut_sql = "INSERT OR IGNORE INTO " ~ mutationStatusTable
+            ~ " (status,exit_code,compile_time_ms,test_time_ms,update_ts,added_ts,checksum0,checksum1,prio)
+            VALUES(:st,0,0,0,:update_ts,:added_ts,:c0,:c1,:prio)";
         auto cmut_stmt = db.prepare(insert_cmut_sql);
         const ts = Clock.currTime.toSqliteDateTime;
         cmut_stmt.get.bind(":st", Mutation.Status.unknown);
@@ -1794,16 +1789,15 @@ struct DbMutant {
             }
         }
 
-        static immutable insert_m_sql = format("INSERT OR IGNORE INTO %s
-            (mp_id, st_id, kind)
-            SELECT t0.id,t1.id,:kind FROM %s t0, %s t1, %s t2 WHERE
+        static immutable insert_m_sql = "INSERT OR IGNORE INTO " ~ mutationTable ~ " (mp_id, st_id, kind)
+            SELECT t0.id,t1.id,:kind FROM "
+            ~ mutationPointTable ~ " t0, " ~ mutationStatusTable ~ " t1, " ~ filesTable ~ " t2 WHERE
             t2.path = :path AND
             t0.file_id = t2.id AND
             t0.offset_begin = :off_begin AND
             t0.offset_end = :off_end AND
             t1.checksum0 = :c0 AND
-            t1.checksum1 = :c1",
-                mutationTable, mutationPointTable, mutationStatusTable, filesTable);
+            t1.checksum1 = :c1";
         auto insert_m = db.prepare(insert_m_sql);
 
         foreach (mp; mps) {
@@ -1822,12 +1816,13 @@ struct DbMutant {
     }
 
     /// Remove mutants that have no connection to a mutation point, orphaned mutants.
-    void removeOrphanedMutants() @trusted {
+    void removeOrphanedMutants(void delegate(size_t i, size_t total, const Duration avgRemoveTime,
+            const Duration timeLeft, SysTime predDoneAt) progress, void delegate(size_t total) done) @trusted {
         import std.datetime.stopwatch : StopWatch, AutoStart;
 
         const removeIds = () {
-            static immutable sql = format!"SELECT id FROM %1$s WHERE id NOT IN (SELECT st_id FROM %2$s)"(
-                    mutationStatusTable, mutationTable);
+            static immutable sql = "SELECT id FROM " ~ mutationStatusTable
+                ~ " WHERE id NOT IN (SELECT st_id FROM " ~ mutationTable ~ ")";
             auto stmt = db.prepare(sql);
             auto removeIds = appender!(long[])();
             foreach (res; stmt.get.execute)
@@ -1836,7 +1831,7 @@ struct DbMutant {
         }();
 
         immutable batchNr = 1000;
-        static immutable sql = format!"DELETE FROM %1$s WHERE id=:id"(mutationStatusTable);
+        static immutable sql = "DELETE FROM " ~ mutationStatusTable ~ " WHERE id=:id";
         auto stmt = db.prepare(sql);
         auto sw = StopWatch(AutoStart.yes);
         foreach (const i, const id; removeIds) {
@@ -1849,20 +1844,19 @@ struct DbMutant {
             if (i > 0 && i % batchNr == 0) {
                 const avg = cast(long)(cast(double) sw.peek.total!"msecs" / cast(double) batchNr);
                 const t = dur!"msecs"(avg * (removeIds.length - i));
-                logger.infof("%s/%s removed (average %sms) (%s) (%s)", i,
-                        removeIds.length, avg, t, (Clock.currTime + t).toSimpleString);
+                progress(i, removeIds.length, avg.dur!"msecs", t, Clock.currTime + t);
                 sw.reset;
             }
         }
 
-        logger.infof(!removeIds.empty, "%1$s/%1$s removed", removeIds.length);
+        done(removeIds.length);
     }
 
     /// Returns: all alive mutants on the same mutation point as `id`.
     MutationStatusId[] getSurroundingAliveMutants(const MutationStatusId id) @trusted {
         long mp_id;
         {
-            auto stmt = db.prepare(format!"SELECT mp_id FROM %s WHERE st_id=:id"(mutationTable));
+            auto stmt = db.prepare("SELECT mp_id FROM " ~ mutationStatusTable ~ " WHERE st_id=:id");
             stmt.get.bind(":id", id.get);
             auto res = stmt.get.execute;
             if (res.empty)

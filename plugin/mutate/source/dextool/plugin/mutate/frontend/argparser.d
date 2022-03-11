@@ -145,6 +145,15 @@ struct ArgParser {
         app.put(`# test_include = ["*/*.ext"]`);
         app.put("# test_exclude = []");
         app.put(null);
+        app.put("# Algorithm to use for generating unique ID's for mutants.");
+        app.put("# strict: IDs are dependent on all content in the file.");
+        app.put("# relaxed: IDs are dependent on the top most scope such as the function body.");
+        app.put("# Using relaxed make allows functions to be moved inside a file without");
+        app.put("# triggering the mutants in the functions to be re-tested");
+        app.put(format!"# available options are: %(%s, %)"(
+                [EnumMembers!MutantIdGeneratorConfig].map!(a => a.to!string)));
+        app.put("# id_algo = relaxed");
+        app.put(null);
 
         app.put("[schema]");
         app.put(null);
@@ -402,6 +411,7 @@ struct ArgParser {
                    "file-exclude", "glob filter which exclude matched files (relative to root) from analysis (default: <empty>)", &analyze.rawExclude,
                    "file-include", "glob filter which include matched files (relative to root) for analysis (default: *)", &analyze.rawInclude,
                    "force-save", "force the result from the analyze to be saved", &analyze.forceSaveAnalyze,
+                   "id-algorithm", format("algorithm used to calculate mutant IDs (default:%s) [%(%s|%)]", analyze.idGenConfig, [EnumMembers!MutantIdGeneratorConfig]), &analyze.idGenConfig,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "include", include_help, &workArea.rawInclude,
                    "m|mutant", "kind of mutation save in the database " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
@@ -867,6 +877,16 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     };
     callbacks["analyze.test_exclude"] = (ref ArgParser c, ref TOMLValue v) {
         c.analyze.rawTestExclude = v.array.map!(a => a.str).array;
+    };
+    callbacks["analyze.id_algo"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.analyze.idGenConfig = v.str.to!MutantIdGeneratorConfig;
+        } catch (Exception e) {
+            logger.info("Available algorithms are ", [
+                    EnumMembers!MutantIdGeneratorConfig
+                    ]);
+            logger.warning(e.msg);
+        }
     };
 
     callbacks["workarea.root"] = (ref ArgParser c, ref TOMLValue v) {

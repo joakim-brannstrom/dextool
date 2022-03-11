@@ -121,6 +121,9 @@ struct ConfigAnalyze {
 
     /// The constructed glob filter which based on rawExclude and rawinclude.
     GlobFilter testFileMatcher;
+
+    /// Which mutation ID generator to use.
+    MutantIdGeneratorConfig idGenConfig;
 }
 
 /// Settings for the compiler

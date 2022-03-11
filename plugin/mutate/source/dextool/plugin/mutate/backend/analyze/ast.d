@@ -88,7 +88,7 @@ struct Ast {
     }
 
     void accept(VisitorT)(VisitorT v) {
-        v.visit(root);
+        mixin(mixinSwitch("root"));
     }
 
     void put(Node n, Location l) {
@@ -413,29 +413,29 @@ abstract class Node {
     }
 }
 
+private string mixinSwitch(string nodeName) {
+    import std.conv : text;
+    import std.traits : EnumMembers;
+
+    string s;
+    s ~= "final switch(" ~ nodeName ~ ".kind) {\n";
+    foreach (kind; [EnumMembers!Kind]) {
+        const k = text(kind);
+        s ~= format!"case Kind." ~ k ~ ": v.visit(cast(" ~ k ~ ") " ~ nodeName ~ "); break;\n";
+    }
+    s ~= "}";
+    return s;
+}
+
 /**
  * It is optional to add the members visitPush/visitPop to push/pop the nodes that are visited.
  * The parent will always have been the last pushed.
  */
 void accept(VisitorT)(Node n, VisitorT v) {
-    static string mixinSwitch() {
-        import std.conv : text;
-        import std.traits : EnumMembers;
-
-        string s;
-        s ~= "final switch(c.kind) {\n";
-        foreach (kind; [EnumMembers!Kind]) {
-            const k = text(kind);
-            s ~= format!"case Kind." ~ k ~ ": v.visit(cast(" ~ k ~ ") c); break;\n";
-        }
-        s ~= "}";
-        return s;
-    }
-
     static if (__traits(hasMember, VisitorT, "visitPush"))
         v.visitPush(n);
     foreach (c; n.children) {
-        mixin(mixinSwitch);
+        mixin(mixinSwitch("c"));
     }
 
     static if (__traits(hasMember, VisitorT, "visitPop"))

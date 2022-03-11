@@ -1,0 +1,12 @@
+[
+    {
+        "directory": ".",
+        "arguments": ["g++", "-c", "program.cpp", "-o", "program1.o"],
+        "file": "program.cpp"
+    },
+    {
+        "directory": ".",
+        "arguments": ["g++", "-c", "-DFOO", "program.cpp", "-o", "program2.o"],
+        "file": "program.cpp"
+    }
+]
