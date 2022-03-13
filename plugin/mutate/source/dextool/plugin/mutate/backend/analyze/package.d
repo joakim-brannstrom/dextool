@@ -41,7 +41,7 @@ import dextool.utility : dextoolBinaryId;
 import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB,
     ParsedCompileCommandRange, ParsedCompileCommand, ParseFlags, SystemIncludePath;
-import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
+import dextool.plugin.mutate.backend.analyze.internal : TokenStream;
 import dextool.plugin.mutate.backend.analyze.pass_schemata : SchemataResult;
 import dextool.plugin.mutate.backend.database : Database, LineMetadata,
     MutationPointEntry2, DepFile;
@@ -968,8 +968,6 @@ struct Analyze {
         ValidateLoc valLoc;
         FilesysIO fio;
 
-        Cache cache;
-
         Result result;
 
         Config conf;
@@ -981,7 +979,6 @@ struct Analyze {
         this.kinds = kinds;
         this.valLoc = valLoc;
         this.fio = fio;
-        this.cache = new Cache;
         this.re_nomut = regex(rawReNomut);
         this.result = new Result;
         this.conf = conf;
@@ -1116,8 +1113,7 @@ struct Analyze {
             const fid = FileId(localId.get);
 
             auto mdata = appender!(LineMetadata[])();
-            foreach (t; cache.getTokens(AbsolutePath(file), tstream)
-                    .filter!(a => a.kind == CXTokenKind.comment)) {
+            foreach (t; tstream.getTokens(file).filter!(a => a.kind == CXTokenKind.comment)) {
                 auto m = matchFirst(t.spelling, re_nomut);
                 if (m.whichPattern == 0)
                     continue;
