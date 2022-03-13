@@ -209,7 +209,7 @@ class CodeMutantsResult {
     Tuple!(AbsolutePath, "path", Checksum, "cs")[] files;
 
     static struct MutationPoint {
-        CodeMutant[] mutants;
+        CodeMutant mutant;
         Offset offset;
         SourceLocRange sloc;
 
@@ -293,13 +293,13 @@ class CodeMutantsResult {
         idFactory.update(contentWindow, offset, tokens);
 
         auto fin = fio.makeInput(p);
-        auto cmuts = appender!(CodeMutant[])();
+        auto muts = appender!(MutationPoint[])();
         foreach (kind; kinds) {
             auto txt = makeMutationText(fin, offset, kind, lang);
             auto cm = idFactory.make(Mutation(kind), txt.rawMutation);
-            cmuts.put(cm);
+            muts.put(MutationPoint(cm, offset, sloc));
         }
-        points[p] ~= MutationPoint(cmuts.data, offset, sloc);
+        points[p] ~= muts.data;
     }
 
     override string toString() @safe {
@@ -312,7 +312,7 @@ class CodeMutantsResult {
             formattedWrite!"%s %s\n"(w, f.path, f.cs);
 
             foreach (mp; points[f.path]) {
-                formattedWrite!"  %s->%s\n"(w, mp, mp.mutants);
+                formattedWrite!"  %s->%s\n"(w, mp, mp.mutant);
             }
         }
 

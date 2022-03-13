@@ -93,10 +93,10 @@ struct MutationPointEntry2 {
     SourceLoc sloc;
     /// End of the mutation point.
     SourceLoc slocEnd;
-    CodeMutant[] cms;
+    CodeMutant cm;
 
-    void put(CodeMutant m) @safe pure nothrow {
-        cms ~= m;
+    void set(CodeMutant m) @safe pure nothrow {
+        cm = m;
     }
 }
 

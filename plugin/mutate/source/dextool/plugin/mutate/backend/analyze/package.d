@@ -1023,7 +1023,7 @@ struct Analyze {
     }
 
     void analyzeForMutants(ParsedCompileCommand commandsForFileToAnalyze, AbsolutePath fileToAnalyze,
-            ref ClangContext ctx, TokenStream tstream, MutantIdGeneratorConfig idGenConf) @safe {
+            ref ClangContext ctx, scope TokenStream tstream, MutantIdGeneratorConfig idGenConf) @safe {
         import my.gc.refc : RefCounted;
         import dextool.plugin.mutate.backend.analyze.ast : Ast;
         import dextool.plugin.mutate.backend.analyze.pass_clang;
@@ -1079,7 +1079,7 @@ struct Analyze {
             foreach (a; codeMutants.points.byKeyValue) {
                 foreach (b; a.value) {
                     app.put(MutationPointEntry2(fio.toRelativeRoot(a.key),
-                            b.offset, b.sloc.begin, b.sloc.end, b.mutants));
+                            b.offset, b.sloc.begin, b.sloc.end, b.mutant));
                 }
             }
             result.mutationPoints = app.data;
