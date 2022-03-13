@@ -1006,7 +1006,7 @@ struct Analyze {
             result.rootCs = checksum(result.root);
 
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-            auto tstream = new TokenStreamImpl(ctx);
+            scope tstream = new TokenStreamImpl(ctx);
 
             analyzeForMutants(commandsForFileToAnalyze, result.root, ctx, tstream, idGenConf);
             foreach (f; result.fileId.byValue)
@@ -1104,7 +1104,7 @@ struct Analyze {
      *
      * TODO: move this to pass_clang.
      */
-    void analyzeForComments(AbsolutePath file, TokenStream tstream) @trusted {
+    void analyzeForComments(AbsolutePath file, scope TokenStream tstream) @safe {
         import std.algorithm : filter;
         import clang.c.Index : CXTokenKind;
         import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
@@ -1118,7 +1118,10 @@ struct Analyze {
                 if (m.whichPattern == 0)
                     continue;
 
-                mdata.put(LineMetadata(fid, t.loc.line, LineAttr(NoMut(m["tag"], m["comment"]))));
+                () @trusted {
+                    mdata.put(LineMetadata(fid, t.loc.line,
+                            LineAttr(NoMut(m["tag"], m["comment"]))));
+                }();
                 log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
             }
 
@@ -1229,11 +1232,11 @@ class TokenStreamImpl : TokenStream {
         this.ctx = &ctx;
     }
 
-    Token[] getTokens(Path p) {
+    Token[] getTokens(Path p) scope {
         return tokenize(*ctx, p);
     }
 
-    Token[] getFilteredTokens(Path p) {
+    Token[] getFilteredTokens(Path p) scope {
         import clang.c.Index : CXTokenKind;
 
         // Filter a stream of tokens for those that should affect the checksum.

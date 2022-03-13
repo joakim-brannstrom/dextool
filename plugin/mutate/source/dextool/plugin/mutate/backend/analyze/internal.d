@@ -20,8 +20,8 @@ public import dextool.plugin.mutate.backend.type : Token;
 /// Presents an interface that returns the tokens in the file.
 interface TokenStream {
     /// All tokens.
-    Token[] getTokens(Path p);
+    Token[] getTokens(Path p) scope;
 
     /// All tokens except comments.
-    Token[] getFilteredTokens(Path p);
+    Token[] getFilteredTokens(Path p) scope;
 }
