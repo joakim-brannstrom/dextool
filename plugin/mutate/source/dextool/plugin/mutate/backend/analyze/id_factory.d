@@ -42,8 +42,15 @@ interface MutantIdFactory {
      */
     void update(const Offset content, const Offset mutant, scope Token[] tokens);
 
-    /// Create a mutant at this mutation point.
-    CodeMutant make(Mutation m, const(ubyte)[] mut) @safe pure nothrow scope;
+    /** Create a mutant at this mutation point.
+      *
+      * It is extremly important that the mutated text representation `mut` is
+      * used and not the kind of mutation because there are many different
+      * kinds of mutations that result in the same textual change. By using the
+      * text and not kind as part of the checksum it results in a
+      * deduplication/merge of mutants that actually are "the same".
+     */
+    CodeMutant make(Mutation m, scope const(ubyte)[] mut) @safe pure nothrow scope;
 }
 
 /** Strict and whole file content sensitive unique mutant IDs.
@@ -111,12 +118,12 @@ class StrictImpl : MutantIdFactory {
         }
     }
 
-    override CodeMutant make(Mutation m, const(ubyte)[] mut) @safe pure nothrow scope {
+    override CodeMutant make(Mutation m, scope const(ubyte)[] mut) @safe pure nothrow scope {
         return CodeMutant(CodeChecksum(makeId(mut)), m);
     }
 
     /// Calculate the unique ID for a specific mutation at this point.
-    private Checksum128 makeId(const(ubyte)[] mut) @safe pure nothrow scope {
+    private Checksum128 makeId(scope const(ubyte)[] mut) @safe pure nothrow scope {
         BuildChecksum128 h;
 
         h.put(file.c0.toBytes);
@@ -205,12 +212,12 @@ class RelaxedImpl : MutantIdFactory {
         }
     }
 
-    override CodeMutant make(Mutation m, const(ubyte)[] mut) @safe pure nothrow scope {
+    override CodeMutant make(Mutation m, scope const(ubyte)[] mut) @safe pure nothrow scope {
         return CodeMutant(CodeChecksum(makeId(mut)), m);
     }
 
     /// Calculate the unique ID for a specific mutation at this point.
-    private Checksum128 makeId(const(ubyte)[] mut) @safe pure nothrow scope {
+    private Checksum128 makeId(scope const(ubyte)[] mut) @safe pure nothrow scope {
         BuildChecksum128 h;
 
         h.put(file.c0.toBytes);

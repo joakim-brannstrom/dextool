@@ -295,7 +295,7 @@ class CodeMutantsResult {
         auto fin = fio.makeInput(p);
         auto muts = appender!(MutationPoint[])();
         foreach (kind; kinds) {
-            auto txt = makeMutationText(fin, offset, kind, lang);
+            scope txt = makeMutationText(fin, offset, kind, lang);
             auto cm = idFactory.make(Mutation(kind), txt.rawMutation);
             muts.put(MutationPoint(cm, offset, sloc));
         }
