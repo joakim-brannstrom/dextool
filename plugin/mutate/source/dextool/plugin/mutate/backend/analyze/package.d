@@ -41,7 +41,7 @@ import dextool.utility : dextoolBinaryId;
 import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB,
     ParsedCompileCommandRange, ParsedCompileCommand, ParseFlags, SystemIncludePath;
-import dextool.plugin.mutate.backend.analyze.internal : Cache, TokenStream;
+import dextool.plugin.mutate.backend.analyze.internal : TokenStream;
 import dextool.plugin.mutate.backend.analyze.pass_schemata : SchemataResult;
 import dextool.plugin.mutate.backend.database : Database, LineMetadata,
     MutationPointEntry2, DepFile;
@@ -968,8 +968,6 @@ struct Analyze {
         ValidateLoc valLoc;
         FilesysIO fio;
 
-        Cache cache;
-
         Result result;
 
         Config conf;
@@ -981,7 +979,6 @@ struct Analyze {
         this.kinds = kinds;
         this.valLoc = valLoc;
         this.fio = fio;
-        this.cache = new Cache;
         this.re_nomut = regex(rawReNomut);
         this.result = new Result;
         this.conf = conf;
@@ -1009,7 +1006,7 @@ struct Analyze {
             result.rootCs = checksum(result.root);
 
             auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
-            auto tstream = new TokenStreamImpl(ctx);
+            scope tstream = new TokenStreamImpl(ctx);
 
             analyzeForMutants(commandsForFileToAnalyze, result.root, ctx, tstream, idGenConf);
             foreach (f; result.fileId.byValue)
@@ -1023,7 +1020,7 @@ struct Analyze {
     }
 
     void analyzeForMutants(ParsedCompileCommand commandsForFileToAnalyze, AbsolutePath fileToAnalyze,
-            ref ClangContext ctx, TokenStream tstream, MutantIdGeneratorConfig idGenConf) @safe {
+            ref ClangContext ctx, scope TokenStream tstream, MutantIdGeneratorConfig idGenConf) @safe {
         import my.gc.refc : RefCounted;
         import dextool.plugin.mutate.backend.analyze.ast : Ast;
         import dextool.plugin.mutate.backend.analyze.pass_clang;
@@ -1079,7 +1076,7 @@ struct Analyze {
             foreach (a; codeMutants.points.byKeyValue) {
                 foreach (b; a.value) {
                     app.put(MutationPointEntry2(fio.toRelativeRoot(a.key),
-                            b.offset, b.sloc.begin, b.sloc.end, b.mutants));
+                            b.offset, b.sloc.begin, b.sloc.end, b.mutant));
                 }
             }
             result.mutationPoints = app.data;
@@ -1107,7 +1104,7 @@ struct Analyze {
      *
      * TODO: move this to pass_clang.
      */
-    void analyzeForComments(AbsolutePath file, TokenStream tstream) @trusted {
+    void analyzeForComments(AbsolutePath file, scope TokenStream tstream) @safe {
         import std.algorithm : filter;
         import clang.c.Index : CXTokenKind;
         import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
@@ -1116,13 +1113,15 @@ struct Analyze {
             const fid = FileId(localId.get);
 
             auto mdata = appender!(LineMetadata[])();
-            foreach (t; cache.getTokens(AbsolutePath(file), tstream)
-                    .filter!(a => a.kind == CXTokenKind.comment)) {
+            foreach (t; tstream.getTokens(file).filter!(a => a.kind == CXTokenKind.comment)) {
                 auto m = matchFirst(t.spelling, re_nomut);
                 if (m.whichPattern == 0)
                     continue;
 
-                mdata.put(LineMetadata(fid, t.loc.line, LineAttr(NoMut(m["tag"], m["comment"]))));
+                () @trusted {
+                    mdata.put(LineMetadata(fid, t.loc.line,
+                            LineAttr(NoMut(m["tag"], m["comment"]))));
+                }();
                 log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
             }
 
@@ -1233,11 +1232,11 @@ class TokenStreamImpl : TokenStream {
         this.ctx = &ctx;
     }
 
-    Token[] getTokens(Path p) {
+    Token[] getTokens(Path p) scope {
         return tokenize(*ctx, p);
     }
 
-    Token[] getFilteredTokens(Path p) {
+    Token[] getFilteredTokens(Path p) scope {
         import clang.c.Index : CXTokenKind;
 
         // Filter a stream of tokens for those that should affect the checksum.

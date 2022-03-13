@@ -1780,13 +1780,11 @@ struct DbMutant {
         cmut_stmt.get.bind(":added_ts", ts);
         foreach (mp; mps) {
             const prio = (mp.offset.begin < mp.offset.end) ? mp.offset.end - mp.offset.begin : 0;
-            foreach (cm; mp.cms) {
-                cmut_stmt.get.bind(":c0", cast(long) cm.id.c0);
-                cmut_stmt.get.bind(":c1", cast(long) cm.id.c1);
-                cmut_stmt.get.bind(":prio", prio);
-                cmut_stmt.get.execute;
-                cmut_stmt.get.reset;
-            }
+            cmut_stmt.get.bind(":c0", cast(long) mp.cm.id.c0);
+            cmut_stmt.get.bind(":c1", cast(long) mp.cm.id.c1);
+            cmut_stmt.get.bind(":prio", prio);
+            cmut_stmt.get.execute;
+            cmut_stmt.get.reset;
         }
 
         static immutable insert_m_sql = "INSERT OR IGNORE INTO " ~ mutationTable ~ " (mp_id, st_id, kind)
@@ -1801,17 +1799,15 @@ struct DbMutant {
         auto insert_m = db.prepare(insert_m_sql);
 
         foreach (mp; mps) {
-            foreach (m; mp.cms) {
-                auto rel_file = relativePath(mp.file, root).Path;
-                insert_m.get.bind(":path", cast(string) rel_file);
-                insert_m.get.bind(":off_begin", mp.offset.begin);
-                insert_m.get.bind(":off_end", mp.offset.end);
-                insert_m.get.bind(":c0", cast(long) m.id.c0);
-                insert_m.get.bind(":c1", cast(long) m.id.c1);
-                insert_m.get.bind(":kind", m.mut.kind);
-                insert_m.get.execute;
-                insert_m.get.reset;
-            }
+            auto rel_file = relativePath(mp.file, root).Path;
+            insert_m.get.bind(":path", cast(string) rel_file);
+            insert_m.get.bind(":off_begin", mp.offset.begin);
+            insert_m.get.bind(":off_end", mp.offset.end);
+            insert_m.get.bind(":c0", cast(long) mp.cm.id.c0);
+            insert_m.get.bind(":c1", cast(long) mp.cm.id.c1);
+            insert_m.get.bind(":kind", mp.cm.mut.kind);
+            insert_m.get.execute;
+            insert_m.get.reset;
         }
     }
 

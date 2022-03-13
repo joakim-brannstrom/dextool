@@ -338,9 +338,9 @@ class CodeMutantIndex {
             CodeMutant[][Offset] e;
             foreach (mp; p.value) {
                 if (auto v = mp.offset in e) {
-                    (*v) ~= mp.mutants;
+                    (*v) ~= mp.mutant;
                 } else {
-                    e[mp.offset] = mp.mutants;
+                    e[mp.offset] = [mp.mutant];
                 }
             }
             index[p.key] = e;
