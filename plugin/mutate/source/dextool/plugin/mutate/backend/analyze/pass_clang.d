@@ -456,6 +456,7 @@ final class BaseVisitor : ExtendedVisitor {
         blacklist = Blacklist(v.cursor);
 
         ast.get.root = ast.get.make!(analyze.TranslationUnit);
+        ast.get.root.context = true;
         auto loc = v.cursor.toLocation;
         pushStack(v.cursor, ast.get.root, loc, v.cursor.kind);
 
@@ -533,6 +534,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
+        n.context = true;
         n.covBlacklist = true;
         n.schemaBlacklist = n.schemaBlacklist
             || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
@@ -544,6 +546,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
+        n.context = true;
         n.covBlacklist = true;
         n.schemaBlacklist = n.schemaBlacklist
             || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
@@ -555,6 +558,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
+        n.context = true;
         n.schemaBlacklist = n.schemaBlacklist
             || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
         pushStack(n, v);
@@ -565,6 +569,7 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
         auto n = ast.get.make!(analyze.Poision);
+        n.context = true;
         n.schemaBlacklist = n.schemaBlacklist
             || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
         pushStack(n, v);
@@ -573,7 +578,8 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const FunctionTemplate v) @trusted {
         mixin(mixinNodeLog!());
-        visitFunc(v);
+        if (auto n = visitFunc(v))
+            n.context = true;
     }
 
     override void visit(scope const TemplateTypeParameter v) {
@@ -751,7 +757,8 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const FunctionDecl v) @trusted {
         mixin(mixinNodeLog!());
-        visitFunc(v);
+        if (auto n = visitFunc(v))
+            n.context = true;
     }
 
     override void visit(scope const Constructor v) @trusted {
@@ -787,8 +794,13 @@ final class BaseVisitor : ExtendedVisitor {
         // is a function and the return type when generating mutants.
 
         // skip all "= default"
-        if (!v.cursor.isDefaulted)
-            visitFunc(v);
+        if (!v.cursor.isDefaulted) {
+            auto n = visitFunc(v);
+            // context only set for methods defined outside of a class.
+            if (n && isParent(CXCursorKind.classDecl, CXCursorKind.structDecl) == 0) {
+                n.context = true;
+            }
+        }
     }
 
     override void visit(scope const BreakStmt v) {
@@ -1220,7 +1232,7 @@ final class BaseVisitor : ExtendedVisitor {
         return true;
     }
 
-    private void visitFunc(T)(scope const T v) @trusted {
+    private auto visitFunc(T)(scope const T v) @trusted {
         auto oldBlacklistFn = blacklistFunc;
         scope (exit)
             blacklistFunc = oldBlacklistFn;
@@ -1228,7 +1240,7 @@ final class BaseVisitor : ExtendedVisitor {
         auto loc = v.cursor.toLocation;
         // no use in visiting a function that should never be mutated.
         if (!vloc.shouldMutate(loc.file))
-            return;
+            return null;
 
         auto n = ast.get.make!(analyze.Function);
         n.schemaBlacklist = isConstExpr(v);
@@ -1252,6 +1264,8 @@ final class BaseVisitor : ExtendedVisitor {
             foreach (c; BreathFirstRange(n))
                 c.schemaBlacklist = true;
         }
+
+        return n;
     }
 
     private void visitCall(T)(scope const T v) @trusted {

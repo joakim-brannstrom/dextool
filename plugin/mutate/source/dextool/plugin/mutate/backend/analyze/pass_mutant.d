@@ -63,7 +63,7 @@ CodeMutantsResult toCodeMutants(MutantsResult mutants, FilesysIO fio,
                 log.warningf("Malformed mutant (begin > end), dropping. %s %s %s %s",
                         mp.kind, mp.point.offset, mp.point.sloc, f);
             } else {
-                result.updateContentWindow(mp.point.content);
+                result.updateContentWindow(mp.point.context);
                 result.changeActiveFile(f, tstream);
                 result.put(f, mp.point.offset, mp.point.sloc, mp.kind);
             }
@@ -82,7 +82,7 @@ class MutantsResult {
     static struct MutationPoint {
         Offset offset;
         SourceLocRange sloc;
-        Offset content;
+        Offset context;
 
         size_t toHash() @safe pure nothrow const @nogc {
             return offset.toHash;
@@ -101,7 +101,7 @@ class MutantsResult {
         void toString(Writer)(ref Writer w) const {
             formattedWrite!"%s [%s-%s:%s]:[%s:%s][%s:%s]"(w, sloc.begin.line,
                     sloc.begin.column, sloc.end.line, sloc.end.column,
-                    offset.begin, offset.end, content.begin, content.end);
+                    offset.begin, offset.end, context.begin, context.end);
         }
     }
 
@@ -328,7 +328,7 @@ class MutantVisitor : DepthFirstVisitor {
 
     Ast* ast;
     MutantsResult result;
-    Offset content;
+    Offset context;
 
     private {
         uint depth;
@@ -410,30 +410,25 @@ class MutantVisitor : DepthFirstVisitor {
 
         foreach (kind; kinds) {
             result.put(loc.file, MutantsResult.MutationPoint(loc.interval,
-                    loc.sloc, content), kind);
+                    loc.sloc, context), kind);
         }
     }
 
     override void visit(TranslationUnit n) {
-        content = ast.location(n).interval;
+        context = ast.location(n).interval;
         accept(n, this);
     }
 
     override void visit(Constructor n) {
-        // auto old = content;
-        // scope (exit)
-        // content = old;
-        // if (isDirectParent(Kind.TranslationUnit))
-        // content = ast.location(n).interval;
         accept(n, this);
     }
 
     override void visit(Function n) {
-        auto old = content;
+        auto old = context;
         scope (exit)
-            content = old;
-        if (isDirectParent(Kind.TranslationUnit))
-            content = ast.location(n).interval;
+            context = old;
+        if (n.context)
+            context = ast.location(n).interval;
         accept(n, this);
     }
 
@@ -515,6 +510,15 @@ class MutantVisitor : DepthFirstVisitor {
         if (isDirectParent(Kind.Block)) {
             put(ast.location(n), stmtDelMutations(n.kind), n.blacklist);
         }
+        accept(n, this);
+    }
+
+    override void visit(Poision n) {
+        auto old = context;
+        scope (exit)
+            context = old;
+        if (n.context)
+            context = ast.location(n).interval;
         accept(n, this);
     }
 

@@ -346,7 +346,8 @@ abstract class Node {
     private enum Property {
         blacklist = 0x1,
         schemaBlacklist = 0x2,
-        covBlacklist = 0x4
+        covBlacklist = 0x4,
+        context = 0x8
     }
 
     private ubyte prop;
@@ -397,6 +398,17 @@ abstract class Node {
             prop |= Property.covBlacklist;
         else
             prop &= ~Property.covBlacklist;
+    }
+
+    bool context() {
+        return (Property.context & prop) != 0;
+    }
+
+    void context(bool x) {
+        if (x)
+            prop |= Property.context;
+        else
+            prop &= ~Property.context;
     }
 
     bool opEquals(Kind k) {
