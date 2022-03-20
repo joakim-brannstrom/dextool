@@ -152,7 +152,7 @@ struct ArgParser {
         app.put("# triggering the mutants in the functions to be re-tested");
         app.put(format!"# available options are: %(%s, %)"(
                 [EnumMembers!MutantIdGeneratorConfig].map!(a => a.to!string)));
-        app.put("# id_algo = relaxed");
+        app.put(format!`# id_algo = "%s"`(MutantIdGeneratorConfig.relaxed));
         app.put(null);
 
         app.put("[schema]");
