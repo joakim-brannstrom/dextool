@@ -1,5 +1,11 @@
 # vNext
 
+Fixes
+
+ * Fix compilation with latest dmd-compiler (2.099.0). Required the min version
+   to be updated too though because the older one segfaults when compiling
+   miniorm.
+
 Fixes for dextool mutate
 
  * Schematan may, and do, affect the runtime of a test suite. This mean that
