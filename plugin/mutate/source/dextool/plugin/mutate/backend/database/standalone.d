@@ -454,8 +454,32 @@ struct DbTestCmd {
     private Miniorm* db;
     private Database* wrapperDb;
 
+    void set(string[] testCmds) @trusted {
+        if (testCmds.empty)
+            return;
+
+        static immutable sql = "INSERT OR IGNORE INTO " ~ testCmdTable ~ "(cmd) VALUES (:cmd)";
+        auto stmt = db.prepare(sql);
+
+        foreach (cmd; testCmds) {
+            stmt.get.bind(":cmd", cmd);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
+
+        auto new_ = testCmds.toSet;
+        auto old = db.run(select!TestCmdTable).map!(a => a.cmd).toSet;
+
+        foreach (a; old.setDifference(new_).toRange)
+            db.run(delete_!TestCmdTable.where("cmd=:cmd", Bind("cmd")), a);
+    }
+
+    string[] testCmds() @trusted {
+        return db.run(select!TestCmdTable).map!(a => a.cmd).array;
+    }
+
     void set(string testCmd, ChecksumTestCmdOriginal cs) @trusted {
-        static immutable sql = "INSERT OR IGNORE INTO " ~ testCmdOriginalTable
+        static immutable sql = "INSERT OR REPLACE INTO " ~ testCmdOriginalTable
             ~ " (checksum, cmd_id) " ~ "SELECT :cs,id FROM " ~ testCmdTable ~ " WHERE cmd=:cmd";
 
         auto stmt = db.prepare(sql);
@@ -464,12 +488,14 @@ struct DbTestCmd {
         stmt.get.execute;
     }
 
-    void removeOriginal(string testCmd) @trusted {
-        static immutable sql = "DELETE FROM " ~ testCmdOriginalTable
-            ~ " t0 INNER JOIN " ~ testCmdTable ~ " t1 ON t0.cmd_id=t1.id WHERE t1.cmd=:cmd";
+    string getTestCmd(ChecksumTestCmdOriginal cs) @trusted {
+        static immutable sql = "SELECT t1.cmd FROM " ~ testCmdOriginalTable
+            ~ " t0, " ~ testCmdTable ~ " t1 WHERE t0.checksum=:cs AND t0.cmd_id=t1.id";
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":cmd", testCmd);
-        stmt.get.execute;
+        stmt.get.bind(":cs", cs.get.c0);
+        foreach (a; stmt.get.execute)
+            return a.peek!string(0);
+        return null;
     }
 
     void remove(ChecksumTestCmdOriginal cs) @trusted {
