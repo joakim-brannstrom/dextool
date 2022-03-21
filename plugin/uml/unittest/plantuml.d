@@ -90,7 +90,7 @@ class Backend {
         uml_class = new UMLClassDiagram;
         uml_component = new UMLComponentDiagram;
 
-        transform = new typeof(transform)(ctrl, params, Lookup(&container),
+        transform = new typeof(transform)(ctrl, cast() params, Lookup(&container),
                 uml_component, uml_class);
         visitor = new typeof(visitor)(ctrl, transform, container);
         ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
