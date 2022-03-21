@@ -1356,7 +1356,7 @@ struct CppClass {
         return reside_in_ns;
     }
 
-    FullyQualifiedNameType fullyQualifiedName() {
+    FullyQualifiedNameType fullyQualifiedName() @trusted {
         //TODO optimize by only calculating once.
 
         import std.array : array;
@@ -1370,7 +1370,7 @@ struct CppClass {
                          reside_in_ns.payload.takeOne.map!(a => "::").joiner(),
                          only(cast(string) name_).joiner()
                         );
-        return FullyQualifiedNameType(fqn.byChar.array().idup);
+        return FullyQualifiedNameType(fqn.byChar.array.idup);
         // dfmt on
     }
 }
