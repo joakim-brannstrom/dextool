@@ -807,6 +807,7 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
         auto res = runTester(ctx.state.get.runner, env);
         rval.result.status = res.status;
         rval.result.exitStatus = res.exitStatus;
+        rval.result.testCmds = res.output.byKey.array;
 
         if (!ctx.state.get.analyzer.empty)
             rval = analyzeForTestCase(rval, res.output);

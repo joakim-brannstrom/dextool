@@ -423,9 +423,6 @@ nothrow:
     }
 
     void opCall(ref TestCaseAnalyze data) {
-        scope (exit)
-            global.testResult.output = null;
-
         foreach (testCmd; global.testResult.output.byKeyValue) {
             try {
                 auto analyze = local.get!TestCaseAnalyze.testCaseAnalyzer.analyze(testCmd.key,
@@ -448,7 +445,6 @@ nothrow:
     }
 
     void opCall(MarkCalcStatus data) {
-        global.testResult.output = null;
         global.testResult.status = data.status;
     }
 
@@ -465,7 +461,8 @@ nothrow:
 
         result = [
             MutationTestResult(global.mutp.id, statusId.get, global.testResult.status,
-                    profile, global.testCases, global.testResult.exitStatus)
+                    profile, global.testCases, global.testResult.exitStatus,
+                    global.testResult.output.byKey.array)
         ];
 
         logger.infof("%s:%s (%s)", global.testResult.status,

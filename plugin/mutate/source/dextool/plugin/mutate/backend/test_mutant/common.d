@@ -53,6 +53,9 @@ struct MutationTestResult {
     MutantTimeProfile profile;
     TestCase[] testCases;
     ExitStatus exitStatus;
+
+    /// commands that had an exit status other than zero.
+    ShellCommand[] testCmds;
 }
 
 /** Analyze stdout/stderr output from a test suite for test cases that failed
@@ -659,7 +662,7 @@ struct HashFile {
     Path file;
 }
 
-auto hashFiles(RangeT)(RangeT files) {
+auto hashFiles(RangeT)(RangeT files) nothrow {
     import my.hash : makeCrc64Iso, checksum;
     import my.file : existsAnd, isFile;
 

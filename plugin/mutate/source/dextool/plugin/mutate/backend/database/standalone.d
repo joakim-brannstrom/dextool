@@ -478,6 +478,26 @@ struct DbTestCmd {
         return db.run(select!TestCmdTable).map!(a => a.cmd).array;
     }
 
+    void clearTestCmdToMutant(string testCmd) @trusted {
+        static immutable sql = "DELETE FROM " ~ testCmdRelMutantTable
+            ~ " t0 INNER JOIN " ~ testCmdTable ~ " t1 ON t0.cmd_id=t1.id WHERE t1.cmd=:cmd";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":cmd", testCmd);
+        stmt.get.execute;
+    }
+
+    /// Returns: all mutants related to `testCmd`.
+    MutationStatusId[] getMutants(string testCmd) @trusted {
+        static immutable sql = "SELECT st_id FROM " ~ testCmdRelMutantTable
+            ~ " t0, " ~ testCmdTable ~ " t1 WHERE t0.cmd_id=t1.id AND t1.cmd=:cmd";
+        auto app = appender!(MutationStatusId[])();
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":cmd", testCmd);
+        foreach (a; stmt.get.execute)
+            app.put(MutationStatusId(a.peek!long(0)));
+        return app.data;
+    }
+
     void set(string testCmd, ChecksumTestCmdOriginal cs) @trusted {
         static immutable sql = "INSERT OR REPLACE INTO " ~ testCmdOriginalTable
             ~ " (checksum, cmd_id) " ~ "SELECT :cs,id FROM " ~ testCmdTable ~ " WHERE cmd=:cmd";
@@ -1156,6 +1176,15 @@ struct DbMutant {
         stmt.get.bind(":st", st.to!long);
         stmt.get.bind(":id", id.to!long);
         stmt.get.bind(":ecode", ecode.get);
+        stmt.get.execute;
+    }
+
+    void relate(const MutationStatusId id, const string testCmd) @trusted {
+        static immutable sql = "INSERT OR IGNORE INTO " ~ testCmdRelMutantTable
+            ~ " (cmd_id, st_id) " ~ "SELECT id,:st_id FROM " ~ testCmdTable ~ " WHERE cmd=:cmd";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":st_id", cast(long) id);
+        stmt.get.bind(":cmd", testCmd);
         stmt.get.execute;
     }
 
