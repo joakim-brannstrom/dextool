@@ -1841,11 +1841,10 @@ void upgradeV46(ref Miniorm db) {
 
 // 2021-11-01
 void upgradeV47(ref Miniorm db) {
-    immutable newTbl = "new_" ~ allTestCaseTable;
+    static immutable newTbl = "new_" ~ allTestCaseTable;
     db.run(buildSchema!AllTestCaseTbl("new_"));
 
-    db.run(format("INSERT INTO %s (id,name,is_new) SELECT id,name,0 FROM %s",
-            newTbl, allTestCaseTable));
+    db.run("INSERT INTO " ~ newTbl ~ " (id,name,is_new) SELECT id,name,0 FROM " ~ allTestCaseTable);
     replaceTbl(db, newTbl, allTestCaseTable);
 }
 
@@ -1856,7 +1855,7 @@ void upgradeV48(ref Miniorm db) {
 
 // 2021-11-02
 void upgradeV49(ref Miniorm db) {
-    immutable newTbl = "new_" ~ mutantTimeoutWorklistTable;
+    static immutable newTbl = "new_" ~ mutantTimeoutWorklistTable;
     db.run(buildSchema!MutantTimeoutWorklistTbl("new_"));
 
     db.run("INSERT INTO " ~ newTbl ~ " (id,iter) SELECT id,0 FROM " ~ mutantTimeoutWorklistTable);
@@ -1872,7 +1871,7 @@ void upgradeV50(ref Miniorm db) {
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
     db.run("DROP TABLE " ~ dst);
-    db.run(format("ALTER TABLE %s RENAME TO %s", src, dst));
+    db.run("ALTER TABLE " ~ src ~ " RENAME TO " ~ dst);
 }
 
 struct UpgradeTable {

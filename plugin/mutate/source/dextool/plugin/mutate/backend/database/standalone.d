@@ -166,7 +166,8 @@ struct Database {
 
     /// Remove the file with all mutations that are coupled to it.
     void removeFile(const Path p) @trusted {
-        auto stmt = db.prepare(format!"DELETE FROM %s WHERE path=:path"(filesTable));
+        static immutable sql = "DELETE FROM " ~ filesTable ~ " WHERE path=:path";
+        auto stmt = db.prepare(sql);
         stmt.get.bind(":path", p.toString);
         stmt.get.execute;
     }
@@ -283,7 +284,7 @@ struct Database {
         foreach (a; stmt.get.execute)
             ids.put(a.peek!long(0));
 
-        stmt = db.prepare(format!"DELETE FROM %s WHERE id = :id"(mutationScoreHistoryTable));
+        stmt = db.prepare("DELETE FROM " ~ mutationScoreHistoryTable ~ " WHERE id = :id");
         foreach (a; ids.data) {
             stmt.get.bind(":id", a);
             stmt.get.execute;
@@ -362,10 +363,10 @@ struct DbDependency {
 
     /// The root must already exist or the whole operation will fail with an sql error.
     void set(const Path path, const DepFile[] deps) @trusted {
-        static immutable insertDepSql = format!"INSERT OR IGNORE INTO %1$s (file,checksum0,checksum1)
+        static immutable insertDepSql = "INSERT OR IGNORE INTO " ~ depFileTable
+            ~ " (file,checksum0,checksum1)
             VALUES(:file,:cs0,:cs1)
-            ON CONFLICT (file) DO UPDATE SET checksum0=:cs0,checksum1=:cs1 WHERE file=:file"(
-                depFileTable);
+            ON CONFLICT (file) DO UPDATE SET checksum0=:cs0,checksum1=:cs1 WHERE file=:file";
 
         auto stmt = db.prepare(insertDepSql);
         auto ids = appender!(long[])();
@@ -383,8 +384,8 @@ struct DbDependency {
                 ids.put(id.orElse(0L));
         }
 
-        static immutable addRelSql = format!"INSERT OR IGNORE INTO %1$s (dep_id,file_id) VALUES(:did, :fid)"(
-                depRootTable);
+        static immutable addRelSql = "INSERT OR IGNORE INTO " ~ depRootTable
+            ~ " (dep_id,file_id) VALUES(:did, :fid)";
         stmt = db.prepare(addRelSql);
         const fid = () {
             auto a = wrapperDb.getFileId(path);
@@ -440,9 +441,9 @@ struct DbDependency {
 
     /// Remove all dependencies that have no relation to a root.
     void cleanup() @trusted {
-        db.run(format!"DELETE FROM %1$s
-               WHERE id NOT IN (SELECT dep_id FROM %2$s)"(depFileTable,
-                depRootTable));
+        db.run(
+                "DELETE FROM " ~ depFileTable
+                ~ " WHERE id NOT IN (SELECT dep_id FROM " ~ depRootTable ~ ")");
     }
 
 }
@@ -454,8 +455,8 @@ struct DbTestCmd {
     private Database* wrapperDb;
 
     void set(string testCmd, ChecksumTestCmdOriginal cs) @trusted {
-        static immutable sql = format!"INSERT OR IGNORE INTO %1$s (checksum, cmd) VALUES(:cs, :cmd)"(
-                testCmdOriginalTable);
+        static immutable sql = "INSERT OR IGNORE INTO " ~ testCmdOriginalTable
+            ~ " (checksum, cmd_id) " ~ "SELECT :cs,id FROM " ~ testCmdTable ~ " WHERE cmd=:cmd";
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":cs", cast(long) cs.get.c0);
@@ -464,7 +465,8 @@ struct DbTestCmd {
     }
 
     void removeOriginal(string testCmd) @trusted {
-        static immutable sql = "DELETE FROM " ~ testCmdOriginalTable ~ " WHERE cmd = :cmd";
+        static immutable sql = "DELETE FROM " ~ testCmdOriginalTable
+            ~ " t0 INNER JOIN " ~ testCmdTable ~ " t1 ON t0.cmd_id=t1.id WHERE t1.cmd=:cmd";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":cmd", testCmd);
         stmt.get.execute;
@@ -488,8 +490,8 @@ struct DbTestCmd {
     }
 
     void add(ChecksumTestCmdMutated cs, Mutation.Status status) @trusted {
-        static immutable sql = format!"INSERT OR REPLACE INTO %1$s (checksum,status,timestamp) VALUES(:cs,:status,:ts)"(
-                testCmdMutatedTable);
+        static immutable sql = "INSERT OR REPLACE INTO " ~ testCmdMutatedTable
+            ~ " (checksum,status,timestamp) VALUES(:cs,:status,:ts)";
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":cs", cast(long) cs.get.c0);
@@ -500,19 +502,20 @@ struct DbTestCmd {
 
     /// Trim the saved checksums to only the latest `keep`.
     void trimMutated(const long keep) @trusted {
-        auto stmt = db.prepare(format!"SELECT count(*) FROM %s"(testCmdMutatedTable));
+        auto stmt = db.prepare("SELECT count(*) FROM " ~ testCmdMutatedTable);
         const sz = stmt.get.execute.oneValue!long;
         if (sz < keep)
             return;
 
         auto ids = appender!(long[])();
-        stmt = db.prepare(format!"SELECT checksum FROM %s ORDER BY timestamp ASC LIMIT :limit"(
-                testCmdMutatedTable));
+        stmt = db.prepare(
+                "SELECT checksum FROM " ~ testCmdMutatedTable
+                ~ " ORDER BY timestamp ASC LIMIT :limit");
         stmt.get.bind(":limit", sz - keep);
         foreach (a; stmt.get.execute)
             ids.put(a.peek!long(0));
 
-        stmt = db.prepare(format!"DELETE FROM %s WHERE checksum = :cs"(testCmdMutatedTable));
+        stmt = db.prepare("DELETE FROM " ~ testCmdMutatedTable ~ " WHERE checksum = :cs");
         foreach (a; ids.data) {
             stmt.get.bind(":cs", a);
             stmt.get.execute;
@@ -544,7 +547,7 @@ struct DbTestCmd {
 
     /// Drop all currently stored runtimes and replaces with `runtime`.
     void setTestCmdRuntimes(const TestCmdRuntime[] runtimes) @trusted {
-        db.run(format!"DELETE FROM %s"(runtimeHistoryTable));
+        db.run("DELETE FROM " ~ runtimeHistoryTable);
         db.run(insertOrReplace!RuntimeHistoryTable,
                 runtimes.enumerate.map!(a => RuntimeHistoryTable(a.index,
                     a.value.timeStamp, a.value.runtime.total!"msecs")));
@@ -566,8 +569,8 @@ struct DbTestCase {
             return;
 
         immutable statusId = () {
-            static immutable st_id_for_mutation_q = format!"SELECT st_id FROM %s WHERE id=:id"(
-                    mutationTable);
+            static immutable st_id_for_mutation_q = "SELECT st_id FROM "
+                ~ mutationTable ~ " WHERE id=:id";
             auto stmt = db.prepare(st_id_for_mutation_q);
             stmt.get.bind(":id", cast(long) id);
             return stmt.get.execute.oneValue!long;
@@ -586,20 +589,22 @@ struct DbTestCase {
             return;
 
         try {
-            static immutable remove_old_sql = format!"DELETE FROM %s WHERE st_id=:id"(
-                    killedTestCaseTable);
+            static immutable remove_old_sql = "DELETE FROM "
+                ~ killedTestCaseTable ~ " WHERE st_id=:id";
             auto stmt = db.prepare(remove_old_sql);
             stmt.get.bind(":id", statusId.get);
             stmt.get.execute;
         } catch (Exception e) {
         }
 
-        static immutable add_if_non_exist_tc_sql = format!"INSERT OR IGNORE INTO %s (name,is_new) SELECT :name1,1 WHERE NOT EXISTS (SELECT * FROM %s WHERE name = :name2)"(
-                allTestCaseTable, allTestCaseTable);
+        static immutable add_if_non_exist_tc_sql = "INSERT OR IGNORE INTO " ~ allTestCaseTable
+            ~ " (name,is_new) SELECT :name1,1 WHERE NOT EXISTS (SELECT * FROM "
+            ~ allTestCaseTable ~ " WHERE name = :name2)";
         auto stmt_insert_tc = db.prepare(add_if_non_exist_tc_sql);
 
-        static immutable add_new_sql = format!"INSERT OR IGNORE INTO %s (st_id, tc_id, location) SELECT :st_id,t1.id,:loc FROM %s t1 WHERE t1.name = :tc"(
-                killedTestCaseTable, allTestCaseTable);
+        static immutable add_new_sql = "INSERT OR IGNORE INTO " ~ killedTestCaseTable
+            ~ " (st_id, tc_id, location) SELECT :st_id,t1.id,:loc FROM "
+            ~ allTestCaseTable ~ " t1 WHERE t1.name = :tc";
         auto stmt_insert = db.prepare(add_new_sql);
         foreach (const tc; tcs) {
             try {
@@ -626,7 +631,7 @@ struct DbTestCase {
      * Returns: ID of affected mutation statuses.
      */
     MutationStatusId[] setDetectedTestCases(const(TestCase)[] tcs) @trusted {
-        if (tcs.length == 0)
+        if (tcs.empty)
             return null;
 
         auto ids = appender!(MutationStatusId[])();
@@ -645,11 +650,11 @@ struct DbTestCase {
             ids.put(res.peek!long(0).MutationStatusId);
         }
 
-        static immutable remove_old_sql = format!"DELETE FROM %s WHERE name NOT IN (SELECT name FROM %s)"(
-                allTestCaseTable, tmp_name);
+        static immutable remove_old_sql = "DELETE FROM " ~ allTestCaseTable
+            ~ " WHERE name NOT IN (SELECT name FROM " ~ tmp_name ~ ")";
         db.run(remove_old_sql);
 
-        db.run(format!"DROP TABLE %s"(tmp_name));
+        db.run("DROP TABLE " ~ tmp_name);
 
         return ids.data;
     }
@@ -669,10 +674,9 @@ struct DbTestCase {
 
     /// ditto.
     private void internalAddDetectedTestCases(const(TestCase)[] tcs, string tmp_tbl) @trusted {
-        db.run(format!"CREATE TEMP TABLE %s (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"(
-                tmp_tbl));
+        db.run("CREATE TEMP TABLE " ~ tmp_tbl ~ " (id INTEGER PRIMARY KEY, name TEXT NOT NULL)");
 
-        const add_tc_sql = format!"INSERT OR IGNORE INTO %s (name) VALUES(:name)"(tmp_tbl);
+        const add_tc_sql = "INSERT OR IGNORE INTO " ~ tmp_tbl ~ " (name) VALUES(:name)";
         auto insert_s = db.prepare(add_tc_sql);
         foreach (tc; tcs.filter!(a => !a.name.empty)) {
             insert_s.get.bind(":name", tc.name);
@@ -904,7 +908,7 @@ struct DbTestCase {
     }
 
     void removeTestCase(const TestCaseId id) @trusted {
-        auto stmt = db.prepare(format!"DELETE FROM %s WHERE id=:id"(allTestCaseTable));
+        auto stmt = db.prepare("DELETE FROM " ~ allTestCaseTable ~ " WHERE id=:id");
         stmt.get.bind(":id", cast(long) id);
         stmt.get.execute;
     }
@@ -919,7 +923,7 @@ struct DbTestCase {
             stmt.get.execute;
         }
         {
-            static immutable sql2 = format!"DELETE FROM %1$s WHERE tc_id = :id"(killedTestCaseTable);
+            static immutable sql2 = "DELETE FROM " ~ killedTestCaseTable ~ " WHERE tc_id = :id";
             auto stmt = db.prepare(sql2);
             stmt.get.bind(":id", cast(long) id);
             stmt.get.execute;
@@ -1954,13 +1958,13 @@ struct DbWorklist {
     }
 
     void clear() @trusted {
-        static immutable sql = format!"DELETE FROM %1$s"(mutantWorklistTable);
+        static immutable sql = format!"DELETE FROM " ~ mutantWorklistTable;
         auto stmt = db.prepare(sql);
         stmt.get.execute;
     }
 
     long getCount() @trusted {
-        static immutable sql = format!"SELECT count(*) FROM %1$s"(mutantWorklistTable);
+        static immutable sql = "SELECT count(*) FROM " ~ mutantWorklistTable;
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;
         return res.oneValue!long;
@@ -2214,7 +2218,7 @@ struct DbCoverage {
     }
 
     void clearCoverageMap(const FileId id) @trusted {
-        static immutable sql = format!"DELETE FROM %1$s WHERE file_id = :id"(srcCovTable);
+        static immutable sql = "DELETE FROM " ~ srcCovTable ~ " WHERE file_id = :id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         stmt.get.execute;
@@ -2493,7 +2497,7 @@ struct DbSchema {
             return remove.data;
         }();
 
-        static immutable sql = format!"DELETE FROM %1$s WHERE id=:id"(schemataTable);
+        static immutable sql = "DELETE FROM " ~ schemataTable ~ " WHERE id=:id";
         auto stmt = db.prepare(sql);
         foreach (a; remove) {
             stmt.get.bind(":id", a);
@@ -2519,7 +2523,7 @@ struct DbSchema {
             return remove.data;
         }();
 
-        static immutable sql = format!"DELETE FROM %1$s WHERE id=:id"(schemataTable);
+        static immutable sql = "DELETE FROM " ~ schemataTable ~ " WHERE id=:id";
         auto stmt = db.prepare(sql);
         foreach (a; remove) {
             stmt.get.bind(":id", a);
@@ -2544,7 +2548,7 @@ struct DbSchema {
     }
 
     void removeMutantProbability(const Checksum64 p) @trusted {
-        static immutable sql = format!"DELETE FROM %1$s WHERE path=:path"(schemaMutantQTable);
+        static immutable sql = "DELETE FROM " ~ schemaMutantQTable ~ " WHERE path=:path";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", cast(long) p.c0);
         stmt.get.execute;
@@ -2654,7 +2658,7 @@ struct DbMetaData {
 
     /// Remove all metadata.
     void clearMetadata() {
-        static immutable sql = format!"DELETE FROM %s"(rawSrcMetadataTable);
+        static immutable sql = "DELETE FROM " ~ rawSrcMetadataTable;
         db.run(sql);
     }
 
@@ -2668,10 +2672,9 @@ struct DbMetaData {
             return;
 
         // TODO: convert to microrm
-        static immutable sql = format!"INSERT OR IGNORE INTO %s
+        static immutable sql = "INSERT OR IGNORE INTO " ~ rawSrcMetadataTable ~ "
             (file_id, line, nomut, tag, comment)
-            VALUES(:fid, :line, :nomut, :tag, :comment)"(
-                rawSrcMetadataTable);
+            VALUES(:fid, :line, :nomut, :tag, :comment)";
 
         auto stmt = db.prepare(sql);
         foreach (meta; mdata) {
@@ -2687,9 +2690,9 @@ struct DbMetaData {
      * raw table data.
      */
     void updateMetadata() @trusted {
-        db.run(format!"DELETE FROM %s"(srcMetadataTable));
-        db.run(format!"DELETE FROM %s"(nomutTable));
-        db.run(format!"DELETE FROM %s"(nomutDataTable));
+        db.run("DELETE FROM " ~ srcMetadataTable);
+        db.run("DELETE FROM " ~ nomutTable);
+        db.run("DELETE FROM " ~ nomutDataTable);
 
         static immutable nomut_tbl = "INSERT INTO %s
             SELECT
