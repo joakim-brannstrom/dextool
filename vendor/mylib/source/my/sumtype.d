@@ -74,8 +74,8 @@ unittest {
 
     SumType!(Foo0, Foo1, Foo2, Foo3, Foo4, Bar0, Bar1, Bar2) someType;
 
-    someType.match!(restrictTo!(Foo0, Foo1, Foo2, Foo3, val => {}),
-            restrictTo!(Bar0, Bar1, Bar2, val => {}), _ => {});
+    someType.match!(restrictTo!(Foo0, Foo1, Foo2, Foo3, (val) {}),
+            restrictTo!(Bar0, Bar1, Bar2, (val) {}), (_) {});
 }
 
 /// For ignoring types.

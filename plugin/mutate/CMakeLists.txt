@@ -110,7 +110,7 @@ install(TARGETS ${EXE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 file(GLOB_RECURSE DATA_FILES ${CMAKE_CURRENT_LIST_DIR}/data/*)
 install(FILES ${DATA_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/data/mutate)
 
-compile_d_unittest(mutate "${SRC};${ANALYZE_SRC};${CMAKE_CURRENT_LIST_DIR}/ut_main.d" "${flags}" "" "dextool_mutate_analyze;dextool_mutate_database;dextool_proc;dextool_automem;dextool_colorlog;dextool_blob_model;dextool_dextool;dextool_libclang_ast;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools;dextool_mylib;dextool_sumtype")
+compile_d_unittest(mutate "${SRC};${ANALYZE_SRC};${CMAKE_CURRENT_LIST_DIR}/ut_main.d" "${flags}" "" "dextool_mutate_database;dextool_proc;dextool_automem;dextool_colorlog;dextool_blob_model;dextool_dextool;dextool_libclang_ast;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools;dextool_mylib;dextool_sumtype")
 
 setup_integration_testing_env()
 

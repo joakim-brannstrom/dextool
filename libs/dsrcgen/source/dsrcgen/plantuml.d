@@ -173,18 +173,30 @@ enum LabelPos {
 
 alias ClassModuleType = Typedef!(PlantumlModule, null, "ClassModuleType");
 alias ClassAsType = Typedef!(Text!PlantumlModule, null, "ComponentAsType");
-alias ClassSpotType = Typedef!(PlantumlModule, null, "ClassSpotType");
+
+struct ClassSpotType {
+    PlantumlModule value;
+    alias value this;
+}
+
 alias ClassNameType = Typedef!(string, string.init, "ClassNameType");
 alias ClassType = Tuple!(ClassNameType, "name", ClassModuleType, "m",
         ClassSpotType, "spot", ClassAsType, "as");
 
-alias ComponentModuleType = Typedef!(PlantumlModule, null, "ComponentModuleType");
+struct ComponentModuleType {
+    PlantumlModule value;
+    alias value this;
+}
+
 alias ComponentAsType = Typedef!(Text!PlantumlModule, null, "ComponentAsType");
 alias ComponentNameType = Typedef!(string, string.init, "ComponentNameType");
 alias ComponentType = Tuple!(ComponentNameType, "name", ComponentModuleType,
         "m", ComponentAsType, "as");
 
-alias NoteType = Typedef!(PlantumlModule, null, "NoteType");
+struct NoteType {
+    PlantumlModule value;
+    alias value this;
+}
 
 alias RelationType = Typedef!(ReturnType!(PlantumlModule.stmt),
         ReturnType!(PlantumlModule.stmt).init, "RelationType");
