@@ -248,10 +248,10 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
             return window(format!"'%s'->'%s'"(tmp.original.strip, tmp.mutation.strip), 30);
         }();
 
-        db.markMutantApi.markMutant(id, mut.get.file, mut.get.sloc, st_id,
-                checksum, status, Rationale(rationale), txt);
+        db.markMutantApi.mark(id, mut.get.file, mut.get.sloc, st_id, checksum,
+                status, Rationale(rationale), txt);
 
-        db.mutantApi.updateMutationStatus(st_id, status, ExitStatus(0));
+        db.mutantApi.update(st_id, status, ExitStatus(0));
 
         logger.infof(`Mutant %s marked with status %s and rationale %s`, id.get, status, rationale);
 
@@ -276,8 +276,8 @@ ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothr
         }
 
         if (db.markMutantApi.isMarked(id)) {
-            db.markMutantApi.removeMarkedMutant(st_id.get);
-            db.mutantApi.updateMutationStatus(st_id.get, Mutation.Status.unknown, ExitStatus(0));
+            db.markMutantApi.remove(st_id.get);
+            db.mutantApi.update(st_id.get, Mutation.Status.unknown, ExitStatus(0));
             logger.infof("Removed marking for mutant %s.", id);
         } else {
             logger.errorf("Failure when removing marked mutant (mutant %s is not marked)", id.get);

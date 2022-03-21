@@ -43,23 +43,23 @@ class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
         // tc3: [1,12]
-        db.mutantApi.updateMutation(MutationId(1), Mutation.Status.killed,
+        db.mutantApi.update(MutationId(1), Mutation.Status.killed,
                 ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
                     tc1, tc2, tc3
                 ]);
-        db.mutantApi.updateMutation(MutationId(2), Mutation.Status.killed,
+        db.mutantApi.update(MutationId(2), Mutation.Status.killed,
                 ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
                     tc1
                 ]);
-        db.mutantApi.updateMutation(MutationId(3), Mutation.Status.killed,
+        db.mutantApi.update(MutationId(3), Mutation.Status.killed,
                 ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
                     tc1, tc2
                 ]);
-        db.mutantApi.updateMutation(MutationId(4), Mutation.Status.killed,
+        db.mutantApi.update(MutationId(4), Mutation.Status.killed,
                 ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
                     tc1, tc2, tc3
                 ]);
-        db.mutantApi.updateMutation(MutationId(5), Mutation.Status.killed,
+        db.mutantApi.update(MutationId(5), Mutation.Status.killed,
                 ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
                     tc1, tc2
                 ]);
@@ -94,19 +94,19 @@ class ShallRemoveTestCase : SimpleAnalyzeFixture {
         const tc2 = TestCase("tc_2");
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
-        db.mutantApi.updateMutation(MutationId(1), Mutation.Status.killed,
+        db.mutantApi.update(MutationId(1), Mutation.Status.killed,
                 ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
                     tc1, tc2
                 ]);
-        db.mutantApi.updateMutation(MutationId(2), Mutation.Status.killed,
+        db.mutantApi.update(MutationId(2), Mutation.Status.killed,
                 ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
                     tc1
                 ]);
-        db.mutantApi.updateMutation(MutationId(3), Mutation.Status.killed,
+        db.mutantApi.update(MutationId(3), Mutation.Status.killed,
                 ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
                     tc1, tc2
                 ]);
-        db.mutantApi.updateMutation(MutationId(4), Mutation.Status.killed,
+        db.mutantApi.update(MutationId(4), Mutation.Status.killed,
                 ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
                     tc1, tc2
                 ]);

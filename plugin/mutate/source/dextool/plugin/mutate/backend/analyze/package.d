@@ -1258,10 +1258,10 @@ void updateMarkedMutants(ref Database db) {
         const mutId = db.mutantApi.getMutationId(stId.get);
         if (mutId.isNull)
             return;
-        db.markMutantApi.removeMarkedMutant(m.statusChecksum);
-        db.markMutantApi.markMutant(mutId.get, m.path, m.sloc, stId.get,
+        db.markMutantApi.remove(m.statusChecksum);
+        db.markMutantApi.mark(mutId.get, m.path, m.sloc, stId.get,
                 m.statusChecksum, m.toStatus, m.rationale, m.mutText);
-        db.mutantApi.updateMutationStatus(stId.get, m.toStatus, ExitStatus(0));
+        db.mutantApi.update(stId.get, m.toStatus, ExitStatus(0));
     }
 
     // find those marked mutants that have a checksum that is different from

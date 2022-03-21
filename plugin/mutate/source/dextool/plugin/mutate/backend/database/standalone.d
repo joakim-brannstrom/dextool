@@ -1052,7 +1052,7 @@ struct DbMutant {
      *  tcs = test cases that killed the mutant
      *  counter = how to act with the counter
      */
-    void updateMutation(const MutationId id, const Mutation.Status st,
+    void update(const MutationId id, const Mutation.Status st,
             const ExitStatus ecode, const MutantTimeProfile p, const(TestCase)[] tcs) @trusted {
         static immutable sql = "UPDATE %s SET
             status=:st,compile_time_ms=:compile,test_time_ms=:test,update_ts=:update_ts
@@ -1078,13 +1078,13 @@ struct DbMutant {
      *  tcs = test cases that killed the mutant
      *  counter = how to act with the counter
      */
-    void updateMutation(const MutationStatusId id, const Mutation.Status st,
+    void update(const MutationStatusId id, const Mutation.Status st,
             const ExitStatus ecode, const MutantTimeProfile p) @trusted {
-        static immutable sql = "UPDATE %s SET
+        static immutable sql = "UPDATE " ~ mutationStatusTable ~ " SET
             status=:st,compile_time_ms=:compile,test_time_ms=:test,update_ts=:update_ts
             WHERE id = :id";
 
-        auto stmt = db.prepare(format!sql(mutationStatusTable));
+        auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         stmt.get.bind(":st", cast(long) st);
         stmt.get.bind(":compile", p.compile.total!"msecs");
@@ -1094,9 +1094,9 @@ struct DbMutant {
     }
 
     /// Update the time used to test the mutant.
-    void updateMutation(const MutationStatusId id, const MutantTimeProfile p) @trusted {
-        static immutable sql = format!"UPDATE %s SET compile_time_ms=:compile,test_time_ms=:test WHERE id = :id"(
-                mutationStatusTable);
+    void update(const MutationStatusId id, const MutantTimeProfile p) @trusted {
+        static immutable sql = "UPDATE " ~ mutationStatusTable
+            ~ " SET compile_time_ms=:compile,test_time_ms=:test WHERE id = :id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         stmt.get.bind(":compile", p.compile.total!"msecs");
@@ -1111,20 +1111,21 @@ struct DbMutant {
      *  st = new status
      *  update_ts = if the update timestamp should be updated.
      */
-    void updateMutationStatus(const MutationStatusId id, const Mutation.Status st,
+    void update(const MutationStatusId id, const Mutation.Status st,
             const ExitStatus ecode, Flag!"updateTs" update_ts = No.updateTs) @trusted {
-
         auto stmt = () {
+            static immutable sql1 = "UPDATE " ~ mutationStatusTable
+                ~ " SET status=:st,exit_code=:ecode,update_ts=:update_ts WHERE id=:id";
+            static immutable sql2 = "UPDATE " ~ mutationStatusTable
+                ~ " SET status=:st,exit_code=:ecode WHERE id=:id";
+
             if (update_ts) {
                 const ts = Clock.currTime.toSqliteDateTime;
-                auto s = db.prepare(
-                        format!"UPDATE %s SET status=:st,exit_code=:ecode,update_ts=:update_ts WHERE id=:id"(
-                        mutationStatusTable));
+                auto s = db.prepare(sql1);
                 s.get.bind(":update_ts", ts);
                 return s;
-            } else
-                return db.prepare(format!"UPDATE %s SET status=:st,exit_code=:ecode WHERE id=:id"(
-                        mutationStatusTable));
+            }
+            return db.prepare(sql2);
         }();
         stmt.get.bind(":st", st.to!long);
         stmt.get.bind(":id", id.to!long);
@@ -1134,8 +1135,8 @@ struct DbMutant {
 
     /// Returns: all mutants and how many test cases that have killed them.
     long[] getAllTestCaseKills() @trusted {
-        static immutable sql = format!"SELECT (SELECT count(*) FROM %s WHERE t0.id=st_id) as vc_cnt FROM %s t0"(
-                killedTestCaseTable, mutationStatusTable);
+        static immutable sql = "SELECT (SELECT count(*) FROM " ~ killedTestCaseTable
+            ~ " WHERE t0.id=st_id) as vc_cnt FROM " ~ mutationStatusTable ~ " t0";
         auto stmt = db.prepare(sql);
 
         auto app = appender!(long[])();
@@ -1147,7 +1148,7 @@ struct DbMutant {
 
     /// Returns: all mutation status IDs.
     MutationStatusId[] getAllMutationStatus() @trusted {
-        static immutable sql = format!"SELECT id FROM %s"(mutationStatusTable);
+        static immutable sql = "SELECT id FROM " ~ mutationStatusTable;
 
         auto app = appender!(MutationStatusId[])();
         auto stmt = db.prepare(sql);
@@ -2061,19 +2062,18 @@ struct DbMarkMutant {
 
     /** Mark a mutant with status and rationale (also adds metadata).
      */
-    void markMutant(const MutationId id, const Path file, const SourceLoc sloc,
-            const MutationStatusId statusId, const Checksum cs,
-            const Mutation.Status s, const Rationale r, string mutationTxt) @trusted {
+    void mark(const MutationId id, const Path file, const SourceLoc sloc, const MutationStatusId statusId,
+            const Checksum cs, const Mutation.Status s, const Rationale r, string mutationTxt) @trusted {
         db.run(insertOrReplace!MarkedMutantTbl, MarkedMutantTbl(cs.c0, cs.c1,
                 statusId.get, id.get, sloc.line, sloc.column, file, s,
                 Clock.currTime.toUTC, r.get, mutationTxt));
     }
 
-    void removeMarkedMutant(const Checksum cs) @trusted {
+    void remove(const Checksum cs) @trusted {
         db.run(delete_!MarkedMutantTbl.where("checksum0 = :cs0", Bind("cs0")), cast(long) cs.c0);
     }
 
-    void removeMarkedMutant(const MutationStatusId id) @trusted {
+    void remove(const MutationStatusId id) @trusted {
         db.run(delete_!MarkedMutantTbl.where("st_id = :st_id", Bind("st_id")), id.get);
     }
 

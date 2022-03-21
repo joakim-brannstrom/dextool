@@ -826,8 +826,8 @@ nothrow:
             logger.infof("Rolling back the status of the last %s mutants to status unknown.",
                     period).collectException;
             foreach (a; spinSql!(() => db.mutantApi.getLatestMutants(kinds, max(diffCnt, period)))) {
-                spinSql!(() => db.mutantApi.updateMutation(a.id,
-                        Mutation.Status.unknown, ExitStatus(0), MutantTimeProfile.init));
+                spinSql!(() => db.mutantApi.update(a.id, Mutation.Status.unknown,
+                        ExitStatus(0), MutantTimeProfile.init));
             }
         }
     }
@@ -920,8 +920,7 @@ nothrow:
                         data.foundTestCases.byValue.joiner.array)) {
                     if (!db.testCaseApi.hasTestCases(id)) {
                         update = true;
-                        db.mutantApi.updateMutationStatus(id,
-                                Mutation.Status.unknown, ExitStatus(0));
+                        db.mutantApi.update(id, Mutation.Status.unknown, ExitStatus(0));
                     }
                 }
                 if (update) {
@@ -1514,7 +1513,7 @@ nothrow:
 
             auto noCov = db.coverageApi.getNotCoveredMutants;
             foreach (id; noCov)
-                db.mutantApi.updateMutationStatus(id, Mutation.Status.noCoverage, ExitStatus(0));
+                db.mutantApi.update(id, Mutation.Status.noCoverage, ExitStatus(0));
             db.worklistApi.remove(Mutation.Status.noCoverage);
 
             trans.commit;
@@ -1682,7 +1681,7 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
 
             updateMutantStatus(ctx.state.get.db, result.id, result.status,
                     result.exitStatus, timeoutIter);
-            ctx.state.get.db.mutantApi.updateMutation(result.id, result.profile);
+            ctx.state.get.db.mutantApi.update(result.id, result.profile);
             ctx.state.get.db.testCaseApi.updateMutationTestCases(result.id, result.testCases);
             ctx.state.get.db.worklistApi.remove(result.id);
         }
