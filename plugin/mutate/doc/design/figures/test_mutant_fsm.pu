@@ -13,9 +13,11 @@ ParseStdin -> PreCompileSut
 
 PreCompileSut --> Error : failed
 PreCompileSut --> FindTestCmds : hasTestCmdDir
-PreCompileSut --> ChooseMode
+PreCompileSut --> UpdateTestCmd
 
-FindTestCmds -> ChooseMode
+FindTestCmds -> UpdateTestCmd
+
+UpdateTestCmd -> ChooseMode
 
 ChooseMode --> AnalyzeTestCmdForTestCase : hasAnalyzer
 ChooseMode --> PullRequest : hasConstraint

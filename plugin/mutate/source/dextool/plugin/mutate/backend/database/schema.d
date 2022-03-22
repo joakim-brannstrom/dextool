@@ -95,9 +95,9 @@ immutable dextoolVersionTable = "dextool_version";
 immutable filesTable = "files";
 immutable killedTestCaseTable = "killed_test_case";
 immutable markedMutantTable = "marked_mutant";
+immutable mutantMemOverloadWorklistTable = "mutant_memoverload_worklist";
 immutable mutantTimeoutCtxTable = "mutant_timeout_ctx";
 immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
-immutable mutantMemOverloadWorklistTable = "mutant_memoverload_worklist";
 immutable mutantWorklistTable = "mutant_worklist";
 immutable mutationPointTable = "mutation_point";
 immutable mutationScoreHistoryTable = "mutation_score_history";
@@ -120,6 +120,8 @@ immutable srcCovTimeStampTable = "src_cov_timestamp";
 immutable srcMetadataTable = "src_metadata";
 immutable testCmdMutatedTable = "test_cmd_mutated";
 immutable testCmdOriginalTable = "test_cmd_original";
+immutable testCmdRelMutantTable = "test_cmd_rel_mutant";
+immutable testCmdTable = "test_cmd";
 immutable testFilesTable = "test_files";
 
 private immutable invalidSchemataTable = "invalid_schemata";
@@ -719,10 +721,13 @@ struct DependencyRootTable {
 
 @TableName(testCmdOriginalTable)
 @TablePrimaryKey("checksum")
-@TableConstraint("unique_ UNIQUE (cmd)")
+@TableConstraint("unique_ UNIQUE (cmd_id)")
+@TableForeignKey("cmd_id", KeyRef("test_cmd(id)"), KeyParam("ON DELETE CASCADE"))
 struct TestCmdOriginalTable {
     long checksum;
-    string cmd;
+
+    @ColumnName("cmd_id")
+    long testCmdId;
 }
 
 @TableName(testCmdMutatedTable)
@@ -736,6 +741,27 @@ struct TestCmdMutatedTable {
     /// when the measurement was taken.
     @ColumnName("timestamp")
     SysTime timeStamp;
+}
+
+@TableName(testCmdTable)
+@TableConstraint("unique_ UNIQUE (cmd)")
+struct TestCmdTable {
+    long id;
+    string cmd;
+}
+
+@TableName(testCmdRelMutantTable)
+@TableForeignKey("cmd_id", KeyRef("test_cmd(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+@TableConstraint("unique_ UNIQUE (cmd_id, st_id)")
+struct TestCmdRelMutantTable {
+    long id;
+
+    @ColumnName("cmd_id")
+    long testCmdId;
+
+    @ColumnName("st_id")
+    long statusId;
 }
 
 void updateSchemaVersion(ref Miniorm db, long ver) nothrow {
@@ -869,8 +895,10 @@ void upgradeV0(ref Miniorm db) {
             TestFilesTable, CoverageCodeRegionTable,
             CoverageInfoTable, CoverageTimeTtampTable, DependencyFileTable,
             DependencyRootTable,
-            DextoolVersionTable, TestCmdOriginalTable, TestCmdMutatedTable,
-            MutantMemOverloadtWorklistTbl));
+            DextoolVersionTable,
+            TestCmdOriginalTable,
+            TestCmdMutatedTable, MutantMemOverloadtWorklistTbl,
+            TestCmdRelMutantTable, TestCmdTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1755,6 +1783,14 @@ void upgradeV40(ref Miniorm db) {
 
 // 2021-05-09
 void upgradeV41(ref Miniorm db) {
+    @TableName(testCmdOriginalTable)
+    @TablePrimaryKey("checksum")
+    @TableConstraint("unique_ UNIQUE (cmd)")
+    struct TestCmdOriginalTable {
+        long checksum;
+        string cmd;
+    }
+
     db.run(buildSchema!(TestCmdOriginalTable));
 }
 
@@ -1805,11 +1841,10 @@ void upgradeV46(ref Miniorm db) {
 
 // 2021-11-01
 void upgradeV47(ref Miniorm db) {
-    immutable newTbl = "new_" ~ allTestCaseTable;
+    static immutable newTbl = "new_" ~ allTestCaseTable;
     db.run(buildSchema!AllTestCaseTbl("new_"));
 
-    db.run(format("INSERT INTO %s (id,name,is_new) SELECT id,name,0 FROM %s",
-            newTbl, allTestCaseTable));
+    db.run("INSERT INTO " ~ newTbl ~ " (id,name,is_new) SELECT id,name,0 FROM " ~ allTestCaseTable);
     replaceTbl(db, newTbl, allTestCaseTable);
 }
 
@@ -1820,7 +1855,7 @@ void upgradeV48(ref Miniorm db) {
 
 // 2021-11-02
 void upgradeV49(ref Miniorm db) {
-    immutable newTbl = "new_" ~ mutantTimeoutWorklistTable;
+    static immutable newTbl = "new_" ~ mutantTimeoutWorklistTable;
     db.run(buildSchema!MutantTimeoutWorklistTbl("new_"));
 
     db.run("INSERT INTO " ~ newTbl ~ " (id,iter) SELECT id,0 FROM " ~ mutantTimeoutWorklistTable);
@@ -1828,9 +1863,15 @@ void upgradeV49(ref Miniorm db) {
     replaceTbl(db, newTbl, mutantTimeoutWorklistTable);
 }
 
+// 2022-03-21
+void upgradeV50(ref Miniorm db) {
+    db.run("DROP TABLE " ~ testCmdOriginalTable);
+    db.run(buildSchema!(TestCmdRelMutantTable, TestCmdTable, TestCmdOriginalTable));
+}
+
 void replaceTbl(ref Miniorm db, string src, string dst) {
     db.run("DROP TABLE " ~ dst);
-    db.run(format("ALTER TABLE %s RENAME TO %s", src, dst));
+    db.run("ALTER TABLE " ~ src ~ " RENAME TO " ~ dst);
 }
 
 struct UpgradeTable {

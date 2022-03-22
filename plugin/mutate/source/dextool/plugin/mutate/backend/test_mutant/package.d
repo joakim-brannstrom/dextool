@@ -331,6 +331,9 @@ struct TestDriver {
     static struct FindTestCmds {
     }
 
+    static struct UpdateTestCmds {
+    }
+
     static struct ChooseMode {
     }
 
@@ -448,11 +451,11 @@ struct TestDriver {
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, RetestOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
-            UpdateTimeout, CheckStopCond, PullRequest, CheckPullRequestMutant, ParseStdin,
-            FindTestCmds, ChooseMode, NextSchemata, SchemataTest, LoadSchematas,
-            Stop, SaveMutationScore, UpdateTestCaseTag, OverloadCheck,
-            Coverage, PropagateCoverage, ContinuesCheckTestSuite,
-            ChecksumTestCmds, SaveTestBinary);
+            UpdateTimeout, CheckStopCond, PullRequest,
+            CheckPullRequestMutant, ParseStdin, FindTestCmds, UpdateTestCmds, ChooseMode,
+            NextSchemata, SchemataTest, LoadSchematas, Stop, SaveMutationScore,
+            UpdateTestCaseTag, OverloadCheck, Coverage, PropagateCoverage,
+            ContinuesCheckTestSuite, ChecksumTestCmds, SaveTestBinary);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData, PullRequestData, ResetOldMutantData,
             NextSchemataData, ContinuesCheckTestSuiteData, MutationTestData, NextMutantData);
 
@@ -554,9 +557,10 @@ struct TestDriver {
             if (a.compilationError)
                 return fsm(Error.init);
             if (self.conf.testCommandDir.empty)
-                return fsm(ChooseMode.init);
+                return fsm(UpdateTestCmds.init);
             return fsm(FindTestCmds.init);
-        }, (FindTestCmds a) { return fsm(ChooseMode.init); }, (ChooseMode a) {
+        }, (FindTestCmds a) => fsm(UpdateTestCmds.init),
+                (UpdateTestCmds a) => fsm(ChooseMode.init), (ChooseMode a) {
             if (!self.local.get!PullRequest.constraint.empty)
                 return fsm(PullRequest.init);
             if (!self.conf.mutationTestCaseAnalyze.empty
@@ -826,8 +830,8 @@ nothrow:
             logger.infof("Rolling back the status of the last %s mutants to status unknown.",
                     period).collectException;
             foreach (a; spinSql!(() => db.mutantApi.getLatestMutants(kinds, max(diffCnt, period)))) {
-                spinSql!(() => db.mutantApi.updateMutation(a.id,
-                        Mutation.Status.unknown, ExitStatus(0), MutantTimeProfile.init));
+                spinSql!(() => db.mutantApi.update(a.id, Mutation.Status.unknown,
+                        ExitStatus(0), MutantTimeProfile.init));
             }
         }
     }
@@ -920,8 +924,7 @@ nothrow:
                         data.foundTestCases.byValue.joiner.array)) {
                     if (!db.testCaseApi.hasTestCases(id)) {
                         update = true;
-                        db.mutantApi.updateMutationStatus(id,
-                                Mutation.Status.unknown, ExitStatus(0));
+                        db.mutantApi.update(id, Mutation.Status.unknown, ExitStatus(0));
                     }
                 }
                 if (update) {
@@ -1057,17 +1060,33 @@ nothrow:
         try {
             Set!Checksum64 current;
 
-            foreach (testCmd; hashFiles(testCmds.filter!(a => !a.empty)
-                    .map!(a => a.value[0]))) {
-                current.add(testCmd.cs);
+            void helper() {
+                // clearing just to be on the safe side if helper is called
+                // multiple times and a checksum is different between the
+                // calls..... shouldn't happen but
+                current = typeof(current).init;
+                auto tr = db.transaction;
 
-                if (testCmd.cs !in previous)
-                    spinSql!(() => db.testCmdApi.set(testCmd.file,
-                            ChecksumTestCmdOriginal(testCmd.cs)));
+                foreach (testCmd; hashFiles(testCmds.filter!(a => !a.empty)
+                        .map!(a => a.value[0]))) {
+                    current.add(testCmd.cs);
+
+                    if (testCmd.cs !in previous)
+                        db.testCmdApi.set(testCmd.file, ChecksumTestCmdOriginal(testCmd.cs));
+                }
+
+                foreach (a; previous.setDifference(current).toRange) {
+                    const name = db.testCmdApi.getTestCmd(ChecksumTestCmdOriginal(a));
+                    if (!name.empty)
+                        db.testCmdApi.clearTestCmdToMutant(name);
+                    db.testCmdApi.remove(ChecksumTestCmdOriginal(a));
+                }
+
+                tr.commit;
             }
 
-            foreach (a; previous.setDifference(current).toRange)
-                spinSql!(() => db.testCmdApi.remove(ChecksumTestCmdOriginal(a)));
+            // the operation must succeed as a whole or fail.
+            spinSql!(() => helper);
 
             local.get!MutationTest.testBinaryDb.original = current;
         } catch (Exception e) {
@@ -1149,6 +1168,14 @@ nothrow:
                 logger.info(c).collectException;
             }
         }
+    }
+
+    void opCall(UpdateTestCmds data) {
+        spinSql!(() @trusted {
+            auto tr = db.transaction;
+            db.testCmdApi.set(runner.testCmds.map!(a => a.cmd.toString).array);
+            tr.commit;
+        });
     }
 
     void opCall(ChooseMode data) {
@@ -1514,7 +1541,7 @@ nothrow:
 
             auto noCov = db.coverageApi.getNotCoveredMutants;
             foreach (id; noCov)
-                db.mutantApi.updateMutationStatus(id, Mutation.Status.noCoverage, ExitStatus(0));
+                db.mutantApi.update(id, Mutation.Status.noCoverage, ExitStatus(0));
             db.worklistApi.remove(Mutation.Status.noCoverage);
 
             trans.commit;
@@ -1682,7 +1709,9 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
 
             updateMutantStatus(ctx.state.get.db, result.id, result.status,
                     result.exitStatus, timeoutIter);
-            ctx.state.get.db.mutantApi.updateMutation(result.id, result.profile);
+            ctx.state.get.db.mutantApi.update(result.id, result.profile);
+            foreach (a; result.testCmds)
+                ctx.state.get.db.mutantApi.relate(result.id, a.toString);
             ctx.state.get.db.testCaseApi.updateMutationTestCases(result.id, result.testCases);
             ctx.state.get.db.worklistApi.remove(result.id);
         }

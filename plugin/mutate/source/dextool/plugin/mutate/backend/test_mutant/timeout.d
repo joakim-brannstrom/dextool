@@ -137,7 +137,7 @@ void updateMutantStatus(ref Database db, const MutationStatusId id,
         db.memOverloadApi.put(id);
     }
 
-    db.mutantApi.updateMutationStatus(id, st, ecode, Yes.updateTs);
+    db.mutantApi.update(id, st, ecode, Yes.updateTs);
 }
 
 /** FSM for handling mutants during the test phase.

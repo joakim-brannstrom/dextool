@@ -760,7 +760,7 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
         mixin(EnvSetup(globalTestdir));
         auto db = precondition(testEnv);
 
-        db.mutantApi.updateMutation(MutationId(1), Mutation.Status.killed,
+        db.mutantApi.update(MutationId(1), Mutation.Status.killed,
                 ExitStatus(0), MutantTimeProfile(Duration.zero,
                     5.dur!"msecs"), [TestCase("tc_1")]);
 
@@ -800,8 +800,7 @@ class ShallRetrieveOldestMutant : DatabaseFixture {
         const expected = 2;
         Thread.sleep(1.dur!"seconds");
         foreach (const id; db.mutantApi.getAllMutationStatus.filter!(a => a.get != expected))
-            db.mutantApi.updateMutationStatus(id, Mutation.Status.killed,
-                    ExitStatus(0), Yes.updateTs);
+            db.mutantApi.update(id, Mutation.Status.killed, ExitStatus(0), Yes.updateTs);
 
         // act
         const oldest = db.mutantApi.getOldestMutants([
