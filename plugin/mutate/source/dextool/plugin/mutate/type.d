@@ -219,6 +219,6 @@ enum CoverageRuntime : ubyte {
 }
 
 enum MutantIdGeneratorConfig : ubyte {
+    relaxed,
     strict,
-    relaxed
 }

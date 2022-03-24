@@ -6,6 +6,12 @@ Fixes
    to be updated too though because the older one segfaults when compiling
    miniorm.
 
+New features for dextool mutate
+ * Changed the default ID algorithm to `relaxed`. After extensive testing it is
+   now mature enough to be used by default. Its main benefit is that diff based
+   testing of changes are activated by default which reduces the overall test
+   time when *small* changes are made to the source code.
+
 Fixes for dextool mutate
 
  * Schematan may, and do, affect the runtime of a test suite. This mean that
