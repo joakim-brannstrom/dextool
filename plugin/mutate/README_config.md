@@ -749,6 +749,11 @@ each time a mutant is injected.
 are found then used as test case binaries. This is a convenient option to use
 when they are all in a directory easily accessible.
 
+`test_cmd_dir_search`: How `test_cmd_dir` is scanned for executables. Default
+is to scan recursively but if this is a problem because there are e.g.
+executable test data in sub directories the search mode can be changed to
+`shallow`.
+
 `test_cmd_dir_flag`: The flags here are used when executing binaries found via
 `test_cmd_dir`. It is a convenient way of inactivating test cases in e.g.
 Googletest.

@@ -147,10 +147,19 @@ struct ConfigCompiler {
 /// Settings for mutation testing
 struct ConfigMutationTest {
     ShellCommand[] mutationTester;
+
+    enum TestCmdDirSearch {
+        recursive,
+        shallow,
+    }
+
     /// Find executables in this directory and add them to mutationTester.
     Path[] testCommandDir;
+
     /// Flags to add to all executables found in `testCommandDir`
     string[] testCommandDirFlag;
+
+    TestCmdDirSearch testCmdDirSearch;
 
     ShellCommand mutationCompile;
     ShellCommand[] mutationTestCaseAnalyze;

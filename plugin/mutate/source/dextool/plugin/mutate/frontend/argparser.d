@@ -254,6 +254,11 @@ struct ArgParser {
         app.put(`# path(s) to recursively look for test binaries to execute.`);
         app.put(`test_cmd_dir = ["./build/test"]`);
         app.put(null);
+        app.put(`# how to scan test_cmd_dir`);
+        app.put(format("# available options are: [%(%s, %)]",
+                [EnumMembers!(ConfigMutationTest.TestCmdDirSearch)].map!(a => a.to!string)));
+        app.put(format!`# test_cmd_dir_search = "%s"`(mutationTest.testCmdDirSearch));
+        app.put(null);
         app.put(`# flags to add to all executables found in test_cmd_dir.`);
         app.put(`# test_cmd_dir_flag = ["--gtest_filter", "-foo*"]`);
         app.put(null);
@@ -1018,6 +1023,15 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     callbacks["mutant_test.test_cmd_dir"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.testCommandDir = v.array.map!(a => Path(a.str)).array;
     };
+    callbacks["mutant_test.test_cmd_dir_search"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            c.mutationTest.testCmdDirSearch = v.str.to!(ConfigMutationTest.TestCmdDirSearch);
+        } catch (Exception e) {
+            logger.info("Available alternatives: ",
+                    [EnumMembers!(ConfigMutationTest.TestCmdDirSearch)]);
+            logger.error(e.msg);
+        }
+    };
     callbacks["mutant_test.test_cmd_dir_flag"] = (ref ArgParser c, ref TOMLValue v) {
         c.mutationTest.testCommandDirFlag = v.array.map!(a => a.str).array;
     };
@@ -1040,7 +1054,12 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
                 a => a.str.to!TestCaseAnalyzeBuiltin).array;
     };
     callbacks["mutant_test.order"] = (ref ArgParser c, ref TOMLValue v) {
-        c.mutationTest.mutationOrder = v.str.to!MutationOrder;
+        try {
+            c.mutationTest.mutationOrder = v.str.to!MutationOrder;
+        } catch (Exception e) {
+            logger.info("Available alternatives: ", [EnumMembers!MutationOrder]);
+            logger.error(e.msg);
+        }
     };
     callbacks["mutant_test.detected_new_test_case"] = (ref ArgParser c, ref TOMLValue v) {
         try {

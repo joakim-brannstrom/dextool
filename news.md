@@ -1,3 +1,12 @@
+# vNext
+
+New features for dextool mutate
+
+ * `test_cmd_dir` where previously always searched recursively but it has
+   turned out to be a problem because some test suites contain executable test
+   data. Thus the new configuration option `test_cmd_dir_search` is added to
+   allow the search to be configured to be shallow (non-recursive).
+
 # v4.2.0 Cat Gold 
 
 Fixes

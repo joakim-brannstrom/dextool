@@ -12,13 +12,14 @@ manually specified or automatically detected.
 */
 module dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
 
-import logger = std.experimental.logger;
 import core.sync.condition;
 import core.sync.mutex;
+import logger = std.experimental.logger;
 import std.algorithm : filter, map, joiner;
 import std.array : appender, Appender, empty, array;
 import std.datetime : Duration, dur, Clock;
 import std.exception : collectException;
+import std.file : SpanMode;
 import std.format : format;
 import std.parallelism : TaskPool, Task, task;
 import std.random : randomCover;
@@ -325,14 +326,14 @@ struct TestResult {
 }
 
 /// Finds all executables in a directory tree.
-string[] findExecutables(AbsolutePath root) @trusted {
+string[] findExecutables(AbsolutePath root, SpanMode mode = SpanMode.breadth) @trusted {
     import core.sys.posix.sys.stat;
     import std.file : getAttributes;
-    import std.file : dirEntries, SpanMode;
+    import std.file : dirEntries;
     import my.file : isExecutable;
 
     auto app = appender!(string[])();
-    foreach (f; dirEntries(root, SpanMode.breadth).filter!(a => a.isFile)
+    foreach (f; dirEntries(root, mode).filter!(a => a.isFile)
             .filter!(a => isExecutable(Path(a.name)))) {
         app.put([f.name]);
     }
