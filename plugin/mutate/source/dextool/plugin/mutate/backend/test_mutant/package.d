@@ -1153,8 +1153,17 @@ nothrow:
         auto cmds = appender!(ShellCommand[])();
         foreach (root; conf.testCommandDir) {
             try {
-                cmds.put(findExecutables(root.AbsolutePath)
-                        .map!(a => ShellCommand([a] ~ conf.testCommandDirFlag)));
+                cmds.put(findExecutables(root.AbsolutePath, () {
+                        import std.file : SpanMode;
+
+                        final switch (conf.testCmdDirSearch) with (
+                            ConfigMutationTest.TestCmdDirSearch) {
+                        case shallow:
+                            return SpanMode.shallow;
+                        case recursive:
+                            return SpanMode.breadth;
+                        }
+                    }()).map!(a => ShellCommand([a] ~ conf.testCommandDirFlag)));
             } catch (Exception e) {
                 logger.warning(e.msg).collectException;
             }

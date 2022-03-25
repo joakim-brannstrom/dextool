@@ -21,13 +21,15 @@ int main(string[] args) {
     string[] postParam;
     string[] preParam;
     string[] searchDir;
+    SpanMode searchMode;
     // dfmt off
     auto helpInfo = std.getopt.getopt(args,
         "filter-failing", "execute each command and remove those that fail executing", &filterFailing,
         "post-param", "parameters to append the commands such as flags", &postParam,
         "pre-param", "parameters to prepend the commands with such as scripts", &preParam,
-        std.getopt.config.required, "test-cmd-dir", "directory to search for executables", &searchDir,
+        "search", format!"how to search the directories [%(%s, %)]"([EnumMembers!SpanMode]), &searchMode,
         std.getopt.config.required, "conf", "configuration file to update", &confFile,
+        std.getopt.config.required, "test-cmd-dir", "directory to search for executables", &searchDir,
         );
     // dfmt on
     if (helpInfo.helpWanted) {
@@ -35,18 +37,30 @@ int main(string[] args) {
         return 1;
     }
 
+    writeln("Search mode ", searchMode);
+
     auto cmds = appender!(string[][])();
     auto failing = appender!(string[][])();
-    foreach (a; searchDir.map!(a => dirEntries(a, SpanMode.depth))
+    foreach (a; searchDir.map!(a => dirEntries(a, searchMode))
             .joiner
             .filter!(a => a.isFile && a.name.isExecutable)) {
         auto cmd = preParam ~ a.name ~ postParam;
+        writeln("### Testing command ", a.name);
+
         if (!filterFailing) {
             cmds.put(cmd);
-        } else if (spawnProcess(cmd).wait == 0) {
-            cmds.put(cmd);
         } else {
-            failing.put(cmd);
+            try {
+                if (spawnProcess(cmd).wait == 0) {
+                    cmds.put(cmd);
+                } else {
+                    failing.put(cmd);
+                }
+            } catch (Exception e) {
+                failing.put(cmd);
+                writeln("command failed ", a.name);
+                writeln(e.msg);
+            }
         }
     }
 
