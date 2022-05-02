@@ -572,7 +572,7 @@ struct TestDriver {
         }, (PullRequest a) => fsm(CheckMutantsLeft.init), (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
-            if (self.covConf.use)
+            if (self.covConf.use && self.local.get!PullRequest.constraint.empty)
                 return fsm(Coverage.init);
             return fsm(LoadSchematas.init);
         }, (Coverage a) {

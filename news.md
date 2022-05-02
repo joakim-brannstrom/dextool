@@ -6,6 +6,11 @@ New features for dextool mutate
    turned out to be a problem because some test suites contain executable test
    data. Thus the new configuration option `test_cmd_dir_search` is added to
    allow the search to be configured to be shallow (non-recursive).
+ * Improved speed when using diff mode by skipping the coverage
+   instrumentation. The user has already specified exactly what to test thus it
+   shouldn't be necessary to run it through the potentially slow coverage run. It
+   is assumed that a diff is usually pretty "small" and the change have entry
+   point coverage thus coverage data wouldn't help.
 
 # v4.2.0 Cat Gold 
 

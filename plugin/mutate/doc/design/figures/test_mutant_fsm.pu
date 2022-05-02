@@ -51,7 +51,7 @@ CheckMutantsLeft --> Done : allTested
 ChecksumTestCmds --> MeasureTestSuite
 
 MeasureTestSuite --> Error : unreliable
-MeasureTestSuite --> Coverage : useCov
+MeasureTestSuite --> Coverage : useCov && !hasConstraint
 MeasureTestSuite --> LoadSchematas : !useCov
 
 Coverage --> PropagateCov : !error
