@@ -12,6 +12,17 @@ New features for dextool mutate
    is assumed that a diff is usually pretty "small" and the change have entry
    point coverage thus coverage data wouldn't help.
 
+Fixes for dextool mutate
+
+ * Update `moment.js` to fix security vulnerabilities.
+```
+Impact
+
+This vulnerability impacts npm (server) users of moment.js, especially if user
+provided locale string, eg fr is directly used to switch moment locale.
+```
+   The vulnerability have a low or no impact on dextool as of date but problems should be fixed.
+
 # v4.2.0 Cat Gold 
 
 Fixes
