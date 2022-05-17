@@ -927,5 +927,5 @@ unittest // loadExtension failure test
     import std.exception : collectExceptionMsg;
     auto db = Database(":memory:");
     auto msg = collectExceptionMsg(db.loadExtension("foobar"));
-    //assert(msg.canFind("(not authorized)"));
+    assert(msg.canFind("(not authorized)"));
 }

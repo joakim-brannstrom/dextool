@@ -1184,7 +1184,7 @@ version (_UnlockNotify)
             /// Unlocks the handler, state is one of SQLITE_LOCKED or SQLITE_OK
             void emit(int res) nothrow
             in { assert(res == SQLITE_LOCKED || res == SQLITE_OK); }
-            body
+            do
             {
                 try
                 {
@@ -1208,7 +1208,7 @@ version (_UnlockNotify)
             /// Result after wait is finished
             @property int result() const
             out (result) { assert(result == SQLITE_OK || result == SQLITE_LOCKED); }
-            body { return res; }
+            do { return res; }
         }
     }
     else
@@ -1238,7 +1238,7 @@ version (_UnlockNotify)
             /// Constructor
             this(Duration max = 1000.msecs)
             in { assert(max > Duration.zero); }
-            body
+            do
             {
                 maxDuration = max;
             }
@@ -1271,7 +1271,7 @@ version (_UnlockNotify)
             /// Result after wait is finished
             @property int result() const
             out (result) { assert(result == SQLITE_OK || result == SQLITE_LOCKED); }
-            body
+            do
             {
                 return res;
             }

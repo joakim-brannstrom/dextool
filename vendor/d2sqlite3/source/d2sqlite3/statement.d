@@ -88,14 +88,15 @@ package(d2sqlite3):
     this(Database db, string sql)
     {
         sqlite3_stmt* handle;
+        enforce(sql.length <= int.max, "Length of SQL statement exceeds `int.max`");
         version (_UnlockNotify)
         {
-            auto result = sqlite3_blocking_prepare_v2(db, sql.toStringz, sql.length.to!int,
+            auto result = sqlite3_blocking_prepare_v2(db, sql.ptr, cast(int) sql.length,
                 &handle, null);
         }
         else
         {
-            auto result = sqlite3_prepare_v2(db.handle(), sql.toStringz, sql.length.to!int,
+            auto result = sqlite3_prepare_v2(db.handle(), sql.ptr, cast(int) sql.length,
                 &handle, null);
         }
         enforce(result == SQLITE_OK, new SqliteException(errmsg(db.handle()), result, sql));
@@ -162,7 +163,7 @@ public:
     {
         assert(index > 0 && index <= p.paramCount, "parameter index out of range");
     }
-    body
+    do
     {
         assert(p.handle);
 
@@ -239,7 +240,7 @@ public:
     {
         assert(name.length);
     }
-    body
+    do
     {
         assert(p.handle);
         auto index = sqlite3_bind_parameter_index(p.handle, name.toStringz);
@@ -255,7 +256,7 @@ public:
     {
         assert(Args.length == this.parameterCount, "parameter count mismatch");
     }
-    body
+    do
     {
         foreach (index, _; Args)
             bind(index + 1, args[index]);
@@ -342,7 +343,7 @@ public:
         static if (__traits(compiles, obj.length))
             assert(obj.length == this.parameterCount, "parameter count mismatch");
     }
-    body
+    do
     {
         static if (__traits(compiles, { foreach (string k, ref v; obj) {} }))
         {
@@ -377,7 +378,7 @@ public:
     {
         assert(index > 0 && index <= p.paramCount, "parameter index out of range");
     }
-    body
+    do
     {
         assert(p.handle);
         return sqlite3_bind_parameter_name(p.handle, index).to!string;
@@ -394,7 +395,7 @@ public:
     {
         assert(name.length);
     }
-    body
+    do
     {
         assert(p.handle);
         return sqlite3_bind_parameter_index(p.handle, name.toStringz);
