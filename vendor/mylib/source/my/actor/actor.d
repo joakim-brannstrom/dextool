@@ -539,7 +539,9 @@ package:
     void sendToMonitors(DownMsg msg) @safe nothrow {
         foreach (ref a; monitors.byValue) {
             try {
-                if (auto rc = a.lock.get)
+                auto tmp = a.lock;
+                auto rc = tmp.get;
+                if (rc)
                     rc.put(SystemMsg(msg));
                 a.release;
             } catch (Exception e) {
@@ -552,7 +554,9 @@ package:
     void sendToLinks(ExitMsg msg) @safe nothrow {
         foreach (ref a; links.byValue) {
             try {
-                if (auto rc = a.lock.get)
+                auto tmp = a.lock;
+                auto rc = tmp.get;
+                if (rc)
                     rc.put(SystemMsg(msg));
                 a.release;
             } catch (Exception e) {

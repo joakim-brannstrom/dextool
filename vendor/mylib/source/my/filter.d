@@ -161,6 +161,14 @@ unittest {
             ]);
 }
 
+@("shall not crash")
+unittest {
+    auto r = GlobFilter(["*"], ["bar/*"]);
+
+    assert(["foo", "bar", "bar/foo", "bar batman",].filter!(a => r.match(a))
+            .array == ["foo", "bar", "bar batman"]);
+}
+
 GlobFilter merge(GlobFilter a, GlobFilter b) {
     return GlobFilter(a.include ~ b.include, a.exclude ~ b.exclude);
 }

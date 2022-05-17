@@ -122,9 +122,15 @@ struct System {
     // Returns: the address of the actor.
     private WeakAddress schedule(Actor* actor) @safe {
         assert(bg.scheduler.isActive);
-        actor.setHomeSystem(&this);
+        setHomeSystem(actor);
         bg.scheduler.putWaiting(actor);
         return actor.address;
+    }
+
+    // set the homesystem of the actor. this is safe on the assumption that the
+    // actor system is the last to terminate.
+    private void setHomeSystem(Actor* actor) @trusted {
+        actor.setHomeSystem(&this);
     }
 }
 
@@ -222,7 +228,10 @@ struct Backend {
     Scheduler scheduler;
     ActorAlloc alloc;
 
-    void start(TaskPool pool, ulong workers) {
+    // trusted: the ref to alloc on the assumption that the actor system is the
+    // last to terminate. the backend is owned by the system and correctly
+    // shutdown.
+    void start(TaskPool pool, ulong workers) @trusted {
         scheduler.start(pool, workers, &alloc);
     }
 

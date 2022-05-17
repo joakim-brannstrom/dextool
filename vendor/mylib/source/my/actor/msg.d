@@ -102,14 +102,17 @@ void demonitor(AddressT0, AddressT1)(AddressT0 self, AddressT1 sendTo) @safe
 package void sendSystemMsgIfEmpty(AddressT, T)(AddressT sendTo, T msg) @safe
         if (isAddress!AddressT)
 in (!sendTo.empty, "cannot send to an empty address") {
-    auto addr = underlyingAddress(sendTo).get;
+    auto tmp = underlyingAddress(sendTo);
+    auto addr = tmp.get;
     if (addr && addr.empty!SystemMsg)
         addr.put(SystemMsg(msg));
 }
 
 package void sendSystemMsg(AddressT, T)(AddressT sendTo, T msg) @safe
         if (isAddress!AddressT) {
-    if (auto addr = underlyingAddress(sendTo).get)
+    auto tmp = underlyingAddress(sendTo);
+    auto addr = tmp.get;
+    if (addr)
         addr.put(SystemMsg(msg));
 }
 
