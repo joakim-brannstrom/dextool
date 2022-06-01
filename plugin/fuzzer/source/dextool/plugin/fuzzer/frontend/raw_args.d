@@ -162,7 +162,7 @@ struct XmlConfig {
 }
 
 void logUnknownXml(T)(ref T xml, string suggestion = null) {
-    import std.xml;
+    import undead.xml;
 
     xml.onStartTag[null] = (ElementParser ep) {
         logger.warning("Unknown xml element in config: ", ep.tag.toString);
@@ -172,7 +172,7 @@ void logUnknownXml(T)(ref T xml, string suggestion = null) {
 
 auto parseRawConfig(T)(T xml) @trusted {
     import std.conv : to, ConvException;
-    import std.xml;
+    import undead.xml;
     import dextool.utility : DextoolVersion;
     import dextool.type : FilterClangFlag;
 

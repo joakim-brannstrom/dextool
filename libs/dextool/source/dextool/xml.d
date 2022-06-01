@@ -28,7 +28,7 @@ void makePrelude(AppT)(ref AppT app) {
 Nullable!T readRawConfig(T, alias parseFunc)(Path fname) @trusted nothrow {
     static import std.file;
     import std.utf : validate;
-    import std.xml;
+    import undead.xml;
 
     string msg;
     Nullable!T rval;
@@ -71,7 +71,7 @@ ref AppT makeXmlLog(AppT)(ref AppT app, string[] raw_cli_flags,) {
     import std.path : baseName;
     import std.range : dropOne, drop, takeOne;
     import std.utf : byChar;
-    import std.xml;
+    import undead.xml;
     import dextool.utility : dextoolVersion;
     import dextool.xml : makePrelude;
 

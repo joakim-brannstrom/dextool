@@ -181,7 +181,7 @@ struct XmlConfig {
 
 auto parseRawConfig(T)(T xml) @trusted {
     import std.conv : to, ConvException;
-    import std.xml;
+    import undead.xml;
     import dextool.utility : DextoolVersion;
     import dextool.type : FilterClangFlag;
 

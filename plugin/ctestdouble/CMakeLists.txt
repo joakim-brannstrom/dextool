@@ -18,6 +18,7 @@ set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source
 -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
+-I${CMAKE_SOURCE_DIR}/vendor/undead/src
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
@@ -26,7 +27,7 @@ build_d_executable(
     "${SRC_FILES}"
     "${flags}"
     "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}"
-    "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
+    "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype;dextool_undead"
 )
 
 collect_binary_in_root(${EXE_NAME})
@@ -38,7 +39,7 @@ list(REMOVE_ITEM SRC_FILES ${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main
 list(APPEND SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/ut_main.d
 )
-compile_d_unittest(ctestdouble "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}" "dextool_dextool;dextool_cpptooling;dextool_colorlog;dextool_mylib;dextool_sumtype")
+compile_d_unittest(ctestdouble "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}" "dextool_dextool;dextool_cpptooling;dextool_colorlog;dextool_mylib;dextool_sumtype;dextool_undead")
 
 setup_integration_testing_env()
 
