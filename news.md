@@ -22,6 +22,8 @@ This vulnerability impacts npm (server) users of moment.js, especially if user
 provided locale string, eg fr is directly used to switch moment locale.
 ```
    The vulnerability have a low or no impact on dextool as of date but problems should be fixed.
+ * Analyze never finish if the number of threads are set to one (--threads 1).
+ It is now changed to be a minimum of two.
 
 # v4.2.0 Cat Gold 
 

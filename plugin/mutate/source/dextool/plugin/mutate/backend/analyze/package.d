@@ -15,7 +15,7 @@ module dextool.plugin.mutate.backend.analyze;
 
 import core.thread : Thread;
 import logger = std.experimental.logger;
-import std.algorithm : map, filter, joiner, cache;
+import std.algorithm : map, filter, joiner, cache, max;
 import std.array : array, appender, empty;
 import std.concurrency;
 import std.datetime : dur, Duration;
@@ -88,8 +88,10 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
 
     auto sys = makeSystem;
 
-    auto flowCtrl = sys.spawn(&spawnFlowControl, analyzeConf.poolSize == 0
-            ? (totalCPUs + 1) : analyzeConf.poolSize);
+    auto flowCtrl = sys.spawn(&spawnFlowControl, () {
+        const x = analyzeConf.poolSize == 0 ? (totalCPUs + 1) : analyzeConf.poolSize;
+        return max(x, 2);
+    }());
 
     auto db = refCounted(Database.make(dbPath));
 
