@@ -28,7 +28,7 @@ ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_fi
     import std.algorithm : joiner, copy, map;
     import std.conv : to;
     import std.range : chain;
-    import std.xml;
+    import undead.xml;
     import dextool.utility : dextoolVersion;
     import dextool.xml : makePrelude;
 
@@ -70,7 +70,7 @@ ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_fi
 
 XmlConfig parseRawConfig(T)(T xml) @trusted {
     import std.conv : to, ConvException;
-    import std.xml;
+    import undead.xml;
 
     DextoolVersion version_;
     int skip_flags = 1;
@@ -95,11 +95,11 @@ XmlConfig parseRawConfig(T)(T xml) @trusted {
             }
         }
 
-        xml.onEndTag["exclude"] = (const Element e) { filter_clang_flags ~= FilterClangFlag(e.text()); };
+        xml.onEndTag["exclude"] = (in Element e) { filter_clang_flags ~= FilterClangFlag(e.text()); };
     };
     xml.onStartTag["symbol_filter"] = (ElementParser filter_sym) {
-        xml.onEndTag["restrict"] = (const Element e) { restrict_symbols.put(e.text()); };
-        xml.onEndTag["exclude"] = (const Element e) { exclude_symbols.put(e.text()); };
+        xml.onEndTag["restrict"] = (in Element e) { restrict_symbols.put(e.text()); };
+        xml.onEndTag["exclude"] = (in Element e) { exclude_symbols.put(e.text()); };
     };
     // dfmt on
     xml.parse();
@@ -129,7 +129,7 @@ struct XmlConfig {
 @("Converted a raw xml config without loosing any configuration data or version")
 unittest {
     import unit_threaded : shouldEqual;
-    import std.xml;
+    import undead.xml;
 
     string raw = `
 <?xml version="1.0" encoding="UTF-8"?>

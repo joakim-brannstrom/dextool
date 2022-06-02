@@ -18,6 +18,7 @@ set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source
 -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
+-I${CMAKE_SOURCE_DIR}/vendor/undead/src
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
@@ -26,7 +27,7 @@ build_d_executable(
     "${SRC_FILES}"
     "${flags}"
     "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}"
-    "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype"
+    "dextool_dextool;dextool_cpptooling;dextool_libclang_ast;dextool_colorlog;dextool_blob_model;dextool_mylib;dextool_sumtype;dextool_undead"
 )
 
 collect_binary_in_root(${EXE_NAME})

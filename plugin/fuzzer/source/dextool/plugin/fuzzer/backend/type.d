@@ -64,7 +64,7 @@ struct Code {
  * Nothing else.
  */
 struct TemplateConfig {
-    import std.xml : Document, Element;
+    import undead.xml : Document, Element;
 
     @disable this(this);
 
@@ -72,7 +72,7 @@ struct TemplateConfig {
     Element symbols;
 
     static auto make() @trusted {
-        import std.xml;
+        import undead.xml;
         import dextool.utility : dextoolVersion;
 
         TemplateConfig r;

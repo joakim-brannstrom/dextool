@@ -25,7 +25,7 @@ import dextool.plugin.fuzzer.backend.unique_sequence : Sequence;
 void generateConfigCompilerFilter(ref CompileCommandFilter compiler_flag_filter,
         ref TemplateConfig tmpl_conf) @trusted {
     import std.conv : to;
-    import std.xml;
+    import undead.xml;
 
     auto compiler_tag = new Element("compiler_flag_filter");
     compiler_tag.tag.attr["skip_compiler_args"] = compiler_flag_filter
@@ -41,7 +41,7 @@ void generateConfigCompilerFilter(ref CompileCommandFilter compiler_flag_filter,
 
 /// TODO change to @safe when the base compiler is upgraded to 2.074+
 void generateConfigPerFunction(ref ImplData impl, ref TemplateConfig tmpl_conf) @trusted {
-    import std.xml;
+    import undead.xml;
     import cpptooling.data.symbol.types : FullyQualifiedNameType;
 
     // no duplications are allowed
@@ -76,7 +76,7 @@ void generateConfigForFunctionValidityFromUser(T)(CFunction f, Symbol symbol, re
     import std.array : array;
     import std.conv : to;
     import std.range : enumerate;
-    import std.xml;
+    import undead.xml;
     import cpptooling.data : getName;
 
     // assuming that the fully qualified name is always valid xml
@@ -129,7 +129,7 @@ void generateConfigForFunctionValidityFromUser(T)(CFunction f, Symbol symbol, re
 void generateConfigDefaultFunctionValidity(T)(CFunction f, ulong seq_id, ref T sym) {
     import std.conv : to;
     import std.range : enumerate;
-    import std.xml;
+    import undead.xml;
     import cpptooling.data : getName;
 
     // assuming that the fully qualified name is always valid xml

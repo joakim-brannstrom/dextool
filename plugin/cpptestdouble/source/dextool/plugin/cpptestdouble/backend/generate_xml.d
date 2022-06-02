@@ -17,7 +17,7 @@ import dextool.compilation_db : CompileCommandFilter;
 ref AppT makeXmlConfig(AppT)(ref AppT app, CompileCommandFilter compiler_flag_filter) {
     import std.algorithm : joiner, copy;
     import std.conv : to;
-    import std.xml;
+    import undead.xml;
     import dextool.utility : dextoolVersion;
     import dextool.xml : makePrelude;
 
