@@ -90,7 +90,8 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
 
     auto flowCtrl = sys.spawn(&spawnFlowControl, () {
         const x = analyzeConf.poolSize == 0 ? (totalCPUs + 1) : analyzeConf.poolSize;
-        return max(x, 2);
+        // TODO: investigate further why <4 lead to a livelock of the analyzer.
+        return max(x, 4);
     }());
 
     auto db = refCounted(Database.make(dbPath));
