@@ -1288,7 +1288,7 @@ nothrow:
         }
     }
 
-    void opCall(ref MutationTest data) {
+    void opCall(ref MutationTest data) @trusted {
         auto runnerPtr = () @trusted { return &runner; }();
         auto testBinaryDbPtr = () @trusted {
             return &local.get!MutationTest.testBinaryDb;
@@ -1511,7 +1511,7 @@ nothrow:
         local.get!NextSchemata.totalSchematas = app.data.length;
     }
 
-    void opCall(ref Coverage data) {
+    void opCall(ref Coverage data) @trusted {
         import dextool.plugin.mutate.backend.test_mutant.coverage;
 
         auto tracked = spinSql!(() => db.getLatestTimeStampOfTestOrSut).orElse(SysTime.init);

@@ -577,11 +577,11 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             const removed = () {
                 if (ctx.conf.analyze.forceSaveAnalyze)
                     return ctx.db.get.schemaApi.pruneUsedSchemas([
-                            EnumMembers!SchemaStatus
-                            ]);
+                        EnumMembers!SchemaStatus
+                    ]);
                 return ctx.db.get.schemaApi.pruneUsedSchemas([
-                        SchemaStatus.allKilled, SchemaStatus.broken
-                        ]);
+                    SchemaStatus.allKilled, SchemaStatus.broken
+                ]);
             }();
             trans.commit;
             if (removed != 0) {
@@ -1250,7 +1250,7 @@ class TokenStreamImpl : TokenStream {
 /** Update the connection between the marked mutants and their mutation status
  * id and mutation id.
  */
-void updateMarkedMutants(ref Database db) {
+void updateMarkedMutants(ref Database db) @trusted {
     import dextool.plugin.mutate.backend.database.type : MutationStatusId;
     import dextool.plugin.mutate.backend.type : ExitStatus;
 
@@ -1290,8 +1290,8 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
         return;
 
     Table!6 tbl = Table!6([
-            "ID", "File", "Line", "Column", "Status", "Rationale"
-            ]);
+        "ID", "File", "Line", "Column", "Status", "Rationale"
+    ]);
     foreach (m; lostMutants) {
         typeof(tbl).Row r = [
             m.mutationId.get.to!string, m.path, m.sloc.line.to!string,
@@ -1459,7 +1459,7 @@ bool isFileSupported(FilesysIO fio, AbsolutePath p) @safe {
     return res != 0;
 }
 
-auto updateSchemaQ(ref Database db) {
+auto updateSchemaQ(ref Database db) @trusted {
     import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
     import dextool.plugin.mutate.backend.database : SchemaStatus;
     import my.hash : Checksum64;
@@ -1472,7 +1472,7 @@ auto updateSchemaQ(ref Database db) {
     Set!Checksum64 latestFiles;
 
     foreach (path; paths) {
-        scope getPath = (SchemaStatus s) => db.schemaApi.getSchemaUsedKinds(path, s);
+        scope getPath = (SchemaStatus s) @trusted => db.schemaApi.getSchemaUsedKinds(path, s);
         sq.update(path, getPath);
         latestFiles.add(sq.pathCache[path]);
         debug logger.tracef("updating %s %s", path, sq.pathCache[path]);
@@ -1494,7 +1494,7 @@ auto updateSchemaQ(ref Database db) {
     return sq;
 }
 
-auto updateSchemaSizeQ(ref Database db, const long userInit, const long minSize) {
+auto updateSchemaSizeQ(ref Database db, const long userInit, const long minSize) @trusted {
     import std.traits : EnumMembers;
     import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaSizeQ;
     import dextool.plugin.mutate.backend.database : SchemaStatus;
@@ -1502,7 +1502,7 @@ auto updateSchemaSizeQ(ref Database db, const long userInit, const long minSize)
     // *3 is a magic number. it feels good.
     auto sq = SchemaSizeQ.make(minSize, userInit * 3);
     sq.currentSize = db.schemaApi.getSchemaSize(userInit);
-    scope getStatusCnt = (SchemaStatus s) => db.schemaApi.schemaMutantCount(s);
+    scope getStatusCnt = (SchemaStatus s) @trusted => db.schemaApi.schemaMutantCount(s);
     const kinds = [EnumMembers!(Mutation.Kind)];
     sq.update(getStatusCnt, db.mutantApi.totalSrcMutants(kinds)
             .count + db.mutantApi.unknownSrcMutants(kinds).count);

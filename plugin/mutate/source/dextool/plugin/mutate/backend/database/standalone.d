@@ -35,10 +35,11 @@ import std.typecons : Nullable, Flag, No;
 import d2sqlite3 : SqlDatabase = Database;
 import miniorm : Miniorm, select, insert, insertOrReplace, delete_,
     insertOrIgnore, toSqliteDateTime, fromSqLiteDateTime, Bind;
+import my.gc.refc;
 import my.named_type;
 import my.optional;
-import my.term_color;
 import my.set;
+import my.term_color;
 
 import dextool.type : AbsolutePath, Path, ExitStatusType;
 
@@ -51,15 +52,33 @@ import dextool.plugin.mutate.type : MutationOrder;
 /** Database wrapper with minimal dependencies.
  */
 struct Database {
-    package Miniorm db;
+    private {
+        Miniorm db_;
+        DbDependency dbDependency_;
+        DbTestCmd dbTestCmd_;
+        DbTestCase dbTestCase_;
+        DbMutant dbMutant_;
+        DbWorklist dbWorklist_;
+        DbMemOverload dbMemOverload_;
+        DbMarkMutant dbMarkMutant_;
+        DbTimeout dbTimeout_;
+        DbCoverage dbCoverage_;
+        DbSchema dbSchema_;
+        DbTestFile dbTestFile_;
+        DbMetaData dbMetaData_;
+    }
 
     /** Create a database by either opening an existing or initializing a new.
      *
      * Params:
      *  db = path to the database
      */
-    static auto make(string db) @safe {
+    static auto make(string db) @trusted {
         return Database(initializeDB(db));
+    }
+
+    scope ref Miniorm db() return @safe {
+        return db_;
     }
 
     scope auto transaction() @trusted {
@@ -119,8 +138,7 @@ struct Database {
     Nullable!FileId getFileId(const MutationId id) @trusted {
         static immutable sql = format("SELECT t1.file_id
             FROM %s t0, %s t1
-            WHERE t0.id = :id AND t0.mp_id = t1.id",
-                mutationTable, mutationPointTable);
+            WHERE t0.id = :id AND t0.mp_id = t1.id", mutationTable, mutationPointTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
 
@@ -214,8 +232,7 @@ struct Database {
 
     void put(const Path p, Checksum cs, const Language lang, const bool isRoot) @trusted {
         static immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang, timestamp, root)
-            VALUES (:path, :checksum0, :checksum1, :lang, :time, :root)"(
-                filesTable);
+            VALUES (:path, :checksum0, :checksum1, :lang, :time, :root)"(filesTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", p.toString);
         stmt.get.bind(":checksum0", cast(long) cs.c0);
@@ -305,52 +322,64 @@ struct Database {
         return some(max(test.orElse(TestFile.init).timeStamp, sut.orElse(SysTime.init)));
     }
 
-    DbDependency dependencyApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbDependency dependencyApi() return @trusted {
+        dbDependency_ = typeof(return)(&db_, &this);
+        return dbDependency_;
     }
 
-    DbTestCmd testCmdApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbTestCmd testCmdApi() return @trusted {
+        dbTestCmd_ = typeof(return)(&db_);
+        return dbTestCmd_;
     }
 
-    DbTestCase testCaseApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbTestCase testCaseApi() return @trusted {
+        dbTestCase_ = typeof(return)(&db_);
+        return dbTestCase_;
     }
 
-    DbMutant mutantApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbMutant mutantApi() return @trusted {
+        dbMutant_ = typeof(return)(&db_, &this);
+        return dbMutant_;
     }
 
-    DbWorklist worklistApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbWorklist worklistApi() return @trusted {
+        dbWorklist_ = typeof(return)(&db_);
+        return dbWorklist_;
     }
 
-    DbMemOverload memOverloadApi() return @safe {
-        return typeof(return)(&db);
+    ref DbMemOverload memOverloadApi() return @trusted {
+        dbMemOverload_ = typeof(return)(&db_);
+        return dbMemOverload_;
     }
 
-    DbMarkMutant markMutantApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbMarkMutant markMutantApi() return @trusted {
+        dbMarkMutant_ = typeof(return)(&db_);
+        return dbMarkMutant_;
     }
 
-    DbTimeout timeoutApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbTimeout timeoutApi() return @trusted {
+        dbTimeout_ = typeof(return)(&db_);
+        return dbTimeout_;
     }
 
-    DbCoverage coverageApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbCoverage coverageApi() return @trusted {
+        dbCoverage_ = typeof(return)(&db_);
+        return dbCoverage_;
     }
 
-    DbSchema schemaApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbSchema schemaApi() return @trusted {
+        dbSchema_ = typeof(return)(&db_, &this);
+        return dbSchema_;
     }
 
-    DbTestFile testFileApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbTestFile testFileApi() return @trusted {
+        dbTestFile_ = typeof(return)(&db_);
+        return dbTestFile_;
     }
 
-    DbMetaData metaDataApi() return @safe {
-        return typeof(return)(&db, &this);
+    ref DbMetaData metaDataApi() return @trusted {
+        dbMetaData_ = typeof(return)(&db_);
+        return dbMetaData_;
     }
 }
 
@@ -358,8 +387,12 @@ struct Database {
  * of the root if they are changed.
  */
 struct DbDependency {
-    private Miniorm* db;
+    private Miniorm* db_;
     private Database* wrapperDb;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     /// The root must already exist or the whole operation will fail with an sql error.
     void set(const Path path, const DepFile[] deps) @trusted {
@@ -426,8 +459,7 @@ struct DbDependency {
             WHERE
             t0.id = t1.dep_id AND
             t1.file_id = t2.id AND
-            t2.path = :file"(depFileTable,
-                depRootTable, filesTable);
+            t2.path = :file"(depFileTable, depRootTable, filesTable);
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":file", root.toString);
@@ -451,8 +483,11 @@ struct DbDependency {
 struct DbTestCmd {
     import my.hash : Checksum64;
 
-    private Miniorm* db;
-    private Database* wrapperDb;
+    private Miniorm* db_;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     void set(string[] testCmds) @trusted {
         if (testCmds.empty)
@@ -601,8 +636,11 @@ struct DbTestCmd {
 }
 
 struct DbTestCase {
-    private Miniorm* db;
-    private Database* wrapperDb;
+    private Miniorm* db_;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     /** Add a link between the mutation and what test case killed it.
      *
@@ -689,8 +727,7 @@ struct DbTestCase {
             FROM %s t0, %s t1
             WHERE
             t0.name NOT IN (SELECT name FROM %s) AND
-            t0.id = t1.tc_id"(allTestCaseTable,
-                killedTestCaseTable, tmp_name);
+            t0.id = t1.tc_id"(allTestCaseTable, killedTestCaseTable, tmp_name);
         auto stmt = db.prepare(mut_st_id);
         foreach (res; stmt.get.execute) {
             ids.put(res.peek!long(0).MutationStatusId);
@@ -786,8 +823,8 @@ struct DbTestCase {
             WHERE
             t1.id = t2.tc_id AND
             t2.st_id == t3.st_id AND
-            t3.kind IN (%(%s,%))"(allTestCaseTable,
-                killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
+            t3.kind IN (%(%s,%))"(allTestCaseTable, killedTestCaseTable,
+                mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(TestCaseId[])();
         auto stmt = db.prepare(sql);
@@ -817,8 +854,8 @@ struct DbTestCase {
             t1.st_id = t2.id AND
             t1.st_id = t3.st_id AND
             t3.kind IN (%(%s,%))
-            GROUP BY t1.st_id)", killedTestCaseTable,
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+            GROUP BY t1.st_id)", killedTestCaseTable, mutationStatusTable,
+                mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", tcId.get);
 
@@ -903,8 +940,7 @@ struct DbTestCase {
             t1.st_id = t2.st_id AND
             t2.kind IN (%(%s,%))
             GROUP BY t2.st_id
-            ORDER BY t2.id"(killedTestCaseTable,
-                mutationTable, kinds.map!(a => cast(int) a));
+            ORDER BY t2.id"(killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
 
         auto rval = appender!(MutationId[])();
         auto stmt = db.prepare(sql);
@@ -924,8 +960,7 @@ struct DbTestCase {
             WHERE
             t3.id = :id AND
             t3.st_id = t2.st_id AND
-            t2.tc_id = t1.id"(
-                allTestCaseTable, killedTestCaseTable, mutationTable);
+            t2.tc_id = t1.id"(allTestCaseTable, killedTestCaseTable, mutationTable);
         auto stmt = db.prepare(get_test_cases_sql);
         stmt.get.bind(":id", cast(long) id);
         foreach (a; stmt.get.execute)
@@ -1009,15 +1044,15 @@ struct DbTestCase {
 
     /// Returns: mutants at mutations points that the test case has killed mutants at.
     alias testCaseMutationPointAliveSrcMutants = testCaseCountSrcMutants!([
-            Mutation.Status.alive
-            ]);
+        Mutation.Status.alive
+    ]);
     /// ditto
     alias testCaseMutationPointTimeoutSrcMutants = testCaseCountSrcMutants!(
             [Mutation.Status.timeout]);
     /// ditto
     alias testCaseMutationPointKilledSrcMutants = testCaseCountSrcMutants!([
-            Mutation.Status.killed
-            ]);
+        Mutation.Status.killed
+    ]);
     /// ditto
     alias testCaseMutationPointUnknownSrcMutants = testCaseCountSrcMutants!(
             [Mutation.Status.unknown]);
@@ -1027,8 +1062,8 @@ struct DbTestCase {
     /// ditto
     alias testCaseMutationPointTotalSrcMutants = testCaseCountSrcMutants!(
             [
-            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
-            ]);
+        Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
+    ]);
 
     private MutationStatusId[] testCaseCountSrcMutants(int[] status)(
             const Mutation.Kind[] kinds, TestCase tc) @trusted {
@@ -1077,8 +1112,12 @@ struct DbTestCase {
 }
 
 struct DbMutant {
-    private Miniorm* db;
+    private Miniorm* db_;
     private Database* wrapperDb;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     bool exists(MutationStatusId id) {
         static immutable s = format!"SELECT COUNT(*) FROM %s WHERE id=:id LIMIT 1"(
@@ -1247,8 +1286,7 @@ struct DbMutant {
             t0.mp_id = t1.id AND
             t1.file_id = t2.id AND
             t3.id = t0.st_id
-            ", mutationTable,
-                mutationPointTable, filesTable, mutationStatusTable);
+            ", mutationTable, mutationPointTable, filesTable, mutationStatusTable);
 
         auto stmt = db.prepare(get_mut_sql);
         stmt.get.bind(":id", cast(long) id);
@@ -1292,8 +1330,8 @@ struct DbMutant {
         t2.status = :status AND
         t1.kind IN (%(%s,%))
         ORDER BY
-        t.mut_id"(nomutDataTable, mutationTable,
-                mutationStatusTable, kinds.map!(a => cast(long) a));
+        t.mut_id"(nomutDataTable, mutationTable, mutationStatusTable,
+                kinds.map!(a => cast(long) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
 
@@ -1313,8 +1351,7 @@ struct DbMutant {
             t0.id = :id AND
             t0.mp_id = t1.id AND
             t1.file_id = t2.id
-            ", mutationTable,
-                mutationPointTable, filesTable);
+            ", mutationTable, mutationPointTable, filesTable);
 
         auto stmt = db.prepare(get_path_sql);
         stmt.get.bind(":id", cast(long) id);
@@ -1332,8 +1369,7 @@ struct DbMutant {
             %s t0, %s t1, %s t2
             WHERE
             t0.st_id = :id AND t0.mp_id = t1.id AND t1.file_id = t2.id
-            ", mutationTable,
-                mutationPointTable, filesTable);
+            ", mutationTable, mutationPointTable, filesTable);
 
         auto stmt = db.prepare(get_path_sql);
         stmt.get.bind(":id", id.get);
@@ -1353,9 +1389,8 @@ struct DbMutant {
             t0.st_id IN (%(%s,%)) AND
             t0.st_id = t2.id AND
             t0.kind IN (%(%s,%)) AND
-            t0.mp_id = t1.id", mutationTable,
-                mutationPointTable, mutationStatusTable, id.map!(a => a.get),
-                kinds.map!(a => cast(int) a));
+            t0.mp_id = t1.id", mutationTable, mutationPointTable,
+                mutationStatusTable, id.map!(a => a.get), kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(get_mutid_sql);
 
         auto app = appender!(MutantInfo[])();
@@ -1371,7 +1406,8 @@ struct DbMutant {
 
     /// Returns: the mutants that are connected to the mutation statuses.
     Optional!MutantInfo2 getMutantInfo(const MutationStatusId id) @trusted {
-        static const sql = format("SELECT t0.id,t2.status,t2.exit_code,t3.path,t1.line,t1.column,t2.prio,t2.update_ts,
+        static const sql = format(
+                "SELECT t0.id,t2.status,t2.exit_code,t3.path,t1.line,t1.column,t2.prio,t2.update_ts,
             (SELECT count(*) FROM %s WHERE st_id = :id) as vc_cnt
             FROM %s t0,%s t1, %s t2, %s t3
             WHERE
@@ -1379,8 +1415,7 @@ struct DbMutant {
             t0.st_id = :id AND
             t0.mp_id = t1.id AND
             t1.file_id = t3.id
-            ",
-                killedTestCaseTable, mutationTable, mutationPointTable,
+            ", killedTestCaseTable, mutationTable, mutationPointTable,
                 mutationStatusTable, filesTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
@@ -1410,8 +1445,8 @@ struct DbMutant {
         const get_mutid_sql = format!"SELECT id FROM %s t0
             WHERE
             t0.st_id IN (%(%s,%)) AND
-            t0.kind IN (%(%s,%))"(mutationTable,
-                id.map!(a => cast(long) a), kinds.map!(a => cast(int) a));
+            t0.kind IN (%(%s,%))"(mutationTable, id.map!(a => cast(long) a),
+                kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(get_mutid_sql);
 
         auto app = appender!(MutationId[])();
@@ -1438,8 +1473,7 @@ struct DbMutant {
             FROM %s t0
             WHERE
             t0.update_ts IS NOT NULL AND
-            t0.id = :id",
-                mutationStatusTable);
+            t0.id = :id", mutationStatusTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
 
@@ -1507,9 +1541,8 @@ struct DbMutant {
                     t1.kind IN (%(%s,%)) AND
                     t1.mp_id = t2.id AND
                     t2.file_id = :fid AND
-                    (:line BETWEEN t2.line AND t2.line_end)",
-                mutationStatusTable, mutationTable, mutationPointTable,
-                kinds.map!(a => cast(int) a));
+                    (:line BETWEEN t2.line AND t2.line_end)", mutationStatusTable,
+                mutationTable, mutationPointTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":fid", cast(long) fid);
         stmt.get.bind(":line", sloc.line);
@@ -1571,8 +1604,8 @@ struct DbMutant {
             t1.st_id = t0.id AND
             t1.kind IN (%(%s,%)) AND
             t1.st_id NOT IN (SELECT st_id FROM %s WHERE nomut != 0)
-            ORDER BY t0.prio DESC LIMIT :limit",
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a), srcMetadataTable);
+            ORDER BY t0.prio DESC LIMIT :limit", mutationStatusTable,
+                mutationTable, kinds.map!(a => cast(int) a), srcMetadataTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
         stmt.get.bind(":limit", nr);
@@ -1646,7 +1679,8 @@ struct DbMutant {
 
     /// Returns: the `nr` mutants that where last tested.
     MutantTestTime[] getLatestMutantTimes(const(Mutation.Kind)[] kinds, const long nr) @trusted {
-        const sql = format("SELECT t0.id,t0.status,t0.compile_time_ms,t0.test_time_ms FROM %s t0, %s t1
+        const sql = format(
+                "SELECT t0.id,t0.status,t0.compile_time_ms,t0.test_time_ms FROM %s t0, %s t1
                     WHERE
                     t0.update_ts IS NOT NULL AND
                     t1.st_id = t0.id AND
@@ -1668,8 +1702,8 @@ struct DbMutant {
     import dextool.plugin.mutate.backend.type;
 
     alias aliveSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.noCoverage
-            ]);
+        Mutation.Status.alive, Mutation.Status.noCoverage
+    ]);
     alias killedSrcMutants = countMutants!([Mutation.Status.killed]);
     alias timeoutSrcMutants = countMutants!([Mutation.Status.timeout]);
     alias noCovSrcMutants = countMutants!([Mutation.Status.noCoverage]);
@@ -1679,14 +1713,14 @@ struct DbMutant {
 
     /// Returns: Total that should be counted when calculating the mutation score.
     alias totalSrcMutants = countMutants!([
-            Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout,
-            Mutation.Status.noCoverage, Mutation.Status.memOverload,
-            ]);
+        Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout,
+        Mutation.Status.noCoverage, Mutation.Status.memOverload,
+    ]);
 
     alias unknownSrcMutants = countMutants!([Mutation.Status.unknown]);
     alias killedByCompilerSrcMutants = countMutants!([
-            Mutation.Status.killedByCompiler
-            ]);
+        Mutation.Status.killedByCompiler
+    ]);
 
     /** Count the mutants with the nomut metadata.
      *
@@ -1788,8 +1822,8 @@ struct DbMutant {
 
     /// ditto.
     alias aliveNoMutSrcMutants = countNoMutMutants!([
-            Mutation.Status.alive, Mutation.Status.noCoverage
-            ], true);
+        Mutation.Status.alive, Mutation.Status.noCoverage
+    ], true);
 
     Nullable!Checksum getChecksum(MutationStatusId id) @trusted {
         static immutable sql = format!"SELECT checksum0, checksum1 FROM %s WHERE id=:id"(
@@ -1810,8 +1844,7 @@ struct DbMutant {
         if (mps.empty)
             return;
 
-        static immutable insert_mp_sql = "INSERT OR IGNORE INTO "
-            ~ mutationPointTable ~ "
+        static immutable insert_mp_sql = "INSERT OR IGNORE INTO " ~ mutationPointTable ~ "
             (file_id, offset_begin, offset_end, line, column, line_end, column_end)
             SELECT id,:begin,:end,:line,:column,:line_end,:column_end
             FROM " ~ filesTable ~ " WHERE path = :path";
@@ -1847,9 +1880,10 @@ struct DbMutant {
             cmut_stmt.get.reset;
         }
 
-        static immutable insert_m_sql = "INSERT OR IGNORE INTO " ~ mutationTable ~ " (mp_id, st_id, kind)
-            SELECT t0.id,t1.id,:kind FROM "
-            ~ mutationPointTable ~ " t0, " ~ mutationStatusTable ~ " t1, " ~ filesTable ~ " t2 WHERE
+        static immutable insert_m_sql = "INSERT OR IGNORE INTO "
+            ~ mutationTable ~ " (mp_id, st_id, kind)
+            SELECT t0.id,t1.id,:kind FROM " ~ mutationPointTable ~ " t0, "
+            ~ mutationStatusTable ~ " t1, " ~ filesTable ~ " t2 WHERE
             t2.path = :path AND
             t0.file_id = t2.id AND
             t0.offset_begin = :off_begin AND
@@ -1924,8 +1958,7 @@ struct DbMutant {
         static immutable sql = format!"SELECT DISTINCT t0.st_id FROM %s t0, %s t1 WHERE
             t0.mp_id = :id AND
             t0.st_id = t1.id AND
-            t1.status = %s"(mutationTable,
-                mutationStatusTable, cast(int) Mutation.Status.alive);
+            t1.status = %s"(mutationTable, mutationStatusTable, cast(int) Mutation.Status.alive);
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", mp_id);
@@ -1947,8 +1980,7 @@ struct DbMutant {
             t1.st_id = t2.id AND
             t2.status = :status AND
             t1.kind IN (%(%s,%))
-            "(mutationPointTable, mutationTable,
-                mutationStatusTable, kinds.map!(a => cast(int) a));
+            "(mutationPointTable, mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":file_id", id.get);
@@ -1963,8 +1995,11 @@ struct DbMutant {
 }
 
 struct DbWorklist {
-    private Miniorm* db;
-    private Database* wrapperDb;
+    private Miniorm* db_;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     /** Add all mutants with the specific status to the worklist.
      */
@@ -1976,8 +2011,8 @@ struct DbWorklist {
             SELECT t1.id,%s FROM %s t0, %s t1 WHERE t0.kind IN (%(%s,%)) AND
             t0.st_id = t1.id AND
             t1.status IN (%(%s,%))
-            "(mutantWorklistTable, order, mutationTable,
-                mutationStatusTable, kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
+            "(mutantWorklistTable, order, mutationTable, mutationStatusTable,
+                kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":base_prio", basePrio);
         stmt.get.execute;
@@ -2047,8 +2082,8 @@ struct DbWorklist {
     /// Add all mutants with `status` to worklist
     void statusToWorklist(const Mutation.Status status, const long prio = 100) @trusted {
         immutable sql = format!"INSERT OR IGNORE INTO %1$s (id,prio)
-            SELECT id,%3$s+prio FROM %2$s WHERE status=:status"(
-                mutantWorklistTable, mutationStatusTable, prio);
+            SELECT id,%3$s+prio FROM %2$s WHERE status=:status"(mutantWorklistTable,
+                mutationStatusTable, prio);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(int) status);
         stmt.get.execute;
@@ -2056,7 +2091,11 @@ struct DbWorklist {
 }
 
 struct DbMemOverload {
-    private Miniorm* db;
+    private Miniorm* db_;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     void put(const MutationStatusId id) @trusted {
         immutable sql = "INSERT OR IGNORE INTO "
@@ -2069,8 +2108,7 @@ struct DbMemOverload {
     /// Copy the memory overload mutants to the worklist of mutants to test.
     void toWorklist(const long prio = 100) @trusted {
         immutable sql = format!"INSERT OR IGNORE INTO %1$s (id,prio)
-            SELECT id,%3$s FROM %2$s"(mutantWorklistTable,
-                mutantMemOverloadWorklistTable, prio);
+            SELECT id,%3$s FROM %2$s"(mutantWorklistTable, mutantMemOverloadWorklistTable, prio);
         auto stmt = db.prepare(sql);
         stmt.get.execute;
 
@@ -2083,13 +2121,15 @@ struct DbMemOverload {
 }
 
 struct DbMarkMutant {
-    private Miniorm* db;
-    private Database* wrapperDb;
+    private Miniorm* db_;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     bool isMarked(MutationId id) @trusted {
         static immutable s = format!"SELECT COUNT(*) FROM %s WHERE st_id IN
-            (SELECT st_id FROM %s WHERE id=:id)"(
-                markedMutantTable, mutationTable);
+            (SELECT st_id FROM %s WHERE id=:id)"(markedMutantTable, mutationTable);
         auto stmt = db.prepare(s);
         stmt.get.bind(":id", cast(long) id);
         auto res = stmt.get.execute;
@@ -2100,8 +2140,7 @@ struct DbMarkMutant {
     MarkedMutant[] getLostMarkings() @trusted {
         static immutable sql = format!"SELECT checksum0 FROM %s
             WHERE
-            checksum0 NOT IN (SELECT checksum0 FROM %s)"(
-                markedMutantTable, mutationStatusTable);
+            checksum0 NOT IN (SELECT checksum0 FROM %s)"(markedMutantTable, mutationStatusTable);
 
         auto stmt = db.prepare(sql);
         auto app = appender!(MarkedMutant[])();
@@ -2148,8 +2187,11 @@ struct DbMarkMutant {
 }
 
 struct DbTimeout {
-    private Miniorm* db;
-    private Database* wrapperDb;
+    private Miniorm* db_;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     /// Returns: the context for the timeout algorithm.
     MutantTimeoutCtx getMutantTimeoutCtx() @trusted {
@@ -2219,8 +2261,8 @@ struct DbTimeout {
     /// Copy the timeout mutants to the worklist of mutants to test.
     void copyMutantTimeoutWorklist(const long iter, const long prio = 100) @trusted {
         immutable sql = format!"INSERT OR IGNORE INTO %1$s (id,prio)
-            SELECT id,%3$s FROM %2$s WHERE iter=:iter"(
-                mutantWorklistTable, mutantTimeoutWorklistTable, prio);
+            SELECT id,%3$s FROM %2$s WHERE iter=:iter"(mutantWorklistTable,
+                mutantTimeoutWorklistTable, prio);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":iter", iter);
         stmt.get.execute;
@@ -2228,8 +2270,11 @@ struct DbTimeout {
 }
 
 struct DbCoverage {
-    private Miniorm* db;
-    private Database* wrapperDb;
+    private Miniorm* db_;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     /// Add coverage regions.
     void putCoverageMap(const FileId id, const Offset[] region) @trusted {
@@ -2314,8 +2359,7 @@ struct DbCoverage {
             t1.file_id = t2.file_id AND
             (t2.offset_begin BETWEEN t1.begin AND t1.end) AND
             (t2.offset_end BETWEEN t1.begin AND t1.end) AND
-            t2.id = t3.mp_id"(srcCovInfoTable,
-                srcCovTable, mutationPointTable, mutationTable);
+            t2.id = t3.mp_id"(srcCovInfoTable, srcCovTable, mutationPointTable, mutationTable);
 
         auto app = appender!(MutationStatusId[])();
         auto stmt = db.prepare(sql);
@@ -2330,8 +2374,12 @@ struct DbCoverage {
 struct DbSchema {
     import my.hash : Checksum64;
 
-    private Miniorm* db;
+    private Miniorm* db_;
     private Database* wrapperDb;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     /// Returns: all schematas excluding those that are known to not be
     /// possible to compile.
@@ -2339,8 +2387,8 @@ struct DbSchema {
         static immutable sql = format!"SELECT t0.id
             FROM %1$s t0
             WHERE
-            t0.id NOT IN (SELECT id FROM %2$s WHERE status = :status)"(
-                schemataTable, schemataUsedTable);
+            t0.id NOT IN (SELECT id FROM %2$s WHERE status = :status)"(schemataTable,
+                schemataUsedTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) exclude);
         auto app = appender!(SchemataId[])();
@@ -2392,8 +2440,8 @@ struct DbSchema {
         t3.st_id = t1.st_id AND
         t3.kind IN (%(%s,%)) AND
         t2.status IN (%(%s,%))
-        "(schemataMutantTable, mutationStatusTable,
-                mutationTable, kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
+        "(schemataMutantTable, mutationStatusTable, mutationTable,
+                kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
@@ -2410,8 +2458,8 @@ struct DbSchema {
         t3.st_id = t1.st_id AND
         t2.id = t4.id AND
         t3.kind IN (%(%s,%))
-        "(schemataMutantTable, mutationStatusTable,
-                mutationTable, mutantWorklistTable, kinds.map!(a => cast(int) a));
+        "(schemataMutantTable, mutationStatusTable, mutationTable,
+                mutantWorklistTable, kinds.map!(a => cast(int) a));
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
@@ -2428,8 +2476,8 @@ struct DbSchema {
             t3.st_id = t1.st_id AND
             t2.id = t4.id AND
             t3.kind IN (%(%s,%))
-            "(schemataMutantTable, mutationStatusTable,
-                mutationTable, mutantWorklistTable, kinds.map!(a => cast(int) a));
+            "(schemataMutantTable, mutationStatusTable, mutationTable,
+                mutantWorklistTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
 
@@ -2534,8 +2582,7 @@ struct DbSchema {
             WHERE
             t0.id = t1.id AND
             t0.fragments != t1.fragments
-            "(schemataTable,
-                    schemataFragmentTable);
+            "(schemataTable, schemataFragmentTable);
             auto stmt = db.prepare(sqlFragment);
             foreach (a; stmt.get.execute) {
                 remove.put(a.peek!long(0));
@@ -2642,8 +2689,8 @@ struct DbSchema {
             t1.mp_id = t2.id AND
             t2.file_id = t3.id AND
             t3.path = :path
-            "(schemataMutantTable,
-                mutationTable, mutationPointTable, filesTable, schemataUsedTable);
+            "(schemataMutantTable, mutationTable, mutationPointTable,
+                filesTable, schemataUsedTable);
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
@@ -2661,8 +2708,7 @@ struct DbSchema {
     /// Returns: an array of the mutants that are in schemas with the specific status
     long[] schemaMutantCount(const SchemaStatus status) @trusted {
         static immutable sql = format!"SELECT (SELECT count(*) FROM %2$s WHERE schem_id=t0.id)
-            FROM %1$s t0 WHERE status=:status"(
-                schemataUsedTable, schemataMutantTable);
+            FROM %1$s t0 WHERE status=:status"(schemataUsedTable, schemataMutantTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
         auto app = appender!(long[])();
@@ -2689,8 +2735,11 @@ struct DbSchema {
 }
 
 struct DbMetaData {
-    private Miniorm* db;
-    private Database* wrapperDb;
+    private Miniorm* db_;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     LineMetadata getLineMetadata(const FileId fid, const SourceLoc sloc) @trusted {
         // TODO: change this select to using microrm
@@ -2794,13 +2843,15 @@ struct DbMetaData {
 }
 
 struct DbTestFile {
-    private Miniorm* db;
-    private Database* wrapperDb;
+    private Miniorm* db_;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
 
     void put(const TestFile tfile) @trusted {
         static immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, timestamp)
-            VALUES (:path, :checksum0, :checksum1, :timestamp)"(
-                testFilesTable);
+            VALUES (:path, :checksum0, :checksum1, :timestamp)"(testFilesTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", tfile.file.get.toString);
         stmt.get.bind(":checksum0", cast(long) tfile.checksum.get.c0);
@@ -2827,8 +2878,7 @@ struct DbTestFile {
     /// Returns: the oldest test file, if it exists.
     Optional!TestFile getNewestTestFile() @trusted {
         auto stmt = db.prepare("SELECT path,checksum0,checksum1,timestamp
-            FROM "
-                ~ testFilesTable ~ " ORDER BY datetime(timestamp) DESC LIMIT 1");
+            FROM " ~ testFilesTable ~ " ORDER BY datetime(timestamp) DESC LIMIT 1");
         auto res = stmt.get.execute;
 
         foreach (ref r; res) {

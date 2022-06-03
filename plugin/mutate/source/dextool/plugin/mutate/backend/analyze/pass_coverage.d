@@ -26,9 +26,9 @@ import dextool.plugin.mutate.backend.type : Offset, Mutation, SourceLocRange, To
 
 @safe:
 
-CoverageResult toCoverage(Ast* ast, FilesysIO fio, ValidateLoc vloc) {
+CoverageResult toCoverage(scope Ast* ast, FilesysIO fio, ValidateLoc vloc) @trusted {
     scope visitor = new CoverageVisitor(ast, fio, vloc);
-    () @trusted { ast.accept(visitor); }();
+    ast.accept(visitor);
     return visitor.result;
 }
 

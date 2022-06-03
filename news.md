@@ -1,4 +1,9 @@
-# vNext
+# v4.3.0 Deep Steel
+
+Fixes
+
+ * Fix compilation with dmd-compiler (2.100.0).
+ * Removing unused fuzzer plugin.
 
 New features for dextool mutate
 
@@ -23,7 +28,7 @@ provided locale string, eg fr is directly used to switch moment locale.
 ```
    The vulnerability have a low or no impact on dextool as of date but problems should be fixed.
  * Analyze never finish if the number of threads are set to one (--threads 1).
- It is now changed to be a minimum of two.
+ It is now changed to be a minimum of four.
 
 # v4.2.0 Cat Gold 
 
