@@ -3,6 +3,7 @@
 Fixes
 
  * Fix compilation with dmd-compiler (2.100.0).
+ * Removing unused fuzzer plugin.
 
 New features for dextool mutate
 
