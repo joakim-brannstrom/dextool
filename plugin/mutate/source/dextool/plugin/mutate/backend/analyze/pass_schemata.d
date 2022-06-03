@@ -55,7 +55,7 @@ immutable schemataMutantIdentifier = "dextool_get_mutid()";
 immutable schemataMutantEnvKey = "DEXTOOL_MUTID";
 
 /// Translate a mutation AST to a schemata.
-SchemataResult toSchemata(Ast* ast, FilesysIO fio, CodeMutantsResult cresult, SchemaQ sq) @safe {
+SchemataResult toSchemata(scope Ast* ast, FilesysIO fio, CodeMutantsResult cresult, SchemaQ sq) @trusted {
     auto rval = new SchemataResult;
     auto index = new CodeMutantIndex(cresult);
 
@@ -66,7 +66,7 @@ SchemataResult toSchemata(Ast* ast, FilesysIO fio, CodeMutantsResult cresult, Sc
         goto case;
     case Language.cpp:
         scope visitor = new CppSchemataVisitor(ast, index, sq, fio, rval);
-        () @trusted { ast.accept(visitor); }();
+        ast.accept(visitor);
         break;
     }
 

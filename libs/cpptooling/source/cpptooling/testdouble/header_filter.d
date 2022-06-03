@@ -143,7 +143,8 @@ struct GenericTestDoubleIncludes(PayloadT) {
         assert(st.among(State.waiting, State.rootInclude, State.symbolInclude, State.forceInclude));
     }
     do {
-        import std.algorithm : each;
+        import std.algorithm : each, map;
+        import std.array : array;
 
         if (st == State.forceInclude)
             return;
@@ -155,9 +156,10 @@ struct GenericTestDoubleIncludes(PayloadT) {
             return;
 
         () @trusted {
-            stripIncl(work_pool, strip_incl).each!(a => permanent_pool.insert(a));
+            stripIncl(work_pool.map!(a => a.filename).array, strip_incl).each!(
+                    a => permanent_pool.insert(Include(a)));
         }();
-        work_pool.length = 0;
+        work_pool = null;
     }
 
     void put(string fname, LocationType type, PayloadT kind = PayloadT.init) @safe
@@ -240,7 +242,7 @@ alias TestDoubleIncludes = GenericTestDoubleIncludes!(DummyPayload);
 
 /** Strip the filename with the regexp or if that fails use the input filename as is.
  */
-T stripFile(T)(T fname, Regex!char re) @trusted {
+string stripFile(string fname, Regex!char re) @trusted {
     import std.array : appender;
     import std.algorithm : copy;
     import std.range : dropOne;
@@ -250,7 +252,7 @@ T stripFile(T)(T fname, Regex!char re) @trusted {
         return fname;
     }
 
-    auto c = matchFirst(cast(string) fname, re);
+    auto c = matchFirst(fname, re);
     auto rval = fname;
 
     debug logger.tracef("input is '%s'. After strip: %s", fname, c);
@@ -269,7 +271,7 @@ T stripFile(T)(T fname, Regex!char re) @trusted {
  * Deduplicate.
  * Strip the includes according to the user supplied configuration.
  */
-private T[] stripIncl(T)(ref T[] incls, Regex!char re) {
+private string[] stripIncl(string[] incls, Regex!char re) {
     import std.array : array;
     import std.algorithm : cache, map, filter;
     import cpptooling.utility : dedup;
