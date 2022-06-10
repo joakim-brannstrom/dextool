@@ -137,3 +137,15 @@ span.xx_label {
 #locs td {
     display: block;
 }
+
+.show_kind{
+  float: right;
+}
+
+.show_testcases{
+  float: right;
+}
+
+.show_status{
+  float: right;
+}

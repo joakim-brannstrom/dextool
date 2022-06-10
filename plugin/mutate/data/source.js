@@ -602,3 +602,32 @@ function init_filter_status() {
     }
     return;
 }
+
+function hide_testcases(){
+  var num = document.getElementById("num_testcases");
+
+  if (num.style.display === "none") {
+      num.style.display = "block";
+    } else {
+      num.style.display = "none";
+    }
+}
+
+function hide_kind(){
+  var table = document.getElementById("filter_kind");
+  if (table.style.display === "none") {
+    table.style.display = "block";
+  } else {
+    table.style.display = "none";
+  }
+}
+
+function hide_status(){
+  var table = document.getElementById("filter_status");
+
+  if (table.style.display === "none") {
+    table.style.display = "block";
+  } else {
+    table.style.display = "none";
+  }
+}
