@@ -99,7 +99,7 @@ class MutantsResult {
         }
 
         void toString(Writer)(ref Writer w) const {
-            formattedWrite!"%s [%s-%s:%s]:[%s:%s][%s:%s]"(w, sloc.begin.line,
+            formattedWrite!"[%s:%s-%s:%s]:[%s:%s][%s:%s]"(w, sloc.begin.line,
                     sloc.begin.column, sloc.end.line, sloc.end.column,
                     offset.begin, offset.end, context.begin, context.end);
         }
