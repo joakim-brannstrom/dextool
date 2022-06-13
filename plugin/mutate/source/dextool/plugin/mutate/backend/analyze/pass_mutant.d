@@ -513,7 +513,7 @@ class MutantVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
-    override void visit(Poision n) {
+    override void visit(Poison n) {
         auto old = context;
         scope (exit)
             context = old;
