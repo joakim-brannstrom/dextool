@@ -494,7 +494,7 @@ alias Nodes = AliasSeq!(
     OpOrBitwise,
     OpSub,
     Operator,
-    Poision,
+    Poison,
     Return,
     Statement,
     TranslationUnit,
@@ -543,7 +543,7 @@ enum Kind {
     OpOrBitwise,
     OpSub,
     Operator,
-    Poision,
+    Poison,
     Return,
     Statement,
     TranslationUnit,
@@ -615,7 +615,7 @@ class DepthFirstVisitor : Visitor {
 /** A phantom node that carry semantic information about its children. It
  * "poisons" all children.
  */
-class Poision : Node {
+class Poison : Node {
     mixin(nodeImpl!(typeof(this)));
 }
 
