@@ -652,6 +652,9 @@ struct MutationScoreHistoryTable {
     SysTime timeStamp;
 
     double score;
+
+    @ColumnName("file_id")
+    long fileId;
 }
 
 /** All functions that has been discovered in the source code.

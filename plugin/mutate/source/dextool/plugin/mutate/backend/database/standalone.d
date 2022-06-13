@@ -274,7 +274,7 @@ struct Database {
 
         auto app = appender!(MutationScore[])();
         foreach (r; db.run(select!MutationScoreHistoryTable)) {
-            app.put(MutationScore(r.timeStamp, typeof(MutationScore.score)(r.score)));
+            app.put(MutationScore(r.timeStamp, typeof(MutationScore.score)(r.score), r.fileId));
         }
 
         return app.data.sort!((a, b) => a.timeStamp < b.timeStamp).array;
@@ -283,7 +283,7 @@ struct Database {
     /// Add a mutation score to the history table.
     void putMutationScore(const MutationScore score) @trusted {
         db.run(insert!MutationScoreHistoryTable, MutationScoreHistoryTable(0,
-                score.timeStamp, score.score.get));
+                score.timeStamp, score.score.get, score.fileId));
     }
 
     /// Trim the mutation score history table to only contain the last `keep` scores.

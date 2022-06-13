@@ -285,7 +285,7 @@ struct TestCaseDeadStat {
         return buf.data;
     }
 
-    void toString(Writer)(ref Writer w) @safe const 
+    void toString(Writer)(ref Writer w) @safe const
             if (isOutputRange!(Writer, char)) {
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -1314,7 +1314,7 @@ private MutationScoreHistory reportMutationScoreHistory(
             acc += a.score.get;
             nr++;
         } else {
-            pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr)));
+            pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr), data[0].fileId));
             last = curr;
             acc = a.score.get;
             nr = 1;
