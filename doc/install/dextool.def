@@ -1,0 +1,53 @@
+Bootstrap: docker
+From: ubuntu:18.04
+# This file provides a Singularty image of the packages necessary to run dextool
+# Author: John Tinnerholm 2022-06-14 (Assumes the stable LLVM, which at this time is 13.)
+# For use in the LiU Course TDDD04
+%post -c /bin/bash
+    apt-get -y update
+    apt-get -y install wget
+    apt-get -y install curl
+    apt-get -y install git
+    apt-get -y install software-properties-common
+    apt-get -y update
+    echo "Installing LLVM repositories"
+    echo "Adding LLVM keys..."
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|apt-key add -
+    echo "Keys added!"
+    add-apt-repository ppa:ubuntu-toolchain-r/test
+    add-apt-repository 'deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-13 main'
+    echo "Added llvm repository"
+    apt search llvm-
+    apt search clang-
+    apt search libclang-
+    apt-get -y install llvm-13-dev
+    apt-get -y install build-essential
+    apt-get -y install cmake
+    apt-get -y install llvm-13
+    apt-get -y install llvm-13-dev
+    apt-get -y install clang-13
+    apt-get -y install libclang-13-dev
+    apt-get -y install libsqlite3-dev
+    echo "LLVM Dependencies + SQL Installed."
+    echo "Installing D-Compiler and other auxilary resources"
+    mkdir -p ~/dlang
+    wget https://dlang.org/install.sh -O ~/dlang/install.sh
+    chmod +777 ~/dlang/install.sh
+    ~/dlang/install.sh install dmd-2.097.2
+    ~/dlang/install.sh install ldc-1.28.0
+    ~/dlang/install.sh install dub
+    echo "Adding to path variables"
+    source ~/dlang/dmd-2.097.2/activate
+    source ~/dlang/ldc-1.28.0/activate
+    source ~/dlang/dub-1.22.0/activate
+#Installing Dextool
+%runscript
+    echo "Installing dextool $NOW"
+    echo "Activating the D Compiler"
+    source ~/dlang/dmd-2.097.2/activate
+    echo "Done!"
+    git clone https://github.com/joakim-brannstrom/dextool.git
+    mkdir dextool/build
+    cd dextool/build
+    cmake -DCMAKE_INSTALL_PREFIX=$HOME/local ..
+    make install
