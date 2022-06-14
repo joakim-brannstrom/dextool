@@ -40,14 +40,20 @@ From: ubuntu:18.04
     source ~/dlang/dmd-2.097.2/activate
     source ~/dlang/ldc-1.28.0/activate
     source ~/dlang/dub-1.22.0/activate
-#Installing Dextool
-%runscript
+    #Installing Dextool
     echo "Installing dextool $NOW"
     echo "Activating the D Compiler"
     source ~/dlang/dmd-2.097.2/activate
     echo "Done!"
-    git clone https://github.com/joakim-brannstrom/dextool.git
+    git clone https://github.com/joakim-brannstrom/dextool.git --branch v4.3.0 --single-branch
     mkdir dextool/build
     cd dextool/build
-    cmake -DCMAKE_INSTALL_PREFIX=$HOME/local ..
+    cmake -DCMAKE_INSTALL_PREFIX=/usr ..
     make install
+%environment
+    echo "Starting the dextool singularity environment..."
+    echo "Checking the version of dextool"
+    dextool --version
+    dextool --plugin-list
+    echo "Cloning the project to be used in the lab"
+    git clone  https://github.com/joakim-brannstrom/dextool.git --branch v4.3.0 --single-branch
