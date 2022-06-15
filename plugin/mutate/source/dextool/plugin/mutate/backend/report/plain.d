@@ -247,7 +247,9 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 
         if (ReportSection.summary in sections) {
             logger.info("Summary");
-            auto summary = reportStatistics(db, kinds);
+            auto summaryList = reportStatistics(db, kinds, db.getFilesStrings);
+            //TODO, should loop
+            auto summary = summaryList.front();
             writeln(summary.toString);
 
             syncStatus(db, kinds);

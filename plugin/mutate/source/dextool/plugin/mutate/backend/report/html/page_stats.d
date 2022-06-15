@@ -12,6 +12,7 @@ module dextool.plugin.mutate.backend.report.html.page_stats;
 import logger = std.experimental.logger;
 import std.datetime : Clock, dur;
 import std.format : format;
+import std.container : DList;
 
 import arsd.dom : Element, Link;
 import my.path : AbsolutePath;
@@ -27,9 +28,14 @@ import dextool.plugin.mutate.backend.type : Mutation;
 void makeStats(ref Database db, string tag, Element root,
         const(Mutation.Kind)[] kinds, const AbsolutePath workListFname) @trusted {
     import dextool.plugin.mutate.backend.report.html.page_worklist;
-
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Overview");
-    overallStat(reportStatistics(db, kinds), root.addChild("div"));
+    string[] files = db.getFilesStrings;
+    try{
+      logger.warningf("Paths %s", files);
+    } catch (Exception e){
+
+    }
+    overallStat(reportStatistics(db, kinds, files), root.addChild("div"));
     makeWorklistPage(db, root, workListFname);
     syncStatus(reportSyncStatus(db, kinds, 100), root);
 }
@@ -37,10 +43,11 @@ void makeStats(ref Database db, string tag, Element root,
 private:
 
 // TODO: this function contains duplicated logic from the one in ../utility.d
-void overallStat(const MutationStat s, Element base) {
+void overallStat(const DList!MutationStat sList, Element base) {
     import std.conv : to;
     import std.typecons : tuple;
-
+    //TODO, should loop
+    auto s = sList.front();
     base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score));
     base.addChild("p", format("Time spent: %s", s.totalTime));
 

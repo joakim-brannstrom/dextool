@@ -159,7 +159,9 @@ final class ReportJson {
             reportTrendByCodeChange;
 
         if (ReportSection.summary in sections) {
-            const stat = reportStatistics(db, kinds);
+            const statList = reportStatistics(db, kinds, db.getFilesStrings);
+            //TODO, should loop
+            auto stat = statList.front();
             JSONValue s = ["alive" : stat.alive];
             s.object["no_coverage"] = stat.noCoverage;
             s.object["alive_nomut"] = stat.aliveNoMut;

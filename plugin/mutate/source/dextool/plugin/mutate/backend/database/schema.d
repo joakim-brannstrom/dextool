@@ -653,8 +653,8 @@ struct MutationScoreHistoryTable {
 
     double score;
 
-    @ColumnName("file_id")
-    long fileId;
+    @ColumnName("filePath")
+    string filePath;
 }
 
 /** All functions that has been discovered in the source code.

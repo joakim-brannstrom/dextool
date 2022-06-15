@@ -320,7 +320,7 @@ struct TestCmdRuntime {
 struct MutationScore {
     SysTime timeStamp;
     NamedType!(double, Tag!"MutationScore", 0.0, TagStringable) score;
-    long fileId;
+    string filePath;
 }
 
 alias TestFilePath = NamedType!(Path, Tag!"TestFilePath", Path.init, Hashable, TagStringable);
