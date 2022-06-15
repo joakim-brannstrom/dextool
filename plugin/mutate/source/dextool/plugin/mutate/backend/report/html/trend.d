@@ -13,6 +13,7 @@ import logger = std.experimental.logger;
 import std.format : format;
 import std.random;
 import std.conv;
+import std.math;
 
 import arsd.dom : Element, Link;
 
@@ -36,6 +37,7 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
     string color;
     int colorValue;
     auto rng = new Random(unpredictableSeed);
+    double score;
 
     if (history.data.length > 1){
       foreach(value; history.data){
@@ -63,7 +65,9 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
             }
           }
         }
-        ts.put(value.filePath, TimeScalePointGraph.Point(value.timeStamp, value.score.get));
+        score = rint(value.score.get * 1000)/1000;
+
+        ts.put(value.filePath, TimeScalePointGraph.Point(value.timeStamp, score));
         ts.setColor(value.filePath, color, color);
       }
     }
