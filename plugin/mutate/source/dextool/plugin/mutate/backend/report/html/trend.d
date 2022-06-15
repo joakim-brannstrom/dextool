@@ -34,14 +34,34 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
 
     const history = reportMutationScoreHistory(db);
     string color;
+    int colorValue;
     auto rng = new Random(unpredictableSeed);
 
-    //TODO: Color generation should be imporved, is not hexadecimal currently
     if (history.data.length > 1){
       foreach(value; history.data){
         color = "#";
         for(int i = 0; i < 6; i++){
-          color ~= to!string(uniform(0, 9, rng));
+          colorValue = uniform(0, 15, rng);
+          if(colorValue < 10){
+            color ~= to!string(colorValue);
+          }else{
+            switch(colorValue){
+              case 10: color ~= "a";
+                break;
+              case 11: color ~= "b";
+                break;
+              case 12: color ~= "c";
+                break;
+              case 13: color ~= "d";
+                break;
+              case 14: color ~= "e";
+                break;
+              case 15: color ~= "f";
+                break;
+              default:
+                break;
+            }
+          }
         }
         ts.put(value.filePath, TimeScalePointGraph.Point(value.timeStamp, value.score.get));
         ts.setColor(value.filePath, color, color);
