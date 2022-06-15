@@ -45,7 +45,6 @@ void overallStat(DList!MutationStat statList, Element base) {
 
     MutationStat s;
     MutationStat statVal;
-    double totalScore = 0;
     Duration predictedDone;
 
     while(!statList.empty){
@@ -66,16 +65,14 @@ void overallStat(DList!MutationStat statList, Element base) {
       s.scoreData.skipped += statVal.scoreData.skipped;
       s.scoreData.memOverload += statVal.scoreData.memOverload;
       s.scoreData.totalTime.compile += statVal.scoreData.totalTime.compile;
-      s.scoreData.totalTime.test += statVal.scoreData.totalTime.compile;
+      s.scoreData.totalTime.test += statVal.scoreData.totalTime.test;
       s.scoreData.aliveNoMut += statVal.scoreData.aliveNoMut;
       predictedDone += statVal.predictedDone;
-
-      totalScore += statVal.score();
 
       statList.removeFront();
     }
 
-    base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", totalScore));
+    base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score()));
     base.addChild("p", format("Time spent: %s", s.totalTime));
 
     if (s.untested > 0 && s.predictedDone > 0.dur!"msecs") {
