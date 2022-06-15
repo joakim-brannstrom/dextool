@@ -28,9 +28,20 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
 
     auto base = root.addChild("div");
 
+    auto ts = TimeScalePointGraph("ScoreHistory");
+
     const history = reportMutationScoreHistory(db);
 
-    foreach(data; history.data){
-      base.addChild("p", format("%s (%s): %s", data.filePath, data.timeStamp, data.score.get));
+
+    if (history.data.length > 1){
+      foreach(value; history.data){
+        ts.put(value.filePath, TimeScalePointGraph.Point(value.timeStamp, value.score.get));
+      }
     }
+
+    ts.html(base, TimeScalePointGraph.Width(80));
+        base.addChild("p")
+            .appendHtml(
+                    "<i>trend</i> is a prediction of how the mutation score will change based on previous scores.");
+
 }
