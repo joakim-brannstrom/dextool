@@ -328,7 +328,7 @@ TestCaseDeadStat reportDeadTestCases(ref Database db) @safe {
 /// Only the mutation score thus a subset of all statistics.
 struct MutationScore {
     import core.time : Duration;
-    
+
     long alive;
     long killed;
     long timeout;

@@ -30,11 +30,6 @@ void makeStats(ref Database db, string tag, Element root,
     import dextool.plugin.mutate.backend.report.html.page_worklist;
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Overview");
     string[] files = db.getFilesStrings;
-    try{
-      logger.warningf("Paths %s", files);
-    } catch (Exception e){
-
-    }
     overallStat(reportStatistics(db, kinds, files), root.addChild("div"));
     makeWorklistPage(db, root, workListFname);
     syncStatus(reportSyncStatus(db, kinds, 100), root);
@@ -43,17 +38,49 @@ void makeStats(ref Database db, string tag, Element root,
 private:
 
 // TODO: this function contains duplicated logic from the one in ../utility.d
-void overallStat(const DList!MutationStat sList, Element base) {
+void overallStat(DList!MutationStat statList, Element base) {
     import std.conv : to;
     import std.typecons : tuple;
-    //TODO, should loop
-    auto s = sList.front();
-    base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score));
+    import core.time : Duration;
+
+    MutationStat s;
+    MutationStat statVal;
+    double totalScore = 0;
+    Duration predictedDone;
+
+    while(!statList.empty){
+      statVal = statList.front();
+
+      s.untested += statVal.untested;
+      s.killedByCompiler += statVal.killedByCompiler;
+      s.worklist += statVal.worklist;
+      s.totalTime.compile += statVal.totalTime.compile;
+      s.totalTime.test += statVal.totalTime.test;
+
+      s.scoreData.alive += statVal.scoreData.alive;
+      s.scoreData.killed += statVal.scoreData.killed;
+      s.scoreData.timeout += statVal.scoreData.timeout;
+      s.scoreData.total += statVal.scoreData.total;
+      s.scoreData.noCoverage += statVal.scoreData.noCoverage;
+      s.scoreData.equivalent += statVal.scoreData.equivalent;
+      s.scoreData.skipped += statVal.scoreData.skipped;
+      s.scoreData.memOverload += statVal.scoreData.memOverload;
+      s.scoreData.totalTime.compile += statVal.scoreData.totalTime.compile;
+      s.scoreData.totalTime.test += statVal.scoreData.totalTime.compile;
+      s.scoreData.aliveNoMut += statVal.scoreData.aliveNoMut;
+      predictedDone += statVal.predictedDone;
+
+      totalScore += statVal.score();
+
+      statList.removeFront();
+    }
+
+    base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", totalScore));
     base.addChild("p", format("Time spent: %s", s.totalTime));
 
     if (s.untested > 0 && s.predictedDone > 0.dur!"msecs") {
-        const pred = Clock.currTime + s.predictedDone;
-        base.addChild("p", format("Remaining: %s (%s)", s.predictedDone, pred.toISOExtString));
+        const pred = Clock.currTime + predictedDone;
+        base.addChild("p", format("Remaining: %s (%s)", predictedDone, pred.toISOExtString));
     }
 
     PieGraph("score", [

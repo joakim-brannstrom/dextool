@@ -1113,8 +1113,8 @@ nothrow:
         if (spinSql!(() => db.timeoutApi.countMutantTimeoutWorklist) != 0)
             return;
 
-        //TODO: Should get these from the database
-        string[] files = ["src/mob.cpp", "src/util.h", "src/entity.h", "src/window.cpp", "src/window.h", "src/mob.h", "src/game.cpp"];
+        //TODO: Should get these from the database+
+        string[] files = ["src/entity.h", "src/event.h", "src/game.cpp", "src/game.h", "src/main.cpp", "src/mob.cpp", "src/mob.h", "src/mobsystem.cpp", "src/mobsystem.h", "src/physics.h", "src/physicssystem.cpp", "src/physicssystem.h", "src/rendersystem.cpp", "src/rendersystem.h", "src/system.h", "src/util.h", "src/window.cpp", "src/window.h"];
         const scores = reportScores(*db, kinds, files);
         // 10000 mutation scores is only ~80kbyte. Should be enough entries
         // without taking up unreasonable amount of space.
