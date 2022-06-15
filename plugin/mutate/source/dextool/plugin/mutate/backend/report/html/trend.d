@@ -11,6 +11,8 @@ module dextool.plugin.mutate.backend.report.html.trend;
 
 import logger = std.experimental.logger;
 import std.format : format;
+import std.random;
+import std.conv;
 
 import arsd.dom : Element, Link;
 
@@ -31,17 +33,24 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
     auto ts = TimeScalePointGraph("ScoreHistory");
 
     const history = reportMutationScoreHistory(db);
+    string color;
+    auto rng = new Random(unpredictableSeed);
 
-
+    //TODO: Color generation should be imporved, is not hexadecimal currently
     if (history.data.length > 1){
       foreach(value; history.data){
+        color = "#";
+        for(int i = 0; i < 6; i++){
+          color ~= to!string(uniform(0, 9, rng));
+        }
         ts.put(value.filePath, TimeScalePointGraph.Point(value.timeStamp, value.score.get));
+        ts.setColor(value.filePath, color, color);
       }
     }
 
     ts.html(base, TimeScalePointGraph.Width(80));
         base.addChild("p")
             .appendHtml(
-                    "<i>trend</i> is a prediction of how the mutation score will change based on previous scores.");
+                    "<i>trend</i> is a graph displaying how the MutationScore has changed between tests.");
 
 }

@@ -111,13 +111,13 @@ void syncStatus(SyncStatus status, Element root) {
     auto ts = TimeScalePointGraph("SyncStatus");
 
     ts.put("Test", TimeScalePointGraph.Point(status.test, 1.6));
-    ts.setColor("Test", "lightBlue");
+    ts.setColor("Test", "lightBlue", "lightBlue");
 
     ts.put("Code", TimeScalePointGraph.Point(status.code, 1.4));
-    ts.setColor("Code", "lightGreen");
+    ts.setColor("Code", "lightGreen", "lightGreen");
 
     ts.put("Coverage", TimeScalePointGraph.Point(status.coverage, 1.2));
-    ts.setColor("Coverage", "purple");
+    ts.setColor("Coverage", "purple", "purple");
 
     if (status.mutants.length != 0) {
         double y = 0.8;
@@ -125,7 +125,7 @@ void syncStatus(SyncStatus status, Element root) {
             ts.put("Mutant", TimeScalePointGraph.Point(v.updated, y));
             y += 0.3 / status.mutants.length;
         }
-        ts.setColor("Mutant", "red");
+        ts.setColor("Mutant", "red", "red");
     }
     ts.html(root, TimeScalePointGraph.Width(50));
 

@@ -194,6 +194,7 @@ struct TimeScalePointGraph {
     static struct Sample {
         Point[] values;
         string bgColor;
+        string brColor;
     }
 
     /// Name of the chart
@@ -206,9 +207,10 @@ struct TimeScalePointGraph {
         this.name = name;
     }
 
-    void setColor(string sample, string c) {
-        samples.update(sample, { return Sample(null, c); }, (ref Sample s) {
-            s.bgColor = c;
+    void setColor(string sample, string bgC, string brC) {
+        samples.update(sample, { return Sample(null, bgC, brC); }, (ref Sample s) {
+            s.bgColor = bgC;
+            s.brColor = brC;
         });
     }
 
@@ -232,7 +234,7 @@ struct TimeScalePointGraph {
                     JSONValue d;
                     d["label"] = sample.key;
                     d["backgroundColor"] = sample.value.bgColor;
-                    d["borderColor"] = sample.value.bgColor;
+                    d["borderColor"] = sample.value.brColor;
                     d["fill"] = false;
                     auto data = appender!(JSONValue[])();
                     foreach (v; sample.value.values) {
