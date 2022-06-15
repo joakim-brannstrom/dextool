@@ -28,46 +28,9 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
 
     auto base = root.addChild("div");
 
-    auto ts = TimeScalePointGraph("ScoreHistory");
+    const history = reportMutationScoreHistory(db);
 
-    const history = reportMutationScoreHistory(db).rollingAvg;
-    if (history.data.length > 2 && history.estimate.x != SysTime.init) {
-        foreach (v; history.data) {
-            ts.put("Score", TimeScalePointGraph.Point(v.timeStamp, v.score.get));
-        }
-        ts.setColor("Score", "blue");
-
-        ts.put("Trend", TimeScalePointGraph.Point(history.estimate.x, history.estimate.avg));
-        ts.put("Trend", TimeScalePointGraph.Point(history.data[$ - 1].timeStamp,
-                history.data[$ - 1].score.get));
-        ts.put("Trend", TimeScalePointGraph.Point(history.estimate.predX,
-                history.estimate.predScore));
-        ts.setColor("Trend", () {
-            final switch (history.estimate.trend) with (MutationScoreHistory.Trend) {
-            case undecided:
-                return "grey";
-            case negative:
-                return "red";
-            case positive:
-                return "green";
-            }
-        }());
-
-        ts.html(base, TimeScalePointGraph.Width(80));
-        base.addChild("p")
-            .appendHtml(
-                    "<i>trend</i> is a prediction of how the mutation score will change based on previous scores.");
-    }
-
-    const codeChange = reportTrendByCodeChange(db, kinds);
-    if (codeChange.sample.length > 2) {
-        ts = TimeScalePointGraph("ScoreByCodeChange");
-        foreach (v; codeChange.sample) {
-            ts.put("Score", TimeScalePointGraph.Point(v.timeStamp, v.value.get));
-        }
-        ts.setColor("Score", "purple");
-        ts.html(base, TimeScalePointGraph.Width(80));
-        base.addChild("p").appendHtml(
-                "<i>code change</i> is a prediction of how the mutation score will change based on the latest code changes.");
+    foreach(data; history.data){
+      base.addChild("p", format("%s (%s): %s", data.filePath, data.timeStamp, data.score.get));
     }
 }

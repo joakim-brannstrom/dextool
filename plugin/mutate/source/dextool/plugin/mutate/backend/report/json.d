@@ -161,7 +161,7 @@ final class ReportJson {
         if (ReportSection.summary in sections) {
             const statList = reportStatistics(db, kinds, db.getFilesStrings);
             //TODO, should loop
-            auto stat = statList.front();
+            auto stat = statList[0];
             JSONValue s = ["alive" : stat.alive];
             s.object["no_coverage"] = stat.noCoverage;
             s.object["alive_nomut"] = stat.aliveNoMut;

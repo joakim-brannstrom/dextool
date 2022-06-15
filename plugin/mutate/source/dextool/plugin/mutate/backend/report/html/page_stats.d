@@ -38,18 +38,15 @@ void makeStats(ref Database db, string tag, Element root,
 private:
 
 // TODO: this function contains duplicated logic from the one in ../utility.d
-void overallStat(DList!MutationStat statList, Element base) {
+void overallStat(MutationStat[] statList, Element base) {
     import std.conv : to;
     import std.typecons : tuple;
     import core.time : Duration;
 
     MutationStat s;
-    MutationStat statVal;
     Duration predictedDone;
 
-    while(!statList.empty){
-      statVal = statList.front();
-
+    foreach(statVal; statList){
       s.untested += statVal.untested;
       s.killedByCompiler += statVal.killedByCompiler;
       s.worklist += statVal.worklist;
@@ -68,8 +65,6 @@ void overallStat(DList!MutationStat statList, Element base) {
       s.scoreData.totalTime.test += statVal.scoreData.totalTime.test;
       s.scoreData.aliveNoMut += statVal.scoreData.aliveNoMut;
       predictedDone += statVal.predictedDone;
-
-      statList.removeFront();
     }
 
     base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score()));

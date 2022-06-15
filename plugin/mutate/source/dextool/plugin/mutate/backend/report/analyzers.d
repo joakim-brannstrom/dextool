@@ -376,13 +376,7 @@ MutationScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, strin
     auto profile = Profile("reportScore");
     auto app = appender!(MutationScore[]);
 
-    auto i = 0;
     foreach(file; files){
-      try{
-        logger.infof("\nTrying to add score for: %s", file);
-      } catch (Exception e){
-
-      }
       MutationScore result;
       result.alive = spinSql!(() => db.mutantApi.aliveSrcMutants(kinds, file)).count;
       result.killed = spinSql!(() => db.mutantApi.killedSrcMutants(kinds, file)).count;
@@ -528,12 +522,12 @@ struct MutationStat {
     }
 }
 
-DList!MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, string[] files) @safe nothrow {
+MutationStat[] reportStatistics(ref Database db, const Mutation.Kind[] kinds, string[] files) @safe nothrow {
     import core.time : dur;
     import dextool.plugin.mutate.backend.utility;
 
     auto profile = Profile(ReportSection.summary);
-    auto stList = DList!MutationStat();
+    auto app = appender!(MutationStat[]);
 
     foreach(filePath; files){
       MutationStat st;
@@ -552,10 +546,10 @@ DList!MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds
           return (st.worklist * avg.total!"msecs").dur!"msecs";
       }();
       st.killedByCompilerTime = killedByCompiler.time;
-      stList.insertBack(st);
+      app.put(st);
     }
 
-    return stList;
+    return app.data;
 }
 
 struct MarkedMutantsStat {
@@ -1334,38 +1328,7 @@ struct MutationScoreHistory {
 }
 
 MutationScoreHistory reportMutationScoreHistory(ref Database db) @safe {
-    return reportMutationScoreHistory(db.getMutationScoreHistory);
-}
-
-private MutationScoreHistory reportMutationScoreHistory(
-        dextool.plugin.mutate.backend.database.type.MutationScore[] data) {
-    import std.datetime : DateTime, Date, SysTime;
-    import dextool.plugin.mutate.backend.database.type : MutationScore;
-
-    auto pretty = appender!(MutationScore[])();
-
-    if (data.length < 2) {
-        return MutationScoreHistory(data);
-    }
-
-    auto last = (cast(DateTime) data[0].timeStamp).date;
-    double acc = data[0].score.get;
-    double nr = 1;
-    foreach (a; data[1 .. $]) {
-        auto curr = (cast(DateTime) a.timeStamp).date;
-        if (curr == last) {
-            acc += a.score.get;
-            nr++;
-        } else {
-            pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr), data[0].filePath));
-            last = curr;
-            acc = a.score.get;
-            nr = 1;
-        }
-    }
-    pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr), data[0].filePath));
-
-    return MutationScoreHistory(pretty.data);
+    return MutationScoreHistory(db.getMutationScoreHistory);
 }
 
 @("shall calculate the mean of the mutation scores")
