@@ -36,7 +36,6 @@ import dextool.plugin.mutate.backend.type : Mutation;
 @safe:
 
 void makeWorklistPage(ref Database db, Element root, const AbsolutePath mutantPageFname) @trusted {
-    root.addChild("a", "Worklist").href = mutantPageFname.baseName;
     makePage(db, mutantPageFname);
 }
 

@@ -61,13 +61,15 @@ void overallStat(const MutationStat s, Element base) {
             tuple("Total", s.total),
             tuple("Killed by compiler", cast(long) s.killedByCompiler),
             tuple("Skipped", s.skipped), tuple("Equivalent", s.equivalent),
-            tuple("Worklist", cast(long) s.worklist),
         ]) {
         tbl.appendRow(d[0], d[1]);
     }
-
-    base.addChild("p").appendHtml(
-            "<i>worklist</i> is the number of mutants that are in the queue to be tested/retested.");
+    {
+        auto foo = tbl.appendRow;
+        string infoText = "Worklist is the number of mutants that are in the same queue to be tested/retested";
+        foo.addChild("td").addChild("a", "Worklist").setAttribute("href", "worklist.html").addChild("div", "[?]").addClass("info-box").addChild("span", infoText).addClass("info-box-content");
+        foo.addChild("td", s.worklist.to!string);
+    }
 
     if (s.aliveNoMut != 0) {
         tbl.appendRow("NoMut", s.aliveNoMut.to!string);
@@ -82,6 +84,9 @@ void overallStat(const MutationStat s, Element base) {
 }
 
 void syncStatus(SyncStatus status, Element root) {
+    string syncInfoText = "Sync Status is how old the information about mutants and their status is compared to when the tests or source code where last changed.";
+    root.addChild("div", "Sync Status").addChild("div", "[?]").addClass("info-box").addChild("span", syncInfoText).addClass("info-box-content");
+
     auto ts = TimeScalePointGraph("SyncStatus");
 
     ts.put("Test", TimeScalePointGraph.Point(status.test, 1.6));
@@ -102,6 +107,4 @@ void syncStatus(SyncStatus status, Element root) {
         ts.setColor("Mutant", "red");
     }
     ts.html(root, TimeScalePointGraph.Width(50));
-
-    root.addChild("p").appendHtml("<i>sync status</i> is how old the information about mutants and their status is compared to when the tests or source code where last changed");
 }
