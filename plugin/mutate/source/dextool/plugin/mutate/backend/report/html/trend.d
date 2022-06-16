@@ -19,9 +19,12 @@ import arsd.dom : Element, Link;
 
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.report.analyzers : reportTrendByCodeChange,
-    reportMutationScoreHistory, MutationScoreHistory;
+    reportMutationScoreHistory, reportMutationScoreHistoryByFile, MutationScoreHistory;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.type : Mutation;
+
+import std.datetime : SysTime;
+import dextool.plugin.mutate.backend.report.html.tmpl : TimeScalePointGraph;
 
 string randomColorHex(){
     auto rng = Random(unpredictableSeed);
@@ -54,18 +57,64 @@ string randomColorHex(){
 }
 
 void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[] kinds) @trusted {
-    import std.datetime : SysTime;
-    import dextool.plugin.mutate.backend.report.html.tmpl : TimeScalePointGraph;
-
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Trend");
 
-    string[string] lineColor;
-    double[SysTime] totalScoreAtTime;
-    int[SysTime] fileCountAtTime;
     auto base = root.addChild("div");
+
     auto ts = TimeScalePointGraph("ScoreHistory");
 
-    const history = reportMutationScoreHistory(db);
+    const history = reportMutationScoreHistory(db).rollingAvg;
+    if (history.data.length > 2 && history.estimate.x != SysTime.init) {
+        foreach (v; history.data) {
+            ts.put("Score", TimeScalePointGraph.Point(v.timeStamp, v.score.get));
+        }
+        ts.setColor("Score", "blue", "blue");
+
+        ts.put("Trend", TimeScalePointGraph.Point(history.estimate.x, history.estimate.avg));
+        ts.put("Trend", TimeScalePointGraph.Point(history.data[$ - 1].timeStamp,
+                history.data[$ - 1].score.get));
+        ts.put("Trend", TimeScalePointGraph.Point(history.estimate.predX,
+                history.estimate.predScore));
+
+        string color = () {
+            final switch (history.estimate.trend) with (MutationScoreHistory.Trend) {
+            case undecided:
+                return "grey";
+            case negative:
+                return "red";
+            case positive:
+                return "green";
+            }
+        }();
+        ts.setColor("Trend", color, color);
+
+        ts.html(base, TimeScalePointGraph.Width(80));
+        base.addChild("p")
+            .appendHtml(
+                    "<i>trend</i> is a prediction of how the mutation score will change based on previous scores.");
+    }
+
+    const codeChange = reportTrendByCodeChange(db, kinds);
+    if (codeChange.sample.length > 2) {
+        ts = TimeScalePointGraph("ScoreByCodeChange");
+        foreach (v; codeChange.sample) {
+            ts.put("Score", TimeScalePointGraph.Point(v.timeStamp, v.value.get));
+        }
+        ts.setColor("Score", "purple", "purple");
+        ts.html(base, TimeScalePointGraph.Width(80));
+        base.addChild("p").appendHtml(
+                "<i>code change</i> is a prediction of how the mutation score will change based on the latest code changes.");
+    }
+}
+
+void makeFileTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[] kinds) @trusted {
+    DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Trend by file");
+
+    string[string] lineColor;
+    auto base = root.addChild("div");
+    auto ts = TimeScalePointGraph("ScoreHistory");
+    
+    const history = reportMutationScoreHistoryByFile(db);
     double score;
     string color;
 
@@ -74,8 +123,6 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
       foreach(value; history.data){
         color = randomColorHex();
         score = rint(value.score.get * 1000)/1000;
-        totalScoreAtTime[value.timeStamp] += score;
-        fileCountAtTime[value.timeStamp] += 1;
         lineColor[value.filePath] = color;
         ts.put(value.filePath, TimeScalePointGraph.Point(value.timeStamp, score));
         ts.setColor(value.filePath, color, color);
@@ -85,6 +132,5 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
     ts.html(base, TimeScalePointGraph.Width(80));
         base.addChild("p")
             .appendHtml(
-                    "<i>trend</i> is a graph displaying how the MutationScore has changed between tests.");
-
+                    "<i>trend by file</i> is a graph displaying how the MutationScore has changed between tests.");
 }

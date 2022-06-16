@@ -1099,7 +1099,7 @@ nothrow:
 
     void opCall(SaveMutationScore data) {
         import dextool.plugin.mutate.backend.database.type : MutationScore;
-        import dextool.plugin.mutate.backend.report.analyzers : reportScores;
+        import dextool.plugin.mutate.backend.report.analyzers : reportScore, reportScores;
 
         if (spinSql!(() => db.mutantApi.unknownSrcMutants(kinds)).count != 0)
             return;
@@ -1115,14 +1115,23 @@ nothrow:
 
         //TODO: Should get these from the database+
         string[] files = ["src/entity.h", "src/event.h", "src/game.cpp", "src/game.h", "src/main.cpp", "src/mob.cpp", "src/mob.h", "src/mobsystem.cpp", "src/mobsystem.h", "src/physics.h", "src/physicssystem.cpp", "src/physicssystem.h", "src/rendersystem.cpp", "src/rendersystem.h", "src/system.h", "src/util.h", "src/window.cpp", "src/window.h"];
-        const scores = reportScores(*db, kinds, files);
+        const fileScores = reportScores(*db, kinds, files);
+        const score = reportScore(*db, kinds);
         const time = Clock.currTime;
         // 10000 mutation scores is only ~80kbyte. Should be enough entries
         // without taking up unreasonable amount of space.
-        foreach(score; scores){
+
+        spinSql!(() @trusted {
+            auto t = db.transaction;
+            db.putMutationScore(MutationScore(time, typeof(MutationScore.score)(score.score)));
+            db.trimMutationScore(10000);
+            t.commit;
+        });
+
+        foreach(fileScore; fileScores){
             spinSql!(() @trusted {
                 auto t = db.transaction;
-                db.putMutationScore(MutationScore(time, typeof(MutationScore.score)(score.score), score.filePath));
+                db.putMutationFileScore(MutationScore(time, typeof(MutationScore.score)(fileScore.score), fileScore.filePath));
                 db.trimMutationScore(10000);
                 t.commit;
             });

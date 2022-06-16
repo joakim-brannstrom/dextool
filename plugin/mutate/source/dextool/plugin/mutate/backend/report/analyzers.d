@@ -1327,8 +1327,44 @@ struct MutationScoreHistory {
 }
 
 MutationScoreHistory reportMutationScoreHistory(ref Database db) @safe {
-    return MutationScoreHistory(db.getMutationScoreHistory);
+    return reportMutationScoreHistory(db.getMutationScoreHistory);
 }
+
+private MutationScoreHistory reportMutationScoreHistory(
+        dextool.plugin.mutate.backend.database.type.MutationScore[] data) {
+    import std.datetime : DateTime, Date, SysTime;
+    import dextool.plugin.mutate.backend.database.type : MutationScore;
+
+    auto pretty = appender!(MutationScore[])();
+
+    if (data.length < 2) {
+        return MutationScoreHistory(data);
+    }
+
+    auto last = (cast(DateTime) data[0].timeStamp).date;
+    double acc = data[0].score.get;
+    double nr = 1;
+    foreach (a; data[1 .. $]) {
+        auto curr = (cast(DateTime) a.timeStamp).date;
+        if (curr == last) {
+            acc += a.score.get;
+            nr++;
+        } else {
+            pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr), data[0].filePath));
+            last = curr;
+            acc = a.score.get;
+            nr = 1;
+        }
+    }
+    pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr), data[0].filePath));
+
+    return MutationScoreHistory(pretty.data);
+}
+
+MutationScoreHistory reportMutationScoreHistoryByFile(ref Database db) @safe {
+    return MutationScoreHistory(db.getMutationFileScoreHistory);
+}
+
 
 @("shall calculate the mean of the mutation scores")
 unittest {

@@ -280,12 +280,23 @@ struct Database {
         db.run("VACUUM");
     }
 
-    /// Returns: the stored scores in ascending order by their `time`.
     MutationScore[] getMutationScoreHistory() @trusted {
         import std.algorithm : sort;
 
         auto app = appender!(MutationScore[])();
         foreach (r; db.run(select!MutationScoreHistoryTable)) {
+            app.put(MutationScore(r.timeStamp, typeof(MutationScore.score)(r.score)));
+        }
+
+        return app.data.sort!((a, b) => a.timeStamp < b.timeStamp).array;
+    }
+
+    /// Returns: the stored scores in ascending order by their `time`.
+    MutationScore[] getMutationFileScoreHistory() @trusted {
+        import std.algorithm : sort;
+
+        auto app = appender!(MutationScore[])();
+        foreach (r; db.run(select!MutationFileScoreHistoryTable)) {
             app.put(MutationScore(r.timeStamp, typeof(MutationScore.score)(r.score), r.filePath));
         }
 
@@ -295,6 +306,12 @@ struct Database {
     /// Add a mutation score to the history table.
     void putMutationScore(const MutationScore score) @trusted {
         db.run(insert!MutationScoreHistoryTable, MutationScoreHistoryTable(0,
+                score.timeStamp, score.score.get));
+    }
+
+    // Add a mutation score for the individual files
+    void putMutationFileScore(const MutationScore score) @trusted {
+        db.run(insert!MutationFileScoreHistoryTable, MutationFileScoreHistoryTable(0,
                 score.timeStamp, score.score.get, score.filePath));
     }
 

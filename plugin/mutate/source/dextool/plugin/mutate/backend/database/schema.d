@@ -101,6 +101,7 @@ immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
 immutable mutantWorklistTable = "mutant_worklist";
 immutable mutationPointTable = "mutation_point";
 immutable mutationScoreHistoryTable = "mutation_score_history";
+immutable mutationFileScoreHistoryTable = "mutation_file_score_history";
 immutable mutationStatusTable = "mutation_status";
 immutable mutationTable = "mutation";
 immutable nomutDataTable = "nomut_data";
@@ -652,6 +653,17 @@ struct MutationScoreHistoryTable {
     SysTime timeStamp;
 
     double score;
+}
+
+@TableName(mutationFileScoreHistoryTable)
+struct MutationFileScoreHistoryTable {
+    long id;
+
+    /// when the measurement was taken.
+    @ColumnName("time")
+    SysTime timeStamp;
+
+    double score;
 
     @ColumnName("filePath")
     string filePath;
@@ -895,6 +907,7 @@ void upgradeV0(ref Miniorm db) {
             SchemataMutantTable,
             SchemataUsedTable, SchemaMutantKindQTable, SchemaSizeQTable,
             MutantWorklistTbl, RuntimeHistoryTable, MutationScoreHistoryTable,
+            MutationFileScoreHistoryTable,
             TestFilesTable, CoverageCodeRegionTable,
             CoverageInfoTable, CoverageTimeTtampTable, DependencyFileTable,
             DependencyRootTable,
