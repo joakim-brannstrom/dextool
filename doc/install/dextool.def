@@ -30,22 +30,19 @@ From: ubuntu:18.04
     apt-get -y install libsqlite3-dev
     echo "LLVM Dependencies + SQL Installed."
     echo "Installing D-Compiler and other auxilary resources"
-    mkdir -p ~/dlang
-    wget https://dlang.org/install.sh -O ~/dlang/install.sh
-    chmod +777 ~/dlang/install.sh
-    ~/dlang/install.sh install dmd-2.097.2
-    ~/dlang/install.sh install ldc-1.28.0
-    ~/dlang/install.sh install dub
+    mkdir -p /usr/local/dlang
+    wget https://dlang.org/install.sh -O /usr/local/dlang/install.sh
+    chmod +777 /usr/local/dlang/install.sh
+    /usr/local/dlang/install.sh install -p /usr/local/bin dub
+    /usr/local/dlang/install.sh install -p /usr/local/bin ldc-1.28.0
+    echo "Copy ldc binary to bin"
+    chmod +777 /usr/local/bin/ldc-1.28.0
     echo "Adding to path variables"
-    source ~/dlang/dmd-2.097.2/activate
-    source ~/dlang/ldc-1.28.0/activate
-    source ~/dlang/dub-1.22.0/activate
+    source /usr/local/bin/ldc-1.28.0/activate
     #Installing Dextool
     echo "Installing dextool $NOW"
     echo "Activating the D Compiler"
-    source ~/dlang/dmd-2.097.2/activate
-    echo "Done!"
-    git clone https://github.com/joakim-brannstrom/dextool.git --branch v4.3.0 --single-branch
+    git clone https://github.com/joakim-brannstrom/dextool.git
     mkdir dextool/build
     cd dextool/build
     cmake -DCMAKE_INSTALL_PREFIX=/usr ..
@@ -55,5 +52,5 @@ From: ubuntu:18.04
     echo "Checking the version of dextool"
     dextool --version
     dextool --plugin-list
-    echo "Cloning the project to be used in the lab"
+    echo "Cloning the dextool project version 4.3.0"
     git clone  https://github.com/joakim-brannstrom/dextool.git --branch v4.3.0 --single-branch
