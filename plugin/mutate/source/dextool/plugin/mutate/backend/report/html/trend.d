@@ -82,16 +82,6 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
       }
     }
 
-    //Generate Average
-    foreach(scoreAtTime; totalScoreAtTime.byKeyValue){
-      auto time = scoreAtTime.key;
-      score = scoreAtTime.value / fileCountAtTime[time];
-      score = rint(score * 1000)/1000;
-      ts.put("Average", TimeScalePointGraph.Point(time, score));
-      color = randomColorHex();
-      ts.setColor("Average", color, color);
-    }
-
     ts.html(base, TimeScalePointGraph.Width(80));
         base.addChild("p")
             .appendHtml(
