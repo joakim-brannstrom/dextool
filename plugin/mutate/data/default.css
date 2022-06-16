@@ -84,3 +84,32 @@ i {
   border: 1px solid #ccc;
   border-top: none;
 }
+
+/* CSS for information box, on hover shows chosen information*/
+.info-box {
+  display: inline-block;
+  position: relative;
+  color: #000;
+  }
+  
+.info-box .info-box-content {
+  visibility: hidden;
+  width: 400px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  padding: 5px 5px;
+  border-radius: 6px;
+  position: absolute;
+  top: 50%;
+  left: 100%; /* To the left of the [?] */
+  margin-top: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color:  #333;
+}
+  
+.info-box:hover .info-box-content {
+  visibility: visible;
+}
+/* End information box css */
