@@ -14,6 +14,8 @@ import std.array : empty, appender;
 import std.exception : collectException;
 import std.json : JSONValue;
 import std.path : buildPath;
+import std.math;
+
 
 import my.from_;
 
@@ -249,11 +251,24 @@ import dextool.plugin.mutate.backend.report.analyzers : MutationScoreHistory;
 JSONValue[] toJson(const MutationScoreHistory data) {
     import std.conv : to;
 
-    auto app = appender!(JSONValue[])();
+    JSONValue[string] fileDict;
+
     foreach (a; data.data) {
+        string date = a.timeStamp.to!string;
+        auto score = rint(a.score.get * 1000)/1000;
+        if (!(a.filePath in fileDict)){
+          JSONValue s;
+          s[date] = score;
+          fileDict[a.filePath] = s;
+        }else{
+          fileDict[a.filePath][date] = score;
+        }
+    }
+
+    auto app = appender!(JSONValue[])();
+    foreach(value; fileDict.byKeyValue){
         JSONValue s;
-        s["date"] = a.timeStamp.to!string;
-        s["score"] = a.score.get;
+        s[value.key] = value.value;
         app.put(s);
     }
 
