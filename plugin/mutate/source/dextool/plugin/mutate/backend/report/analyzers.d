@@ -372,7 +372,7 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
 }
 
 MutationScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, string[] files) @safe nothrow {
-    auto profile = Profile("reportScore");
+    auto profile = Profile("reportScores");
     auto app = appender!(MutationScore[]);
 
     foreach(file; files){
@@ -1350,6 +1350,7 @@ private MutationScoreHistory reportMutationScoreHistory(
             acc += a.score.get;
             nr++;
         } else {
+
             pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr), data[0].filePath));
             last = curr;
             acc = a.score.get;
