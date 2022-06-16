@@ -280,6 +280,7 @@ struct Database {
         db.run("VACUUM");
     }
 
+    /// Returns: the stored scores in ascending order by their `time`.
     MutationScore[] getMutationScoreHistory() @trusted {
         import std.algorithm : sort;
 

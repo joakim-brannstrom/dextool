@@ -366,7 +366,6 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds, file));
     rval.totalTime = total.time;
     rval.total = total.count;
-    rval.filePath = file;
 
     return rval;
 }
