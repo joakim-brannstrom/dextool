@@ -45,7 +45,7 @@ From: ubuntu:18.04
     git clone https://github.com/joakim-brannstrom/dextool.git
     mkdir dextool/build
     cd dextool/build
-    cmake -DCMAKE_INSTALL_PREFIX=/usr ..
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DLOW_MEM=ON ..
     make install
 %environment
     echo "Starting the dextool singularity environment..."
@@ -53,4 +53,3 @@ From: ubuntu:18.04
     dextool --version
     dextool --plugin-list
     echo "Cloning the dextool project version 4.3.0"
-    git clone  https://github.com/joakim-brannstrom/dextool.git --branch v4.3.0 --single-branch
