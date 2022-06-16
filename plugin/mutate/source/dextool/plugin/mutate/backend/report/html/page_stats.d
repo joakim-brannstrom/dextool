@@ -66,7 +66,7 @@ void overallStat(const MutationStat s, Element base) {
     }
     {
         auto foo = tbl.appendRow;
-        string infoText = "Worklist test is the number of mutants that are in the same queue to be tested/retested";
+        string infoText = "Worklist is the number of mutants that are in the same queue to be tested/retested";
         foo.addChild("td").addChild("a", "Worklist").setAttribute("href", "worklist.html").addChild("div", "[?]").addClass("info-box").addChild("span", infoText).addClass("info-box-content");
         foo.addChild("td", s.worklist.to!string);
     }
