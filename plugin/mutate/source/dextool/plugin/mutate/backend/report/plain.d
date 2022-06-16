@@ -248,7 +248,6 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
         if (ReportSection.summary in sections) {
             logger.info("Summary");
             auto summaryList = reportStatistics(db, kinds, db.getFilesStrings);
-            //TODO, should loop
             auto summary = summaryList[0];
             writeln(summary.toString);
 
@@ -261,11 +260,11 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 
 private:
 
-Table!2 toTable(MutationScoreHistory data) {
-    Table!2 tbl;
-    tbl.heading = ["Date", "Score"];
+Table!3 toTable(MutationScoreHistory data) {
+    Table!3 tbl;
+    tbl.heading = ["File", "Date", "Score"];
     foreach (a; data.data) {
-        typeof(tbl).Row row = [a.timeStamp.to!string, a.score.get.to!string];
+        typeof(tbl).Row row = [a.filePath, a.timeStamp.to!string, a.score.get.to!string];
         tbl.put(row);
     }
 
