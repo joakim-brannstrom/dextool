@@ -21,7 +21,6 @@ import std.exception : collectException;
 import std.format : format;
 import std.range : take, retro, only;
 import std.typecons : Flag, Yes, No, Tuple, Nullable, tuple;
-import std.container : DList;
 
 import my.named_type;
 import my.optional;
