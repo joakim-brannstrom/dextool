@@ -24,6 +24,7 @@ TEST_F(Basic, OneGameStep) {
     window->render();
 
     EXPECT_EQ(window->layoutEvents.size(), 35160);
+    
 }
 
 TEST_F(Basic, StepLeft) {
