@@ -31,6 +31,8 @@ import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
 
+import miniorm : spinSql, silentLog;
+
 @safe:
 
 void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf,
@@ -161,7 +163,8 @@ final class ReportJson {
             reportTrendByCodeChange;
 
         if (ReportSection.summary in sections) {
-            const statList = reportStatistics(db, kinds, db.getFilesStrings);
+            auto files = spinSql!(() => db.getFilesStrings());
+            const statList = reportStatistics(db, kinds, files);
             //TODO, should loop
             auto stat = statList[0];
             JSONValue s = ["alive" : stat.alive];

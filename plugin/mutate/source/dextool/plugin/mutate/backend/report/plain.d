@@ -33,6 +33,8 @@ import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportSection;
 import dextool.plugin.mutate.backend.utility : Profile;
 
+import miniorm : spinSql, silentLog;
+
 @safe:
 
 void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf, FilesysIO fio) {
@@ -247,7 +249,8 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 
         if (ReportSection.summary in sections) {
             logger.info("Summary");
-            auto summaryList = reportStatistics(db, kinds, db.getFilesStrings);
+            auto files = spinSql!(() => db.getFilesStrings());
+            auto summaryList = reportStatistics(db, kinds, files);
             auto summary = summaryList[0];
             writeln(summary.toString);
 

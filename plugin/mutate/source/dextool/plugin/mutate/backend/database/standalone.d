@@ -203,7 +203,7 @@ struct Database {
         return app.data;
     }
 
-    string[] getFilesStrings() @trusted {
+    string[] getFilesStrings() return @trusted {
         auto stmt = db.prepare(format!"SELECT path FROM %s"(filesTable));
         auto res = stmt.get.execute;
 
