@@ -99,7 +99,7 @@ class MutantsResult {
         }
 
         void toString(Writer)(ref Writer w) const {
-            formattedWrite!"%s [%s-%s:%s]:[%s:%s][%s:%s]"(w, sloc.begin.line,
+            formattedWrite!"[%s:%s-%s:%s]:[%s:%s][%s:%s]"(w, sloc.begin.line,
                     sloc.begin.column, sloc.end.line, sloc.end.column,
                     offset.begin, offset.end, context.begin, context.end);
         }
@@ -513,7 +513,7 @@ class MutantVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
-    override void visit(Poision n) {
+    override void visit(Poison n) {
         auto old = context;
         scope (exit)
             context = old;

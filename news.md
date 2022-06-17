@@ -1,3 +1,9 @@
+# vNext
+
+Fixes for dextool mutate
+
+ * Coverage info could accumulate infinitely in the database, wrong foreign key.
+
 # v4.3.0 Deep Steel
 
 Fixes

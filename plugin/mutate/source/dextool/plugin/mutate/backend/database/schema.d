@@ -691,7 +691,7 @@ struct CoverageCodeRegionTable {
  * mean that something went wrong when gathering the data.
  */
 @TableName(srcCovInfoTable)
-@TableForeignKey("id", KeyRef("src_cov_info(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("id", KeyRef("src_cov_instr(id)"), KeyParam("ON DELETE CASCADE"))
 struct CoverageInfoTable {
     long id;
 
@@ -1677,6 +1677,15 @@ void upgradeV30(ref Miniorm db) {
 
 /// 2020-12-29
 void upgradeV31(ref Miniorm db) {
+    @TableName(srcCovInfoTable)
+    @TableForeignKey("id", KeyRef("src_cov_info(id)"), KeyParam("ON DELETE CASCADE"))
+    struct CoverageInfoTable {
+        long id;
+
+        /// True if the region has been visited.
+        bool status;
+    }
+
     db.run(buildSchema!(CoverageCodeRegionTable, CoverageInfoTable, CoverageTimeTtampTable));
 }
 
@@ -1883,6 +1892,12 @@ void upgradeV49(ref Miniorm db) {
 void upgradeV50(ref Miniorm db) {
     db.run("DROP TABLE " ~ testCmdOriginalTable);
     db.run(buildSchema!(TestCmdRelMutantTable, TestCmdTable, TestCmdOriginalTable));
+}
+
+// 2022-06-14
+void upgradeV51(ref Miniorm db) {
+    db.run("DROP TABLE " ~ srcCovInfoTable);
+    db.run(buildSchema!CoverageInfoTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
