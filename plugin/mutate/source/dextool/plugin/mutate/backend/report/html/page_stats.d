@@ -65,18 +65,11 @@ void overallStat(const MutationStat s, Element base) {
         ]) {
         tbl.appendRow(d[0], d[1]);
     }
-    // {
-        
-        
-    //     auto foo = tbl.appendRow;
-
-    //     //generatePopupHelp(element, text, infoText);
-
-
-    //     string infoText = "Worklist is the number of mutants that are in the same queue to be tested/retested";
-    //     foo.addChild("td").addChild("a", "Worklist").setAttribute("href", "worklist.html").addChild("div", "[?]").addClass("info-box").addChild("span", infoText).addClass("info-box-content");
-    //     foo.addChild("td", s.worklist.to!string);
-    // }
+    {
+        auto td = tbl.appendRow;
+        generatePopupHelpLink(td, "Worklist", "Worklist is the number of mutants that are in the same queue to be tested/retested", "worklist.html");
+        td.addChild("td", s.worklist.to!string);
+    }
 
     if (s.aliveNoMut != 0) {
         tbl.appendRow("NoMut", s.aliveNoMut.to!string);
@@ -91,11 +84,7 @@ void overallStat(const MutationStat s, Element base) {
 }
 
 void syncStatus(SyncStatus status, Element root) {
-   // string syncInfoText = ;
-   //root.addChild("div", "Sync Status").addChild("div", "[?]").addClass("info-box").addChild("span", syncInfoText).addClass("info-box-content");
-
     generatePopupHelp(root, "Sync Status", "Sync Status is how old the information about mutants and their status is compared to when the tests or source code where last changed.");
-    //generatePopupHelp(root, "Sync Status", "Sync Status is how old the information about mutants and their status is compared to when the tests or source code where last changed.");
 
     auto ts = TimeScalePointGraph("SyncStatus");
 
@@ -118,7 +107,3 @@ void syncStatus(SyncStatus status, Element root) {
     }
     ts.html(root, TimeScalePointGraph.Width(50));
 }
-
-// void generatePopupHelp(Element e, string t, string i) {
-//     e.addChild("div", t).addChild("div", "[?]").addClass("info-box").addChild("span", i).addClass("info-box-content");
-// }

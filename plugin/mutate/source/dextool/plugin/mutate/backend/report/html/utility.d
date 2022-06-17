@@ -56,6 +56,16 @@ string toShortTime(Duration d) {
     return format!"%ss"(d.total!"seconds");
 }
 
-void generatePopupHelp(Element e, string t, string i) {
-    e.addChild("div", t).addChild("div", "[?]").addClass("info-box").addChild("span", i).addClass("info-box-content");
+
+@trusted
+void generatePopupHelp(Element e, string infoTitle, string infoText) {
+    e.addChild("div", infoTitle).addChild("div", "[?]").addClass("info-box")
+    .addChild("span", infoText).addClass("info-box-content");
+}
+
+@trusted
+void generatePopupHelpLink(Element e, string infoTitle, string infoText, string link) {
+   foo.addChild("td").addChild("a", infoTitle).setAttribute("href", link)
+   .addChild("div", "[?]").addClass("info-box").addChild("span", infoText)
+   .addClass("info-box-content");
 }
