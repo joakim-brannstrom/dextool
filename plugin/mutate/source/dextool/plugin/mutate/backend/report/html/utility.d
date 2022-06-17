@@ -13,6 +13,7 @@ import std.datetime : SysTime, Duration, dur;
 
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.type : Path;
+import arsd.dom : Element;
 
 @safe:
 
@@ -53,4 +54,8 @@ string toShortTime(Duration d) {
     }
 
     return format!"%ss"(d.total!"seconds");
+}
+
+void generatePopupHelp(Element e, string t, string i) {
+    e.addChild("div", t).addChild("div", "[?]").addClass("info-box").addChild("span", i).addClass("info-box-content");
 }
