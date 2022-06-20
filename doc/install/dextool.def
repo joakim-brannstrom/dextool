@@ -34,15 +34,15 @@ From: ubuntu:18.04
     wget https://dlang.org/install.sh -O /usr/local/dlang/install.sh
     chmod +777 /usr/local/dlang/install.sh
     /usr/local/dlang/install.sh install -p /usr/local/bin dub
-    /usr/local/dlang/install.sh install -p /usr/local/bin ldc-1.28.0
+    /usr/local/dlang/install.sh install -p /usr/local/bin ldc-1.29.0
     echo "Copy ldc binary to bin"
-    chmod +777 /usr/local/bin/ldc-1.28.0
+    chmod +777 /usr/local/bin/ldc-1.29.0
     echo "Adding to path variables"
-    source /usr/local/bin/ldc-1.28.0/activate
+    source /usr/local/bin/ldc-1.29.0/activate
     #Installing Dextool
     echo "Installing dextool $NOW"
     echo "Activating the D Compiler"
-    git clone https://github.com/joakim-brannstrom/dextool.git
+    git clone https://github.com/joakim-brannstrom/dextool.git --branch v4.3.0 --single-branch
     mkdir dextool/build
     cd dextool/build
     cmake -DCMAKE_INSTALL_PREFIX=/usr -DLOW_MEM=ON ..
