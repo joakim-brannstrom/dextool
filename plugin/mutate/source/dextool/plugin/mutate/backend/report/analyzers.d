@@ -285,7 +285,7 @@ struct TestCaseDeadStat {
         return buf.data;
     }
 
-    void toString(Writer)(ref Writer w) @safe const
+    void toString(Writer)(ref Writer w) @safe const 
             if (isOutputRange!(Writer, char)) {
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -340,7 +340,6 @@ struct MutationScore {
 
     // Nr of mutants that are alive but tagged with nomut.
     long aliveNoMut;
-    string filePath;
 
     double score() @safe pure nothrow const @nogc {
         if ((total - aliveNoMut) > 0) {
@@ -370,33 +369,6 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     return rval;
 }
 
-MutationScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, string[] files) @safe nothrow {
-    auto profile = Profile("reportScores");
-    auto app = appender!(MutationScore[]);
-
-    foreach(file; files){
-      MutationScore result;
-      result.alive = spinSql!(() => db.mutantApi.aliveSrcMutants(kinds, file)).count;
-      result.killed = spinSql!(() => db.mutantApi.killedSrcMutants(kinds, file)).count;
-      result.timeout = spinSql!(() => db.mutantApi.timeoutSrcMutants(kinds, file)).count;
-      result.aliveNoMut = spinSql!(() => db.mutantApi.aliveNoMutSrcMutants(kinds, file)).count;
-      result.noCoverage = spinSql!(() => db.mutantApi.noCovSrcMutants(kinds, file)).count;
-      result.equivalent = spinSql!(() => db.mutantApi.equivalentMutants(kinds, file)).count;
-      result.skipped = spinSql!(() => db.mutantApi.skippedMutants(kinds, file)).count;
-      result.memOverload = spinSql!(() => db.mutantApi.memOverloadMutants(kinds, file)).count;
-
-      const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds, file));
-      result.totalTime = total.time;
-      result.total = total.count;
-      result.filePath = file;
-
-      app.put(result);
-    }
-
-    return app.data;
-}
-
-
 /// Statistics for a group of mutants.
 struct MutationStat {
     import core.time : Duration;
@@ -405,8 +377,6 @@ struct MutationStat {
     long untested;
     long killedByCompiler;
     long worklist;
-    string filePath;
-
 
     long alive() @safe pure nothrow const @nogc {
         return scoreData.alive;
@@ -520,34 +490,29 @@ struct MutationStat {
     }
 }
 
-MutationStat[] reportStatistics(ref Database db, const Mutation.Kind[] kinds, string[] files) @safe nothrow {
+MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
     import core.time : dur;
     import dextool.plugin.mutate.backend.utility;
 
     auto profile = Profile(ReportSection.summary);
-    auto app = appender!(MutationStat[]);
 
-    foreach(filePath; files){
-      MutationStat st;
-      const untested = spinSql!(() => db.mutantApi.unknownSrcMutants(kinds, filePath));
-      const worklist = spinSql!(() => db.worklistApi.getCount);
-      const killedByCompiler = spinSql!(() => db.mutantApi.killedByCompilerSrcMutants(kinds, filePath));
+    const untested = spinSql!(() => db.mutantApi.unknownSrcMutants(kinds, file));
+    const worklist = spinSql!(() => db.worklistApi.getCount);
+    const killedByCompiler = spinSql!(() => db.mutantApi.killedByCompilerSrcMutants(kinds, file));
 
-      st.filePath = filePath;
-      st.scoreData = reportScore(db, kinds, filePath);
-      st.untested = untested.count;
-      st.killedByCompiler = killedByCompiler.count;
-      st.worklist = worklist;
+    MutationStat st;
+    st.scoreData = reportScore(db, kinds, file);
+    st.untested = untested.count;
+    st.killedByCompiler = killedByCompiler.count;
+    st.worklist = worklist;
 
-      st.predictedDone = () {
-          auto avg = calcAvgPerMutant(db, kinds);
-          return (st.worklist * avg.total!"msecs").dur!"msecs";
-      }();
-      st.killedByCompilerTime = killedByCompiler.time;
-      app.put(st);
-    }
+    st.predictedDone = () {
+        auto avg = calcAvgPerMutant(db, kinds);
+        return (st.worklist * avg.total!"msecs").dur!"msecs";
+    }();
+    st.killedByCompilerTime = killedByCompiler.time;
 
-    return app.data;
+    return st;
 }
 
 struct MarkedMutantsStat {
@@ -1349,22 +1314,16 @@ private MutationScoreHistory reportMutationScoreHistory(
             acc += a.score.get;
             nr++;
         } else {
-
-            pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr), data[0].filePath));
+            pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr)));
             last = curr;
             acc = a.score.get;
             nr = 1;
         }
     }
-    pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr), data[0].filePath));
+    pretty.put(MutationScore(SysTime(last), typeof(MutationScore.score)(acc / nr)));
 
     return MutationScoreHistory(pretty.data);
 }
-
-MutationScoreHistory reportMutationScoreHistoryByFile(ref Database db) @safe {
-    return MutationScoreHistory(db.getMutationFileScoreHistory);
-}
-
 
 @("shall calculate the mean of the mutation scores")
 unittest {
