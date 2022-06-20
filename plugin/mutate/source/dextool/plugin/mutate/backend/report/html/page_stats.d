@@ -12,7 +12,6 @@ module dextool.plugin.mutate.backend.report.html.page_stats;
 import logger = std.experimental.logger;
 import std.datetime : Clock, dur;
 import std.format : format;
-import std.container : DList;
 
 import arsd.dom : Element, Link;
 import my.path : AbsolutePath;
@@ -28,9 +27,9 @@ import dextool.plugin.mutate.backend.type : Mutation;
 void makeStats(ref Database db, string tag, Element root,
         const(Mutation.Kind)[] kinds, const AbsolutePath workListFname) @trusted {
     import dextool.plugin.mutate.backend.report.html.page_worklist;
+
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Overview");
-    string[] files = db.getFilesStrings;
-    overallStat(reportStatistics(db, kinds, files), root.addChild("div"));
+    overallStat(reportStatistics(db, kinds), root.addChild("div"));
     makeWorklistPage(db, root, workListFname);
     syncStatus(reportSyncStatus(db, kinds, 100), root);
 }
@@ -38,41 +37,16 @@ void makeStats(ref Database db, string tag, Element root,
 private:
 
 // TODO: this function contains duplicated logic from the one in ../utility.d
-void overallStat(MutationStat[] statList, Element base) {
+void overallStat(const MutationStat s, Element base) {
     import std.conv : to;
     import std.typecons : tuple;
-    import core.time : Duration;
 
-    MutationStat s;
-    Duration predictedDone;
-
-    foreach(statVal; statList){
-      s.untested += statVal.untested;
-      s.killedByCompiler += statVal.killedByCompiler;
-      s.worklist += statVal.worklist;
-      s.totalTime.compile += statVal.totalTime.compile;
-      s.totalTime.test += statVal.totalTime.test;
-
-      s.scoreData.alive += statVal.scoreData.alive;
-      s.scoreData.killed += statVal.scoreData.killed;
-      s.scoreData.timeout += statVal.scoreData.timeout;
-      s.scoreData.total += statVal.scoreData.total;
-      s.scoreData.noCoverage += statVal.scoreData.noCoverage;
-      s.scoreData.equivalent += statVal.scoreData.equivalent;
-      s.scoreData.skipped += statVal.scoreData.skipped;
-      s.scoreData.memOverload += statVal.scoreData.memOverload;
-      s.scoreData.totalTime.compile += statVal.scoreData.totalTime.compile;
-      s.scoreData.totalTime.test += statVal.scoreData.totalTime.test;
-      s.scoreData.aliveNoMut += statVal.scoreData.aliveNoMut;
-      predictedDone += statVal.predictedDone;
-    }
-
-    base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score()));
+    base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score));
     base.addChild("p", format("Time spent: %s", s.totalTime));
 
     if (s.untested > 0 && s.predictedDone > 0.dur!"msecs") {
-        const pred = Clock.currTime + predictedDone;
-        base.addChild("p", format("Remaining: %s (%s)", predictedDone, pred.toISOExtString));
+        const pred = Clock.currTime + s.predictedDone;
+        base.addChild("p", format("Remaining: %s (%s)", s.predictedDone, pred.toISOExtString));
     }
 
     PieGraph("score", [
@@ -111,13 +85,13 @@ void syncStatus(SyncStatus status, Element root) {
     auto ts = TimeScalePointGraph("SyncStatus");
 
     ts.put("Test", TimeScalePointGraph.Point(status.test, 1.6));
-    ts.setColor("Test", "lightBlue", "lightBlue");
+    ts.setColor("Test", "lightBlue");
 
     ts.put("Code", TimeScalePointGraph.Point(status.code, 1.4));
-    ts.setColor("Code", "lightGreen", "lightGreen");
+    ts.setColor("Code", "lightGreen");
 
     ts.put("Coverage", TimeScalePointGraph.Point(status.coverage, 1.2));
-    ts.setColor("Coverage", "purple", "purple");
+    ts.setColor("Coverage", "purple");
 
     if (status.mutants.length != 0) {
         double y = 0.8;
@@ -125,7 +99,7 @@ void syncStatus(SyncStatus status, Element root) {
             ts.put("Mutant", TimeScalePointGraph.Point(v.updated, y));
             y += 0.3 / status.mutants.length;
         }
-        ts.setColor("Mutant", "red", "red");
+        ts.setColor("Mutant", "red");
     }
     ts.html(root, TimeScalePointGraph.Width(50));
 
