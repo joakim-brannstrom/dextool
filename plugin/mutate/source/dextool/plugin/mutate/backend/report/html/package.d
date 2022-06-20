@@ -634,59 +634,52 @@ string toVisible(MetaSpan.StatusColor s) {
 }
 
 /// DB data for coverage-visualization
-struct CoverageData {
+
+bool[uint] extractLineCovData(CovRegionStatus[] dbData, ref FileCtx ctx) {
     bool[uint] lineList;
 
-    void extractData(CovRegionStatus[] dbData, ref FileCtx ctx) {
-        static struct T {
-            int value;
-            bool status;
-        }
-
-        T[] regions;
-
-        foreach (region; dbData) {
-            bool status = region.status;
-            int begin = region.region.begin;
-            int end = region.region.end;
-
-            T temp;
-            temp.value = begin;
-            temp.status = status;
-            regions ~= temp;
-            temp.value = end;
-            regions ~= temp;
-        }
-
-        bool inRegion = false;
-        bool currentStatus = false;
-        int byteCounter = 0;
-        int lineCounter = 1;
-
-        foreach (b; ctx.raw.content) {
-            if (b == '\n') {
-                lineCounter++;
-            }
-            if (!regions.empty && byteCounter == regions[0].value) {
-                currentStatus = regions[0].status;
-                inRegion = !inRegion;
-                regions = regions[1 .. regions.length];
-            }
-            if (inRegion) {
-                lineList[lineCounter] = currentStatus;
-            }
-            byteCounter++;
-        }
+    static struct T {
+        int value;
+        bool status;
     }
 
-    bool lineExists(int line) {
-        if (line in lineList) {
-            return true;
-        } else {
-            return false;
-        }
+    T[] regions;
+
+    foreach (region; dbData) {
+        bool status = region.status;
+        int begin = region.region.begin;
+        int end = region.region.end;
+
+        T temp;
+        temp.value = begin;
+        temp.status = status;
+        regions ~= temp;
+        temp.value = end;
+        regions ~= temp;
     }
+
+    bool inRegion = false;
+    bool currentStatus = false;
+    int byteCounter = 0;
+    int lineCounter = 1;
+
+    foreach (b; ctx.raw.content) {
+        if (b == '\n') {
+            lineCounter++;
+        }
+        if (!regions.empty && byteCounter == regions[0].value) {
+            currentStatus = regions[0].status;
+            inRegion = !inRegion;
+            regions = regions[1 .. regions.length];
+        }
+        if (inRegion) {
+            lineList[lineCounter] = currentStatus;
+        }
+        byteCounter++;
+    }
+    return lineList;
 }
+
 
 void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     import std.conv : to;
@@ -726,8 +719,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     // read coverage data and save covered lines in lineList
     auto dbData = db.coverageApi.getCoverageStatus(ctx.fileId);
 
-    CoverageData coverageData;
-    coverageData.extractData(dbData, ctx);
+    auto lineList = extractLineCovData(dbData, ctx);
 
     foreach (const s; ctx.span.toRange) {
         if (s.tok.loc.line > lastLoc.line) {
@@ -741,7 +733,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 .addClass("loc").addChild("span", format("%s:",
                         lastLoc.line + i + 1)).addClass("line_nr");
 
-            if (auto v = (lastLoc.line + i + 1) in coverageData.lineList) {
+            if (auto v = (lastLoc.line + i + 1) in lineList) {
                 if (*v)
                     line.addClass("loc_covered");
                 else
