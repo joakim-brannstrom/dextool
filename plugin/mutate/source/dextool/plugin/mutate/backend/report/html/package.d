@@ -1247,8 +1247,6 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         if (ReportSection.trend in ctx.state.get.sections) {
             runAnalyzer!makeTrend(ctx.self, ctx.state.get.flow, collector,
                     SubContent("Trend", "#trend", null), dbPath, ctx.state.get.kinds);
-            runAnalyzer!makeFileTrend(ctx.self, ctx.state.get.flow, collector,
-                    SubContent("FileTrend", "#file_trend", null), dbPath, ctx.state.get.kinds);
         }
 
         if (!ctx.state.get.diff.empty) {
