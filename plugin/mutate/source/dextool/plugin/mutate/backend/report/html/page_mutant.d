@@ -70,18 +70,13 @@ shared static this() @trusted {
         MutantStatus.unknown: "Mutants that haven't been tested yet.",
         MutantStatus.alive: "No test case failed when the mutant is tested.",
         MutantStatus.killed: "At least one test case fail when the mutant is tested.",
-        MutantStatus.killedByCompiler
-        : "The compiler found and killed the mutant.",
-        MutantStatus.timeout
-        : "The test suite never terminate, infinite loop, when the mutant is tested.",
-        MutantStatus.memOverload
-        : "The test suite where terminated because the system memory limit triggered.",
+        MutantStatus.killedByCompiler: "The compiler found and killed the mutant.",
+        MutantStatus.timeout: "The test suite never terminate, infinite loop, when the mutant is tested.",
+        MutantStatus.memOverload: "The test suite where terminated because the system memory limit triggered.",
         MutantStatus.noCoverage: "The mutant is never executed by the test suite.",
-        MutantStatus.equivalent
-        : "No change in the test case binaries happens when the mutant is injected and compiled.",
+        MutantStatus.equivalent: "No change in the test case binaries happens when the mutant is injected and compiled.",
         MutantStatus.skipped: "The mutant is skipped because another mutant that covers it survived (is alive).",
-        MutantStatus.nomut
-        : "The mutant is manually marked as not interesting. There is no intention of writing a test to kill it."
+        MutantStatus.nomut: "The mutant is manually marked as not interesting. There is no intention of writing a test to kill it."
     ];
 
     statusColor = cast(immutable)[

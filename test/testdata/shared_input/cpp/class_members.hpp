@@ -14,18 +14,14 @@ class ToForward {
     int x;
 };
 
-class Forward_decl {
-};
+class Forward_decl {};
 
 // case 2
-class Impl {
-};
+class Impl {};
 
-class Impl_ptr {
-};
+class Impl_ptr {};
 
-class Impl_ref {
-};
+class Impl_ref {};
 
 class ToImpl {
     Impl impl;

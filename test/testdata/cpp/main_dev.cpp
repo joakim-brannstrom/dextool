@@ -17,19 +17,23 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <iostream>
 #include <assert.h>
+#include <iostream>
 
 #ifdef TEST_INCLUDE
 #include "test_double.hpp"
 #endif
 
-#define start_test() do{std::cout << " # " <<  __func__ << "\t\t" << __FILE__ << ":" << __LINE__ << std::endl;}while(0)
-#define msg(x) do{std::cout << __FILE__ << ":" << __LINE__ << " " << x << std::endl;}while(0)
+#define start_test()                                                                               \
+    do {                                                                                           \
+        std::cout << " # " << __func__ << "\t\t" << __FILE__ << ":" << __LINE__ << std::endl;      \
+    } while (0)
+#define msg(x)                                                                                     \
+    do {                                                                                           \
+        std::cout << __FILE__ << ":" << __LINE__ << " " << x << std::endl;                         \
+    } while (0)
 
-void devtest() {
-    start_test();
-}
+void devtest() { start_test(); }
 
 int main(int argc, char** argv) {
     std::cout << "functional testing" << std::endl;

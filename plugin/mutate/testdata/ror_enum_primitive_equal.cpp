@@ -2,9 +2,7 @@
 /// @date 2017
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
-enum class MyE {
-    A, B, C
-};
+enum class MyE { A, B, C };
 
 void relation_operators() {
     MyE a = MyE::A;

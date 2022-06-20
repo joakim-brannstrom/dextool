@@ -140,8 +140,7 @@ shared static this() @trusted {
     classDescription = cast(immutable)[
         Classification.Unique: "kills mutants that no other test case do.",
         Classification.Redundant: "all mutants the test case kill are also killed by %s other test cases. The test case is probably redudant and thus can be removed.",
-        Classification.Buggy
-        : "zero killed mutants. The test case is most probably incorrect. Immediatly inspect the test case.",
+        Classification.Buggy: "zero killed mutants. The test case is most probably incorrect. Immediatly inspect the test case.",
         Classification.Normal: ""
     ];
 

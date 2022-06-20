@@ -264,7 +264,7 @@ version (unittest) {
         arr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
             buf ~= s;
         }, CvQ(), DeclId("x"), ArraySize([
-                    ArraySize.Size(ArraySize.Kind.const_, 42)
+                ArraySize.Size(ArraySize.Kind.const_, 42)
                 ]));
         buf.shouldEqual("int x[42]");
     }
@@ -274,7 +274,7 @@ version (unittest) {
         arr.toString((const(char)[] s) { buf ~= s; }, (const(char)[] s) {
             buf ~= s;
         }, CvQ(), DeclId("x"), ArraySize([
-                    ArraySize.Size(), ArraySize.Size(ArraySize.Kind.const_, 42)
+                ArraySize.Size(), ArraySize.Size(ArraySize.Kind.const_, 42)
                 ]));
         buf.shouldEqual("int x[][42]");
     }

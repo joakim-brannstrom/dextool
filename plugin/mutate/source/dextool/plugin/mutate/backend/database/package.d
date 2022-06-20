@@ -116,8 +116,7 @@ struct Database {
            WHERE
            t0.st_id = t1.id AND
            t0.kind IN (%(%s,%))
-           ORDER BY t1.added_ts",
-                mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
+           ORDER BY t1.added_ts", mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
         auto stmt = db.db.prepare(sql);
         try {
             foreach (ref r; stmt.get.execute) {
@@ -153,8 +152,8 @@ struct Database {
             t0.mp_id = t1.id AND
             t1.file_id = t2.id AND
             t0.id = t4.mut_id
-            ORDER BY t3.status", mutationTable, mutationPointTable,
-                filesTable, mutationStatusTable, srcMetadataTable, kinds.map!(a => cast(int) a));
+            ORDER BY t3.status", mutationTable, mutationPointTable, filesTable,
+                mutationStatusTable, srcMetadataTable, kinds.map!(a => cast(int) a));
 
         try {
             auto stmt = db.db.prepare(all_mutants);
@@ -280,8 +279,8 @@ struct Database {
             t1.file_id = t2.id AND
             t2.path = :path
             ORDER BY t1.offset_begin
-            ", mutationTable, mutationPointTable,
-                filesTable, mutationStatusTable, kinds.map!(a => cast(int) a));
+            ", mutationTable, mutationPointTable, filesTable,
+                mutationStatusTable, kinds.map!(a => cast(int) a));
 
         auto stmt = db.db.prepare(all_fmut);
         stmt.get.bind(":path", cast(string) file);

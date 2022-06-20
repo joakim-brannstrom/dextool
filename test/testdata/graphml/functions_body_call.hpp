@@ -3,20 +3,13 @@
 
 typedef int MyInt;
 
-void empty() {
-}
+void empty() {}
 
-int arg0(MyInt) {
-    return 1;
-}
+int arg0(MyInt) { return 1; }
 
-MyInt arg1(int) {
-    return MyInt(2);
-}
+MyInt arg1(int) { return MyInt(2); }
 
-void single_call() {
-    empty();
-}
+void single_call() { empty(); }
 
 void if_() {
     if (arg0(3) > 10) {
@@ -32,11 +25,9 @@ void for_() {
     }
 }
 
-void nested() {
-    arg0(arg1(3));
-}
+void nested() { arg0(arg1(3)); }
 
-int self_reference(int st)  {
+int self_reference(int st) {
     switch (st) {
     case 0:
         return 0;

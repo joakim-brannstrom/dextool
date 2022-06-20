@@ -28,7 +28,6 @@ typedef struct {
 
 struct E;
 
-struct E {
-};
+struct E {};
 
 struct F;

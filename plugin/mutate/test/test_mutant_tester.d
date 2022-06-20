@@ -85,8 +85,8 @@ class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
 
         testConsecutiveSparseOrder!SubStr(
                 [
-                `killed by [MessageTest.DefaultConstructor, MessageTest.StreamsNullPointer]`
-                ]).shouldBeIn(r.output);
+            `killed by [MessageTest.DefaultConstructor, MessageTest.StreamsNullPointer]`
+        ]).shouldBeIn(r.output);
     }
 
     override string scriptTest() {
@@ -176,8 +176,8 @@ class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!SubStr([
-                `killed by [gtest-typed-test_test, gtest_list_tests_unittest, gtest_no_rtti_unittest, gtest_output_test, gtest_unittest, gtest_xml_output_unittest]`
-                ]).shouldBeIn(r.output);
+            `killed by [gtest-typed-test_test, gtest_list_tests_unittest, gtest_no_rtti_unittest, gtest_output_test, gtest_unittest, gtest_xml_output_unittest]`
+        ]).shouldBeIn(r.output);
     }
 
     override string scriptTest() {
@@ -732,8 +732,8 @@ class ShallDoNothingWhenDetectDroppedTestCases : DroppedTestCases {
         auto r1 = run(testEnv, null);
 
         testConsecutiveSparseOrder!SubStr([
-                "Detected test cases that has been removed",
-                ]).shouldNotBeIn(r1.output);
+            "Detected test cases that has been removed",
+        ]).shouldNotBeIn(r1.output);
     }
 }
 
@@ -746,9 +746,9 @@ class ShallRemoveDetectDroppedTestCases : DroppedTestCases {
                 ]);
 
         testConsecutiveSparseOrder!SubStr([
-                "Detected test cases that has been removed",
-                "MessageTest.StreamsDouble",
-                ]).shouldBeIn(r1.output);
+            "Detected test cases that has been removed",
+            "MessageTest.StreamsDouble",
+        ]).shouldBeIn(r1.output);
     }
 }
 
@@ -804,8 +804,8 @@ class ShallRetrieveOldestMutant : DatabaseFixture {
 
         // act
         const oldest = db.mutantApi.getOldestMutants([
-                EnumMembers!(Mutation.Kind)
-                ], 1, [EnumMembers!(Mutation.Status)]);
+            EnumMembers!(Mutation.Kind)
+        ], 1, [EnumMembers!(Mutation.Status)]);
 
         // assert
         oldest.length.shouldEqual(1);
@@ -874,11 +874,11 @@ class ShallRetestOldestMutant : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!SubStr([
-                "info: Mutation status is up to date"
-                ]).shouldBeIn(r1.output);
+            "info: Mutation status is up to date"
+        ]).shouldBeIn(r1.output);
         testConsecutiveSparseOrder!SubStr([
-                "info: Mutation status is out of sync"
-                ]).shouldBeIn(r2.output);
+            "info: Mutation status is out of sync"
+        ]).shouldBeIn(r2.output);
     }
 }
 
@@ -967,8 +967,8 @@ class ShallTestMutantsInDiff : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!Re([
-                `.*Found . mutant.*dcr_dc_switch1.cpp:11`,
-                ]).shouldBeIn(r.output);
+            `.*Found . mutant.*dcr_dc_switch1.cpp:11`,
+        ]).shouldBeIn(r.output);
         testAnyOrder!Re([`info:.*from 'false' to 'true'`, `info:.*killed`,]).shouldBeIn(r.output);
     }
 
@@ -1134,8 +1134,8 @@ exit 1
 
         r.status.shouldEqual(1);
         testConsecutiveSparseOrder!SubStr([
-                "Rolling back the status of the last 2"
-                ]).shouldBeIn(r.output);
+            "Rolling back the status of the last 2"
+        ]).shouldBeIn(r.output);
     }
 }
 
@@ -1170,8 +1170,8 @@ exit 1
         testConsecutiveSparseOrder!SubStr(["equivalent"]).shouldBeIn(r0.output);
 
         auto r1 = makeDextoolReport(testEnv, testData.dirName).addPostArg([
-                "--mutant", "all"
-                ]).run;
+            "--mutant", "all"
+        ]).run;
 
         testConsecutiveSparseOrder!Re(["Equivalent:.*6"]).shouldBeIn(r1.output);
     }
@@ -1221,7 +1221,7 @@ g++ %s -o %s
         // dfmt on
 
         testConsecutiveSparseOrder!Re([
-                "info.*Checking the test environment", "info.*Ok"
-                ]).shouldBeIn(r0.output);
+            "info.*Checking the test environment", "info.*Ok"
+        ]).shouldBeIn(r0.output);
     }
 }
