@@ -62,10 +62,7 @@ span.xx_label {
 #info select {
     width: 150px;
 }
-#info_line {
-    background: #2e3639;
-    color: #eeeeee;
-}
+
 .loc {
     display: table-cell;
     vertical-align: inherit;
@@ -103,6 +100,7 @@ span.xx_label {
     overflow-y: auto;
     overflow-x: hidden;
 }
+
 #testcases thead, tbody { display: block; }
 #testcases tbody {
     width: 100%;
@@ -122,8 +120,19 @@ span.xx_label {
     margin-bottom: 3px;
     padding: 2px;
 }
-
+#info_table_wrapper {
+    width: 40%;
+    height: 135px;
+    background: #2e3639;
+}
+#info_table_wrapper.fixed{
+    position: fixed;
+}
 #info_table {
+    background: #2e3639;
+    color: #eeeeee;
+}
+#loc_muts_info {
     width: 100%;
 }
 #locs {
@@ -138,14 +147,6 @@ span.xx_label {
     display: block;
 }
 
-.show_kind{
-  float: right;
-}
-
 .show_testcases{
-  float: right;
-}
-
-.show_status{
   float: right;
 }
