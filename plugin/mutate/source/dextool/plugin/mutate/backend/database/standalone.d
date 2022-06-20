@@ -19,7 +19,7 @@ The only acceptable dependency are:
 */
 module dextool.plugin.mutate.backend.database.standalone;
 
-import core.time : Duration, dur, days;
+import core.time : Duration, dur;
 import logger = std.experimental.logger;
 import std.algorithm : copy, map, joiner, filter;
 import std.array : Appender, appender, array, empty;
@@ -216,6 +216,8 @@ struct Database {
     }
 
 
+
+
     Nullable!Checksum getFileChecksum(const Path p) @trusted {
         static immutable sql = "SELECT checksum0,checksum1 FROM " ~ filesTable ~ " WHERE path=:path";
         auto stmt = db.prepare(sql);
@@ -294,19 +296,12 @@ struct Database {
     }
 
     /// Returns: the stored scores in ascending order by their `time`.
-    MutationScore[] getMutationFileScoreHistory(const int daysAgo = 0) @trusted {
+    MutationScore[] getMutationFileScoreHistory() @trusted {
         import std.algorithm : sort;
 
         auto app = appender!(MutationScore[])();
         foreach (r; db.run(select!MutationFileScoreHistoryTable)) {
-            if (daysAgo == 0){
-              app.put(MutationScore(r.timeStamp, typeof(MutationScore.score)(r.score), r.filePath));
-            } else{
-              logger.warning(r.timeStamp);
-              auto end = Clock.currTime();
-              end -= daysAgo.days;
-              logger.warning(end);
-            }
+            app.put(MutationScore(r.timeStamp, typeof(MutationScore.score)(r.score), r.filePath));
         }
 
         return app.data.sort!((a, b) => a.timeStamp < b.timeStamp).array;

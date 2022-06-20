@@ -12,7 +12,7 @@ module dextool.plugin.mutate.backend.report.html;
 import logger = std.experimental.logger;
 import std.algorithm : max, each, map, min, canFind, sort, filter, joiner;
 import std.array : Appender, appender, array, empty;
-import std.datetime : dur;
+import std.datetime : dur, days, Clock;
 import std.exception : collectException;
 import std.format : format;
 import std.functional : toDelegate;
@@ -42,7 +42,6 @@ import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.resource;
-import dextool.plugin.mutate.backend.report.analyzers : MutationScore;
 
 @safe:
 
@@ -61,6 +60,8 @@ void report(ref System sys, AbsolutePath dbPath, const MutationKind[] userKinds,
 }
 
 struct FileIndex {
+    import dextool.plugin.mutate.backend.report.analyzers : MutationScore;
+
     Path path;
     string display;
     MutationScore stat;
@@ -466,9 +467,61 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-void toIndex(FileIndex[] files, Element root, string htmlFileDir, MutationScore[] scoreHistory) @trusted {
+import dextool.plugin.mutate.backend.database.type : MutationScore;
+void toIndex(FileIndex[] files, Element root, string htmlFileDir, MutationScore[] scoreHistory = null) @trusted {
     import std.algorithm : sort, filter;
     import std.conv : to;
+
+    MutationScore[][string] scores;
+
+    foreach(score; scoreHistory){
+        scores[score.filePath] ~= score;
+    }
+
+    auto timeFrame = Clock.currTime() - 7.days;
+    double[string] scoreDifference;
+    //Sort scores into "before/after seven days ago" so we can get the lastest of each,
+    //thereby we can calculate the difference in score from the last seven days
+    foreach(valueList; scores.byValue()){
+        MutationScore[] beforeTimeFrame;
+        MutationScore[] afterTimeFrame;
+        foreach(value; valueList){
+          if(value.timeStamp < timeFrame){
+            beforeTimeFrame ~= value;
+          }else{
+            afterTimeFrame ~= value;
+          }
+        }
+
+        string filePath = valueList[0].filePath;
+        double latestBefore;
+        SysTime latestBeforeTime;
+        double latestAfter;
+        SysTime latestAfterTime;
+        //TODO: Can we assume that the arrays will be sorted oldest->newst?
+        if(beforeTimeFrame.length == 0){
+              latestBefore = 0;
+        }else{
+          foreach(value; beforeTimeFrame){
+            if(value.timeStamp > latestBeforeTime){
+              latestBefore = cast(double) value.score;
+              latestBeforeTime = value.timeStamp;
+            }
+          }
+        }
+        //If there has been no change in the last seven days, then the change is 0
+        if(afterTimeFrame.length == 0){
+          scoreDifference[filePath] = 0;
+        }else{
+          foreach(value; afterTimeFrame){
+            if(value.timeStamp > latestAfterTime){
+              latestAfter = cast(double) value.score;
+              latestAfterTime = value.timeStamp;
+            }
+          }
+          scoreDifference[filePath] = latestAfter - latestBefore;
+        }
+    }
 
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
@@ -478,7 +531,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, MutationScore[
             "form-control").setAttribute("placeholder", "Search...");
 
     auto tbl = tmplSortableTable(root, [
-            "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
+            "Path", "Score", "Change (7 days)", "Alive", "NoMut", "Total", "Time (min)"
             ]);
     tbl.setAttribute("id", "fileTable");
 
@@ -511,8 +564,26 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, MutationScore[
                     return "background-color: lightgreen";
                 return null;
             }();
-
             r.addChild("td", format!"%.3s"(score)).style = style;
+
+            float scoreChange;
+            if(f.display in scoreDifference){
+              scoreChange = scoreDifference[f.display];
+            }else{
+              scoreChange = 0;
+            }
+
+            const scoreChangeStyle = () {
+                if (scoreChange < 0)
+                    return "background-color: salmon";
+                if (scoreChange == 0)
+                    return "background-color: white";
+                if (scoreChange > 0)
+                    return "background-color: lightgreen";
+                return null;
+            }();
+
+            r.addChild("td", format!"%.3s"(scoreChange)).style = scoreChangeStyle;
             r.addChild("td", f.stat.alive.to!string);
             r.addChild("td", f.stat.aliveNoMut.to!string);
             r.addChild("td", f.stat.total.to!string);
@@ -933,6 +1004,8 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
     }
 
     static void failed(ref Ctx ctx, FailMsg) @safe {
+        import dextool.plugin.mutate.backend.report.analyzers : MutationScore;
+
         logger.warning("Failed to generate a HTML report for ", ctx.state.get.fileRow.file);
         send(ctx.state.get.collector, FileIndex(ctx.state.get.reportFile,
                 ctx.state.get.fileRow.file, MutationScore.init));
@@ -1329,7 +1402,6 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         scope (exit)
             () { ctx.state.get.done = true; send(ctx.self, CheckDoneMsg.init); }();
 
-        import std.datetime : Clock;
         import dextool.plugin.mutate.backend.report.html.page_tree_map;
 
         auto profile = Profile("post process report");
@@ -1375,8 +1447,10 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         if (ReportSection.treemap in ctx.state.get.sections) {
             addSubPage(() => makeTreeMapPage(ctx.state.get.files), "tree_map", "Treemap");
         }
+        import dextool.plugin.mutate.backend.database.type : MutationScore;
 
-        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir, ctx.state.get.db.getMutationFileScoreHistory(7));
+        MutationScore[] mutationScores = ctx.state.get.db.getMutationFileScoreHistory();
+        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir, mutationScores);
 
         addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
 
