@@ -557,7 +557,6 @@ function fly(evt, html) {
  */
 function scroll_to(anchor, center) {
     var curr_pos = window.pageYOffset;
-    location.hash = "#" + anchor; //Removing this allows for using the browser back button.
     if (center) {
         var newpos = document.getElementById(anchor).offsetTop - window.innerHeight/2;
         if (newpos > 0) {

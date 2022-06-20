@@ -31,13 +31,11 @@ typedef struct {
 
 struct E;
 
-struct E {
-};
+struct E {};
 
 struct F;
 
-struct expect_Struct_in_struct_namespace {
-};
+struct expect_Struct_in_struct_namespace {};
 
 struct {
 } expect_Struct_anonymous_instance;

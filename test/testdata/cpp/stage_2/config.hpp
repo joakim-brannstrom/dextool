@@ -6,4 +6,4 @@ namespace ns {
 
 void fun();
 
-} // NS: ns
+} // namespace ns

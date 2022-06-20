@@ -343,6 +343,11 @@ struct CovRegion {
     Offset region;
 }
 
+struct CovRegionStatus {
+    bool status;
+    Offset region;
+}
+
 /// A file that a root is dependent on.
 struct DepFile {
     Path file;

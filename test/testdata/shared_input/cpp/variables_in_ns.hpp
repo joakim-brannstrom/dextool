@@ -1,3 +1,3 @@
 namespace ns {
 #include "variables.h"
-} // NS: ns
+} // namespace ns
