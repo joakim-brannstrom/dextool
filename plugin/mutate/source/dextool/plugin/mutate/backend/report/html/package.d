@@ -42,6 +42,7 @@ import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.resource;
+import dextool.plugin.mutate.backend.report.analyzers : MutationScore;
 
 @safe:
 
@@ -60,8 +61,6 @@ void report(ref System sys, AbsolutePath dbPath, const MutationKind[] userKinds,
 }
 
 struct FileIndex {
-    import dextool.plugin.mutate.backend.report.analyzers : MutationScore;
-
     Path path;
     string display;
     MutationScore stat;
@@ -467,7 +466,7 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
+void toIndex(FileIndex[] files, Element root, string htmlFileDir, MutationScore[] scoreHistory) @trusted {
     import std.algorithm : sort, filter;
     import std.conv : to;
 
@@ -487,6 +486,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     // in the list. It is especially annoying when they are marked with dark
     // green.
     bool hasSuppressed;
+
     auto noMutants = appender!(FileIndex[])();
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
         if (f.stat.total == 0) {
@@ -933,8 +933,6 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
     }
 
     static void failed(ref Ctx ctx, FailMsg) @safe {
-        import dextool.plugin.mutate.backend.report.analyzers : MutationScore;
-
         logger.warning("Failed to generate a HTML report for ", ctx.state.get.fileRow.file);
         send(ctx.state.get.collector, FileIndex(ctx.state.get.reportFile,
                 ctx.state.get.fileRow.file, MutationScore.init));
@@ -1378,7 +1376,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
             addSubPage(() => makeTreeMapPage(ctx.state.get.files), "tree_map", "Treemap");
         }
 
-        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir);
+        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir, ctx.state.get.db.getMutationFileScoreHistory(7));
 
         addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
 
