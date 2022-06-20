@@ -713,7 +713,6 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                     mutantHtmlTag.appendText(m.mutation);
                 }
             }
-            d0.addChild("a").setAttribute("href", "#" ~ m.id.toString);
 
             auto testCases = ctx.getTestCaseInfo(m.id);
             if (testCases.empty) {

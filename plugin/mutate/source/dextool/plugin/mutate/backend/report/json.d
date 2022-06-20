@@ -105,7 +105,7 @@ final class ReportJson {
 
     void fileMutantEvent(const ref FileMutantRow r) @trusted {
         auto appendMutant() {
-            JSONValue m = ["mutation_id" : r.id.to!long];
+            JSONValue m = ["mutation_id": r.id.to!long];
             m.object["kind"] = r.mutation.kind.to!string;
             m.object["status"] = r.mutation.status.to!string;
             m.object["line"] = r.sloc.line;
@@ -160,7 +160,7 @@ final class ReportJson {
 
         if (ReportSection.summary in sections) {
             const stat = reportStatistics(db, kinds);
-            JSONValue s = ["alive" : stat.alive];
+            JSONValue s = ["alive": stat.alive];
             s.object["no_coverage"] = stat.noCoverage;
             s.object["alive_nomut"] = stat.aliveNoMut;
             s.object["killed"] = stat.killed;
@@ -181,7 +181,7 @@ final class ReportJson {
 
         if (ReportSection.diff in sections) {
             auto r = reportDiff(db, kinds, diff, fio.getOutputDir);
-            JSONValue s = ["score" : r.score];
+            JSONValue s = ["score": r.score];
             report["diff"] = s;
         }
 
@@ -210,7 +210,7 @@ final class ReportJson {
             auto r = reportTestCaseStats(db, kinds);
             JSONValue s;
             foreach (a; r.testCases.byValue) {
-                JSONValue v = ["ratio" : a.ratio];
+                JSONValue v = ["ratio": a.ratio];
                 v["killed"] = a.info.killedMutants;
                 s[a.tc.name] = v;
             }

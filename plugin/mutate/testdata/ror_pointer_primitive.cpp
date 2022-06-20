@@ -3,10 +3,10 @@
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
 void relation_operators() {
-    int* a0, *a1;
+    int *a0, *a1;
     bool a2 = a0 == a1;
 
-    int* b0, *b1;
+    int *b0, *b1;
     bool b2 = b0 != b1;
 
     int* c0;

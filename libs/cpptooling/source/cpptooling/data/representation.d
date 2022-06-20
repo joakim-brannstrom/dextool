@@ -2413,8 +2413,8 @@ unittest {
     ns2.merge(ns1, MergeMode.shallow);
 
     ns2.classRange.map!(a => cast(string) a.name).array().shouldEqual([
-            "ns2_class", "ns1_class"
-            ]);
+        "ns2_class", "ns1_class"
+    ]);
     ns2.globalRange.array().map!(a => cast(string) a.name).array()
         .shouldEqual(["ns1_var", "ns2_var"]);
     ns2.funcRange.array().map!(a => cast(string) a.name).array()
@@ -2443,8 +2443,8 @@ unittest {
     ns2.merge(ns1, MergeMode.full);
     ns2.namespaceRange.length.shouldEqual(1);
     ns2.namespaceRange.map!(a => cast(string) a.name).array().shouldEqual([
-            "ns3"
-            ]);
+        "ns3"
+    ]);
 }
 
 @("Shall merge two namespaces recursively with common namespaces merged to ensure no duplication")
@@ -2495,8 +2495,8 @@ unittest {
     // Assert
     ns2.namespaceRange.length.shouldEqual(1);
     ns2.namespaceRange.map!(a => cast(string) a.name).array().shouldEqual([
-            "ns3"
-            ]);
+        "ns3"
+    ]);
     ns2.namespaceRange[0].classRange.length.shouldEqual(1);
     ns2.namespaceRange[0].funcRange.array().length.shouldEqual(1);
     ns2.namespaceRange[0].globalRange.array().length.shouldEqual(1);
@@ -2508,8 +2508,8 @@ unittest {
     // Assert
     ns2.namespaceRange.length.shouldEqual(1);
     ns2.namespaceRange.map!(a => cast(string) a.name).array().shouldEqual([
-            "ns3"
-            ]);
+        "ns3"
+    ]);
     ns2.namespaceRange[0].classRange.length.shouldEqual(2);
     ns2.namespaceRange[0].funcRange.array().length.shouldEqual(2);
     ns2.namespaceRange[0].globalRange.array().length.shouldEqual(2);

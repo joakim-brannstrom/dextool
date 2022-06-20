@@ -104,7 +104,7 @@ auto makeHeader(Path fname, DextoolVersion ver, CustomHeader custom = CustomHead
 
     auto base_fname = fname.baseName;
     immutable string[string] kw = [
-        "$file$" : base_fname, "$dextool_version$" : ver.get
+        "$file$": base_fname, "$dextool_version$": ver.get
     ];
 
     auto m = new CppModule;

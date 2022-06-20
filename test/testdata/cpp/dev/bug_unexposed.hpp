@@ -5,16 +5,14 @@
 #ifndef BUG_UNEXPOSED_HPP
 #define BUG_UNEXPOSED_HPP
 
-template<typename T>
-class Exposed {
+template <typename T> class Exposed {
 public:
     explicit Exposed() {}
 
     class Unexposed;
 };
 
-template <typename T>
-class Exposed<T>::Unexposed {
+template <typename T> class Exposed<T>::Unexposed {
 public:
     explicit Unexposed(Exposed<T>& x);
 };

@@ -739,7 +739,8 @@ struct ScheduleTest {
 
     void put(size_t x)
     in (x < testers.length)
-    out (; free.length <= testers.length)do {
+    out (; free.length <= testers.length)
+    do {
         free.put(x);
     }
 

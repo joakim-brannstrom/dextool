@@ -68,8 +68,8 @@ class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
             .get.killedMutants.shouldBeGreaterThan(1);
 
         auto r = makeDextoolAdmin(testEnv).addArg([
-                "--operation", "resetTestCase"
-                ]).addArg(["--test-case-regex", `.*_1`]).run;
+            "--operation", "resetTestCase"
+        ]).addArg(["--test-case-regex", `.*_1`]).run;
 
         db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
             .get.killedMutants.shouldEqual(0);
@@ -115,8 +115,8 @@ class ShallRemoveTestCase : SimpleAnalyzeFixture {
             .get.killedMutants.shouldBeGreaterThan(1);
 
         auto r = makeDextoolAdmin(testEnv).addArg([
-                "--operation", "removeTestCase"
-                ]).addArg(["--test-case-regex", `.*_1`]).run;
+            "--operation", "removeTestCase"
+        ]).addArg(["--test-case-regex", `.*_1`]).run;
 
         db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)]).isNull.shouldBeTrue;
     }
@@ -248,8 +248,8 @@ unittest {
     (db.mutantApi.getMutationStatus(MutationId(10)) == Status.unknown).shouldBeTrue;
 
     testAnyOrder!SubStr([
-            format!"info: Removed marking for mutant %s"(to!string(MutationId(10)))
-            ]).shouldBeIn(r.output);
+        format!"info: Removed marking for mutant %s"(to!string(MutationId(10)))
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall fail to remove a marked mutant")
@@ -274,8 +274,8 @@ unittest {
 
     testAnyOrder!SubStr(["error"]).shouldBeIn(r.output);
     testAnyOrder!SubStr([
-            "Failure when removing marked mutant (mutant 20 is not marked"
-            ]).shouldBeIn(r.output);
+        "Failure when removing marked mutant (mutant 20 is not marked"
+    ]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall notify lost marked mutant")
@@ -319,6 +319,6 @@ unittest {
     mixin(EnvSetup(globalTestdir));
 
     makeDextoolAdmin(testEnv).addArg([
-            "--operation", "resetMutantSubKind", "--mutant-sub-kind", "stmtDel"
-            ]).run;
+        "--operation", "resetMutantSubKind", "--mutant-sub-kind", "stmtDel"
+    ]).run;
 }

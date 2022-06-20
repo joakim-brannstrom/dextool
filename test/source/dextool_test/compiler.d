@@ -109,7 +109,7 @@ string[] compilerFlags() {
 deprecated("legacy function, to be removed") void testWithGTest(const Path[] src,
         const Path binary, const ref TestEnv testEnv, const string[] flags, const string[] incls) {
     immutable bool[string] rm_flag = [
-        "-Wpedantic" : true, "-Werror" : true, "-pedantic" : true
+        "-Wpedantic": true, "-Werror": true, "-pedantic": true
     ];
 
     auto flags_ = flags.filter!(a => a !in rm_flag).array();

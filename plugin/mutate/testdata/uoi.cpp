@@ -28,8 +28,7 @@ void unary_arithmetic_operators() {
     --oa;
 }
 
-void g(int x) {
-}
+void g(int x) {}
 
 void func() {
     int a;

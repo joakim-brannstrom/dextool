@@ -6,4 +6,4 @@ namespace ns {
 
 void have_root();
 
-} // NS: ns
+} // namespace ns

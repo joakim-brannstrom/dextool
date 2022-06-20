@@ -8,19 +8,11 @@ void method();
 
 class InlineMethods {
 public:
-    InlineMethods() {
-        ctor();
-    }
-    InlineMethods(const InlineMethods&) {
-        copy_ctor();
-    }
-    ~InlineMethods() {
-        dtor();
-    }
+    InlineMethods() { ctor(); }
+    InlineMethods(const InlineMethods&) { copy_ctor(); }
+    ~InlineMethods() { dtor(); }
 
-    void func() {
-        method();
-    }
+    void func() { method(); }
 };
 
 class Methods {
@@ -34,24 +26,12 @@ public:
     void call_local_func();
 };
 
-Methods::Methods() {
-    ctor();
-}
-Methods::Methods(const Methods&) {
-    copy_ctor();
-}
-Methods::~Methods() {
-    dtor();
-}
-void Methods::call_free_func() {
-    method();
-}
-void Methods::local_func() {
-    method();
-}
-void Methods::call_local_func() {
-    local_func();
-}
+Methods::Methods() { ctor(); }
+Methods::Methods(const Methods&) { copy_ctor(); }
+Methods::~Methods() { dtor(); }
+void Methods::call_free_func() { method(); }
+void Methods::local_func() { method(); }
+void Methods::call_local_func() { local_func(); }
 
 class Dummy {
 public:
@@ -60,9 +40,7 @@ public:
 
 class CallOtherClass {
 public:
-    void func() {
-        a.fun();
-    }
+    void func() { a.fun(); }
 
     Dummy a;
 };
@@ -134,41 +112,32 @@ public:
     }
 
     // builtins used inside a function do not result in a node
-    void my_builtin() {
-        __builtin_huge_valf();
-    }
+    void my_builtin() { __builtin_huge_valf(); }
 
     union {
         char union_buf[10];
         int size;
     };
 
-    void use_field_from_union() {
-        char c = union_buf[0];
-    }
+    void use_field_from_union() { char c = union_buf[0]; }
 };
 
 // Test nesting representation of classes
-class Top {
-};
+class Top {};
 
 class NestA {
 public:
     class NestB {
         NestB(Top& x);
 
-        class NestC {
-        };
+        class NestC {};
     };
 };
 
-template<typename T>
-class TopTemplate {
-};
+template <typename T> class TopTemplate {};
 
 // Test the same but for templates
-template<typename T>
-class TemplateA {
+template <typename T> class TemplateA {
 public:
     typedef T ParamType;
 
