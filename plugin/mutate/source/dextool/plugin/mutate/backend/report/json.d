@@ -14,8 +14,6 @@ import std.array : empty, appender;
 import std.exception : collectException;
 import std.json : JSONValue;
 import std.path : buildPath;
-import std.math;
-
 
 import my.from_;
 
@@ -30,8 +28,6 @@ import dextool.plugin.mutate.backend.report.utility : window, windowSize;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
-
-import miniorm : spinSql, silentLog;
 
 @safe:
 
@@ -163,10 +159,7 @@ final class ReportJson {
             reportTrendByCodeChange;
 
         if (ReportSection.summary in sections) {
-            auto files = spinSql!(() => db.getFilesStrings());
-            const statList = reportStatistics(db, kinds, files);
-            //TODO, should loop
-            auto stat = statList[0];
+            const stat = reportStatistics(db, kinds);
             JSONValue s = ["alive" : stat.alive];
             s.object["no_coverage"] = stat.noCoverage;
             s.object["alive_nomut"] = stat.aliveNoMut;
@@ -254,24 +247,11 @@ import dextool.plugin.mutate.backend.report.analyzers : MutationScoreHistory;
 JSONValue[] toJson(const MutationScoreHistory data) {
     import std.conv : to;
 
-    JSONValue[string] fileDict;
-
-    foreach (a; data.data) {
-        string date = a.timeStamp.to!string;
-        auto score = rint(a.score.get * 1000)/1000;
-        if (!(a.filePath in fileDict)){
-          JSONValue s;
-          s[date] = score;
-          fileDict[a.filePath] = s;
-        }else{
-          fileDict[a.filePath][date] = score;
-        }
-    }
-
     auto app = appender!(JSONValue[])();
-    foreach(value; fileDict.byKeyValue){
+    foreach (a; data.data) {
         JSONValue s;
-        s[value.key] = value.value;
+        s["date"] = a.timeStamp.to!string;
+        s["score"] = a.score.get;
         app.put(s);
     }
 
