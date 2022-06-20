@@ -1,16 +1,11 @@
 #ifndef FUNCTIONS_BODY_HPP
 #define FUNCTIONS_BODY_HPP
 
-void empty() {
-}
+void empty() {}
 
-void single_stack_variable() {
-    int x;
-}
+void single_stack_variable() { int x; }
 
-void call() {
-    empty();
-}
+void call() { empty(); }
 
 void if_() {
     if (true) {

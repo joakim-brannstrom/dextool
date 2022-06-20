@@ -3,4 +3,3 @@
 // expecting includes of b.h and c.h
 
 #include "b.h"
-

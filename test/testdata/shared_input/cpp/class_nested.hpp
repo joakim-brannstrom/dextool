@@ -12,6 +12,7 @@ public:
     public:
         InnerClass() {}
         ~InnerClass() {}
+
     private:
         class InnerClass2 {
         public:

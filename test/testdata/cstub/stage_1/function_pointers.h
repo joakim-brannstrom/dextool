@@ -27,8 +27,8 @@ extern int (*e_array_func)(int x, int* y, int z[16]);
  * Expecting func_type to result in a function definition and affect the interface.
  * Expecting func_ptr to be defined as a variable.
  */
-typedef void (func_type)();
-typedef func_type* (func_param_type)(const unsigned int baz);
+typedef void(func_type)();
+typedef func_type*(func_param_type)(const unsigned int baz);
 typedef unsigned char (*func_ptr)(const unsigned baz);
 
 typedef func_type ref_type;
@@ -39,6 +39,6 @@ extern func_type tiger;
 extern func_param_type leopard;
 extern ref_param_type cyber;
 
-typedef int (array_func_type)(int* x, int z[16]);
+typedef int(array_func_type)(int* x, int z[16]);
 extern array_func_type typedef_array_func;
 #endif // FUNCTION_POINTERS_H

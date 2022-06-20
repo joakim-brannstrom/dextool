@@ -12,7 +12,8 @@ public:
     char* func6(some_pointer w);
     float func7(int& y, char* yy);
     const double func3(int x, const int xx);
-    const void* const func4(MadeUp z, const MadeUp zz, const MadeUp& zzz, const MadeUp** const zzzz);
+    const void* const func4(MadeUp z, const MadeUp zz, const MadeUp& zzz,
+                            const MadeUp** const zzzz);
     void operator=(const Methods& other);
 };
 
@@ -28,7 +29,8 @@ public:
     virtual char* func6(some_pointer w);
     virtual float func7(int& y, char* yy);
     virtual const double func3(int x, const int xx);
-    virtual const void* const func4(MadeUp z, const MadeUp zz, const MadeUp& zzz, const MadeUp** const zzzz);
+    virtual const void* const func4(MadeUp z, const MadeUp zz, const MadeUp& zzz,
+                                    const MadeUp** const zzzz);
     virtual void operator=(const Virtual& other);
 };
 

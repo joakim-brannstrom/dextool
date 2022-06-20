@@ -270,10 +270,10 @@ unittest {
     ].map!(a => Path(a)).array();
 
     toPlugins!fakeExec(fake_plugins).shouldEqual([
-            Plugin("ctest", "c test text", Path("/a/dextool-ctest")),
-            Plugin("cpp", "cpp test text", Path("/b/dextool-cpp")),
-            Plugin("too_many_lines", "", Path(""))
-            ]);
+        Plugin("ctest", "c test text", Path("/a/dextool-ctest")),
+        Plugin("cpp", "cpp test text", Path("/b/dextool-cpp")),
+        Plugin("too_many_lines", "", Path(""))
+    ]);
 }
 
 @("A short help text with two plugins")

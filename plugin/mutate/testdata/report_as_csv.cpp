@@ -4,7 +4,7 @@
 
 const char* to_be_mutated(int var1_long_text, int var2_long_text) {
     // important that the expression >5 characters
-    if (var1_long_text >5)
+    if (var1_long_text > 5)
         return "false";
 
     switch (var2_long_text) {

@@ -7,6 +7,6 @@ namespace ns {
 
 void fun();
 
-} // NS: ns
+} // namespace ns
 
 #endif // SINGLE_FILE_H
