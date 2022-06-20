@@ -358,7 +358,11 @@ function on_window_resize() {
     var width;
     if (line.clientWidth * 2 < window.innerWidth) {
         width = line.clientWidth;
-    } else {
+    } 
+    else if (window.innerWidth < 1350){
+        width = line.clientWidth / 2;
+    } 
+    else {
         width = window.innerWidth - line.clientWidth - 30; 
     }
     info_table_wrapper.style.width = width + "px";
