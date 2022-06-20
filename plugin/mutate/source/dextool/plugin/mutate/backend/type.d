@@ -13,7 +13,8 @@ import core.time : Duration;
 
 import my.hash : Checksum128;
 import my.named_type;
-public import dextool.plugin.mutate.backend.database.type : MutantAttr, MutantMetaData;
+public import dextool.plugin.mutate.backend.database.type : MutantAttr,
+    MutantMetaData, CovRegionStatus;
 
 @safe:
 
