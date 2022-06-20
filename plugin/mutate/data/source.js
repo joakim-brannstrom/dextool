@@ -219,7 +219,7 @@ function set_info_line(mutid) {
         }
         var test_case = tcs[i];
         if (test_case) {
-            row.innerHTML = make_td(test_case + ": "+g_testcases_kills[test_case], "temp_id");
+            row.innerHTML = make_td(test_case + ": " + g_testcases_kills[test_case], "temp_id");
         }
     }
 }
@@ -605,23 +605,4 @@ function hide_testcases(){
     } else {
       num.style.display = "none";
     }
-}
-
-function hide_kind(){
-  var table = document.getElementById("filter_kind");
-  if (table.style.display === "none") {
-    table.style.display = "block";
-  } else {
-    table.style.display = "none";
-  }
-}
-
-function hide_status(){
-  var table = document.getElementById("filter_status");
-
-  if (table.style.display === "none") {
-    table.style.display = "block";
-  } else {
-    table.style.display = "none";
-  }
 }

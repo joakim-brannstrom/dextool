@@ -153,7 +153,6 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
 
     long[MutantStatus] statusCnt;
     addMutants(db, kinds, tabContent, statusCnt);
-    // smurf smurf
 
     foreach (a; statusCnt.byKeyValue) {
         tabLink[a.key].appendText(format!" %s"(a.value));
