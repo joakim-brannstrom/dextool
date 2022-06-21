@@ -660,12 +660,12 @@ struct MutationFileScoreHistoryTable {
     long id;
 
     /// when the measurement was taken.
-    @ColumnName("time")
+    @ColumnName("time_stamp")
     SysTime timeStamp;
 
     double score;
 
-    @ColumnName("filePath")
+    @ColumnName("file_path")
     string filePath;
 }
 
@@ -1898,6 +1898,11 @@ void upgradeV50(ref Miniorm db) {
 void upgradeV51(ref Miniorm db) {
     db.run("DROP TABLE " ~ srcCovInfoTable);
     db.run(buildSchema!CoverageInfoTable);
+}
+
+// 2022-06-21
+void upgradeV52(ref Miniorm db) {
+    db.run(buildSchema!MutationFileScoreHistoryTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

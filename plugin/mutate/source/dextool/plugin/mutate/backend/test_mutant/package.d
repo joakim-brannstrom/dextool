@@ -1100,6 +1100,7 @@ nothrow:
     void opCall(SaveMutationScore data) {
         import dextool.plugin.mutate.backend.database.type : MutationScore;
         import dextool.plugin.mutate.backend.report.analyzers : reportScore, reportScores;
+        import std.algorithm: canFind;
 
         if (spinSql!(() => db.mutantApi.unknownSrcMutants(kinds)).count != 0)
             return;
@@ -1112,8 +1113,7 @@ nothrow:
         // the trend.
         if (spinSql!(() => db.timeoutApi.countMutantTimeoutWorklist) != 0)
             return;
-
-        auto files = spinSql!(() => db.getFilesStrings());
+        auto files = spinSql!(() => db.getFiles());
 
         const fileScores = reportScores(*db, kinds, files);
         const score = reportScore(*db, kinds);
@@ -1131,8 +1131,7 @@ nothrow:
         foreach(fileScore; fileScores){
             spinSql!(() @trusted {
                 auto t = db.transaction;
-                db.putMutationFileScore(MutationScore(time, typeof(MutationScore.score)(fileScore.score), fileScore.filePath));
-                db.trimMutationScore(10000);
+                db.putFileScore(MutationScore(time, typeof(MutationScore.score)(fileScore.score), fileScore.filePath));
                 t.commit;
             });
         }

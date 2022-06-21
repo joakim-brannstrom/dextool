@@ -370,27 +370,27 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     return rval;
 }
 
-MutationScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, string[] files) @safe nothrow {
+MutationScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, Path[] files) @safe nothrow {
     auto profile = Profile("reportScores");
     auto app = appender!(MutationScore[]);
 
     foreach(file; files){
-      MutationScore result;
-      result.alive = spinSql!(() => db.mutantApi.aliveSrcMutants(kinds, file)).count;
-      result.killed = spinSql!(() => db.mutantApi.killedSrcMutants(kinds, file)).count;
-      result.timeout = spinSql!(() => db.mutantApi.timeoutSrcMutants(kinds, file)).count;
-      result.aliveNoMut = spinSql!(() => db.mutantApi.aliveNoMutSrcMutants(kinds, file)).count;
-      result.noCoverage = spinSql!(() => db.mutantApi.noCovSrcMutants(kinds, file)).count;
-      result.equivalent = spinSql!(() => db.mutantApi.equivalentMutants(kinds, file)).count;
-      result.skipped = spinSql!(() => db.mutantApi.skippedMutants(kinds, file)).count;
-      result.memOverload = spinSql!(() => db.mutantApi.memOverloadMutants(kinds, file)).count;
+        MutationScore result;
+        result.alive = spinSql!(() => db.mutantApi.aliveSrcMutants(kinds, file)).count;
+        result.killed = spinSql!(() => db.mutantApi.killedSrcMutants(kinds, file)).count;
+        result.timeout = spinSql!(() => db.mutantApi.timeoutSrcMutants(kinds, file)).count;
+        result.aliveNoMut = spinSql!(() => db.mutantApi.aliveNoMutSrcMutants(kinds, file)).count;
+        result.noCoverage = spinSql!(() => db.mutantApi.noCovSrcMutants(kinds, file)).count;
+        result.equivalent = spinSql!(() => db.mutantApi.equivalentMutants(kinds, file)).count;
+        result.skipped = spinSql!(() => db.mutantApi.skippedMutants(kinds, file)).count;
+        result.memOverload = spinSql!(() => db.mutantApi.memOverloadMutants(kinds, file)).count;
 
-      const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds, file));
-      result.totalTime = total.time;
-      result.total = total.count;
-      result.filePath = file;
+        const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds, file));
+        result.totalTime = total.time;
+        result.total = total.count;
+        result.filePath = file.toString;
 
-      app.put(result);
+        app.put(result);
     }
 
     return app.data;

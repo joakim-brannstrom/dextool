@@ -203,21 +203,6 @@ struct Database {
         return app.data;
     }
 
-    string[] getFilesStrings() return @trusted {
-        auto stmt = db.prepare(format!"SELECT path FROM %s"(filesTable));
-        auto res = stmt.get.execute;
-
-        auto app = appender!(string[]);
-        foreach (ref r; res) {
-            app.put(r.peek!string(0));
-        }
-
-        return app.data;
-    }
-
-
-
-
     Nullable!Checksum getFileChecksum(const Path p) @trusted {
         static immutable sql = "SELECT checksum0,checksum1 FROM " ~ filesTable ~ " WHERE path=:path";
         auto stmt = db.prepare(sql);
@@ -314,9 +299,13 @@ struct Database {
     }
 
     // Add a mutation score for the individual files
-    void putMutationFileScore(const MutationScore score) @trusted {
+    void putFileScore(const MutationScore score) @trusted {
         db.run(insert!MutationFileScoreHistoryTable, MutationFileScoreHistoryTable(0,
                 score.timeStamp, score.score.get, score.filePath));
+    }
+
+    void removeFileScores(const string filePath){
+        db.run("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE file_path = " ~ filePath);
     }
 
     /// Trim the mutation score history table to only contain the last `keep` scores.
