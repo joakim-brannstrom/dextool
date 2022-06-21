@@ -531,7 +531,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
             "form-control").setAttribute("placeholder", "Search...");
 
     auto tbl = tmplSortableTable(root, [
-            "Path", "Score", "Change (7 days)", "Alive", "NoMut", "Total", "Time (min)"
+            "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
             ]);
     tbl.setAttribute("id", "fileTable");
 
