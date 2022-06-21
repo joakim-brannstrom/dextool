@@ -1098,7 +1098,7 @@ nothrow:
     }
 
     void opCall(SaveMutationScore data) {
-        import dextool.plugin.mutate.backend.database.type : MutationScore;
+        import dextool.plugin.mutate.backend.database.type : MutationScore, FileScore;
         import dextool.plugin.mutate.backend.report.analyzers : reportScore, reportScores;
         import std.algorithm: canFind;
 
@@ -1131,7 +1131,7 @@ nothrow:
         foreach(fileScore; fileScores){
             spinSql!(() @trusted {
                 auto t = db.transaction;
-                db.putFileScore(MutationScore(time, typeof(MutationScore.score)(fileScore.score), fileScore.filePath));
+                db.putFileScore(FileScore(time, typeof(MutationScore.score)(fileScore.score), fileScore.filePath));
                 t.commit;
             });
         }

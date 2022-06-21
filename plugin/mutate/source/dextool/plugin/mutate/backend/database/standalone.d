@@ -281,12 +281,12 @@ struct Database {
     }
 
     /// Returns: the stored scores in ascending order by their `time`.
-    MutationScore[] getMutationFileScoreHistory() @trusted {
+    FileScore[] getMutationFileScoreHistory() @trusted {
         import std.algorithm : sort;
 
-        auto app = appender!(MutationScore[])();
+        auto app = appender!(FileScore[])();
         foreach (r; db.run(select!MutationFileScoreHistoryTable)) {
-            app.put(MutationScore(r.timeStamp, typeof(MutationScore.score)(r.score), r.filePath));
+            app.put(FileScore(r.timeStamp, typeof(FileScore.score)(r.score), r.filePath));
         }
 
         return app.data.sort!((a, b) => a.timeStamp < b.timeStamp).array;
@@ -299,7 +299,7 @@ struct Database {
     }
 
     // Add a mutation score for the individual files
-    void putFileScore(const MutationScore score) @trusted {
+    void putFileScore(const FileScore score) @trusted {
         db.run(insert!MutationFileScoreHistoryTable, MutationFileScoreHistoryTable(0,
                 score.timeStamp, score.score.get, score.filePath));
     }

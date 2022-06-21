@@ -467,12 +467,12 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-import dextool.plugin.mutate.backend.database.type : MutationScore;
-void toIndex(FileIndex[] files, Element root, string htmlFileDir, MutationScore[] scoreHistory = null) @trusted {
+import dextool.plugin.mutate.backend.database.type : FileScore;
+void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] scoreHistory = null) @trusted {
     import std.algorithm : sort, filter;
     import std.conv : to;
 
-    MutationScore[][string] scores;
+    FileScore[][string] scores;
 
     foreach(score; scoreHistory){
         scores[score.filePath] ~= score;
@@ -483,8 +483,8 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, MutationScore[
     //Sort scores into "before/after seven days ago" so we can get the lastest of each,
     //thereby we can calculate the difference in score from the last seven days
     foreach(valueList; scores.byValue()){
-        MutationScore[] beforeTimeFrame;
-        MutationScore[] afterTimeFrame;
+        FileScore[] beforeTimeFrame;
+        FileScore[] afterTimeFrame;
         foreach(value; valueList){
           if(value.timeStamp < timeFrame){
             beforeTimeFrame ~= value;
@@ -1447,10 +1447,10 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         if (ReportSection.treemap in ctx.state.get.sections) {
             addSubPage(() => makeTreeMapPage(ctx.state.get.files), "tree_map", "Treemap");
         }
-        import dextool.plugin.mutate.backend.database.type : MutationScore;
+        import dextool.plugin.mutate.backend.database.type : FileScore;
 
-        MutationScore[] mutationScores = ctx.state.get.db.getMutationFileScoreHistory();
-        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir, mutationScores);
+        FileScore[] fileScores = ctx.state.get.db.getMutationFileScoreHistory();
+        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir, fileScores);
 
         addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
 

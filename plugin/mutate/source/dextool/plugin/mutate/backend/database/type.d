@@ -320,6 +320,11 @@ struct TestCmdRuntime {
 struct MutationScore {
     SysTime timeStamp;
     NamedType!(double, Tag!"MutationScore", 0.0, TagStringable) score;
+}
+
+struct FileScore {
+    SysTime timeStamp;
+    NamedType!(double, Tag!"MutationScore", 0.0, TagStringable) score;
     string filePath;
 }
 
