@@ -189,7 +189,7 @@ struct Database {
         stmt.get.bind(":path", p.toString);
         stmt.get.execute;
         stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE file_path=:path");
-        stmt.get.bind(":path", p.get.toString);
+        stmt.get.bind(":path", p.toString);
         stmt.get.execute;
     }
 
