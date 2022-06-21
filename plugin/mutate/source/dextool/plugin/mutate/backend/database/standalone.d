@@ -188,9 +188,6 @@ struct Database {
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", p.toString);
         stmt.get.execute;
-        stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE file_path=:path");
-        stmt.get.bind(":path", p.toString);
-        stmt.get.execute;
     }
 
     /// Returns: All files in the database as relative paths.

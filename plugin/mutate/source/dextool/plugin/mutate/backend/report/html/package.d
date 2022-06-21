@@ -566,7 +566,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
             }();
             r.addChild("td", format!"%.3s"(score)).style = style;
 
-            float scoreChange;
+            double scoreChange;
             if(f.display in scoreDifference){
               scoreChange = scoreDifference[f.display];
             }else{
