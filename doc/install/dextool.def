@@ -1,0 +1,55 @@
+Bootstrap: docker
+From: ubuntu:18.04
+# This file provides a Singularty image of the packages necessary to run dextool
+# Author: John Tinnerholm 2022-06-14 (Assumes the stable LLVM, which at this time is 13.)
+# For use in the LiU Course TDDD04
+%post -c /bin/bash
+    apt-get -y update
+    apt-get -y install wget
+    apt-get -y install curl
+    apt-get -y install git
+    apt-get -y install software-properties-common
+    apt-get -y update
+    echo "Installing LLVM repositories"
+    echo "Adding LLVM keys..."
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|apt-key add -
+    echo "Keys added!"
+    add-apt-repository ppa:ubuntu-toolchain-r/test
+    add-apt-repository 'deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-13 main'
+    echo "Added llvm repository"
+    apt search llvm-
+    apt search clang-
+    apt search libclang-
+    apt-get -y install llvm-13-dev
+    apt-get -y install build-essential
+    apt-get -y install cmake
+    apt-get -y install llvm-13
+    apt-get -y install llvm-13-dev
+    apt-get -y install clang-13
+    apt-get -y install libclang-13-dev
+    apt-get -y install libsqlite3-dev
+    echo "LLVM Dependencies + SQL Installed."
+    echo "Installing D-Compiler and other auxilary resources"
+    mkdir -p /usr/local/dlang
+    wget https://dlang.org/install.sh -O /usr/local/dlang/install.sh
+    chmod +777 /usr/local/dlang/install.sh
+    /usr/local/dlang/install.sh install -p /usr/local/bin dub
+    /usr/local/dlang/install.sh install -p /usr/local/bin ldc-1.29.0
+    echo "Copy ldc binary to bin"
+    chmod +777 /usr/local/bin/ldc-1.29.0
+    echo "Adding to path variables"
+    source /usr/local/bin/ldc-1.29.0/activate
+    #Installing Dextool
+    echo "Installing dextool $NOW"
+    echo "Activating the D Compiler"
+    git clone https://github.com/joakim-brannstrom/dextool.git --branch v4.3.0 --single-branch
+    mkdir dextool/build
+    cd dextool/build
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DLOW_MEM=ON ..
+    make install
+%environment
+    echo "Starting the dextool singularity environment..."
+    echo "Checking the version of dextool"
+    dextool --version
+    dextool --plugin-list
+    echo "Cloning the dextool project version 4.3.0"
