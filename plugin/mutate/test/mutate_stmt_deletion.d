@@ -30,13 +30,13 @@ class ShallDeleteBodyOfFuncsReturningVoid : SdlFixture {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv).run;
         testAnyOrder!SubStr([
-                `from ' f1Global = 2.2; ' to ''`, `from ' z = 1.2; ' to ''`,
-                `from ' method1 = 2.2; ' to ''`
-                ]).shouldBeIn(r.output);
+            `from ' f1Global = 2.2; ' to ''`, `from ' z = 1.2; ' to ''`,
+            `from ' method1 = 2.2; ' to ''`
+        ]).shouldBeIn(r.output);
 
         testAnyOrder!SubStr([
-                `from ' return static_cast<int>(w);`, `from ' return method2`
-                ]).shouldNotBeIn(r.output);
+            `from ' return static_cast<int>(w);`, `from ' return method2`
+        ]).shouldNotBeIn(r.output);
     }
 }
 
@@ -66,8 +66,8 @@ class ShallDeleteFuncCalls : SdlFixture {
         mixin(EnvSetup(globalTestdir));
         auto r = precondition(testEnv).run;
         testAnyOrder!SubStr([
-                "'gun()' to ''", "'wun(5)' to ''", "'wun(calc(6))' to ''",
-                ]).shouldBeIn(r.output);
+            "'gun()' to ''", "'wun(5)' to ''", "'wun(calc(6))' to ''",
+        ]).shouldBeIn(r.output);
     }
 }
 
@@ -99,9 +99,9 @@ class ShallDeleteAssignment : SdlFixture {
         testAnyOrder!SubStr([`from 'w = 4' to ''`]).shouldBeIn(r.output);
 
         testAnyOrder!SubStr([
-                `from 'int x = 2' to ''`, `from 'bool y = true' to ''`,
-                `from 'int w = 3' to ''`,
-                ]).shouldNotBeIn(r.output);
+            `from 'int x = 2' to ''`, `from 'bool y = true' to ''`,
+            `from 'int w = 3' to ''`,
+        ]).shouldNotBeIn(r.output);
     }
 }
 
@@ -116,14 +116,13 @@ class ShallDeleteStmtInSwitch : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
         auto r = runDextoolTest(testEnv).addPostArg([
-                "--mutant", "sdl", "--mutant", "dcr"
-                ]).addFlag("-std=c++11").run;
+            "--mutant", "sdl", "--mutant", "dcr"
+        ]).addFlag("-std=c++11").run;
 
         testAnyOrder!SubStr([
-                `from 'switch (x)`, `from 'fn(2)' to ''`, `from 'fn(3)' to ''`,
-                `from 'fn(4)' to ''`, `from 'rval = 0' to ''`,
-                `from 'rval = 1' to ''`,
-                ]).shouldBeIn(r.output);
+            `from 'switch (x)`, `from 'fn(2)' to ''`, `from 'fn(3)' to ''`,
+            `from 'fn(4)' to ''`, `from 'rval = 0' to ''`, `from 'rval = 1' to ''`,
+        ]).shouldBeIn(r.output);
     }
 }
 
@@ -185,8 +184,8 @@ class ShallOnlyGenerateValidSdlUoiSchemas : SchemataFixutre {
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
 
         auto r = runDextoolTest(testEnv).addPostArg([
-                "--mutant", "sdl", "--mutant", "uoi"
-                ]).addFlag("-std=c++11").run;
+            "--mutant", "sdl", "--mutant", "uoi"
+        ]).addFlag("-std=c++11").run;
 
         // dfmt off
         testAnyOrder!SubStr([

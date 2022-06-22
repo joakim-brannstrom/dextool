@@ -2,4 +2,3 @@
 // Should affect the interface and adapter.
 
 void foo(void);
-

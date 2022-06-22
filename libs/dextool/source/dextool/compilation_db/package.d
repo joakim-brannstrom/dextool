@@ -934,8 +934,8 @@ unittest {
     assert(cmds.length == 1);
     (cast(string) cmds[0].directory).shouldEqual(dummy_dir ~ "/dir1/dir2");
     cmds[0].command.shouldEqual([
-            "g++", "-Idir1", "-c", "-o", "binary", "file1.cpp"
-            ]);
+        "g++", "-Idir1", "-c", "-o", "binary", "file1.cpp"
+    ]);
     (cast(string) cmds[0].file).shouldEqual("file1.cpp");
     (cast(string) cmds[0].absoluteFile).shouldEqual(dummy_dir ~ "/dir1/dir2/file1.cpp");
 }
@@ -1073,8 +1073,8 @@ unittest {
     assert(found.length == 1);
 
     found[0].parseFlag(defaultCompilerFilter).cflags.shouldEqual([
-            "-I", buildPath(abs_path, "dir2", "dir1")
-            ]);
+        "-I", buildPath(abs_path, "dir2", "dir1")
+    ]);
 }
 
 @("shall find the entry based on an output match")
@@ -1128,11 +1128,11 @@ unittest {
             ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
     auto pargs = cmd.get.parseFlag(defaultCompilerFilter);
     pargs.cflags.shouldEqual([
-            "-I", "/home/dir with spaces", "-I", "/home/dir with spaces"
-            ]);
+        "-I", "/home/dir with spaces", "-I", "/home/dir with spaces"
+    ]);
     pargs.includes.shouldEqual([
-            "/home/dir with spaces", "/home/dir with spaces"
-            ]);
+        "/home/dir with spaces", "/home/dir with spaces"
+    ]);
 }
 
 @("shall handle path with spaces, both as separate string and combined with backslash")
@@ -1143,15 +1143,15 @@ unittest {
             ], AbsoluteCompileDbDirectory("/project".Path.AbsolutePath), null);
     auto pargs = cmd.get.parseFlag(defaultCompilerFilter);
     pargs.cflags.shouldEqual([
-            "-I", "/project/separate dir/with space", "-I",
-            "/project/separate dir/with space", "-I",
-            "/project/combined dir/with space", "-I",
-            "/project/combined dir/with space"
-            ]);
+        "-I", "/project/separate dir/with space", "-I",
+        "/project/separate dir/with space", "-I",
+        "/project/combined dir/with space", "-I",
+        "/project/combined dir/with space"
+    ]);
     pargs.includes.shouldEqual([
-            "/project/separate dir/with space", "/project/separate dir/with space",
-            "/project/combined dir/with space", "/project/combined dir/with space"
-            ]);
+        "/project/separate dir/with space", "/project/separate dir/with space",
+        "/project/combined dir/with space", "/project/combined dir/with space"
+    ]);
 }
 
 @("shall handle path with consecutive spaces")
@@ -1165,15 +1165,15 @@ unittest {
             ], AbsoluteCompileDbDirectory("/project".Path.AbsolutePath), null);
     auto pargs = cmd.get.parseFlag(defaultCompilerFilter);
     pargs.cflags.shouldEqual([
-            "-I", "/project/one space/lots of     space", "-I",
-            "/project/one space/lots of     space", "-I",
-            "/project/one space/lots of     space", "-I",
-            "/project/one space/lots of     space",
-            ]);
+        "-I", "/project/one space/lots of     space", "-I",
+        "/project/one space/lots of     space", "-I",
+        "/project/one space/lots of     space", "-I",
+        "/project/one space/lots of     space",
+    ]);
     pargs.includes.shouldEqual([
-            "/project/one space/lots of     space",
-            "/project/one space/lots of     space",
-            "/project/one space/lots of     space",
-            "/project/one space/lots of     space"
-            ]);
+        "/project/one space/lots of     space",
+        "/project/one space/lots of     space",
+        "/project/one space/lots of     space",
+        "/project/one space/lots of     space"
+    ]);
 }

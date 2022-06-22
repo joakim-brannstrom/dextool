@@ -1179,8 +1179,7 @@ void upgradeV7(ref Miniorm db) {
         SELECT t0.id,t1.st_id,t0.tc_id,t0.location
         FROM %s t0, %s t1
         WHERE
-        t0.mut_id = t1.id", newTbl,
-            killedTestCaseTable, mutationTable));
+        t0.mut_id = t1.id", newTbl, killedTestCaseTable, mutationTable));
 
     db.replaceTbl(newTbl, killedTestCaseTable);
 }
@@ -1191,8 +1190,7 @@ void upgradeV8(ref Miniorm db) {
     db.run(buildSchema!MutationPointTbl("new_"));
     db.run(format("INSERT INTO %s (id,file_id,offset_begin,offset_end,line,column)
         SELECT t0.id,t0.file_id,t0.offset_begin,t0.offset_end,t0.line,t0.column
-        FROM %s t0",
-            newTbl, mutationPointTable));
+        FROM %s t0", newTbl, mutationPointTable));
 
     db.replaceTbl(newTbl, mutationPointTable);
 }
@@ -1227,8 +1225,7 @@ void upgradeV9(ref Miniorm db) {
     db.run(buildSchema!MutationStatusTbl("new_"));
     db.run(format("INSERT INTO %s (id,status,time,test_cnt,update_ts,checksum0,checksum1)
         SELECT t0.id,t0.status,t0.time,0,t0.timestamp,t0.checksum0,t0.checksum1
-        FROM %s t0",
-            newTbl, mutationStatusTable));
+        FROM %s t0", newTbl, mutationStatusTable));
 
     replaceTbl(db, newTbl, mutationStatusTable);
 }
@@ -1549,8 +1546,7 @@ void upgradeV25(ref Miniorm db) {
     auto stmt = db.prepare(format(
             "INSERT INTO %s (id,status,exit_code,time,test_cnt,update_ts,added_ts,checksum0,checksum1)
         SELECT t.id,t.status,:ecode,t.time,t.test_cnt,t.update_ts,t.added_ts,t.checksum0,t.checksum1
-        FROM %s t WHERE t.status = :status",
-            newTbl, mutationStatusTable));
+        FROM %s t WHERE t.status = :status", newTbl, mutationStatusTable));
 
     foreach (st; [EnumMembers!(Mutation.Status)]) {
         stmt.get.bind(":ecode", (st == Mutation.Status.killed) ? 1 : 0);
@@ -1569,8 +1565,7 @@ void upgradeV26(ref Miniorm db) {
 
     db.run(format("INSERT OR IGNORE INTO %s (id, st_id, tc_id, location)
         SELECT t.id, t.st_id, t.tc_id, t.location
-        FROM %s t",
-            newTbl, killedTestCaseTable));
+        FROM %s t", newTbl, killedTestCaseTable));
     replaceTbl(db, newTbl, killedTestCaseTable);
 }
 
@@ -1667,9 +1662,9 @@ void upgradeV30(ref Miniorm db) {
 
     immutable newFilesTbl = "new_" ~ filesTable;
     db.run(buildSchema!FilesTbl("new_"));
-    auto stmt = db.prepare(format("INSERT OR IGNORE INTO %s (id,path,checksum0,checksum1,lang,timestamp)
-                  SELECT id,path,checksum0,checksum1,lang,:time FROM %s",
-            newFilesTbl, filesTable));
+    auto stmt = db.prepare(format(
+            "INSERT OR IGNORE INTO %s (id,path,checksum0,checksum1,lang,timestamp)
+                  SELECT id,path,checksum0,checksum1,lang,:time FROM %s", newFilesTbl, filesTable));
     stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
     stmt.get.execute;
     db.replaceTbl(newFilesTbl, filesTable);
@@ -1706,8 +1701,7 @@ void upgradeV33(ref Miniorm db) {
     // add all existing files as being dependent on each other.
     // this forces, if any one of them changes, all to be re-analyzed.
     db.run(format("INSERT OR IGNORE INTO %1$s (file,checksum0,checksum1)
-                  SELECT path,0,0 FROM %2$s",
-            depFileTable, filesTable));
+                  SELECT path,0,0 FROM %2$s", depFileTable, filesTable));
     db.run(format("INSERT OR IGNORE INTO %1$s (dep_id,file_id)
                   SELECT t0.id,t1.id FROM %2$s t0, %3$s t1", depRootTable,
             depFileTable, filesTable));
@@ -1774,8 +1768,7 @@ void upgradeV36(ref Miniorm db) {
     db.run(format(
             "INSERT INTO %s (id,status,exit_code,compile_time_ms,test_time_ms,update_ts,added_ts,checksum0,checksum1,prio)
         SELECT t.id,t.status,t.exit_code,t.compile_time_ms,t.test_time_ms,t.update_ts,t.added_ts,t.checksum0,t.checksum1,t.prio
-        FROM %s t",
-            newTbl, mutationStatusTable));
+        FROM %s t", newTbl, mutationStatusTable));
     replaceTbl(db, newTbl, mutationStatusTable);
 }
 
@@ -1830,8 +1823,7 @@ void upgradeV43(ref Miniorm db) {
     db.run(buildSchema!MutationTbl("new_"));
 
     db.run(format("INSERT INTO %s (id,mp_id,st_id,kind)
-        SELECT id,mp_id,st_id,kind FROM %s WHERE st_id NOT NULL",
-            newTbl, mutationTable));
+        SELECT id,mp_id,st_id,kind FROM %s WHERE st_id NOT NULL", newTbl, mutationTable));
     replaceTbl(db, newTbl, mutationTable);
 }
 

@@ -23,10 +23,10 @@ unittest {
     File((testEnv.outdir ~ "compile_commands.json").toString, "w").write("[]");
 
     auto res = makeDextoolAnalyze(testEnv).addArg([
-            "-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString
-            ]).addArg([
-            "--compile-db", (testEnv.outdir ~ "compile_commands.json").toString
-            ]).run;
+        "-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString
+    ]).addArg([
+        "--compile-db", (testEnv.outdir ~ "compile_commands.json").toString
+    ]).run;
 
     res.success.shouldBeTrue;
 }
@@ -51,14 +51,14 @@ unittest {
     File((testEnv.outdir ~ "compile_commands.json").toString, "w").write("[]");
 
     auto r = makeDextoolAnalyze(testEnv).addArg([
-            "-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString
-            ]).addArg([
-            "--compile-db", (testEnv.outdir ~ "compile_commands.json").toString
-            ]).run;
+        "-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString
+    ]).addArg([
+        "--compile-db", (testEnv.outdir ~ "compile_commands.json").toString
+    ]).run;
 
     testConsecutiveSparseOrder!SubStr([
-            "uc1, Parameterized Tests, Value.*|TypeTrait.*|Typed.*"
-            ]).shouldBeIn(r.output);
+        "uc1, Parameterized Tests, Value.*|TypeTrait.*|Typed.*"
+    ]).shouldBeIn(r.output);
     testConsecutiveSparseOrder!SubStr(
             ["uc2, Test Report, TestResult.*|TestPartResult.*|TestInfo.*"]).shouldBeIn(r.output);
     testConsecutiveSparseOrder!SubStr(["uc3, Resetting Mocks, VerifyAndClear.*"]).shouldBeIn(
@@ -76,14 +76,14 @@ unittest {
             `use_compiler_system_includes = "%s/fake_cc.d"`, testEnv.outdir.toString);
 
     auto r = makeDextoolAnalyze(testEnv).addArg([
-            "-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString
-            ]).addArg([
-            "--compile-db", (testEnv.outdir ~ "compile_commands.json").toString
-            ]).run;
+        "-c", (testEnv.outdir ~ ".dextool_mutate.toml").toString
+    ]).addArg([
+        "--compile-db", (testEnv.outdir ~ "compile_commands.json").toString
+    ]).run;
 
     testConsecutiveSparseOrder!SubStr([
-            "trace: Compiler flags: -xc++ -isystem /foo/bar"
-            ]).shouldBeIn(r.output);
+        "trace: Compiler flags: -xc++ -isystem /foo/bar"
+    ]).shouldBeIn(r.output);
 }
 
 // shall extend test commands with those in the specified directory when testing
@@ -97,13 +97,11 @@ class ExtendTestCommandsFromTestCmdDir : SimpleFixture {
         immutable dextoolConf = buildPath(testEnv.outdir.toString, ".dextool_mutate.toml");
         copy(buildPath(testData.toString, "config", "test_cmd_dir.toml"), dextoolConf);
         File(dextoolConf, "a").writefln(`test_cmd_dir = %s
-test_cmd_dir_flag = ["--foo"]`, [
-                testEnv.outdir.toString
-                ]);
+test_cmd_dir_flag = ["--foo"]`, [testEnv.outdir.toString]);
 
         makeDextoolAnalyze(testEnv).addInputArg(programFile).addPostArg([
-                "-c", dextoolConf
-                ]).run;
+            "-c", dextoolConf
+        ]).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -122,10 +120,10 @@ test_cmd_dir_flag = ["--foo"]`, [
         // dfmt on
 
         testConsecutiveSparseOrder!Re([
-                `.*Found test commands in`, `.*/test.sh --foo`,
-                ]).shouldBeIn(r.output);
+            `.*Found test commands in`, `.*/test.sh --foo`,
+        ]).shouldBeIn(r.output);
         testConsecutiveSparseOrder!Re([
-                `.*Found test commands in`, `.*/compile.sh --foo`,
-                ]).shouldBeIn(r.output);
+            `.*Found test commands in`, `.*/compile.sh --foo`,
+        ]).shouldBeIn(r.output);
     }
 }

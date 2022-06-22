@@ -12,7 +12,7 @@ public:
     virtual void fun();
 };
 
-} // NS: ns1
+} // namespace ns1
 
 namespace ns1 {
 
@@ -26,5 +26,5 @@ public:
     virtual void laugh();
 };
 
-} // NS: ns1
+} // namespace ns1
 #endif // NS_MERGE_HPP

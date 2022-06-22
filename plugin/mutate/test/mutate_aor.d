@@ -28,8 +28,8 @@ unittest {
 
         makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).addFlag("-std=c++11").run;
         auto r = makeDextool(testEnv).addArg(["test"]).addArg([
-                "--mutant", "aor"
-                ]).run;
+            "--mutant", "aor"
+        ]).run;
 
         testAnyOrder!SubStr(ops.map!(a => a)
                 .permutations
@@ -51,13 +51,13 @@ unittest {
 
         makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).addFlag("-std=c++11").run;
         auto r = makeDextool(testEnv).addArg(["test"]).addArg([
-                "--mutant", "aors"
-                ]).run;
+            "--mutant", "aors"
+        ]).run;
 
         testAnyOrder!SubStr([
-                `from '+' to '-'`, `from '-' to '+'`, `from '/' to '*'`,
-                `from '*' to '/'`, `from '%' to '/'`,
-                ]).shouldBeIn(r.output);
+            `from '+' to '-'`, `from '-' to '+'`, `from '/' to '*'`,
+            `from '*' to '/'`, `from '%' to '/'`,
+        ]).shouldBeIn(r.output);
 
         testAnyOrder!SubStr([`from '+' to '*'`]).shouldNotBeIn(r.output);
         testAnyOrder!SubStr([`from '*' to '+'`]).shouldNotBeIn(r.output);
@@ -79,8 +79,8 @@ unittest {
 
         makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).run;
         auto r = makeDextool(testEnv).addArg(["test"]).addArg([
-                "--mutant", "aor"
-                ]).run;
+            "--mutant", "aor"
+        ]).run;
 
         testAnyOrder!SubStr(ops.map!(a => format!"from 'a %s' to ''"(a)).array).shouldBeIn(
                 r.output);

@@ -9,6 +9,4 @@ int fun(int x) {
     return 1;
 }
 
-int main(int argc, char** argv) {
-    return fun(argc + 3);
-}
+int main(int argc, char** argv) { return fun(argc + 3); }

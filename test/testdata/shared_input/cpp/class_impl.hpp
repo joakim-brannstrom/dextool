@@ -5,15 +5,9 @@
 class Simple {
 public:
     Simple() {}
-    Simple(char x) {
-        this->x = 0;
-    }
-    Simple(int y) : x(y) {
-        x = y;
-    }
-    ~Simple() {
-        this->x = 0;
-    }
+    Simple(char x) { this->x = 0; }
+    Simple(int y) : x(y) { x = y; }
+    ~Simple() { this->x = 0; }
 
     void func1() {
         int foo = 1;

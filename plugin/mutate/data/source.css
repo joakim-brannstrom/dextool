@@ -75,6 +75,15 @@ span.xx_label {
 .loc_selected {
     background: #cecece;
 }
+.loc_covered {
+    background: lightblue;
+}
+.loc_noncovered {
+    background: rgb(255, 217, 0);
+}
+.loc_coverage_off {
+    background-color: #ffffff;
+}
 #filter_wrapper {
     display: block;
 }

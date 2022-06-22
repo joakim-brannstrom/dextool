@@ -7,5 +7,4 @@ TEST(Instantiate, Gmock) {
     TestDouble::Adapter adapter(mock);
 
     // EXPECT_CALL(mock,
-
 }

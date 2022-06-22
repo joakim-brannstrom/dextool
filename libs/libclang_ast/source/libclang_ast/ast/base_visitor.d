@@ -27,7 +27,8 @@ abstract class Visitor {
     void visit(scope const TranslationUnit) {
     }
 
-    void visit(scope const Attribute) {}
+    void visit(scope const Attribute) {
+    }
 
     void visit(scope const UnexposedAttr value) {
         visit(cast(const(Attribute)) value);
@@ -109,7 +110,8 @@ abstract class Visitor {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(scope const Declaration) {}
+    void visit(scope const Declaration) {
+    }
 
     void visit(scope const UnexposedDecl value) {
         visit(cast(const(Declaration)) value);
@@ -263,7 +265,8 @@ abstract class Visitor {
         visit(cast(const(Declaration)) value);
     }
 
-    void visit(scope const Directive) {}
+    void visit(scope const Directive) {
+    }
 
     void visit(scope const OmpParallelDirective value) {
         visit(cast(const(Directive)) value);
@@ -453,7 +456,8 @@ abstract class Visitor {
         visit(cast(const(Directive)) value);
     }
 
-    void visit(scope const Expression) {}
+    void visit(scope const Expression) {
+    }
 
     void visit(scope const UnexposedExpr value) {
         visit(cast(const(Expression)) value);
@@ -651,7 +655,8 @@ abstract class Visitor {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const Extra) {}
+    void visit(scope const Extra) {
+    }
 
     void visit(scope const ModuleImportDecl value) {
         visit(cast(const(Extra)) value);
@@ -669,7 +674,8 @@ abstract class Visitor {
         visit(cast(const(Extra)) value);
     }
 
-    void visit(scope const Preprocessor) {}
+    void visit(scope const Preprocessor) {
+    }
 
     void visit(scope const PreprocessingDirective value) {
         visit(cast(const(Preprocessor)) value);
@@ -687,7 +693,8 @@ abstract class Visitor {
         visit(cast(const(Preprocessor)) value);
     }
 
-    void visit(scope const Reference) {}
+    void visit(scope const Reference) {
+    }
 
     void visit(scope const ObjCSuperClassRef value) {
         visit(cast(const(Reference)) value);
@@ -733,7 +740,8 @@ abstract class Visitor {
         visit(cast(const(Reference)) value);
     }
 
-    void visit(scope const Statement) {}
+    void visit(scope const Statement) {
+    }
 
     void visit(scope const UnexposedStmt value) {
         visit(cast(const(Statement)) value);
