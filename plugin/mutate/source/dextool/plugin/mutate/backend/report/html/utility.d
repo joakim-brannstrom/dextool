@@ -56,15 +56,13 @@ string toShortTime(Duration d) {
     return format!"%ss"(d.total!"seconds");
 }
 
-@trusted
-void generatePopupHelp(Element e, string infoTitle, string infoText) {
+void generatePopupHelp(Element e, string infoTitle, string infoText) @trusted {
     e.addChild("div", infoTitle).addChild("div", "[?]").addClass("info-box")
     .addChild("span", infoText).addClass("info-box-content");
 }
 
-@trusted
-void generatePopupHelpLink(Element e, string infoTitle, string infoText, string link) {
-   foo.addChild("td").addChild("a", infoTitle).setAttribute("href", link)
+void generatePopupHelpLink(Element e, string infoTitle, string infoText, string link) @trusted {
+   e.addChild("td").addChild("a", infoTitle).setAttribute("href", link)
    .addChild("div", "[?]").addClass("info-box").addChild("span", infoText)
    .addClass("info-box-content");
 }

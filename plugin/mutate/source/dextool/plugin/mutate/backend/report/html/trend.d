@@ -19,6 +19,7 @@ import dextool.plugin.mutate.backend.report.analyzers : reportTrendByCodeChange,
     reportMutationScoreHistory, MutationScoreHistory;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.report.html.utility : generatePopupHelp;
 
 void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[] kinds) @trusted {
     import std.datetime : SysTime;
@@ -61,7 +62,7 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
 
     const codeChange = reportTrendByCodeChange(db, kinds);
     if (codeChange.sample.length > 2) {
-        ts = TimeScalePointGraph("ScoreByCodeChange");
+        ts = TimeScalePointGraph("SourceByCodeChange");
         foreach (v; codeChange.sample) {
             ts.put("Score", TimeScalePointGraph.Point(v.timeStamp, v.value.get));
         }

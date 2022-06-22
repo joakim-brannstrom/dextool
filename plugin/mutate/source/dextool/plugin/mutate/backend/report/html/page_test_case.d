@@ -38,6 +38,7 @@ import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation, toString, TestCase;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
+import dextool.plugin.mutate.backend.report.html.utility;
 
 @safe:
 
