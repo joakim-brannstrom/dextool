@@ -5,7 +5,7 @@ class Bar {
 public:
     Bar() {}
 };
-} // NS: Foo
+} // namespace Foo
 
 class Glass {
 public:

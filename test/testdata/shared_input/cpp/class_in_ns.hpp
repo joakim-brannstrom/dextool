@@ -11,6 +11,6 @@ public:
     virtual Smurf& operator=(const Smurf& other) {}
 };
 
-} // NS: bar
+} // namespace bar
 
-} // NS: foo
+} // namespace foo

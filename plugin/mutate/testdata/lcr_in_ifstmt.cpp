@@ -6,6 +6,8 @@ void logical_operators() {
     bool a = true;
     bool b = false;
 
-    if (a || b) return;
-    if (a && b) return;
+    if (a || b)
+        return;
+    if (a && b)
+        return;
 }

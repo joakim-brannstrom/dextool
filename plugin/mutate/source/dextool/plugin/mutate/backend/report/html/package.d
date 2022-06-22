@@ -30,6 +30,7 @@ import my.optional;
 import my.set;
 
 import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId;
+import dextool.plugin.mutate.backend.database.type : CovRegionStatus;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
@@ -632,6 +633,54 @@ string toVisible(MetaSpan.StatusColor s) {
     return format("status_%s", s);
 }
 
+/// DB data for coverage-visualization
+
+bool[uint] extractLineCovData(CovRegionStatus[] dbData, ref FileCtx ctx) {
+    bool[uint] lineList;
+
+    static struct T {
+        int value;
+        bool status;
+    }
+
+    T[] regions;
+
+    foreach (region; dbData) {
+        bool status = region.status;
+        int begin = region.region.begin;
+        int end = region.region.end;
+
+        T temp;
+        temp.value = begin;
+        temp.status = status;
+        regions ~= temp;
+        temp.value = end;
+        regions ~= temp;
+    }
+
+    bool inRegion = false;
+    bool currentStatus = false;
+    int byteCounter = 0;
+    int lineCounter = 1;
+
+    foreach (b; ctx.raw.content) {
+        if (b == '\n') {
+            lineCounter++;
+        }
+        if (!regions.empty && byteCounter == regions[0].value) {
+            currentStatus = regions[0].status;
+            inRegion = !inRegion;
+            regions = regions[1 .. regions.length];
+        }
+        if (inRegion) {
+            lineList[lineCounter] = currentStatus;
+        }
+        byteCounter++;
+    }
+    return lineList;
+}
+
+
 void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     import std.conv : to;
     import std.range : repeat, enumerate;
@@ -667,6 +716,11 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     // newlines, detect when a line changes etc.
     auto lastLoc = SourceLoc(1, 1);
 
+    // read coverage data and save covered lines in lineList
+    auto dbData = db.coverageApi.getCoverageStatus(ctx.fileId);
+
+    auto lineList = extractLineCovData(dbData, ctx);
+
     foreach (const s; ctx.span.toRange) {
         if (s.tok.loc.line > lastLoc.line) {
             lastLoc.column = 1;
@@ -678,6 +732,13 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             line.setAttribute("id", format("%s-%s", "loc", lastLoc.line + i + 1))
                 .addClass("loc").addChild("span", format("%s:",
                         lastLoc.line + i + 1)).addClass("line_nr");
+
+            if (auto v = (lastLoc.line + i + 1) in lineList) {
+                if (*v)
+                    line.addClass("loc_covered");
+                else
+                    line.addClass("loc_noncovered");
+            }
 
             // force a newline in the generated html to improve readability
             lines.appendText("\n");
@@ -692,8 +753,11 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             addClass(s.tok.toName);
             if (auto v = meta.status.toVisible)
                 addClass(v);
-            if (s.muts.length != 0)
+            if (s.muts.length != 0) {
                 addClass(format("%(mutid%s %)", s.muts.map!(a => a.id)));
+                line.removeClass("loc_covered");
+                line.removeClass("loc_noncovered");
+            }
             if (meta.onClick.length != 0)
                 setAttribute("onclick", meta.onClick);
         }
@@ -713,7 +777,6 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                     mutantHtmlTag.appendText(m.mutation);
                 }
             }
-            d0.addChild("a").setAttribute("href", "#" ~ m.id.toString);
 
             auto testCases = ctx.getTestCaseInfo(m.id);
             if (testCases.empty) {

@@ -10,7 +10,7 @@ void func_array(int a[10]);
 void func_ref_ptr(int*& a);
 void func_ref_array(int (&a)[10]);
 
-} // NS: ns
+} // namespace ns
 
 // Test that an implicitly named enum/struct is correctly represented in the
 // function signature.
@@ -18,16 +18,13 @@ void func_ref_array(int (&a)[10]);
 namespace Scope {
 namespace Inner {
 
-typedef enum {
-    Enum_0,
-    Enum_1
-} Enum;
+typedef enum { Enum_0, Enum_1 } Enum;
 
 typedef struct {
 } Struct;
 
-} // NS: Inner
-} // NS: Scope
+} // namespace Inner
+} // namespace Scope
 
 namespace ns_using_scope {
 namespace ns_using_inner {
@@ -49,5 +46,5 @@ Scope::Inner::Struct struct_rval();
 Scope::Inner::Struct* struct_ptr_rval();
 Scope::Inner::Struct& struct_ref_rval();
 
-} // NS: ns_using_inner
-} // NS: ns_using_scope
+} // namespace ns_using_inner
+} // namespace ns_using_scope

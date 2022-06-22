@@ -13,8 +13,7 @@ public:
     TestDouble::Adapter adapter;
 };
 
-TEST_F(Functions, InstantiateTest) {
-}
+TEST_F(Functions, InstantiateTest) {}
 
 TEST_F(Functions, PassThroughTest) {
     EXPECT_CALL(mock, func_void());
@@ -66,9 +65,7 @@ TEST_F(Functions, ReturnValueTest) {
     EXPECT_EQ(45, c_func_one_named(0));
 }
 
-static int test_func_two_params(int a, int b) {
-    return 42;
-}
+static int test_func_two_params(int a, int b) { return 42; }
 
 TEST_F(Functions, PassThroughTestOfFuncPtr) {
     EXPECT_CALL(mock, fun(&test_func_two_params, _));
@@ -79,8 +76,7 @@ TEST_F(Functions, PassThroughTestOfFuncPtr) {
     func_ptr_arg(&test_func_two_params, 42);
 }
 
-static void test_func_one_param(int a) {
-}
+static void test_func_one_param(int a) {}
 
 TEST_F(Functions, ReturnFuncPtrTest) {
     EXPECT_CALL(mock, func_return_func_ptr()).WillOnce(Return(&test_func_one_param));

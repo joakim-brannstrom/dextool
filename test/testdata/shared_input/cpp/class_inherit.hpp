@@ -85,6 +85,6 @@ public:
     virtual ~Ns2B() {}
 };
 
-} // NS: ns2
+} // namespace ns2
 
-} // NS: ns1
+} // namespace ns1

@@ -20,8 +20,8 @@ unittest {
 
         makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).run;
         auto r = makeDextool(testEnv).addArg(["test"]).addArg([
-                "--mutant", "lcr"
-                ]).run;
+            "--mutant", "lcr"
+        ]).run;
 
         // dfmt off
         testAnyOrder!SubStr([

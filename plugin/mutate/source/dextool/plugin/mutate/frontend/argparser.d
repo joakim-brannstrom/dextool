@@ -514,7 +514,7 @@ struct ArgParser {
                 mutationTest.maxAlive = maxAlive;
             if (mutationTester.length != 0)
                 mutationTest.mutationTester = mutationTester.map!(a => ShellCommand([
-                            a
+                        a
                         ])).array;
             if (mutationCompile.length != 0)
                 mutationTest.mutationCompile = ShellCommand([mutationCompile]);
@@ -1221,8 +1221,8 @@ analyze_cmd = %s
         ap.mutationTest.mutationTester.shouldEqual([ShellCommand(["test.sh"])]);
         ap.mutationTest.mutationCompile.shouldEqual(ShellCommand(["build.sh"]));
         ap.mutationTest.mutationTestCaseAnalyze.shouldEqual([
-                ShellCommand(["analyze.sh"])
-                ]);
+            ShellCommand(["analyze.sh"])
+        ]);
     }
 
     {
@@ -1230,14 +1230,14 @@ analyze_cmd = %s
                 `["build.sh", "-y"]`, `[["analyze.sh", "-z"]]`));
         auto ap = loadConfig(ArgParser.init, doc);
         ap.mutationTest.mutationTester.shouldEqual([
-                ShellCommand(["test1.sh"]), ShellCommand(["test2.sh"])
-                ]);
+            ShellCommand(["test1.sh"]), ShellCommand(["test2.sh"])
+        ]);
         ap.mutationTest.mutationCompile.shouldEqual(ShellCommand([
-                    "build.sh", "-y"
+                "build.sh", "-y"
                 ]));
         ap.mutationTest.mutationTestCaseAnalyze.shouldEqual([
-                ShellCommand(["analyze.sh", "-z"])
-                ]);
+            ShellCommand(["analyze.sh", "-z"])
+        ]);
     }
 
     {
@@ -1245,10 +1245,8 @@ analyze_cmd = %s
                 `"build.sh"`, `"analyze.sh"`));
         auto ap = loadConfig(ArgParser.init, doc);
         ap.mutationTest.mutationTester.shouldEqual([
-                ShellCommand(["test1.sh", "-x"]), ShellCommand([
-                        "test2.sh", "-y"
-                    ])
-                ]);
+            ShellCommand(["test1.sh", "-x"]), ShellCommand(["test2.sh", "-y"])
+        ]);
     }
 }
 
@@ -1397,8 +1395,8 @@ inject_runtime_impl = [["foo", "cpp"]]
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.schema.userRuntimeCtrl.shouldEqual([
-            UserRuntime(Path("foo"), Language.cpp)
-            ]);
+        UserRuntime(Path("foo"), Language.cpp)
+    ]);
 }
 
 @("shall parse the files to inject the coverage runtime to")
@@ -1412,8 +1410,8 @@ inject_runtime_impl = [["foo", "cpp"]]
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.coverage.userRuntimeCtrl.shouldEqual([
-            UserRuntime(Path("foo"), Language.cpp)
-            ]);
+        UserRuntime(Path("foo"), Language.cpp)
+    ]);
 }
 
 @("shall parse the report sections")
@@ -1427,8 +1425,8 @@ sections = ["all_mut", "summary"]
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     ap.report.reportSection.shouldEqual([
-            ReportSection.all_mut, ReportSection.summary
-            ]);
+        ReportSection.all_mut, ReportSection.summary
+    ]);
 }
 
 @("shall parse the number of high interest mutants")
@@ -1605,8 +1603,8 @@ TestConstraint parseUserTestConstraint(string[] raw) {
 @("shall parse a test restriction")
 unittest {
     const r = parseUserTestConstraint([
-            "foo/bar:1-10", "smurf bar/i oknen:ea,ting:33-45"
-            ]);
+        "foo/bar:1-10", "smurf bar/i oknen:ea,ting:33-45"
+    ]);
 
     Path("foo/bar").shouldBeIn(r.value);
     r.value[Path("foo/bar")][0].should == Line(1);

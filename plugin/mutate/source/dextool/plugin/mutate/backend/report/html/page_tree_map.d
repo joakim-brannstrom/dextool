@@ -67,7 +67,7 @@ class JSONLike {
     Nullable!double score;
 
     JSONValue toJSONValue() {
-        JSONValue root = ["name" : name];
+        JSONValue root = ["name": name];
 
         if (!children.empty) {
             JSONValue[] descendants = [];
