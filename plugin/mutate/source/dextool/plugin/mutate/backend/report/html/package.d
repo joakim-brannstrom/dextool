@@ -537,6 +537,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
             "form-control").setAttribute("placeholder", "Search...");
 
     Table tbl;
+
     //If there is no score history, then it shouldnt show the Change column
     if(scoreHistory.length == 0){
         tbl = tmplSortableTable(root, [
@@ -554,6 +555,11 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
     // green.
     bool hasSuppressed;
 
+    double[Path] scoreDifference;
+    if(scoreHistory.length > 0){
+        scoreDifference = changeInSevenDays(scoreHistory);
+    }
+    
     auto noMutants = appender!(FileIndex[])();
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
         if (f.stat.total == 0) {
@@ -582,11 +588,9 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
 
 
             if(scoreHistory.length > 0){
-                double[Path] scoreDifference = changeInSevenDays(scoreHistory);
-
                 double scoreChange;
-                if(f.path in scoreDifference){
-                    scoreChange = scoreDifference[f.path];
+                if(Path(f.display) in scoreDifference){
+                    scoreChange = scoreDifference[Path(f.display)];
                 }else{
                     scoreChange = 0;
                 }
