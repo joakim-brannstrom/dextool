@@ -2292,7 +2292,7 @@ struct DbCoverage {
     }
 
     CovRegion[][FileId] getCoverageMap() @trusted {
-        static immutable sql = format!"SELECT file_id,begin,end,id FROM %s"(srcCovTable);
+        static immutable sql = format!"SELECT file_id, begin, end, id FROM %s"(srcCovTable);
         auto stmt = db.prepare(sql);
 
         typeof(return) rval;
@@ -2307,6 +2307,20 @@ struct DbCoverage {
         }
 
         return rval;
+    }
+
+    CovRegionStatus[] getCoverageStatus(FileId fileId) @trusted {
+        immutable sql = "SELECT t0.begin, t0.end, t1.status FROM "
+            ~ srcCovTable ~ " t0, " ~ srcCovInfoTable ~ " t1
+        WHERE t0.id = t1.id AND t0.file_id = :fid";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":fid", fileId.get);
+        auto rval = appender!(CovRegionStatus[])();
+        foreach (ref r; stmt.get.execute) {
+            auto region = CovRegionStatus(r.peek!bool(2), Offset(r.peek!uint(0), r.peek!uint(1)));
+            rval.put(region);
+        }
+        return rval.data;
     }
 
     long getCoverageMapCount() @trusted {

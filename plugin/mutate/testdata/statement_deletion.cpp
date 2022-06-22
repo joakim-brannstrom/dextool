@@ -13,7 +13,7 @@ void fun() {
 
     // expecting this if-stmt to be deleted
     if (x > 3) {
-        x = 4;    // delete until the ;
+        x = 4; // delete until the ;
     }
 
     // expecting this if-stmt to be deleted

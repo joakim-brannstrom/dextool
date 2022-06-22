@@ -1,7 +1,7 @@
 // bug: anonymous namespace shall not result in any generated code.
 
 namespace N {
-namespace  {
+namespace {
 void fun();
 }
-} //NS:N
+} // namespace N
