@@ -261,7 +261,7 @@ struct Database {
         import std.algorithm : map;
 
         immutable all_fmut = format("SELECT
-            t0.id,
+            t3.id,
             t0.kind,
             t3.status,
             t1.offset_begin,
