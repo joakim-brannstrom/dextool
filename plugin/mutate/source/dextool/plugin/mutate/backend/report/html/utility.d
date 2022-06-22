@@ -56,7 +56,6 @@ string toShortTime(Duration d) {
     return format!"%ss"(d.total!"seconds");
 }
 
-
 @trusted
 void generatePopupHelp(Element e, string infoTitle, string infoText) {
     e.addChild("div", infoTitle).addChild("div", "[?]").addClass("info-box")
