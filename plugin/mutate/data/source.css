@@ -79,7 +79,10 @@ span.xx_label {
     background: lightblue;
 }
 .loc_noncovered {
-    background: orangered;
+    background: rgb(255, 217, 0);
+}
+.loc_coverage_off {
+    background-color: #ffffff;
 }
 #filter_wrapper {
     display: block;

@@ -680,7 +680,6 @@ bool[uint] extractLineCovData(CovRegionStatus[] dbData, ref FileCtx ctx) {
     return lineList;
 }
 
-
 void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     import std.conv : to;
     import std.range : repeat, enumerate;
@@ -735,9 +734,9 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
             if (auto v = (lastLoc.line + i + 1) in lineList) {
                 if (*v)
-                    line.addClass("loc_covered");
+                    line.firstChild.addClass("loc_covered");
                 else
-                    line.addClass("loc_noncovered");
+                    line.firstChild.addClass("loc_noncovered");
             }
 
             // force a newline in the generated html to improve readability
@@ -755,8 +754,8 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 addClass(v);
             if (s.muts.length != 0) {
                 addClass(format("%(mutid%s %)", s.muts.map!(a => a.id)));
-                line.removeClass("loc_covered");
-                line.removeClass("loc_noncovered");
+                line.firstChild.removeClass("loc_covered");
+                line.firstChild.removeClass("loc_noncovered");
             }
             if (meta.onClick.length != 0)
                 setAttribute("onclick", meta.onClick);
