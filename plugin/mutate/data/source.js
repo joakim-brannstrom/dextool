@@ -40,6 +40,8 @@ function init() {
         on_window_resize);
     window.addEventListener('keydown',
         function(e) { on_keyboard_input(e); });
+    document.getElementById("info_table_wrapper").addEventListener('wheel',
+        function(e) { on_loc_wheel(e); });
     g_displayed_testcases = num_testcases.value;
     num_testcases.max = MAX_NUM_TESTCASES;
     init_legend();
@@ -47,8 +49,6 @@ function init() {
     var locs_table = document.getElementById("locs");
     var locs = document.getElementsByClassName('loc');
     for (var i=0; i<locs.length; i++){
-        locs[i].addEventListener('wheel',
-            function(e) { on_loc_wheel(e); });
         locs[i].addEventListener('click',
             function(e) { on_loc_click(e); });
 
@@ -73,6 +73,7 @@ function init() {
             select_loc(hash, true);
         }
     }
+    
     click_show_legend();
     click_show_mutant();
     document.body.focus();
@@ -127,11 +128,8 @@ function on_keyboard_input(e) {
  * @param {event} e the captured scrool event
  */
 function on_loc_wheel(e) {
-    var loc = get_closest_loc(e.target);
-    if(loc.id === g_active_locid) {
-        e.preventDefault();
-        traverse_mutants(e.deltaY);
-    }
+    e.preventDefault();
+    traverse_mutants(e.deltaY);
     return;
 }
 /**
@@ -570,7 +568,6 @@ function fly(evt, html) {
  */
 function scroll_to(anchor, center) {
     var curr_pos = window.pageYOffset;
-    location.hash = "#" + anchor; //Removing this allows for using the browser back button.
     if (center) {
         var newpos = document.getElementById(anchor).offsetTop - window.innerHeight/2;
         if (newpos > 0) {
