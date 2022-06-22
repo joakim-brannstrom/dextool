@@ -27,6 +27,7 @@ import dextool.type;
 // 5 because it covers all the operators and true/false
 immutable windowSize = 5;
 
+immutable fluctuationLimit = 0.001;
 immutable invalidFile = "Dextool: Invalid UTF-8 content";
 
 /// Create a range from `a` that has at most maxlen+3 letters in it.
@@ -161,4 +162,14 @@ string kindToString(long kind) @trusted {
     import std.conv : to;
 
     return kindToString(kind.to!(Mutation.Kind));
+}
+
+
+//1 for over limit, 0 for in limit, -1 for under limit
+int ignoreFluctuations(double value, double limit = fluctuationLimit) @trusted{
+    if (value < -limit)
+        return -1;
+    if (value > limit)
+        return 1;
+    return 0;
 }

@@ -33,6 +33,7 @@ import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
+import dextool.plugin.mutate.backend.report.utility : ignoreFluctuations;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc, Token;
 import dextool.plugin.mutate.backend.utility : Profile;
 import dextool.plugin.mutate.config : ConfigReport;
@@ -595,14 +596,13 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
                     scoreChange = 0;
                 }
 
+                int fluctuation = ignoreFluctuations(scoreChange);
                 const scoreChangeStyle = () {
-                    if (scoreChange < 0)
+                    if (fluctuation == -1)
                         return "background-color: salmon";
-                    if (scoreChange == 0)
-                        return "background-color: white";
-                    if (scoreChange > 0)
+                    if (fluctuation == 1)
                         return "background-color: lightgreen";
-                    return null;
+                    return "background-color: white";
                 }();
 
                 r.addChild("td", format!"%.3s"(scoreChange)).style = scoreChangeStyle;

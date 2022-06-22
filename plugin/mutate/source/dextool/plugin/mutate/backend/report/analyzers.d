@@ -32,7 +32,7 @@ import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult,
     makeMutationText, makeMutation;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.backend.report.utility : window, windowSize,
+import dextool.plugin.mutate.backend.report.utility : window, windowSize, ignoreFluctuations,
     statusToString, kindToString;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, TestGroup;
 import dextool.plugin.mutate.backend.utility : Profile;
@@ -1287,12 +1287,14 @@ struct MutationScoreHistory {
 
         {
             // small changes / fluctuations are ignored
-            immutable limit = 0.001;
             const diff = estimate.predScore - values[$ - 1].score.get;
-            if (diff < -limit)
+            int fluctuation = ignoreFluctuations(diff);
+            if (fluctuation == -1){
                 estimate.trend = Trend.negative;
-            else if (diff > limit)
+            }
+            else if (fluctuation == 1){
                 estimate.trend = Trend.positive;
+            }
         }
     }
 
