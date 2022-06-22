@@ -1113,7 +1113,21 @@ nothrow:
         // the trend.
         if (spinSql!(() => db.timeoutApi.countMutantTimeoutWorklist) != 0)
             return;
+        
         auto files = spinSql!(() => db.getFiles());
+        auto scoreFiles = spinSql!(() => db.getFileScorePaths());
+
+        foreach(file; scoreFiles){
+            //If the file only exists in the FileScores table, and not in the Files table,
+            //then the file's stored scores should be removed
+            if(!files.canFind(file)){
+                spinSql!(() @trusted {
+                auto t = db.transaction;
+                db.removeFileScores(file);
+                t.commit;
+                });
+            }
+        }
 
         const fileScores = reportScores(*db, kinds, files);
         const score = reportScore(*db, kinds);
