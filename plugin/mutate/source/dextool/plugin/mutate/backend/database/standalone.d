@@ -286,7 +286,7 @@ struct Database {
 
         auto app = appender!(FileScore[])();
         foreach (r; db.run(select!MutationFileScoreHistoryTable)) {
-            app.put(FileScore(r.timeStamp, typeof(FileScore.score)(r.score), r.filePath));
+            app.put(FileScore(r.timeStamp, typeof(FileScore.score)(r.score), Path(r.filePath)));
         }
 
         return app.data.sort!((a, b) => a.timeStamp < b.timeStamp).array;
@@ -301,7 +301,7 @@ struct Database {
     // Add a mutation score for the individual files
     void putFileScore(const FileScore score) @trusted {
         db.run(insert!MutationFileScoreHistoryTable, MutationFileScoreHistoryTable(0,
-                score.timeStamp, score.score.get, score.filePath));
+                score.timeStamp, score.score.get, score.filePath.toString));
     }
 
     void removeFileScores(const string filePath){

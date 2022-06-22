@@ -340,7 +340,6 @@ struct MutationScore {
 
     // Nr of mutants that are alive but tagged with nomut.
     long aliveNoMut;
-    string filePath;
 
     double score() @safe pure nothrow const @nogc {
         if ((total - aliveNoMut) > 0) {
@@ -348,6 +347,11 @@ struct MutationScore {
         }
         return 0.0;
     }
+}
+
+struct FileScore{
+    double score;
+    Path filePath;
 }
 
 MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
@@ -370,26 +374,14 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     return rval;
 }
 
-MutationScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, Path[] files) @safe nothrow {
+FileScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, Path[] files) @safe nothrow {
     auto profile = Profile("reportScores");
-    auto app = appender!(MutationScore[]);
+    auto app = appender!(FileScore[]);
 
     foreach(file; files){
-        MutationScore result;
-        result.alive = spinSql!(() => db.mutantApi.aliveSrcMutants(kinds, file)).count;
-        result.killed = spinSql!(() => db.mutantApi.killedSrcMutants(kinds, file)).count;
-        result.timeout = spinSql!(() => db.mutantApi.timeoutSrcMutants(kinds, file)).count;
-        result.aliveNoMut = spinSql!(() => db.mutantApi.aliveNoMutSrcMutants(kinds, file)).count;
-        result.noCoverage = spinSql!(() => db.mutantApi.noCovSrcMutants(kinds, file)).count;
-        result.equivalent = spinSql!(() => db.mutantApi.equivalentMutants(kinds, file)).count;
-        result.skipped = spinSql!(() => db.mutantApi.skippedMutants(kinds, file)).count;
-        result.memOverload = spinSql!(() => db.mutantApi.memOverloadMutants(kinds, file)).count;
-
-        const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds, file));
-        result.totalTime = total.time;
-        result.total = total.count;
-        result.filePath = file.toString;
-
+        FileScore result;
+        result.score = reportScore(db, kinds, file.toString).score();
+        result.filePath = file;
         app.put(result);
     }
 

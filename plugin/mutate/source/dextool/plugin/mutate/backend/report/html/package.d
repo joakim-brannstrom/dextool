@@ -469,15 +469,15 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-double[string] changeInSevenDays(FileScore[] scoreHistory){
-    FileScore[][string] scores;
+double[Path] changeInSevenDays(FileScore[] scoreHistory){
+    FileScore[][Path] scores;
 
     foreach(score; scoreHistory){
         scores[score.filePath] ~= score;
     }
 
     auto timeFrame = Clock.currTime() - 7.days;
-    double[string] scoreDifference;
+    double[Path] scoreDifference;
     //Sort scores into "before/after seven days ago" so we can get the lastest of each,
     //thereby we can calculate the difference in score from the last seven days
     foreach(valueList; scores.byValue()){
@@ -491,7 +491,7 @@ double[string] changeInSevenDays(FileScore[] scoreHistory){
           }
         }
 
-        string filePath = valueList[0].filePath;
+        Path filePath = valueList[0].filePath;
         double latestBefore;
         SysTime latestBeforeTime;
         double latestAfter;
@@ -527,6 +527,7 @@ double[string] changeInSevenDays(FileScore[] scoreHistory){
 void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] scoreHistory = null) @trusted {
     import std.algorithm : sort, filter;
     import std.conv : to;
+
 
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
@@ -581,13 +582,13 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
 
 
             if(scoreHistory.length > 0){
-                double[string] scoreDifference = changeInSevenDays(scoreHistory);
+                double[Path] scoreDifference = changeInSevenDays(scoreHistory);
 
                 double scoreChange;
-                if(f.display in scoreDifference){
-                scoreChange = scoreDifference[f.display];
+                if(f.path in scoreDifference){
+                    scoreChange = scoreDifference[f.path];
                 }else{
-                scoreChange = 0;
+                    scoreChange = 0;
                 }
 
                 const scoreChangeStyle = () {
