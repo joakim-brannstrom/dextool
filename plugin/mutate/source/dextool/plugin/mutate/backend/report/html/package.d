@@ -42,6 +42,8 @@ import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.resource;
+import dextool.plugin.mutate.backend.database.type : FileScore;
+
 
 @safe:
 
@@ -467,11 +469,7 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-import dextool.plugin.mutate.backend.database.type : FileScore;
-void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] scoreHistory = null) @trusted {
-    import std.algorithm : sort, filter;
-    import std.conv : to;
-
+double[string] changeInSevenDays(FileScore[] scoreHistory){
     FileScore[][string] scores;
 
     foreach(score; scoreHistory){
@@ -523,6 +521,13 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
         }
     }
 
+    return scoreDifference;
+}
+
+void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] scoreHistory = null) @trusted {
+    import std.algorithm : sort, filter;
+    import std.conv : to;
+
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
     auto fltr = root.addChild("div").addClass("input-group");
@@ -530,9 +535,17 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
             "filter_table_on_search('fileFilterInput', 'fileTable')").addClass(
             "form-control").setAttribute("placeholder", "Search...");
 
-    auto tbl = tmplSortableTable(root, [
-            "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
+    Table tbl;
+    //If there is no score history, then it shouldnt show the Change column
+    if(scoreHistory.length == 0){
+        tbl = tmplSortableTable(root, [
+            "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
             ]);
+    }else{
+        tbl = tmplSortableTable(root, [
+                "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
+                ]);
+    }
     tbl.setAttribute("id", "fileTable");
 
     // Users are not interested that files that contains zero mutants are shown
@@ -566,24 +579,29 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
             }();
             r.addChild("td", format!"%.3s"(score)).style = style;
 
-            double scoreChange;
-            if(f.display in scoreDifference){
-              scoreChange = scoreDifference[f.display];
-            }else{
-              scoreChange = 0;
+
+            if(scoreHistory.length > 0){
+                double[string] scoreDifference = changeInSevenDays(scoreHistory);
+
+                double scoreChange;
+                if(f.display in scoreDifference){
+                scoreChange = scoreDifference[f.display];
+                }else{
+                scoreChange = 0;
+                }
+
+                const scoreChangeStyle = () {
+                    if (scoreChange < 0)
+                        return "background-color: salmon";
+                    if (scoreChange == 0)
+                        return "background-color: white";
+                    if (scoreChange > 0)
+                        return "background-color: lightgreen";
+                    return null;
+                }();
+
+                r.addChild("td", format!"%.3s"(scoreChange)).style = scoreChangeStyle;
             }
-
-            const scoreChangeStyle = () {
-                if (scoreChange < 0)
-                    return "background-color: salmon";
-                if (scoreChange == 0)
-                    return "background-color: white";
-                if (scoreChange > 0)
-                    return "background-color: lightgreen";
-                return null;
-            }();
-
-            r.addChild("td", format!"%.3s"(scoreChange)).style = scoreChangeStyle;
             r.addChild("td", f.stat.alive.to!string);
             r.addChild("td", f.stat.aliveNoMut.to!string);
             r.addChild("td", f.stat.total.to!string);
