@@ -1122,9 +1122,9 @@ nothrow:
             //then the file's stored scores should be removed
             if(!files.canFind(file)){
                 spinSql!(() @trusted {
-                auto t = db.transaction;
-                db.removeFileScores(file);
-                t.commit;
+                    auto t = db.transaction;
+                    db.removeFileScores(file);
+                    t.commit;
                 });
             }
         }
