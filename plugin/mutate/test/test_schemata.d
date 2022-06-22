@@ -52,8 +52,8 @@ class ShallUseSchemaSanityCheck : SchemataFixutre {
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
         auto r = runDextoolTest(testEnv).addPostArg([
-                "--mutant", "aor", "--schema-check"
-                ]).run;
+            "--mutant", "aor", "--schema-check"
+        ]).run;
 
         // dfmt off
         testConsecutiveSparseOrder!SubStr([
@@ -149,8 +149,8 @@ class ShallGenerateValidSchemaForOverload : SchemataFixutre {
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
 
         auto r = runDextoolTest(testEnv).addPostArg([
-                "--mutant", "sdl", "--mutant", "aor", "--mutant", "rorp"
-                ]).addFlag("-std=c++11").run;
+            "--mutant", "sdl", "--mutant", "aor", "--mutant", "rorp"
+        ]).addFlag("-std=c++11").run;
 
         testAnyOrder!SubStr([`from '+'`,]).shouldNotBeIn(r.output);
         testAnyOrder!SubStr([`from '=='`,]).shouldNotBeIn(r.output);
@@ -354,8 +354,8 @@ class ShallGenerateValidSchemaForSwitch : SchemataFixutre {
         precondition(testEnv);
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-                "--mutant", "all"
-                ]).run;
+            "--mutant", "all"
+        ]).run;
 
         auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
 
@@ -374,8 +374,8 @@ class ShallGenerateValidSchemaForBinOp : SchemataFixutre {
         precondition(testEnv);
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-                "--mutant", "all"
-                ]).run;
+            "--mutant", "all"
+        ]).run;
 
         auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
 
@@ -401,8 +401,8 @@ g++ -std=c++14 %s -o %s
         precondition(testEnv);
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-                "--mutant", "all"
-                ]).run;
+            "--mutant", "all"
+        ]).run;
 
         auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
 
@@ -421,8 +421,8 @@ class ShallGenerateValidSchemaForTerneryOp : SchemataFixutre {
         precondition(testEnv);
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-                "--mutant", "all"
-                ]).run;
+            "--mutant", "all"
+        ]).run;
 
         auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
 
@@ -441,8 +441,8 @@ class ShallGenerateValidSchemaForIfStmtAssign : SchemataFixutre {
         precondition(testEnv);
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-                "--mutant", "all"
-                ]).run;
+            "--mutant", "all"
+        ]).run;
 
         auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
 
@@ -461,8 +461,8 @@ class ShallGenerateValidSchemaForGotoLabel : SchemataFixutre {
         precondition(testEnv);
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-                "--mutant", "all"
-                ]).run;
+            "--mutant", "all"
+        ]).run;
 
         auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
 

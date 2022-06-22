@@ -14,6 +14,7 @@ const LOC_SCROLL_TO_ON_TRAVERSE = true;
 
 var g_displayed_testcases = 10; //Number of testcases displayed in the info line
 var g_show_mutant = true;
+var g_show_coverage = true;
 var g_active_mutid = 0;
 var g_active_locid = null;
 var g_loc_mutids = {};
@@ -25,6 +26,7 @@ var key_traverse_locs_down = 'ArrowDown';
 var key_traverse_muts_up = 'ArrowLeft';
 var key_traverse_muts_down = 'ArrowRight';
 var key_toggle_show_mutant = 'Numpad0';
+var key_toggle_show_coverage = 'Numpad1';
 
 
 /**
@@ -120,6 +122,9 @@ function on_keyboard_input(e) {
         case key_toggle_show_mutant:
             document.getElementById("show_mutant").checked = !document.getElementById("show_mutant").checked
             click_show_mutant();
+        case key_toggle_show_coverage:
+            document.getElementById("show_coverage").checked = !document.getElementById("show_coverage").checked
+            click_show_coverage();
     }
     return;
 }
@@ -444,6 +449,19 @@ function click_show_mutant() {
     }
 }
 /**
+ * Toggles the visibility of color for covered and non-covered lines
+ */
+function click_show_coverage() {
+    coverageClasses = document.querySelectorAll('.loc_covered');
+    coverageClasses.forEach(element => {
+        element.classList.toggle('loc_coverage_off');
+    })
+    nonCoverageClasses = document.querySelectorAll('.loc_noncovered');
+    nonCoverageClasses.forEach(element => {
+        element.classList.toggle('loc_coverage_off');
+    })
+}
+/**
  * Activates the mutant of the given id.
  * @param {id} mutid id of the mutant to activate
  */
@@ -587,11 +605,13 @@ function init_legend() {
    document.getElementById("legend3_action").innerHTML = "Next mutant: ";
    document.getElementById("legend4_action").innerHTML = "Prev mutant: ";
    document.getElementById("legend5_action").innerHTML = "Toggle show: ";
+   document.getElementById("legend5_action").innerHTML = "Toggle coverage: ";
    document.getElementById("legend1_key").innerHTML = key_traverse_locs_down;
    document.getElementById("legend2_key").innerHTML = key_traverse_locs_up;
    document.getElementById("legend3_key").innerHTML = key_traverse_muts_down;
    document.getElementById("legend4_key").innerHTML = key_traverse_muts_up;
    document.getElementById("legend5_key").innerHTML = key_toggle_show_mutant;
+   document.getElementById("legend6_key").innerHTML = key_toggle_show_coverage;
 }
 
 function hide_testcases(){

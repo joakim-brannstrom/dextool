@@ -35,11 +35,11 @@ typedef struct Something_Big {
 extern void fun(func_ptr2 p, Something_Big b);
 
 // expect a correct call signature for a function ptr
-void func_ptr_arg(int (*a)(int p, int) , int b);
+void func_ptr_arg(int (*a)(int p, int), int b);
 
 // expecting a func_return_func_ptr in the generated test double.
 // (bug) Previously it derived the function signature from the return value.
-typedef void (gun_type)(int);
+typedef void(gun_type)(int);
 typedef gun_type* gun_ptr;
 gun_ptr func_return_func_ptr();
 
@@ -57,12 +57,12 @@ static void ignore();
 void array_func(int x, int* y, int z[16]);
 
 typedef unsigned int MyIntType;
-void array_func_param_typedef(MyIntType [16]);
+void array_func_param_typedef(MyIntType[16]);
 
 // Bug (solved). The order is important.
 // That the constant is defined and using the type before the functions.
 // expect correct arguments even though an extern constant exist using the same type as a parameter.
-typedef enum {HEST, ANKA} djur_type;
+typedef enum { HEST, ANKA } djur_type;
 extern const djur_type djurpark[3];
 void func_exhibit_type_bug_variant1(const djur_type a);
 djur_type func_exhibit_type_bug_variant2(void);

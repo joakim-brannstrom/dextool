@@ -61,11 +61,12 @@ private:
 class AllProtPrivMadePublic {
 protected:
     virtual void a_protected();
+
 private:
     virtual void a_private();
 };
 
-} // NS: no_inherit
+} // namespace no_inherit
 
 namespace inherit {
 
@@ -99,6 +100,6 @@ public:
     virtual void derived_func();
 };
 
-} // NS: inherit
+} // namespace inherit
 
 #endif // CLASS_PARTIAL_INTERFACE_HPP

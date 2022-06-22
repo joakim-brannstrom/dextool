@@ -27,5 +27,5 @@ class InsideNs2 {
 public:
     virtual void func1() const = 0;
 };
-} // NS: ns2
-} // NS: ns
+} // namespace ns2
+} // namespace ns

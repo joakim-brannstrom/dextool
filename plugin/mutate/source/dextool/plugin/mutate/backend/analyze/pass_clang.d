@@ -511,9 +511,9 @@ final class BaseVisitor : ExtendedVisitor {
         //       | unexposedDecl
         //         | callExpr
         // it can't be assumed to be the only one.
-        // by injecting a Poision node for a DeclStmt it signal that there are
+        // by injecting a Poison node for a DeclStmt it signal that there are
         // hidden traps thus any mutation and schemata should be careful.
-        auto n = ast.get.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poison);
         pushStack(n, v);
 
         v.accept(this);
@@ -533,7 +533,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const ClassTemplate v) @trusted {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        auto n = ast.get.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poison);
         n.context = true;
         n.covBlacklist = true;
         n.schemaBlacklist = n.schemaBlacklist
@@ -545,7 +545,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const ClassTemplatePartialSpecialization v) @trusted {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        auto n = ast.get.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poison);
         n.context = true;
         n.covBlacklist = true;
         n.schemaBlacklist = n.schemaBlacklist
@@ -557,7 +557,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const ClassDecl v) @trusted {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        auto n = ast.get.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poison);
         n.context = true;
         n.schemaBlacklist = n.schemaBlacklist
             || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
@@ -568,7 +568,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const StructDecl v) @trusted {
         mixin(mixinNodeLog!());
         // by adding the node it is possible to search for it in cstack
-        auto n = ast.get.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poison);
         n.context = true;
         n.schemaBlacklist = n.schemaBlacklist
             || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
@@ -701,7 +701,7 @@ final class BaseVisitor : ExtendedVisitor {
         // block schematan inside subscripts because some lead to compilation
         // errors. Need to investigate more to understand why and how to avoid.
         // For now they are blocked.
-        auto n = ast.get.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poison);
         n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
@@ -764,7 +764,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const Constructor v) @trusted {
         mixin(mixinNodeLog!());
 
-        auto n = ast.get.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poison);
         n.schemaBlacklist = isConstExpr(v);
         pushStack(n, v);
 
@@ -776,7 +776,7 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const Destructor v) @trusted {
         mixin(mixinNodeLog!());
 
-        auto n = ast.get.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poison);
         n.schemaBlacklist = isConstExpr(v);
         pushStack(n, v);
 
@@ -1013,7 +1013,7 @@ final class BaseVisitor : ExtendedVisitor {
         // need to push a node because a ternery can contain function calls.
         // Without a node for the op it seems like it is in the body, which it
         // isn't, and then can be removed.
-        pushStack(ast.get.make!(analyze.Poision), v);
+        pushStack(ast.get.make!(analyze.Poison), v);
         v.accept(this);
     }
 
@@ -1034,7 +1034,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const IfStmtInit v) @trusted {
         mixin(mixinNodeLog!());
-        auto n = ast.get.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poison);
         n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
@@ -1062,7 +1062,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const IfStmtCondVar v) {
         mixin(mixinNodeLog!());
-        auto n = ast.get.make!(analyze.Poision);
+        auto n = ast.get.make!(analyze.Poison);
         n.schemaBlacklist = true;
         pushStack(n, v);
     }

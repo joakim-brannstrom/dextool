@@ -10,7 +10,7 @@ public:
     virtual void a(bool) = 0;
 };
 
-} // NS: Interface
+} // namespace Interface
 
 class A : public Interface::I1 {
 public:
@@ -27,4 +27,4 @@ public:
     virtual void a(bool);
 };
 
-} // NS: barf
+} // namespace barf

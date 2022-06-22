@@ -29,7 +29,10 @@ void profileGTest() {
         testEnv.save(root.baseName.toString);
 
     print(Color.yellow, "[ Run ] ", input_ext);
-    auto params = ["--DRT-gcopt=profile:1", "ctestdouble", "--gen-pre-incl", "--gen-post-incl"];
+    auto params = [
+        "--DRT-gcopt=profile:1", "ctestdouble", "--gen-pre-incl",
+        "--gen-post-incl"
+    ];
     auto flags = ["-xc++", "-I" ~ root.toString];
     runDextool(input_ext, params, flags);
 
@@ -59,8 +62,7 @@ int main(string[] args) {
     // start testing
     try {
         profileGTest();
-    }
-    catch (ErrorLevelException ex) {
+    } catch (ErrorLevelException ex) {
         printStatus(Status.Fail, ex.msg);
         return 1;
     }

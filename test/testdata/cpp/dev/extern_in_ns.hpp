@@ -9,7 +9,7 @@ extern "C" {
 #include "ns_c_linkage.h"
 }
 
-} // NS: ns
+} // namespace ns
 
 namespace level0 {
 
@@ -17,6 +17,6 @@ namespace level1 {
 
 void fun_level1();
 
-} // NS: level1
+} // namespace level1
 
-} // NS: level0
+} // namespace level0
