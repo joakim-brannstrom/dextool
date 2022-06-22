@@ -864,11 +864,6 @@ MutantSample reportSelectedAliveMutants(ref Database db, const(Mutation.Kind)[] 
     auto rval = new typeof(return);
 
     rval.highestPrio = db.mutantApi.getHighestPrioMutant(kinds, Mutation.Status.alive, historyNr);
-    foreach (const mutst; rval.highestPrio) {
-        auto ids = db.mutantApi.getMutationIds(kinds, [mutst.statusId]);
-        if (ids.length != 0)
-            rval.mutants[mutst.statusId] = db.mutantApi.getMutation(ids[0]).get;
-    }
 
     //rval.oldest = db.mutantApi.getOldestMutants(kinds, historyNr, [EnumMembers!(Mutation.Status)].filter!(a => a != Mutation.Status.noCoverage).array);
     //foreach (const mutst; rval.oldest) {
