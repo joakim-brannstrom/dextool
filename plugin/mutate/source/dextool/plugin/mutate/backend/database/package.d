@@ -182,7 +182,7 @@ struct Database {
 
     void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow2) dg) @trusted {
         immutable sql = format("SELECT
-            t0.id,
+            t3.id,
             t0.kind,
             t3.status,
             t3.exit_code,
