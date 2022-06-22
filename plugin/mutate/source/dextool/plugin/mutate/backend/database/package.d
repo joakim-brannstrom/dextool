@@ -278,7 +278,6 @@ struct Database {
             t0.mp_id = t1.id AND
             t1.file_id = t2.id AND
             t2.path = :path
-            GROUP BY t1.line, t3.checksum0 
             ORDER BY t1.offset_begin
             ", mutationTable, mutationPointTable, filesTable,
                 mutationStatusTable, kinds.map!(a => cast(int) a));
