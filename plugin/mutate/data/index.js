@@ -78,19 +78,26 @@ function filter_table_on_search(inputFieldId, tableId) {
 /** Toggle visibility for a tab and close others.
  */
 function openTab(evt, open, tabGroup) {
+    
   // Get all elements with class="tabcontent" and hide them
   var tabcontent = document.getElementsByClassName("tabcontent_" + tabGroup);
   for (var i = 0; i < tabcontent.length; i++) {
     tabcontent[i].style.display = "none";
   }
 
+  var closeTab = false;
   // Get all elements with class="tablinks" and remove the class "active"
   var tablinks = document.getElementsByClassName("tablinks_" + tabGroup);
   for (var i = 0; i < tablinks.length; i++) {
+    if (tablinks[i].className.includes("active") && tablinks[i].innerText.includes(open)) {
+        closeTab = true;
+    }
     tablinks[i].className = tablinks[i].className.replace(" active", "");
   }
 
   // Show the current tab, and add an "active" class to the button that opened the tab
-  document.getElementById(open).style.display = "block";
-  evt.currentTarget.className += " active";
+  if (!closeTab) {
+    document.getElementById(open).style.display = "block";
+    evt.currentTarget.className += " active";
+  }
 }

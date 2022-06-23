@@ -58,6 +58,7 @@ void overallStat(const MutationStat s, Element base) {
             ]).html(base, PieGraph.Width(50));
 
     auto tbl = tmplDefaultTable(base, ["Type", "Value"]);
+
     foreach (const d; [
             tuple("Total", s.total),
             tuple("Killed by compiler", cast(long) s.killedByCompiler),
@@ -66,8 +67,10 @@ void overallStat(const MutationStat s, Element base) {
         tbl.appendRow(d[0], d[1]);
     }
     {
-        auto td = tbl.appendRow;
-        generatePopupHelpLink(td, "Worklist", "Worklist is the number of mutants that are in the same queue to be tested/retested", "worklist.html");
+        auto row = tbl.appendRow;
+        auto td = row.addChild("td");
+        td.addChild("a", "Worklist").setAttribute("href", "worklist.html");
+        generatePopupHelp(td, "Worklist is the number of mutants that are in the same queue to be tested/retested");
         td.addChild("td", s.worklist.to!string);
     }
 
@@ -84,7 +87,8 @@ void overallStat(const MutationStat s, Element base) {
 }
 
 void syncStatus(SyncStatus status, Element root) {
-    generatePopupHelp(root, "Sync Status", "Sync Status is how old the information about mutants and their status is compared to when the tests or source code where last changed.");
+    auto info = root.addChild("div", "Sync Status");
+    generatePopupHelp(info, "Sync Status is how old the information about mutants and their status is compared to when the tests or source code where last changed.");
 
     auto ts = TimeScalePointGraph("SyncStatus");
 

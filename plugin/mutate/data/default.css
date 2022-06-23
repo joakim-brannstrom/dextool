@@ -51,7 +51,7 @@ i {
 /* --- tab style --- */
 
 .tab {
-  overflow: hidden;
+  display: inline-block;
   border: 1px solid #ccc;
   background-color: #f1f1f1;
 }
@@ -82,17 +82,15 @@ i {
   display: none;
   padding: 6px 12px;
   border: 1px solid #ccc;
-  border-top: none;
 }
 
-/* CSS for information box, on hover shows chosen information*/
-.info-box {
+/* CSS for popup help box, on hover shows information*/
+.popup-help {
   display: inline-block;
   position: relative;
-  color: #000;
   }
   
-.info-box .info-box-content {
+.popup-help .popup-help-content {
   visibility: hidden;
   width: 400px;
   background-color: #333;
@@ -109,7 +107,7 @@ i {
   border-color:  #333;
 }
   
-.info-box:hover .info-box-content {
+.popup-help:hover .popup-help-content {
   visibility: visible;
 }
 /* End information box css */

@@ -68,6 +68,13 @@ void makeTestCases(ref Database db, string tag, Element root, ref const ConfigRe
             b.setAttribute("onclick", format!`openTab(event, '%s', '%s')`(class_, tabGroupName));
             b.appendText(class_.to!string);
             tabLink[class_] = b;
+
+            if (to!string(class_) == "Unique")
+                generatePopupHelp(b, "Kills mutants that no other test case do.");
+            else if (to!string(class_) == "Redundant")
+                generatePopupHelp(b, "All mutants the test case kill are also killed by %s other test cases. The test case is probably redudant and thus can be removed.");
+            else if (to!string(class_) == "Buggy")
+                generatePopupHelp(b, "Zero killed mutants. The test case is most probably incorrect. Immediatly inspect the test case.");
         }
     }
 
@@ -119,7 +126,7 @@ void makeTestCases(ref Database db, string tag, Element root, ref const ConfigRe
     }
 
     foreach (a; classCnt.byKeyValue) {
-        tabLink[a.key].appendText(format!" %s"(a.value));
+        //tabLink[a.key].appendText(format!" %s"(a.value));
         if (auto c = a.key in classColor)
             tabLink[a.key].style = *c;
     }
@@ -139,7 +146,7 @@ immutable string[Classification] classColor;
 
 shared static this() @trusted {
     classDescription = cast(immutable)[
-        Classification.Unique: "kills mutants that no other test case do.",
+        Classification.Unique: "fdfdf mutants that no other test case do.",
         Classification.Redundant: "all mutants the test case kill are also killed by %s other test cases. The test case is probably redudant and thus can be removed.",
         Classification.Buggy: "zero killed mutants. The test case is most probably incorrect. Immediatly inspect the test case.",
         Classification.Normal: ""
@@ -232,17 +239,20 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
 
     {
         auto p = root.addChild("p");
-        p.addChild("b", "TestCases");
-        p.appendText(": number of test cases that kill the mutant.");
-    }
-    {
-        auto p = root.addChild("p");
         p.addChild("b", "Suggestion");
         p.appendText(": alive mutants on the same source code location. Because they are close to a mutant that this test case killed it may be suitable to extend this test case to also kill the suggested mutant.");
     }
 
+    void addPopupHelp(Element e, string header) {
+        switch (header) {
+            case "TestCases": generatePopupHelp(e, "Number of test cases that kill the mutant.");
+            break;
+            default:
+        }
+    }
+
     auto tbl = tmplSortableTable(root, ["Link", "TestCases"] ~ (rdata.addSuggestion
-            ? ["Suggestion"] : null) ~ ["Priority", "ExitCode", "Tested"]);
+            ? ["Suggestion"] : null) ~ ["Priority", "ExitCode", "Tested"], &addPopupHelp);
 
     foreach (const id; kills.sort) {
         auto r = tbl.appendRow();
