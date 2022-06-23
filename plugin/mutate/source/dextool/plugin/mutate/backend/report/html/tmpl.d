@@ -76,8 +76,13 @@ Table tmplSortableTable(Element n, string[] header) @trusted {
     auto tr = base.div.parentDocument.createElement("tr");
     foreach (h; header.enumerate) {
         auto th = tr.addChild("th", h.value);
-        DashboardCss.sortableTableCol(th).setAttribute("id",
+        if(h.value == "Change"){
+            DashboardCss.sortableTableCol(th).setAttribute("id",
+                format!"col-%s"(h.index)).setAttribute("style", "width : 100px").appendText(" ").addChild("i").addClass("right");
+        }else{
+            DashboardCss.sortableTableCol(th).setAttribute("id",
                 format!"col-%s"(h.index)).appendText(" ").addChild("i").addClass("right");
+        }
     }
 
     base.tbl.addChild("thead").appendChild(tr);
