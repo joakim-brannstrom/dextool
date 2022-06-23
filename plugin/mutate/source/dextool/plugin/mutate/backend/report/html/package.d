@@ -577,12 +577,12 @@ struct MetaSpan {
         foreach (ref const m; muts) {
             status = pickColor(m, status);
             if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {
-                onClick = format(click_fmt2, m.id.get);
+                onClick = format(click_fmt2, m.st_id);
             }
         }
 
         if (onClick.length == 0 && muts.length != 0) {
-            onClick = format(click_fmt2, muts[0].id.get);
+            onClick = format(click_fmt2, muts[0].st_id);
         }
     }
 }
