@@ -29,7 +29,7 @@ import my.gc.refc;
 import my.optional;
 import my.set;
 
-import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId;
+import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId, MutationStatusId;
 import dextool.plugin.mutate.backend.database.type : CovRegionStatus;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
@@ -191,15 +191,17 @@ nothrow:
     }
 
     MutationId id;
+    MutationStatusId st_id;
     Offset offset;
     Text txt;
     Mutation mut;
 
-    this(MutationId id, Offset offset, string original, string mutation, Mutation mut) {
+    this(MutationId id, MutationStatusId st_id, Offset offset, string original, string mutation, Mutation mut) {
         import std.utf : validate;
         import dextool.plugin.mutate.backend.type : invalidUtf8;
 
         this.id = id;
+        this.st_id = st_id;
         this.offset = offset;
         this.mut = mut;
 
@@ -222,8 +224,8 @@ nothrow:
         }
     }
 
-    this(MutationId id, Offset offset, string original) {
-        this(id, offset, original, null, Mutation.init);
+    this(MutationId id, MutationStatusId st_id, Offset offset, string original) {
+        this(id, st_id, offset, original, null, Mutation.init);
     }
 
     string original() @safe pure nothrow const @nogc {
@@ -249,7 +251,7 @@ nothrow:
 
 @("shall be possible to construct a FileMutant in @safe")
 @safe unittest {
-    auto fmut = FileMutant(MutationId(1), Offset(1, 2), "smurf");
+    auto fmut = FileMutant(MutationId(1), MutationStatusId(1), Offset(1, 2), "smurf");
 }
 
 /*
@@ -331,8 +333,8 @@ struct Spanner {
             Offset(a[0], a[1]), SourceLoc.init, SourceLoc.init, a[0].to!string)).retro.array;
     auto span = Spanner(toks);
 
-    span.put(FileMutant(MutationId(1), Offset(1, 10), "smurf"));
-    span.put(FileMutant(MutationId(1), Offset(9, 15), "donkey"));
+    span.put(FileMutant(MutationId(1), MutationStatusId(1), Offset(1, 10), "smurf"));
+    span.put(FileMutant(MutationId(1), MutationStatusId(1), Offset(9, 15), "donkey"));
 
     // TODO add checks
 }
@@ -441,13 +443,13 @@ struct Span {
             SourceLoc.init, a.begin.to!string)).retro.array;
     auto span = Spanner(toks);
 
-    span.put(FileMutant(MutationId(2), Offset(11, 15), "token enclosing mutant"));
-    span.put(FileMutant(MutationId(3), Offset(31, 42), "mutant beginning inside a token"));
-    span.put(FileMutant(MutationId(4), Offset(50, 80), "mutant overlapping multiple tokens"));
+    span.put(FileMutant(MutationId(2), MutationStatusId(1), Offset(11, 15), "token enclosing mutant"));
+    span.put(FileMutant(MutationId(3), MutationStatusId(1), Offset(31, 42), "mutant beginning inside a token"));
+    span.put(FileMutant(MutationId(4), MutationStatusId(1), Offset(50, 80), "mutant overlapping multiple tokens"));
 
-    span.put(FileMutant(MutationId(5), Offset(90, 100), "1 multiple mutants for a token"));
-    span.put(FileMutant(MutationId(6), Offset(90, 110), "2 multiple mutants for a token"));
-    span.put(FileMutant(MutationId(1), Offset(120, 130), "perfect overlap"));
+    span.put(FileMutant(MutationId(5), MutationStatusId(1), Offset(90, 100), "1 multiple mutants for a token"));
+    span.put(FileMutant(MutationId(6), MutationStatusId(1), Offset(90, 110), "2 multiple mutants for a token"));
+    span.put(FileMutant(MutationId(1), MutationStatusId(1), Offset(120, 130), "perfect overlap"));
 
     auto res = span.toRange.array;
     //logger.tracef("%(%s\n%)", res);
@@ -691,6 +693,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
     static struct MData {
         MutationId id;
+        MutationStatusId st_id;
         FileMutant.Text txt;
         Mutation mut;
         MutantMetaData metaData;
@@ -766,26 +769,26 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
             const metadata = db.mutantApi.getMutantationMetaData(m.id);
 
-            muts.put(MData(m.id, m.txt, m.mut, metadata));
+            muts.put(MData(m.id, m.st_id, m.txt, m.mut, metadata));
             {
                 auto mutantHtmlTag = d0.addChild("span").addClass("mutant")
-                    .setAttribute("id", m.id.toString);
+                    .setAttribute("id", m.st_id.toString);
                 if (m.mutation.canFind('\n')) {
                     mutantHtmlTag.addChild("pre", m.mutation).addClass("mutant2");
                 } else {
                     mutantHtmlTag.appendText(m.mutation);
                 }
             }
-
+            //Need actual MutationId and not StatusId to get TestCase info
             auto testCases = ctx.getTestCaseInfo(m.id);
             if (testCases.empty) {
                 mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : %s, 'mutText' : %s, 'meta' : '%s'};",
-                        m.id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
+                        m.st_id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, toJson(window(m.txt.original)),
                         toJson(window(m.txt.mutation)), metadata.kindToString));
             } else {
                 mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : %s, 'mutText' : %s, 'meta' : '%s'};",
-                        m.id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
+                        m.st_id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, testCases.map!(a => a.name),
                         toJson(window(m.txt.original)),
                         toJson(window(m.txt.mutation)), metadata.kindToString));
@@ -805,7 +808,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 db.testCaseApi.getDetectedTestCases.length)));
         appendText("\n");
         addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
-                muts.data.map!(a => a.id))));
+                muts.data.map!(a => a.st_id))));
         appendText("\n");
         addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
                 [EnumMembers!(Mutation.Status)])));
@@ -961,7 +964,7 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
 
             auto txt = makeMutationText(ctx.state.get.ctx.raw,
                     fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
-            ctx.state.get.ctx.span.put(FileMutant(fr.id,
+            ctx.state.get.ctx.span.put(FileMutant(fr.id, fr.st_id,
                     fr.mutationPoint.offset, cleanup(txt.original),
                     cleanup(txt.mutation), fr.mutation));
         }

@@ -1280,6 +1280,7 @@ struct DbMutant {
             t1.column,
             t2.path,
             t2.lang
+            t3.id,
             FROM %s t0,%s t1,%s t2,%s t3
             WHERE
             t0.id = :id AND
@@ -1303,9 +1304,10 @@ struct DbMutant {
         auto file = Path(v.peek!string(8));
         auto sloc = SourceLoc(v.peek!uint(6), v.peek!uint(7));
         auto lang = v.peek!long(9).to!Language;
+        auto st_id = MutationStatusId(v.peek!long(10));
 
         rval = MutationEntry(pkey, file, sloc, mp,
-                MutantTimeProfile(v.peek!long(2).dur!"msecs", v.peek!long(3).dur!"msecs"), lang);
+                MutantTimeProfile(v.peek!long(2).dur!"msecs", v.peek!long(3).dur!"msecs"), lang, st_id);
 
         return rval;
     }
@@ -1383,7 +1385,7 @@ struct DbMutant {
 
     /// Returns: the mutants that are connected to the mutation statuses.
     MutantInfo[] getMutantsInfo(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
-        const get_mutid_sql = format("SELECT t0.id,t2.status,t2.exit_code,t0.kind,t1.line,t1.column
+        const get_mutid_sql = format("SELECT t0.id,t2.status,t2.exit_code,t0.kind,t1.line,t1.column, t2.id
             FROM %s t0,%s t1, %s t2
             WHERE
             t0.st_id IN (%(%s,%)) AND
@@ -1398,7 +1400,7 @@ struct DbMutant {
             app.put(MutantInfo(MutationId(res.peek!long(0)), res.peek!long(1)
                     .to!(Mutation.Status), res.peek!int(2).ExitStatus,
                     res.peek!long(3).to!(Mutation.Kind),
-                    SourceLoc(res.peek!uint(4), res.peek!uint(5))));
+                    SourceLoc(res.peek!uint(4), res.peek!uint(5)), MutationStatusId(res.peek!long(6))));
         }
 
         return app.data;

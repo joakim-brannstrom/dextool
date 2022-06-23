@@ -86,7 +86,7 @@ void testGroups(const TestGroupStat test_g, Element root) {
         if (auto alive = pkv[0] in test_g.alive) {
             foreach (a; (*alive).dup.sort!((a, b) => a.sloc.line < b.sloc.line)) {
                 auto link = alive_ids.addChild("a", format("%s:%s", a.kind.toUser, a.sloc.line));
-                link.href = format("%s#%s", buildPath(Html.fileDir, pathToHtmlLink(path)), a.id);
+                link.href = format("%s#%s", buildPath(Html.fileDir, pathToHtmlLink(path)), a.st_id);
                 alive_ids.appendText(" ");
             }
         }
@@ -95,7 +95,7 @@ void testGroups(const TestGroupStat test_g, Element root) {
         if (auto killed = pkv[0] in test_g.killed) {
             foreach (a; (*killed).dup.sort!((a, b) => a.sloc.line < b.sloc.line)) {
                 auto link = killed_ids.addChild("a", format("%s:%s", a.kind.toUser, a.sloc.line));
-                link.href = format("%s#%s", buildPath(Html.fileDir, pathToHtmlLink(path)), a.id);
+                link.href = format("%s#%s", buildPath(Html.fileDir, pathToHtmlLink(path)), a.st_id);
                 killed_ids.appendText(" ");
             }
         }

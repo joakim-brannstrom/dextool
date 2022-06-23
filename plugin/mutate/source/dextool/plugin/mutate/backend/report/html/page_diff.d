@@ -125,7 +125,7 @@ void toHtml(DiffReport report, Element root) {
                     auto link = alive_ids.addChild("a", format("%s:%s",
                             a.kind.toUser, a.sloc.line));
                     link.href = format("%s#%s", buildPath(Html.fileDir,
-                            pathToHtmlLink(path)), a.id);
+                            pathToHtmlLink(path)), a.st_id);
                     alive_ids.appendText(" ");
                 }
             }
@@ -136,7 +136,7 @@ void toHtml(DiffReport report, Element root) {
                     auto link = killed_ids.addChild("a", format("%s:%s",
                             a.kind.toUser, a.sloc.line));
                     link.href = format("%s#%s", buildPath(Html.fileDir,
-                            pathToHtmlLink(path)), a.id);
+                            pathToHtmlLink(path)), a.st_id);
                     killed_ids.appendText(" ");
                 }
             }

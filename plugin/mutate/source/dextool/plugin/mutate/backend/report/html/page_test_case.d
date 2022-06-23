@@ -265,6 +265,7 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
             foreach (s; db.mutantApi.getSurroundingAliveMutants(id).enumerate) {
                 // column sort in the html report do not work correctly if starting from 0.
                 auto td = tds.addChild("a", format("%s", s.index + 1));
+                //TODO CHANGE TO STATUS ID
                 td.href = format("%s#%s", buildPath("..", HtmlStyle.fileDir,
                         pathToHtmlLink(info.file)), db.mutantApi.getMutationId(s.value).get);
                 td.appendText(" ");
