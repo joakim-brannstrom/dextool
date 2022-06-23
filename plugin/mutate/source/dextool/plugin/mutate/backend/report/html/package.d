@@ -756,7 +756,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             if (auto v = meta.status.toVisible)
                 addClass(v);
             if (s.muts.length != 0) {
-                addClass(format("%(mutid%s %)", s.muts.map!(a => a.id)));
+                addClass(format("%(mutid%s %)", s.muts.map!(a => a.st_id)));
                 line.firstChild.removeClass("loc_covered");
                 line.firstChild.removeClass("loc_noncovered");
             }
