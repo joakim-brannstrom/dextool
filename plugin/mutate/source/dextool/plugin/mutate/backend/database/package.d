@@ -77,7 +77,8 @@ struct Database {
             t1.line,
             t1.column,
             t2.path,
-            t2.lang
+            t2.lang,
+            t3.id
             FROM %1$s t0,%2$s t1,%3$s t2,%4$s t3, %5$s t4
             WHERE
             t0.st_id = t3.id AND
@@ -109,6 +110,7 @@ struct Database {
 
         return rval;
     }
+
 
     /// Iterate over the mutants of `kinds` in oldest->newest datum order.
     void iterateMutantStatus(const Mutation.Kind[] kinds,
