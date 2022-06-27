@@ -1268,7 +1268,6 @@ struct DbMutant {
         import dextool.plugin.mutate.backend.type;
 
         typeof(return) rval;
-
         static immutable get_mut_sql = format("SELECT
             t0.id,
             t0.kind,
@@ -1279,8 +1278,8 @@ struct DbMutant {
             t1.line,
             t1.column,
             t2.path,
-            t2.lang
-            t3.id,
+            t2.lang,
+            t3.id
             FROM %s t0,%s t1,%s t2,%s t3
             WHERE
             t0.id = :id AND
