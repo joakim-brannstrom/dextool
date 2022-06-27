@@ -183,7 +183,6 @@ struct Database {
 
     void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow2) dg) @trusted {
         immutable sql = format("SELECT
-            t0.id,
             t3.id,
             t0.kind,
             t3.status,
@@ -210,18 +209,17 @@ struct Database {
             auto stmt = db.db.prepare(sql);
             foreach (ref r; stmt.get.execute) {
                 IterateMutantRow2 d;
-                d.id = MutationId(r.peek!long(0));
-                d.st_id = MutationStatusId(r.peek!long(1));
-                d.mutant = Mutation(r.peek!int(2).to!(Mutation.Kind),
-                        r.peek!int(3).to!(Mutation.Status));
-                d.exitStatus = r.peek!int(4).ExitStatus;
-                d.prio = r.peek!long(5).MutantPrio;
-                d.file = r.peek!string(6).Path;
-                d.sloc = SourceLoc(r.peek!uint(7), r.peek!uint(8));
-                d.tested = r.peek!string(9).fromSqLiteDateTime;
-                d.killedByTestCases = r.peek!long(10);
+                d.stId = MutationStatusId(r.peek!long(0));
+                d.mutant = Mutation(r.peek!int(1).to!(Mutation.Kind),
+                        r.peek!int(2).to!(Mutation.Status));
+                d.exitStatus = r.peek!int(3).ExitStatus;
+                d.prio = r.peek!long(4).MutantPrio;
+                d.file = r.peek!string(5).Path;
+                d.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
+                d.tested = r.peek!string(8).fromSqLiteDateTime;
+                d.killedByTestCases = r.peek!long(9);
 
-                if (r.peek!long(11) != 0) {
+                if (r.peek!long(10) != 0) {
                     d.attrs = MutantMetaData(d.id, MutantAttr(NoMut.init));
                 }
 
@@ -292,7 +290,7 @@ struct Database {
         foreach (ref r; stmt.get.execute) {
             FileMutantRow fr;
             fr.id = MutationId(r.peek!long(0));
-            fr.st_id = MutationStatusId(r.peek!long(1));
+            fr.stId = MutationStatusId(r.peek!long(1));
             fr.mutation = Mutation(r.peek!int(2).to!(Mutation.Kind),
                     r.peek!int(3).to!(Mutation.Status));
             auto offset = Offset(r.peek!uint(4), r.peek!uint(5));
@@ -320,7 +318,7 @@ struct IterateMutantRow {
 
 struct IterateMutantRow2 {
     MutationId id;
-    MutationStatusId st_id;
+    MutationStatusId stId;
     Mutation mutant;
     ExitStatus exitStatus;
     Path file;
@@ -340,7 +338,7 @@ struct FileRow {
 
 struct FileMutantRow {
     MutationId id;
-    MutationStatusId st_id;
+    MutationStatusId stId;
     Mutation mutation;
     MutationPoint mutationPoint;
     SourceLoc sloc;

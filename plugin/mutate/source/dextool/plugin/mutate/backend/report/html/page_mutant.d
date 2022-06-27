@@ -181,7 +181,7 @@ void addMutants(ref Database db, const(Mutation.Kind)[] kinds,
         auto r = content[status].appendRow;
 
         r.addChild("td").addChild("a", format("%s:%s", mut.file,
-                mut.sloc.line)).href = toLinkPath(mut.file, mut.st_id);
+                mut.sloc.line)).href = toLinkPath(mut.file, mut.stId);
         r.addChild("td", mut.prio.get.to!string);
         r.addChild("td", toString(mut.exitStatus));
         r.addChild("td", mut.killedByTestCases.to!string);
@@ -215,7 +215,7 @@ void makeHighInterestMutants(ref Database db, const(Mutation.Kind)[] kinds,
             auto r = tbl.appendRow();
             r.addChild("td").addChild("a", format("%s:%s", mut.file,
                     mut.sloc.line)).href = format("%s#%s", buildPath(HtmlStyle.fileDir,
-                    pathToHtmlLink(mut.file)), mut.st_id);
+                    pathToHtmlLink(mut.file)), mut.stId);
             r.addChild("td", mutst.updated.toString);
             r.addChild("td", mutst.prio.get.to!string);
         }

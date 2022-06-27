@@ -191,17 +191,17 @@ nothrow:
     }
 
     MutationId id;
-    MutationStatusId st_id;
+    MutationStatusId stId;
     Offset offset;
     Text txt;
     Mutation mut;
 
-    this(MutationId id, MutationStatusId st_id, Offset offset, string original, string mutation, Mutation mut) {
+    this(MutationId id, MutationStatusId stId, Offset offset, string original, string mutation, Mutation mut) {
         import std.utf : validate;
         import dextool.plugin.mutate.backend.type : invalidUtf8;
 
         this.id = id;
-        this.st_id = st_id;
+        this.stId = stId;
         this.offset = offset;
         this.mut = mut;
 
@@ -224,8 +224,8 @@ nothrow:
         }
     }
 
-    this(MutationId id, MutationStatusId st_id, Offset offset, string original) {
-        this(id, st_id, offset, original, null, Mutation.init);
+    this(MutationId id, MutationStatusId stId, Offset offset, string original) {
+        this(id, stId, offset, original, null, Mutation.init);
     }
 
     string original() @safe pure nothrow const @nogc {
@@ -577,12 +577,12 @@ struct MetaSpan {
         foreach (ref const m; muts) {
             status = pickColor(m, status);
             if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {
-                onClick = format(click_fmt2, m.st_id);
+                onClick = format(click_fmt2, m.stId);
             }
         }
 
         if (onClick.length == 0 && muts.length != 0) {
-            onClick = format(click_fmt2, muts[0].st_id);
+            onClick = format(click_fmt2, muts[0].stId);
         }
     }
 }
@@ -693,7 +693,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
     static struct MData {
         MutationId id;
-        MutationStatusId st_id;
+        MutationStatusId stId;
         FileMutant.Text txt;
         Mutation mut;
         MutantMetaData metaData;
@@ -756,7 +756,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             if (auto v = meta.status.toVisible)
                 addClass(v);
             if (s.muts.length != 0) {
-                addClass(format("%(mutid%s %)", s.muts.map!(a => a.st_id)));
+                addClass(format("%(mutid%s %)", s.muts.map!(a => a.stId)));
                 line.firstChild.removeClass("loc_covered");
                 line.firstChild.removeClass("loc_noncovered");
             }
@@ -769,10 +769,10 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
             const metadata = db.mutantApi.getMutantationMetaData(m.id);
 
-            muts.put(MData(m.id, m.st_id, m.txt, m.mut, metadata));
+            muts.put(MData(m.id, m.stId, m.txt, m.mut, metadata));
             {
                 auto mutantHtmlTag = d0.addChild("span").addClass("mutant")
-                    .setAttribute("id", m.st_id.toString);
+                    .setAttribute("id", m.stId.toString);
                 if (m.mutation.canFind('\n')) {
                     mutantHtmlTag.addChild("pre", m.mutation).addClass("mutant2");
                 } else {
@@ -783,12 +783,12 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             auto testCases = ctx.getTestCaseInfo(m.id);
             if (testCases.empty) {
                 mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : %s, 'mutText' : %s, 'meta' : '%s'};",
-                        m.st_id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
+                        m.stId, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, toJson(window(m.txt.original)),
                         toJson(window(m.txt.mutation)), metadata.kindToString));
             } else {
                 mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : %s, 'mutText' : %s, 'meta' : '%s'};",
-                        m.st_id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
+                        m.stId, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, testCases.map!(a => a.name),
                         toJson(window(m.txt.original)),
                         toJson(window(m.txt.mutation)), metadata.kindToString));
@@ -808,7 +808,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 db.testCaseApi.getDetectedTestCases.length)));
         appendText("\n");
         addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
-                muts.data.map!(a => a.st_id))));
+                muts.data.map!(a => a.stId))));
         appendText("\n");
         addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
                 [EnumMembers!(Mutation.Status)])));
@@ -964,7 +964,7 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
 
             auto txt = makeMutationText(ctx.state.get.ctx.raw,
                     fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
-            ctx.state.get.ctx.span.put(FileMutant(fr.id, fr.st_id,
+            ctx.state.get.ctx.span.put(FileMutant(fr.id, fr.stId,
                     fr.mutationPoint.offset, cleanup(txt.original),
                     cleanup(txt.mutation), fr.mutation));
         }

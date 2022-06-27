@@ -60,7 +60,7 @@ struct MutationEntry {
     MutationPoint mp;
     MutantTimeProfile profile;
     Language lang;
-    MutationStatusId st_id;
+    MutationStatusId stId;
 }
 
 struct NextMutationEntry {
@@ -122,7 +122,7 @@ struct MutantInfo {
     ExitStatus ecode;
     Mutation.Kind kind;
     SourceLoc sloc;
-    MutationStatusId st_id;
+    MutationStatusId stId;
 }
 
 struct MutantInfo2 {
