@@ -496,8 +496,8 @@ double[Path] changeInSevenDays(FileScore[] scoreHistory){
         Path filePath = valueList[0].filePath;
         double latestBefore;
         SysTime latestBeforeTime;
-        double latestAfter;
-        SysTime latestAfterTime;
+        double totalAfterScore = 0;
+
         //TODO: Can we assume that the arrays will be sorted oldest->newst?
         if(beforeTimeFrame.length == 0){
               latestBefore = 0;
@@ -514,12 +514,10 @@ double[Path] changeInSevenDays(FileScore[] scoreHistory){
           scoreDifference[filePath] = 0;
         }else{
           foreach(value; afterTimeFrame){
-            if(value.timeStamp > latestAfterTime){
-              latestAfter = cast(double) value.score;
-              latestAfterTime = value.timeStamp;
-            }
+            totalAfterScore += cast(double) value.score;
           }
-          scoreDifference[filePath] = latestAfter - latestBefore;
+          //Get the average change in the last seven days
+          scoreDifference[filePath] = (totalAfterScore / afterTimeFrame.length) - latestBefore;
         }
     }
 
