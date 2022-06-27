@@ -34,7 +34,6 @@ var key_toggle_show_coverage = 'Numpad1';
  */
 function init() {
     var current_mutant_selector = document.getElementById('current_mutant');
-    var num_testcases = document.getElementById("num_testcases");
     current_mutant_selector.addEventListener('change',
         function(e) { current_mutant_onchange(e); });
     num_testcases.addEventListener('change',
@@ -78,8 +77,6 @@ function init() {
     }
     click_show_legend();
     click_show_mutant();
-    init_filter_kind();
-    init_filter_status();
     document.body.focus();
 }
 /**
@@ -179,37 +176,35 @@ function select_loc(loc_id, pure) {
     show_info_line();
     set_mutation_options(g_active_locid);
 }
+
 function show_info_line() {
     if (!document.getElementById(g_active_locid).getElementsByClassName("mutant").length)
         return;
-    var loc_table = document.getElementById("locs");
-    var line = g_active_locid.split('-',2)[1];
-    var info_row = loc_table.insertRow(line);
 
-    info_row.innerHTML = `
-    <td id='info_line'>
+    var info_table_wrapper = document.getElementById("info_table_wrapper");
+    info_table_wrapper.innerHTML = `
     <table id='info_table'>
         <tr id="loc_muts_info"></tr>
         <tr>
-            <td><table id="testcases" ></table</td>
+            <td><table id="testcases" ></table></td>
         </tr>
     </table>
-    </td>
     `;
     set_info_line(g_active_mutid);
 }
+
 function remove_info_line() {
-    if (!document.getElementById("info_line"))
+    info_table = document.getElementById("info_table");
+    if (!info_table)
         return;
-    var line = g_active_locid.split('-',2)[1];
-    document.getElementById("locs").deleteRow(line);
+    document.getElementById("info_table_wrapper").removeChild(info_table);
 }
 function set_info_line(mutid) {
     if (!document.getElementById(g_active_locid).getElementsByClassName("mutant").length)
         return;
 
     var testcases = document.getElementById("testcases");
-    document.getElementById("loc_muts_info").innerHTML = make_td(make_kind_status_info(g_active_locid, mutid));
+    document.getElementById("loc_muts_info").innerHTML = make_td(make_kind_status_info(g_active_locid, mutid), "temp_id");
     var tcs = g_muts_data[mutid].testCases
     if (!tcs) {
         while(testcases.rows.length > 0) {
@@ -229,7 +224,7 @@ function set_info_line(mutid) {
         }
         var test_case = tcs[i];
         if (test_case) {
-            row.innerHTML = make_td(test_case + ": "+g_testcases_kills[test_case]);
+            row.innerHTML = make_td(test_case + ": " + g_testcases_kills[test_case], "temp_id");
         }
     }
 }
@@ -362,6 +357,24 @@ function on_window_resize() {
     var left = window.innerWidth - info_box.clientWidth - 30;
     info_box.style.left = left + "px";
     info_box.style.top = top + "px";
+
+    var info_table_wrapper = document.getElementById('info_table_wrapper');
+    var line = document.getElementById('locs');
+    var width;
+    if (line.clientWidth * 2 < window.innerWidth) {
+        width = line.clientWidth;
+    } 
+    else if (window.innerWidth < 1350){
+        width = line.clientWidth / 2;
+    } 
+    else {
+        width = window.innerWidth - line.clientWidth - 30; 
+    }
+    info_table_wrapper.style.width = width + "px";
+    var top = window.innerHeight - info_table_wrapper.clientHeight;
+    var left = window.innerWidth - info_table_wrapper.clientWidth;
+    info_table_wrapper.style.left = left + "px";
+    info_table_wrapper.style.top = top + "px";
 }
 /**
  * Updates the selected mutant when using the selector
@@ -602,22 +615,13 @@ function init_legend() {
    document.getElementById("legend5_key").innerHTML = key_toggle_show_mutant;
    document.getElementById("legend6_key").innerHTML = key_toggle_show_coverage;
 }
-function init_filter_kind() {
-    var table = document.getElementById("filter_kind");
 
-    for (var i=0; i < g_mut_kindGroup_map.length; i++) {
-        var row = table.insertRow(i);
-        row.innerHTML = `<td><input id="`+g_mut_kindGroup_map[i]+ `" type="checkbox" onclick='click_filter_kind(`+i+`)' checked />
-                        <span class="xx_label">`+g_mut_kindGroup_map[i]+`</span></td>`;
-    }
-}
-function init_filter_status() {
-    var table = document.getElementById("filter_status");
+function hide_testcases(){
+  var num = document.getElementById("num_testcases");
 
-    for (var i=0; i<g_mut_st_map.length; i++) {
-        var row = table.insertRow(i);
-        row.innerHTML = `<td><input id="`+g_mut_st_map[i]+ `" type="checkbox" onclick='click_filter_status(`+i+`)' checked />
-        <span class="xx_label">`+g_mut_st_map[i]+`</span></td>`;
+  if (num.style.display === "none") {
+      num.style.display = "block";
+    } else {
+      num.style.display = "none";
     }
-    return;
 }
