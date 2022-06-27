@@ -77,8 +77,7 @@ struct Database {
             t1.line,
             t1.column,
             t2.path,
-            t2.lang,
-            t3.id
+            t2.lang
             FROM %1$s t0,%2$s t1,%3$s t2,%4$s t3, %5$s t4
             WHERE
             t0.st_id = t3.id AND
@@ -103,10 +102,9 @@ struct Database {
         auto file = Path(v.peek!string(8));
         auto sloc = SourceLoc(v.peek!uint(6), v.peek!uint(7));
         auto lang = v.peek!long(9).to!Language;
-        auto st_id = MutationStatusId(v.peek!long(10));
 
         rval.entry = MutationEntry(pkey, file, sloc, mp,
-                MutantTimeProfile(v.peek!long(2).dur!"msecs", v.peek!long(3).dur!"msecs"), lang, st_id);
+                MutantTimeProfile(v.peek!long(2).dur!"msecs", v.peek!long(3).dur!"msecs"), lang);
 
         return rval;
     }
