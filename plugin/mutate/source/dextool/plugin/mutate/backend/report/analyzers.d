@@ -32,8 +32,8 @@ import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult,
     makeMutationText, makeMutation;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
-import dextool.plugin.mutate.backend.report.utility : window, windowSize, ignoreFluctuations,
-    statusToString, kindToString;
+import dextool.plugin.mutate.backend.report.utility : window, windowSize,
+    ignoreFluctuations, statusToString, kindToString;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, TestGroup;
 import dextool.plugin.mutate.backend.utility : Profile;
 import dextool.plugin.mutate.type : ReportKillSortOrder, ReportSection;
@@ -285,7 +285,7 @@ struct TestCaseDeadStat {
         return buf.data;
     }
 
-    void toString(Writer)(ref Writer w) @safe const
+    void toString(Writer)(ref Writer w) @safe const 
             if (isOutputRange!(Writer, char)) {
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -349,7 +349,7 @@ struct MutationScore {
     }
 }
 
-struct FileScore{
+struct FileScore {
     double score;
     Path filePath;
 }
@@ -378,7 +378,7 @@ FileScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, Path[] fi
     auto profile = Profile("reportScores");
     auto app = appender!(FileScore[]);
 
-    foreach(file; files){
+    foreach (file; files) {
         FileScore result;
         result.score = reportScore(db, kinds, file.toString).score();
         result.filePath = file;
@@ -387,7 +387,6 @@ FileScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, Path[] fi
 
     return app.data;
 }
-
 
 /// Statistics for a group of mutants.
 struct MutationStat {
@@ -1289,10 +1288,9 @@ struct MutationScoreHistory {
             // small changes / fluctuations are ignored
             const diff = estimate.predScore - values[$ - 1].score.get;
             int fluctuation = ignoreFluctuations(diff);
-            if (fluctuation == -1){
+            if (fluctuation == -1) {
                 estimate.trend = Trend.negative;
-            }
-            else if (fluctuation == 1){
+            } else if (fluctuation == 1) {
                 estimate.trend = Trend.positive;
             }
         }

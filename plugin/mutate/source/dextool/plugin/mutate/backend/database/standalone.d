@@ -305,13 +305,15 @@ struct Database {
     }
 
     void removeFileScores(const Path filePath) @trusted {
-        auto stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE file_path=:path");
+        auto stmt = db.prepare(
+                "DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE file_path=:path");
         stmt.get.bind(":path", filePath.toString);
         stmt.get.execute;
     }
 
     Path[] getFileScorePaths() @trusted {
-        auto stmt = db.prepare(format!"SELECT DISTINCT file_path FROM %s"(mutationFileScoreHistoryTable));
+        auto stmt = db.prepare(format!"SELECT DISTINCT file_path FROM %s"(
+                mutationFileScoreHistoryTable));
         auto res = stmt.get.execute;
 
         auto app = appender!(Path[]);

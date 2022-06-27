@@ -1100,7 +1100,7 @@ nothrow:
     void opCall(SaveMutationScore data) {
         import dextool.plugin.mutate.backend.database.type : MutationScore, FileScore;
         import dextool.plugin.mutate.backend.report.analyzers : reportScore, reportScores;
-        import std.algorithm: canFind;
+        import std.algorithm : canFind;
 
         if (spinSql!(() => db.mutantApi.unknownSrcMutants(kinds)).count != 0)
             return;
@@ -1113,14 +1113,14 @@ nothrow:
         // the trend.
         if (spinSql!(() => db.timeoutApi.countMutantTimeoutWorklist) != 0)
             return;
-        
+
         auto files = spinSql!(() => db.getFiles());
         auto scoreFiles = spinSql!(() => db.getFileScorePaths());
 
-        foreach(file; scoreFiles){
+        foreach (file; scoreFiles) {
             //If the file only exists in the FileScores table, and not in the Files table,
             //then the file's stored scores should be removed
-            if(!files.canFind(file)){
+            if (!files.canFind(file)) {
                 spinSql!(() @trusted {
                     auto t = db.transaction;
                     db.removeFileScores(file);
@@ -1142,10 +1142,11 @@ nothrow:
             t.commit;
         });
 
-        foreach(fileScore; fileScores){
+        foreach (fileScore; fileScores) {
             spinSql!(() @trusted {
                 auto t = db.transaction;
-                db.putFileScore(FileScore(time, typeof(MutationScore.score)(fileScore.score), fileScore.filePath));
+                db.putFileScore(FileScore(time,
+                    typeof(MutationScore.score)(fileScore.score), fileScore.filePath));
                 t.commit;
             });
         }

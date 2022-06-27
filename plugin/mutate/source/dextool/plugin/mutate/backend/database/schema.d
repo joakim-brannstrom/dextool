@@ -907,14 +907,12 @@ void upgradeV0(ref Miniorm db) {
             SchemataMutantTable,
             SchemataUsedTable, SchemaMutantKindQTable, SchemaSizeQTable,
             MutantWorklistTbl, RuntimeHistoryTable, MutationScoreHistoryTable,
-            MutationFileScoreHistoryTable,
-            TestFilesTable, CoverageCodeRegionTable,
+            MutationFileScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
             CoverageInfoTable, CoverageTimeTtampTable, DependencyFileTable,
             DependencyRootTable,
             DextoolVersionTable,
-            TestCmdOriginalTable,
-            TestCmdMutatedTable, MutantMemOverloadtWorklistTbl,
-            TestCmdRelMutantTable, TestCmdTable));
+            TestCmdOriginalTable, TestCmdMutatedTable,
+            MutantMemOverloadtWorklistTbl, TestCmdRelMutantTable, TestCmdTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }

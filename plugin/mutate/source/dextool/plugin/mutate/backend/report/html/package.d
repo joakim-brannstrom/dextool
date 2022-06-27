@@ -46,7 +46,6 @@ import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.database.type : FileScore;
 
-
 @safe:
 
 void report(ref System sys, AbsolutePath dbPath, const MutationKind[] userKinds,
@@ -471,10 +470,10 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-double[Path] changeInSevenDays(FileScore[] scoreHistory){
+double[Path] changeInSevenDays(FileScore[] scoreHistory) {
     FileScore[][Path] scores;
 
-    foreach(score; scoreHistory){
+    foreach (score; scoreHistory) {
         scores[score.filePath] ~= score;
     }
 
@@ -482,15 +481,15 @@ double[Path] changeInSevenDays(FileScore[] scoreHistory){
     double[Path] scoreDifference;
     //Sort scores into "before/after seven days ago" so we can get the lastest of each,
     //thereby we can calculate the difference in score from the last seven days
-    foreach(valueList; scores.byValue()){
+    foreach (valueList; scores.byValue()) {
         FileScore[] beforeTimeFrame;
         FileScore[] afterTimeFrame;
-        foreach(value; valueList){
-          if(value.timeStamp < timeFrame){
-            beforeTimeFrame ~= value;
-          }else{
-            afterTimeFrame ~= value;
-          }
+        foreach (value; valueList) {
+            if (value.timeStamp < timeFrame) {
+                beforeTimeFrame ~= value;
+            } else {
+                afterTimeFrame ~= value;
+            }
         }
 
         Path filePath = valueList[0].filePath;
@@ -499,25 +498,25 @@ double[Path] changeInSevenDays(FileScore[] scoreHistory){
         double totalAfterScore = 0;
 
         //TODO: Can we assume that the arrays will be sorted oldest->newst?
-        if(beforeTimeFrame.length == 0){
-              latestBefore = 0;
-        }else{
-          foreach(value; beforeTimeFrame){
-            if(value.timeStamp > latestBeforeTime){
-              latestBefore = cast(double) value.score;
-              latestBeforeTime = value.timeStamp;
+        if (beforeTimeFrame.length == 0) {
+            latestBefore = 0;
+        } else {
+            foreach (value; beforeTimeFrame) {
+                if (value.timeStamp > latestBeforeTime) {
+                    latestBefore = cast(double) value.score;
+                    latestBeforeTime = value.timeStamp;
+                }
             }
-          }
         }
         //If there has been no change in the last seven days, then the change is 0
-        if(afterTimeFrame.length == 0){
-          scoreDifference[filePath] = 0;
-        }else{
-          foreach(value; afterTimeFrame){
-            totalAfterScore += cast(double) value.score;
-          }
-          //Get the average change in the last seven days
-          scoreDifference[filePath] = (totalAfterScore / afterTimeFrame.length) - latestBefore;
+        if (afterTimeFrame.length == 0) {
+            scoreDifference[filePath] = 0;
+        } else {
+            foreach (value; afterTimeFrame) {
+                totalAfterScore += cast(double) value.score;
+            }
+            //Get the average change in the last seven days
+            scoreDifference[filePath] = (totalAfterScore / afterTimeFrame.length) - latestBefore;
         }
     }
 
@@ -527,7 +526,6 @@ double[Path] changeInSevenDays(FileScore[] scoreHistory){
 void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] scoreHistory = null) @trusted {
     import std.algorithm : sort, filter;
     import std.conv : to;
-
 
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
@@ -539,11 +537,11 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
     Table tbl;
 
     //If there is no score history, then it shouldnt show the Change column
-    if(scoreHistory.length == 0){
+    if (scoreHistory.length == 0) {
         tbl = tmplSortableTable(root, [
-            "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
-            ]);
-    }else{
+                "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
+                ]);
+    } else {
         tbl = tmplSortableTable(root, [
                 "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
                 ]);
@@ -556,10 +554,10 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
     bool hasSuppressed;
 
     double[Path] scoreDifference;
-    if(scoreHistory.length > 0){
+    if (scoreHistory.length > 0) {
         scoreDifference = changeInSevenDays(scoreHistory);
     }
-    
+
     auto noMutants = appender!(FileIndex[])();
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
         if (f.stat.total == 0) {
@@ -586,12 +584,11 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
             }();
             r.addChild("td", format!"%.3s"(score)).style = style;
 
-
-            if(scoreHistory.length > 0){
+            if (scoreHistory.length > 0) {
                 double scoreChange;
-                if(Path(f.display) in scoreDifference){
+                if (Path(f.display) in scoreDifference) {
                     scoreChange = scoreDifference[Path(f.display)];
-                }else{
+                } else {
                     scoreChange = 0;
                 }
 

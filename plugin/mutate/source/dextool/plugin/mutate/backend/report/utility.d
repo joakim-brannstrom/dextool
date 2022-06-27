@@ -164,9 +164,8 @@ string kindToString(long kind) @trusted {
     return kindToString(kind.to!(Mutation.Kind));
 }
 
-
 //1 for over limit, 0 for in limit, -1 for under limit
-int ignoreFluctuations(double value, double limit = fluctuationLimit) @trusted{
+int ignoreFluctuations(double value, double limit = fluctuationLimit) @trusted {
     if (value < -limit)
         return -1;
     if (value > limit)
