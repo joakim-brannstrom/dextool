@@ -29,7 +29,8 @@ import my.gc.refc;
 import my.optional;
 import my.set;
 
-import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId, MutationStatusId;
+import dextool.plugin.mutate.backend.database : Database, FileRow,
+    FileMutantRow, MutationId, MutationStatusId;
 import dextool.plugin.mutate.backend.database.type : CovRegionStatus;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
@@ -196,7 +197,8 @@ nothrow:
     Text txt;
     Mutation mut;
 
-    this(MutationId id, MutationStatusId stId, Offset offset, string original, string mutation, Mutation mut) {
+    this(MutationId id, MutationStatusId stId, Offset offset, string original,
+            string mutation, Mutation mut) {
         import std.utf : validate;
         import dextool.plugin.mutate.backend.type : invalidUtf8;
 
@@ -443,12 +445,17 @@ struct Span {
             SourceLoc.init, a.begin.to!string)).retro.array;
     auto span = Spanner(toks);
 
-    span.put(FileMutant(MutationId(2), MutationStatusId(1), Offset(11, 15), "token enclosing mutant"));
-    span.put(FileMutant(MutationId(3), MutationStatusId(1), Offset(31, 42), "mutant beginning inside a token"));
-    span.put(FileMutant(MutationId(4), MutationStatusId(1), Offset(50, 80), "mutant overlapping multiple tokens"));
+    span.put(FileMutant(MutationId(2), MutationStatusId(1), Offset(11, 15),
+            "token enclosing mutant"));
+    span.put(FileMutant(MutationId(3), MutationStatusId(1), Offset(31, 42),
+            "mutant beginning inside a token"));
+    span.put(FileMutant(MutationId(4), MutationStatusId(1), Offset(50, 80),
+            "mutant overlapping multiple tokens"));
 
-    span.put(FileMutant(MutationId(5), MutationStatusId(1), Offset(90, 100), "1 multiple mutants for a token"));
-    span.put(FileMutant(MutationId(6), MutationStatusId(1), Offset(90, 110), "2 multiple mutants for a token"));
+    span.put(FileMutant(MutationId(5), MutationStatusId(1), Offset(90, 100),
+            "1 multiple mutants for a token"));
+    span.put(FileMutant(MutationId(6), MutationStatusId(1), Offset(90, 110),
+            "2 multiple mutants for a token"));
     span.put(FileMutant(MutationId(1), MutationStatusId(1), Offset(120, 130), "perfect overlap"));
 
     auto res = span.toRange.array;

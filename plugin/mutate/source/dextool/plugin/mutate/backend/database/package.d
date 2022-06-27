@@ -109,7 +109,6 @@ struct Database {
         return rval;
     }
 
-
     /// Iterate over the mutants of `kinds` in oldest->newest datum order.
     void iterateMutantStatus(const Mutation.Kind[] kinds,
             scope void delegate(const Mutation.Status, const SysTime added) dg) @trusted {

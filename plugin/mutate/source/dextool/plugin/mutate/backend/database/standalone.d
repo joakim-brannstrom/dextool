@@ -1306,7 +1306,8 @@ struct DbMutant {
         auto stId = MutationStatusId(v.peek!long(10));
 
         rval = MutationEntry(pkey, file, sloc, mp,
-                MutantTimeProfile(v.peek!long(2).dur!"msecs", v.peek!long(3).dur!"msecs"), lang, stId);
+                MutantTimeProfile(v.peek!long(2).dur!"msecs", v.peek!long(3).dur!"msecs"),
+                lang, stId);
 
         return rval;
     }
@@ -1384,14 +1385,15 @@ struct DbMutant {
 
     /// Returns: the mutants that are connected to the mutation statuses.
     MutantInfo[] getMutantsInfo(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
-        const get_mutid_sql = format("SELECT t0.id,t2.status,t2.exit_code,t0.kind,t1.line,t1.column, t2.id
+        const get_mutid_sql = format(
+                "SELECT t0.id,t2.status,t2.exit_code,t0.kind,t1.line,t1.column, t2.id
             FROM %s t0,%s t1, %s t2
             WHERE
             t0.st_id IN (%(%s,%)) AND
             t0.st_id = t2.id AND
             t0.kind IN (%(%s,%)) AND
-            t0.mp_id = t1.id", mutationTable, mutationPointTable,
-                mutationStatusTable, id.map!(a => a.get), kinds.map!(a => cast(int) a));
+            t0.mp_id = t1.id", mutationTable, mutationPointTable, mutationStatusTable,
+                id.map!(a => a.get), kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(get_mutid_sql);
 
         auto app = appender!(MutantInfo[])();
@@ -1399,7 +1401,8 @@ struct DbMutant {
             app.put(MutantInfo(MutationId(res.peek!long(0)), res.peek!long(1)
                     .to!(Mutation.Status), res.peek!int(2).ExitStatus,
                     res.peek!long(3).to!(Mutation.Kind),
-                    SourceLoc(res.peek!uint(4), res.peek!uint(5)), MutationStatusId(res.peek!long(6))));
+                    SourceLoc(res.peek!uint(4), res.peek!uint(5)),
+                    MutationStatusId(res.peek!long(6))));
         }
 
         return app.data;
