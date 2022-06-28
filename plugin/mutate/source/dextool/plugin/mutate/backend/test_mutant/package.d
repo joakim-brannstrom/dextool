@@ -1114,14 +1114,6 @@ nothrow:
         if (spinSql!(() => db.timeoutApi.countMutantTimeoutWorklist) != 0)
             return;
 
-        //If the file only exists in the FileScores table, and not in the Files table,
-        //then the file's stored scores should be removed
-        spinSql!(() @trusted {
-            auto t = db.transaction;
-            db.removeFileScores();
-            t.commit;
-        });
-
         auto files = spinSql!(() => db.getFiles());
         const fileScores = reportScores(*db, kinds, files);
         const score = reportScore(*db, kinds);
@@ -1146,6 +1138,14 @@ nothrow:
                 t.commit;
             });
         }
+
+        //If a file only exists in the FileScores table, and not in the Files table,
+        //then the file's stored scores should be removed
+        spinSql!(() @trusted {
+            auto t = db.transaction;
+            db.removeFileScores();
+            t.commit;
+        });
     }
 
     void opCall(UpdateTestCaseTag data) {
