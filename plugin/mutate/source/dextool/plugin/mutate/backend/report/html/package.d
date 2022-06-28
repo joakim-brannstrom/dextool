@@ -1478,7 +1478,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         }
         import dextool.plugin.mutate.backend.database.type : FileScore;
 
-        FileScore[] fileScores = ctx.state.get.db.getMutationFileScoreHistory();
+        auto fileScores = ctx.state.get.db.getMutationFileScoreHistory();
         ctx.state.get.files.toIndex(content, HtmlStyle.fileDir, fileScores);
 
         addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
