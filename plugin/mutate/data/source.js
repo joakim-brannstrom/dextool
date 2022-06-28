@@ -120,11 +120,13 @@ function on_keyboard_input(e) {
             traverse_mutants(-1);
             break;
         case key_toggle_show_mutant:
-            document.getElementById("show_mutant").checked = !document.getElementById("show_mutant").checked
+            document.getElementById("show_mutant").checked = !document.getElementById("show_mutant").checked;
             click_show_mutant();
+            break;
         case key_toggle_show_coverage:
-            document.getElementById("show_coverage").checked = !document.getElementById("show_coverage").checked
+            document.getElementById("show_coverage").checked = !document.getElementById("show_coverage").checked;
             click_show_coverage();
+            break;
     }
     return;
 }
