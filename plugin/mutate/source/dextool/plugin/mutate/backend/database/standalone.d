@@ -313,8 +313,28 @@ struct Database {
         stmt.get.execute;
     }
 
-    void trimFileSCore(const long keep, Path file){
+    void trimFileScore(const long keep, Path file) @trusted {
+        auto stmt = db.prepare(format!"SELECT count(*) FROM %s WHERE file_path=:file"(mutationFileScoreHistoryTable));
+        stmt.get.bind(":file", file.toString);
+        const sz = stmt.get.execute.oneValue!long;
 
+        if (sz < keep)
+            return;
+
+        auto ids = appender!(long[])();
+        stmt = db.prepare(format!"SELECT id FROM %s WHERE file_path=:file ORDER BY time_stamp ASC LIMIT :limit"(
+                mutationFileScoreHistoryTable));
+        stmt.get.bind(":file", file);
+        stmt.get.bind(":limit", sz - keep);
+        foreach (a; stmt.get.execute)
+            ids.put(a.peek!long(0));
+
+        stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE id = :id");
+        foreach (a; ids.data) {
+            stmt.get.bind(":id", a);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
     }
 
     /// Trim the mutation score history table to only contain the last `keep` scores.
