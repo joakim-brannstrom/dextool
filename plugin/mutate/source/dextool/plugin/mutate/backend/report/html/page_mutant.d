@@ -105,9 +105,10 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
     }();
 
     doc.title(format("Mutants %s", Clock.currTime));
+    doc.mainBody.addChild("h1", "All mutants");
     doc.mainBody.setAttribute("onload", "init()");
 
-    {
+    {   
         auto data = dashboard();
         auto style = doc.root.childElements("head")[0].addChild("style");
         style.addChild(new RawSource(doc, data.bootstrapCss.get));

@@ -30,6 +30,7 @@ auto makeNomut(ref Database db, ref const ConfigReport conf,
 
     auto doc = tmplBasicPage.dashboardCss;
     doc.title(format("NoMut Details %(%s %) %s", humanReadableKinds, Clock.currTime));
+    doc.mainBody.addChild("h1", "NoMut Details");
     doc.mainBody.addChild("p",
             "This is all the mutation suppressions that are used and affects the analysis.");
 
