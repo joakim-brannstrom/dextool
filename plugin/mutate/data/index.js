@@ -8,6 +8,7 @@ function init() {
     for (var i = 0; i < theads.length; i++) {
         theads[i].addEventListener('click', function(e) {sortable_table_onclick(e);});
     }
+    setDocTime();
 }
 
 function sortable_table_onclick(e) {
@@ -93,4 +94,19 @@ function openTab(evt, open, tabGroup) {
   // Show the current tab, and add an "active" class to the button that opened the tab
   document.getElementById(open).style.display = "block";
   evt.currentTarget.className += " active";
+}
+
+function setDocTime() {
+    var div = document.getElementById("reportGenerationDate");
+    var modDate = convertDate(new Date(document.lastModified));
+    div.innerText += " " + modDate;
+}
+
+function convertDate(date) {
+    return date.getUTCFullYear() + "/" +
+    ("0" + (date.getUTCMonth()+1)).slice(-2) + "/" +
+    ("0" + date.getUTCDate()).slice(-2) + " " +
+    ("0" + date.getUTCHours()).slice(-2) + ":" +
+    ("0" + date.getUTCMinutes()).slice(-2) + ":" +
+    ("0" + date.getUTCSeconds()).slice(-2);
 }

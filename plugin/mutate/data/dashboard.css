@@ -25,6 +25,15 @@ body {
   border: 0;
 }
 
+.navbar-date {
+  color: #428bca;
+  float: right;
+  height: 50px;
+  padding: 15px 15px;
+  line-height: 20px;
+  font-size: medium;
+}
+
 /*
  * Sidebar
  */
