@@ -500,10 +500,10 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
     // green.
     bool hasSuppressed;
 
-    double[Path] scoreDifference;
+    double[Path] averageScore;
     if (scoreHistory.length > 0) {
         foreach(score; scoreHistory){
-            scoreDifference[score.file] = cast(double) score.score;
+            averageScore[score.file] = cast(double) score.score;
         }
     }
 
@@ -535,12 +535,11 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
 
             if (scoreHistory.length > 0) {
                 double scoreChange;
-                if (Path(f.display) in scoreDifference) {
-                    scoreChange = score - scoreDifference[Path(f.display)];
+                if (Path(f.display) in averageScore) {
+                    scoreChange = score - averageScore[Path(f.display)];
                 } else {
                     scoreChange = 0;
                 }
-
                 int fluctuation = ignoreFluctuations(scoreChange);
                 const scoreChangeStyle = () {
                     if (fluctuation == -1)

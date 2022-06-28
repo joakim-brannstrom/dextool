@@ -285,7 +285,7 @@ struct Database {
         auto app = appender!(FileScore[])();
         auto stmt = db.prepare(format!"SELECT AVG(score), file_path FROM (SELECT * FROM %s WHERE time_stamp > date('now', '-7 day')) GROUP BY file_path"(mutationFileScoreHistoryTable));
         foreach (a; stmt.get.execute){
-            app.put(FileScore(SysTime(0), typeof(FileScore.score)(a.peek!long(0)), Path(a.peek!string(1))));
+            app.put(FileScore(SysTime(0), typeof(FileScore.score)(a.peek!double(0)), Path(a.peek!string(1))));
         }
         return app.data;
     }
