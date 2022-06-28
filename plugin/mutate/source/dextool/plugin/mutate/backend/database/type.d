@@ -324,8 +324,8 @@ struct MutationScore {
 
 struct FileScore {
     SysTime timeStamp;
-    NamedType!(double, Tag!"MutationScore", 0.0, TagStringable) score;
-    Path filePath;
+    NamedType!(double, Tag!"MutationFileScore", 0.0, TagStringable) score;
+    Path file;
 }
 
 alias TestFilePath = NamedType!(Path, Tag!"TestFilePath", Path.init, Hashable, TagStringable);

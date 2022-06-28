@@ -351,7 +351,7 @@ struct MutationScore {
 
 struct FileScore {
     double score;
-    Path filePath;
+    Path file;
 }
 
 MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
@@ -381,7 +381,7 @@ FileScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, Path[] fi
     foreach (file; files) {
         FileScore result;
         result.score = reportScore(db, kinds, file.toString).score();
-        result.filePath = file;
+        result.file = file;
         app.put(result);
     }
 

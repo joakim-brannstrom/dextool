@@ -301,27 +301,20 @@ struct Database {
     // Add a mutation score for the individual files
     void putFileScore(const FileScore score) @trusted {
         db.run(insert!MutationFileScoreHistoryTable, MutationFileScoreHistoryTable(0,
-                score.timeStamp, score.score.get, score.filePath.toString));
+                score.timeStamp, score.score.get, score.file.toString));
     }
 
-    void removeFileScores(const Path filePath) @trusted {
+    void removeFileScores() @trusted {
         auto stmt = db.prepare(
-                "DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE file_path=:path");
-        stmt.get.bind(":path", filePath.toString);
+                "DELETE FROM " ~ mutationFileScoreHistoryTable ~ " 
+                    WHERE file_path NOT IN (
+                    SELECT DISTINCT path
+                    FROM " ~ filesTable ~ ")");
         stmt.get.execute;
     }
 
-    Path[] getFileScorePaths() @trusted {
-        auto stmt = db.prepare(format!"SELECT DISTINCT file_path FROM %s"(
-                mutationFileScoreHistoryTable));
-        auto res = stmt.get.execute;
+    void trimFileSCore(const long keep, Path file){
 
-        auto app = appender!(Path[]);
-        foreach (ref r; res) {
-            app.put(Path(r.peek!string(0)));
-        }
-
-        return app.data;
     }
 
     /// Trim the mutation score history table to only contain the last `keep` scores.
