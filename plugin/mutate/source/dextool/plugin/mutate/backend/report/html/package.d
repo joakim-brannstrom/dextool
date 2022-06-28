@@ -474,7 +474,7 @@ double[Path] changeInSevenDays(FileScore[] scoreHistory) {
     FileScore[][Path] scores;
 
     foreach (score; scoreHistory) {
-        scores[score.filePath] ~= score;
+        scores[score.file] ~= score;
     }
 
     auto timeFrame = Clock.currTime() - 7.days;
@@ -492,7 +492,7 @@ double[Path] changeInSevenDays(FileScore[] scoreHistory) {
             }
         }
 
-        Path filePath = valueList[0].filePath;
+        Path file = valueList[0].file;
         double latestBefore;
         SysTime latestBeforeTime;
         double totalAfterScore = 0;
@@ -510,13 +510,13 @@ double[Path] changeInSevenDays(FileScore[] scoreHistory) {
         }
         //If there has been no change in the last seven days, then the change is 0
         if (afterTimeFrame.length == 0) {
-            scoreDifference[filePath] = 0;
+            scoreDifference[file] = 0;
         } else {
             foreach (value; afterTimeFrame) {
                 totalAfterScore += cast(double) value.score;
             }
             //Get the average change in the last seven days
-            scoreDifference[filePath] = (totalAfterScore / afterTimeFrame.length) - latestBefore;
+            scoreDifference[file] = (totalAfterScore / afterTimeFrame.length) - latestBefore;
         }
     }
 
