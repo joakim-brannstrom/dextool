@@ -470,59 +470,6 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-double[Path] changeInSevenDays(FileScore[] scoreHistory) {
-    FileScore[][Path] scores;
-
-    foreach (score; scoreHistory) {
-        scores[score.file] ~= score;
-    }
-
-    auto timeFrame = Clock.currTime() - 7.days;
-    double[Path] scoreDifference;
-    //Sort scores into "before/after seven days ago" so we can get the lastest of each,
-    //thereby we can calculate the difference in score from the last seven days
-    foreach (valueList; scores.byValue()) {
-        FileScore[] beforeTimeFrame;
-        FileScore[] afterTimeFrame;
-        foreach (value; valueList) {
-            if (value.timeStamp < timeFrame) {
-                beforeTimeFrame ~= value;
-            } else {
-                afterTimeFrame ~= value;
-            }
-        }
-
-        Path file = valueList[0].file;
-        double latestBefore;
-        SysTime latestBeforeTime;
-        double totalAfterScore = 0;
-
-        //TODO: Can we assume that the arrays will be sorted oldest->newst?
-        if (beforeTimeFrame.length == 0) {
-            latestBefore = 0;
-        } else {
-            foreach (value; beforeTimeFrame) {
-                if (value.timeStamp > latestBeforeTime) {
-                    latestBefore = cast(double) value.score;
-                    latestBeforeTime = value.timeStamp;
-                }
-            }
-        }
-        //If there has been no change in the last seven days, then the change is 0
-        if (afterTimeFrame.length == 0) {
-            scoreDifference[file] = 0;
-        } else {
-            foreach (value; afterTimeFrame) {
-                totalAfterScore += cast(double) value.score;
-            }
-            //Get the average change in the last seven days
-            scoreDifference[file] = (totalAfterScore / afterTimeFrame.length) - latestBefore;
-        }
-    }
-
-    return scoreDifference;
-}
-
 void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] scoreHistory = null) @trusted {
     import std.algorithm : sort, filter;
     import std.conv : to;
@@ -555,7 +502,9 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
 
     double[Path] scoreDifference;
     if (scoreHistory.length > 0) {
-        scoreDifference = changeInSevenDays(scoreHistory);
+        foreach(score; scoreHistory){
+            scoreDifference[score.file] = cast(double) score.score;
+        }
     }
 
     auto noMutants = appender!(FileIndex[])();
@@ -587,7 +536,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
             if (scoreHistory.length > 0) {
                 double scoreChange;
                 if (Path(f.display) in scoreDifference) {
-                    scoreChange = scoreDifference[Path(f.display)];
+                    scoreChange = score - scoreDifference[Path(f.display)];
                 } else {
                     scoreChange = 0;
                 }
