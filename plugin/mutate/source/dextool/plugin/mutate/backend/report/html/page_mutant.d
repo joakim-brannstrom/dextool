@@ -164,9 +164,9 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
 void addMutants(ref Database db, const(Mutation.Kind)[] kinds,
         ref Table[MutantStatus] content, ref long[MutantStatus] statusCnt) @system {
     import std.path : buildPath;
-    import dextool.plugin.mutate.backend.database : IterateMutantRow2, MutationId;
+    import dextool.plugin.mutate.backend.database : IterateMutantRow2, MutationId, MutationStatusId;
 
-    static string toLinkPath(Path path, MutationId id) {
+    static string toLinkPath(Path path, MutationStatusId id) {
         return format!"%s#%s"(buildPath(HtmlStyle.fileDir, pathToHtmlLink(path)), id);
     }
 
@@ -181,7 +181,7 @@ void addMutants(ref Database db, const(Mutation.Kind)[] kinds,
         auto r = content[status].appendRow;
 
         r.addChild("td").addChild("a", format("%s:%s", mut.file,
-                mut.sloc.line)).href = toLinkPath(mut.file, mut.id);
+                mut.sloc.line)).href = toLinkPath(mut.file, mut.stId);
         r.addChild("td", mut.prio.get.to!string);
         r.addChild("td", toString(mut.exitStatus));
         r.addChild("td", mut.killedByTestCases.to!string);
@@ -215,7 +215,7 @@ void makeHighInterestMutants(ref Database db, const(Mutation.Kind)[] kinds,
             auto r = tbl.appendRow();
             r.addChild("td").addChild("a", format("%s:%s", mut.file,
                     mut.sloc.line)).href = format("%s#%s", buildPath(HtmlStyle.fileDir,
-                    pathToHtmlLink(mut.file)), mut.id.get);
+                    pathToHtmlLink(mut.file)), mut.stId);
             r.addChild("td", mutst.updated.toString);
             r.addChild("td", mutst.prio.get.to!string);
         }

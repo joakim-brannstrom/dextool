@@ -182,7 +182,7 @@ struct Database {
 
     void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow2) dg) @trusted {
         immutable sql = format("SELECT
-            t0.id,
+            t3.id,
             t0.kind,
             t3.status,
             t3.exit_code,
@@ -208,7 +208,7 @@ struct Database {
             auto stmt = db.db.prepare(sql);
             foreach (ref r; stmt.get.execute) {
                 IterateMutantRow2 d;
-                d.id = MutationId(r.peek!long(0));
+                d.stId = MutationStatusId(r.peek!long(0));
                 d.mutant = Mutation(r.peek!int(1).to!(Mutation.Kind),
                         r.peek!int(2).to!(Mutation.Status));
                 d.exitStatus = r.peek!int(3).ExitStatus;
@@ -262,6 +262,7 @@ struct Database {
 
         immutable all_fmut = format("SELECT
             t0.id,
+            t3.id,
             t0.kind,
             t3.status,
             t1.offset_begin,
@@ -278,6 +279,7 @@ struct Database {
             t0.mp_id = t1.id AND
             t1.file_id = t2.id AND
             t2.path = :path
+            GROUP BY t3.id
             ORDER BY t1.offset_begin
             ", mutationTable, mutationPointTable, filesTable,
                 mutationStatusTable, kinds.map!(a => cast(int) a));
@@ -287,13 +289,14 @@ struct Database {
         foreach (ref r; stmt.get.execute) {
             FileMutantRow fr;
             fr.id = MutationId(r.peek!long(0));
-            fr.mutation = Mutation(r.peek!int(1).to!(Mutation.Kind),
-                    r.peek!int(2).to!(Mutation.Status));
-            auto offset = Offset(r.peek!uint(3), r.peek!uint(4));
+            fr.stId = MutationStatusId(r.peek!long(1));
+            fr.mutation = Mutation(r.peek!int(2).to!(Mutation.Kind),
+                    r.peek!int(3).to!(Mutation.Status));
+            auto offset = Offset(r.peek!uint(4), r.peek!uint(5));
             fr.mutationPoint = MutationPoint(offset, null);
-            fr.sloc = SourceLoc(r.peek!uint(5), r.peek!uint(6));
-            fr.slocEnd = SourceLoc(r.peek!uint(7), r.peek!uint(8));
-            fr.lang = r.peek!int(9).to!Language;
+            fr.sloc = SourceLoc(r.peek!uint(6), r.peek!uint(7));
+            fr.slocEnd = SourceLoc(r.peek!uint(8), r.peek!uint(9));
+            fr.lang = r.peek!int(10).to!Language;
 
             dg(fr);
         }
@@ -314,6 +317,7 @@ struct IterateMutantRow {
 
 struct IterateMutantRow2 {
     MutationId id;
+    MutationStatusId stId;
     Mutation mutant;
     ExitStatus exitStatus;
     Path file;
@@ -333,6 +337,7 @@ struct FileRow {
 
 struct FileMutantRow {
     MutationId id;
+    MutationStatusId stId;
     Mutation mutation;
     MutationPoint mutationPoint;
     SourceLoc sloc;
