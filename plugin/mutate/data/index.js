@@ -9,6 +9,7 @@ function init() {
         theads[i].addEventListener('click', function(e) {sortable_table_onclick(e);});
     }
     setDocTime();
+    checkCSPError();
 }
 
 function sortable_table_onclick(e) {
@@ -109,4 +110,13 @@ function convertDate(date) {
     ("0" + date.getUTCHours()).slice(-2) + ":" +
     ("0" + date.getUTCMinutes()).slice(-2) + ":" +
     ("0" + date.getUTCSeconds()).slice(-2);
+}
+
+function checkCSPError() {
+    document.addEventListener("securitypolicyviolation", (e) => {
+        console.log("This page might not look correct!");
+        console.log(e.blockedURI);    
+        console.log(e.violatedDirective);    
+        console.log(e.originalPolicy);
+    });
 }
