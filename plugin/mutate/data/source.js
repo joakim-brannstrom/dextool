@@ -61,6 +61,9 @@ function init() {
             g_loc_mutids[locs[i].id].push(muts[j].id);
         }
     }
+    for (const [key, value] of Object.entries(g_loc_mutids)) {
+        g_loc_mutids[key] = priority_highlight_sort(value);
+    }
     select_loc(locs[0].id);
     //Select loc or mutant by hash
     var mutid = -1;
@@ -79,6 +82,17 @@ function init() {
     click_show_legend();
     click_show_mutant();
     document.body.focus();
+}
+
+function priority_highlight_sort(mutids_array) {
+    mutids_array.sort(highlight_compare);
+    return mutids_array;
+}
+
+function highlight_compare(a, b){
+  if(g_muts_data[a].size > g_muts_data[b].size) return 1;
+  if(g_muts_data[a].size < g_muts_data[b].size) return -1;
+  return 0;
 }
 /**
  * Toggles whether to show the legend or not
@@ -120,11 +134,13 @@ function on_keyboard_input(e) {
             traverse_mutants(-1);
             break;
         case key_toggle_show_mutant:
-            document.getElementById("show_mutant").checked = !document.getElementById("show_mutant").checked
+            document.getElementById("show_mutant").checked = !document.getElementById("show_mutant").checked;
             click_show_mutant();
+            break;
         case key_toggle_show_coverage:
-            document.getElementById("show_coverage").checked = !document.getElementById("show_coverage").checked
+            document.getElementById("show_coverage").checked = !document.getElementById("show_coverage").checked;
             click_show_coverage();
+            break;
     }
     return;
 }
@@ -166,6 +182,7 @@ function select_loc(loc_id, pure) {
     loc = document.getElementById(loc_id);
     g_active_locid = loc.id;
     loc.classList.toggle("loc_selected");
+
     if(!pure) {
         set_active_mutant(-1);
         deactivate_mutants();
@@ -202,7 +219,7 @@ function set_info_line(mutid) {
         return;
 
     var testcases = document.getElementById("testcases");
-    document.getElementById("loc_muts_info").innerHTML = make_td(make_kind_status_info(g_active_locid, mutid), "temp_id");
+    document.getElementById("loc_muts_info").innerHTML = make_td(make_kind_status_info(g_active_locid, mutid));
     var tcs = g_muts_data[mutid].testCases
     if (!tcs) {
         while(testcases.rows.length > 0) {
@@ -222,7 +239,7 @@ function set_info_line(mutid) {
         }
         var test_case = tcs[i];
         if (test_case) {
-            row.innerHTML = make_td(test_case + ": " + g_testcases_kills[test_case], "temp_id");
+            row.innerHTML = make_td(test_case + ": " + g_testcases_kills[test_case]);
         }
     }
 }
@@ -282,15 +299,17 @@ function set_mutation_options(loc_id) {
 function traverse_mutants(direction) {
     current_mutant_selector = document.getElementById('current_mutant');
     selected = current_mutant_selector.selectedIndex;
-
     if (direction>0) {
         if (selected+1 < current_mutant_selector.options.length)
             current_mutant_selector.selectedIndex += 1;
-        else if (MUT_TRAVERSE_NEXT_LOC)
+        else if (MUT_TRAVERSE_NEXT_LOC) {
             traverse_locs(1);
-
+            if (current_mutant_selector.options.length > 1) {
+                current_mutant_selector.selectedIndex = 1;
+            }
+        }
     } else if (direction < 0) {
-        if (selected-1 >= 0)
+        if (selected-1 > 0)
             current_mutant_selector.selectedIndex-=1;
         else if (MUT_TRAVERSE_NEXT_LOC) {
             traverse_locs(-1);
@@ -316,7 +335,7 @@ function traverse_locs(direction) {
     for (var i = 0; i < locs.length; i++) {
         if (locs[i].id === g_active_locid) {
             if (direction > 0) {
-                if (i+1 < locs.length)
+                if (i+1 < locs.length) 
                     select_loc(locs[i+1].id);
                 else if (LOC_TRAVERSE_LOOP)
                     select_loc(locs[0].id);
@@ -413,7 +432,6 @@ function ui_set_mut(id) {
     loc_id = get_closest_loc(document.getElementById(id)).id
     if (loc_id != g_active_locid){
         select_loc(loc_id);
-        return;
     }
     mutids = g_loc_mutids[loc_id];
     set_active_mutant(id);

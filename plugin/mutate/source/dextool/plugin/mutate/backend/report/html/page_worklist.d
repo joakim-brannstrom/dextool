@@ -59,6 +59,7 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
     }();
 
     doc.title(format("Worklist %s", Clock.currTime));
+    doc.mainBody.addChild("h1", "Worklist");
     doc.mainBody.setAttribute("onload", "init()");
 
     {

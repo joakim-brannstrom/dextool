@@ -21,6 +21,7 @@ import std.range : only;
 import std.stdio : File;
 import std.typecons : tuple, Tuple;
 import std.utf : toUTF8, byChar;
+import std.conv;
 
 import arsd.dom : Document, Element, require, Table, RawSource, Link;
 import my.actor;
@@ -32,6 +33,7 @@ import my.set;
 import dextool.plugin.mutate.backend.database : Database, FileRow,
     FileMutantRow, MutationId, MutationStatusId;
 import dextool.plugin.mutate.backend.database.type : CovRegionStatus;
+
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
@@ -327,7 +329,6 @@ struct Spanner {
 @("shall be possible to construct a Spanner in @safe")
 @safe unittest {
     import std.algorithm;
-    import std.conv;
     import std.range;
     import clang.c.Index : CXTokenKind;
 
@@ -433,7 +434,6 @@ struct Span {
 @("shall return a range grouping mutants by the tokens they overlap")
 @safe unittest {
     import std.algorithm;
-    import std.conv;
     import std.range;
     import clang.c.Index : CXTokenKind;
 
@@ -479,7 +479,6 @@ struct Span {
 
 void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     import std.algorithm : sort, filter;
-    import std.conv : to;
 
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
@@ -574,22 +573,41 @@ struct MetaSpan {
         noCoverage,
     }
 
+    static struct MutationLength {
+        ulong length;
+        MutationStatusId id;
+        Mutation.Status status = Mutation.Status.killed;
+
+        this(ulong length, MutationStatusId id, Mutation.Status status) {
+            this.length = length;
+            this.id = id;
+            this.status = status;
+        }
+    }
+
     StatusColor status;
     string onClick;
+    MutationLength clickPrio;
 
     this(const(FileMutant)[] muts) {
-        immutable click_fmt2 = "ui_set_mut(%s)";
         status = StatusColor.none;
-
+        if (muts.length != 0) {
+            clickPrio = MutationLength(muts[0].txt.mutation.length,
+                    muts[0].stId, muts[0].mut.status);
+        }
         foreach (ref const m; muts) {
             status = pickColor(m, status);
-            if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {
-                onClick = format(click_fmt2, m.stId);
+            if (m.mut.status == Mutation.Status.alive && clickPrio.status != Mutation.Status.alive) {
+                clickPrio = MutationLength(m.txt.mutation.length, m.stId, m.mut.status);
+            } else if (m.txt.mutation.length < clickPrio.length
+                    && (clickPrio.status == Mutation.Status.alive
+                        && m.mut.status == Mutation.Status.alive
+                        || clickPrio.status != Mutation.Status.alive)) {
+                clickPrio = MutationLength(m.txt.mutation.length, m.stId, m.mut.status);
             }
         }
-
-        if (onClick.length == 0 && muts.length != 0) {
-            onClick = format(click_fmt2, muts[0].stId);
+        if (muts.length != 0) {
+            onClick = "ui_set_mut(" ~ to!string(clickPrio.id.get) ~ ")";
         }
     }
 }
@@ -690,7 +708,6 @@ bool[uint] extractLineCovData(CovRegionStatus[] dbData, ref FileCtx ctx) {
 }
 
 void generateFile(ref Database db, ref FileCtx ctx) @trusted {
-    import std.conv : to;
     import std.range : repeat, enumerate;
     import std.traits : EnumMembers;
     import dextool.plugin.mutate.type : MutationKind;
@@ -714,7 +731,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     line.addChild("span", "1:").addClass("line_nr");
     auto mut_data = appender!(string[])();
     mut_data.put("var g_muts_data = {};");
-    mut_data.put("g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};");
+    mut_data.put("g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null, 'size' : null};");
 
     // used to make sure that metadata about a mutant is only written onces
     // to the global arrays.
@@ -734,6 +751,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
         if (s.tok.loc.line > lastLoc.line) {
             lastLoc.column = 1;
         }
+
         auto meta = MetaSpan(s.muts);
 
         foreach (const i; 0 .. max(0, s.tok.loc.line - lastLoc.line)) {
@@ -789,16 +807,17 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             //Need actual MutationId and not StatusId to get TestCase info
             auto testCases = ctx.getTestCaseInfo(m.id);
             if (testCases.empty) {
-                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : %s, 'mutText' : %s, 'meta' : '%s'};",
+                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : %s, 'mutText' : %s, 'meta' : '%s', 'size' : %d};",
                         m.stId, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, toJson(window(m.txt.original)),
-                        toJson(window(m.txt.mutation)), metadata.kindToString));
+                        toJson(window(m.txt.mutation)), metadata.kindToString,
+                        m.txt.mutation.length));
             } else {
-                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : %s, 'mutText' : %s, 'meta' : '%s'};",
+                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : %s, 'mutText' : %s, 'meta' : '%s', 'size' : %d};",
                         m.stId, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, testCases.map!(a => a.name),
-                        toJson(window(m.txt.original)),
-                        toJson(window(m.txt.mutation)), metadata.kindToString));
+                        toJson(window(m.txt.original)), toJson(window(m.txt.mutation)),
+                        metadata.kindToString, m.txt.mutation.length));
             }
         }
         lastLoc = s.tok.locEnd;
