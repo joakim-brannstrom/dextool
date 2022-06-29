@@ -38,6 +38,7 @@ import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation, toString, TestCase;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind, ReportSection;
+import dextool.plugin.mutate.backend.report.html.utility;
 
 @safe:
 
@@ -138,9 +139,9 @@ immutable string[Classification] classColor;
 
 shared static this() @trusted {
     classDescription = cast(immutable)[
-        Classification.Unique: "kills mutants that no other test case do.",
-        Classification.Redundant: "all mutants the test case kill are also killed by %s other test cases. The test case is probably redudant and thus can be removed.",
-        Classification.Buggy: "zero killed mutants. The test case is most probably incorrect. Immediatly inspect the test case.",
+        Classification.Unique: "Kills mutants that no other test case do.",
+        Classification.Redundant: "All mutants the test case kill are also killed by %s other test cases. The test case is probably redudant and thus can be removed.",
+        Classification.Buggy: "Zero killed mutants. The test case is probably incorrect. Immediatly inspect the test case.",
         Classification.Normal: ""
     ];
 
@@ -229,19 +230,24 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
 
     auto uniqueElem = root.addChild("div");
 
-    {
-        auto p = root.addChild("p");
-        p.addChild("b", "TestCases");
-        p.appendText(": number of test cases that kill the mutant.");
-    }
-    {
-        auto p = root.addChild("p");
-        p.addChild("b", "Suggestion");
-        p.appendText(": alive mutants on the same source code location. Because they are close to a mutant that this test case killed it may be suitable to extend this test case to also kill the suggested mutant.");
+    void addPopupHelp(Element e, string header) {
+        switch(header) {
+            case "TestCases": 
+                generatePopupHelp(e, "Number of test cases that kill the mutant.");
+                break;
+            case "Priority": 
+                generatePopupHelp(e, "How important it is to kill the mutant. It is based on modified source code size.");
+                break;
+            case "Suggestion": 
+                generatePopupHelp(e, "Alive mutants on the same source code location. Because they are close to a mutant that this test case killed it may be suitable to extend this test case to also kill the suggested mutant.");
+                break;
+            default:
+                break;
+        }
     }
 
     auto tbl = tmplSortableTable(root, ["Link", "TestCases"] ~ (rdata.addSuggestion
-            ? ["Suggestion"] : null) ~ ["Priority", "ExitCode", "Tested"]);
+            ? ["Suggestion"] : null) ~ ["Priority", "ExitCode", "Tested"], &addPopupHelp);
 
     foreach (const id; kills.sort) {
         auto r = tbl.appendRow();
@@ -270,7 +276,6 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
                 td.appendText(" ");
             }
         }
-
         r.addChild("td", info.prio.get.to!string);
         r.addChild("td", toString(info.exitStatus));
         r.addChild("td", info.updated.toShortDate);

@@ -19,6 +19,7 @@ import dextool.plugin.mutate.backend.report.analyzers : reportTrendByCodeChange,
     reportMutationScoreHistory, MutationScoreHistory;
 import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.report.html.utility : generatePopupHelp;
 
 void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[] kinds) @trusted {
     import std.datetime : SysTime;
@@ -67,7 +68,8 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
         }
         ts.setColor("Score", "purple");
         ts.html(base, TimeScalePointGraph.Width(80));
-        base.addChild("p").appendHtml(
-                "<i>code change</i> is a prediction of how the mutation score will change based on the latest code changes.");
+        
+        auto info = base.addChild("div", "Code change");
+        generatePopupHelp(info, "Code change is a prediction of how the mutation score will change based on the latest code changes.");
     }
 }
