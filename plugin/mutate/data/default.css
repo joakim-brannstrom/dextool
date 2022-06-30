@@ -1,5 +1,5 @@
 
-body {font-family: monospace; font-size: 14px;}
+body {font-family: monospace; font-size: 14px; overflow-x: hidden;}
 .stat_tbl      {border-collapse:collapse; border-spacing: 0;border-style: solid;border-width:1px;}
 .stat_tbl    td{border-style: none;}
 .overlap_tbl   {border-collapse:collapse;border-spacing:0;}
@@ -51,7 +51,7 @@ i {
 /* --- tab style --- */
 
 .tab {
-  overflow: hidden;
+  display: inline-block;
   border: 1px solid #ccc;
   background-color: #f1f1f1;
 }
@@ -82,5 +82,43 @@ i {
   display: none;
   padding: 6px 12px;
   border: 1px solid #ccc;
-  border-top: none;
 }
+
+/* CSS for popup help box, on hover shows information*/
+.popup-help {
+  font-size: medium;
+  color: #000;
+  display: inline-block;
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  top: -1px;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid #000;
+  }
+  
+.popup-help .popup-help-content {
+  visibility: hidden;
+  width: 20em;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  padding: 5px 5px;
+  border-radius: 6px;
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  margin-top: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color:  #333;
+  z-index: 10;
+  overflow-x: hidden;
+}
+  
+.popup-help:hover .popup-help-content {
+  visibility: visible;
+}
+/* End information box css */
