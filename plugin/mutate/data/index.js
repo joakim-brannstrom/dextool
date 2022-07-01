@@ -34,7 +34,7 @@ function sortable_table_onclick(e) {
     }
     if (col === g_lastCol) {
         sorted.sort( function(a,b) {
-            return extractSortKey(a.children[col].innerText) > extractSortKey(b.children[col].innerText);
+            return extractSortKey(a.children[col].innerText) - extractSortKey(b.children[col].innerText);
         });
         var arrow = e.target.getElementsByTagName("i")[0];
         arrow.classList.remove("down");
@@ -42,7 +42,7 @@ function sortable_table_onclick(e) {
         g_lastCol = -1;
     } else {
         sorted.sort( function(a,b) {
-            return extractSortKey(a.children[col].innerText) < extractSortKey(b.children[col].innerText);
+            return extractSortKey(b.children[col].innerText) - extractSortKey(a.children[col].innerText);
         });
         var arrow = e.target.getElementsByTagName("i")[0];
         arrow.classList.remove("right");
