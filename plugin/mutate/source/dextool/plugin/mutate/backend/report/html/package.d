@@ -498,7 +498,8 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
                     ]);
         } else {
             tbl = tmplSortableTable(root, [
-                    "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
+                    "Path", "Score", "Change", "Alive", "NoMut", "Total",
+                    "Time (min)"
                     ]);
         }
         tbl.setAttribute("id", "fileTable");
@@ -511,7 +512,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
     bool hasSuppressed;
 
     double[Path] averageScore;
-    foreach(score; scoreHistory){
+    foreach (score; scoreHistory) {
         averageScore[score.file] = cast(double) score.score;
     }
 

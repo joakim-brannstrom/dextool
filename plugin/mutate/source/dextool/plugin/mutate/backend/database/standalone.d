@@ -283,9 +283,11 @@ struct Database {
     /// Returns: the stored scores in ascending order by their `time`.
     FileScore[] getMutationFileScoreHistory() @trusted {
         auto app = appender!(FileScore[])();
-        auto stmt = db.prepare(format!"SELECT AVG(score), file_path FROM (SELECT * FROM %s WHERE time_stamp > date('now', '-7 day')) GROUP BY file_path"(mutationFileScoreHistoryTable));
-        foreach (a; stmt.get.execute){
-            app.put(FileScore(SysTime(0), typeof(FileScore.score)(a.peek!double(0)), Path(a.peek!string(1))));
+        auto stmt = db.prepare(format!"SELECT AVG(score), file_path FROM (SELECT * FROM %s WHERE time_stamp > date('now', '-7 day')) GROUP BY file_path"(
+                mutationFileScoreHistoryTable));
+        foreach (a; stmt.get.execute) {
+            app.put(FileScore(SysTime(0),
+                    typeof(FileScore.score)(a.peek!double(0)), Path(a.peek!string(1))));
         }
         return app.data;
     }
@@ -303,8 +305,7 @@ struct Database {
     }
 
     void removeFileScores() @trusted {
-        auto stmt = db.prepare(
-                "DELETE FROM " ~ mutationFileScoreHistoryTable ~ " 
+        auto stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " 
                     WHERE file_path NOT IN (
                     SELECT DISTINCT path
                     FROM " ~ filesTable ~ ")");
@@ -312,7 +313,8 @@ struct Database {
     }
 
     void trimFileScore(const long keep, Path file) @trusted {
-        auto stmt = db.prepare(format!"SELECT count(*) FROM %s WHERE file_path=:file"(mutationFileScoreHistoryTable));
+        auto stmt = db.prepare(format!"SELECT count(*) FROM %s WHERE file_path=:file"(
+                mutationFileScoreHistoryTable));
         stmt.get.bind(":file", file.toString);
         const sz = stmt.get.execute.oneValue!long;
 

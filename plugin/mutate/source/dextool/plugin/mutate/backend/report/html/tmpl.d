@@ -64,7 +64,8 @@ Table tmplDefaultTable(Element n, string[] header) @trusted {
     return base.tbl;
 }
 
-Table tmplSortableTable(Element n, string[] header, void delegate(Element e, string header) tdCallback = null) @trusted {
+Table tmplSortableTable(Element n, string[] header, void delegate(Element e,
+        string header) tdCallback = null) @trusted {
     import std.range : enumerate;
     import std.format : format;
     import dextool.plugin.mutate.backend.report.html.constants : DashboardCss;

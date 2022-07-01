@@ -58,11 +58,11 @@ struct DashboardCss {
     }
 
     static Element sortableTableCol(Element root, int width = -1) @trusted {
-        if(width == -1){
+        if (width == -1) {
             return root.addClass("table-col-sortable");
-        }
-        else{
-            return root.addClass("table-col-sortable").setAttribute("style", format!"width : %spx"(width));
+        } else {
+            return root.addClass("table-col-sortable").setAttribute("style",
+                    format!"width : %spx"(width));
         }
     }
 }

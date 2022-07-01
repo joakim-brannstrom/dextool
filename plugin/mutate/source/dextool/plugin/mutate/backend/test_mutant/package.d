@@ -1098,7 +1098,8 @@ nothrow:
     }
 
     void opCall(SaveMutationScore data) {
-        import dextool.plugin.mutate.backend.database.type : MutationScore, MutationScore, FileScore;
+        import dextool.plugin.mutate.backend.database.type : MutationScore,
+            MutationScore, FileScore;
         import dextool.plugin.mutate.backend.report.analyzers : reportScore, reportScores;
         import std.algorithm : canFind;
 

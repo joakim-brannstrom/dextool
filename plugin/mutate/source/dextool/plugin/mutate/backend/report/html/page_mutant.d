@@ -32,6 +32,7 @@ import dextool.plugin.mutate.backend.type : Mutation, toString;
 import dextool.plugin.mutate.config : ConfigReport;
 import dextool.plugin.mutate.type : MutationKind;
 import dextool.plugin.mutate.backend.report.html.utility : generatePopupHelp;
+
 @safe:
 
 void makeMutantPage(ref Database db, string tag, Element root, ref const ConfigReport conf,
@@ -106,7 +107,7 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
     doc.mainBody.addChild("h1", "All mutants");
     doc.mainBody.setAttribute("onload", "init()");
 
-    {   
+    {
         auto data = dashboard();
         auto style = doc.root.childElements("head")[0].addChild("style");
         style.addChild(new RawSource(doc, data.bootstrapCss.get));
@@ -133,21 +134,24 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
     }
 
     void addPopupHelp(Element e, string header) {
-        switch(header) {
-            case "Priority": 
-                generatePopupHelp(e, "How important it is to kill the mutant. It is based on modified source code size.");
-                break;
-            case "ExitCode": 
-                generatePopupHelp(e, "The exit code of the test suite when the mutant where killed. 1: normal");
-                break;
-            case "Tests": 
-                generatePopupHelp(e, "Number of tests that killed the mutant (failed when it was executed).");
-                break;
-            case "Tested":
-                generatePopupHelp(e, "Date when the mutant was last tested/executed.");
-                break;
-            default:
-                break;
+        switch (header) {
+        case "Priority":
+            generatePopupHelp(e,
+                    "How important it is to kill the mutant. It is based on modified source code size.");
+            break;
+        case "ExitCode":
+            generatePopupHelp(e,
+                    "The exit code of the test suite when the mutant where killed. 1: normal");
+            break;
+        case "Tests":
+            generatePopupHelp(e,
+                    "Number of tests that killed the mutant (failed when it was executed).");
+            break;
+        case "Tested":
+            generatePopupHelp(e, "Date when the mutant was last tested/executed.");
+            break;
+        default:
+            break;
         }
     }
 
