@@ -76,18 +76,19 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
     auto root = doc.mainBody;
 
     void addPopupHelp(Element e, string header) {
-        switch(header) {
-            case "Tested": 
-                generatePopupHelp(e, "Date when the mutant was last tested/executed.");
-                break;
-            case "Finished": 
-                generatePopupHelp(e, "Prediction for when the mutant is executed.");
-                break;
-            case "Priority": 
-                generatePopupHelp(e, "How important it is to kill the mutant. It is based on modified source code size.");
-                break;
-            default:
-                break;
+        switch (header) {
+        case "Tested":
+            generatePopupHelp(e, "Date when the mutant was last tested/executed.");
+            break;
+        case "Finished":
+            generatePopupHelp(e, "Prediction for when the mutant is executed.");
+            break;
+        case "Priority":
+            generatePopupHelp(e,
+                    "How important it is to kill the mutant. It is based on modified source code size.");
+            break;
+        default:
+            break;
         }
     }
 
