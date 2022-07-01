@@ -722,21 +722,20 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
         Mutation mut;
         MutantMetaData metaData;
     }
-
+    /*
     struct LongMutant {
         MutationStatusId stId;
-        String[] splittedText;
-        auto linesLeft;
-        
-        this(MutationStatusId stId, String[] splittedText, int linesLeft) {
+        string[] splittedText;
+        int linesLeft;
+
+        this(MutationStatusId stId, string[] splittedText, int linesLeft) {
             this.stId = stId;
             this.splittedText = splittedText;
             this.linesLeft = linesLeft;
         }
     }
-
-    LongMutant[] longMutants;
-
+    */
+    //LongMutant[] longMutants;
 
     auto root = ctx.doc.mainBody;
     auto lines = root.addChild("table").setAttribute("id", "locs").setAttribute("cellpadding", "0");
@@ -813,26 +812,11 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             {
                 auto mutantHtmlTag = d0.addChild("span").addClass("mutant")
                     .setAttribute("id", m.stId.toString);
-                
                 if (m.mutation.canFind('\n')) {
                     mutantHtmlTag.addClass("long_mutant" ~ "-" ~ m.stId.toString);
-                    auto splittedMutant = m.mutation.splitter('\n').array;
-                    auto mutationText = splittedMutant[splittedMutant.length - 1];
-                    longMutants ~= LongMutant(m.stId, mutationText, )
-
-                    mutantHtmlTag.setAttribute("id", m.stId.toString ~ "-" ~ to!string(longMutants.length));
-                    
-                    if(longMutants.length != 0) {
-                        
-                        logger.warning(mutationText);
-
-                        mutantHtmlTag.appendText(mutationText);
-                    }
-                    //mutantHtmlTag.addChild("pre", m.mutation).addClass("mutant2");
                 } else {
                     mutantHtmlTag.appendText(m.mutation);
                 }
-
             }
 
             //Need actual MutationId and not StatusId to get TestCase info
@@ -851,14 +835,16 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                         metadata.kindToString, m.txt.mutation.length));
             }
         }
+
         lastLoc = s.tok.locEnd;
-        for(auto longM; longMutants) {
+        /*
+        for (auto longM; longMutants) {
             if (longM.linesLeft != 0) {
-                auto mutantHtmlTag = d0.addChild("span").addClass("mutant")
-                    .setAttribute("id", m.stId.toString)
-                    .addClass("long_mutant" ~ "-" ~ longM.stId.toString);
+                auto mutantHtmlTag = d0.addChild("span").addClass("mutant").setAttribute("id",
+                        m.stId.toString).addClass("long_mutant" ~ "-" ~ longM.stId.toString);
             }
         }
+        */
     }
 
     // make sure there is a newline before the script start to improve

@@ -495,7 +495,19 @@ function activate_mutant(mutid) {
                 clss[i].style.display = 'none';
             }
         }
+        if (mut)
         mut.style.display = 'inline';
+        if (document.getElementById(mutid).classList.contains("long_mutant-" + mutid)) {
+            var longMutantSpans = document.getElementsByClassName("mutid" + mutid);
+            longMutantSpans.item(0).innerText = "/*" + longMutantSpans.item(0).innerText;
+            longMutantSpans.item(longMutantSpans.length-1).innerText = longMutantSpans.item(longMutantSpans.length-1).innerText + "*/";
+
+            for (var i = 0; i < longMutantSpans.length ; i++) {
+                longMutantSpans[i].style.display = 'inline';
+                longMutantSpans[i].style.backgroundColor = 'yellow';
+                longMutantSpans[i].classList.add("mutant2");
+            }
+        }
     }
 }
 /**
@@ -505,12 +517,22 @@ function deactivate_mutants() {
     clear_current_mutant_info();
     var orgs = document.querySelectorAll(".original");
     var muts = document.querySelectorAll(".mutant");
+    var longMutants = document.querySelectorAll(".mutant2");
     for (var i=0; i<orgs.length; i++) {
         orgs[i].style.display = "inline";
     }
     for (i=0; i<muts.length; i++) {
         muts[i].style.display = "none";
     }
+    if (longMutants.length != 0) {
+        longMutants[0].innerText = longMutants[0].innerText.slice(2, longMutants[0].innerText.length);
+        longMutants[longMutants.length-1].innerText = longMutants[longMutants.length-1].innerText.slice(0, -2);
+
+    }
+    longMutants.forEach(elem => {
+        elem.style.backgroundColor = '';
+        elem.classList.remove("mutant2");
+    });
 }
 /**
  * Highlights the mutant of the given id
