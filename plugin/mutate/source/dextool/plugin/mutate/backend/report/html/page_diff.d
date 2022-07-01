@@ -144,7 +144,7 @@ void toHtml(DiffReport report, Element root) {
     }
 
     void renderTestCases() {
-        root.addChild("p", "This are the test cases that killed mutants in the code changes.")
+        root.addChild("p", "These are the test cases that killed mutants in the code changes.")
             .appendText(format("%s test case(s) affected by the change", report.testCases.length));
 
         auto tc_tbl = tmplDefaultTable(root, ["Test Case"]);

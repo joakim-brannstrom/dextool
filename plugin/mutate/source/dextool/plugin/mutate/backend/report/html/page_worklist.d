@@ -32,11 +32,11 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
 import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink, toShortDate, toShortTime;
 import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.report.html.utility : generatePopupHelp;
 
 @safe:
 
 void makeWorklistPage(ref Database db, Element root, const AbsolutePath mutantPageFname) @trusted {
-    root.addChild("a", "Worklist").href = mutantPageFname.baseName;
     makePage(db, mutantPageFname);
 }
 
@@ -74,12 +74,26 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
     }
 
     auto root = doc.mainBody;
-    root.addChild("p", "Tested: date when the mutant was last tested/executed.");
-    root.addChild("p", "Finished: prediction for when the mutan is executed");
+
+    void addPopupHelp(Element e, string header) {
+        switch(header) {
+            case "Tested": 
+                generatePopupHelp(e, "Date when the mutant was last tested/executed.");
+                break;
+            case "Finished": 
+                generatePopupHelp(e, "Prediction for when the mutant is executed.");
+                break;
+            case "Priority": 
+                generatePopupHelp(e, "How important it is to kill the mutant. It is based on modified source code size.");
+                break;
+            default:
+                break;
+        }
+    }
 
     auto tbl = tmplSortableTable(root, [
             "Order", "ID", "Link", "Priority", "Tested", "Status", "Finished"
-            ]);
+            ], &addPopupHelp);
 
     static string toLinkPath(Path path, MutationId id) {
         return format!"%s#%s"(buildPath(HtmlStyle.fileDir, pathToHtmlLink(path)), id);
