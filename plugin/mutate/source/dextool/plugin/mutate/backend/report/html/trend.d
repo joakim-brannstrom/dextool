@@ -68,8 +68,9 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
         }
         ts.setColor("Score", "purple");
         ts.html(base, TimeScalePointGraph.Width(80));
-        
+
         auto info = base.addChild("div", "Code change");
-        generatePopupHelp(info, "Code change is a prediction of how the mutation score will change based on the latest code changes.");
+        generatePopupHelp(info,
+                "Code change is a prediction of how the mutation score will change based on the latest code changes.");
     }
 }
