@@ -501,10 +501,8 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
     bool hasSuppressed;
 
     double[Path] averageScore;
-    if (scoreHistory.length > 0) {
-        foreach(score; scoreHistory){
-            averageScore[score.file] = cast(double) score.score;
-        }
+    foreach(score; scoreHistory){
+        averageScore[score.file] = cast(double) score.score;
     }
 
     auto noMutants = appender!(FileIndex[])();
