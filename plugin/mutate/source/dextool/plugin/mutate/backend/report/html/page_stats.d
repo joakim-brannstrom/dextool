@@ -43,9 +43,9 @@ void overallStat(const MutationStat s, Element base) {
     import std.typecons : tuple;
 
     base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score));
-    auto time = base.addChild("div", "Time spent"); 
+    auto time = base.addChild("div", "Time spent");
     generatePopupHelp(time, format("%s", s.totalTime));
-    
+
     if (s.untested > 0 && s.predictedDone > 0.dur!"msecs") {
         const pred = Clock.currTime + s.predictedDone;
         base.addChild("p", format("Remaining: %s (%s)", s.predictedDone, pred.toISOExtString));
@@ -71,7 +71,8 @@ void overallStat(const MutationStat s, Element base) {
         auto wlRow = tbl.appendRow;
         auto wltd = wlRow.addChild("td");
         wltd.addChild("a", "Worklist").setAttribute("href", "worklist.html");
-        generatePopupHelp(wltd, "Worklist is the number of mutants that are in the same queue to be tested/retested");
+        generatePopupHelp(wltd,
+                "Worklist is the number of mutants that are in the same queue to be tested/retested");
         wltd.addChild("td", s.worklist.to!string);
     }
 
@@ -85,7 +86,8 @@ void overallStat(const MutationStat s, Element base) {
 
         auto nmtotalRow = tbl.appendRow;
         auto nmtotaltd = nmtotalRow.addChild("td", "NoMut/total");
-        generatePopupHelp(nmtotaltd, "NoMut/total (Supressed/total) is how much the result has increased.
+        generatePopupHelp(nmtotaltd,
+                "NoMut/total (Supressed/total) is how much the result has increased.
             You should react if it is high.");
         nmtotaltd.addChild("td", format("%.3s", s.suppressedOfTotal));
     }
