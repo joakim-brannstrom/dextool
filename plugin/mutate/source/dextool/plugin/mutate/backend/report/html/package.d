@@ -10,7 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.report.html;
 
 import logger = std.experimental.logger;
-import std.algorithm : max, each, map, min, canFind, sort, filter, joiner;
+import std.algorithm : max, each, map, min, canFind, sort, filter, joiner, splitter;
 import std.array : Appender, appender, array, empty;
 import std.datetime : dur;
 import std.exception : collectException;
@@ -723,6 +723,21 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
         MutantMetaData metaData;
     }
 
+    struct LongMutant {
+        MutationStatusId stId;
+        String[] splittedText;
+        auto linesLeft;
+        
+        this(MutationStatusId stId, String[] splittedText, int linesLeft) {
+            this.stId = stId;
+            this.splittedText = splittedText;
+            this.linesLeft = linesLeft;
+        }
+    }
+
+    LongMutant[] longMutants;
+
+
     auto root = ctx.doc.mainBody;
     auto lines = root.addChild("table").setAttribute("id", "locs").setAttribute("cellpadding", "0");
     auto line = lines.addChild("tr").addChild("td").setAttribute("id", "loc-1");
@@ -798,12 +813,28 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             {
                 auto mutantHtmlTag = d0.addChild("span").addClass("mutant")
                     .setAttribute("id", m.stId.toString);
+                
                 if (m.mutation.canFind('\n')) {
-                    mutantHtmlTag.addChild("pre", m.mutation).addClass("mutant2");
+                    mutantHtmlTag.addClass("long_mutant" ~ "-" ~ m.stId.toString);
+                    auto splittedMutant = m.mutation.splitter('\n').array;
+                    auto mutationText = splittedMutant[splittedMutant.length - 1];
+                    longMutants ~= LongMutant(m.stId, mutationText, )
+
+                    mutantHtmlTag.setAttribute("id", m.stId.toString ~ "-" ~ to!string(longMutants.length));
+                    
+                    if(longMutants.length != 0) {
+                        
+                        logger.warning(mutationText);
+
+                        mutantHtmlTag.appendText(mutationText);
+                    }
+                    //mutantHtmlTag.addChild("pre", m.mutation).addClass("mutant2");
                 } else {
                     mutantHtmlTag.appendText(m.mutation);
                 }
+
             }
+
             //Need actual MutationId and not StatusId to get TestCase info
             auto testCases = ctx.getTestCaseInfo(m.id);
             if (testCases.empty) {
@@ -821,6 +852,13 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             }
         }
         lastLoc = s.tok.locEnd;
+        for(auto longM; longMutants) {
+            if (longM.linesLeft != 0) {
+                auto mutantHtmlTag = d0.addChild("span").addClass("mutant")
+                    .setAttribute("id", m.stId.toString)
+                    .addClass("long_mutant" ~ "-" ~ longM.stId.toString);
+            }
+        }
     }
 
     // make sure there is a newline before the script start to improve
