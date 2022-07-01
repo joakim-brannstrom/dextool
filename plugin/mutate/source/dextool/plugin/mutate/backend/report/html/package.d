@@ -489,19 +489,21 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
             "filter_table_on_search('fileFilterInput', 'fileTable')").addClass(
             "form-control").setAttribute("placeholder", "Search...");
 
-    Table tbl;
-
-    //If there is no score history, then it shouldnt show the Change column
-    if (scoreHistory.length == 0) {
-        tbl = tmplSortableTable(root, [
-                "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
-                ]);
-    } else {
-        tbl = tmplSortableTable(root, [
-                "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
-                ]);
-    }
-    tbl.setAttribute("id", "fileTable");
+    auto tbl = () {
+        Table tbl;
+        //If there is no score history, then it shouldnt show the Change column
+        if (scoreHistory.length == 0) {
+            tbl = tmplSortableTable(root, [
+                    "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
+                    ]);
+        } else {
+            tbl = tmplSortableTable(root, [
+                    "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
+                    ]);
+        }
+        tbl.setAttribute("id", "fileTable");
+        return tbl;
+    }();
 
     // Users are not interested that files that contains zero mutants are shown
     // in the list. It is especially annoying when they are marked with dark
