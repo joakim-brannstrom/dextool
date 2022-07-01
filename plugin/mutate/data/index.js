@@ -34,15 +34,7 @@ function sortable_table_onclick(e) {
     }
     if (col === g_lastCol) {
         sorted.sort( function(a,b) {
-            a_val = extractSortKey(a.children[col].innerText);
-            b_val = extractSortKey(b.children[col].innerText);
-            if(a_val > b_val){
-                return 1;
-            }else if(a_val < b_val) {
-                return -1;
-            }else{
-                return 0;
-            }
+            return extractSortKey(a.children[col].innerText) - extractSortKey(b.children[col].innerText);
         });
         var arrow = e.target.getElementsByTagName("i")[0];
         arrow.classList.remove("down");
@@ -50,15 +42,7 @@ function sortable_table_onclick(e) {
         g_lastCol = -1;
     } else {
         sorted.sort( function(a,b) {
-            a_val = extractSortKey(a.children[col].innerText);
-            b_val = extractSortKey(b.children[col].innerText);
-            if(a_val < b_val){
-                return 1;
-            }else if(a_val > b_val) {
-                return -1;
-            }else{
-                return 0;
-            }
+            return extractSortKey(b.children[col].innerText) - extractSortKey(a.children[col].innerText);
         });
         var arrow = e.target.getElementsByTagName("i")[0];
         arrow.classList.remove("right");
