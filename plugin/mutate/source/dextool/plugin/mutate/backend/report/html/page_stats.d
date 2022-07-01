@@ -23,6 +23,7 @@ import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable,
     PieGraph, TimeScalePointGraph;
 import dextool.plugin.mutate.backend.type : Mutation;
+import dextool.plugin.mutate.backend.report.html.utility;
 
 void makeStats(ref Database db, string tag, Element root,
         const(Mutation.Kind)[] kinds, const AbsolutePath workListFname) @trusted {
@@ -42,8 +43,9 @@ void overallStat(const MutationStat s, Element base) {
     import std.typecons : tuple;
 
     base.addChild("p").appendHtml(format("Mutation Score <b>%.3s</b>", s.score));
-    base.addChild("p", format("Time spent: %s", s.totalTime));
-
+    auto time = base.addChild("div", "Time spent"); 
+    generatePopupHelp(time, format("%s", s.totalTime));
+    
     if (s.untested > 0 && s.predictedDone > 0.dur!"msecs") {
         const pred = Clock.currTime + s.predictedDone;
         base.addChild("p", format("Remaining: %s (%s)", s.predictedDone, pred.toISOExtString));
@@ -57,27 +59,35 @@ void overallStat(const MutationStat s, Element base) {
             ]).html(base, PieGraph.Width(50));
 
     auto tbl = tmplDefaultTable(base, ["Type", "Value"]);
+
     foreach (const d; [
             tuple("Total", s.total),
             tuple("Killed by compiler", cast(long) s.killedByCompiler),
             tuple("Skipped", s.skipped), tuple("Equivalent", s.equivalent),
-            tuple("Worklist", cast(long) s.worklist),
         ]) {
         tbl.appendRow(d[0], d[1]);
     }
-
-    base.addChild("p").appendHtml(
-            "<i>worklist</i> is the number of mutants that are in the queue to be tested/retested.");
+    {
+        auto wlRow = tbl.appendRow;
+        auto wltd = wlRow.addChild("td");
+        wltd.addChild("a", "Worklist").setAttribute("href", "worklist.html");
+        generatePopupHelp(wltd, "Worklist is the number of mutants that are in the same queue to be tested/retested");
+        wltd.addChild("td", s.worklist.to!string);
+    }
 
     if (s.aliveNoMut != 0) {
-        tbl.appendRow("NoMut", s.aliveNoMut.to!string);
-        tbl.appendRow("NoMut/total", format("%.3s", s.suppressedOfTotal));
+        auto nmRow = tbl.appendRow;
+        auto nmtd = nmRow.addChild("td", "NoMut");
+        generatePopupHelp(nmtd, "NoMut is the number of mutants that are alive but ignored. 
+            They are suppressed. 
+            This result in those mutants increasing the mutation score.");
+        nmtd.addChild("td", s.aliveNoMut.to!string);
 
-        auto p = base.addChild("p", "NoMut is the number of mutants that are alive but ignored.");
-        p.appendHtml(" They are <i>suppressed</i>.");
-        p.appendText(" This result in those mutants increasing the mutation score.");
-        p.appendText(" The suppressed/total is how much it has increased.");
-        p.appendHtml(" You <b>should</b> react if it is high.");
+        auto nmtotalRow = tbl.appendRow;
+        auto nmtotaltd = nmtotalRow.addChild("td", "NoMut/total");
+        generatePopupHelp(nmtotaltd, "NoMut/total (Supressed/total) is how much the result has increased.
+            You should react if it is high.");
+        nmtotaltd.addChild("td", format("%.3s", s.suppressedOfTotal));
     }
 }
 
@@ -103,5 +113,7 @@ void syncStatus(SyncStatus status, Element root) {
     }
     ts.html(root, TimeScalePointGraph.Width(50));
 
-    root.addChild("p").appendHtml("<i>sync status</i> is how old the information about mutants and their status is compared to when the tests or source code where last changed");
+    auto info = root.addChild("div", "Sync Status");
+    generatePopupHelp(info, "Sync Status is how old the information about mutants and their status is compared to when the tests or source code where last changed.");
+
 }

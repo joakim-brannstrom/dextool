@@ -8,6 +8,7 @@ function init() {
     for (var i = 0; i < theads.length; i++) {
         theads[i].addEventListener('click', function(e) {sortable_table_onclick(e);});
     }
+    setDocTime();
 }
 
 function sortable_table_onclick(e) {
@@ -78,19 +79,41 @@ function filter_table_on_search(inputFieldId, tableId) {
 /** Toggle visibility for a tab and close others.
  */
 function openTab(evt, open, tabGroup) {
+    
   // Get all elements with class="tabcontent" and hide them
   var tabcontent = document.getElementsByClassName("tabcontent_" + tabGroup);
   for (var i = 0; i < tabcontent.length; i++) {
     tabcontent[i].style.display = "none";
   }
 
+  var closeTab = false;
   // Get all elements with class="tablinks" and remove the class "active"
   var tablinks = document.getElementsByClassName("tablinks_" + tabGroup);
   for (var i = 0; i < tablinks.length; i++) {
+    if (tablinks[i].className.includes("active") && tablinks[i].innerText.includes(open)) {
+        closeTab = true;
+    }
     tablinks[i].className = tablinks[i].className.replace(" active", "");
   }
 
   // Show the current tab, and add an "active" class to the button that opened the tab
-  document.getElementById(open).style.display = "block";
-  evt.currentTarget.className += " active";
+  if (!closeTab) {
+    document.getElementById(open).style.display = "block";
+    evt.currentTarget.className += " active";
+  }
+}
+
+function setDocTime() {
+    var div = document.getElementById("reportGenerationDate");
+    var modDate = convertDate(new Date(document.lastModified));
+    div.innerText += " " + modDate;
+}
+
+function convertDate(date) {
+    return date.getFullYear() + "/" +
+    ("0" + (date.getMonth()+1)).slice(-2) + "/" +
+    ("0" + date.getDate()).slice(-2) + " " +
+    ("0" + date.getHours()).slice(-2) + ":" +
+    ("0" + date.getMinutes()).slice(-2) + ":" +
+    ("0" + date.getSeconds()).slice(-2);
 }
