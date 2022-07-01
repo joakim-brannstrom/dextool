@@ -57,6 +57,6 @@ string toShortTime(Duration d) {
 }
 
 void generatePopupHelp(Element e, string infoText) @trusted {
-    e.addChild("div", "i").addClass("popup-help")
-    .addChild("span", infoText).addClass("popup-help-content");
+    e.addChild("div", "i").addClass("popup-help").addChild("span", infoText)
+        .addClass("popup-help-content");
 }
