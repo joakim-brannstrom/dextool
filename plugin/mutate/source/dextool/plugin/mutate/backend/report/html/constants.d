@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.report.html.constants;
 
 import arsd.dom : Element;
+import std.format : format;
 
 struct Html {
     static immutable ext = ".html";
@@ -56,7 +57,12 @@ struct DashboardCss {
         return root.addClass("table-sortable");
     }
 
-    static Element sortableTableCol(Element root) @trusted {
-        return root.addClass("table-col-sortable");
+    static Element sortableTableCol(Element root, int width = -1) @trusted {
+        if (width == -1) {
+            return root.addClass("table-col-sortable");
+        } else {
+            return root.addClass("table-col-sortable").setAttribute("style",
+                    format!"width : %spx"(width));
+        }
     }
 }

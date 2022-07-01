@@ -12,7 +12,7 @@ module dextool.plugin.mutate.backend.report.html;
 import logger = std.experimental.logger;
 import std.algorithm : max, each, map, min, canFind, sort, filter, joiner;
 import std.array : Appender, appender, array, empty;
-import std.datetime : dur;
+import std.datetime : dur, days, Clock;
 import std.exception : collectException;
 import std.format : format;
 import std.functional : toDelegate;
@@ -37,6 +37,7 @@ import dextool.plugin.mutate.backend.database.type : CovRegionStatus;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
+import dextool.plugin.mutate.backend.report.utility : ignoreFluctuations;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc, Token;
 import dextool.plugin.mutate.backend.utility : Profile;
 import dextool.plugin.mutate.config : ConfigReport;
@@ -46,6 +47,7 @@ import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.resource;
+import dextool.plugin.mutate.backend.database.type : FileScore;
 
 @safe:
 
@@ -477,7 +479,7 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
+void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] scoreHistory = null) @trusted {
     import std.algorithm : sort, filter;
 
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
@@ -487,15 +489,33 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
             "filter_table_on_search('fileFilterInput', 'fileTable')").addClass(
             "form-control").setAttribute("placeholder", "Search...");
 
-    auto tbl = tmplSortableTable(root, [
-            "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
-            ]);
-    tbl.setAttribute("id", "fileTable");
+    auto tbl = () {
+        Table tbl;
+        //If there is no score history, then it shouldnt show the Change column
+        if (scoreHistory.length == 0) {
+            tbl = tmplSortableTable(root, [
+                    "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
+                    ]);
+        } else {
+            tbl = tmplSortableTable(root, [
+                    "Path", "Score", "Change", "Alive", "NoMut", "Total",
+                    "Time (min)"
+                    ]);
+        }
+        tbl.setAttribute("id", "fileTable");
+        return tbl;
+    }();
 
     // Users are not interested that files that contains zero mutants are shown
     // in the list. It is especially annoying when they are marked with dark
     // green.
     bool hasSuppressed;
+
+    double[Path] averageScore;
+    foreach (score; scoreHistory) {
+        averageScore[score.file] = cast(double) score.score;
+    }
+
     auto noMutants = appender!(FileIndex[])();
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
         if (f.stat.total == 0) {
@@ -520,8 +540,26 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
                     return "background-color: lightgreen";
                 return null;
             }();
-
             r.addChild("td", format!"%.3s"(score)).style = style;
+
+            if (scoreHistory.length > 0) {
+                double scoreChange;
+                if (Path(f.display) in averageScore) {
+                    scoreChange = score - averageScore[Path(f.display)];
+                } else {
+                    scoreChange = 0;
+                }
+                int fluctuation = ignoreFluctuations(scoreChange);
+                const scoreChangeStyle = () {
+                    if (fluctuation == -1)
+                        return "background-color: salmon";
+                    if (fluctuation == 1)
+                        return "background-color: lightgreen";
+                    return "background-color: white";
+                }();
+
+                r.addChild("td", format!"%.3s"(scoreChange)).style = scoreChangeStyle;
+            }
             r.addChild("td", f.stat.alive.to!string);
             r.addChild("td", f.stat.aliveNoMut.to!string);
             r.addChild("td", f.stat.total.to!string);
@@ -1422,7 +1460,6 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         scope (exit)
             () { ctx.state.get.done = true; send(ctx.self, CheckDoneMsg.init); }();
 
-        import std.datetime : Clock;
         import dextool.plugin.mutate.backend.report.html.page_tree_map;
 
         auto profile = Profile("post process report");
@@ -1468,8 +1505,10 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         if (ReportSection.treemap in ctx.state.get.sections) {
             addSubPage(() => makeTreeMapPage(ctx.state.get.files), "tree_map", "Treemap");
         }
+        import dextool.plugin.mutate.backend.database.type : FileScore;
 
-        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir);
+        auto fileScores = ctx.state.get.db.getMutationFileScoreHistory();
+        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir, fileScores);
 
         addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
 

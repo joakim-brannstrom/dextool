@@ -101,6 +101,7 @@ immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
 immutable mutantWorklistTable = "mutant_worklist";
 immutable mutationPointTable = "mutation_point";
 immutable mutationScoreHistoryTable = "mutation_score_history";
+immutable mutationFileScoreHistoryTable = "mutation_file_score_history";
 immutable mutationStatusTable = "mutation_status";
 immutable mutationTable = "mutation";
 immutable nomutDataTable = "nomut_data";
@@ -654,6 +655,20 @@ struct MutationScoreHistoryTable {
     double score;
 }
 
+@TableName(mutationFileScoreHistoryTable)
+struct MutationFileScoreHistoryTable {
+    long id;
+
+    /// when the measurement was taken.
+    @ColumnName("time_stamp")
+    SysTime timeStamp;
+
+    double score;
+
+    @ColumnName("file_path")
+    string filePath;
+}
+
 /** All functions that has been discovered in the source code.
  * The `offset_begin` is where instrumentation points can be injected.
  */
@@ -892,13 +907,12 @@ void upgradeV0(ref Miniorm db) {
             SchemataMutantTable,
             SchemataUsedTable, SchemaMutantKindQTable, SchemaSizeQTable,
             MutantWorklistTbl, RuntimeHistoryTable, MutationScoreHistoryTable,
-            TestFilesTable, CoverageCodeRegionTable,
+            MutationFileScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
             CoverageInfoTable, CoverageTimeTtampTable, DependencyFileTable,
             DependencyRootTable,
             DextoolVersionTable,
-            TestCmdOriginalTable,
-            TestCmdMutatedTable, MutantMemOverloadtWorklistTbl,
-            TestCmdRelMutantTable, TestCmdTable));
+            TestCmdOriginalTable, TestCmdMutatedTable,
+            MutantMemOverloadtWorklistTbl, TestCmdRelMutantTable, TestCmdTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1874,6 +1888,11 @@ void upgradeV50(ref Miniorm db) {
 void upgradeV51(ref Miniorm db) {
     db.run("DROP TABLE " ~ srcCovInfoTable);
     db.run(buildSchema!CoverageInfoTable);
+}
+
+// 2022-06-21
+void upgradeV52(ref Miniorm db) {
+    db.run(buildSchema!MutationFileScoreHistoryTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
