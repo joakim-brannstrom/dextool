@@ -555,9 +555,9 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
                         return "background-color: salmon";
                     if (fluctuation == 1)
                         return "background-color: lightgreen";
+                    scoreChange = 0;
                     return "background-color: white";
                 }();
-
                 r.addChild("td", format!"%.3s"(scoreChange)).style = scoreChangeStyle;
             }
             r.addChild("td", f.stat.alive.to!string);
