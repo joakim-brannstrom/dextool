@@ -322,19 +322,12 @@ struct Database {
             return;
 
         auto ids = appender!(long[])();
-        stmt = db.prepare(format!"SELECT id FROM %s WHERE file_path=:file ORDER BY time_stamp ASC LIMIT :limit"(
-                mutationFileScoreHistoryTable));
+        stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " 
+                WHERE id IN (SELECT id FROM " ~ mutationFileScoreHistoryTable ~ "
+                WHERE file_path=:file ORDER BY time_stamp ASC LIMIT :limit)");
         stmt.get.bind(":file", file);
         stmt.get.bind(":limit", sz - keep);
-        foreach (a; stmt.get.execute)
-            ids.put(a.peek!long(0));
-
-        stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE id = :id");
-        foreach (a; ids.data) {
-            stmt.get.bind(":id", a);
-            stmt.get.execute;
-            stmt.get.reset;
-        }
+        stmt.get.execute;
     }
 
     /// Trim the mutation score history table to only contain the last `keep` scores.
