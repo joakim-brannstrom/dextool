@@ -57,12 +57,11 @@ struct DashboardCss {
         return root.addClass("table-sortable");
     }
 
-    static Element sortableTableCol(Element root, int width = -1) @trusted {
-        if (width == -1) {
+    static Element sortableTableCol(Element root, string headerValue = "") @trusted {
+        if (headerValue == "" || headerValue != "Change") {
             return root.addClass("table-col-sortable");
         } else {
-            return root.addClass("table-col-sortable").setAttribute("style",
-                    format!"width : %spx"(width));
+            return root.addClass("table-col-sortable").setAttribute("style", "width : 100px");
         }
     }
 }
