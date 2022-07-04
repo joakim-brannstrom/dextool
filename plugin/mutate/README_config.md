@@ -361,7 +361,6 @@ Sections to include in the report.
 | tc_stat                          | ✔    | ✔   |      |
 | tc_suggestion                    |       |      | ✔   |
 | tc_unique                        |       | ✔   | (✔) |
-| treemap                          |       |      | ✔   |
 | trend                            | ✔    | ✔   | ✔   |
 
 **Note**: styles may have automatic support for sections which are always on,
@@ -408,9 +407,6 @@ test cases.
 
 **tc_groups_similarity**: Compare the similarity between test groups. This is a
 "group" view compared to *tc_similarity*.
-
-**treemap**: Generate a treemap for the project (is currently unstable for
-large projects and files that have very long filenames).
 
 **mut_recommend_kill**: Report a list of high priority mutants to kill.
 

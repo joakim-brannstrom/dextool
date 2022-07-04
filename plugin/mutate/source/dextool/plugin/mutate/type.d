@@ -90,8 +90,6 @@ enum ReportSection {
     tc_similarity,
     /// Similarity between test groups
     tc_groups_similarity,
-    /// A treemap of the mutation scores
-    treemap,
     /// mutants that has survived that the plugin recommend the user to kill
     mut_recommend_kill,
     /// a section containing a diff and mutants for it
