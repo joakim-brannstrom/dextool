@@ -9,6 +9,24 @@
 .status_timeout {background-color: lightgreen;}
 .status_memOverload {background-color: lightgreen;}
 .status_unknown {background-color: lightyellow;}
+
+.mutant_info_text {
+  visibility: hidden;
+  width: 120px;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 0;
+  
+  /* Position the tooltip */
+  position: absolute;
+  z-index: 1;
+  bottom: 100%;
+  left: 50%;
+  margin-left: -60px;
+}
+
 .hover_alive {color: lightpink;}
 .hover_noCoverage {color: lightpink;}
 .hover_skipped {color: lightyellow;}
@@ -17,6 +35,13 @@
 .hover_timeout {color: lightgreen;}
 .hover_memOverload {color: lightgreen;}
 .hover_unknown {color: lightyellow;}
+
+.hover_alive:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_killed:hover .mutant_info_text{
+    visibility: visible;
+}
 .literal {color: darkred;}
 .keyword {color: blue;}
 .comment {color: grey;}
