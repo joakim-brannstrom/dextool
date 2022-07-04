@@ -231,18 +231,19 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
     auto uniqueElem = root.addChild("div");
 
     void addPopupHelp(Element e, string header) {
-        switch(header) {
-            case "TestCases": 
-                generatePopupHelp(e, "Number of test cases that kill the mutant.");
-                break;
-            case "Priority": 
-                generatePopupHelp(e, "How important it is to kill the mutant. It is based on modified source code size.");
-                break;
-            case "Suggestion": 
-                generatePopupHelp(e, "Alive mutants on the same source code location. Because they are close to a mutant that this test case killed it may be suitable to extend this test case to also kill the suggested mutant.");
-                break;
-            default:
-                break;
+        switch (header) {
+        case "TestCases":
+            generatePopupHelp(e, "Number of test cases that kill the mutant.");
+            break;
+        case "Priority":
+            generatePopupHelp(e,
+                    "How important it is to kill the mutant. It is based on modified source code size.");
+            break;
+        case "Suggestion":
+            generatePopupHelp(e, "Alive mutants on the same source code location. Because they are close to a mutant that this test case killed it may be suitable to extend this test case to also kill the suggested mutant.");
+            break;
+        default:
+            break;
         }
     }
 
