@@ -42,6 +42,25 @@
 .hover_killed:hover .mutant_info_text{
     visibility: visible;
 }
+.hover_killedByCompiler:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_timeout:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_memOverload:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_unknown:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_skipped:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_noCoverage:hover .mutant_info_text{
+    visibility: visible;
+}
+
 .literal {color: darkred;}
 .keyword {color: blue;}
 .comment {color: grey;}
