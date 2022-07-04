@@ -780,11 +780,8 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             addClass(s.tok.toName);
             if (auto v = meta.status.toVisible)
                 addClass(v);
-            if (s.muts.length != 0) {
+            if (s.muts.length != 0)
                 addClass(format("%(mutid%s %)", s.muts.map!(a => a.stId)));
-                line.firstChild.removeClass("loc_covered");
-                line.firstChild.removeClass("loc_noncovered");
-            }
             if (meta.onClick.length != 0)
                 setAttribute("onclick", meta.onClick);
         }
