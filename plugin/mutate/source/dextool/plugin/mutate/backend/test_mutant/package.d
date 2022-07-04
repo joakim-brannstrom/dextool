@@ -1098,8 +1098,10 @@ nothrow:
     }
 
     void opCall(SaveMutationScore data) {
-        import dextool.plugin.mutate.backend.database.type : MutationScore;
-        import dextool.plugin.mutate.backend.report.analyzers : reportScore;
+        import dextool.plugin.mutate.backend.database.type : MutationScore,
+            MutationScore, FileScore;
+        import dextool.plugin.mutate.backend.report.analyzers : reportScore, reportScores;
+        import std.algorithm : canFind;
 
         if (spinSql!(() => db.mutantApi.unknownSrcMutants(kinds)).count != 0)
             return;
@@ -1113,14 +1115,36 @@ nothrow:
         if (spinSql!(() => db.timeoutApi.countMutantTimeoutWorklist) != 0)
             return;
 
-        const score = reportScore(*db, kinds).score;
+        auto files = spinSql!(() => db.getFiles());
+        const fileScores = reportScores(*db, kinds, files);
+        const score = reportScore(*db, kinds);
+        const time = Clock.currTime;
 
         // 10000 mutation scores is only ~80kbyte. Should be enough entries
         // without taking up unreasonable amount of space.
+
         spinSql!(() @trusted {
             auto t = db.transaction;
-            db.putMutationScore(MutationScore(Clock.currTime, typeof(MutationScore.score)(score)));
+            db.putMutationScore(MutationScore(time, typeof(MutationScore.score)(score.score)));
             db.trimMutationScore(10000);
+            t.commit;
+        });
+
+        foreach (fileScore; fileScores) {
+            spinSql!(() @trusted {
+                auto t = db.transaction;
+                db.putFileScore(FileScore(time,
+                    typeof(FileScore.score)(fileScore.score), fileScore.file));
+                db.trimFileScore(10000, fileScore.file);
+                t.commit;
+            });
+        }
+
+        //If a file only exists in the FileScores table, and not in the Files table,
+        //then the file's stored scores should be removed
+        spinSql!(() @trusted {
+            auto t = db.transaction;
+            db.removeFileScores();
             t.commit;
         });
     }

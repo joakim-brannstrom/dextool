@@ -27,18 +27,18 @@
           </select>
         </td>
         <td><input id="show_mutant" type="checkbox" checked onclick='click_show_mutant(this)' /><span
-            class="xx_label">Show</span></td>
+            class="xx_label">Show mutant</span></td>
       </tr>
       <tr>
         <td></td>
         <td></td>
-        <td><input id="show_coverage" type="checkbox" checked onclick='click_show_coverage(this)'/><span class="xx_label">Coverage</span></td>
+        <td><input id="show_coverage" type="checkbox" checked onclick='click_show_coverage(this)'/><span class="xx_label">Show coverage</span></td>
       </tr>
     </table>
     
     <div id="filter_wrapper">
       <p class="filter_title">Testcases to display<button type="button" onclick="hide_testcases()"
-          class="show_testcases">Show</button></p>
+          class="show_testcases">Show testcases</button></p>
       <input id="num_testcases" type="number" min="0" max="10" step="1" value="5" />
     </div>
     
@@ -66,6 +66,14 @@
       <tr id="legend6">
         <td><span id="legend6_action" class="xx_label"></span></td>
         <td><span id="legend6_key"></span></td>
+      </tr>
+      <tr id="legend7" class="legend_coverage" style="display:inline;">
+        <td><span id="legend7_example" class="xx_label" style="background: lightblue; color: grey;">XX:</span></td>
+        <td><span id="legend7_explanation">Line is covered by tests</span></td>
+      </tr>
+      <tr id="legend8" class="legend_coverage" style="display:inline;">
+        <td><span id="legend8_example" class="xx_label" style="background: rgb(255, 217, 0); color: grey;">XX:</span></td>
+        <td><span id="legend8_explanation">Line is not covered by tests</span></td>
       </tr>
     </table>
   </div>
