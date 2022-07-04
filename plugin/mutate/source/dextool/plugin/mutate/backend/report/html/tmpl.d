@@ -79,8 +79,15 @@ Table tmplSortableTable(Element n, string[] header, void delegate(Element e,
         auto th = tr.addChild("th", h.value);
         if (tdCallback)
             tdCallback(th, h.value);
-        DashboardCss.sortableTableCol(th).setAttribute("id",
-                format!"col-%s"(h.index)).appendText(" ").addChild("i").addClass("right");
+
+        if (h.value == "Change") {
+            DashboardCss.sortableTableCol(th).setAttribute("id", format!"col-%s"(h.index))
+                .setAttribute("style", "width : 100px").appendText(" ")
+                .addChild("i").addClass("right");
+        } else {
+            DashboardCss.sortableTableCol(th).setAttribute("id",
+                    format!"col-%s"(h.index)).appendText(" ").addChild("i").addClass("right");
+        }
     }
 
     base.tbl.addChild("thead").appendChild(tr);

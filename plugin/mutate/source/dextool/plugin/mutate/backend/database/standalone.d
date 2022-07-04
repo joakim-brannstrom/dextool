@@ -280,10 +280,61 @@ struct Database {
         return app.data.sort!((a, b) => a.timeStamp < b.timeStamp).array;
     }
 
+    /// Returns: the stored scores in ascending order by their `time`.
+    FileScore[] getMutationFileScoreHistory() @trusted {
+        auto app = appender!(FileScore[])();
+        auto stmt = db.prepare(format!"SELECT AVG(score), file_path FROM (SELECT * FROM %s WHERE time_stamp > date('now', '-7 day')) GROUP BY file_path"(
+                mutationFileScoreHistoryTable));
+        foreach (a; stmt.get.execute) {
+            app.put(FileScore(SysTime(0),
+                    typeof(FileScore.score)(a.peek!double(0)), Path(a.peek!string(1))));
+        }
+        return app.data;
+    }
+
     /// Add a mutation score to the history table.
     void putMutationScore(const MutationScore score) @trusted {
         db.run(insert!MutationScoreHistoryTable, MutationScoreHistoryTable(0,
                 score.timeStamp, score.score.get));
+    }
+
+    // Add a mutation score for the individual files
+    void putFileScore(const FileScore score) @trusted {
+        db.run(insert!MutationFileScoreHistoryTable, MutationFileScoreHistoryTable(0,
+                score.timeStamp, score.score.get, score.file.toString));
+    }
+
+    void removeFileScores() @trusted {
+        auto stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " 
+                    WHERE file_path NOT IN (
+                    SELECT DISTINCT path
+                    FROM " ~ filesTable ~ ")");
+        stmt.get.execute;
+    }
+
+    void trimFileScore(const long keep, Path file) @trusted {
+        auto stmt = db.prepare(format!"SELECT count(*) FROM %s WHERE file_path=:file"(
+                mutationFileScoreHistoryTable));
+        stmt.get.bind(":file", file.toString);
+        const sz = stmt.get.execute.oneValue!long;
+
+        if (sz < keep)
+            return;
+
+        auto ids = appender!(long[])();
+        stmt = db.prepare(format!"SELECT id FROM %s WHERE file_path=:file ORDER BY time_stamp ASC LIMIT :limit"(
+                mutationFileScoreHistoryTable));
+        stmt.get.bind(":file", file);
+        stmt.get.bind(":limit", sz - keep);
+        foreach (a; stmt.get.execute)
+            ids.put(a.peek!long(0));
+
+        stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE id = :id");
+        foreach (a; ids.data) {
+            stmt.get.bind(":id", a);
+            stmt.get.execute;
+            stmt.get.reset;
+        }
     }
 
     /// Trim the mutation score history table to only contain the last `keep` scores.
