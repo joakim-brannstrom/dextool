@@ -10,6 +10,7 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.report.html.constants;
 
 import arsd.dom : Element;
+import std.format : format;
 
 struct Html {
     static immutable ext = ".html";
