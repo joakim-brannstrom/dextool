@@ -478,6 +478,13 @@ function click_show_coverage() {
     nonCoverageClasses.forEach(element => {
         element.classList.toggle('loc_coverage_off');
     })
+    legendCoverageClasses = document.querySelectorAll('.legend_coverage');
+    legendCoverageClasses.forEach(element => {
+        if (element.style.display == 'inline')
+            element.style.display = 'none';
+        else
+            element.style.display = 'inline';
+    })
 }
 /**
  * Activates the mutant of the given id.
@@ -623,7 +630,7 @@ function init_legend() {
    document.getElementById("legend3_action").innerHTML = "Next mutant: ";
    document.getElementById("legend4_action").innerHTML = "Prev mutant: ";
    document.getElementById("legend5_action").innerHTML = "Toggle show: ";
-   document.getElementById("legend5_action").innerHTML = "Toggle coverage: ";
+   document.getElementById("legend6_action").innerHTML = "Toggle coverage: ";
    document.getElementById("legend1_key").innerHTML = key_traverse_locs_down;
    document.getElementById("legend2_key").innerHTML = key_traverse_locs_up;
    document.getElementById("legend3_key").innerHTML = key_traverse_muts_down;
