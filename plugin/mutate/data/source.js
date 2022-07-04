@@ -260,10 +260,18 @@ function make_kind_status_info(locid, curr_mutid) {
         if (!g_filter_kinds.includes(mut.kindGroup) &&
             !g_filter_status.includes(mut.status))
         {
+            var mut_kind = g_mut_kind_map[mut.kind];
+            var mutant_info_text = "";
+            if (mut_kind == 'stmtDel'){
+                mutant_info_text = "Remove statement";
+            } else {
+                mutant_info_text = mut.mutText;
+            }
+
             if (mutids[i]==curr_mutid)
-                html+=`<span class="hover_`+g_mut_st_map[mut.status]+`"><b><u>`+g_mut_kind_map[mut.kind]+`</b></u> <span class="mutant_info_text">`+g_mut_kind_map[mut.kind] +`</span></span>`;
+                html+=`<span class="hover_`+g_mut_st_map[mut.status]+`"><b><u>`+mut_kind+`</b></u> <span class="mutant_info_text">`+ mutant_info_text +`</span></span>`;
             else
-                html+=`<span class="hover_`+g_mut_st_map[mut.status]+`">`+g_mut_kind_map[mut.kind]+` <span class="mutant_info_text">`+g_mut_kind_map[mut.kind] +`</span></span>`;
+                html+=`<span class="hover_`+g_mut_st_map[mut.status]+`">`+mut_kind+` <span class="mutant_info_text">`+mutant_info_text+`</span></span>`;
         }
     }
     return html;
