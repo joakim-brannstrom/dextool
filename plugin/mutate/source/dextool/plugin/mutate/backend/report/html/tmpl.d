@@ -80,13 +80,8 @@ Table tmplSortableTable(Element n, string[] header, void delegate(Element e,
         if (tdCallback)
             tdCallback(th, h.value);
 
-        if(h.value == "Change"){
-            DashboardCss.sortableTableCol(th, 100).setAttribute("id",
+        DashboardCss.sortableTableCol(th).setAttribute("id",
                 format!"col-%s"(h.index)).appendText(" ").addChild("i").addClass("right");
-        }else{
-            DashboardCss.sortableTableCol(th).setAttribute("id",
-                format!"col-%s"(h.index)).appendText(" ").addChild("i").addClass("right");
-        }
     }
 
     base.tbl.addChild("thead").appendChild(tr);

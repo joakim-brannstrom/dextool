@@ -489,6 +489,16 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
             "filter_table_on_search('fileFilterInput', 'fileTable')").addClass(
             "form-control").setAttribute("placeholder", "Search...");
 
+    void shortColumn(Element e, string header) {
+        switch (header) {
+        case "Changed":
+            e.setAttribute("style", "width : 100px");
+            break;
+        default:
+            break;
+        }
+    }
+
     auto tbl = () {
         Table tbl;
         //If there is no score history, then it shouldnt show the Change column
@@ -500,7 +510,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
             tbl = tmplSortableTable(root, [
                     "Path", "Score", "Change", "Alive", "NoMut", "Total",
                     "Time (min)"
-                    ]);
+                    ], &shortColumn);
         }
         tbl.setAttribute("id", "fileTable");
         return tbl;
