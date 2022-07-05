@@ -64,15 +64,11 @@ MutationKind toUser(Mutation.Kind k) @safe nothrow {
     return fromInteralKindToUserKind[k];
 }
 
-//Convert kind to its description
-string toDescription(MutationKind kind) @safe nothrow{
-    return mutationDescription[kind];
-}
+immutable string[MutationKind] mutationDescription;
 
 private:
 
 immutable MutationKind[Mutation.Kind] fromInteralKindToUserKind;
-immutable string[MutationKind] mutationDescription;
 
 shared static this() {
     import std.traits : EnumMembers;
