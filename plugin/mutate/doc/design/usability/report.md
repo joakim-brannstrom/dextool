@@ -533,16 +533,6 @@ The layout of the source code is often times ordered in directories for each
 component. It would be helpful if the score that is presented to the user can
 be summaries in some way that it maps back to the source code layout.
 
-## SPC-tree_map_view_of_score
-[partof](#req-uc_overview_of_mutation_score)
-
-The plugin shall generate a tree map view of the mutation score starting from
-the top directory branching out to the individual files when generating a html
-report.
-
-The tree map view shall navigate in the tree so the user can go further down or
-up at will.
-
 ## REQ-uc_remove_redundant_tests
 [partof](#req-plugin_mutate)
 

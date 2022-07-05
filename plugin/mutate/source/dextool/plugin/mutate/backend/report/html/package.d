@@ -1474,7 +1474,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         scope (exit)
             () { ctx.state.get.done = true; send(ctx.self, CheckDoneMsg.init); }();
 
-        import dextool.plugin.mutate.backend.report.html.page_tree_map;
+        import std.datetime : Clock;
 
         auto profile = Profile("post process report");
 
@@ -1515,10 +1515,8 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
             navbarItems ~= NavbarItem(sp.linkTxt, link);
         }
 
-        // keep
-        if (ReportSection.treemap in ctx.state.get.sections) {
-            addSubPage(() => makeTreeMapPage(ctx.state.get.files), "tree_map", "Treemap");
-        }
+        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir);
+
         import dextool.plugin.mutate.backend.database.type : FileScore;
 
         auto fileScores = ctx.state.get.db.getMutationFileScoreHistory();
