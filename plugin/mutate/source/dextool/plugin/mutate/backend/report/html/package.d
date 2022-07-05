@@ -713,7 +713,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     import dextool.plugin.mutate.type : MutationKind;
     import dextool.plugin.mutate.backend.database.type : MutantMetaData;
     import dextool.plugin.mutate.backend.report.utility : window;
-    import dextool.plugin.mutate.backend.mutation_type : toUser;
+    import dextool.plugin.mutate.backend.mutation_type : toUser, toDescription;
 
     static struct MData {
         MutationId id;
@@ -730,6 +730,18 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
     line.addChild("span", "1:").addClass("line_nr");
     auto mut_data = appender!(string[])();
+
+    
+
+
+    mut_data.put("var g_mut_description = {};");
+    mut_data.put(format!"g_mut_description[%s] = %s;"("''", "'Undefined'"));
+    foreach(kind; [EnumMembers!MutationKind]){
+        if(kind != MutationKind.all){
+            mut_data.put(format!"g_mut_description['%s'] = '%s';"(kind, toDescription(kind)));
+        }
+    }
+
     mut_data.put("var g_muts_data = {};");
     mut_data.put("g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null, 'size' : null};");
 
