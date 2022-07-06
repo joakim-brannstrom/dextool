@@ -19,6 +19,8 @@ function sortable_table_onclick(e) {
         return;
     }
     var tbody = e.target.closest('table').tBodies[0];
+    if (tbody == undefined)
+        return;
     var sorted = Array.prototype.slice.call(tbody.children);
     var tbl_container = e.target.closest(".table-sortable-div");
     var arrows = tbl_container.getElementsByTagName("i");
