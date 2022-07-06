@@ -4,7 +4,8 @@
 var g_lastCol = -1;
 
 function init() {
-    document.getElementById("csp_error").style.display = "none";
+    if (document.getElementById("csp_error") !== null)
+        document.getElementById("csp_error").style.display = "none";
     theads = document.getElementsByClassName('table-col-sortable');
     for (var i = 0; i < theads.length; i++) {
         theads[i].addEventListener('click', function(e) {sortable_table_onclick(e);});
