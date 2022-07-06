@@ -72,6 +72,15 @@
 .keyword {color: blue;}
 .comment {color: grey;}
 .line_nr {color: grey;}
+a:link  {
+    color: lightblue;
+}
+a:visited {
+    color: lightblue;
+}
+a:hover {
+    color: lightskyblue;
+}
 #mousehover {
     background: grey;
     border-radius: 8px;

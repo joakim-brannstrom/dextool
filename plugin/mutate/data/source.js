@@ -93,9 +93,7 @@ function highlight_compare(a, b) {
     if (g_muts_data[a].size < g_muts_data[b].size) return -1;
     return 0;
 }
-/**
- * Toggles whether to show the legend or not
- */
+
 function click_show_legend() {
     var show_legend = document.getElementById("show_legend").checked;
     var legend = document.getElementById("legend_box");
@@ -105,6 +103,7 @@ function click_show_legend() {
         legend.style.display = "none";
     }
 }
+
 function on_num_testcases_change(e) {
     num_testcases = e.target;
     if (num_testcases.value != g_displayed_testcases) {
@@ -213,6 +212,7 @@ function remove_info_line() {
         return;
     document.getElementById("info_table_wrapper").removeChild(info_table);
 }
+
 function set_info_line(mutid) {
     if (!document.getElementById(g_active_locid).getElementsByClassName("mutant").length)
         return;
@@ -238,15 +238,20 @@ function set_info_line(mutid) {
         }
         var test_case = tcs[i];
         if (test_case) {
-            row.innerHTML = make_td(test_case + ": " + g_testcases_kills[test_case]);
+            row.innerHTML = make_test_case_info_td(test_case);
         }
     }
 }
+
+function make_test_case_info_td(test_case) {
+    const info = g_testcase_info[test_case];
+    return "<td><a href='../test_cases/" + info['link'] + "'>" + test_case + ": " + info['kills'] + "</a></td>";
+}
+
 function make_td(html, id) {
-    if (!id)
-        return "<td>" + html + "</td>";
     return "<td id='" + id + "'>" + html + "</td>";
 }
+
 function make_kind_status_info(locid, curr_mutid) {
     if (curr_mutid == -1) {
         return "<span>No active mutant</span>";
