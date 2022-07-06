@@ -25,6 +25,10 @@ function sortable_table_onclick(e) {
     var tbl_container = e.target.closest(".table-sortable-div");
     var arrows = tbl_container.getElementsByTagName("i");
     var extractSortKey = function(str) {
+        if (Date.parse(str)) {
+            var parts = str.split("-");
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
         var num = parseFloat(str);
         if (isNaN(num)) {
             return str;
@@ -38,6 +42,9 @@ function sortable_table_onclick(e) {
     }
     if (col === g_lastCol) {
         sorted.sort( function(a,b) {
+            if (typeof(extractSortKey(a.children[col].innerText)) == "string") {
+                return a.children[col].innerText.localeCompare(b.children[col].innerText);
+            }
             return extractSortKey(a.children[col].innerText) - extractSortKey(b.children[col].innerText);
         });
         var arrow = e.target.getElementsByTagName("i")[0];
@@ -46,6 +53,9 @@ function sortable_table_onclick(e) {
         g_lastCol = -1;
     } else {
         sorted.sort( function(a,b) {
+            if (typeof(extractSortKey(a.children[col].innerText)) == "string") {
+                return b.children[col].innerText.localeCompare(a.children[col].innerText);
+            }
             return extractSortKey(b.children[col].innerText) - extractSortKey(a.children[col].innerText);
         });
         var arrow = e.target.getElementsByTagName("i")[0];
