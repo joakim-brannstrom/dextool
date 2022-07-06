@@ -238,14 +238,16 @@ function set_info_line(mutid) {
         }
         var test_case = tcs[i];
         if (test_case) {
-            row.innerHTML = make_td(test_case + ": " + g_testcases_kills[test_case]);
+            row.innerHTML = make_td(test_case + ": " + g_testcases_kills[test_case], null, '../test_cases/' + test_case + '.html');
         }
     }
 }
-function make_td(html, id) {
-    if (!id)
-        return "<td>" + html + "</td>";
-    return "<td id='" + id + "'>" + html + "</td>";
+function make_td(html, id, link) {
+    if (id && !link)
+        return "<td id='" + id + "'>" + html + "</td>";
+    if (link)
+        return "<td><a href='" + link + "'>" + html + "</a></td>";
+    return "<td>" + html + "</td>";
 }
 function make_kind_status_info(locid, curr_mutid) {
     if (curr_mutid == -1) {
