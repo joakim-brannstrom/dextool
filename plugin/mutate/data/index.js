@@ -120,6 +120,8 @@ function openTab(evt, open, tabGroup) {
 function setDocTime() {
     var div = document.getElementById("reportGenerationDate");
     var modDate = convertDate(new Date(document.lastModified));
+    if (div == null)
+        return;
     div.innerText += " " + modDate;
 }
 
