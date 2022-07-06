@@ -35,29 +35,29 @@ var key_toggle_show_coverage = 'Numpad1';
 function init() {
     var current_mutant_selector = document.getElementById('current_mutant');
     current_mutant_selector.addEventListener('change',
-        function(e) { current_mutant_onchange(e); });
+        function (e) { current_mutant_onchange(e); });
     num_testcases.addEventListener('change',
-        function(e) { on_num_testcases_change(e); });
+        function (e) { on_num_testcases_change(e); });
     window.addEventListener('resize',
         on_window_resize);
     window.addEventListener('keydown',
-        function(e) { on_keyboard_input(e); });
+        function (e) { on_keyboard_input(e); });
     document.getElementById("info_table_wrapper").addEventListener('wheel',
-        function(e) { on_loc_wheel(e); });
+        function (e) { on_loc_wheel(e); });
     g_displayed_testcases = num_testcases.value;
     num_testcases.max = MAX_NUM_TESTCASES;
     init_legend();
     on_window_resize();
     var locs_table = document.getElementById("locs");
     var locs = document.getElementsByClassName('loc');
-    for (var i=0; i<locs.length; i++){
+    for (var i = 0; i < locs.length; i++) {
         locs[i].addEventListener('click',
-            function(e) { on_loc_click(e); });
+            function (e) { on_loc_click(e); });
 
         // Get all mutant ids in the loc.
         muts = locs[i].getElementsByClassName('mutant');
         g_loc_mutids[locs[i].id] = [];
-        for (var j=0; j<muts.length; j++) {
+        for (var j = 0; j < muts.length; j++) {
             g_loc_mutids[locs[i].id].push(muts[j].id);
         }
     }
@@ -78,7 +78,7 @@ function init() {
             select_loc(hash, true);
         }
     }
-    
+
     click_show_legend();
     click_show_mutant();
     document.body.focus();
@@ -89,10 +89,10 @@ function priority_highlight_sort(mutids_array) {
     return mutids_array;
 }
 
-function highlight_compare(a, b){
-  if(g_muts_data[a].size > g_muts_data[b].size) return 1;
-  if(g_muts_data[a].size < g_muts_data[b].size) return -1;
-  return 0;
+function highlight_compare(a, b) {
+    if (g_muts_data[a].size > g_muts_data[b].size) return 1;
+    if (g_muts_data[a].size < g_muts_data[b].size) return -1;
+    return 0;
 }
 /**
  * Toggles whether to show the legend or not
@@ -175,7 +175,7 @@ function on_loc_click(e) {
  */
 function select_loc(loc_id, pure) {
     locs = document.getElementsByClassName('loc');
-    if(g_active_locid){
+    if (g_active_locid) {
         document.getElementById(g_active_locid).classList.toggle("loc_selected");
         remove_info_line();
     }
@@ -183,7 +183,7 @@ function select_loc(loc_id, pure) {
     g_active_locid = loc.id;
     loc.classList.toggle("loc_selected");
 
-    if(!pure) {
+    if (!pure) {
         set_active_mutant(-1);
         deactivate_mutants();
         clear_mutation_options();
@@ -222,16 +222,16 @@ function set_info_line(mutid) {
     document.getElementById("loc_muts_info").innerHTML = make_td(make_kind_status_info(g_active_locid, mutid));
     var tcs = g_muts_data[mutid].testCases
     if (!tcs) {
-        while(testcases.rows.length > 0) {
+        while (testcases.rows.length > 0) {
             testcases.deleteRow(-1);
         }
         return;
     }
-    while(testcases.rows.length > Math.min(g_displayed_testcases, tcs.length)) {
+    while (testcases.rows.length > Math.min(g_displayed_testcases, tcs.length)) {
         testcases.deleteRow(-1);
     }
     for (var i = 0; i < Math.min(g_displayed_testcases, tcs.length); i++) {
-        var id = "tc" + parseInt(i+1);
+        var id = "tc" + parseInt(i + 1);
         var row = document.getElementById(id)
         if (!row) {
             row = testcases.insertRow(i);
@@ -244,30 +244,29 @@ function set_info_line(mutid) {
     }
 }
 function make_td(html, id) {
-    if(!id)
-        return "<td>"+html+"</td>";
-    return "<td id='"+id+"'>"+html+"</td>";
+    if (!id)
+        return "<td>" + html + "</td>";
+    return "<td id='" + id + "'>" + html + "</td>";
 }
 function make_kind_status_info(locid, curr_mutid) {
     if (curr_mutid == -1) {
         return "<span>No active mutant</span>";
     }
     var mutids = g_loc_mutids[locid];
-    var html ="";
-    for (var i=0; i<mutids.length; i++) {
+    var html = "";
+    for (var i = 0; i < mutids.length; i++) {
         var mutid = mutids[i];
         var mut = g_muts_data[mutid];
         if (!g_filter_kinds.includes(mut.kindGroup) &&
-            !g_filter_status.includes(mut.status))
-        {
+            !g_filter_status.includes(mut.status)) {
             var mut_kind = g_mut_kind_map[mut.kind];
             var mutant_info_text = "";
             mutant_info_text = g_mut_description[g_mut_kindGroup_map[mut.kindGroup]];
 
-            if (mutids[i]==curr_mutid)
-                html+=`<span class="hover_`+g_mut_st_map[mut.status]+`"><b><u>`+mut_kind+`</b></u> <span class="mutant_info_text">`+ mutant_info_text +`</span></span>`;
+            if (mutids[i] == curr_mutid)
+                html += `<span class="hover_` + g_mut_st_map[mut.status] + `"><b><u>` + mut_kind + `</b></u> <span class="mutant_info_text">` + mutant_info_text + `</span></span>`;
             else
-                html+=`<span class="hover_`+g_mut_st_map[mut.status]+`">`+mut_kind+` <span class="mutant_info_text">`+mutant_info_text+`</span></span>`;
+                html += `<span class="hover_` + g_mut_st_map[mut.status] + `">` + mut_kind + ` <span class="mutant_info_text">` + mutant_info_text + `</span></span>`;
         }
     }
     return html;
@@ -285,14 +284,13 @@ function set_mutation_options(loc_id) {
         var mutid = mutids[i];
         var mut = g_muts_data[mutid];
         if (!g_filter_kinds.includes(mut.kindGroup) &&
-            !g_filter_status.includes(mut.status))
-        {
+            !g_filter_status.includes(mut.status)) {
             var s = document.createElement('OPTION');
             s.value = mutid;
             s.text = mut.mutText;
             current_mutant_selector.add(s);
             if (g_active_mutid === s.value)
-                current_mutant_selector.selectedIndex = i+1;
+                current_mutant_selector.selectedIndex = i + 1;
         }
     }
 }
@@ -303,8 +301,8 @@ function set_mutation_options(loc_id) {
 function traverse_mutants(direction) {
     current_mutant_selector = document.getElementById('current_mutant');
     selected = current_mutant_selector.selectedIndex;
-    if (direction>0) {
-        if (selected+1 < current_mutant_selector.options.length)
+    if (direction > 0) {
+        if (selected + 1 < current_mutant_selector.options.length)
             current_mutant_selector.selectedIndex += 1;
         else if (MUT_TRAVERSE_NEXT_LOC) {
             traverse_locs(1);
@@ -313,11 +311,11 @@ function traverse_mutants(direction) {
             }
         }
     } else if (direction < 0) {
-        if (selected-1 > 0)
-            current_mutant_selector.selectedIndex-=1;
+        if (selected - 1 > 0)
+            current_mutant_selector.selectedIndex -= 1;
         else if (MUT_TRAVERSE_NEXT_LOC) {
             traverse_locs(-1);
-            current_mutant_selector.selectedIndex = current_mutant_selector.options.length-1;
+            current_mutant_selector.selectedIndex = current_mutant_selector.options.length - 1;
         }
     }
     var mutid = current_mutant_selector.value;
@@ -339,15 +337,15 @@ function traverse_locs(direction) {
     for (var i = 0; i < locs.length; i++) {
         if (locs[i].id === g_active_locid) {
             if (direction > 0) {
-                if (i+1 < locs.length) 
-                    select_loc(locs[i+1].id);
+                if (i + 1 < locs.length)
+                    select_loc(locs[i + 1].id);
                 else if (LOC_TRAVERSE_LOOP)
                     select_loc(locs[0].id);
             } else if (direction < 0) {
-                if (i-1 >= 0)
-                    select_loc(locs[i-1].id);
+                if (i - 1 >= 0)
+                    select_loc(locs[i - 1].id);
                 else if (LOC_TRAVERSE_LOOP)
-                    select_loc(locs[locs.length-1].id);
+                    select_loc(locs[locs.length - 1].id);
             }
             break;
         }
@@ -384,12 +382,12 @@ function on_window_resize() {
     var width;
     if (line.clientWidth * 2 < window.innerWidth) {
         width = line.clientWidth;
-    } 
-    else if (window.innerWidth < 1350){
+    }
+    else if (window.innerWidth < 1350) {
         width = line.clientWidth / 2;
-    } 
+    }
     else {
-        width = window.innerWidth - line.clientWidth - 30; 
+        width = window.innerWidth - line.clientWidth - 30;
     }
     info_table_wrapper.style.width = width + "px";
     var top = window.innerHeight - info_table_wrapper.clientHeight;
@@ -425,8 +423,8 @@ function current_mutant_onchange(e) {
  */
 function clear_mutation_options() {
     current_mutant_selector = document.getElementById('current_mutant');
-    while (current_mutant_selector.options.length!=1) {
-        current_mutant_selector.options[1]=null;
+    while (current_mutant_selector.options.length != 1) {
+        current_mutant_selector.options[1] = null;
     }
 }
 /**
@@ -434,7 +432,7 @@ function clear_mutation_options() {
  */
 function ui_set_mut(id) {
     loc_id = get_closest_loc(document.getElementById(id)).id
-    if (loc_id != g_active_locid){
+    if (loc_id != g_active_locid) {
         select_loc(loc_id);
     }
     mutids = g_loc_mutids[loc_id];
@@ -443,9 +441,9 @@ function ui_set_mut(id) {
     scroll_to(id, false);
     set_info_line(id);
     var current_mutant_selector = document.getElementById('current_mutant');
-    for (var i=0; i<mutids.length; i++) {
+    for (var i = 0; i < mutids.length; i++) {
         if (id == mutids[i]) {
-            current_mutant_selector.selectedIndex = i+1;
+            current_mutant_selector.selectedIndex = i + 1;
             break;
         }
     }
@@ -502,7 +500,7 @@ function activate_mutant(mutid) {
     if (mut) {
         clss = document.getElementsByClassName("mutid" + mutid);
         if (clss) {
-            for (var i=0; i<clss.length; i++) {
+            for (var i = 0; i < clss.length; i++) {
                 clss[i].style.display = 'none';
             }
         }
@@ -516,10 +514,10 @@ function deactivate_mutants() {
     clear_current_mutant_info();
     var orgs = document.querySelectorAll(".original");
     var muts = document.querySelectorAll(".mutant");
-    for (var i=0; i<orgs.length; i++) {
+    for (var i = 0; i < orgs.length; i++) {
         orgs[i].style.display = "inline";
     }
-    for (i=0; i<muts.length; i++) {
+    for (i = 0; i < muts.length; i++) {
         muts[i].style.display = "none";
     }
 }
@@ -539,13 +537,13 @@ function highlight_mutant(mutid) {
 }
 function click_filter_kind(kind) {
     var checkbox = document.getElementById(g_mut_kindGroup_map[kind]);
-    if(checkbox.checked) {
-        for( var i = 0; i < g_filter_kinds.length; i++){
+    if (checkbox.checked) {
+        for (var i = 0; i < g_filter_kinds.length; i++) {
             if (g_filter_kinds[i] === kind) {
 
                 g_filter_kinds.splice(i, 1);
             }
-         }
+        }
     }
     else {
         g_filter_kinds.push(kind);
@@ -558,13 +556,13 @@ function click_filter_kind(kind) {
 }
 function click_filter_status(status) {
     var checkbox = document.getElementById(g_mut_st_map[status]);
-    if(checkbox.checked) {
-        for( var i = 0; i < g_filter_status.length; i++){
+    if (checkbox.checked) {
+        for (var i = 0; i < g_filter_status.length; i++) {
             if (g_filter_status[i] === status) {
 
                 g_filter_status.splice(i, 1);
             }
-         }
+        }
     }
     else {
         g_filter_status.push(status);
@@ -585,7 +583,7 @@ function set_current_mutant_info(mutid) {
 /**
  * Clears the info box of mutant related text.
  */
-function clear_current_mutant_info(){
+function clear_current_mutant_info() {
     document.getElementById("current_mutant_status").innerText = "";
     document.getElementById("current_mutant_metadata").innerText = "";
     document.getElementById("current_mutant_id").innerText = "";
@@ -616,7 +614,7 @@ function fly(evt, html) {
 function scroll_to(anchor, center) {
     var curr_pos = window.pageYOffset;
     if (center) {
-        var newpos = document.getElementById(anchor).offsetTop - window.innerHeight/2;
+        var newpos = document.getElementById(anchor).offsetTop - window.innerHeight / 2;
         if (newpos > 0) {
             window.scrollTo(0, newpos);
         }
@@ -629,26 +627,26 @@ function scroll_to(anchor, center) {
 }
 // Move most of this to html at some point
 function init_legend() {
-   document.getElementById("legend1_action").innerHTML = "Next line: ";
-   document.getElementById("legend2_action").innerHTML = "Prev line: ";
-   document.getElementById("legend3_action").innerHTML = "Next mutant: ";
-   document.getElementById("legend4_action").innerHTML = "Prev mutant: ";
-   document.getElementById("legend5_action").innerHTML = "Toggle show: ";
-   document.getElementById("legend6_action").innerHTML = "Toggle coverage: ";
-   document.getElementById("legend1_key").innerHTML = key_traverse_locs_down;
-   document.getElementById("legend2_key").innerHTML = key_traverse_locs_up;
-   document.getElementById("legend3_key").innerHTML = key_traverse_muts_down;
-   document.getElementById("legend4_key").innerHTML = key_traverse_muts_up;
-   document.getElementById("legend5_key").innerHTML = key_toggle_show_mutant;
-   document.getElementById("legend6_key").innerHTML = key_toggle_show_coverage;
+    document.getElementById("legend1_action").innerHTML = "Next line: ";
+    document.getElementById("legend2_action").innerHTML = "Prev line: ";
+    document.getElementById("legend3_action").innerHTML = "Next mutant: ";
+    document.getElementById("legend4_action").innerHTML = "Prev mutant: ";
+    document.getElementById("legend5_action").innerHTML = "Toggle show: ";
+    document.getElementById("legend6_action").innerHTML = "Toggle coverage: ";
+    document.getElementById("legend1_key").innerHTML = key_traverse_locs_down;
+    document.getElementById("legend2_key").innerHTML = key_traverse_locs_up;
+    document.getElementById("legend3_key").innerHTML = key_traverse_muts_down;
+    document.getElementById("legend4_key").innerHTML = key_traverse_muts_up;
+    document.getElementById("legend5_key").innerHTML = key_toggle_show_mutant;
+    document.getElementById("legend6_key").innerHTML = key_toggle_show_coverage;
 }
 
-function hide_testcases(){
-  var num = document.getElementById("num_testcases");
+function hide_testcases() {
+    var num = document.getElementById("num_testcases");
 
-  if (num.style.display === "none") {
-      num.style.display = "block";
+    if (num.style.display === "none") {
+        num.style.display = "block";
     } else {
-      num.style.display = "none";
+        num.style.display = "none";
     }
 }

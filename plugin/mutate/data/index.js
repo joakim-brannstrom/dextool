@@ -8,13 +8,13 @@ function init() {
         document.getElementById("csp_error").style.display = "none";
     theads = document.getElementsByClassName('table-col-sortable');
     for (var i = 0; i < theads.length; i++) {
-        theads[i].addEventListener('click', function(e) {sortable_table_onclick(e);});
+        theads[i].addEventListener('click', function (e) { sortable_table_onclick(e); });
     }
     setDocTime();
 }
 
 function sortable_table_onclick(e) {
-    var col = e.target.id.split('-',2)[1];
+    var col = e.target.id.split('-', 2)[1];
     if (!col) {
         return;
     }
@@ -35,7 +35,7 @@ function sortable_table_onclick(e) {
         }
         return num;
     }
-    for (var i=0; i<arrows.length; i++) {
+    for (var i = 0; i < arrows.length; i++) {
         arrows[i].classList.remove("up");
         arrows[i].classList.remove("down");
         arrows[i].classList.add("right");
@@ -66,7 +66,7 @@ function sortable_table_onclick(e) {
     while (tbody.lastChild) {
         tbody.removeChild(tbody.lastChild);
     }
-    for(var i = 0; i<sorted.length; i++) {
+    for (var i = 0; i < sorted.length; i++) {
         tbody.insertRow(i).innerHTML = sorted[i].innerHTML;
     }
 }
@@ -93,28 +93,28 @@ function filter_table_on_search(inputFieldId, tableId) {
 /** Toggle visibility for a tab and close others.
  */
 function openTab(evt, open, tabGroup) {
-    
-  // Get all elements with class="tabcontent" and hide them
-  var tabcontent = document.getElementsByClassName("tabcontent_" + tabGroup);
-  for (var i = 0; i < tabcontent.length; i++) {
-    tabcontent[i].style.display = "none";
-  }
 
-  var closeTab = false;
-  // Get all elements with class="tablinks" and remove the class "active"
-  var tablinks = document.getElementsByClassName("tablinks_" + tabGroup);
-  for (var i = 0; i < tablinks.length; i++) {
-    if (tablinks[i].className.includes("active") && tablinks[i].innerText.includes(open)) {
-        closeTab = true;
+    // Get all elements with class="tabcontent" and hide them
+    var tabcontent = document.getElementsByClassName("tabcontent_" + tabGroup);
+    for (var i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
     }
-    tablinks[i].className = tablinks[i].className.replace(" active", "");
-  }
 
-  // Show the current tab, and add an "active" class to the button that opened the tab
-  if (!closeTab) {
-    document.getElementById(open).style.display = "block";
-    evt.currentTarget.className += " active";
-  }
+    var closeTab = false;
+    // Get all elements with class="tablinks" and remove the class "active"
+    var tablinks = document.getElementsByClassName("tablinks_" + tabGroup);
+    for (var i = 0; i < tablinks.length; i++) {
+        if (tablinks[i].className.includes("active") && tablinks[i].innerText.includes(open)) {
+            closeTab = true;
+        }
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    if (!closeTab) {
+        document.getElementById(open).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
 }
 
 function setDocTime() {
@@ -127,9 +127,9 @@ function setDocTime() {
 
 function convertDate(date) {
     return date.getFullYear() + "/" +
-    ("0" + (date.getMonth()+1)).slice(-2) + "/" +
-    ("0" + date.getDate()).slice(-2) + " " +
-    ("0" + date.getHours()).slice(-2) + ":" +
-    ("0" + date.getMinutes()).slice(-2) + ":" +
-    ("0" + date.getSeconds()).slice(-2);
+        ("0" + (date.getMonth() + 1)).slice(-2) + "/" +
+        ("0" + date.getDate()).slice(-2) + " " +
+        ("0" + date.getHours()).slice(-2) + ":" +
+        ("0" + date.getMinutes()).slice(-2) + ":" +
+        ("0" + date.getSeconds()).slice(-2);
 }
