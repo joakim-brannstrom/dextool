@@ -851,11 +851,12 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 auto mutantHtmlTag = d0.addChild("span").addClass("mutant")
                     .setAttribute("id", m.stId.toString);
                 if (m.mutation.canFind('\n')) {
-                    mutantHtmlTag.addChild("pre", m.mutation).addClass("mutant2");
+                    mutantHtmlTag.addClass("long_mutant" ~ "-" ~ m.stId.toString);
                 } else {
                     mutantHtmlTag.appendText(m.mutation);
                 }
             }
+
             //Need actual MutationId and not StatusId to get TestCase info
             auto testCases = ctx.getTestCaseInfo(m.id);
             if (testCases.empty) {
@@ -872,6 +873,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                         metadata.kindToString, m.txt.mutation.length));
             }
         }
+
         lastLoc = s.tok.locEnd;
     }
 
