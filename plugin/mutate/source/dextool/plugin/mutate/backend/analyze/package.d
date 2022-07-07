@@ -1121,13 +1121,6 @@ struct Analyze {
 
                 if(m.whichPattern != 0){
                     switch (m[4]){
-                        case "":
-                            () @trusted {
-                                mdata.put(LineMetadata(fid, t.loc.line,
-                                        LineAttr(NoMut(m["tag"], m["comment"]))));
-                            }();
-                            log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
-                            break;
                         case "BEGIN":
                             if(sectionStart == -1){
                                 sectionStart = t.loc.line;
@@ -1161,43 +1154,14 @@ struct Analyze {
                             log.tracef("NOMUT ON NEXT LINE found at %s:%s:%s", file, t.loc.line, t.loc.column);
                             break;
                         default:
+                            () @trusted {
+                                mdata.put(LineMetadata(fid, t.loc.line,
+                                        LineAttr(NoMut(m["tag"], m["comment"]))));
+                            }();
+                            log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
                             break;
                     }
-                }/*
-                if (m1.whichPattern != 0 && m2.whichPattern == 0 && m3.whichPattern == 0 && m4.whichPattern == 0){
-                    () @trusted {
-                        mdata.put(LineMetadata(fid, t.loc.line,
-                                LineAttr(NoMut(m1["tag"], m1["comment"]))));
-                    }();
-                    log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
-                } else if (m2.whichPattern != 0 && sectionStart == -1){
-                    sectionStart = t.loc.line;
-                } else if (m3.whichPattern != 0) {
-                    int i;
-                    if(sectionStart == -1){
-                        i = 1;
-                    } else {
-                        i = sectionStart;
-                        sectionStart = -1;
-                    }
-                    
-                    int end = t.loc.line;
-                    while(i <= end){
-                        () @trusted {
-                        mdata.put(LineMetadata(fid, i,
-                            LineAttr(NoMut(m3["tag"], m3["comment"]))));
-                        }();
-                        log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
-                        
-                        i += 1;
-                    }
-                } else if (m4.whichPattern != 0) {
-                    () @trusted {
-                        mdata.put(LineMetadata(fid, t.loc.line + 1,
-                                LineAttr(NoMut(m4["tag"], m4["comment"]))));
-                    }();
-                    log.tracef("NOMUT ON NEXT LINE found at %s:%s:%s", file, t.loc.line, t.loc.column);
-                }*/
+                }
             }
 
             result.metadata ~= mdata.data;
