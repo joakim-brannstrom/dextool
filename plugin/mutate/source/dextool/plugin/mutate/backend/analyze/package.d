@@ -1128,7 +1128,7 @@ struct Analyze {
                         if(sectionStart == -1){
                             sectionStart = t.loc.line;
                         } else {
-                            logger.warning("NOMUT: Found multiple NOMUTBEGIN in a row! Will use the first one");
+                            logger.warning(format!"NOMUT: Found multiple NOMUTBEGIN in a row! Will use the first one, line %d"(sectionStart));
                         }
                         break;
                     case "END":
