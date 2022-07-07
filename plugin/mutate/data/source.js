@@ -261,13 +261,19 @@ function make_kind_status_info(locid, curr_mutid) {
             !g_filter_status.includes(mut.status))
         {
             var mut_kind = g_mut_kind_map[mut.kind];
+            var mut_status = g_mut_st_map[mut.status];
+            
+            if (mut.meta == "nomut"){
+                mut_status = "nomut";
+            }
+
             var mutant_info_text = "";
             mutant_info_text = g_mut_description[g_mut_kindGroup_map[mut.kindGroup]];
 
             if (mutids[i]==curr_mutid)
-                html+=`<span class="hover_`+g_mut_st_map[mut.status]+`"><b><u>`+mut_kind+`</b></u> <span class="mutant_info_text">`+ mutant_info_text +`</span></span>`;
+                html+=`<span class="hover_`+mut_status+`"><b><u>`+mut_kind+`</b></u> <span class="mutant_info_text">`+ mutant_info_text +`</span></span>`;
             else
-                html+=`<span class="hover_`+g_mut_st_map[mut.status]+`">`+mut_kind+` <span class="mutant_info_text">`+mutant_info_text+`</span></span>`;
+                html+=`<span class="hover_`+mut_status+`">`+mut_kind+` <span class="mutant_info_text">`+mutant_info_text+`</span></span>`;
         }
     }
     return html;

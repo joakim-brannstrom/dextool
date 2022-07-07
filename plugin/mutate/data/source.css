@@ -9,6 +9,7 @@
 .status_timeout {background-color: lightgreen;}
 .status_memOverload {background-color: lightgreen;}
 .status_unknown {background-color: lightyellow;}
+.status_nomut {background-color: lightblue;}
 
 .mutant_info_text {
   visibility: hidden;
@@ -32,6 +33,7 @@
 .hover_timeout {color: lightgreen;}
 .hover_memOverload {color: lightgreen;}
 .hover_unknown {color: lightyellow;}
+.hover_nomut {color: lightblue;}
 
 .hover_alive:hover .mutant_info_text{
     visibility: visible;
@@ -55,6 +57,9 @@
     visibility: visible;
 }
 .hover_noCoverage:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_nomut:hover .mutant_info_text{
     visibility: visible;
 }
 
