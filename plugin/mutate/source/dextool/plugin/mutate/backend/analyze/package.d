@@ -1110,6 +1110,7 @@ struct Analyze {
         import std.algorithm : filter;
         import clang.c.Index : CXTokenKind;
         import dextool.plugin.mutate.backend.database : LineMetadata, FileId, LineAttr, NoMut;
+        import std.format;
 
         if (auto localId = file in result.idFile) {
             const fid = FileId(localId.get);
@@ -1119,51 +1120,49 @@ struct Analyze {
             foreach (t; tstream.getTokens(file).filter!(a => a.kind == CXTokenKind.comment)) {
                 auto m = matchFirst(t.spelling, re_nomut);
 
-                if(m.whichPattern != 0){
-                    switch (m[4]){
-                        case "BEGIN":
-                            if(sectionStart == -1){
-                                sectionStart = t.loc.line;
-                            }
-                            break;
-                        case "END":
-                            int i;
-                            if(sectionStart == -1){
-                                i = 1;
-                            } else {
-                                i = sectionStart;
-                                sectionStart = -1;
-                            }
-                            
-                            int end = t.loc.line;
-                            while(i <= end){
-                                () @trusted {
-                                mdata.put(LineMetadata(fid, i,
-                                    LineAttr(NoMut(m["tag"], m["comment"]))));
-                                }();
-                                log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
-                                
-                                i += 1;
-                            }
-                            break;
-                        case "NEXT":
+                if(m.whichPattern == 0)
+                    continue;
+
+                switch (m[4]){
+                    case "BEGIN":
+                        if(sectionStart == -1){
+                            sectionStart = t.loc.line;
+                        } else {
+                            logger.warning("NOMUT: Found multiple NOMUTBEGIN in a row! Will use the first one");
+                        }
+                        break;
+                    case "END":
+                        if(sectionStart == -1){
+                            sectionStart = 1;
+                            logger.warning(format!"NOMUT: Found a NOMUTEND without a NOMUTBEGIN on line %d! Will begin from line 1"(t.loc.line));
+                        }
+                        
+                        foreach(i; sectionStart .. t.loc.line){
                             () @trusted {
-                            mdata.put(LineMetadata(fid, t.loc.line + 1,
+                            mdata.put(LineMetadata(fid, i,
                                 LineAttr(NoMut(m["tag"], m["comment"]))));
                             }();
-                            log.tracef("NOMUT ON NEXT LINE found at %s:%s:%s", file, t.loc.line, t.loc.column);
-                            break;
-                        default:
-                            () @trusted {
-                                mdata.put(LineMetadata(fid, t.loc.line,
-                                        LineAttr(NoMut(m["tag"], m["comment"]))));
-                            }();
                             log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
-                            break;
-                    }
+                        }
+
+                        sectionStart = -1;
+                        break;
+                    case "NEXT":
+                        () @trusted {
+                        mdata.put(LineMetadata(fid, t.loc.line + 1,
+                            LineAttr(NoMut(m["tag"], m["comment"]))));
+                        }();
+                        log.tracef("NOMUT ON NEXT LINE found at %s:%s:%s", file, t.loc.line, t.loc.column);
+                        break;
+                    default:
+                        () @trusted {
+                            mdata.put(LineMetadata(fid, t.loc.line,
+                                    LineAttr(NoMut(m["tag"], m["comment"]))));
+                        }();
+                        log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
+                        break;
                 }
             }
-
             result.metadata ~= mdata.data;
         }
     }
