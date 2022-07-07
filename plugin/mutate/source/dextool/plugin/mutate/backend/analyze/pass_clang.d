@@ -733,6 +733,12 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(scope const FloatingLiteral v){
+        mixin(mixinNodeLog!());
+        pushStack(ast.get.make!(analyze.Literal), v);
+        v.accept(this);
+    }
+
     override void visit(scope const Preprocessor v) {
         mixin(mixinNodeLog!());
 

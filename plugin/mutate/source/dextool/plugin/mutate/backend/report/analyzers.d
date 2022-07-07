@@ -33,7 +33,7 @@ import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult,
     makeMutationText, makeMutation;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize,
-    statusToString, kindToString;
+    ignoreFluctuations, statusToString, kindToString;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, TestGroup;
 import dextool.plugin.mutate.backend.utility : Profile;
 import dextool.plugin.mutate.type : ReportKillSortOrder, ReportSection;
@@ -349,6 +349,11 @@ struct MutationScore {
     }
 }
 
+struct FileScore {
+    double score;
+    Path file;
+}
+
 MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
     auto profile = Profile("reportScore");
 
@@ -367,6 +372,20 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     rval.total = total.count;
 
     return rval;
+}
+
+FileScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, Path[] files) @safe nothrow {
+    auto profile = Profile("reportScores");
+    auto app = appender!(FileScore[]);
+
+    foreach (file; files) {
+        FileScore result;
+        result.score = reportScore(db, kinds, file.toString).score();
+        result.file = file;
+        app.put(result);
+    }
+
+    return app.data;
 }
 
 /// Statistics for a group of mutants.
@@ -1267,12 +1286,13 @@ struct MutationScoreHistory {
 
         {
             // small changes / fluctuations are ignored
-            immutable limit = 0.001;
             const diff = estimate.predScore - values[$ - 1].score.get;
-            if (diff < -limit)
+            int fluctuation = ignoreFluctuations(diff);
+            if (fluctuation == -1) {
                 estimate.trend = Trend.negative;
-            else if (diff > limit)
+            } else if (fluctuation == 1) {
                 estimate.trend = Trend.positive;
+            }
         }
     }
 
