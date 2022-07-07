@@ -54,10 +54,6 @@ string jsSource() {
     return readData("source.js");
 }
 
-string jsTreeMap() {
-    return readData("treemap.js");
-}
-
 string jsD3Mini() {
     return readData("d3.min.js");
 }
