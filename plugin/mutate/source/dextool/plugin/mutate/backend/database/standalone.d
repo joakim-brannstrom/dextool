@@ -1356,7 +1356,7 @@ struct DbMutant {
         return rval;
     }
 
-    MutantMetaData getMutantationMetaData(const MutationId id) @trusted {
+    MutantMetaData getMutantMetaData(const MutationId id) @trusted {
         auto rval = MutantMetaData(id);
         foreach (res; db.run(select!NomutDataTbl.where("mut_id = :mutid", Bind("mutid")), id.get)) {
             rval.set(NoMut(res.tag, res.comment));
@@ -1364,9 +1364,8 @@ struct DbMutant {
         return rval;
     }
 
-    // TODO: fix spelling error
     // TODO: this is a bit inefficient. it should use a callback iterator
-    MutantMetaData[] getMutantationMetaData(const Mutation.Kind[] kinds, const Mutation
+    MutantMetaData[] getMutantMetaData(const Mutation.Kind[] kinds, const Mutation
             .Status status) @trusted {
         const sql = format!"SELECT DISTINCT t.mut_id, t.tag, t.comment
         FROM %s t, %s t1, %s t2

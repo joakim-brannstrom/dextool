@@ -844,7 +844,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
         foreach (m; s.muts.filter!(m => m.id !in metadataOnlyOnce)) {
             metadataOnlyOnce.add(m.id);
 
-            const metadata = db.mutantApi.getMutantationMetaData(m.id);
+            const metadata = db.mutantApi.getMutantMetaData(m.id);
 
             muts.put(MData(m.id, m.stId, m.txt, m.mut, metadata));
             {
