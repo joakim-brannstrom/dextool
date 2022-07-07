@@ -1141,10 +1141,8 @@ struct Analyze {
                                 LineAttr(NoMut(m1["tag"], m1["comment"]))));
                     }();
                     log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
-                } else if (m2.whichPattern != 0){
-                    if (m2.whichPattern != 0 && sectionStart == -1){
-                        sectionStart = t.loc.line;
-                    }
+                } else if (m2.whichPattern != 0 && sectionStart == -1){
+                    sectionStart = t.loc.line;
                 } else if (m3.whichPattern != 0) {
                     int i;
                     if(sectionStart == -1){
