@@ -1118,12 +1118,10 @@ struct Analyze {
             auto mdata = appender!(LineMetadata[])();
             foreach (t; tstream.getTokens(file).filter!(a => a.kind == CXTokenKind.comment)) {
                 auto m = matchFirst(t.spelling, re_nomut);
-                logger.warning(m);
 
                 if(m.whichPattern != 0){
                     switch (m[4]){
                         case "":
-                            logger.warning("EMPTY ", t.loc.line);
                             () @trusted {
                                 mdata.put(LineMetadata(fid, t.loc.line,
                                         LineAttr(NoMut(m["tag"], m["comment"]))));
@@ -1131,13 +1129,11 @@ struct Analyze {
                             log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
                             break;
                         case "BEGIN":
-                            logger.warning("BEGIN ", t.loc.line);
                             if(sectionStart == -1){
                                 sectionStart = t.loc.line;
                             }
                             break;
                         case "END":
-                            logger.warning("END ", t.loc.line);
                             int i;
                             if(sectionStart == -1){
                                 i = 1;
@@ -1158,13 +1154,11 @@ struct Analyze {
                             }
                             break;
                         case "NEXT":
-                            logger.warning("NEXT ", t.loc.line);
                             () @trusted {
                             mdata.put(LineMetadata(fid, t.loc.line + 1,
                                 LineAttr(NoMut(m["tag"], m["comment"]))));
                             }();
                             log.tracef("NOMUT ON NEXT LINE found at %s:%s:%s", file, t.loc.line, t.loc.column);
- 
                             break;
                         default:
                             break;
