@@ -1146,7 +1146,7 @@ struct Analyze {
                 } else if (m3.whichPattern != 0) {
                     int i;
                     if(sectionStart == -1){
-                        i = 0;
+                        i = 1;
                     } else {
                         i = sectionStart;
                         sectionStart = -1;
