@@ -964,19 +964,9 @@ struct Analyze {
     }
 
     private {
-        static immutable rawReNomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`; 
-
-        static immutable rawReNomutBegin = `^((//)|(/\*))\s*NOMUTBEGIN\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`; 
-        
-        static immutable rawReNomutEnd = `^((//)|(/\*))\s*NOMUTEND\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`; 
-       
-        static immutable rawReNomutNext = `^((//)|(/\*))\s*NOMUTNEXT\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`; 
+        static immutable rawReNomut = `^((//)|(/\*))\s*NOMUT(?P<type>\w*)\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`;
 
         Regex!char re_nomut;
-        Regex!char re_nomut_begin;
-        Regex!char re_nomut_end;
-        Regex!char re_nomut_next;
-
         ValidateLoc valLoc;
         FilesysIO fio;
 
@@ -992,9 +982,6 @@ struct Analyze {
         this.valLoc = valLoc;
         this.fio = fio;
         this.re_nomut = regex(rawReNomut);
-        this.re_nomut_begin = regex(rawReNomutBegin);
-        this.re_nomut_end = regex(rawReNomutEnd);
-        this.re_nomut_next = regex(rawReNomutNext);
         this.result = new Result;
         this.conf = conf;
     }
@@ -1130,11 +1117,59 @@ struct Analyze {
             int sectionStart = -1;
             auto mdata = appender!(LineMetadata[])();
             foreach (t; tstream.getTokens(file).filter!(a => a.kind == CXTokenKind.comment)) {
-                auto m1 = matchFirst(t.spelling, re_nomut);
-                auto m2 = matchFirst(t.spelling, re_nomut_begin);
-                auto m3 = matchFirst(t.spelling, re_nomut_end);
-                auto m4 = matchFirst(t.spelling, re_nomut_next); 
+                auto m = matchFirst(t.spelling, re_nomut);
+                logger.warning(m);
 
+                if(m.whichPattern != 0){
+                    switch (m[4]){
+                        case "":
+                            logger.warning("EMPTY ", t.loc.line);
+                            () @trusted {
+                                mdata.put(LineMetadata(fid, t.loc.line,
+                                        LineAttr(NoMut(m["tag"], m["comment"]))));
+                            }();
+                            log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
+                            break;
+                        case "BEGIN":
+                            logger.warning("BEGIN ", t.loc.line);
+                            if(sectionStart == -1){
+                                sectionStart = t.loc.line;
+                            }
+                            break;
+                        case "END":
+                            logger.warning("END ", t.loc.line);
+                            int i;
+                            if(sectionStart == -1){
+                                i = 1;
+                            } else {
+                                i = sectionStart;
+                                sectionStart = -1;
+                            }
+                            
+                            int end = t.loc.line;
+                            while(i <= end){
+                                () @trusted {
+                                mdata.put(LineMetadata(fid, i,
+                                    LineAttr(NoMut(m["tag"], m["comment"]))));
+                                }();
+                                log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
+                                
+                                i += 1;
+                            }
+                            break;
+                        case "NEXT":
+                            logger.warning("NEXT ", t.loc.line);
+                            () @trusted {
+                            mdata.put(LineMetadata(fid, t.loc.line + 1,
+                                LineAttr(NoMut(m["tag"], m["comment"]))));
+                            }();
+                            log.tracef("NOMUT ON NEXT LINE found at %s:%s:%s", file, t.loc.line, t.loc.column);
+ 
+                            break;
+                        default:
+                            break;
+                    }
+                }/*
                 if (m1.whichPattern != 0 && m2.whichPattern == 0 && m3.whichPattern == 0 && m4.whichPattern == 0){
                     () @trusted {
                         mdata.put(LineMetadata(fid, t.loc.line,
@@ -1168,7 +1203,7 @@ struct Analyze {
                                 LineAttr(NoMut(m4["tag"], m4["comment"]))));
                     }();
                     log.tracef("NOMUT ON NEXT LINE found at %s:%s:%s", file, t.loc.line, t.loc.column);
-                }
+                }*/
             }
 
             result.metadata ~= mdata.data;
