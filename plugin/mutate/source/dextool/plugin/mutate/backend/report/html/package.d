@@ -781,7 +781,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
     mut_data.put("var g_mut_description = {};");
     mut_data.put("g_mut_description[''] = 'Undefined';");
-    foreach(kind; mutationDescription.byKeyValue.filter!(a => a.key != MutationKind.all)){
+    foreach (kind; mutationDescription.byKeyValue.filter!(a => a.key != MutationKind.all)) {
         mut_data.put(format!"g_mut_description['%s'] = '%s';"(kind.key, kind.value));
     }
 
