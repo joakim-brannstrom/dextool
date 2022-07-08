@@ -17,8 +17,8 @@
 #include "termbox.h"
 
 #include "bytebuffer.c"
-#include "input.c"
 #include "term.c"
+#include "input.c"
 
 struct cellbuf {
     int width;
