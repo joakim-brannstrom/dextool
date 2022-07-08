@@ -196,6 +196,12 @@ struct LineMetadata {
         this.attr = attr;
     }
 
+    void opAssign(LineMetadata rhs) @trusted pure nothrow @nogc {
+        this.id = rhs.id;
+        this.line = rhs.line;
+        this.attr = rhs.attr;
+    }
+
     void set(NoMut a) @trusted pure nothrow @nogc {
         attr = LineAttr(a);
     }

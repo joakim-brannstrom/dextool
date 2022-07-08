@@ -76,7 +76,7 @@ provided locale string, eg fr is directly used to switch moment locale.
  * Analyze never finish if the number of threads are set to one (--threads 1).
  It is now changed to be a minimum of four.
 
-# v4.2.0 Cat Gold 
+# v4.2.0 Cat Gold
 
 Fixes
 
