@@ -1365,8 +1365,7 @@ struct DbMutant {
     }
 
     // TODO: this is a bit inefficient. it should use a callback iterator
-    MutantMetaData[] getMutantMetaData(const Mutation.Kind[] kinds, const Mutation
-            .Status status) @trusted {
+    MutantMetaData[] getMutantMetaData(const Mutation.Kind[] kinds, const Mutation.Status status) @trusted {
         const sql = format!"SELECT DISTINCT t.mut_id, t.tag, t.comment
         FROM %s t, %s t1, %s t2
         WHERE
