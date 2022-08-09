@@ -57,6 +57,7 @@ shared static this() {
 
 @safe:
 
+
 Checksum checksum(const(ubyte)[] a) {
     import my.hash : makeCrc64Iso;
 

@@ -1508,6 +1508,9 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         }
 
         import dextool.plugin.mutate.backend.database.type : FileScore;
+        auto fileScores = ctx.state.get.db.getMutationFileScoreHistory();
+
+        import dextool.plugin.mutate.backend.database.type : FileScore;
 
         auto fileScores = ctx.state.get.db.getMutationFileScoreHistory();
 

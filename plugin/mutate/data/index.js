@@ -4,8 +4,8 @@
 var g_lastCol = -1;
 
 function init() {
-    let resizeTimeout;
-    update_infobox_position();
+    if (document.getElementById("csp_error") !== null)
+        document.getElementById("csp_error").style.display = "none";
     window.addEventListener("resize", () => {
         if (resizeTimeout) {
             clearTimeout(resizeTimeout)

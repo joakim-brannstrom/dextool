@@ -1971,6 +1971,7 @@ void upgradeV46(ref Miniorm db) {
 
 // 2021-11-01
 void upgradeV47(ref Miniorm db) {
+
     static immutable newTbl = "new_" ~ allTestCaseTable;
     db.run(buildSchema!AllTestCaseTbl("new_"));
 
@@ -2024,7 +2025,7 @@ void upgradeV52(ref Miniorm db) {
     db.run(buildSchema!MutationFileScoreHistoryTable);
 }
 
-// 2022-08-10
+// 2022-06-30
 void upgradeV53(ref Miniorm db) {
     @TableName(mutationStatusTable)
     @TableConstraint("checksum UNIQUE (checksum)")
@@ -2060,20 +2061,22 @@ void upgradeV53(ref Miniorm db) {
     const newFilesTbl = "new_" ~ filesTable;
     db.run(buildSchema!FilesTbl("new_"));
     db.run("INSERT INTO " ~ newFilesTbl
-            ~ " (id, path, lang, timestamp, root, checksum) SELECT id,path,lang,timestamp,root,checksum0 FROM "
+            ~ " (id, path, lang, timeStamp, root, checksum) SELECT id,path,lang,timeStamp,root,checksum0 FROM "
             ~ filesTable);
     replaceTbl(db, newFilesTbl, filesTable);
 
     const newTestFilesTbl = "new_" ~ testFilesTable;
     db.run(buildSchema!TestFilesTable("new_"));
     db.run("INSERT INTO " ~ newTestFilesTbl
-            ~ " (id,path,timestamp,checksum) SELECT id,path,timestamp,checksum0 FROM "
+            ~ " (id,path,timeStamp,checksum) SELECT id,path,timeStamp,checksum0 FROM "
             ~ testFilesTable);
     replaceTbl(db, newTestFilesTbl, testFilesTable);
 
     const newMutationStatusTbl = "new_" ~ mutationStatusTable;
     db.run(buildSchema!MutationStatusTbl("new_"));
-    db.run("INSERT INTO " ~ newMutationStatusTbl ~ " (id,status,exit_code,checksum,compile_time_ms,test_time_ms,prio) SELECT id,status,exit_code,checksum0,compile_time_ms,test_time_ms,prio FROM " ~ mutationStatusTable);
+    db.run("INSERT INTO " ~ newMutationStatusTbl
+            ~ " (id,status,exitCode,checksum) SELECT id,status,exitCode,checksum0 FROM "
+            ~ mutationStatusTable);
     replaceTbl(db, newMutationStatusTbl, mutationStatusTable);
 
     const newDepFileTbl = "new_" ~ depFileTable;
@@ -2084,7 +2087,9 @@ void upgradeV53(ref Miniorm db) {
 
     const newMarkedMutantTbl = "new_" ~ markedMutantTable;
     db.run(buildSchema!MarkedMutantTbl("new_"));
-    db.run("INSERT INTO " ~ newMarkedMutantTbl ~ " (checksum,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText) SELECT checksum0,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText FROM " ~ markedMutantTable);
+    db.run(
+            "INSERT INTO " ~ newMarkedMutantTbl
+            ~ " (checksum) SELECT checksum0 FROM " ~ markedMutantTable);
     replaceTbl(db, newMarkedMutantTbl, markedMutantTable);
 }
 
