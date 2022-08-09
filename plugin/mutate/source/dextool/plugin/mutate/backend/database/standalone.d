@@ -448,7 +448,11 @@ struct DbDependency {
 
     /// The root must already exist or the whole operation will fail with an sql error.
     void set(const Path path, const DepFile[] deps) @trusted {
+<<<<<<< HEAD
         static immutable insertDepSql = "INSERT OR IGNORE INTO " ~ depFileTable 
+=======
+        static immutable insertDepSql = "INSERT OR IGNORE INTO " ~ depFileTable ~ " (file,checksum)
+>>>>>>> 92c2c5ef (Squashed commits)
             ~ " (file,checksum)
             VALUES(:file,:cs)
             ON CONFLICT (file) DO UPDATE SET checksum=:cs WHERE file=:file";
@@ -1561,7 +1565,6 @@ struct DbMutant {
     // TODO: can be removed in the future now that a checksum is the ID.
     MutationStatusId getMutationStatusId(const Checksum cs) @trusted {
         return MutationStatusId(cs.c0);
-    }
 
     void increaseFilePrio(Path prioFile) {
         immutable sql = "UPDATE " ~ mutantWorklistTable ~ "
@@ -1885,7 +1888,6 @@ struct DbMutant {
     // TODO: remove? now when id is the checksum...
     Checksum getChecksum(MutationStatusId id) @trusted {
         return Checksum(id.get);
-    }
 
     /// Store all found mutants.
     void put(MutationPointEntry2[] mps, AbsolutePath root) @trusted {
@@ -2966,8 +2968,6 @@ MarkedMutant make(MarkedMutantTbl m) {
 
     return MarkedMutant(m.mutationStatusId.MutationStatusId, Checksum(m.checksum),
 -           m.mutationId.MutationId, SourceLoc(m.line, m.column), m.path.Path,
-            m.toStatus.to!(Mutation.Status), m.time, m.rationale.Rationale, m.mutText);
-}
 
 string fromOrder(const MutationOrder userOrder) {
     final switch (userOrder) {
