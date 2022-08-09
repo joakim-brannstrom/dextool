@@ -33,7 +33,7 @@ import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult,
     makeMutationText, makeMutation;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize,
-    statusToString, kindToString;
+    ignoreFluctuations, statusToString, kindToString;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, TestCase, TestGroup;
 import dextool.plugin.mutate.backend.utility : Profile;
 import dextool.plugin.mutate.type : ReportKillSortOrder, ReportSection;
@@ -349,6 +349,11 @@ struct MutationScore {
     }
 }
 
+struct FileScore {
+    double score;
+    Path file;
+}
+
 MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
     auto profile = Profile("reportScore");
 
@@ -367,6 +372,20 @@ MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string f
     rval.total = total.count;
 
     return rval;
+}
+
+FileScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, Path[] files) @safe nothrow {
+    auto profile = Profile("reportScores");
+    auto app = appender!(FileScore[]);
+
+    foreach (file; files) {
+        FileScore result;
+        result.score = reportScore(db, kinds, file.toString).score();
+        result.file = file;
+        app.put(result);
+    }
+
+    return app.data;
 }
 
 /// Statistics for a group of mutants.
@@ -546,9 +565,9 @@ struct TestCaseOverlapStat {
     double ratio = 0.0;
 
     // map between test cases and the mutants they have killed.
-    TestCaseId[][Murmur3] tc_mut;
+    TestCaseId[][Crc64Iso] tc_mut;
     // map between mutation IDs and the test cases that killed them.
-    long[][Murmur3] mutid_mut;
+    long[][Crc64Iso] mutid_mut;
     string[TestCaseId] name_tc;
 
     string sumToString() @safe const {
@@ -637,12 +656,12 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
     foreach (tc_id; db.testCaseApi.getTestCasesWithAtLeastOneKill(kinds)) {
         auto muts = db.testCaseApi.getTestCaseMutantKills(tc_id, kinds)
             .sort.map!(a => cast(long) a).array;
-        auto m3 = makeMurmur3(cast(ubyte[]) muts);
-        if (auto v = m3 in st.tc_mut)
+        auto iso = makeCrc64Iso(cast(ubyte[]) muts);
+        if (auto v = iso in st.tc_mut)
             (*v) ~= tc_id;
         else {
-            st.tc_mut[m3] = [tc_id];
-            st.mutid_mut[m3] = muts;
+            st.tc_mut[iso] = [tc_id];
+            st.mutid_mut[iso] = muts;
         }
         st.name_tc[tc_id] = db.testCaseApi.getTestCaseName(tc_id);
     }
@@ -1267,12 +1286,13 @@ struct MutationScoreHistory {
 
         {
             // small changes / fluctuations are ignored
-            immutable limit = 0.001;
             const diff = estimate.predScore - values[$ - 1].score.get;
-            if (diff < -limit)
+            int fluctuation = ignoreFluctuations(diff);
+            if (fluctuation == -1) {
                 estimate.trend = Trend.negative;
-            else if (diff > limit)
+            } else if (fluctuation == 1) {
                 estimate.trend = Trend.positive;
+            }
         }
     }
 

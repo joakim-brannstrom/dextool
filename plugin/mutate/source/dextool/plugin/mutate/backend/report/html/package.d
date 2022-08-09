@@ -12,7 +12,7 @@ module dextool.plugin.mutate.backend.report.html;
 import logger = std.experimental.logger;
 import std.algorithm : max, each, map, min, canFind, sort, filter, joiner;
 import std.array : Appender, appender, array, empty;
-import std.datetime : dur;
+import std.datetime : dur, days, Clock;
 import std.exception : collectException;
 import std.format : format;
 import std.functional : toDelegate;
@@ -21,6 +21,7 @@ import std.range : only;
 import std.stdio : File;
 import std.typecons : tuple, Tuple;
 import std.utf : toUTF8, byChar;
+import std.conv;
 
 import arsd.dom : Document, Element, require, Table, RawSource, Link;
 import my.actor;
@@ -29,10 +30,14 @@ import my.gc.refc;
 import my.optional;
 import my.set;
 
-import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId;
+import dextool.plugin.mutate.backend.database : Database, FileRow,
+    FileMutantRow, MutationId, MutationStatusId;
+import dextool.plugin.mutate.backend.database.type : CovRegionStatus;
+
 import dextool.plugin.mutate.backend.diff_parser : Diff;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
+import dextool.plugin.mutate.backend.report.utility : ignoreFluctuations;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, SourceLoc, Token;
 import dextool.plugin.mutate.backend.utility : Profile;
 import dextool.plugin.mutate.config : ConfigReport;
@@ -42,6 +47,7 @@ import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.resource;
+import dextool.plugin.mutate.backend.database.type : FileScore;
 
 @safe:
 
@@ -190,15 +196,18 @@ nothrow:
     }
 
     MutationId id;
+    MutationStatusId stId;
     Offset offset;
     Text txt;
     Mutation mut;
 
-    this(MutationId id, Offset offset, string original, string mutation, Mutation mut) {
+    this(MutationId id, MutationStatusId stId, Offset offset, string original,
+            string mutation, Mutation mut) {
         import std.utf : validate;
         import dextool.plugin.mutate.backend.type : invalidUtf8;
 
         this.id = id;
+        this.stId = stId;
         this.offset = offset;
         this.mut = mut;
 
@@ -221,8 +230,8 @@ nothrow:
         }
     }
 
-    this(MutationId id, Offset offset, string original) {
-        this(id, offset, original, null, Mutation.init);
+    this(MutationId id, MutationStatusId stId, Offset offset, string original) {
+        this(id, stId, offset, original, null, Mutation.init);
     }
 
     string original() @safe pure nothrow const @nogc {
@@ -248,7 +257,7 @@ nothrow:
 
 @("shall be possible to construct a FileMutant in @safe")
 @safe unittest {
-    auto fmut = FileMutant(MutationId(1), Offset(1, 2), "smurf");
+    auto fmut = FileMutant(MutationId(1), MutationStatusId(1), Offset(1, 2), "smurf");
 }
 
 /*
@@ -322,7 +331,6 @@ struct Spanner {
 @("shall be possible to construct a Spanner in @safe")
 @safe unittest {
     import std.algorithm;
-    import std.conv;
     import std.range;
     import clang.c.Index : CXTokenKind;
 
@@ -330,8 +338,8 @@ struct Spanner {
             Offset(a[0], a[1]), SourceLoc.init, SourceLoc.init, a[0].to!string)).retro.array;
     auto span = Spanner(toks);
 
-    span.put(FileMutant(MutationId(1), Offset(1, 10), "smurf"));
-    span.put(FileMutant(MutationId(1), Offset(9, 15), "donkey"));
+    span.put(FileMutant(MutationId(1), MutationStatusId(1), Offset(1, 10), "smurf"));
+    span.put(FileMutant(MutationId(1), MutationStatusId(1), Offset(9, 15), "donkey"));
 
     // TODO add checks
 }
@@ -428,7 +436,6 @@ struct Span {
 @("shall return a range grouping mutants by the tokens they overlap")
 @safe unittest {
     import std.algorithm;
-    import std.conv;
     import std.range;
     import clang.c.Index : CXTokenKind;
 
@@ -440,13 +447,18 @@ struct Span {
             SourceLoc.init, a.begin.to!string)).retro.array;
     auto span = Spanner(toks);
 
-    span.put(FileMutant(MutationId(2), Offset(11, 15), "token enclosing mutant"));
-    span.put(FileMutant(MutationId(3), Offset(31, 42), "mutant beginning inside a token"));
-    span.put(FileMutant(MutationId(4), Offset(50, 80), "mutant overlapping multiple tokens"));
+    span.put(FileMutant(MutationId(2), MutationStatusId(1), Offset(11, 15),
+            "token enclosing mutant"));
+    span.put(FileMutant(MutationId(3), MutationStatusId(1), Offset(31, 42),
+            "mutant beginning inside a token"));
+    span.put(FileMutant(MutationId(4), MutationStatusId(1), Offset(50, 80),
+            "mutant overlapping multiple tokens"));
 
-    span.put(FileMutant(MutationId(5), Offset(90, 100), "1 multiple mutants for a token"));
-    span.put(FileMutant(MutationId(6), Offset(90, 110), "2 multiple mutants for a token"));
-    span.put(FileMutant(MutationId(1), Offset(120, 130), "perfect overlap"));
+    span.put(FileMutant(MutationId(5), MutationStatusId(1), Offset(90, 100),
+            "1 multiple mutants for a token"));
+    span.put(FileMutant(MutationId(6), MutationStatusId(1), Offset(90, 110),
+            "2 multiple mutants for a token"));
+    span.put(FileMutant(MutationId(1), MutationStatusId(1), Offset(120, 130), "perfect overlap"));
 
     auto res = span.toRange.array;
     //logger.tracef("%(%s\n%)", res);
@@ -467,9 +479,8 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
+void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] scoreHistory = null) @trusted {
     import std.algorithm : sort, filter;
-    import std.conv : to;
 
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
@@ -478,15 +489,43 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
             "filter_table_on_search('fileFilterInput', 'fileTable')").addClass(
             "form-control").setAttribute("placeholder", "Search...");
 
-    auto tbl = tmplSortableTable(root, [
-            "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
-            ]);
-    tbl.setAttribute("id", "fileTable");
+    void shortColumn(Element e, string header) {
+        switch (header) {
+        case "Changed":
+            e.setAttribute("style", "width : 100px");
+            break;
+        default:
+            break;
+        }
+    }
+
+    auto tbl = () {
+        Table tbl;
+        //If there is no score history, then it shouldnt show the Change column
+        if (scoreHistory.length == 0) {
+            tbl = tmplSortableTable(root, [
+                    "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
+                    ]);
+        } else {
+            tbl = tmplSortableTable(root, [
+                    "Path", "Score", "Change", "Alive", "NoMut", "Total",
+                    "Time (min)"
+                    ], &shortColumn);
+        }
+        tbl.setAttribute("id", "fileTable");
+        return tbl;
+    }();
 
     // Users are not interested that files that contains zero mutants are shown
     // in the list. It is especially annoying when they are marked with dark
     // green.
     bool hasSuppressed;
+
+    double[Path] averageScore;
+    foreach (score; scoreHistory) {
+        averageScore[score.file] = cast(double) score.score;
+    }
+
     auto noMutants = appender!(FileIndex[])();
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
         if (f.stat.total == 0) {
@@ -511,8 +550,26 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
                     return "background-color: lightgreen";
                 return null;
             }();
-
             r.addChild("td", format!"%.3s"(score)).style = style;
+
+            if (scoreHistory.length > 0) {
+                double scoreChange;
+                if (Path(f.display) in averageScore) {
+                    scoreChange = score - averageScore[Path(f.display)];
+                } else {
+                    scoreChange = 0;
+                }
+                int fluctuation = ignoreFluctuations(scoreChange);
+                const scoreChangeStyle = () {
+                    if (fluctuation == -1)
+                        return "background-color: salmon";
+                    if (fluctuation == 1)
+                        return "background-color: lightgreen";
+                    scoreChange = 0;
+                    return "background-color: white";
+                }();
+                r.addChild("td", format!"%.3s"(scoreChange)).style = scoreChangeStyle;
+            }
             r.addChild("td", f.stat.alive.to!string);
             r.addChild("td", f.stat.aliveNoMut.to!string);
             r.addChild("td", f.stat.total.to!string);
@@ -564,22 +621,41 @@ struct MetaSpan {
         noCoverage,
     }
 
+    static struct MutationLength {
+        ulong length;
+        MutationStatusId id;
+        Mutation.Status status = Mutation.Status.killed;
+
+        this(ulong length, MutationStatusId id, Mutation.Status status) {
+            this.length = length;
+            this.id = id;
+            this.status = status;
+        }
+    }
+
     StatusColor status;
     string onClick;
+    MutationLength clickPrio;
 
     this(const(FileMutant)[] muts) {
-        immutable click_fmt2 = "ui_set_mut(%s)";
         status = StatusColor.none;
-
+        if (muts.length != 0) {
+            clickPrio = MutationLength(muts[0].txt.mutation.length,
+                    muts[0].stId, muts[0].mut.status);
+        }
         foreach (ref const m; muts) {
             status = pickColor(m, status);
-            if (onClick.length == 0 && m.mut.status == Mutation.Status.alive) {
-                onClick = format(click_fmt2, m.id.get);
+            if (m.mut.status == Mutation.Status.alive && clickPrio.status != Mutation.Status.alive) {
+                clickPrio = MutationLength(m.txt.mutation.length, m.stId, m.mut.status);
+            } else if (m.txt.mutation.length < clickPrio.length
+                    && (clickPrio.status == Mutation.Status.alive
+                        && m.mut.status == Mutation.Status.alive
+                        || clickPrio.status != Mutation.Status.alive)) {
+                clickPrio = MutationLength(m.txt.mutation.length, m.stId, m.mut.status);
             }
         }
-
-        if (onClick.length == 0 && muts.length != 0) {
-            onClick = format(click_fmt2, muts[0].id.get);
+        if (muts.length != 0) {
+            onClick = "ui_set_mut(" ~ to!string(clickPrio.id.get) ~ ")";
         }
     }
 }
@@ -632,17 +708,64 @@ string toVisible(MetaSpan.StatusColor s) {
     return format("status_%s", s);
 }
 
+/// DB data for coverage-visualization
+
+bool[uint] extractLineCovData(CovRegionStatus[] dbData, ref FileCtx ctx) {
+    bool[uint] lineList;
+
+    static struct T {
+        int value;
+        bool status;
+    }
+
+    T[] regions;
+
+    foreach (region; dbData) {
+        bool status = region.status;
+        int begin = region.region.begin;
+        int end = region.region.end;
+
+        T temp;
+        temp.value = begin;
+        temp.status = status;
+        regions ~= temp;
+        temp.value = end;
+        regions ~= temp;
+    }
+
+    bool inRegion = false;
+    bool currentStatus = false;
+    int byteCounter = 0;
+    int lineCounter = 1;
+
+    foreach (b; ctx.raw.content) {
+        if (b == '\n') {
+            lineCounter++;
+        }
+        if (!regions.empty && byteCounter == regions[0].value) {
+            currentStatus = regions[0].status;
+            inRegion = !inRegion;
+            regions = regions[1 .. regions.length];
+        }
+        if (inRegion) {
+            lineList[lineCounter] = currentStatus;
+        }
+        byteCounter++;
+    }
+    return lineList;
+}
+
 void generateFile(ref Database db, ref FileCtx ctx) @trusted {
-    import std.conv : to;
     import std.range : repeat, enumerate;
     import std.traits : EnumMembers;
     import dextool.plugin.mutate.type : MutationKind;
     import dextool.plugin.mutate.backend.database.type : MutantMetaData;
     import dextool.plugin.mutate.backend.report.utility : window;
-    import dextool.plugin.mutate.backend.mutation_type : toUser;
+    import dextool.plugin.mutate.backend.mutation_type : toUser, mutationDescription;
 
     static struct MData {
         MutationId id;
+        MutationStatusId stId;
         FileMutant.Text txt;
         Mutation mut;
         MutantMetaData metaData;
@@ -655,8 +778,15 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
     line.addChild("span", "1:").addClass("line_nr");
     auto mut_data = appender!(string[])();
+
+    mut_data.put("var g_mut_description = {};");
+    mut_data.put("g_mut_description[''] = 'Undefined';");
+    foreach (kind; mutationDescription.byKeyValue.filter!(a => a.key != MutationKind.all)) {
+        mut_data.put(format!"g_mut_description['%s'] = '%s';"(kind.key, kind.value));
+    }
+
     mut_data.put("var g_muts_data = {};");
-    mut_data.put("g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null};");
+    mut_data.put("g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null, 'size' : null};");
 
     // used to make sure that metadata about a mutant is only written onces
     // to the global arrays.
@@ -667,10 +797,16 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     // newlines, detect when a line changes etc.
     auto lastLoc = SourceLoc(1, 1);
 
+    // read coverage data and save covered lines in lineList
+    auto dbData = db.coverageApi.getCoverageStatus(ctx.fileId);
+
+    auto lineList = extractLineCovData(dbData, ctx);
+
     foreach (const s; ctx.span.toRange) {
         if (s.tok.loc.line > lastLoc.line) {
             lastLoc.column = 1;
         }
+
         auto meta = MetaSpan(s.muts);
 
         foreach (const i; 0 .. max(0, s.tok.loc.line - lastLoc.line)) {
@@ -678,6 +814,13 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             line.setAttribute("id", format("%s-%s", "loc", lastLoc.line + i + 1))
                 .addClass("loc").addChild("span", format("%s:",
                         lastLoc.line + i + 1)).addClass("line_nr");
+
+            if (auto v = (lastLoc.line + i + 1) in lineList) {
+                if (*v)
+                    line.firstChild.addClass("loc_covered");
+                else
+                    line.firstChild.addClass("loc_noncovered");
+            }
 
             // force a newline in the generated html to improve readability
             lines.appendText("\n");
@@ -693,7 +836,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             if (auto v = meta.status.toVisible)
                 addClass(v);
             if (s.muts.length != 0)
-                addClass(format("%(mutid%s %)", s.muts.map!(a => a.id)));
+                addClass(format("%(mutid%s %)", s.muts.map!(a => a.stId)));
             if (meta.onClick.length != 0)
                 setAttribute("onclick", meta.onClick);
         }
@@ -701,34 +844,36 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
         foreach (m; s.muts.filter!(m => m.id !in metadataOnlyOnce)) {
             metadataOnlyOnce.add(m.id);
 
-            const metadata = db.mutantApi.getMutantationMetaData(m.id);
+            const metadata = db.mutantApi.getMutantMetaData(m.id);
 
-            muts.put(MData(m.id, m.txt, m.mut, metadata));
+            muts.put(MData(m.id, m.stId, m.txt, m.mut, metadata));
             {
                 auto mutantHtmlTag = d0.addChild("span").addClass("mutant")
-                    .setAttribute("id", m.id.toString);
+                    .setAttribute("id", m.stId.toString);
                 if (m.mutation.canFind('\n')) {
-                    mutantHtmlTag.addChild("pre", m.mutation).addClass("mutant2");
+                    mutantHtmlTag.addClass("long_mutant" ~ "-" ~ m.stId.toString);
                 } else {
                     mutantHtmlTag.appendText(m.mutation);
                 }
             }
-            d0.addChild("a").setAttribute("href", "#" ~ m.id.toString);
 
+            //Need actual MutationId and not StatusId to get TestCase info
             auto testCases = ctx.getTestCaseInfo(m.id);
             if (testCases.empty) {
-                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : %s, 'mutText' : %s, 'meta' : '%s'};",
-                        m.id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
+                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : %s, 'mutText' : %s, 'meta' : '%s', 'size' : %d};",
+                        m.stId, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, toJson(window(m.txt.original)),
-                        toJson(window(m.txt.mutation)), metadata.kindToString));
+                        toJson(window(m.txt.mutation)), metadata.kindToString,
+                        m.txt.mutation.length));
             } else {
-                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : %s, 'mutText' : %s, 'meta' : '%s'};",
-                        m.id, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
+                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : %s, 'mutText' : %s, 'meta' : '%s', 'size' : %d};",
+                        m.stId, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, testCases.map!(a => a.name),
-                        toJson(window(m.txt.original)),
-                        toJson(window(m.txt.mutation)), metadata.kindToString));
+                        toJson(window(m.txt.original)), toJson(window(m.txt.mutation)),
+                        metadata.kindToString, m.txt.mutation.length));
             }
         }
+
         lastLoc = s.tok.locEnd;
     }
 
@@ -743,7 +888,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 db.testCaseApi.getDetectedTestCases.length)));
         appendText("\n");
         addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
-                muts.data.map!(a => a.id))));
+                muts.data.map!(a => a.stId))));
         appendText("\n");
         addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
                 [EnumMembers!(Mutation.Status)])));
@@ -899,7 +1044,7 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
 
             auto txt = makeMutationText(ctx.state.get.ctx.raw,
                     fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
-            ctx.state.get.ctx.span.put(FileMutant(fr.id,
+            ctx.state.get.ctx.span.put(FileMutant(fr.id, fr.stId,
                     fr.mutationPoint.offset, cleanup(txt.original),
                     cleanup(txt.mutation), fr.mutation));
         }
@@ -1332,7 +1477,6 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
             () { ctx.state.get.done = true; send(ctx.self, CheckDoneMsg.init); }();
 
         import std.datetime : Clock;
-        import dextool.plugin.mutate.backend.report.html.page_tree_map;
 
         auto profile = Profile("post process report");
 
@@ -1373,12 +1517,12 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
             navbarItems ~= NavbarItem(sp.linkTxt, link);
         }
 
-        // keep
-        if (ReportSection.treemap in ctx.state.get.sections) {
-            addSubPage(() => makeTreeMapPage(ctx.state.get.files), "tree_map", "Treemap");
-        }
-
         ctx.state.get.files.toIndex(content, HtmlStyle.fileDir);
+
+        import dextool.plugin.mutate.backend.database.type : FileScore;
+
+        auto fileScores = ctx.state.get.db.getMutationFileScoreHistory();
+        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir, fileScores);
 
         addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
 

@@ -19,7 +19,7 @@ import core.sync.mutex : Mutex;
 
 import my.from_;
 
-import my.hash : BuildChecksum128, toChecksum128;
+import my.hash : BuildChecksum64, toChecksum64;
 import dextool.type : Path, AbsolutePath;
 
 public import my.hash : toBytes;
@@ -30,8 +30,8 @@ public import dextool.plugin.mutate.backend.type;
 private shared ProfileResults gProfile;
 private shared Mutex gProfileMtx;
 
-alias BuildChecksum = BuildChecksum128;
-alias toChecksum = toChecksum128;
+alias BuildChecksum = BuildChecksum64;
+alias toChecksum = toChecksum64;
 
 /// Returns: the profiling results gathered for this module.
 ProfileResults getProfileResult() @trusted {
@@ -57,10 +57,11 @@ shared static this() {
 
 @safe:
 
-Checksum checksum(const(ubyte)[] a) {
-    import my.hash : makeMurmur3;
 
-    return makeMurmur3(a);
+Checksum checksum(const(ubyte)[] a) {
+    import my.hash : makeCrc64Iso;
+
+    return makeCrc64Iso(a);
 }
 
 Checksum checksum(AbsolutePath p) @trusted {
@@ -77,12 +78,12 @@ Checksum checksum(AbsolutePath p) @trusted {
 
 /// Package the values to a checksum.
 Checksum checksum(T)(const(T[2]) a) if (T.sizeof == 8) {
-    return Checksum(cast(ulong) a[0], cast(ulong) a[1]);
+    return Checksum(cast(ulong) a[0]);
 }
 
 /// Package the values to a checksum.
 Checksum checksum(T)(const T a, const T b) if (T.sizeof == 8) {
-    return Checksum(cast(ulong) a, cast(ulong) b);
+    return Checksum(cast(ulong) a);
 }
 
 /// Sleep for a random time that is min_ + rnd(0, span msecs)

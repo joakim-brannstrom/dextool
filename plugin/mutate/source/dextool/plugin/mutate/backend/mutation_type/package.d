@@ -64,6 +64,8 @@ MutationKind toUser(Mutation.Kind k) @safe nothrow {
     return fromInteralKindToUserKind[k];
 }
 
+immutable string[MutationKind] mutationDescription;
+
 private:
 
 immutable MutationKind[Mutation.Kind] fromInteralKindToUserKind;
@@ -76,4 +78,15 @@ shared static this() {
             fromInteralKindToUserKind[internal_kind] = user_kind;
         }
     }
+
+    mutationDescription[MutationKind.ror] = "Relational operator replacement";
+    mutationDescription[MutationKind.rorp] = "Relational operator replacement for pointers";
+    mutationDescription[MutationKind.lcr] = "Logical connector replacement";
+    mutationDescription[MutationKind.aor] = "Arithmetic operator replacement";
+    mutationDescription[MutationKind.uoi] = "Unary operator insert";
+    mutationDescription[MutationKind.sdl] = "Statement deletion";
+    mutationDescription[MutationKind.dcr] = "Decision/Condition requirement";
+    mutationDescription[MutationKind.lcrb] = "Logical connector replacement bit-wise";
+    mutationDescription[MutationKind.aors] = "Arithmetic operator replacement simple";
+    mutationDescription[MutationKind.cr] = "Constant replacement";
 }

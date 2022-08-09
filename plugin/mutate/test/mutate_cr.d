@@ -12,5 +12,9 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv).addInputArg(testData ~ "cr.cpp").run;
     auto r = makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "cr"]).run;
-    testAnyOrder!SubStr(["from '42' to '0'"]).shouldBeIn(r.output);
+    testAnyOrder!SubStr([
+        "from '42' to '0'", "from '2.0' to '0'", "from '3.0' to '0'",
+        "from '28.0' to '0'", "from '23.0' to '0'", "from '55' to '0'",
+        "from '88' to '0'"
+    ]).shouldBeIn(r.output);
 }

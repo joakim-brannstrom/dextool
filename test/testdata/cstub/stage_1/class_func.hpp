@@ -20,6 +20,6 @@ public:
     ~Smurf() {}
 };
 
-} // NS: bar
+} // namespace bar
 
-} // NS: foo
+} // namespace foo

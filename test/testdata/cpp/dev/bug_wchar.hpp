@@ -9,4 +9,4 @@ namespace N {
 
 wchar_t* fun();
 
-} // NS: N
+} // namespace N

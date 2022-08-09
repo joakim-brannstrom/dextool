@@ -1050,7 +1050,6 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
     foreach (a; mutants.sort!((a, b) => a.id.value < b.id.value)
             .map!(a => a.id.value)) {
         h.put(a.c0.toBytes);
-        h.put(a.c1.toBytes);
     }
 
     return SchemataChecksum(toChecksum(h));

@@ -101,6 +101,7 @@ immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
 immutable mutantWorklistTable = "mutant_worklist";
 immutable mutationPointTable = "mutation_point";
 immutable mutationScoreHistoryTable = "mutation_score_history";
+immutable mutationFileScoreHistoryTable = "mutation_file_score_history";
 immutable mutationStatusTable = "mutation_status";
 immutable mutationTable = "mutation";
 immutable nomutDataTable = "nomut_data";
@@ -312,9 +313,8 @@ struct FilesTbl {
 
     string path;
 
-    // checksum of the file content, 128bit.
-    long checksum0;
-    long checksum1;
+    // checksum of the file content, 64bit.
+    long checksum;
     Language lang;
 
     @ColumnName("timestamp")
@@ -331,9 +331,8 @@ struct TestFilesTable {
 
     string path;
 
-    /// checksum is 128bit.
-    long checksum0;
-    long checksum1;
+    /// checksum is 64bit.
+    long checksum;
 
     /// Last time a change to the test file where detected.
     @ColumnName("timestamp")
@@ -431,7 +430,7 @@ struct AllTestCaseTbl {
  * added_ts = when the mutant where added to the system. UTC+0.
  */
 @TableName(mutationStatusTable)
-@TableConstraint("checksum UNIQUE (checksum0, checksum1)")
+@TableConstraint("checksum UNIQUE (checksum)")
 struct MutationStatusTbl {
     long id;
 
@@ -455,8 +454,7 @@ struct MutationStatusTbl {
     @ColumnName("added_ts")
     SysTime added;
 
-    long checksum0;
-    long checksum1;
+    long checksum;
 
     /// Priority of the mutant used when testing.
     long prio;
@@ -521,11 +519,10 @@ struct MutantTimeoutCtxTbl {
  * between a marked mutant and future code changes is the checksum.
  */
 @TableName(markedMutantTable)
-@TablePrimaryKey("checksum0")
+@TablePrimaryKey("checksum")
 struct MarkedMutantTbl {
     /// Checksum of the mutant status the marking is related to.
-    long checksum0;
-    long checksum1;
+    long checksum;
 
     /// updated each analyze.
     @ColumnName("st_id")
@@ -654,6 +651,20 @@ struct MutationScoreHistoryTable {
     double score;
 }
 
+@TableName(mutationFileScoreHistoryTable)
+struct MutationFileScoreHistoryTable {
+    long id;
+
+    /// when the measurement was taken.
+    @ColumnName("time_stamp")
+    SysTime timeStamp;
+
+    double score;
+
+    @ColumnName("file_path")
+    string filePath;
+}
+
 /** All functions that has been discovered in the source code.
  * The `offset_begin` is where instrumentation points can be injected.
  */
@@ -702,9 +713,8 @@ struct DependencyFileTable {
 
     string file;
 
-    /// checksum is 128bit.
-    long checksum0;
-    long checksum1;
+    /// checksum is 64bit.
+    long checksum;
 }
 
 @TableName(depRootTable)
@@ -892,13 +902,12 @@ void upgradeV0(ref Miniorm db) {
             SchemataMutantTable,
             SchemataUsedTable, SchemaMutantKindQTable, SchemaSizeQTable,
             MutantWorklistTbl, RuntimeHistoryTable, MutationScoreHistoryTable,
-            TestFilesTable, CoverageCodeRegionTable,
+            MutationFileScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
             CoverageInfoTable, CoverageTimeTtampTable, DependencyFileTable,
             DependencyRootTable,
             DextoolVersionTable,
-            TestCmdOriginalTable,
-            TestCmdMutatedTable, MutantMemOverloadtWorklistTbl,
-            TestCmdRelMutantTable, TestCmdTable));
+            TestCmdOriginalTable, TestCmdMutatedTable,
+            MutantMemOverloadtWorklistTbl, TestCmdRelMutantTable, TestCmdTable));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1383,6 +1392,36 @@ void upgradeV14(ref Miniorm db) {
 
 /// 2020-01-21
 void upgradeV15(ref Miniorm db) {
+    @TableName(markedMutantTable)
+    @TablePrimaryKey("checksum0")
+    struct MarkedMutantTbl {
+        /// Checksum of the mutant status the marking is related to.
+        long checksum0;
+        long checksum1;
+
+        /// updated each analyze.
+        @ColumnName("st_id")
+        long mutationStatusId;
+
+        /// updated each analyze.
+        @ColumnName("mut_id")
+        long mutationId;
+
+        uint line;
+        uint column;
+        string path;
+
+        /// The status it should always be changed to.
+        long toStatus;
+
+        /// Time when the mutant where marked.
+        SysTime time;
+
+        string rationale;
+
+        string mutText;
+    }
+
     // fix bug in the marked mutant table
     db.run(format!"DROP TABLE %s"(markedMutantTable));
     db.run(buildSchema!MarkedMutantTbl);
@@ -1625,6 +1664,22 @@ void upgradeV28(ref Miniorm db) {
 
 /// 2020-12-27
 void upgradeV29(ref Miniorm db) {
+    @TableName(testFilesTable)
+    @TableConstraint("unique_ UNIQUE (path)")
+    struct TestFilesTable {
+        long id;
+
+        string path;
+
+        /// checksum is 128bit.
+        long checksum0;
+        long checksum1;
+
+        /// Last time a change to the test file where detected.
+        @ColumnName("timestamp")
+        SysTime timeStamp;
+    }
+
     db.run(buildSchema!(TestFilesTable));
 }
 
@@ -1675,6 +1730,25 @@ void upgradeV31(ref Miniorm db) {
 
 /// 2021-01-02
 void upgradeV32(ref Miniorm db) {
+    @TableName(filesTable)
+    @TableConstraint("unique_ UNIQUE (path)")
+    struct FilesTbl {
+        long id;
+
+        string path;
+
+        // checksum of the file content, 128bit.
+        long checksum0;
+        long checksum1;
+        Language lang;
+
+        @ColumnName("timestamp")
+        SysTime timeStamp;
+
+        /// True if the file is a root.
+        bool root;
+    }
+
     immutable newFilesTbl = "new_" ~ filesTable;
     db.run(buildSchema!FilesTbl("new_"));
     db.run(format("INSERT OR IGNORE INTO %s (id,path,checksum0,checksum1,lang,timestamp,root)
@@ -1685,6 +1759,18 @@ void upgradeV32(ref Miniorm db) {
 
 /// 2021-01-15
 void upgradeV33(ref Miniorm db) {
+    @TableName(depFileTable)
+    @TableConstraint("unique_ UNIQUE (file)")
+    struct DependencyFileTable {
+        long id;
+
+        string file;
+
+        /// checksum is 128bit.
+        long checksum0;
+        long checksum1;
+    }
+
     db.run(buildSchema!(DependencyFileTable, DependencyRootTable));
 
     // add all existing files as being dependent on each other.
@@ -1751,6 +1837,38 @@ void upgradeV35(ref Miniorm db) {
 /// 2021-03-29
 void upgradeV36(ref Miniorm db) {
     import dextool.plugin.mutate.backend.type : Mutation;
+
+    @TableName(mutationStatusTable)
+    @TableConstraint("checksum UNIQUE (checksum0, checksum1)")
+    struct MutationStatusTbl {
+        long id;
+
+        /// Mutation.Status
+        long status;
+
+        @ColumnName("exit_code")
+        int exitCode;
+
+        @ColumnName("compile_time_ms")
+        long compileTimeMs;
+
+        @ColumnName("test_time_ms")
+        long testTimeMs;
+
+        @ColumnParam("")
+        @ColumnName("update_ts")
+        SysTime updated;
+
+        @ColumnParam("")
+        @ColumnName("added_ts")
+        SysTime added;
+
+        long checksum0;
+        long checksum1;
+
+        /// Priority of the mutant used when testing.
+        long prio;
+    }
 
     immutable newTbl = "new_" ~ mutationStatusTable;
     db.run(buildSchema!MutationStatusTbl("new_"));
@@ -1850,6 +1968,7 @@ void upgradeV46(ref Miniorm db) {
 
 // 2021-11-01
 void upgradeV47(ref Miniorm db) {
+
     static immutable newTbl = "new_" ~ allTestCaseTable;
     db.run(buildSchema!AllTestCaseTbl("new_"));
 
@@ -1882,6 +2001,48 @@ void upgradeV50(ref Miniorm db) {
 void upgradeV51(ref Miniorm db) {
     db.run("DROP TABLE " ~ srcCovInfoTable);
     db.run(buildSchema!CoverageInfoTable);
+}
+
+// 2022-06-21
+void upgradeV52(ref Miniorm db) {
+    db.run(buildSchema!MutationFileScoreHistoryTable);
+}
+
+// 2022-06-30
+void upgradeV53(ref Miniorm db) {
+    const newFilesTbl = "new_" ~ filesTable;
+    db.run(buildSchema!FilesTbl("new_"));
+    db.run("INSERT INTO " ~ newFilesTbl
+            ~ " (id, path, lang, timeStamp, root, checksum) SELECT id,path,lang,timeStamp,root,checksum0 FROM "
+            ~ filesTable);
+    replaceTbl(db, newFilesTbl, filesTable);
+
+    const newTestFilesTbl = "new_" ~ testFilesTable;
+    db.run(buildSchema!TestFilesTable("new_"));
+    db.run("INSERT INTO " ~ newTestFilesTbl
+            ~ " (id,path,timeStamp,checksum) SELECT id,path,timeStamp,checksum0 FROM "
+            ~ testFilesTable);
+    replaceTbl(db, newTestFilesTbl, testFilesTable);
+
+    const newMutationStatusTbl = "new_" ~ mutationStatusTable;
+    db.run(buildSchema!MutationStatusTbl("new_"));
+    db.run("INSERT INTO " ~ newMutationStatusTbl
+            ~ " (id,status,exitCode,checksum) SELECT id,status,exitCode,checksum0 FROM "
+            ~ mutationStatusTable);
+    replaceTbl(db, newMutationStatusTbl, mutationStatusTable);
+
+    const newDepFileTbl = "new_" ~ depFileTable;
+    db.run(buildSchema!DependencyFileTable("new_"));
+    db.run("INSERT INTO " ~ newDepFileTbl
+            ~ " (id, file, checksum) SELECT id,file,checksum0 FROM " ~ depFileTable);
+    replaceTbl(db, newDepFileTbl, depFileTable);
+
+    const newMarkedMutantTbl = "new_" ~ markedMutantTable;
+    db.run(buildSchema!MarkedMutantTbl("new_"));
+    db.run(
+            "INSERT INTO " ~ newMarkedMutantTbl
+            ~ " (checksum) SELECT checksum0 FROM " ~ markedMutantTable);
+    replaceTbl(db, newMarkedMutantTbl, markedMutantTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

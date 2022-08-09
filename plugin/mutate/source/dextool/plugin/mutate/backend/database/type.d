@@ -60,6 +60,7 @@ struct MutationEntry {
     MutationPoint mp;
     MutantTimeProfile profile;
     Language lang;
+    MutationStatusId stId;
 }
 
 struct NextMutationEntry {
@@ -121,6 +122,7 @@ struct MutantInfo {
     ExitStatus ecode;
     Mutation.Kind kind;
     SourceLoc sloc;
+    MutationStatusId stId;
 }
 
 struct MutantInfo2 {
@@ -192,6 +194,12 @@ struct LineMetadata {
         this.id = fid;
         this.line = line;
         this.attr = attr;
+    }
+
+    void opAssign(LineMetadata rhs) @trusted pure nothrow @nogc {
+        this.id = rhs.id;
+        this.line = rhs.line;
+        this.attr = rhs.attr;
     }
 
     void set(NoMut a) @trusted pure nothrow @nogc {
@@ -322,6 +330,12 @@ struct MutationScore {
     NamedType!(double, Tag!"MutationScore", 0.0, TagStringable) score;
 }
 
+struct FileScore {
+    SysTime timeStamp;
+    NamedType!(double, Tag!"MutationFileScore", 0.0, TagStringable) score;
+    Path file;
+}
+
 alias TestFilePath = NamedType!(Path, Tag!"TestFilePath", Path.init, Hashable, TagStringable);
 alias TestFileChecksum = NamedType!(Checksum, Tag!"TestFileChecksum",
         Checksum.init, TagStringable, Hashable);
@@ -340,6 +354,11 @@ alias CoverageRegionId = NamedType!(long, Tag!"CoverageRegionId", long.init,
         Comparable, Hashable, ConvertStringable);
 struct CovRegion {
     CoverageRegionId id;
+    Offset region;
+}
+
+struct CovRegionStatus {
+    bool status;
     Offset region;
 }
 

@@ -125,7 +125,7 @@ void toHtml(DiffReport report, Element root) {
                     auto link = alive_ids.addChild("a", format("%s:%s",
                             a.kind.toUser, a.sloc.line));
                     link.href = format("%s#%s", buildPath(Html.fileDir,
-                            pathToHtmlLink(path)), a.id);
+                            pathToHtmlLink(path)), a.stId);
                     alive_ids.appendText(" ");
                 }
             }
@@ -136,7 +136,7 @@ void toHtml(DiffReport report, Element root) {
                     auto link = killed_ids.addChild("a", format("%s:%s",
                             a.kind.toUser, a.sloc.line));
                     link.href = format("%s#%s", buildPath(Html.fileDir,
-                            pathToHtmlLink(path)), a.id);
+                            pathToHtmlLink(path)), a.stId);
                     killed_ids.appendText(" ");
                 }
             }
@@ -144,7 +144,7 @@ void toHtml(DiffReport report, Element root) {
     }
 
     void renderTestCases() {
-        root.addChild("p", "This are the test cases that killed mutants in the code changes.")
+        root.addChild("p", "These are the test cases that killed mutants in the code changes.")
             .appendText(format("%s test case(s) affected by the change", report.testCases.length));
 
         auto tc_tbl = tmplDefaultTable(root, ["Test Case"]);

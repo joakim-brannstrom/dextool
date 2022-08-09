@@ -964,10 +964,9 @@ struct Analyze {
     }
 
     private {
-        static immutable rawReNomut = `^((//)|(/\*))\s*NOMUT\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`;
+        static immutable rawReNomut = `^((//)|(/\*+))\s*NOMUT(?P<type>\w*)\s*(\((?P<tag>.*)\))?\s*((?P<comment>.*)\*/|(?P<comment>.*))?`;
 
         Regex!char re_nomut;
-
         ValidateLoc valLoc;
         FilesysIO fio;
 
@@ -1116,18 +1115,59 @@ struct Analyze {
             const fid = FileId(localId.get);
 
             auto mdata = appender!(LineMetadata[])();
+
+            int sectionStart = -1;
+            LineMetadata sectionData;
+
             foreach (t; tstream.getTokens(file).filter!(a => a.kind == CXTokenKind.comment)) {
                 auto m = matchFirst(t.spelling, re_nomut);
+
                 if (m.whichPattern == 0)
                     continue;
 
-                () @trusted {
-                    mdata.put(LineMetadata(fid, t.loc.line,
-                            LineAttr(NoMut(m["tag"], m["comment"]))));
-                }();
-                log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
-            }
+                switch (m["type"]) {
+                case "BEGIN":
+                    if (sectionStart == -1) {
+                        sectionStart = t.loc.line;
+                        sectionData = LineMetadata(fid, t.loc.line + 1,
+                                LineAttr(NoMut(m["tag"], m["comment"])));
+                    } else {
+                        logger.warningf("NOMUT: Found multiple NOMUTBEGIN in a row! Will use the first one on line %s",
+                                sectionStart);
+                    }
+                    break;
+                case "END":
+                    if (sectionStart == -1) {
+                        logger.warningf("NOMUT: Found a NOMUTEND without a NOMUTBEGIN on line %s! Ignoring",
+                                t.loc.line);
+                    } else {
+                        foreach (const i; sectionStart .. t.loc.line) {
+                            sectionData.line = i;
+                            () @trusted { mdata.put(sectionData); }();
+                            log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
+                        }
 
+                        sectionStart = -1;
+                        sectionData = LineMetadata.init;
+                    }
+                    break;
+                case "NEXT":
+                    () @trusted {
+                        mdata.put(LineMetadata(fid, t.loc.line + 1,
+                                LineAttr(NoMut(m["tag"], m["comment"]))));
+                    }();
+                    log.tracef("NOMUT ON NEXT LINE found at %s:%s:%s", file,
+                            t.loc.line, t.loc.column);
+                    break;
+                default:
+                    () @trusted {
+                        mdata.put(LineMetadata(fid, t.loc.line,
+                                LineAttr(NoMut(m["tag"], m["comment"]))));
+                    }();
+                    log.tracef("NOMUT found at %s:%s:%s", file, t.loc.line, t.loc.column);
+                    break;
+                }
+            }
             result.metadata ~= mdata.data;
         }
     }
@@ -1200,25 +1240,61 @@ struct Analyze {
 @(
         "shall extract the tag and comment from the input following the pattern NOMUT with optional tag and comment")
 unittest {
+    import std.algorithm : canFind;
+    import std.format : format;
     import std.regex : regex, matchFirst;
     import unit_threaded.runner.io : writelnUt;
 
-    auto re_nomut = regex(Analyze.rawReNomut);
+    auto reNomut = regex(Analyze.rawReNomut);
+    const types = ["NOMUT", "NOMUTBEGIN", "NOMUTEND", "NOMUTNEXT"];
+    auto okParseTypes = ["", "BEGIN", "END", "NEXT"];
     // NOMUT in other type of comments should NOT match.
-    matchFirst("/// NOMUT", re_nomut).whichPattern.shouldEqual(0);
-    matchFirst("// stuff with NOMUT in it", re_nomut).whichPattern.shouldEqual(0);
-    matchFirst("/** NOMUT*/", re_nomut).whichPattern.shouldEqual(0);
-    matchFirst("/* stuff with NOMUT in it */", re_nomut).whichPattern.shouldEqual(0);
+    foreach (line; [
+            "/// %s", "// stuff with %s in it", "/* stuff with %s in it */"
+        ]) {
+        foreach (type; types) {
+            matchFirst(format(line, type), reNomut).whichPattern.shouldEqual(0);
+        }
+    }
 
-    matchFirst("/*NOMUT*/", re_nomut).whichPattern.shouldEqual(1);
-    matchFirst("/*NOMUT*/", re_nomut)["comment"].shouldEqual("");
-    matchFirst("//NOMUT", re_nomut).whichPattern.shouldEqual(1);
-    matchFirst("// NOMUT", re_nomut).whichPattern.shouldEqual(1);
-    matchFirst("// NOMUT (arch)", re_nomut)["tag"].shouldEqual("arch");
-    matchFirst("// NOMUT smurf", re_nomut)["comment"].shouldEqual("smurf");
-    auto m = matchFirst("// NOMUT (arch) smurf", re_nomut);
-    m["tag"].shouldEqual("arch");
-    m["comment"].shouldEqual("smurf");
+    foreach (line; ["//%s", "// %s", "/*%s*/", "/* %s */", "/**%s*/"]) {
+        foreach (type; types) {
+            auto m = matchFirst(format(line, type), reNomut);
+            m.whichPattern.shouldEqual(1);
+            m["comment"].shouldEqual("");
+            m["tag"].shouldEqual("");
+        }
+    }
+
+    foreach (line; ["//%s (my tag)", "// %s (my tag)", "/* %s (my tag) */",]) {
+        foreach (type; types) {
+            auto m = matchFirst(format(line, type), reNomut);
+            m.whichPattern.shouldEqual(1);
+            m["comment"].shouldEqual("");
+            m["tag"].shouldEqual("my tag");
+        }
+    }
+
+    // TODO: should work but doesn't.... : "/* %s my comment */"
+    foreach (line; ["//%s my comment", "// %s my comment"]) {
+        foreach (type; types) {
+            auto m = matchFirst(format(line, type), reNomut);
+            m.whichPattern.shouldEqual(1);
+            okParseTypes.canFind(m["type"]).shouldBeGreaterThan(0);
+            m["comment"].shouldEqual("my comment");
+            m["tag"].shouldEqual("");
+        }
+    }
+
+    foreach (line; ["//%s (my tag) my comment", "// %s (my tag) my comment"]) {
+        foreach (type; types) {
+            auto m = matchFirst(format(line, type), reNomut);
+            m.whichPattern.shouldEqual(1);
+            okParseTypes.canFind(m["type"]).shouldBeGreaterThan(0);
+            m["comment"].shouldEqual("my comment");
+            m["tag"].shouldEqual("my tag");
+        }
+    }
 }
 
 /// Stream of tokens excluding comment tokens.

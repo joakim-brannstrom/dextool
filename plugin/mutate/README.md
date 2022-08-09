@@ -194,18 +194,39 @@ There are two ways of marking a mutant to the tool as "don't care". These are
 either via a source code annotation or by attaching a forced mutation status to
 a mutation ID.
 
-There are three flavors of the annotation.
+There are three flavors of annotations (comments beginning with `//`)
+supported.
 
- * `// NOMUT`. All mutants on the line are marked.
- * `// NOMUT (tag)`. The tag is used to group the annotations together in the HTML report.
+ * `NOMUT`. All mutants on the line are marked.
+ * `NOMUTBEGIN` / `NOMUTEND`. All mutants in the block are marked. 
+ * `NOMUTNEXT`. All mutants on the next line are marked.
+
+ All variants support additional metadata that help to organize and explain why
+ the mutants are ignored.
+ * `(tag)`. The tag is used to group the annotations together in the HTML report.
     A good group could be "trace log".
- * `// NOMUT (tag) a comment`. The comment is added to the HTML report as a separate column.
+ * `(tag) a comment`. The comment is added to the HTML report as a separate column.
 
-All mutants that are marked as `NOMUT` will be subtracted from the total when
-final mutation score is calculated. Additional fields in the statistics are
+ Example:
+ ```c++
+int x = 42; // NOMUT (log trace) will never be tested
+// NOMUTBEGIN (log trace) will never be tested
+int y = 43; 
+// NOMUTEND
+// NOMUTNEXT (log trace) will never be tested
+int z = 43; 
+ ```
+
+All mutants that are marked is subtracted from the total when
+calculating the mutation score. Additional fields in the statistics are
 also added which highlight how many of the total that are annotated as `NOMUT`.
 This is to make it easier to find and react if it where to become too many of
 them.
+
+In the HTML report the `tag` is used to group mutants to make it easier to
+distinguish them from each other and help in understanding why they are
+ignored. Such as a call to a logging library is probably not worth adding test
+cases for.
 
 The other way is by the administration interface. For example:
 ```sh

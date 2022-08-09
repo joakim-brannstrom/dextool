@@ -139,8 +139,8 @@ set -e
 
     auto makeDextoolAnalyze(ref TestEnv testEnv) {
         return .makeDextoolAnalyze(testEnv).addPostArg([
-                "--schema-min-mutants", "0"
-                ]);
+            "--schema-min-mutants", "0"
+        ]);
     }
 
     auto runDextoolTest(ref TestEnv testEnv) {

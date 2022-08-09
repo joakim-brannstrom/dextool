@@ -64,7 +64,8 @@ Table tmplDefaultTable(Element n, string[] header) @trusted {
     return base.tbl;
 }
 
-Table tmplSortableTable(Element n, string[] header) @trusted {
+Table tmplSortableTable(Element n, string[] header, void delegate(Element e,
+        string header) tdCallback = null) @trusted {
     import std.range : enumerate;
     import std.format : format;
     import dextool.plugin.mutate.backend.report.html.constants : DashboardCss;
@@ -76,6 +77,9 @@ Table tmplSortableTable(Element n, string[] header) @trusted {
     auto tr = base.div.parentDocument.createElement("tr");
     foreach (h; header.enumerate) {
         auto th = tr.addChild("th", h.value);
+        if (tdCallback)
+            tdCallback(th, h.value);
+
         DashboardCss.sortableTableCol(th).setAttribute("id",
                 format!"col-%s"(h.index)).appendText(" ").addChild("i").addClass("right");
     }

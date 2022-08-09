@@ -10,4 +10,4 @@ class Foo {
 public:
 };
 
-} // NS: ns
+} // namespace ns

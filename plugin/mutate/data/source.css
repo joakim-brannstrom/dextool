@@ -1,6 +1,5 @@
 
 .mutant {display:none; background-color: yellow;}
-.mutant2 {background-color: yellow;}
 .status_alive {background-color: lightpink;}
 .status_noCoverage {background-color: lightpink;}
 .status_skipped {background-color: lightyellow;}
@@ -9,6 +8,22 @@
 .status_timeout {background-color: lightgreen;}
 .status_memOverload {background-color: lightgreen;}
 .status_unknown {background-color: lightyellow;}
+.status_nomut {background-color: lightblue;}
+
+.mutant_info_text {
+  visibility: hidden;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 2px;
+
+  /* Position the tooltip */
+  position: absolute;
+  z-index: 1;
+  bottom: 100%;
+}
+
 .hover_alive {color: lightpink;}
 .hover_noCoverage {color: lightpink;}
 .hover_skipped {color: lightyellow;}
@@ -17,6 +32,36 @@
 .hover_timeout {color: lightgreen;}
 .hover_memOverload {color: lightgreen;}
 .hover_unknown {color: lightyellow;}
+.hover_nomut {color: lightblue;}
+
+.hover_alive:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_killed:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_killedByCompiler:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_timeout:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_memOverload:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_unknown:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_skipped:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_noCoverage:hover .mutant_info_text{
+    visibility: visible;
+}
+.hover_nomut:hover .mutant_info_text{
+    visibility: visible;
+}
+
 .literal {color: darkred;}
 .keyword {color: blue;}
 .comment {color: grey;}
@@ -62,10 +107,7 @@ span.xx_label {
 #info select {
     width: 150px;
 }
-#info_line {
-    background: #2e3639;
-    color: #eeeeee;
-}
+
 .loc {
     display: table-cell;
     vertical-align: inherit;
@@ -74,6 +116,15 @@ span.xx_label {
 }
 .loc_selected {
     background: #cecece;
+}
+.loc_covered {
+    background: lightblue;
+}
+.loc_noncovered {
+    background: rgb(255, 217, 0);
+}
+.loc_coverage_off {
+    background-color: #ffffff;
 }
 #filter_wrapper {
     display: block;
@@ -103,6 +154,7 @@ span.xx_label {
     overflow-y: auto;
     overflow-x: hidden;
 }
+
 #testcases thead, tbody { display: block; }
 #testcases tbody {
     width: 100%;
@@ -122,8 +174,19 @@ span.xx_label {
     margin-bottom: 3px;
     padding: 2px;
 }
-
+#info_table_wrapper {
+    width: 40%;
+    height: 135px;
+    background: #2e3639;
+}
+#info_table_wrapper.fixed{
+    position: fixed;
+}
 #info_table {
+    background: #2e3639;
+    color: #eeeeee;
+}
+#loc_muts_info {
     width: 100%;
 }
 #locs {
@@ -136,4 +199,8 @@ span.xx_label {
 
 #locs td {
     display: block;
+}
+
+.show_testcases {
+  float: right;
 }
