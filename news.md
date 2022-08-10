@@ -1,5 +1,11 @@
 # vNext
 
+Fixes
+
+ * Updated support to llvm-14. This fix should make dextool automatically work
+   with future versions of llvm as long as the C bindings that are used by
+   dextool are unchanged.
+
 Fixes for dextool mutate
 
  * Coverage info could accumulate infinitely in the database, wrong foreign key.

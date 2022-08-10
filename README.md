@@ -25,7 +25,10 @@ The plugins in a standard installation of Dextool are:
 To build and run dextool, you will need the following packages:
 
  * [llvm](http://releases.llvm.org/download.html) >= 4.0
-   Tested versions are 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 11.0 and 12.0
+   Tested versions are 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 13.0, 14.0.
+   Note that these are the versions that are tested or have been tested.
+   Dextool usually am able to work with never versions so if you version isn't
+   in this list then please just try it. Otherwise leave an issue on github.
  * llvm-xyz-dev >= 4.0
  * libclang-xyz-dev >= 4.0
  * [cmake](https://cmake.org/download) >= 3.5
@@ -212,6 +215,19 @@ your `$PATH` you can specify it manually.
 ```sh
 cmake .. -DD_COMPILER=/foo/bar/dmd/2.088/linux64/bin/dmd
 ```
+
+#### My version of LLVM is not offically supported / do not work
+
+First of all just test and see if dextool do build with your version of llvm.
+The tool `introspect_llvm.d` reuse the latest bindings if a new version is
+detected but no bindings exists. The C API rarely change so it normally just
+works.
+
+If it doesn't then follow these steps:
+
+ * Follow the instructions in `libs/libclang/README.md` to generate the new bindings.
+ * Open the file `cmake/introspect_llvm.d`.
+ * Update the array of search paths in the function `llvmSearchPaths` with the new location.
 
 ## Usage
 
