@@ -119,8 +119,7 @@ string llvmMajorVersion() {
     }
 
     // if no matching is found assume latest supported
-    return versionToBinding.require(llvm.v.major,
-            versionToBinding.byKey.array.maxElement).to!string;
+    return versionToBinding.get(llvm.v.major, versionToBinding.byKey.array.maxElement).to!string;
 }
 
 string llvmCppFlags() {
@@ -205,6 +204,9 @@ string[] llvmSearchPaths() {
     return [
         llvmLibdir,
         // Ubuntu
+        "/usr/lib/llvm-14/lib",
+        "/usr/lib/llvm-13/lib",
+        "/usr/lib/llvm-12/lib",
         "/usr/lib/llvm-11/lib",
         "/usr/lib/llvm-10/lib",
         "/usr/lib/llvm-9/lib",

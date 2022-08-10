@@ -1,4 +1,4 @@
-FROM ubuntu:impish
+FROM ubuntu:jammy
 MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
 
 RUN apt-get update && \
@@ -7,7 +7,7 @@ RUN apt-get update && \
         git \
         sqlite3 libsqlite3-dev \
         make cmake ninja-build \
-        llvm-13 llvm-13-dev clang-13 libclang-13-dev
+        llvm-14 llvm-14-dev clang-14 libclang-14-dev
 
 RUN apt-get -y --no-install-recommends install \
         gcc g++ \
