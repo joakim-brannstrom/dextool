@@ -4,6 +4,16 @@
 var g_lastCol = -1;
 
 function init() {
+    let resizeTimeout;
+    update_infobox_position();
+    window.addEventListener("resize", () => {
+        if (resizeTimeout) {
+            clearTimeout(resizeTimeout)
+        };
+        resizeTimeout = setTimeout(function () {
+            update_infobox_position();
+        }, 100);
+    });
     if (document.getElementById("csp_error") !== null)
         document.getElementById("csp_error").style.display = "none";
     theads = document.getElementsByClassName('table-col-sortable');
@@ -85,6 +95,22 @@ function filter_table_on_search(inputFieldId, tableId) {
                 tr[i].style.display = "";
             } else {
                 tr[i].style.display = "none";
+            }
+        }
+    }
+}
+
+function update_infobox_position() {
+    list = ['popup-help-content', 'popup-help-content-left'];
+    for (var i = 0; i < list.length; i++) {
+        infobox = document.getElementsByClassName(list[i]);
+        for (var j = 0; j < infobox.length; j++) {
+            bounding = infobox[j].getBoundingClientRect();
+            if (!list[i].includes("-left") && (bounding.right > (window.innerWidth || document.documentElement.clientWidth))) {
+                infobox[j].classList.replace(list[i], list[i] + "-left");
+            } else if (list[i].includes("-left") && ((bounding.right + infobox[j].offsetWidth) < (window.innerWidth || document.documentElement.clientWidth))) {
+                replace = list[i].replace("-left", "");
+                infobox[j].classList.replace(list[i], replace);
             }
         }
     }

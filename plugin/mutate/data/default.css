@@ -133,8 +133,31 @@ i {
   z-index: 10;
   overflow-x: hidden;
 }
+
+.popup-help .popup-help-content-left {
+  visibility: hidden;
+  width: 20em;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  padding: 5px 5px;
+  border-radius: 6px;
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  margin-top: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color:  #333;
+  z-index: 10;
+  overflow-x: hidden;
+}
   
 .popup-help:hover .popup-help-content {
+  visibility: visible;
+}
+
+.popup-help:hover .popup-help-content-left {
   visibility: visible;
 }
 /* End information box css */
