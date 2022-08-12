@@ -16,12 +16,18 @@
   color: #fff;
   text-align: center;
   border-radius: 6px;
-  padding: 5px 2px;
+  padding: 5px 5px;
 
   /* Position the tooltip */
+  display: flex;
   position: absolute;
-  z-index: 1;
   bottom: 100%;
+  margin-right: 0px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: black;
+  z-index: 10;
+  overflow-x: hidden;
 }
 
 .hover_alive {color: lightpink;}
