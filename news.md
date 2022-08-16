@@ -6,10 +6,6 @@ Fixes
    with future versions of llvm as long as the C bindings that are used by
    dextool are unchanged.
 
-Fixes for dextool mutate
-
- * Coverage info could accumulate infinitely in the database, wrong foreign key.
-
 New features for dextool mutate
 
  * Annotating each line with `NOMUT` for mutants to ignore may end up being too
@@ -49,6 +45,9 @@ New features for dextool mutate
 Fixes for dextool mutate
 
  * (html report) Fix sortable tables in chrome.
+ * Coverage info could accumulate infinitely in the database, wrong foreign key.
+ * Changed the checksum of mutants from 128bit to 64bit to simplify the DB
+   schema, implementation and slightly improve the performance.
 
 # v4.3.0 Deep Steel
 
