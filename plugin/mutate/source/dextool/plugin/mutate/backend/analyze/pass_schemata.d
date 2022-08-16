@@ -84,8 +84,11 @@ uint checksumToId(Checksum cs) @safe pure nothrow @nogc {
 }
 
 uint checksumToId(ulong cs) @safe pure nothrow @nogc {
-    auto r = cast(uint) cs;
-    return r == 0 ? 1 : r;
+    uint ubit = cast(uint)(cs >> 32);
+    uint lbit = cast(uint)(0x00000000ffffffff & cs);
+    uint h = ubit ^ lbit;
+
+    return h == 0 ? 1 : h;
 }
 
 /// Language generic schemata result.
@@ -1050,7 +1053,6 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
     foreach (a; mutants.sort!((a, b) => a.id.value < b.id.value)
             .map!(a => a.id.value)) {
         h.put(a.c0.toBytes);
-        h.put(a.c1.toBytes);
     }
 
     return SchemataChecksum(toChecksum(h));

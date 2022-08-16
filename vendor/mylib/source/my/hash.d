@@ -165,6 +165,15 @@ struct Crc64Iso {
         return c0 == s.c0;
     }
 
+    int opCmp(ref const typeof(this) rhs) @safe pure nothrow const @nogc {
+        // return -1 if "this" is less than rhs, 1 if bigger and zero equal
+        if (c0 < rhs.c0)
+            return -1;
+        if (c0 > rhs.c0)
+            return 1;
+        return 0;
+    }
+
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {
         if (fmt.spec == 'x')
             formattedWrite(w, "%x", c0);

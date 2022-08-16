@@ -201,7 +201,7 @@ class MutantsResult {
  * are private and used in only one place.
  */
 class CodeMutantsResult {
-    import my.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
+    import my.hash : Checksum64, BuildChecksum64, toBytes, toChecksum64;
     import dextool.plugin.mutate.backend.type : CodeMutant, CodeChecksum, Mutation, Checksum;
     import dextool.plugin.mutate.backend.analyze.id_factory : MutantIdFactory;
 

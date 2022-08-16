@@ -550,9 +550,9 @@ InjectIdResult mutantsFromSchema(ref Database db, const SchemataId id, const Mut
 @("shall detect a collision and make sure it is never part of the result")
 unittest {
     InjectIdBuilder builder;
-    builder.put(MutationStatusId(1), Checksum(1, 2));
-    builder.put(MutationStatusId(2), Checksum(3, 4));
-    builder.put(MutationStatusId(3), Checksum(1, 2));
+    builder.put(MutationStatusId(1), Checksum(1));
+    builder.put(MutationStatusId(2), Checksum(2));
+    builder.put(MutationStatusId(3), Checksum(1));
     auto r = builder.finalize;
 
     assert(r.front.statusId == MutationStatusId(2));

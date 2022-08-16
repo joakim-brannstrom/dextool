@@ -114,10 +114,9 @@ struct Database {
     /// If the file has already been analyzed.
     bool isAnalyzed(const Path p, const Checksum cs) @trusted {
         auto stmt = db.prepare(
-                "SELECT count(*) FROM files WHERE path=:path AND checksum0=:cs0 AND checksum1=:cs1 LIMIT 1");
+                "SELECT count(*) FROM files WHERE path=:path AND checksum=:cs LIMIT 1");
         stmt.get.bind(":path", cast(string) p);
-        stmt.get.bind(":cs0", cast(long) cs.c0);
-        stmt.get.bind(":cs1", cast(long) cs.c1);
+        stmt.get.bind(":cs", cast(long) cs.c0);
         auto res = stmt.get.execute;
         return res.oneValue!long != 0;
     }
@@ -204,14 +203,14 @@ struct Database {
     }
 
     Nullable!Checksum getFileChecksum(const Path p) @trusted {
-        static immutable sql = "SELECT checksum0,checksum1 FROM " ~ filesTable ~ " WHERE path=:path";
+        static immutable sql = "SELECT checksum FROM " ~ filesTable ~ " WHERE path=:path";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", p.toString);
         auto res = stmt.get.execute;
 
         typeof(return) rval;
         if (!res.empty) {
-            rval = Checksum(res.front.peek!long(0), res.front.peek!long(1));
+            rval = Checksum(res.front.peek!long(0));
         }
 
         return rval;
@@ -231,12 +230,11 @@ struct Database {
     }
 
     void put(const Path p, Checksum cs, const Language lang, const bool isRoot) @trusted {
-        static immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, lang, timestamp, root)
-            VALUES (:path, :checksum0, :checksum1, :lang, :time, :root)"(filesTable);
+        static immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum, lang, timestamp, root)
+            VALUES (:path, :checksum, :lang, :time, :root)"(filesTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", p.toString);
-        stmt.get.bind(":checksum0", cast(long) cs.c0);
-        stmt.get.bind(":checksum1", cast(long) cs.c1);
+        stmt.get.bind(":checksum", cast(long) cs.c0);
         stmt.get.bind(":lang", cast(long) lang);
         stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
         stmt.get.bind(":root", isRoot);
@@ -441,16 +439,15 @@ struct DbDependency {
     /// The root must already exist or the whole operation will fail with an sql error.
     void set(const Path path, const DepFile[] deps) @trusted {
         static immutable insertDepSql = "INSERT OR IGNORE INTO " ~ depFileTable
-            ~ " (file,checksum0,checksum1)
-            VALUES(:file,:cs0,:cs1)
-            ON CONFLICT (file) DO UPDATE SET checksum0=:cs0,checksum1=:cs1 WHERE file=:file";
+            ~ " (file,checksum)
+            VALUES(:file,:cs)
+            ON CONFLICT (file) DO UPDATE SET checksum=:cs WHERE file=:file";
 
         auto stmt = db.prepare(insertDepSql);
         auto ids = appender!(long[])();
         foreach (a; deps) {
             stmt.get.bind(":file", a.file.toString);
-            stmt.get.bind(":cs0", cast(long) a.checksum.c0);
-            stmt.get.bind(":cs1", cast(long) a.checksum.c1);
+            stmt.get.bind(":cs", cast(long) a.checksum.c0);
             stmt.get.execute;
             stmt.get.reset;
 
@@ -493,7 +490,7 @@ struct DbDependency {
     /// Returns: all dependencies.
     DepFile[] getAll() @trusted {
         return db.run(select!DependencyFileTable)
-            .map!(a => DepFile(Path(a.file), Checksum(a.checksum0, a.checksum1))).array;
+            .map!(a => DepFile(Path(a.file), Checksum(a.checksum))).array;
     }
 
     /// Returns: all files that a root is dependent on.
@@ -1552,11 +1549,10 @@ struct DbMutant {
     }
 
     Nullable!MutationStatusId getMutationStatusId(const Checksum cs) @trusted {
-        static immutable sql = format!"SELECT id FROM %s WHERE checksum0=:cs0 AND checksum1=:cs1"(
+        static immutable sql = format!"SELECT id FROM %s WHERE checksum=:cs"(
                 mutationStatusTable);
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":cs0", cast(long) cs.c0);
-        stmt.get.bind(":cs1", cast(long) cs.c1);
+        stmt.get.bind(":cs", cast(long) cs.c0);
 
         typeof(return) rval;
         foreach (res; stmt.get.execute) {
@@ -1872,14 +1868,14 @@ struct DbMutant {
     ], true);
 
     Nullable!Checksum getChecksum(MutationStatusId id) @trusted {
-        static immutable sql = format!"SELECT checksum0, checksum1 FROM %s WHERE id=:id"(
+        static immutable sql = format!"SELECT checksum FROM %s WHERE id=:id"(
                 mutationStatusTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
 
         typeof(return) rval;
         foreach (res; stmt.get.execute) {
-            rval = Checksum(res.peek!long(0), res.peek!long(1));
+            rval = Checksum(res.peek!long(0));
             break;
         }
         return rval;
@@ -1910,8 +1906,8 @@ struct DbMutant {
         }
 
         static immutable insert_cmut_sql = "INSERT OR IGNORE INTO " ~ mutationStatusTable
-            ~ " (status,exit_code,compile_time_ms,test_time_ms,update_ts,added_ts,checksum0,checksum1,prio)
-            VALUES(:st,0,0,0,:update_ts,:added_ts,:c0,:c1,:prio)";
+            ~ " (status,exit_code,compile_time_ms,test_time_ms,update_ts,added_ts,checksum,prio)
+            VALUES(:st,0,0,0,:update_ts,:added_ts,:cs,:prio)";
         auto cmut_stmt = db.prepare(insert_cmut_sql);
         const ts = Clock.currTime.toSqliteDateTime;
         cmut_stmt.get.bind(":st", Mutation.Status.unknown);
@@ -1919,8 +1915,7 @@ struct DbMutant {
         cmut_stmt.get.bind(":added_ts", ts);
         foreach (mp; mps) {
             const prio = (mp.offset.begin < mp.offset.end) ? mp.offset.end - mp.offset.begin : 0;
-            cmut_stmt.get.bind(":c0", cast(long) mp.cm.id.c0);
-            cmut_stmt.get.bind(":c1", cast(long) mp.cm.id.c1);
+            cmut_stmt.get.bind(":cs", cast(long) mp.cm.id.c0);
             cmut_stmt.get.bind(":prio", prio);
             cmut_stmt.get.execute;
             cmut_stmt.get.reset;
@@ -1934,8 +1929,7 @@ struct DbMutant {
             t0.file_id = t2.id AND
             t0.offset_begin = :off_begin AND
             t0.offset_end = :off_end AND
-            t1.checksum0 = :c0 AND
-            t1.checksum1 = :c1";
+            t1.checksum = :cs";
         auto insert_m = db.prepare(insert_m_sql);
 
         foreach (mp; mps) {
@@ -1943,8 +1937,7 @@ struct DbMutant {
             insert_m.get.bind(":path", cast(string) rel_file);
             insert_m.get.bind(":off_begin", mp.offset.begin);
             insert_m.get.bind(":off_end", mp.offset.end);
-            insert_m.get.bind(":c0", cast(long) mp.cm.id.c0);
-            insert_m.get.bind(":c1", cast(long) mp.cm.id.c1);
+            insert_m.get.bind(":cs", cast(long) mp.cm.id.c0);
             insert_m.get.bind(":kind", mp.cm.mut.kind);
             insert_m.get.execute;
             insert_m.get.reset;
@@ -2184,15 +2177,15 @@ struct DbMarkMutant {
 
     /// All marked mutants whom have a mutation status checksum that has been removed from the database.
     MarkedMutant[] getLostMarkings() @trusted {
-        static immutable sql = format!"SELECT checksum0 FROM %s
+        static immutable sql = format!"SELECT checksum FROM %s
             WHERE
-            checksum0 NOT IN (SELECT checksum0 FROM %s)"(markedMutantTable, mutationStatusTable);
+            checksum NOT IN (SELECT checksum FROM %s)"(markedMutantTable, mutationStatusTable);
 
         auto stmt = db.prepare(sql);
         auto app = appender!(MarkedMutant[])();
         foreach (res; stmt.get.execute) {
-            foreach (m; db.run(select!MarkedMutantTbl.where("checksum0 = :cs0",
-                    Bind("cs0")), res.peek!long(0))) {
+            foreach (m; db.run(select!MarkedMutantTbl.where("checksum = :cs",
+                    Bind("cs")), res.peek!long(0))) {
                 app.put(.make(m));
             }
         }
@@ -2204,13 +2197,13 @@ struct DbMarkMutant {
      */
     void mark(const MutationId id, const Path file, const SourceLoc sloc, const MutationStatusId statusId,
             const Checksum cs, const Mutation.Status s, const Rationale r, string mutationTxt) @trusted {
-        db.run(insertOrReplace!MarkedMutantTbl, MarkedMutantTbl(cs.c0, cs.c1,
+        db.run(insertOrReplace!MarkedMutantTbl, MarkedMutantTbl(cs.c0,
                 statusId.get, id.get, sloc.line, sloc.column, file, s,
                 Clock.currTime.toUTC, r.get, mutationTxt));
     }
 
     void remove(const Checksum cs) @trusted {
-        db.run(delete_!MarkedMutantTbl.where("checksum0 = :cs0", Bind("cs0")), cast(long) cs.c0);
+        db.run(delete_!MarkedMutantTbl.where("checksum = :cs", Bind("cs")), cast(long) cs.c0);
     }
 
     void remove(const MutationStatusId id) @trusted {
@@ -2910,26 +2903,25 @@ struct DbTestFile {
     }
 
     void put(const TestFile tfile) @trusted {
-        static immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum0, checksum1, timestamp)
-            VALUES (:path, :checksum0, :checksum1, :timestamp)"(testFilesTable);
+        static immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum, timestamp)
+            VALUES (:path, :checksum, :timestamp)"(testFilesTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", tfile.file.get.toString);
-        stmt.get.bind(":checksum0", cast(long) tfile.checksum.get.c0);
-        stmt.get.bind(":checksum1", cast(long) tfile.checksum.get.c1);
+        stmt.get.bind(":checksum", cast(long) tfile.checksum.get.c0);
         stmt.get.bind(":timestamp", tfile.timeStamp.toSqliteDateTime);
         stmt.get.execute;
     }
 
     TestFile[] getTestFiles() @trusted {
-        static immutable sql = "SELECT path,checksum0,checksum1,timestamp FROM " ~ testFilesTable;
+        static immutable sql = "SELECT path,checksum,timestamp FROM " ~ testFilesTable;
         auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;
 
         auto app = appender!(TestFile[]);
         foreach (ref r; res) {
             app.put(TestFile(TestFilePath(Path(r.peek!string(0))),
-                    TestFileChecksum(Checksum(r.peek!long(1), r.peek!long(2))),
-                    r.peek!string(3).fromSqLiteDateTime));
+                    TestFileChecksum(Checksum(r.peek!long(1))),
+                    r.peek!string(2).fromSqLiteDateTime));
         }
 
         return app.data;
@@ -2937,14 +2929,14 @@ struct DbTestFile {
 
     /// Returns: the oldest test file, if it exists.
     Optional!TestFile getNewestTestFile() @trusted {
-        auto stmt = db.prepare("SELECT path,checksum0,checksum1,timestamp
+        auto stmt = db.prepare("SELECT path,checksum,timestamp
             FROM " ~ testFilesTable ~ " ORDER BY datetime(timestamp) DESC LIMIT 1");
         auto res = stmt.get.execute;
 
         foreach (ref r; res) {
             return some(TestFile(TestFilePath(Path(r.peek!string(0))),
-                    TestFileChecksum(Checksum(r.peek!long(1), r.peek!long(2))),
-                    r.peek!string(3).fromSqLiteDateTime));
+                    TestFileChecksum(Checksum(r.peek!long(1))),
+                    r.peek!string(2).fromSqLiteDateTime));
         }
 
         return none!TestFile;
@@ -2963,8 +2955,7 @@ private:
 MarkedMutant make(MarkedMutantTbl m) {
     import dextool.plugin.mutate.backend.type;
 
-    return MarkedMutant(m.mutationStatusId.MutationStatusId, Checksum(m.checksum0,
-            m.checksum1), m.mutationId.MutationId, SourceLoc(m.line, m.column),
+    return MarkedMutant(m.mutationStatusId.MutationStatusId, Checksum(m.checksum), m.mutationId.MutationId, SourceLoc(m.line, m.column),
             m.path.Path, m.toStatus.to!(Mutation.Status), m.time,
             m.rationale.Rationale, m.mutText);
 }

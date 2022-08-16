@@ -18,7 +18,7 @@ import dextool.type : Path;
 import dextool.plugin.mutate.backend.analyze.extensions;
 import dextool.plugin.mutate.backend.analyze.internal;
 
-import my.hash : Checksum128, BuildChecksum128, toBytes, toChecksum128;
+import my.hash : Checksum64, BuildChecksum64, toBytes, toChecksum64;
 import dextool.plugin.mutate.backend.type : CodeMutant, CodeChecksum, Mutation, Checksum, Offset;
 
 @safe:
@@ -84,17 +84,17 @@ class StrictImpl : MutantIdFactory {
 
     override void changeFile(Path fileName, scope Token[] tokens) {
         file = () {
-            BuildChecksum128 bc;
+            BuildChecksum64 bc;
             bc.put(cast(const(ubyte)[]) fileName.toString);
-            return toChecksum128(bc);
+            return toChecksum64(bc);
         }();
 
         content = () {
-            BuildChecksum128 bc;
+            BuildChecksum64 bc;
             foreach (t; tokens) {
                 bc.put(cast(const(ubyte)[]) t.spelling);
             }
-            return toChecksum128(bc);
+            return toChecksum64(bc);
         }();
     }
 
@@ -107,14 +107,14 @@ class StrictImpl : MutantIdFactory {
         auto split = splice(tokens, mutant);
 
         {
-            BuildChecksum128 bc;
+            BuildChecksum64 bc;
             bc.put(split.begin.toBytes);
-            preMutant = toChecksum128(bc);
+            preMutant = toChecksum64(bc);
         }
         {
-            BuildChecksum128 bc;
+            BuildChecksum64 bc;
             bc.put(split.end.toBytes);
-            postMutant = toChecksum128(bc);
+            postMutant = toChecksum64(bc);
         }
     }
 
@@ -123,23 +123,19 @@ class StrictImpl : MutantIdFactory {
     }
 
     /// Calculate the unique ID for a specific mutation at this point.
-    private Checksum128 makeId(scope const(ubyte)[] mut) @safe pure nothrow scope {
-        BuildChecksum128 h;
+    private Checksum64 makeId(scope const(ubyte)[] mut) @safe pure nothrow scope {
+        BuildChecksum64 h;
 
         h.put(file.c0.toBytes);
-        h.put(file.c1.toBytes);
 
         h.put(content.c0.toBytes);
-        h.put(content.c1.toBytes);
 
         h.put(preMutant.c0.toBytes);
-        h.put(preMutant.c1.toBytes);
 
         h.put(mut);
 
         h.put(postMutant.c0.toBytes);
-        h.put(postMutant.c1.toBytes);
-        return toChecksum128(h);
+        return toChecksum64(h);
     }
 }
 
@@ -181,9 +177,9 @@ class RelaxedImpl : MutantIdFactory {
 
     override void changeFile(Path fileName, scope Token[] tokens) {
         file = () {
-            BuildChecksum128 bc;
+            BuildChecksum64 bc;
             bc.put(cast(const(ubyte)[]) fileName.toString);
-            return toChecksum128(bc);
+            return toChecksum64(bc);
         }();
     }
 
@@ -200,14 +196,14 @@ class RelaxedImpl : MutantIdFactory {
             auto s = this.content.toInside(splice(tokens, mutant));
 
             {
-                BuildChecksum128 bc;
+                BuildChecksum64 bc;
                 bc.put(s.begin.toBytes);
-                preMutant = toChecksum128(bc);
+                preMutant = toChecksum64(bc);
             }
             {
-                BuildChecksum128 bc;
+                BuildChecksum64 bc;
                 bc.put(s.end.toBytes);
-                postMutant = toChecksum128(bc);
+                postMutant = toChecksum64(bc);
             }
         }
     }
@@ -217,24 +213,20 @@ class RelaxedImpl : MutantIdFactory {
     }
 
     /// Calculate the unique ID for a specific mutation at this point.
-    private Checksum128 makeId(scope const(ubyte)[] mut) @safe pure nothrow scope {
-        BuildChecksum128 h;
+    private Checksum64 makeId(scope const(ubyte)[] mut) @safe pure nothrow scope {
+        BuildChecksum64 h;
 
         h.put(file.c0.toBytes);
-        h.put(file.c1.toBytes);
 
         h.put(content.cs.c0.toBytes);
-        h.put(content.cs.c1.toBytes);
 
         h.put(preMutant.c0.toBytes);
-        h.put(preMutant.c1.toBytes);
 
         h.put(mut);
 
         h.put(postMutant.c0.toBytes);
-        h.put(postMutant.c1.toBytes);
 
-        return toChecksum128(h);
+        return toChecksum64(h);
     }
 }
 
@@ -260,11 +252,11 @@ struct Window {
         if (win.end > tokens.length || win.begin == win.end)
             win = WindowIndex(0, tokens.length);
 
-        BuildChecksum128 bc;
+        BuildChecksum64 bc;
         foreach (t; tokens[win.begin .. win.end]) {
             bc.put(cast(const(ubyte)[]) t.spelling);
         }
-        cs = toChecksum128(bc);
+        cs = toChecksum64(bc);
     }
 
     WindowIndex toInside(const WindowIndex x) {

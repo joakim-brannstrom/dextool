@@ -518,14 +518,14 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
         precondition(testEnv);
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-        auto ids = getAllMutationIds(db);
+        auto ids = db.mutantApi.getAllMutationStatus;
 
         {
             auto t = db.transaction;
-            foreach (i; ids[0 .. $/2])
-                db.mutantApi.update(i, Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
-            foreach (i; ids[$/2 .. $])
-                db.mutantApi.update(i, Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
+            foreach (stId; ids){
+                const id = db.mutantApi.getMutationId(stId).get;
+                db.mutantApi.update(id, Mutation.Status.alive, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), null);
+            }
             t.commit;
         }
 
@@ -545,13 +545,13 @@ class ShallReportMutationScoreAdjustedByNoMut : LinesWithNoMut {
 
         // assert
         testConsecutiveSparseOrder!Re([
-            "Score:.*0.6",
+            "Score:.*0",
             "Total:.*8",
-            "Alive:.*4",
-            "Killed:.*4",
+            "Alive:.*8",
+            "Killed:.*0",
             "Timeout:.*0",
             "Killed by compiler:.*0",
-            "Suppressed .nomut.:.*2 .0.25",
+            "Suppressed .nomut.:.*3 .0.375",
         ]).shouldBeIn(plain.output);
     }
 }
