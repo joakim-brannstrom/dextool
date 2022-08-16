@@ -141,8 +141,7 @@ struct Database {
             t1.line_end,
             t1.column_end,
             t2.path,
-            t2.checksum0,
-            t2.checksum1,
+            t2.checksum,
             t2.lang,
             t4.nomut
             FROM %s t0,%s t1,%s t2, %s t3, %s t4
@@ -165,12 +164,12 @@ struct Database {
                 auto offset = Offset(r.peek!uint(3), r.peek!uint(4));
                 d.mutationPoint = MutationPoint(offset, null);
                 d.file = r.peek!string(9).Path;
-                d.fileChecksum = checksum(r.peek!long(10), r.peek!long(11));
+                d.fileChecksum = checksum(r.peek!long(10));
                 d.sloc = SourceLoc(r.peek!uint(5), r.peek!uint(6));
                 d.slocEnd = SourceLoc(r.peek!uint(7), r.peek!uint(8));
-                d.lang = r.peek!long(12).to!Language;
+                d.lang = r.peek!long(11).to!Language;
 
-                if (r.peek!long(13) != 0) {
+                if (r.peek!long(12) != 0) {
                     d.attrs = MutantMetaData(d.id, MutantAttr(NoMut.init));
                 }
                 dg(d);
@@ -233,13 +232,12 @@ struct Database {
         import std.array : appender;
         import dextool.plugin.mutate.backend.utility : checksum;
 
-        enum files_q = format("SELECT t0.path, t0.checksum0, t0.checksum1, t0.lang, t0.id FROM %s t0",
+        enum files_q = format("SELECT t0.path, t0.checksum, t0.lang, t0.id FROM %s t0",
                     filesTable);
         auto app = appender!(FileRow[])();
         auto stmt = db.db.prepare(files_q);
         foreach (ref r; stmt.get.execute) {
-            auto fr = FileRow(r.peek!string(0).Path, checksum(r.peek!long(1),
-                    r.peek!long(2)), r.peek!Language(3), r.peek!long(4).FileId);
+            auto fr = FileRow(r.peek!string(0).Path, checksum(r.peek!long(1)), r.peek!Language(2), r.peek!long(3).FileId);
             app.put(fr);
         }
 

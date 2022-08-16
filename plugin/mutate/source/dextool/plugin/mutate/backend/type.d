@@ -11,14 +11,14 @@ module dextool.plugin.mutate.backend.type;
 
 import core.time : Duration;
 
-import my.hash : Checksum128;
+import my.hash : Checksum64;
 import my.named_type;
 public import dextool.plugin.mutate.backend.database.type : MutantAttr,
     MutantMetaData, CovRegionStatus;
 
 @safe:
 
-alias Checksum = Checksum128;
+alias Checksum = Checksum64;
 
 /// Used to replace invalid UTF-8 characters.
 immutable invalidUtf8 = "[invalid utf8]";

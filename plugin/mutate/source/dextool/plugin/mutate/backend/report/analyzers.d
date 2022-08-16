@@ -565,9 +565,9 @@ struct TestCaseOverlapStat {
     double ratio = 0.0;
 
     // map between test cases and the mutants they have killed.
-    TestCaseId[][Murmur3] tc_mut;
+    TestCaseId[][Crc64Iso] tc_mut;
     // map between mutation IDs and the test cases that killed them.
-    long[][Murmur3] mutid_mut;
+    long[][Crc64Iso] mutid_mut;
     string[TestCaseId] name_tc;
 
     string sumToString() @safe const {
@@ -656,12 +656,12 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
     foreach (tc_id; db.testCaseApi.getTestCasesWithAtLeastOneKill(kinds)) {
         auto muts = db.testCaseApi.getTestCaseMutantKills(tc_id, kinds)
             .sort.map!(a => cast(long) a).array;
-        auto m3 = makeMurmur3(cast(ubyte[]) muts);
-        if (auto v = m3 in st.tc_mut)
+        auto iso = makeCrc64Iso(cast(ubyte[]) muts);
+        if (auto v = iso in st.tc_mut)
             (*v) ~= tc_id;
         else {
-            st.tc_mut[m3] = [tc_id];
-            st.mutid_mut[m3] = muts;
+            st.tc_mut[iso] = [tc_id];
+            st.mutid_mut[iso] = muts;
         }
         st.name_tc[tc_id] = db.testCaseApi.getTestCaseName(tc_id);
     }
