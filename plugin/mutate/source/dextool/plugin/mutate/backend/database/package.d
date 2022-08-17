@@ -232,12 +232,12 @@ struct Database {
         import std.array : appender;
         import dextool.plugin.mutate.backend.utility : checksum;
 
-        enum files_q = format("SELECT t0.path, t0.checksum, t0.lang, t0.id FROM %s t0",
-                    filesTable);
+        enum files_q = format("SELECT t0.path, t0.checksum, t0.lang, t0.id FROM %s t0", filesTable);
         auto app = appender!(FileRow[])();
         auto stmt = db.db.prepare(files_q);
         foreach (ref r; stmt.get.execute) {
-            auto fr = FileRow(r.peek!string(0).Path, checksum(r.peek!long(1)), r.peek!Language(2), r.peek!long(3).FileId);
+            auto fr = FileRow(r.peek!string(0).Path,
+                    checksum(r.peek!long(1)), r.peek!Language(2), r.peek!long(3).FileId);
             app.put(fr);
         }
 

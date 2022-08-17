@@ -2017,9 +2017,7 @@ void upgradeV53(ref Miniorm db) {
 
     const newMutationStatusTbl = "new_" ~ mutationStatusTable;
     db.run(buildSchema!MutationStatusTbl("new_"));
-    db.run("INSERT INTO " ~ newMutationStatusTbl
-            ~ " (id,status,exit_code,checksum,compile_time_ms,test_time_ms,prio) SELECT id,status,exit_code,checksum0,compile_time_ms,test_time_ms,prio FROM "
-            ~ mutationStatusTable);
+    db.run("INSERT INTO " ~ newMutationStatusTbl ~ " (id,status,exit_code,checksum,compile_time_ms,test_time_ms,prio) SELECT id,status,exit_code,checksum0,compile_time_ms,test_time_ms,prio FROM " ~ mutationStatusTable);
     replaceTbl(db, newMutationStatusTbl, mutationStatusTable);
 
     const newDepFileTbl = "new_" ~ depFileTable;
@@ -2030,9 +2028,7 @@ void upgradeV53(ref Miniorm db) {
 
     const newMarkedMutantTbl = "new_" ~ markedMutantTable;
     db.run(buildSchema!MarkedMutantTbl("new_"));
-    db.run(
-            "INSERT INTO " ~ newMarkedMutantTbl
-            ~ " (checksum,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText) SELECT checksum0,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText FROM " ~ markedMutantTable);
+    db.run("INSERT INTO " ~ newMarkedMutantTbl ~ " (checksum,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText) SELECT checksum0,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText FROM " ~ markedMutantTable);
     replaceTbl(db, newMarkedMutantTbl, markedMutantTable);
 }
 
