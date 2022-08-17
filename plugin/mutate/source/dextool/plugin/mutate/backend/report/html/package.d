@@ -1517,8 +1517,6 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
             navbarItems ~= NavbarItem(sp.linkTxt, link);
         }
 
-        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir);
-
         import dextool.plugin.mutate.backend.database.type : FileScore;
 
         auto fileScores = ctx.state.get.db.getMutationFileScoreHistory();
