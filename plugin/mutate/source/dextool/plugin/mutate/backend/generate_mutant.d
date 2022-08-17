@@ -114,10 +114,8 @@ auto generateMutant(ref Database db, MutationEntry mutp, Blob original, ref Safe
                 mutp.file).collectException;
         return GenerateMutantResult(GenerateMutantStatus.databaseError);
     } else if (db_checksum != f_checksum) {
-        logger.errorf(
-                "Unable to mutate %s (%s) because the checksum is different from the one in the database (%s)",
-                mutp.file, f_checksum.c0,
-                db_checksum.get.c0).collectException;
+        logger.errorf("Unable to mutate %s (%s) because the checksum is different from the one in the database (%s)",
+                mutp.file, f_checksum.c0, db_checksum.get.c0).collectException;
         return GenerateMutantResult(GenerateMutantStatus.checksumError);
     }
 

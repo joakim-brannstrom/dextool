@@ -438,8 +438,7 @@ struct DbDependency {
 
     /// The root must already exist or the whole operation will fail with an sql error.
     void set(const Path path, const DepFile[] deps) @trusted {
-        static immutable insertDepSql = "INSERT OR IGNORE INTO " ~ depFileTable
-            ~ " (file,checksum)
+        static immutable insertDepSql = "INSERT OR IGNORE INTO " ~ depFileTable ~ " (file,checksum)
             VALUES(:file,:cs)
             ON CONFLICT (file) DO UPDATE SET checksum=:cs WHERE file=:file";
 
@@ -1549,8 +1548,7 @@ struct DbMutant {
     }
 
     Nullable!MutationStatusId getMutationStatusId(const Checksum cs) @trusted {
-        static immutable sql = format!"SELECT id FROM %s WHERE checksum=:cs"(
-                mutationStatusTable);
+        static immutable sql = format!"SELECT id FROM %s WHERE checksum=:cs"(mutationStatusTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":cs", cast(long) cs.c0);
 
@@ -1868,8 +1866,7 @@ struct DbMutant {
     ], true);
 
     Nullable!Checksum getChecksum(MutationStatusId id) @trusted {
-        static immutable sql = format!"SELECT checksum FROM %s WHERE id=:id"(
-                mutationStatusTable);
+        static immutable sql = format!"SELECT checksum FROM %s WHERE id=:id"(mutationStatusTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
 
@@ -2955,9 +2952,9 @@ private:
 MarkedMutant make(MarkedMutantTbl m) {
     import dextool.plugin.mutate.backend.type;
 
-    return MarkedMutant(m.mutationStatusId.MutationStatusId, Checksum(m.checksum), m.mutationId.MutationId, SourceLoc(m.line, m.column),
-            m.path.Path, m.toStatus.to!(Mutation.Status), m.time,
-            m.rationale.Rationale, m.mutText);
+    return MarkedMutant(m.mutationStatusId.MutationStatusId, Checksum(m.checksum),
+            m.mutationId.MutationId, SourceLoc(m.line, m.column), m.path.Path,
+            m.toStatus.to!(Mutation.Status), m.time, m.rationale.Rationale, m.mutText);
 }
 
 string fromOrder(const MutationOrder userOrder) {
