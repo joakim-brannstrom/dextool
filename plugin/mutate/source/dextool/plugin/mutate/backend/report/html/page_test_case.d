@@ -88,7 +88,7 @@ void makeTestCases(ref Database db, string tag, Element root, ref const ConfigRe
     foreach (tcId; spinSql!(() => db.testCaseApi.getDetectedTestCaseIds)) {
         const name = spinSql!(() => db.testCaseApi.getTestCaseName(tcId));
 
-        auto reportFname = name.pathToHtmlLink;
+        auto reportFname = name.removeAllNonAlphaNum.pathToHtmlLink;
         auto fout = File(testCasesDir ~ reportFname, "w");
         TestCaseSummary summary;
         spinSql!(() {
@@ -311,7 +311,8 @@ void addSimilarity(ref Database db, TestCaseSimilarityAnalyse.Similarity[] simil
         auto r = tbl.appendRow();
 
         const name = db.testCaseApi.getTestCaseName(sim.testCase);
-        r.addChild("td").addChild("a", name).href = buildPath(name.pathToHtmlLink);
+        r.addChild("td").addChild("a", name)
+            .href = buildPath(name.removeAllNonAlphaNum.pathToHtmlLink);
 
         r.addChild("td", format("%#.3s", sim.similarity));
 
