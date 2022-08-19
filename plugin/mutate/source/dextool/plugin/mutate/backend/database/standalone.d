@@ -1565,6 +1565,19 @@ struct DbMutant {
         return rval;
     }
 
+    void increaseFilePrio(Path prioFile) {
+        immutable sql = "UPDATE " ~ mutantWorklistTable ~ "
+        SET prio = prio + 50000 WHERE id IN (SELECT s1.id FROM " ~ mutantWorklistTable ~ " AS s1, " ~ mutationTable
+            ~ " AS s2, " ~ filesTable ~ " AS s3, " ~ mutationPointTable ~ " AS s4 WHERE
+        s2.st_id = s1.id AND
+        s2.mp_id = s4.id AND
+        s3.id = s4.file_id AND
+        s3.path = :path);";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":path", prioFile);
+        stmt.get.execute;
+    }
+
     // TODO: maybe this need to return the exit code too?
     // Returns: the status of the mutant
     Nullable!(Mutation.Status) getMutationStatus(const MutationId id) @trusted {

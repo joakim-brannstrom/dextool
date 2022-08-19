@@ -22,15 +22,17 @@ UpdateTestCmd -> ChooseMode
 ChooseMode --> AnalyzeTestCmdForTestCase : hasAnalyzer
 ChooseMode --> PullRequest : hasConstraint
 ChooseMode --> RetestOldMutant : resetOld
-ChooseMode --> CheckMutantsLeft
+ChooseMode --> IncreaseFilePrio
 
-PullRequest -> CheckMutantsLeft
+PullRequest -> IncreaseFilePrio
+
+IncreaseFilePrio --> CheckMutantsLeft
 
 AnalyzeTestCmdForTestCase --> UpdateAndResetAliveMutants
 
 UpdateAndResetAliveMutants --> RetestOldMutant : resetOld
-UpdateAndResetAliveMutants --> CheckMutantsLeft : resetOld
-RetestOldMutant --> CheckMutantsLeft
+UpdateAndResetAliveMutants --> IncreaseFilePrio : resetOld
+RetestOldMutant --> IncreaseFilePrio
 
 UpdateTimeout --> OverloadCheck
 

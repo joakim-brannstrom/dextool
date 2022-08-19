@@ -12,7 +12,7 @@ module dextool.plugin.mutate.backend.test_mutant;
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
 import std.algorithm : map, filter, joiner, among, max;
-import std.array : empty, array, appender;
+import std.array : empty, array, appender, replace;
 import std.datetime : SysTime, Clock;
 import std.datetime.stopwatch : StopWatch, AutoStart;
 import std.exception : collectException;
@@ -280,6 +280,9 @@ struct TestDriver {
     static struct PullRequest {
     }
 
+    static struct IncreaseFilePrio {
+    }
+
     static struct PullRequestData {
         import dextool.plugin.mutate.type : TestConstraint;
 
@@ -451,7 +454,7 @@ struct TestDriver {
             AnalyzeTestCmdForTestCase, UpdateAndResetAliveMutants, RetestOldMutant,
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
-            UpdateTimeout, CheckStopCond, PullRequest,
+            UpdateTimeout, CheckStopCond, PullRequest, IncreaseFilePrio,
             CheckPullRequestMutant, ParseStdin, FindTestCmds, UpdateTestCmds, ChooseMode,
             NextSchemata, SchemataTest, LoadSchematas, Stop, SaveMutationScore,
             UpdateTestCaseTag, OverloadCheck, Coverage, PropagateCoverage,
@@ -540,12 +543,12 @@ struct TestDriver {
         }, (UpdateAndResetAliveMutants a) {
             if (self.conf.onOldMutants == ConfigMutationTest.OldMutant.test)
                 return fsm(RetestOldMutant.init);
-            return fsm(CheckMutantsLeft.init);
-        }, (RetestOldMutant a) => fsm(CheckMutantsLeft.init), (Cleanup a) {
+            return fsm(IncreaseFilePrio.init);
+        }, (RetestOldMutant a) => fsm(IncreaseFilePrio.init), (Cleanup a) {
             if (self.local.get!PullRequest.constraint.empty)
                 return fsm(NextSchemata.init);
             return fsm(CheckPullRequestMutant.init);
-        }, (CheckMutantsLeft a) {
+        }, (IncreaseFilePrio a) { return fsm(CheckMutantsLeft.init); }, (CheckMutantsLeft a) {
             if (a.allMutantsTested)
                 return fsm(Done.init);
             if (self.conf.testCmdChecksum.get)
@@ -568,8 +571,8 @@ struct TestDriver {
                 return fsm(AnalyzeTestCmdForTestCase.init);
             if (self.conf.onOldMutants == ConfigMutationTest.OldMutant.test)
                 return fsm(RetestOldMutant.init);
-            return fsm(CheckMutantsLeft.init);
-        }, (PullRequest a) => fsm(CheckMutantsLeft.init), (MeasureTestSuite a) {
+            return fsm(IncreaseFilePrio.init);
+        }, (PullRequest a) => fsm(IncreaseFilePrio.init), (MeasureTestSuite a) {
             if (a.unreliableTestSuite)
                 return fsm(Error.init);
             if (self.covConf.use && self.local.get!PullRequest.constraint.empty)
@@ -675,6 +678,65 @@ nothrow:
         } catch (Exception e) {
             logger.error(e.msg).collectException;
             data.halt = true;
+        }
+    }
+
+    void opCall(ref IncreaseFilePrio data) {
+        import std.file : exists, readText;
+        import std.json : JSONValue, JSONOptions, parseJSON;
+
+        if (conf.metadataPath.length == 0) {
+            return;
+        } else if (!exists(conf.metadataPath)) {
+            logger.error("File: " ~ conf.metadataPath ~ " does not exist").collectException;
+            return;
+        }
+
+        string fileContent;
+        try {
+            fileContent = readText(conf.metadataPath);
+        } catch (Exception e) {
+            logger.error("Unable to read file " ~ conf.metadataPath).collectException;
+            return;
+        }
+
+        JSONValue jContent;
+        try {
+            jContent = parseJSON(fileContent, JSONOptions.doNotEscapeSlashes);
+        } catch (Exception e) {
+            logger.info(e.msg).collectException;
+            logger.error("Failed to parse filecontent of " ~ conf.metadataPath ~ "into JSON")
+                .collectException;
+            return;
+        }
+
+        JSONValue objectData;
+        try {
+            objectData = jContent["file-prio"];
+        } catch (Exception e) {
+            logger.info(e.msg).collectException;
+            logger.error("Object 'file-prio' not found in file " ~ conf.metadataPath)
+                .collectException;
+            return;
+        }
+
+        Path[] prioFiles;
+        try {
+            foreach (prioFileElem; objectData.arrayNoRef) {
+                prioFiles ~= Path(prioFileElem.str);
+            }
+        } catch (Exception e) {
+            logger.info(e.msg).collectException;
+            logger.error("'file-prio' JSON object not a valid array in file " ~ conf.metadataPath)
+                .collectException;
+            return;
+        }
+
+        logger.info("Increasing prio on all mutants in the files from " ~ conf.metadataPath)
+            .collectException;
+        foreach (prioFilePath; prioFiles) {
+            logger.info(prioFilePath).collectException;
+            spinSql!(() @trusted { db.mutantApi.increaseFilePrio(prioFilePath); });
         }
     }
 
