@@ -904,8 +904,10 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
         appendChild(new RawSource(ctx.doc, "var g_testcases_kills = {}"));
         appendText("\n");
         foreach (tc; ctx.testCases) {
-            appendChild(new RawSource(ctx.doc,
-                    format("g_testcases_kills['%s'] = [%s];", tc.name, tc.killed)));
+            import undead.xml : encode;
+
+            appendChild(new RawSource(ctx.doc, format("g_testcases_kills['%s'] = [%s];",
+                    encode(tc.name.name), tc.killed)));
             appendText("\n");
         }
         appendChild(new RawSource(ctx.doc, mut_data.data.joiner("\n").toUTF8));

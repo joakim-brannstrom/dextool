@@ -26,6 +26,23 @@ string pathToHtml(string p) {
     return p.pathSplitter.joiner("__").toUTF8;
 }
 
+string removeAllNonAlphaNum(string s) {
+    import std.ascii : isASCII;
+    import std.uni : byCodePoint, isAlphaNum;
+    import std.array : appender;
+    import std.conv : text;
+
+    auto result = appender!(char[])();
+    foreach (c; s.byCodePoint) {
+        if (isAlphaNum(c) && isASCII(c)) {
+            result.put(c.text);
+        } else {
+            result.put("_");
+        }
+    }
+    return result.data.idup;
+}
+
 Path pathToHtmlLink(string p) {
     return Path(pathToHtml(p) ~ Html.ext);
 }
