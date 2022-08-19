@@ -483,7 +483,7 @@ struct ArgParser {
                    "log-coverage", "write the instrumented coverage files to a separate file", &coverage.log,
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
-                    "metadata", "prioritieses files that are sent by JSON", &mutationTest.metadataPath,
+                   "metadata", "supports data for testing file-priority and imported coverage testing data", &mutationTest.metadataPath,
                    "m|mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
                    "no-skipped", "do not skip mutants that are covered by others", &noSkip,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
