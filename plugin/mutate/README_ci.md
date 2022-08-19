@@ -121,3 +121,19 @@ git diff master|dextool mutate test --diff-from-stdin
 git diff master|dextool mutate report --style html --section summary --section diff
 git diff master|dextool mutate report --style json --section summary
 ```
+
+## Increase testing priority for specific files
+
+To increase testing priority of specific files, make a json file with the following structure
+
+```
+{
+	"file-prio": ["src/game.cpp", "src/util.h"]
+}
+```
+Important is that the object is named "file-prio" followed by a list of relative paths to the files that will get the increased testing priority.
+
+Then run:
+```
+dextool mutate test --metadata name-of-json-file.json
+```

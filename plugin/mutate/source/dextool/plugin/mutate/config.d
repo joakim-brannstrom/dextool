@@ -168,6 +168,8 @@ struct ConfigMutationTest {
     /// If the user hard code a timeout for the test suite.
     Nullable!Duration mutationTesterRuntime;
 
+    string metadataPath;
+
     /// Timeout to use when compiling.
     Duration buildCmdTimeout = 30.dur!"minutes";
 

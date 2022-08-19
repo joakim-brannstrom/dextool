@@ -153,6 +153,29 @@ EOF
     }
 }
 
+class ShallParseTestReportForFilePrio : SimpleFixture {
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+
+        const prioPath = (testEnv.outdir ~ "file-prio.json").toString;
+        File(prioPath, "w").writeln(`{"file-prio" : ["src/game.cpp", "src/hej.d"]}`);
+
+        auto r = dextool_test.makeDextool(testEnv).setWorkdir(workDir)
+            .args(["mutate"]).addArg(["test"]).addPostArg([
+                "--metadata", prioPath
+            ]).addPostArg("--dry-run").addPostArg(["--build-cmd",
+                compileScript]).addPostArg(["--test-cmd", testScript]).run;
+
+        testConsecutiveSparseOrder!SubStr([
+            `Increasing prio on all mutants in the files from build/mutate_tests/dextool_test.test_mutant_tester.ShallParseTestReportForFilePrio.test/file-prio.json`,
+            `src/game.cpp`, `src/hej.d`, `IncreaseFilePrio() -> CheckMutantsLeft`
+        ]).shouldBeIn(r.output);
+    }
+}
+
 class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
     override void test() {
         mixin(EnvSetup(globalTestdir));
