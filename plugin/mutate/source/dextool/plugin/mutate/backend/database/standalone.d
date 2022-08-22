@@ -292,14 +292,43 @@ struct Database {
 
     /// Add a mutation score to the history table.
     void putMutationScore(const MutationScore score) @trusted {
-        db.run(insert!MutationScoreHistoryTable, MutationScoreHistoryTable(0,
-                score.timeStamp, score.score.get));
+        auto stmt = db.prepare(format!"SELECT id FROM " ~ mutationScoreHistoryTable ~ "
+                WHERE date('now') = date(time);");
+        auto res = stmt.get.execute;
+
+        if (!res.empty) {
+            auto id = res.front.peek!long(0);
+            auto updateStmt = db.prepare(
+                    format!"UPDATE " ~ mutationScoreHistoryTable
+                    ~ " SET score = :score WHERE id = :id;");
+            updateStmt.get.bind(":id", id);
+            updateStmt.get.bind(":score", score.score.get);
+            updateStmt.get.execute;
+        } else {
+            db.run(insert!MutationScoreHistoryTable,
+                    MutationScoreHistoryTable(0, score.timeStamp, score.score.get));
+        }
     }
 
     // Add a mutation score for the individual files
     void putFileScore(const FileScore score) @trusted {
-        db.run(insert!MutationFileScoreHistoryTable, MutationFileScoreHistoryTable(0,
-                score.timeStamp, score.score.get, score.file.toString));
+        auto stmt = db.prepare(format!"SELECT id FROM " ~ mutationFileScoreHistoryTable
+                ~ " WHERE date('now') = date(time_stamp) AND :file_path = file_path;");
+        stmt.get.bind(":file_path", score.file.toString);
+        auto res = stmt.get.execute;
+
+        if (!res.empty) {
+            auto id = res.front.peek!long(0);
+            auto updateStmt = db.prepare(
+                    format!"UPDATE " ~ mutationFileScoreHistoryTable
+                    ~ " SET score = :score WHERE id = :id;");
+            updateStmt.get.bind(":id", id);
+            updateStmt.get.bind(":score", score.score.get);
+            updateStmt.get.execute;
+        } else {
+            db.run(insert!MutationFileScoreHistoryTable, MutationFileScoreHistoryTable(0,
+                    score.timeStamp, score.score.get, score.file.toString));
+        }
     }
 
     void removeFileScores() @trusted {

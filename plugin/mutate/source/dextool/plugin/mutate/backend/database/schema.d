@@ -641,6 +641,7 @@ struct RuntimeHistoryTable {
 }
 
 @TableName(mutationScoreHistoryTable)
+@TableConstraint("time UNIQUE (time)")
 struct MutationScoreHistoryTable {
     long id;
 
@@ -652,6 +653,7 @@ struct MutationScoreHistoryTable {
 }
 
 @TableName(mutationFileScoreHistoryTable)
+@TableConstraint("date UNIQUE (time_stamp, file_path)")
 struct MutationFileScoreHistoryTable {
     long id;
 
@@ -893,6 +895,17 @@ void upgrade(ref Miniorm db, UpgradeTable tbl) {
  */
 void upgradeV0(ref Miniorm db) {
     auto tbl = makeUpgradeTable;
+
+    @TableName(mutationScoreHistoryTable)
+    struct MutationScoreHistoryTable {
+        long id;
+
+        /// when the measurement was taken.
+        @ColumnName("time")
+        SysTime timeStamp;
+
+        double score;
+    }
 
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl,
             MutationPointTbl, MutationTbl, TestCaseKilledTbl, AllTestCaseTbl,
@@ -1996,6 +2009,20 @@ void upgradeV51(ref Miniorm db) {
 
 // 2022-06-21
 void upgradeV52(ref Miniorm db) {
+    @TableName(mutationFileScoreHistoryTable)
+    struct MutationFileScoreHistoryTable {
+        long id;
+
+        /// when the measurement was taken.
+        @ColumnName("time_stamp")
+        SysTime timeStamp;
+
+        double score;
+
+        @ColumnName("file_path")
+        string filePath;
+    }
+
     db.run(buildSchema!MutationFileScoreHistoryTable);
 }
 
@@ -2030,6 +2057,22 @@ void upgradeV53(ref Miniorm db) {
     db.run(buildSchema!MarkedMutantTbl("new_"));
     db.run("INSERT INTO " ~ newMarkedMutantTbl ~ " (checksum,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText) SELECT checksum0,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText FROM " ~ markedMutantTable);
     replaceTbl(db, newMarkedMutantTbl, markedMutantTable);
+}
+
+// 2022-08-17
+void upgradeV54(ref Miniorm db) {
+    static immutable newFileScoreTable = "new_" ~ mutationFileScoreHistoryTable;
+    db.run(buildSchema!MutationFileScoreHistoryTable("new_"));
+    db.run("INSERT INTO " ~ newFileScoreTable
+            ~ " (id,time_stamp,score,file_path) SELECT id,date(time_stamp) AS time,score,file_path FROM "
+            ~ mutationFileScoreHistoryTable ~ " GROUP BY date(time), file_path");
+    replaceTbl(db, newFileScoreTable, mutationFileScoreHistoryTable);
+
+    static immutable newMutationScoreTable = "new_" ~ mutationScoreHistoryTable;
+    db.run(buildSchema!MutationScoreHistoryTable("new_"));
+    db.run("INSERT INTO " ~ newMutationScoreTable ~ " (id,time,score) SELECT id,date(time) AS time,score FROM "
+            ~ mutationScoreHistoryTable ~ " GROUP BY date(time)");
+    replaceTbl(db, newMutationScoreTable, mutationScoreHistoryTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
