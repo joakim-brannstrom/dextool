@@ -448,7 +448,7 @@ struct DbDependency {
 
     /// The root must already exist or the whole operation will fail with an sql error.
     void set(const Path path, const DepFile[] deps) @trusted {
-        static immutable insertDepSql = "INSERT OR IGNORE INTO " ~ depFileTable ~ " (file,checksum)
+        static immutable insertDepSql = "INSERT OR IGNORE INTO " ~ depFileTable 
             ~ " (file,checksum)
             VALUES(:file,:cs)
             ON CONFLICT (file) DO UPDATE SET checksum=:cs WHERE file=:file";
@@ -2964,7 +2964,8 @@ private:
 MarkedMutant make(MarkedMutantTbl m) {
     import dextool.plugin.mutate.backend.type;
 
-    return MarkedMutant(m.mutationStatusId.MutationStatusId, Checksum(m.checksum), m.mutationId.MutationId, SourceLoc(m.line, m.column),
+    return MarkedMutant(m.mutationStatusId.MutationStatusId, Checksum(m.checksum),
+-           m.mutationId.MutationId, SourceLoc(m.line, m.column), m.path.Path,
             m.toStatus.to!(Mutation.Status), m.time, m.rationale.Rationale, m.mutText);
 }
 
