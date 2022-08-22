@@ -448,11 +448,7 @@ struct DbDependency {
 
     /// The root must already exist or the whole operation will fail with an sql error.
     void set(const Path path, const DepFile[] deps) @trusted {
-<<<<<<< HEAD
         static immutable insertDepSql = "INSERT OR IGNORE INTO " ~ depFileTable 
-=======
-        static immutable insertDepSql = "INSERT OR IGNORE INTO " ~ depFileTable ~ " (file,checksum)
->>>>>>> 92c2c5ef (Squashed commits)
             ~ " (file,checksum)
             VALUES(:file,:cs)
             ON CONFLICT (file) DO UPDATE SET checksum=:cs WHERE file=:file";
@@ -2968,6 +2964,8 @@ MarkedMutant make(MarkedMutantTbl m) {
 
     return MarkedMutant(m.mutationStatusId.MutationStatusId, Checksum(m.checksum),
 -           m.mutationId.MutationId, SourceLoc(m.line, m.column), m.path.Path,
+            m.toStatus.to!(Mutation.Status), m.time, m.rationale.Rationale, m.mutText);
+}
 
 string fromOrder(const MutationOrder userOrder) {
     final switch (userOrder) {
