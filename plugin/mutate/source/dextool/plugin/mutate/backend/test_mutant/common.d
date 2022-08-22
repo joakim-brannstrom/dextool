@@ -434,6 +434,9 @@ CompileResult compile(ShellCommand cmd, Duration timeout, PrintCompileOnFailure 
     import std.datetime : Clock;
     import std.stdio : write, writeln;
 
+    if (cmd.value.empty)
+        return CompileResult(false);
+
     const auto started = Clock.currTime;
     // every minute print something to indicate that the process is still
     // alive. Otherwise e.g. Jenkins may determine that it is dead.

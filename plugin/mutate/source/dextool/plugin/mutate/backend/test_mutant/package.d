@@ -1233,6 +1233,13 @@ nothrow:
                 (Mutation.Status a) { data.compilationError = true; }, (bool success) {
             data.compilationError = !success;
         });
+
+        if (data.compilationError) {
+            logger.info("[mutant_test.build_cmd]: ", conf.mutationCompile).collectException;
+            logger.error(
+                    "Either [mutant_test.build_cmd] is not configured or there is an error running the build command")
+                .collectException;
+        }
     }
 
     void opCall(FindTestCmds data) {
