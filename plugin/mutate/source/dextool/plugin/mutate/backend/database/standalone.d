@@ -303,7 +303,7 @@ struct Database {
     }
 
     void removeFileScores() @trusted {
-        auto stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " 
+        auto stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ "
                     WHERE file_path NOT IN (
                     SELECT DISTINCT path
                     FROM " ~ filesTable ~ ")");
@@ -320,7 +320,7 @@ struct Database {
             return;
 
         auto ids = appender!(long[])();
-        stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " 
+        stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ "
                 WHERE id IN (SELECT id FROM " ~ mutationFileScoreHistoryTable ~ "
                 WHERE file_path=:file ORDER BY time_stamp ASC LIMIT :limit)");
         stmt.get.bind(":file", file);
@@ -337,7 +337,7 @@ struct Database {
             return;
 
         auto ids = appender!(long[])();
-        stmt = db.prepare(format!"SELECT t0.id FROM t0 %s ORDER BY t0.time ASC LIMIT :limit"(
+        stmt = db.prepare(format!"SELECT t0.id FROM %s t0 ORDER BY t0.time ASC LIMIT :limit"(
                 mutationScoreHistoryTable));
         stmt.get.bind(":limit", sz - keep);
         foreach (a; stmt.get.execute)
