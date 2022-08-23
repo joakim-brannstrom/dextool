@@ -2064,13 +2064,13 @@ void upgradeV54(ref Miniorm db) {
     static immutable newFileScoreTable = "new_" ~ mutationFileScoreHistoryTable;
     db.run(buildSchema!MutationFileScoreHistoryTable("new_"));
     db.run("INSERT INTO " ~ newFileScoreTable
-            ~ " (id,time_stamp,score,file_path) SELECT id,time_stamp AS time,score,file_path FROM "
+            ~ " (id,time_stamp,score,file_path) SELECT id,strftime('%Y-%m-%d 00:00:00', time_stamp) AS time,score,file_path FROM "
             ~ mutationFileScoreHistoryTable ~ " GROUP BY date(time), file_path");
     replaceTbl(db, newFileScoreTable, mutationFileScoreHistoryTable);
 
     static immutable newMutationScoreTable = "new_" ~ mutationScoreHistoryTable;
     db.run(buildSchema!MutationScoreHistoryTable("new_"));
-    db.run("INSERT INTO " ~ newMutationScoreTable ~ " (id,time,score) SELECT id,time,score FROM "
+    db.run("INSERT INTO " ~ newMutationScoreTable ~ " (id,time,score) SELECT id,strftime('%Y-%m-%d 00:00:00', time),score FROM "
             ~ mutationScoreHistoryTable ~ " GROUP BY date(time)");
     replaceTbl(db, newMutationScoreTable, mutationScoreHistoryTable);
 }
