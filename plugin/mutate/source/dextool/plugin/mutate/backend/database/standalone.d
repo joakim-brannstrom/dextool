@@ -295,7 +295,7 @@ struct Database {
         auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationScoreHistoryTable ~ "
                 (score, time) VALUES (:score, :time);");
         stmt.get.bind(":score", score.score.get);
-        stmt.get.bind(":time", toSqliteDateTime(score.timeStamp));
+        stmt.get.bind(":time", toSqliteDateTime(toDate(score.timeStamp)));
         stmt.get.execute;
     }
 
@@ -304,7 +304,7 @@ struct Database {
         auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationFileScoreHistoryTable ~ "
                 (score, time_stamp, file_path) VALUES (:score, :time, :path);");
         stmt.get.bind(":score", score.score.get);
-        stmt.get.bind(":time", toSqliteDateTime(score.timeStamp));
+        stmt.get.bind(":time", toSqliteDateTime(toDate(score.timeStamp)));
         stmt.get.bind(":path", score.file.toString);
         stmt.get.execute;
     }
@@ -2973,4 +2973,12 @@ string fromOrder(const MutationOrder userOrder) {
     case MutationOrder.bySize:
         return ":base_prio + t1.prio";
     }
+}
+
+SysTime toDate(SysTime st){
+    st.hour = 0;
+    st.minute = 0;
+    st.second = 0;
+    st.fracSecs = Duration.zero;
+    return st;
 }
