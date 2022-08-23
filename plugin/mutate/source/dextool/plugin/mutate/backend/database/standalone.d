@@ -292,14 +292,21 @@ struct Database {
 
     /// Add a mutation score to the history table.
     void putMutationScore(const MutationScore score) @trusted {
-        db.run(insert!MutationScoreHistoryTable, MutationScoreHistoryTable(0,
-                score.timeStamp, score.score.get));
+        auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationScoreHistoryTable ~ "
+                (score, time) VALUES (:score, :time);");
+        stmt.get.bind(":score", score.score.get);
+        stmt.get.bind(":time", toSqliteDateTime(toDate(score.timeStamp)));
+        stmt.get.execute;
     }
 
     // Add a mutation score for the individual files
     void putFileScore(const FileScore score) @trusted {
-        db.run(insert!MutationFileScoreHistoryTable, MutationFileScoreHistoryTable(0,
-                score.timeStamp, score.score.get, score.file.toString));
+        auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationFileScoreHistoryTable ~ "
+                (score, time_stamp, file_path) VALUES (:score, :time, :path);");
+        stmt.get.bind(":score", score.score.get);
+        stmt.get.bind(":time", toSqliteDateTime(toDate(score.timeStamp)));
+        stmt.get.bind(":path", score.file.toString);
+        stmt.get.execute;
     }
 
     void removeFileScores() @trusted {
@@ -2979,4 +2986,12 @@ string fromOrder(const MutationOrder userOrder) {
     case MutationOrder.bySize:
         return ":base_prio + t1.prio";
     }
+}
+
+SysTime toDate(SysTime st) {
+    st.hour = 0;
+    st.minute = 0;
+    st.second = 0;
+    st.fracSecs = Duration.zero;
+    return st;
 }

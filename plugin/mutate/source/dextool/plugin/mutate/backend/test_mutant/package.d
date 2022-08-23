@@ -1180,7 +1180,7 @@ nothrow:
         auto files = spinSql!(() => db.getFiles());
         const fileScores = reportScores(*db, kinds, files);
         const score = reportScore(*db, kinds);
-        const time = Clock.currTime;
+        const time = Clock.currTime.toUTC;
 
         // 10000 mutation scores is only ~80kbyte. Should be enough entries
         // without taking up unreasonable amount of space.
