@@ -1175,31 +1175,23 @@ struct EstimateScore {
     }
 }
 
-/// Estimated trend based on the latest code changes.
+/// Trend based on the latest code changes.
 struct ScoreTrendByCodeChange {
     static struct Point {
         SysTime timeStamp;
 
-        /// The estimated mutation score.
-        NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value;
-
-        /// The error in the estimate. The unit is the same as `estimate`.
-        NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error;
+        /// The mutation score.
+        double value;
     }
 
     Point[] sample;
 
-    NamedType!(double, Tag!"EstimatedMutationScore", 0.0, TagStringable) value() @safe pure nothrow const @nogc {
+    double value() @safe pure nothrow const @nogc {
         if (sample.empty)
             return typeof(return).init;
         return sample[$ - 1].value;
     }
 
-    NamedType!(double, Tag!"MutationScoreError", 0.0, TagStringable) error() @safe pure nothrow const @nogc {
-        if (sample.empty)
-            return typeof(return).init;
-        return sample[$ - 1].error;
-    }
 }
 
 /** Estimate the mutation score by running a kalman filter over the mutants in
@@ -1208,34 +1200,18 @@ struct ScoreTrendByCodeChange {
  *
  */
 ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db, const Mutation.Kind[] kinds) @trusted nothrow {
+    import dextool.plugin.mutate.backend.database.type : XMutationScore = MutationScore, XFileScore = FileScore;
     auto app = appender!(ScoreTrendByCodeChange.Point[])();
-    EstimateScore estimate;
+    XMutationScore[] mutationScores = spinSql!(() => db.getMutationScoreHistory);
 
-    try {
-        SysTime lastAdded;
-        SysTime last;
-        bool first = true;
-        void fn(const Mutation.Status s, const SysTime added) {
-            estimate.update(s);
-            debug logger.trace(estimate.estimate.kf).collectException;
-
-            if (first)
-                lastAdded = added;
-
-            if (added != lastAdded) {
-                app.put(ScoreTrendByCodeChange.Point(added, estimate.value, estimate.error));
-                lastAdded = added;
-            }
-
-            last = added;
-            first = false;
+    foreach(score; mutationScores){
+        try{
+            app.put(ScoreTrendByCodeChange.Point(score.timeStamp, score.score.get));
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
         }
-
-        db.iterateMutantStatus(kinds, &fn);
-        app.put(ScoreTrendByCodeChange.Point(last, estimate.value, estimate.error));
-    } catch (Exception e) {
-        logger.warning(e.msg).collectException;
     }
+
     return ScoreTrendByCodeChange(app.data);
 }
 

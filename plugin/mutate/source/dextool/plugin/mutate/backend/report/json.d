@@ -189,8 +189,7 @@ final class ReportJson {
             const history = reportMutationScoreHistory(db);
             const byCodeChange = reportTrendByCodeChange(db, kinds);
             JSONValue d;
-            d["code_change_score"] = byCodeChange.value.get;
-            d["code_change_score_error"] = byCodeChange.error.get;
+            d["code_change_score"] = byCodeChange.value;
 
             d["history_score"] = history.estimate.predScore;
             d["score_history"] = toJson(history);
