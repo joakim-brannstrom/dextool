@@ -414,10 +414,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         void process(ref Database db, Optional!(SchemataBuilder.ET) value) {
             value.match!((Some!(SchemataBuilder.ET) a) {
                 try {
-                    auto mutants = a.mutants
-                        .map!(a => db.mutantApi.getMutationStatusId(a.id))
-                        .filter!(a => !a.isNull)
-                        .map!(a => a.get)
+                    auto mutants = a.mutants.map!(a => db.mutantApi.getMutationStatusId(a.id))
                         .array;
                     if (!mutants.empty) {
                         const id = db.schemaApi.putSchemata(a.checksum, a.fragments, mutants);
@@ -1332,15 +1329,13 @@ void updateMarkedMutants(ref Database db) @trusted {
 
     void update(MarkedMutant m) {
         const stId = db.mutantApi.getMutationStatusId(m.statusChecksum);
-        if (stId.isNull)
-            return;
-        const mutId = db.mutantApi.getMutationId(stId.get);
+        const mutId = db.mutantApi.getMutationId(stId);
         if (mutId.isNull)
             return;
         db.markMutantApi.remove(m.statusChecksum);
-        db.markMutantApi.mark(mutId.get, m.path, m.sloc, stId.get,
+        db.markMutantApi.mark(mutId.get, m.path, m.sloc, stId,
                 m.statusChecksum, m.toStatus, m.rationale, m.mutText);
-        db.mutantApi.update(stId.get, m.toStatus, ExitStatus(0));
+        db.mutantApi.update(stId, m.toStatus, ExitStatus(0));
     }
 
     // find those marked mutants that have a checksum that is different from
@@ -1349,8 +1344,7 @@ void updateMarkedMutants(ref Database db) @trusted {
     foreach (m; db.markMutantApi
             .getMarkedMutants
             .map!(a => tuple(a, db.mutantApi.getChecksum(a.statusId)))
-            .filter!(a => !a[1].isNull)
-            .filter!(a => a[0].statusChecksum != a[1].get)) {
+            .filter!(a => a[0].statusChecksum != a[1])) {
         update(m[0]);
     }
 }

@@ -48,6 +48,8 @@ Fixes for dextool mutate
  * Coverage info could accumulate infinitely in the database, wrong foreign key.
  * Changed the checksum of mutants from 128bit to 64bit to simplify the DB
    schema, implementation and slightly improve the performance.
+ * Fixed a bug when sorting mutants by datetime which resulted in e.g. "testing
+   oldest mutant" not working as it should.
 
 # v4.3.0 Deep Steel
 

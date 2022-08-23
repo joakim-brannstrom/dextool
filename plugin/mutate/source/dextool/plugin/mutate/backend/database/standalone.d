@@ -122,7 +122,7 @@ struct Database {
     }
 
     Nullable!FileId getFileId(const Path p) @trusted {
-        static immutable sql = format("SELECT id FROM %s WHERE path=:path", filesTable);
+        static immutable sql = "SELECT id FROM " ~ filesTable ~ " WHERE path=:path";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", p.toString);
         auto res = stmt.get.execute;
@@ -135,9 +135,9 @@ struct Database {
 
     /// Returns: the path ID for the mutant.
     Nullable!FileId getFileId(const MutationId id) @trusted {
-        static immutable sql = format("SELECT t1.file_id
-            FROM %s t0, %s t1
-            WHERE t0.id = :id AND t0.mp_id = t1.id", mutationTable, mutationPointTable);
+        static immutable sql = "SELECT t1.file_id
+            FROM " ~ mutationTable ~ " t0, " ~ mutationPointTable ~ " t1
+            WHERE t0.id = :id AND t0.mp_id = t1.id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
 
@@ -149,7 +149,7 @@ struct Database {
 
     /// Returns: the file path that the id correspond to.
     Nullable!Path getFile(const FileId id) @trusted {
-        static immutable sql = format("SELECT path FROM %s WHERE id = :id", filesTable);
+        static immutable sql = "SELECT path FROM " ~ filesTable ~ " WHERE id = :id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
 
@@ -160,7 +160,7 @@ struct Database {
     }
 
     Optional!Language getFileIdLanguage(const FileId id) @trusted {
-        static immutable sql = format!"SELECT lang FROM %s WHERE id = :id"(filesTable);
+        static immutable sql = "SELECT lang FROM " ~ filesTable ~ " WHERE id = :id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
 
@@ -171,7 +171,7 @@ struct Database {
 
     /// Returns: all files tagged as a root.
     FileId[] getRootFiles() @trusted {
-        static immutable sql = format!"SELECT id FROM %s WHERE root=1"(filesTable);
+        static immutable sql = "SELECT id FROM " ~ filesTable ~ " WHERE root=1";
 
         auto app = appender!(FileId[])();
         auto stmt = db.prepare(sql);
@@ -191,7 +191,8 @@ struct Database {
 
     /// Returns: All files in the database as relative paths.
     Path[] getFiles() @trusted {
-        auto stmt = db.prepare(format!"SELECT path FROM %s"(filesTable));
+        static const sql = "SELECT path FROM " ~ filesTable;
+        auto stmt = db.prepare(sql);
         auto res = stmt.get.execute;
 
         auto app = appender!(Path[]);
@@ -219,7 +220,7 @@ struct Database {
     /// Returns: the timestamp of the newest file that was added.
     Optional!SysTime getNewestFile() @trusted {
         auto stmt = db.prepare(
-                "SELECT timestamp FROM " ~ filesTable ~ " ORDER BY datetime(timestamp) DESC LIMIT 1");
+                "SELECT timestamp FROM " ~ filesTable ~ " ORDER BY timestamp DESC LIMIT 1");
         auto res = stmt.get.execute;
 
         foreach (ref r; res) {
@@ -501,12 +502,12 @@ struct DbDependency {
 
     /// Returns: all files that a root is dependent on.
     Path[] get(const Path root) @trusted {
-        static immutable sql = format!"SELECT t0.file
-            FROM %1$s t0, %2$s t1, %3$s t2
+        static immutable sql = "SELECT t0.file
+            FROM " ~ depFileTable ~ " t0, " ~ depRootTable ~ " t1, " ~ filesTable ~ " t2
             WHERE
             t0.id = t1.dep_id AND
             t1.file_id = t2.id AND
-            t2.path = :file"(depFileTable, depRootTable, filesTable);
+            t2.path = :file";
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":file", root.toString);
@@ -1554,16 +1555,9 @@ struct DbMutant {
         return rval;
     }
 
-    Nullable!MutationStatusId getMutationStatusId(const Checksum cs) @trusted {
-        static immutable sql = format!"SELECT id FROM %s WHERE checksum=:cs"(mutationStatusTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":cs", cast(long) cs.c0);
-
-        typeof(return) rval;
-        foreach (res; stmt.get.execute) {
-            rval = MutationStatusId(res.peek!long(0));
-        }
-        return rval;
+    // TODO: can be removed in the future now that a checksum is the ID.
+    MutationStatusId getMutationStatusId(const Checksum cs) @trusted {
+        return MutationStatusId(cs.c0);
     }
 
     void increaseFilePrio(Path prioFile) {
@@ -1622,7 +1616,7 @@ struct DbMutant {
                     t1.st_id = t0.id AND
                     t1.kind IN (%(%s,%)) AND
                     t0.status IN (%(%s,%))
-                    ORDER BY datetime(t0.update_ts) ASC LIMIT :limit", mutationStatusTable,
+                    ORDER BY t0.update_ts ASC LIMIT :limit", mutationStatusTable,
                 mutationTable, kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
@@ -1641,7 +1635,7 @@ struct DbMutant {
                     t0.update_ts IS NOT NULL AND
                     t1.st_id = t0.id AND
                     t1.kind IN (%(%s,%))
-                    ORDER BY datetime(t0.update_ts) DESC LIMIT :limit",
+                    ORDER BY t0.update_ts DESC LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
@@ -1746,8 +1740,8 @@ struct DbMutant {
                     t1.st_id = t0.id AND
                     t1.kind IN (%(%s,%)) AND
                     (t0.compile_time_ms + t0.test_time_ms) > 0
-                    ORDER BY datetime(t0.update_ts) DESC LIMIT :limit",
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+                    ORDER BY t0.update_ts DESC LIMIT :limit", mutationStatusTable,
+                mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
 
@@ -1885,17 +1879,9 @@ struct DbMutant {
         Mutation.Status.alive, Mutation.Status.noCoverage
     ], true);
 
-    Nullable!Checksum getChecksum(MutationStatusId id) @trusted {
-        static immutable sql = format!"SELECT checksum FROM %s WHERE id=:id"(mutationStatusTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", id.get);
-
-        typeof(return) rval;
-        foreach (res; stmt.get.execute) {
-            rval = Checksum(res.peek!long(0));
-            break;
-        }
-        return rval;
+    // TODO: remove? now when id is the checksum...
+    Checksum getChecksum(MutationStatusId id) @trusted {
+        return Checksum(id.get);
     }
 
     /// Store all found mutants.
@@ -1923,8 +1909,8 @@ struct DbMutant {
         }
 
         static immutable insert_cmut_sql = "INSERT OR IGNORE INTO " ~ mutationStatusTable
-            ~ " (status,exit_code,compile_time_ms,test_time_ms,update_ts,added_ts,checksum,prio)
-            VALUES(:st,0,0,0,:update_ts,:added_ts,:cs,:prio)";
+            ~ " (id,status,exit_code,compile_time_ms,test_time_ms,update_ts,added_ts,prio)
+            VALUES(:cs,:st,0,0,0,:update_ts,:added_ts,:prio)";
         auto cmut_stmt = db.prepare(insert_cmut_sql);
         const ts = Clock.currTime.toSqliteDateTime;
         cmut_stmt.get.bind(":st", Mutation.Status.unknown);
@@ -1940,13 +1926,12 @@ struct DbMutant {
 
         static immutable insert_m_sql = "INSERT OR IGNORE INTO "
             ~ mutationTable ~ " (mp_id, st_id, kind)
-            SELECT t0.id,t1.id,:kind FROM " ~ mutationPointTable ~ " t0, "
+            SELECT t0.id,:cs,:kind FROM " ~ mutationPointTable ~ " t0, "
             ~ mutationStatusTable ~ " t1, " ~ filesTable ~ " t2 WHERE
             t2.path = :path AND
             t0.file_id = t2.id AND
             t0.offset_begin = :off_begin AND
-            t0.offset_end = :off_end AND
-            t1.checksum = :cs";
+            t0.offset_end = :off_end";
         auto insert_m = db.prepare(insert_m_sql);
 
         foreach (mp; mps) {
@@ -2194,9 +2179,9 @@ struct DbMarkMutant {
 
     /// All marked mutants whom have a mutation status checksum that has been removed from the database.
     MarkedMutant[] getLostMarkings() @trusted {
-        static immutable sql = format!"SELECT checksum FROM %s
+        static immutable sql = "SELECT checksum FROM " ~ markedMutantTable ~ "
             WHERE
-            checksum NOT IN (SELECT checksum FROM %s)"(markedMutantTable, mutationStatusTable);
+            checksum NOT IN (SELECT id FROM " ~ mutationStatusTable ~ ")";
 
         auto stmt = db.prepare(sql);
         auto app = appender!(MarkedMutant[])();
@@ -2499,6 +2484,10 @@ struct DbSchema {
         return rval;
     }
 
+    // TODO: remove kinds. it isn't necessary because the redesign of the tool
+    // is that the user in the analyze phase decide what mutants to generate
+    // and then those are expected to be used thereafter. therefor the test
+    // phase should assume that "all" available mutants are to be tested.
     /// Returns: number of mutants in a schema with `status`.
     long countMutants(const SchemataId id, const Mutation.Kind[] kinds,
             const Mutation.Status[] status) @trusted {
@@ -2947,7 +2936,7 @@ struct DbTestFile {
     /// Returns: the oldest test file, if it exists.
     Optional!TestFile getNewestTestFile() @trusted {
         auto stmt = db.prepare("SELECT path,checksum,timestamp
-            FROM " ~ testFilesTable ~ " ORDER BY datetime(timestamp) DESC LIMIT 1");
+            FROM " ~ testFilesTable ~ " ORDER BY timestamp DESC LIMIT 1");
         auto res = stmt.get.execute;
 
         foreach (ref r; res) {

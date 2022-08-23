@@ -417,21 +417,19 @@ struct AllTestCaseTbl {
 }
 
 /**
- * the status of a mutant. if it is killed or otherwise.
- * multiple mutation operators can result in the same change of the source
- * code. By coupling the mutant status to the checksum of the source code
- * change it means that two mutations that have the same checksum will
- * "cooperate".
- * TODO: change the checksum to being NOT NULL in the future. Can't for now
- * when migrating to schema version 5->6.
+ * The status of a mutant. if it is killed or otherwise. multiple mutation
+ * operators can result in the same change of the source code. By coupling the
+ * mutant status to the checksum of the source code change it means that two
+ * mutations that have the same checksum will "cooperate".
+ *
  * compile_time_ms = time it took to compile the program for the mutant
  * test_time_ms = time it took to run the test suite
  * updated_ts = is when the status where last updated. Seconds at UTC+0.
  * added_ts = when the mutant where added to the system. UTC+0.
  */
 @TableName(mutationStatusTable)
-@TableConstraint("checksum UNIQUE (checksum)")
 struct MutationStatusTbl {
+    // 64 bit checksum.
     long id;
 
     /// Mutation.Status
@@ -453,8 +451,6 @@ struct MutationStatusTbl {
     @ColumnParam("")
     @ColumnName("added_ts")
     SysTime added;
-
-    long checksum;
 
     /// Priority of the mutant used when testing.
     long prio;
@@ -510,9 +506,8 @@ struct MutantTimeoutCtxTbl {
     State state;
 }
 
-/** The lower 64bit of the checksum should be good enough as the primary key.
- * By doing it this way it is easier to update a marked mutant without
- * "peeking" in the database ("insert or update").
+/** The checksum is used as primary key to reduce the need to "peek" into the
+ * database when updating, adding, linking tables.
  *
  * Both `st_id` and `mut_id` are values that sqlite can reuse between analyzes
  * if they have been previously removed thus the only assured connection
@@ -521,7 +516,10 @@ struct MutantTimeoutCtxTbl {
 @TableName(markedMutantTable)
 @TablePrimaryKey("checksum")
 struct MarkedMutantTbl {
+    // TODO: can be removed in the future considering mutationStatusId is the
+    // checksum from v55+.
     /// Checksum of the mutant status the marking is related to.
+    /// it is the mutationStatusId id.
     long checksum;
 
     /// updated each analyze.
@@ -2028,6 +2026,37 @@ void upgradeV52(ref Miniorm db) {
 
 // 2022-08-10
 void upgradeV53(ref Miniorm db) {
+    @TableName(mutationStatusTable)
+    @TableConstraint("checksum UNIQUE (checksum)")
+    struct MutationStatusTbl {
+        long id;
+
+        /// Mutation.Status
+        long status;
+
+        @ColumnName("exit_code")
+        int exitCode;
+
+        @ColumnName("compile_time_ms")
+        long compileTimeMs;
+
+        @ColumnName("test_time_ms")
+        long testTimeMs;
+
+        @ColumnParam("")
+        @ColumnName("update_ts")
+        SysTime updated;
+
+        @ColumnParam("")
+        @ColumnName("added_ts")
+        SysTime added;
+
+        long checksum;
+
+        /// Priority of the mutant used when testing.
+        long prio;
+    }
+
     const newFilesTbl = "new_" ~ filesTable;
     db.run(buildSchema!FilesTbl("new_"));
     db.run("INSERT INTO " ~ newFilesTbl
@@ -2063,16 +2092,29 @@ void upgradeV53(ref Miniorm db) {
 void upgradeV54(ref Miniorm db) {
     static immutable newFileScoreTable = "new_" ~ mutationFileScoreHistoryTable;
     db.run(buildSchema!MutationFileScoreHistoryTable("new_"));
-    db.run("INSERT INTO " ~ newFileScoreTable
-            ~ " (id,time_stamp,score,file_path) SELECT id,strftime('%Y-%m-%d 00:00:00.0', time_stamp) AS time,score,file_path FROM "
-            ~ mutationFileScoreHistoryTable ~ " GROUP BY date(time), file_path");
+    db.run("INSERT INTO " ~ newFileScoreTable ~ " (id,time_stamp,score,file_path) SELECT id,strftime('%Y-%m-%d 00:00:00.0', time_stamp) AS time,score,file_path FROM " ~ mutationFileScoreHistoryTable ~ " GROUP BY date(time), file_path");
     replaceTbl(db, newFileScoreTable, mutationFileScoreHistoryTable);
 
     static immutable newMutationScoreTable = "new_" ~ mutationScoreHistoryTable;
     db.run(buildSchema!MutationScoreHistoryTable("new_"));
-    db.run("INSERT INTO " ~ newMutationScoreTable ~ " (id,time,score) SELECT id,strftime('%Y-%m-%d 00:00:00.0', time),score FROM "
+    db.run("INSERT INTO " ~ newMutationScoreTable
+            ~ " (id,time,score) SELECT id,strftime('%Y-%m-%d 00:00:00.0', time),score FROM "
             ~ mutationScoreHistoryTable ~ " GROUP BY date(time)");
     replaceTbl(db, newMutationScoreTable, mutationScoreHistoryTable);
+}
+
+// 2022-08-23
+void upgradeV55(ref Miniorm db) {
+    foreach (tbl; [
+            srcMetadataTable, mutationTable, killedTestCaseTable,
+            mutantWorklistTable, mutantMemOverloadWorklistTable,
+            mutantTimeoutWorklistTable, schemataMutantTable, testCmdRelMutantTable
+        ]) {
+        db.run("DELETE FROM " ~ tbl);
+    }
+
+    db.run("DROP TABLE " ~ mutationStatusTable);
+    db.run(buildSchema!MutationStatusTbl);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

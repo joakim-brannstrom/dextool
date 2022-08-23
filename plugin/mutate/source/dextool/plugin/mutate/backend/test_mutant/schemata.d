@@ -539,8 +539,7 @@ InjectIdResult mutantsFromSchema(ref Database db, const SchemataId id, const Mut
     InjectIdBuilder builder;
     foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(id, kinds))) {
         auto cs = spinSql!(() => db.mutantApi.getChecksum(mutant));
-        if (!cs.isNull)
-            builder.put(mutant, cs.get);
+        builder.put(mutant, cs);
     }
     debug logger.trace(builder);
 
