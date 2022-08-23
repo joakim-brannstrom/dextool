@@ -295,8 +295,7 @@ struct Database {
         auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationScoreHistoryTable ~ "
                 (score, time) VALUES (:score, :time);");
         stmt.get.bind(":score", score.score.get);
-        stmt.get.bind(":time", score.timeStamp.toISOExtString().replace("T",
-                " ").replace("Z", ""));
+        stmt.get.bind(":time", toSqliteDateTime(score.timeStamp));
         stmt.get.execute;
     }
 
@@ -305,8 +304,7 @@ struct Database {
         auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationFileScoreHistoryTable ~ "
                 (score, time_stamp, file_path) VALUES (:score, :time, :path);");
         stmt.get.bind(":score", score.score.get);
-        stmt.get.bind(":time", score.timeStamp.toISOExtString().replace("T",
-                " ").replace("Z", ""));
+        stmt.get.bind(":time", toSqliteDateTime(score.timeStamp));
         stmt.get.bind(":path", score.file.toString);
         stmt.get.execute;
     }
