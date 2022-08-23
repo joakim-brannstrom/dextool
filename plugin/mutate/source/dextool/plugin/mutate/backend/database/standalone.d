@@ -220,7 +220,7 @@ struct Database {
     /// Returns: the timestamp of the newest file that was added.
     Optional!SysTime getNewestFile() @trusted {
         auto stmt = db.prepare(
-                "SELECT timestamp FROM " ~ filesTable ~ " ORDER BY datetime(timestamp) DESC LIMIT 1");
+                "SELECT timestamp FROM " ~ filesTable ~ " ORDER BY timestamp DESC LIMIT 1");
         auto res = stmt.get.execute;
 
         foreach (ref r; res) {
@@ -1616,7 +1616,7 @@ struct DbMutant {
                     t1.st_id = t0.id AND
                     t1.kind IN (%(%s,%)) AND
                     t0.status IN (%(%s,%))
-                    ORDER BY datetime(t0.update_ts) ASC LIMIT :limit", mutationStatusTable,
+                    ORDER BY t0.update_ts ASC LIMIT :limit", mutationStatusTable,
                 mutationTable, kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
@@ -1635,7 +1635,7 @@ struct DbMutant {
                     t0.update_ts IS NOT NULL AND
                     t1.st_id = t0.id AND
                     t1.kind IN (%(%s,%))
-                    ORDER BY datetime(t0.update_ts) DESC LIMIT :limit",
+                    ORDER BY t0.update_ts DESC LIMIT :limit",
                 mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
@@ -1740,8 +1740,8 @@ struct DbMutant {
                     t1.st_id = t0.id AND
                     t1.kind IN (%(%s,%)) AND
                     (t0.compile_time_ms + t0.test_time_ms) > 0
-                    ORDER BY datetime(t0.update_ts) DESC LIMIT :limit",
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+                    ORDER BY t0.update_ts DESC LIMIT :limit", mutationStatusTable,
+                mutationTable, kinds.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
 
@@ -2936,7 +2936,7 @@ struct DbTestFile {
     /// Returns: the oldest test file, if it exists.
     Optional!TestFile getNewestTestFile() @trusted {
         auto stmt = db.prepare("SELECT path,checksum,timestamp
-            FROM " ~ testFilesTable ~ " ORDER BY datetime(timestamp) DESC LIMIT 1");
+            FROM " ~ testFilesTable ~ " ORDER BY timestamp DESC LIMIT 1");
         auto res = stmt.get.execute;
 
         foreach (ref r; res) {
