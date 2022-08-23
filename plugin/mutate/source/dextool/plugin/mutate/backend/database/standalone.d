@@ -22,7 +22,7 @@ module dextool.plugin.mutate.backend.database.standalone;
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
 import std.algorithm : copy, map, joiner, filter;
-import std.array : Appender, appender, array, empty;
+import std.array : Appender, appender, array, empty, replace;
 import std.conv : to;
 import std.datetime : SysTime, Clock;
 import std.exception : collectException;
@@ -292,43 +292,21 @@ struct Database {
 
     /// Add a mutation score to the history table.
     void putMutationScore(const MutationScore score) @trusted {
-        auto stmt = db.prepare(format!"SELECT id FROM " ~ mutationScoreHistoryTable ~ "
-                WHERE date('now') = date(time);");
-        auto res = stmt.get.execute;
-
-        if (!res.empty) {
-            auto id = res.front.peek!long(0);
-            auto updateStmt = db.prepare(
-                    format!"UPDATE " ~ mutationScoreHistoryTable
-                    ~ " SET score = :score WHERE id = :id;");
-            updateStmt.get.bind(":id", id);
-            updateStmt.get.bind(":score", score.score.get);
-            updateStmt.get.execute;
-        } else {
-            db.run(insert!MutationScoreHistoryTable,
-                    MutationScoreHistoryTable(0, score.timeStamp, score.score.get));
-        }
+        auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationScoreHistoryTable ~ "
+                (score, time) VALUES (:score, :time);");
+        stmt.get.bind(":score", score.score.get);
+        stmt.get.bind(":time", score.timeStamp.toISOExtString().replace("T", " ").replace("Z", ""));
+        stmt.get.execute;
     }
 
     // Add a mutation score for the individual files
     void putFileScore(const FileScore score) @trusted {
-        auto stmt = db.prepare(format!"SELECT id FROM " ~ mutationFileScoreHistoryTable
-                ~ " WHERE date('now') = date(time_stamp) AND :file_path = file_path;");
-        stmt.get.bind(":file_path", score.file.toString);
-        auto res = stmt.get.execute;
-
-        if (!res.empty) {
-            auto id = res.front.peek!long(0);
-            auto updateStmt = db.prepare(
-                    format!"UPDATE " ~ mutationFileScoreHistoryTable
-                    ~ " SET score = :score WHERE id = :id;");
-            updateStmt.get.bind(":id", id);
-            updateStmt.get.bind(":score", score.score.get);
-            updateStmt.get.execute;
-        } else {
-            db.run(insert!MutationFileScoreHistoryTable, MutationFileScoreHistoryTable(0,
-                    score.timeStamp, score.score.get, score.file.toString));
-        }
+        auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationFileScoreHistoryTable ~ "
+                (score, time_stamp, file_path) VALUES (:score, :time, :path);");
+        stmt.get.bind(":score", score.score.get);
+        stmt.get.bind(":time", score.timeStamp.toISOExtString().replace("T", " ").replace("Z", ""));
+        stmt.get.bind(":path", score.file.toString);
+        stmt.get.execute;
     }
 
     void removeFileScores() @trusted {

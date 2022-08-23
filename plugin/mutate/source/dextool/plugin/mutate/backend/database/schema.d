@@ -896,17 +896,6 @@ void upgrade(ref Miniorm db, UpgradeTable tbl) {
 void upgradeV0(ref Miniorm db) {
     auto tbl = makeUpgradeTable;
 
-    @TableName(mutationScoreHistoryTable)
-    struct MutationScoreHistoryTable {
-        long id;
-
-        /// when the measurement was taken.
-        @ColumnName("time")
-        SysTime timeStamp;
-
-        double score;
-    }
-
     db.run(buildSchema!(VersionTbl, RawSrcMetadata, FilesTbl,
             MutationPointTbl, MutationTbl, TestCaseKilledTbl, AllTestCaseTbl,
             MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl,
@@ -1542,6 +1531,17 @@ void upgradeV23(ref Miniorm db) {
 
 /// 2020-12-06
 void upgradeV24(ref Miniorm db) {
+    @TableName(mutationScoreHistoryTable)
+    struct MutationScoreHistoryTable {
+        long id;
+
+        /// when the measurement was taken.
+        @ColumnName("time")
+        SysTime timeStamp;
+
+        double score;
+    }
+    
     db.run(buildSchema!(MutationScoreHistoryTable));
 }
 

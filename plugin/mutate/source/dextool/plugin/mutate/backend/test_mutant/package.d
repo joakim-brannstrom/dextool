@@ -1119,6 +1119,7 @@ nothrow:
         const fileScores = reportScores(*db, kinds, files);
         const score = reportScore(*db, kinds);
         auto time = Clock.currTime.toUTC;
+
         try {
             time.hour = 0;
             time.minute = 0;
