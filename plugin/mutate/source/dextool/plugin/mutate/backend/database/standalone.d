@@ -2975,7 +2975,7 @@ string fromOrder(const MutationOrder userOrder) {
     }
 }
 
-SysTime toDate(SysTime st){
+SysTime toDate(SysTime st) {
     st.hour = 0;
     st.minute = 0;
     st.second = 0;
