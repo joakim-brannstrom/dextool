@@ -239,8 +239,12 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
         // because getMutation worked we know the ID is valid thus no need to
         // check the return values when it or derived values are used.
 
-        const st_id = db.mutantApi.getMutationStatusId(id).get;
-        const checksum = db.mutantApi.getChecksum(st_id).get;
+        const st_id = db.mutantApi.getMutationStatusId(id);
+        if (st_id.isNull) {
+            logger.errorf("Mutant with ID %s do not exist", id.get);
+            return ExitStatusType.Errors;
+        }
+        const checksum = db.mutantApi.getChecksum(st_id.get);
 
         const txt = () {
             auto tmp = makeMutationText(fio.makeInput(fio.toAbsoluteRoot(mut.get.file)),
@@ -248,10 +252,10 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
             return window(format!"'%s'->'%s'"(tmp.original.strip, tmp.mutation.strip), 30);
         }();
 
-        db.markMutantApi.mark(id, mut.get.file, mut.get.sloc, st_id, checksum,
-                status, Rationale(rationale), txt);
+        db.markMutantApi.mark(id, mut.get.file, mut.get.sloc, st_id.get,
+                checksum, status, Rationale(rationale), txt);
 
-        db.mutantApi.update(st_id, status, ExitStatus(0));
+        db.mutantApi.update(st_id.get, status, ExitStatus(0));
 
         logger.infof(`Mutant %s marked with status %s and rationale %s`, id.get, status, rationale);
 
