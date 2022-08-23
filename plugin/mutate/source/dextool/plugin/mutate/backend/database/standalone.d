@@ -22,7 +22,7 @@ module dextool.plugin.mutate.backend.database.standalone;
 import core.time : Duration, dur;
 import logger = std.experimental.logger;
 import std.algorithm : copy, map, joiner, filter;
-import std.array : Appender, appender, array, empty, replace;
+import std.array : Appender, appender, array, empty;
 import std.conv : to;
 import std.datetime : SysTime, Clock;
 import std.exception : collectException;
