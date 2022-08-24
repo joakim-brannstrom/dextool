@@ -1201,11 +1201,12 @@ struct ScoreTrendByCodeChange {
  */
 ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db, const Mutation.Kind[] kinds) @trusted nothrow {
     import dextool.plugin.mutate.backend.database.type : XMutationScore = MutationScore;
+
     auto app = appender!(ScoreTrendByCodeChange.Point[])();
     XMutationScore[] mutationScores = spinSql!(() => db.getMutationScoreHistory);
 
-    foreach(score; mutationScores){
-        try{
+    foreach (score; mutationScores) {
+        try {
             app.put(ScoreTrendByCodeChange.Point(score.timeStamp, score.score.get));
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
