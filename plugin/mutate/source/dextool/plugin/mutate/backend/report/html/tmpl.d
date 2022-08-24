@@ -284,10 +284,10 @@ struct TimeScalePointGraph {
 
             return d;
         }();
-        
-        if (name == "ScoreByCodeChange"){
+
+        if (name == "ScoreByCodeChange") {
             return format!"var %1$sData = %2$s; ScoreByCodeChangeData['options']['tooltips']['callbacks'] = {footer:change};"(
-                name, j.toString);
+                    name, j.toString);
         }
 
         return format!"var %1$sData = %2$s;"(name, j.toString);

@@ -160,6 +160,7 @@ function convertDate(date) {
         ("0" + date.getSeconds()).slice(-2);
 }
 
+<<<<<<< HEAD
 function update_change(time_frame) {
     const short_months = {
         Jan: '01',
