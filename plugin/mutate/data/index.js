@@ -182,11 +182,15 @@ const change = (tooltipItems) => {
     }
 
     var result = "";
+    var i = 0;
+    var len = Object.keys(diff).length;
     for(const [key, value] of Object.entries(diff)){
-        result += key + " : " + value + "\n";
+        result += key + " : " + value;
+        i += 1;
+        if (i < len){
+            result += "\n";
+        }
     };
-    console.log(diff);
-    console.log(result);
 
     return result;
 };
