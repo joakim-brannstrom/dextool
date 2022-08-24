@@ -285,7 +285,7 @@ struct TimeScalePointGraph {
             return d;
         }();
 
-        return format!"var %1$sData = %2$s;"(name, j.toString);
+        return format!"var %1$sData = %2$s; ScoreByCodeChangeData['options']['tooltips']['callbacks'] = {footer:change};"(name, j.toString);
     }
 
     Element canvas(const Width w) @trusted {
