@@ -479,8 +479,10 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] scoreHistory = null) @trusted {
+void toIndex(FileIndex[] files, Element root, string htmlFileDir,
+        FileScore[][Path] scoreHistory = null) @trusted {
     import std.algorithm : sort, filter;
+    import dextool.plugin.mutate.backend.report.html.utility : generatePopupHelp;
 
     DashboardCss.h2(root.addChild(new Link("#files", null)).setAttribute("id", "files"), "Files");
 
@@ -511,6 +513,12 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
                     "Path", "Score", "Change", "Alive", "NoMut", "Total",
                     "Time (min)"
                     ], &shortColumn);
+            fltr.addChild("input").setAttribute("type", "text").setAttribute("id",
+                    "changeTimeFrameInput").setAttribute("onkeyup",
+                    "update_change(changeTimeFrameInput)").addClass("form-control")
+                .setAttribute("placeholder", "Change timeframe");
+            fltr.addChild("p", "Timeframe: Today - ").setAttribute("id", "timeFrameDate");
+            generatePopupHelp(root.getElementById("col-2"), "This column shows: Current score - (average score within the timeframe). The timeframe spans between the current date and the given amount of days in the 'Change timeframe' box (It defaults to 7 days ago)");
         }
         tbl.setAttribute("id", "fileTable");
         return tbl;
@@ -519,13 +527,8 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
     // Users are not interested that files that contains zero mutants are shown
     // in the list. It is especially annoying when they are marked with dark
     // green.
+
     bool hasSuppressed;
-
-    double[Path] averageScore;
-    foreach (score; scoreHistory) {
-        averageScore[score.file] = cast(double) score.score;
-    }
-
     auto noMutants = appender!(FileIndex[])();
     foreach (f; files.sort!((a, b) => a.path < b.path)) {
         if (f.stat.total == 0) {
@@ -551,24 +554,8 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir, FileScore[] sc
                 return null;
             }();
             r.addChild("td", format!"%.3s"(score)).style = style;
-
             if (scoreHistory.length > 0) {
-                double scoreChange;
-                if (Path(f.display) in averageScore) {
-                    scoreChange = score - averageScore[Path(f.display)];
-                } else {
-                    scoreChange = 0;
-                }
-                int fluctuation = ignoreFluctuations(scoreChange);
-                const scoreChangeStyle = () {
-                    if (fluctuation == -1)
-                        return "background-color: salmon";
-                    if (fluctuation == 1)
-                        return "background-color: lightgreen";
-                    scoreChange = 0;
-                    return "background-color: white";
-                }();
-                r.addChild("td", format!"%.3s"(scoreChange)).style = scoreChangeStyle;
+                r.addChild("td", "0");
             }
             r.addChild("td", f.stat.alive.to!string);
             r.addChild("td", f.stat.aliveNoMut.to!string);
@@ -924,6 +911,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
 Document makeDashboard() @trusted {
     import dextool.plugin.mutate.backend.resource : dashboard, jsIndex;
+    import dextool.plugin.mutate.backend.database.type : FileScore;
 
     auto data = dashboard();
 
@@ -1522,7 +1510,23 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         import dextool.plugin.mutate.backend.database.type : FileScore;
 
         auto fileScores = ctx.state.get.db.getMutationFileScoreHistory();
+
         ctx.state.get.files.toIndex(content, HtmlStyle.fileDir, fileScores);
+
+        //Change column: timeframe and value calculation handling
+        auto mut_data = appender!(string[])();
+        mut_data.put("var file_score_data = {};");
+
+        foreach (fileScoreKey; fileScores.byKey) {
+            mut_data.put(format("file_score_data['%s'] = {};", fileScoreKey));
+            foreach (score; fileScores[fileScoreKey]) {
+                mut_data.put(format("file_score_data['%s']['%s'] = %f;",
+                        fileScoreKey, score.timeStamp, score.score.get));
+            }
+        }
+
+        index.root.childElements("head")[0].addChild("script")
+            .appendChild(new RawSource(index, mut_data.data.joiner("\n").toUTF8));
 
         addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
 
