@@ -159,3 +159,97 @@ function convertDate(date) {
         ("0" + date.getMinutes()).slice(-2) + ":" +
         ("0" + date.getSeconds()).slice(-2);
 }
+
+function update_change(time_frame) {
+    const short_months = {
+        Jan: '01',
+        Feb: '02',
+        Mar: '03',
+        Apr: '04',
+        May: '05',
+        Jun: '06',
+        Jul: '07',
+        Aug: '08',
+        Sep: '09',
+        Oct: '10',
+        Nov: '11',
+        Dec: '12',
+      };
+    
+    var end_date = new Date();
+    if (time_frame.value != 0){
+        end_date.setTime(end_date.getTime() - (parseInt(time_frame.value) * 60 * 60 * 24 * 1000))
+    }else{
+        //Default is seven days ago
+        end_date.setTime(end_date.getTime() - (7 * 60 * 60 * 24 * 1000))
+    }
+
+    var timeFrameDate = document.getElementById("timeFrameDate");
+
+    try{
+        timeFrameDate.innerText = "Timeframe: Today - " + end_date.toISOString().slice(0,10);
+    } catch(e){
+        timeFrameDate.innerText = "Timeframe: Invalid date";
+    }
+
+    //Get the average score from the requested time frame
+    var score_dict = {};
+    var curr_date;
+    for(const [key, value] of Object.entries(file_score_data)){
+        //Create an empty list for each file
+        score_dict[key] = [];
+        for(const [score_key, score_value] of Object.entries(value)){
+            //If a date is within the requested time frame, add it to the list
+            curr_date = score_key.split(" ")[0].split("-");
+            try{
+                if(Date.parse(curr_date[0] + "-" + short_months[curr_date[1]] + "-" + curr_date[2]) > end_date.getTime()){
+                    score_dict[key].push(value[score_key]);
+                }
+            } catch(e){
+                score_dict[key].push([0]);
+            }
+        }
+        //Replace the list with the average value of the list
+        try{
+            score_dict[key] = score_dict[key].reduce((a, b) => a + b) / score_dict[key].length;
+        } catch(e){
+            score_dict[key] = -1;
+        }
+    }
+
+    //Update the value in the table
+    var table = document.getElementById("fileTable");
+    var tr = table.getElementsByTagName("tr");
+    for(const [key, value] of Object.entries(tr)){
+        if(!value.innerText.includes("Path")){
+            var row = value.getElementsByTagName("td");        
+
+            var score;
+            //Calculate change
+            if(score_dict[row[0].innerText] == -1){
+                score = 0;
+            } else{
+                score = parseFloat(row[1].innerText) - score_dict[row[0].innerText];
+            }
+            if (Math.abs(score) < 0.001 || Number.isNaN(score)){
+                score = 0;
+            }
+
+            if(score != 0){
+                score = score.toFixed(3);
+            }
+
+            //Update column with the change
+            row[2].innerText = score;
+
+            if(parseFloat(score) > 0){
+                row[2].bgColor = "LightGreen";
+            } else if(parseFloat(score) < 0){
+                row[2].bgColor = "lightsalmon";
+            } else{
+                row[2].bgColor = "White";
+            }
+        }
+    }
+
+}
