@@ -160,7 +160,37 @@ function convertDate(date) {
         ("0" + date.getSeconds()).slice(-2);
 }
 
-<<<<<<< HEAD
+function toMonthShort(num){
+    const date = new Date();
+    date.setMonth(num - 1);
+
+    return date.toLocaleString('en-us', { month: 'short' });
+}
+
+const change = (tooltipItems) => {
+    var date = tooltipItems[0].xLabel.replace("T", " ");
+    date = date.substring(0,5) + toMonthShort(date.substring(5,7)) + date.substring(date.length - 13);
+
+    var diff = {};
+    for(const [key, value] of Object.entries(file_score_data)){
+        const value_keys = Object.keys(value);
+        const index = value_keys.indexOf(date);
+        if(index > 0){
+            const scores = Object.values(value);
+            diff[key] = scores[index] - scores[index - 1];
+        }
+    }
+
+    var result = "";
+    for(const [key, value] of Object.entries(diff)){
+        result += key + " : " + value + "\n";
+    };
+    console.log(diff);
+    console.log(result);
+
+    return result;
+};
+
 function update_change(time_frame) {
     const short_months = {
         Jan: '01',
