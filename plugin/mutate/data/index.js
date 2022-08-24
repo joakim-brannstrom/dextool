@@ -160,6 +160,7 @@ function convertDate(date) {
         ("0" + date.getSeconds()).slice(-2);
 }
 
+// Convert month number to short name, i.e. 08 => "Aug"
 function toMonthShort(num){
     const date = new Date();
     date.setMonth(num - 1);
@@ -167,20 +168,27 @@ function toMonthShort(num){
     return date.toLocaleString('en-us', { month: 'short' });
 }
 
+// Triggered every time a point is hovered on the ScoreByCodeChange graph
 const change = (tooltipItems) => {
+    // Convert the X value to the date format that is used in the file_score_data variable
     var date = tooltipItems[0].xLabel.replace("T", " ");
     date = date.substring(0,5) + toMonthShort(date.substring(5,7)) + date.substring(date.length - 13);
 
     var diff = {};
+    // Key = file_path, Value = {date : file_score}
     for(const [key, value] of Object.entries(file_score_data)){
+        // Value_keys = the dates of the file scores
         const value_keys = Object.keys(value);
         const index = value_keys.indexOf(date);
+
+        //Get the difference between the file score on the date of the X value and the score before it
         if(index > 0){
             const scores = Object.values(value);
             diff[key] = scores[index] - scores[index - 1];
         }
     }
 
+    // Format the string that is shown
     var result = "";
     var i = 0;
     var len = Object.keys(diff).length;
