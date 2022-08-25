@@ -7,7 +7,7 @@ module dextool.plugin.mutate.backend.test_mutant.coverage;
 
 import core.time : Duration;
 import logger = std.experimental.logger;
-import std.algorithm : map, filter, sort;
+import std.algorithm : map, filter, sort, canFind;
 import std.array : array, appender, empty;
 import std.exception : collectException;
 import std.stdio : File;
@@ -27,7 +27,7 @@ import dextool.plugin.mutate.backend.database : CovRegion, CoverageRegionId, Fil
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
-import dextool.plugin.mutate.backend.type : Mutation, Language;
+import dextool.plugin.mutate.backend.type : Mutation, Language, Offset;
 import dextool.plugin.mutate.type : ShellCommand, UserRuntime, CoverageRuntime;
 import dextool.plugin.mutate.config : ConfigCoverage;
 
@@ -42,6 +42,10 @@ struct CoverageDriver {
 
     static struct InitializeRoots {
         bool hasRoot;
+    }
+
+    static struct ImportJSON {
+
     }
 
     static struct SaveOriginal {
@@ -71,7 +75,7 @@ struct CoverageDriver {
     static struct Done {
     }
 
-    alias Fsm = my.fsm.Fsm!(None, Initialize, InitializeRoots, SaveOriginal,
+    alias Fsm = my.fsm.Fsm!(None, ImportJSON, Initialize, InitializeRoots, SaveOriginal,
             Instrument, Compile, Run, SaveToDb, Restore, Done);
 
     private {
@@ -108,6 +112,10 @@ struct CoverageDriver {
         Set!AbsolutePath roots;
 
         CoverageRuntime runtime;
+
+        bool importExists = false;
+
+        string metadataPath;
     }
 
     this(FilesysIO fio, Database* db, TestRunner* runner, ConfigCoverage conf,
@@ -119,6 +127,7 @@ struct CoverageDriver {
         this.buildCmdTimeout = buildCmdTimeout;
         this.log = conf.log;
         this.runtime = conf.runtime;
+        this.metadataPath = conf.metadataPath;
 
         foreach (a; conf.userRuntimeCtrl) {
             auto p = fio.toAbsoluteRoot(a.file);
@@ -131,7 +140,12 @@ struct CoverageDriver {
     }
 
     static void execute_(ref CoverageDriver self) @trusted {
-        self.fsm.next!((None a) => Initialize.init, (Initialize a) {
+        self.fsm.next!((None a) => ImportJSON.init,
+        (ImportJSON a) {
+            if (self.importExists)
+                return fsm(Done.init);
+            return fsm(Initialize.init);
+        }, (Initialize a) {
             if (self.runtime == CoverageRuntime.inject)
                 return fsm(InitializeRoots.init);
             return fsm(SaveOriginal.init);
@@ -235,6 +249,128 @@ nothrow:
         } else if (roots.empty) {
             logger.warning("No root file found to inject the coverage instrumentation runtime in")
                 .collectException;
+        }
+    }
+
+    void opCall(ImportJSON data) {
+        import std.file : exists, readText;
+        import std.json : JSONValue, JSONOptions, parseJSON;
+        import std.string : startsWith;
+
+
+        if (metadataPath.length == 0) {
+            return;
+        } else if (!exists(metadataPath)) {
+            logger.error("File: " ~ metadataPath ~ " does not exist").collectException;
+            return;
+        }
+
+        string fileContent;
+        try {
+            fileContent = readText(metadataPath);
+        } catch (Exception e) {
+            logger.error("Unable to read file " ~ metadataPath).collectException;
+            return;
+        }
+
+        JSONValue jContent;
+        try {
+            jContent = parseJSON(fileContent, JSONOptions.doNotEscapeSlashes);
+        } catch (Exception e) {
+            logger.info(e.msg).collectException;
+            logger.error("Failed to parse filecontect of " ~ metadataPath ~ " into JSON").collectException;
+            return;
+        }
+
+        JSONValue objectData;
+        try {
+            objectData = jContent["coverage-info"];
+        } catch (Exception e) {
+            logger.info(e.msg).collectException;
+            logger.error("Object 'coverage-info' not found in file " ~ metadataPath).collectException;
+            return;
+        }
+
+        JSONValue filesObjectData;
+        try {
+            filesObjectData = objectData["file-keys"];
+        } catch (Exception e) {
+            logger.info(e.msg).collectException;
+            logger.error("Object 'file-keys' not found in file " ~ metadataPath).collectException;
+            return;
+        }
+        importExists = true;
+
+        struct CoverageInfo {
+            Path filePath;
+            long[] coverage;
+            long[] no_coverage;
+            this(Path fp, long[] c, long[] nc) {
+                this.filePath = fp;
+                this.coverage = c;
+                this.no_coverage = nc;
+            }
+        }
+
+        CoverageInfo[] covInfo;
+        try {
+            foreach(filePath; filesObjectData.arrayNoRef) {
+                auto fileData = objectData[filePath.str];
+
+                auto p = fio.toAbsoluteRoot(Path(filePath.str));
+                auto r = fio.getOutputDir();
+
+                if (p.toString.startsWith(r.toString)) {
+                    auto cov = fileData["coverage"];
+                    long[] covLines;
+                    foreach(line; cov.arrayNoRef) {
+                        covLines ~= line.integer;
+                    }
+                    auto noCov = fileData["no_coverage"];
+                    long[] noCovLines;
+                    foreach(line; noCov.arrayNoRef) {
+                        noCovLines ~= line.integer;
+                    }
+
+                    covInfo ~= CoverageInfo(Path(filePath.str), covLines, noCovLines);
+            
+                    auto blob = fio.makeInput(p);
+                    
+                    Offset[] regions;
+                    bool[] statuses;
+                    int byteCounter = 0;
+                    int lineCounter = 1;
+                    uint lineStart = 0;
+                    uint lineEnd;
+                    foreach (b; blob.content) {
+                        if (b == '\n') {
+                            lineEnd = byteCounter;
+                            if (covLines.canFind(lineCounter) || noCovLines.canFind(lineCounter)) {
+                                Offset region;
+                                region.begin = lineStart;
+                                region.end = lineEnd;
+                                regions ~= region;
+                                if (covLines.canFind(lineCounter)) {
+                                    statuses ~= true;
+                                } else {
+                                    statuses ~= false;
+                                }
+                            }
+                            lineStart = byteCounter+1;
+                            lineCounter++;
+                        }
+                        byteCounter++;
+                    }
+                    spinSql!(() @trusted {
+                        logger.warning(localId).collectException;
+                    });
+                }
+            } 
+        }
+        catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            logger.error("Faulty iteration").collectException;
+            return;
         }
     }
 

@@ -528,6 +528,7 @@ struct ArgParser {
                 mutationTest.maxRuntime = parseDuration(maxRuntime);
             mutationTest.constraint = parseUserTestConstraint(testConstraint);
             mutationTest.useSkipMutant.get = !noSkip;
+            coverage.metadataPath = mutationTest.metadataPath;
         }
 
         void reportG(string[] args) {

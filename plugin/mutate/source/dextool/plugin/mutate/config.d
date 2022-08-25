@@ -322,6 +322,8 @@ struct ConfigCoverage {
     /// If the generated coverage files should be saved.
     bool log;
 
+    string metadataPath;
+
     /// allows a user to control exactly which files the coverage and schemata
     /// runtime is injected in.
     UserRuntime[] userRuntimeCtrl;
