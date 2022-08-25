@@ -2026,100 +2026,98 @@ void upgradeV52(ref Miniorm db) {
 }
 
 // 2022-08-10
-    void upgradeV53(ref Miniorm db) {
-        @TableName(mutationStatusTable) @TableConstraint("checksum UNIQUE (checksum)")
-        struct MutationStatusTbl {
-            long id;
+void upgradeV53(ref Miniorm db) {
+    @TableName(mutationStatusTable) @TableConstraint("checksum UNIQUE (checksum)")
+    struct MutationStatusTbl {
+        long id;
 
-            /// Mutation.Status
-            long status;
+        /// Mutation.Status
+        long status;
 
-            @ColumnName("exit_code")
-            int exitCode;
+        @ColumnName("exit_code")
+        int exitCode;
 
-            @ColumnName("compile_time_ms")
-            long compileTimeMs;
+        @ColumnName("compile_time_ms")
+        long compileTimeMs;
 
-            @ColumnName("test_time_ms")
-            long testTimeMs;
+        @ColumnName("test_time_ms")
+        long testTimeMs;
 
-            @ColumnParam("")
-            @ColumnName("update_ts")
-            SysTime updated;
+        @ColumnParam("")
+        @ColumnName("update_ts")
+        SysTime updated;
 
-            @ColumnParam("")
-            @ColumnName("added_ts")
-            SysTime added;
+        @ColumnParam("")
+        @ColumnName("added_ts")
+        SysTime added;
 
-            long checksum;
+        long checksum;
 
-            /// Priority of the mutant used when testing.
-            long prio;
-        }
-
-        const newFilesTbl = "new_" ~ filesTable;
-        db.run(buildSchema!FilesTbl("new_"));
-        db.run("INSERT INTO " ~ newFilesTbl
-                ~ " (id, path, lang, timestamp, root, checksum) SELECT id,path,lang,timestamp,root,checksum0 FROM "
-                ~ filesTable);
-        replaceTbl(db, newFilesTbl, filesTable);
-
-        const newTestFilesTbl = "new_" ~ testFilesTable;
-        db.run(buildSchema!TestFilesTable("new_"));
-        db.run("INSERT INTO " ~ newTestFilesTbl
-                ~ " (id,path,timestamp,checksum) SELECT id,path,timestamp,checksum0 FROM "
-                ~ testFilesTable);
-        replaceTbl(db, newTestFilesTbl, testFilesTable);
-
-        const newMutationStatusTbl = "new_" ~ mutationStatusTable;
-        db.run(buildSchema!MutationStatusTbl("new_"));
-        db.run("INSERT INTO " ~ newMutationStatusTbl ~ " (id,status,exit_code,checksum,compile_time_ms,test_time_ms,prio) SELECT id,status,exit_code,checksum0,compile_time_ms,test_time_ms,prio FROM " ~ mutationStatusTable);
-        replaceTbl(db, newMutationStatusTbl, mutationStatusTable);
-
-        const newDepFileTbl = "new_" ~ depFileTable;
-        db.run(buildSchema!DependencyFileTable("new_"));
-        db.run(
-                "INSERT INTO " ~ newDepFileTbl
-                ~ " (id, file, checksum) SELECT id,file,checksum0 FROM " ~ depFileTable);
-        replaceTbl(db, newDepFileTbl, depFileTable);
-
-        const newMarkedMutantTbl = "new_" ~ markedMutantTable;
-        db.run(buildSchema!MarkedMutantTbl("new_"));
-        db.run("INSERT INTO " ~ newMarkedMutantTbl ~ " (checksum,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText) SELECT checksum0,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText FROM " ~ markedMutantTable);
-        replaceTbl(db, newMarkedMutantTbl, markedMutantTable);
+        /// Priority of the mutant used when testing.
+        long prio;
     }
 
-    // 2022-08-17
-    void upgradeV54(ref Miniorm db) {
-        static immutable newFileScoreTable = "new_" ~ mutationFileScoreHistoryTable;
-        db.run(buildSchema!MutationFileScoreHistoryTable("new_"));
-        db.run("INSERT INTO " ~ newFileScoreTable ~ " (id,time_stamp,score,file_path) SELECT id,strftime('%Y-%m-%d 00:00:00.0', time_stamp) AS time,score,file_path FROM " ~ mutationFileScoreHistoryTable ~ " GROUP BY date(time), file_path");
-        replaceTbl(db, newFileScoreTable, mutationFileScoreHistoryTable);
+    const newFilesTbl = "new_" ~ filesTable;
+    db.run(buildSchema!FilesTbl("new_"));
+    db.run("INSERT INTO " ~ newFilesTbl
+            ~ " (id, path, lang, timestamp, root, checksum) SELECT id,path,lang,timestamp,root,checksum0 FROM "
+            ~ filesTable);
+    replaceTbl(db, newFilesTbl, filesTable);
 
-        static immutable newMutationScoreTable = "new_" ~ mutationScoreHistoryTable;
-        db.run(buildSchema!MutationScoreHistoryTable("new_"));
-        db.run("INSERT INTO " ~ newMutationScoreTable
-                ~ " (id,time,score) SELECT id,strftime('%Y-%m-%d 00:00:00.0', time),score FROM "
-                ~ mutationScoreHistoryTable ~ " GROUP BY date(time)");
-        replaceTbl(db, newMutationScoreTable, mutationScoreHistoryTable);
+    const newTestFilesTbl = "new_" ~ testFilesTable;
+    db.run(buildSchema!TestFilesTable("new_"));
+    db.run("INSERT INTO " ~ newTestFilesTbl
+            ~ " (id,path,timestamp,checksum) SELECT id,path,timestamp,checksum0 FROM "
+            ~ testFilesTable);
+    replaceTbl(db, newTestFilesTbl, testFilesTable);
+
+    const newMutationStatusTbl = "new_" ~ mutationStatusTable;
+    db.run(buildSchema!MutationStatusTbl("new_"));
+    db.run("INSERT INTO " ~ newMutationStatusTbl ~ " (id,status,exit_code,checksum,compile_time_ms,test_time_ms,prio) SELECT id,status,exit_code,checksum0,compile_time_ms,test_time_ms,prio FROM " ~ mutationStatusTable);
+    replaceTbl(db, newMutationStatusTbl, mutationStatusTable);
+
+    const newDepFileTbl = "new_" ~ depFileTable;
+    db.run(buildSchema!DependencyFileTable("new_"));
+    db.run("INSERT INTO " ~ newDepFileTbl
+            ~ " (id, file, checksum) SELECT id,file,checksum0 FROM " ~ depFileTable);
+    replaceTbl(db, newDepFileTbl, depFileTable);
+
+    const newMarkedMutantTbl = "new_" ~ markedMutantTable;
+    db.run(buildSchema!MarkedMutantTbl("new_"));
+    db.run("INSERT INTO " ~ newMarkedMutantTbl ~ " (checksum,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText) SELECT checksum0,st_id,mut_id,line,column,path,toStatus,time,rationale,mutText FROM " ~ markedMutantTable);
+    replaceTbl(db, newMarkedMutantTbl, markedMutantTable);
+}
+
+// 2022-08-17
+void upgradeV54(ref Miniorm db) {
+    static immutable newFileScoreTable = "new_" ~ mutationFileScoreHistoryTable;
+    db.run(buildSchema!MutationFileScoreHistoryTable("new_"));
+    db.run("INSERT INTO " ~ newFileScoreTable ~ " (id,time_stamp,score,file_path) SELECT id,strftime('%Y-%m-%d 00:00:00.0', time_stamp) AS time,score,file_path FROM " ~ mutationFileScoreHistoryTable ~ " GROUP BY date(time), file_path");
+    replaceTbl(db, newFileScoreTable, mutationFileScoreHistoryTable);
+
+    static immutable newMutationScoreTable = "new_" ~ mutationScoreHistoryTable;
+    db.run(buildSchema!MutationScoreHistoryTable("new_"));
+    db.run("INSERT INTO " ~ newMutationScoreTable
+            ~ " (id,time,score) SELECT id,strftime('%Y-%m-%d 00:00:00.0', time),score FROM "
+            ~ mutationScoreHistoryTable ~ " GROUP BY date(time)");
+    replaceTbl(db, newMutationScoreTable, mutationScoreHistoryTable);
+}
+
+// 2022-08-23
+void upgradeV55(ref Miniorm db) {
+    foreach (tbl; [
+            srcMetadataTable, mutationTable, killedTestCaseTable,
+            mutantWorklistTable, mutantMemOverloadWorklistTable,
+            mutantTimeoutWorklistTable, schemataMutantTable, testCmdRelMutantTable
+        ]) {
+        db.run("DELETE FROM " ~ tbl);
     }
 
-    // 2022-08-23
-    void upgradeV55(ref Miniorm db) {
-        foreach (tbl; [
-                srcMetadataTable, mutationTable, killedTestCaseTable,
-                mutantWorklistTable, mutantMemOverloadWorklistTable,
-                mutantTimeoutWorklistTable, schemataMutantTable,
-                testCmdRelMutantTable
-            ]) {
-            db.run("DELETE FROM " ~ tbl);
-        }
+    db.run("DROP TABLE " ~ mutationStatusTable);
+    db.run(buildSchema!MutationStatusTbl);
+}
 
-        db.run("DROP TABLE " ~ mutationStatusTable);
-        db.run(buildSchema!MutationStatusTbl);
-    }
-    
-    void upgradeV56(ref Miniorm db) {
+void upgradeV56(ref Miniorm db) {
     static immutable newTbl = "new_" ~ srcCovTable;
     db.run(buildSchema!CoverageCodeRegionTable("new_"));
 
@@ -2132,49 +2130,48 @@ void upgradeV52(ref Miniorm db) {
     db.run("DROP TABLE " ~ srcCovInfoTable);
 }
 
-    void replaceTbl(ref Miniorm db, string src, string dst) {
-        db.run("DROP TABLE " ~ dst);
-        db.run("ALTER TABLE " ~ src ~ " RENAME TO " ~ dst);
-    }
+void replaceTbl(ref Miniorm db, string src, string dst) {
+    db.run("DROP TABLE " ~ dst);
+    db.run("ALTER TABLE " ~ src ~ " RENAME TO " ~ dst);
+}
 
+struct UpgradeTable {
+    alias UpgradeFunc = void function(ref Miniorm db);
+    UpgradeFunc[long] tbl;
+    alias tbl this;
 
-    struct UpgradeTable {
-        alias UpgradeFunc = void function(ref Miniorm db);
-        UpgradeFunc[long] tbl;
-        alias tbl this;
+    immutable long latestSchemaVersion;
+}
 
-        immutable long latestSchemaVersion;
-    }
-
-    /** Inspects a module for functions starting with upgradeV to create a table of
+/** Inspects a module for functions starting with upgradeV to create a table of
  * functions that can be used to upgrade a database.
  */
-    UpgradeTable makeUpgradeTable() {
-        import std.algorithm : sort, startsWith;
-        import std.conv : to;
-        import std.typecons : Tuple;
+UpgradeTable makeUpgradeTable() {
+    import std.algorithm : sort, startsWith;
+    import std.conv : to;
+    import std.typecons : Tuple;
 
-        immutable prefix = "upgradeV";
+    immutable prefix = "upgradeV";
 
-        alias Module = dextool.plugin.mutate.backend.database.schema;
+    alias Module = dextool.plugin.mutate.backend.database.schema;
 
-        // the second parameter is the database version to upgrade FROM.
-        alias UpgradeFx = Tuple!(UpgradeTable.UpgradeFunc, long);
+    // the second parameter is the database version to upgrade FROM.
+    alias UpgradeFx = Tuple!(UpgradeTable.UpgradeFunc, long);
 
-        UpgradeFx[] upgradeFx;
-        long last_from;
+    UpgradeFx[] upgradeFx;
+    long last_from;
 
-        static foreach (member; __traits(allMembers, Module)) {
-            static if (member.startsWith(prefix))
-                upgradeFx ~= UpgradeFx(&__traits(getMember, Module, member),
-                        member[prefix.length .. $].to!long);
-        }
-
-        typeof(UpgradeTable.tbl) tbl;
-        foreach (fn; upgradeFx.sort!((a, b) => a[1] < b[1])) {
-            last_from = fn[1];
-            tbl[last_from] = fn[0];
-        }
-
-        return UpgradeTable(tbl, last_from + 1);
+    static foreach (member; __traits(allMembers, Module)) {
+        static if (member.startsWith(prefix))
+            upgradeFx ~= UpgradeFx(&__traits(getMember, Module, member),
+                    member[prefix.length .. $].to!long);
     }
+
+    typeof(UpgradeTable.tbl) tbl;
+    foreach (fn; upgradeFx.sort!((a, b) => a[1] < b[1])) {
+        last_from = fn[1];
+        tbl[last_from] = fn[0];
+    }
+
+    return UpgradeTable(tbl, last_from + 1);
+}
