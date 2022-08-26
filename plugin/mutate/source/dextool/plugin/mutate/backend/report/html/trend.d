@@ -61,16 +61,18 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
     }
 
     const codeChange = reportTrendByCodeChange(db, kinds);
-    if (codeChange.sample.length > 2) {
+    if (codeChange.sample.length > 1) {
         ts = TimeScalePointGraph("ScoreByCodeChange");
         foreach (v; codeChange.sample) {
-            ts.put("Score", TimeScalePointGraph.Point(v.timeStamp, v.value.get));
+            ts.put("Lowest score", TimeScalePointGraph.Point(v.timeStamp, v.value));
         }
-        ts.setColor("Score", "purple");
-        ts.html(base, TimeScalePointGraph.Width(80));
+        ts.setColor("Lowest score", "purple");
+        auto script_addon = "ScoreByCodeChangeData['options']['tooltips']['callbacks'] = {footer:change};";
+        ts.html(base, TimeScalePointGraph.Width(80), script_addon);
 
         auto info = base.addChild("div", "Code change");
-        generatePopupHelp(info,
-                "Code change is a prediction of how the mutation score will change based on the latest code changes.");
+        generatePopupHelp(info, "Code change is a graph where the point's X values is the date when the tests were ran and the Y values is the lowest FileScore on that date. If you hover a point you can see all the FileScores on that date.");
+    } else {
+        base.addChild("p", "There is not enough MutationScores to generate a graph");
     }
 }

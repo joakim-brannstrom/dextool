@@ -253,3 +253,41 @@ function update_change(time_frame) {
     }
 
 }
+
+// Convert month number to short name, i.e. 08 => "Aug"
+function toMonthShort(num){
+    const date = new Date();
+    date.setMonth(num - 1);
+
+    return date.toLocaleString('en-us', { month: 'short' });
+}
+
+// Triggered every time a point is hovered on the ScoreByCodeChange graph
+const change = (tooltipItems) => {
+    // Convert the X value to the date format that is used in the file_score_data variable
+    var date = tooltipItems[0].xLabel.replace("T", " ");
+    date = date.substring(0,5) + toMonthShort(date.substring(5,7)) + date.substring(date.length - 13);
+
+    var scoreList = {};
+    // Key = file_path, Value = {date : file_score}
+    for(const [key, value] of Object.entries(file_score_data)){
+        if(value[date] != undefined){
+            scoreList[key] = value[date];
+        } 
+    }
+
+    // Format the string that is shown
+    var result = "";
+    var i = 0;
+    var len = Object.keys(scoreList).length;
+    for(const [key, value] of Object.entries(scoreList)){
+        result += key + " : " + value;
+        i += 1;
+        if (i < len){
+            result += "\n";
+        }
+    };
+
+    return result;
+};
+
