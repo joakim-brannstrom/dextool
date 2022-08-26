@@ -470,3 +470,22 @@ class ShallGenerateValidSchemaForGotoLabel : SchemataFixutre {
                 r.output);
     }
 }
+
+class ShallChangeTimeoutScaleFactor : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "simple_schemata.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "all"
+        ]).run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--timeout-scale", "3"]).run;
+
+        testAnyOrder!SubStr(["Timeout Scale Factor: 3"]).shouldBeIn(r.output);
+    }
+}
