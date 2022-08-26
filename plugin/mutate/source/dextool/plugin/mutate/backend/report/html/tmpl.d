@@ -300,8 +300,8 @@ struct TimeScalePointGraph {
                 name);
     }
 
-    void html(Element root, const Width w) @trusted {
+    void html(Element root, const Width w, const string script_addon = "") @trusted {
         root.addChild(canvas(w));
-        root.addChild("script").innerRawSource(data ~ initCall);
+        root.addChild("script").innerRawSource(data ~ script_addon ~ initCall);
     }
 }
