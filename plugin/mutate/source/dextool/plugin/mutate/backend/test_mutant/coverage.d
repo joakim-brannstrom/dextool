@@ -75,8 +75,8 @@ struct CoverageDriver {
     static struct Done {
     }
 
-    alias Fsm = my.fsm.Fsm!(None, ImportJSON, Initialize, InitializeRoots, SaveOriginal,
-            Instrument, Compile, Run, SaveToDb, Restore, Done);
+    alias Fsm = my.fsm.Fsm!(None, ImportJSON, Initialize, InitializeRoots,
+            SaveOriginal, Instrument, Compile, Run, SaveToDb, Restore, Done);
 
     private {
         Fsm fsm;
@@ -140,8 +140,7 @@ struct CoverageDriver {
     }
 
     static void execute_(ref CoverageDriver self) @trusted {
-        self.fsm.next!((None a) => ImportJSON.init,
-        (ImportJSON a) {
+        self.fsm.next!((None a) => ImportJSON.init, (ImportJSON a) {
             if (self.importExists)
                 return fsm(Done.init);
             return fsm(Initialize.init);
@@ -257,7 +256,6 @@ nothrow:
         import std.json : JSONValue, JSONOptions, parseJSON;
         import std.string : startsWith;
 
-
         if (metadataPath.length == 0) {
             return;
         } else if (!exists(metadataPath)) {
@@ -278,7 +276,8 @@ nothrow:
             jContent = parseJSON(fileContent, JSONOptions.doNotEscapeSlashes);
         } catch (Exception e) {
             logger.info(e.msg).collectException;
-            logger.error("Failed to parse filecontect of " ~ metadataPath ~ " into JSON").collectException;
+            logger.error("Failed to parse filecontect of " ~ metadataPath ~ " into JSON")
+                .collectException;
             return;
         }
 
@@ -287,7 +286,8 @@ nothrow:
             objectData = jContent["coverage-info"];
         } catch (Exception e) {
             logger.info(e.msg).collectException;
-            logger.error("Object 'coverage-info' not found in file " ~ metadataPath).collectException;
+            logger.error("Object 'coverage-info' not found in file " ~ metadataPath)
+                .collectException;
             return;
         }
 
@@ -314,7 +314,7 @@ nothrow:
 
         CoverageInfo[] covInfo;
         try {
-            foreach(filePath; filesObjectData.arrayNoRef) {
+            foreach (filePath; filesObjectData.arrayNoRef) {
                 auto fileData = objectData[filePath.str];
 
                 auto p = fio.toAbsoluteRoot(Path(filePath.str));
@@ -323,19 +323,19 @@ nothrow:
                 if (p.toString.startsWith(r.toString)) {
                     auto cov = fileData["coverage"];
                     long[] covLines;
-                    foreach(line; cov.arrayNoRef) {
+                    foreach (line; cov.arrayNoRef) {
                         covLines ~= line.integer;
                     }
                     auto noCov = fileData["no_coverage"];
                     long[] noCovLines;
-                    foreach(line; noCov.arrayNoRef) {
+                    foreach (line; noCov.arrayNoRef) {
                         noCovLines ~= line.integer;
                     }
 
                     covInfo ~= CoverageInfo(Path(filePath.str), covLines, noCovLines);
-            
+
                     auto blob = fio.makeInput(p);
-                    
+
                     Offset[] regions;
                     bool[] statuses;
                     int byteCounter = 0;
@@ -356,7 +356,7 @@ nothrow:
                                     statuses ~= false;
                                 }
                             }
-                            lineStart = byteCounter+1;
+                            lineStart = byteCounter + 1;
                             lineCounter++;
                         }
                         byteCounter++;
@@ -365,9 +365,8 @@ nothrow:
                         logger.warning(localId).collectException;
                     });
                 }
-            } 
-        }
-        catch (Exception e) {
+            }
+        } catch (Exception e) {
             logger.warning(e.msg).collectException;
             logger.error("Faulty iteration").collectException;
             return;
@@ -488,7 +487,7 @@ nothrow:
         void save() @trusted {
             auto trans = db.transaction;
             foreach (a; data.covMap) {
-                db.coverageApi.putCoverageInfo(localId[a.id], a.status);
+                db.coverageApi.putCoverageStatus(localId[a.id], a.status);
             }
             db.coverageApi.updateCoverageTimeStamp;
             trans.commit;

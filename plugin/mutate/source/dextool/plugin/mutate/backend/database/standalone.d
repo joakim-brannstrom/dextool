@@ -2352,10 +2352,16 @@ struct DbCoverage {
         return rval;
     }
 
+    void putCoverageStatus(const CoverageRegionId regionId, bool status) {
+        static immutable sql = format!"UPDATE %1s SET status = :status WHERE id = :id"(srcCovTable);
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", regionId.get);
+        stmt.get.bind(":status", status);
+        stmt.get.execute;
+    }
+
     CovRegionStatus[] getCoverageStatus(FileId fileId) @trusted {
-        immutable sql = "SELECT t0.begin, t0.end, t1.status FROM "
-            ~ srcCovTable ~ " t0, " ~ srcCovInfoTable ~ " t1
-        WHERE t0.id = t1.id AND t0.file_id = :fid";
+        immutable sql = "SELECT begin, end, status FROM " ~ srcCovTable ~ " WHERE file_id = :fid";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":fid", fileId.get);
         auto rval = appender!(CovRegionStatus[])();
@@ -2381,15 +2387,6 @@ struct DbCoverage {
         stmt.get.execute;
     }
 
-    void putCoverageInfo(const CoverageRegionId regionId, bool status) {
-        static immutable sql = format!"INSERT OR REPLACE INTO %1$s (id, status) VALUES(:id, :status)"(
-                srcCovInfoTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", regionId.get);
-        stmt.get.bind(":status", status);
-        stmt.get.execute;
-    }
-
     Optional!SysTime getCoverageTimeStamp() @trusted {
         static immutable sql = format!"SELECT timeStamp FROM %s"(srcCovTimeStampTable);
         auto stmt = db.prepare(sql);
@@ -2410,13 +2407,12 @@ struct DbCoverage {
     }
 
     MutationStatusId[] getNotCoveredMutants() @trusted {
-        static immutable sql = format!"SELECT DISTINCT t3.st_id FROM %1$s t0, %2$s t1, %3$s t2, %4$s t3
+        static immutable sql = format!"SELECT DISTINCT t2.st_id FROM %1$s t0, %2$s t1, %3$s t2
             WHERE t0.status = 0 AND
-            t0.id = t1.id AND
-            t1.file_id = t2.file_id AND
-            (t2.offset_begin BETWEEN t1.begin AND t1.end) AND
-            (t2.offset_end BETWEEN t1.begin AND t1.end) AND
-            t2.id = t3.mp_id"(srcCovInfoTable, srcCovTable, mutationPointTable, mutationTable);
+            t0.file_id = t1.file_id AND
+            (t1.offset_begin BETWEEN t0.begin AND t0.end) AND
+            (t1.offset_end BETWEEN t0.begin AND t0.end) AND
+            t1.id = t2.mp_id"(srcCovTable, mutationPointTable, mutationTable);
 
         auto app = appender!(MutationStatusId[])();
         auto stmt = db.prepare(sql);

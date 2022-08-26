@@ -115,7 +115,6 @@ immutable schemataFragmentTable = "schemata_fragment";
 immutable schemataMutantTable = "schemata_mutant";
 immutable schemataTable = "schemata";
 immutable schemataUsedTable = "schemata_used";
-immutable srcCovInfoTable = "src_cov_info";
 immutable srcCovTable = "src_cov_instr";
 immutable srcCovTimeStampTable = "src_cov_timestamp";
 immutable srcMetadataTable = "src_metadata";
@@ -125,6 +124,7 @@ immutable testCmdRelMutantTable = "test_cmd_rel_mutant";
 immutable testCmdTable = "test_cmd";
 immutable testFilesTable = "test_files";
 
+private immutable srcCovInfoTable = "src_cov_info";
 private immutable invalidSchemataTable = "invalid_schemata";
 private immutable schemataWorkListTable = "schemata_worklist";
 private immutable testCaseTableV1 = "test_case";
@@ -676,6 +676,8 @@ struct CoverageCodeRegionTable {
 
     @ColumnName("file_id")
     long fileId;
+
+    /// True if the region has been visited.
     bool status;
 
     /// the region in the files, in bytes.
@@ -1723,6 +1725,20 @@ void upgradeV30(ref Miniorm db) {
 
 /// 2020-12-29
 void upgradeV31(ref Miniorm db) {
+    @TableName(srcCovTable)
+    @TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableConstraint("file_offset UNIQUE (file_id, begin, end)")
+    struct CoverageCodeRegionTable {
+        long id;
+
+        @ColumnName("file_id")
+        long fileId;
+
+        /// the region in the files, in bytes.
+        uint begin;
+        uint end;
+    }
+
     @TableName(srcCovInfoTable)
     @TableForeignKey("id", KeyRef("src_cov_info(id)"), KeyParam("ON DELETE CASCADE"))
     struct CoverageInfoTable {
@@ -2118,16 +2134,9 @@ void upgradeV55(ref Miniorm db) {
 }
 
 void upgradeV56(ref Miniorm db) {
-    static immutable newTbl = "new_" ~ srcCovTable;
-    db.run(buildSchema!CoverageCodeRegionTable("new_"));
-
-    db.run("INSERT INTO " ~ newTbl
-            ~ " (id,fileId,begin,end,status) SELECT instr.id, instr.file_id, instr.begin, instr.end, info.status FROM "
-            ~ srcCovTable ~ " AS instr, " ~ srcCovInfoTable ~ " AS info WHERE instr.id = info.id");
-
-    replaceTbl(db, newTbl, srcCovTable);
-
     db.run("DROP TABLE " ~ srcCovInfoTable);
+    db.run("DROP TABLE " ~ srcCovTable);
+    db.run(buildSchema!CoverageCodeRegionTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
