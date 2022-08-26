@@ -147,6 +147,9 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         try {
             ctx.state.get.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
 
+            ctx.state.get.timeoutConf.timeoutScaleFactor = ctx.state.get.conf.timeoutScaleFactor;
+            logger.tracef("Timeout Scale Factor: %s", ctx.state.get.timeoutConf.timeoutScaleFactor);
+
             ctx.state.get.scheduler = () {
                 TestMutantActor.Address[] testers;
                 foreach (_0; 0 .. ctx.state.get.conf.parallelMutants) {

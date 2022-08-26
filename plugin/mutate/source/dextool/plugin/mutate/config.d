@@ -312,6 +312,9 @@ struct ConfigSchema {
 
     /// Number of schema mutants to test in parallel.
     int parallelMutants;
+
+    /// The value which the timeout time is multiplied with
+    double timeoutScaleFactor = 2.0;
 }
 
 struct ConfigCoverage {

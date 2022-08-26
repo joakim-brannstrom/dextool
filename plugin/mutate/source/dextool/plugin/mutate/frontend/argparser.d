@@ -186,7 +186,9 @@ struct ArgParser {
         app.put("# it is a slowdown but nice robustness that is usually worth having");
         app.put("check_schemata = true");
         app.put(null);
-
+        app.put("# Timeout scale factor");
+        app.put(format!"timeout_scale = %s"(schema.timeoutScaleFactor));
+        app.put(null);
         app.put("[coverage]");
         app.put(null);
         app.put("# Use coverage to reduce the tested mutants");
@@ -500,6 +502,7 @@ struct ArgParser {
                    "test-cmd", "program used to run the test suite", &mutationTester,
                    "test-cmd-checksum", "use checksums of the original to avoid running unmodified tests", mutationTest.testCmdChecksum.getPtr,
                    "test-timeout", "timeout to use for the test suite (msecs)", &mutationTesterRuntime,
+                   "timeout-scale", "the factor of which the timeout time is multiplied with", &schema.timeoutScaleFactor,
                    "use-early-stop", "stop executing tests for a mutant as soon as one kill a mutant to speed-up testing", &mutationTest.useEarlyTestCmdStop,
                    );
             // dfmt on
@@ -985,6 +988,9 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     };
     callbacks["schema.parallel_mutants"] = (ref ArgParser c, ref TOMLValue v) {
         c.schema.parallelMutants = max(1, cast(int) v.integer);
+    };
+    callbacks["schema.timeout_scale"] = (ref ArgParser c, ref TOMLValue v) {
+        c.schema.timeoutScaleFactor = v.floating;
     };
 
     callbacks["database.db"] = (ref ArgParser c, ref TOMLValue v) {
@@ -1490,6 +1496,17 @@ max_mem_usage_percentage = 2.0`;
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
     (cast(long) ap.mutationTest.maxMemUsage.get).shouldEqual(2);
+}
+
+@("shall parse the timeout scale")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `[schema]
+timeout_scale = 3.0`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.schema.timeoutScaleFactor.shouldEqual(3.0);
 }
 
 /// Minimal config to setup path to config file.
