@@ -42,7 +42,7 @@ import dextool.plugin.mutate.backend.report.html.utility;
 
 @safe:
 
-void makeTestCases(ref Database db, string tag, Element root,
+void makeTestCases(ref Database db, string tag, Document doc, Element root,
         ref const ConfigReport conf, TestCaseMetadata metaData, AbsolutePath testCasesDir) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]),
             "Test Cases");

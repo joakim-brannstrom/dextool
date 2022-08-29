@@ -34,7 +34,7 @@ import dextool.plugin.mutate.backend.report.html.utility : generatePopupHelp;
 
 @safe:
 
-void makeMutantPage(ref Database db, string tag, Element root,
+void makeMutantPage(ref Database db, string tag, Document, Element root,
         ref const ConfigReport conf, const AbsolutePath mutantPageFname) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Mutants");
     root.addChild("a", "All mutants").href = mutantPageFname.baseName;

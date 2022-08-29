@@ -54,18 +54,19 @@ import dextool.plugin.mutate.type : MutationOrder;
 struct Database {
     private {
         Miniorm db_;
-        DbDependency dbDependency_;
-        DbTestCmd dbTestCmd_;
-        DbTestCase dbTestCase_;
-        DbMutant dbMutant_;
-        DbWorklist dbWorklist_;
-        DbMemOverload dbMemOverload_;
-        DbMarkMutant dbMarkMutant_;
-        DbTimeout dbTimeout_;
         DbCoverage dbCoverage_;
-        DbSchema dbSchema_;
-        DbTestFile dbTestFile_;
+        DbDependency dbDependency_;
+        DbFile dbFile_;
+        DbMarkMutant dbMarkMutant_;
+        DbMemOverload dbMemOverload_;
         DbMetaData dbMetaData_;
+        DbMutant dbMutant_;
+        DbSchema dbSchema_;
+        DbTestCase dbTestCase_;
+        DbTestCmd dbTestCmd_;
+        DbTestFile dbTestFile_;
+        DbTimeout dbTimeout_;
+        DbWorklist dbWorklist_;
     }
 
     /** Create a database by either opening an existing or initializing a new.
@@ -278,20 +279,6 @@ struct Database {
         return app.data.sort!((a, b) => a.timeStamp < b.timeStamp).array;
     }
 
-    /// Returns: the stored scores in ascending order by their `time`.
-    FileScore[][Path] getMutationFileScoreHistory() @trusted {
-        FileScore[][Path] scoreDict;
-
-        auto stmt = db.prepare("SELECT time_stamp, score, file_path FROM "
-                ~ mutationFileScoreHistoryTable ~ " ORDER BY time_stamp ASC");
-        foreach (r; stmt.get.execute) {
-            scoreDict[Path(r.peek!string(2))] ~= FileScore(fromSqLiteDateTime(r.peek!string(0)),
-                    typeof(FileScore.score)(r.peek!double(1)), Path(r.peek!string(2)));
-        }
-
-        return scoreDict;
-    }
-
     /// Add a mutation score to the history table.
     void putMutationScore(const MutationScore score) @trusted {
         auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationScoreHistoryTable ~ "
@@ -431,6 +418,11 @@ struct Database {
     ref DbMetaData metaDataApi() return @trusted {
         dbMetaData_ = typeof(return)(&db_);
         return dbMetaData_;
+    }
+
+    ref DbFile fileApi() return @trusted {
+        dbFile_ = typeof(return)(&db_);
+        return dbFile_;
     }
 }
 
@@ -2750,6 +2742,30 @@ struct DbTestFile {
         auto stmt = db.prepare("DELETE FROM " ~ testFilesTable ~ " WHERE path=:path");
         stmt.get.bind(":path", p.get.toString);
         stmt.get.execute;
+    }
+}
+
+struct DbFile {
+    private Miniorm* db_;
+
+    scope ref Miniorm db() return @safe {
+        return *db_;
+    }
+
+    /// Returns: the stored scores in ascending order by their `time`.
+    FileScore[] getFileScoreHistory() @trusted {
+        static immutable sql = "SELECT time_stamp, score, file_path FROM "
+            ~ mutationFileScoreHistoryTable ~ " ORDER BY time_stamp ASC";
+
+        auto app = appender!(FileScore[])();
+
+        auto stmt = db.prepare(sql);
+        foreach (r; stmt.get.execute) {
+            app.put(FileScore(fromSqLiteDateTime(r.peek!string(0)),
+                    typeof(FileScore.score)(r.peek!double(1)), Path(r.peek!string(2))));
+        }
+
+        return app.data;
     }
 }
 

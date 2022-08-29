@@ -472,8 +472,7 @@ struct Span {
     res[13].muts.length.shouldEqual(0);
 }
 
-void toIndex(FileIndex[] files, Element root, string htmlFileDir,
-        FileScore[][Path] scoreHistory = null) @trusted {
+void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     import std.algorithm : sort, filter;
     import dextool.plugin.mutate.backend.report.html.utility : generatePopupHelp;
 
@@ -496,23 +495,14 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir,
 
     auto tbl = () {
         Table tbl;
-        //If there is no score history, then it shouldnt show the Change column
-        if (scoreHistory.length == 0) {
-            tbl = tmplSortableTable(root, [
-                    "Path", "Score", "Alive", "NoMut", "Total", "Time (min)"
-                    ]);
-        } else {
-            tbl = tmplSortableTable(root, [
-                    "Path", "Score", "Change", "Alive", "NoMut", "Total",
-                    "Time (min)"
-                    ], &shortColumn);
-            fltr.addChild("input").setAttribute("type", "text").setAttribute("id",
-                    "changeTimeFrameInput").setAttribute("onkeyup",
-                    "update_change(changeTimeFrameInput)").addClass("form-control")
-                .setAttribute("placeholder", "Change timeframe");
-            fltr.addChild("p", "Timeframe: Today - ").setAttribute("id", "timeFrameDate");
-            generatePopupHelp(root.getElementById("col-2"), "This column shows: Current score - (average score within the timeframe). The timeframe spans between the current date and the given amount of days in the 'Change timeframe' box (It defaults to 7 days ago)");
-        }
+        tbl = tmplSortableTable(root, [
+                "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
+                ], &shortColumn);
+        fltr.addChild("input").setAttribute("type", "text").setAttribute("id", "changeTimeFrameInput")
+            .setAttribute("onkeyup", "update_change(changeTimeFrameInput)").addClass(
+                    "form-control").setAttribute("placeholder", "Change timeframe");
+        fltr.addChild("p", "Timeframe: Today - ").setAttribute("id", "timeFrameDate");
+        generatePopupHelp(root.getElementById("col-2"), "This column shows: Current score - (average score within the timeframe). The timeframe spans between the current date and the given amount of days in the 'Change timeframe' box (It defaults to 7 days ago)");
         tbl.setAttribute("id", "fileTable");
         return tbl;
     }();
@@ -547,9 +537,7 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir,
                 return null;
             }();
             r.addChild("td", format!"%.3s"(score)).style = style;
-            if (scoreHistory.length > 0) {
-                r.addChild("td", "0");
-            }
+            r.addChild("td", "0");
             r.addChild("td", f.stat.alive.to!string);
             r.addChild("td", f.stat.aliveNoMut.to!string);
             r.addChild("td", f.stat.total.to!string);
@@ -1361,10 +1349,8 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
                 SubContent("Test Cases", "#test_cases", null), dbPath, ctx.state.get.conf,
                 ctx.state.get.metaData, ctx.state.get.logTestCasesDir);
 
-        if (ReportSection.trend in ctx.state.get.sections) {
-            runAnalyzer!makeTrend(ctx.self, ctx.state.get.flow, collector,
-                    SubContent("Trend", "#trend", null), dbPath);
-        }
+        runAnalyzer!makeTrend(ctx.self, ctx.state.get.flow, collector,
+                SubContent("Trend", "#trend", null), dbPath);
 
         if (!ctx.state.get.diff.empty) {
             runAnalyzer!makeDiffView(ctx.self, ctx.state.get.flow, collector,
@@ -1484,26 +1470,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
             navbarItems ~= NavbarItem(sp.linkTxt, link);
         }
 
-        import dextool.plugin.mutate.backend.database.type : FileScore;
-
-        auto fileScores = ctx.state.get.db.getMutationFileScoreHistory();
-
-        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir, fileScores);
-
-        //Change column: timeframe and value calculation handling
-        auto mut_data = appender!(string[])();
-        mut_data.put("var file_score_data = {};");
-
-        foreach (fileScoreKey; fileScores.byKey) {
-            mut_data.put(format("file_score_data['%s'] = {};", fileScoreKey));
-            foreach (score; fileScores[fileScoreKey]) {
-                mut_data.put(format("file_score_data['%s']['%s'] = %f;",
-                        fileScoreKey, score.timeStamp, score.score.get));
-            }
-        }
-
-        index.root.childElements("head")[0].addChild("script")
-            .appendChild(new RawSource(index, mut_data.data.joiner("\n").toUTF8));
+        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir);
 
         addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
 
@@ -1579,7 +1546,7 @@ void runAnalyzer(alias fn, Args...)(OverviewActor.Impl self, FlowControlActor.Ad
                     auto db = Database.make(dbPath);
                     auto doc = tmplBasicPage;
                     auto root = doc.mainBody.addChild("div");
-                    fn(db, sc.tag, root, ctx.expand);
+                    fn(db, sc.tag, doc, root, ctx.expand);
                     sc.content = root.toPrettyString;
                     send(collector, sc);
                     self.shutdown;
