@@ -186,8 +186,12 @@ struct ArgParser {
         app.put("# it is a slowdown but nice robustness that is usually worth having");
         app.put("check_schemata = true");
         app.put(null);
-        app.put("# Timeout scale factor");
-        app.put(format!"timeout_scale = %s"(schema.timeoutScaleFactor));
+        app.put(
+                "# scale factor used when calculating the timeout for tests when they are executed with a schema injected.");
+        app.put(format!"# the default scale factor is %s but that may not be enough for scheman because"(
+                schema.timeoutScaleFactor));
+        app.put("# the now modified source code with the schema, containing 1000ths of mutants, result in a significantly slower test");
+        app.put(format!"# timeout_scale = %s"(schema.timeoutScaleFactor));
         app.put(null);
         app.put("[coverage]");
         app.put(null);
@@ -809,6 +813,7 @@ void loadConfig(ref ArgParser rval) @trusted {
 
 ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
     import std.conv : to;
+    import std.format : format;
     import std.path : dirName, buildPath;
     import toml;
 
@@ -851,6 +856,21 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
                     [EnumMembers!Language]);
             throw e;
         }
+    }
+
+    static double toNumber(ref TOMLValue v, double default_, string errorMsg) nothrow {
+        try {
+            return v.floating;
+        } catch (Exception e) {
+        }
+        try {
+            return cast(double) v.integer;
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+            logger.warning(errorMsg).collectException;
+        }
+
+        return default_;
     }
 
     callbacks["analyze.include"] = (ref ArgParser c, ref TOMLValue v) {
@@ -990,7 +1010,8 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
         c.schema.parallelMutants = max(1, cast(int) v.integer);
     };
     callbacks["schema.timeout_scale"] = (ref ArgParser c, ref TOMLValue v) {
-        c.schema.timeoutScaleFactor = v.floating;
+        c.schema.timeoutScaleFactor = toNumber(v, c.schema.timeoutScaleFactor, format("schema.timeout_scale must be a floating point or integer number. Using default value %s because it failed to parse",
+                c.schema.timeoutScaleFactor));
     };
 
     callbacks["database.db"] = (ref ArgParser c, ref TOMLValue v) {
