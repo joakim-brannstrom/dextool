@@ -62,7 +62,6 @@ struct BuildTestMutant {
     import dextool.plugin.mutate.type : MutationKind;
 
     private struct InternalData {
-        Mutation.Kind[] kinds;
         FilesysIO filesys_io;
         ConfigMutationTest config;
         ConfigSchema schemaConf;
@@ -86,14 +85,6 @@ struct BuildTestMutant {
         return this;
     }
 
-    auto mutations(MutationKind[] v) nothrow {
-        import dextool.plugin.mutate.backend.mutation_type : toInternal;
-
-        logger.infof("mutation operators: %(%s, %)", v).collectException;
-        data.kinds = toInternal(v);
-        return this;
-    }
-
     ExitStatusType run(const AbsolutePath dbPath, FilesysIO fio) @trusted {
         try {
             auto db = spinSql!(() => Database.make(dbPath))(dbOpenTimeout);
@@ -113,7 +104,7 @@ struct BuildTestMutant {
             cleanup.cleanup;
 
         auto test_driver = TestDriver(dbPath, db, () @trusted { return &system; }(),
-                fio, data.kinds, cleanup, data.config, data.covConf, data.schemaConf);
+                fio, cleanup, data.config, data.covConf, data.schemaConf);
 
         while (test_driver.isRunning) {
             test_driver.execute;
@@ -219,7 +210,6 @@ struct TestDriver {
     AbsolutePath dbPath;
 
     FilesysIO filesysIO;
-    Mutation.Kind[] kinds;
     AutoCleanup autoCleanup;
 
     ConfigMutationTest conf;
@@ -406,7 +396,7 @@ struct TestDriver {
         // the last executed hasn't finished being written to the DB when we
         // request a new mutant. This is used to block repeating the same
         // mutant.
-        MutationId lastTested;
+        MutationStatusId lastTested;
     }
 
     static struct HandleTestResult {
@@ -470,7 +460,7 @@ struct TestDriver {
         bool isDone = false;
     }
 
-    this(AbsolutePath dbPath, Database* db, System* sys, FilesysIO filesysIO, Mutation.Kind[] kinds,
+    this(AbsolutePath dbPath, Database* db, System* sys, FilesysIO filesysIO,
             AutoCleanup autoCleanup, ConfigMutationTest conf,
             ConfigCoverage coverage, ConfigSchema schema) {
         this.db = db;
@@ -479,13 +469,12 @@ struct TestDriver {
         this.system = sys;
 
         this.filesysIO = filesysIO;
-        this.kinds = kinds;
         this.autoCleanup = autoCleanup;
         this.conf = conf;
         this.covConf = coverage;
         this.schemaConf = schema;
 
-        this.timeoutFsm = TimeoutFsm(kinds);
+        this.timeoutFsm.setLogLevel;
 
         if (!conf.mutationTesterRuntime.isNull)
             timeout.userConfigured(conf.mutationTesterRuntime.get);
@@ -659,7 +648,7 @@ nothrow:
             status ~= Mutation.Status.skipped;
 
         spinSql!(() {
-            db.worklistApi.update(kinds, status, unknownWeight, mutationOrder);
+            db.worklistApi.update(status, unknownWeight, mutationOrder);
         });
 
         // detect if the system is overloaded before trying to do something
@@ -891,7 +880,7 @@ nothrow:
             logger.warning("Continues sanity check of the test suite has failed.").collectException;
             logger.infof("Rolling back the status of the last %s mutants to status unknown.",
                     period).collectException;
-            foreach (a; spinSql!(() => db.mutantApi.getLatestMutants(kinds, max(diffCnt, period)))) {
+            foreach (a; spinSql!(() => db.mutantApi.getLatestMutants(max(diffCnt, period)))) {
                 spinSql!(() => db.mutantApi.update(a.id, Mutation.Status.unknown,
                         ExitStatus(0), MutantTimeProfile.init));
             }
@@ -990,9 +979,9 @@ nothrow:
                     }
                 }
                 if (update) {
-                    db.worklistApi.update(kinds, [
-                            Mutation.Status.unknown, Mutation.Status.skipped
-                            ]);
+                    db.worklistApi.update([
+                        Mutation.Status.unknown, Mutation.Status.skipped
+                    ]);
                 }
                 break;
             }
@@ -1016,12 +1005,12 @@ nothrow:
                 && conf.onNewTestCases == ConfigMutationTest.NewTestCases.resetAlive) {
             logger.info("Adding alive mutants to worklist").collectException;
             spinSql!(() {
-                db.worklistApi.update(kinds, [
-                        Mutation.Status.alive, Mutation.Status.skipped,
-                        // if these mutants are covered by the tests then they will be
-                        // removed from the worklist in PropagateCoverage.
-                        Mutation.Status.noCoverage
-                    ]);
+                db.worklistApi.update([
+                    Mutation.Status.alive, Mutation.Status.skipped,
+                    // if these mutants are covered by the tests then they will be
+                    // removed from the worklist in PropagateCoverage.
+                    Mutation.Status.noCoverage
+                ]);
             });
         }
     }
@@ -1053,12 +1042,12 @@ nothrow:
         if (wlist != 0)
             return;
 
-        const oldestMutant = spinSql!(() => db.mutantApi.getOldestMutants(kinds, 1, statusTypes));
+        const oldestMutant = spinSql!(() => db.mutantApi.getOldestMutants(1, statusTypes));
         const newestTest = spinSql!(() => db.testFileApi.getNewestTestFile).orElse(
                 TestFile.init).timeStamp;
         const newestFile = spinSql!(() => db.getNewestFile).orElse(SysTime.init);
-        if (!oldestMutant.empty && oldestMutant[0].updated > newestTest
-                && oldestMutant[0].updated > newestFile) {
+        if (!oldestMutant.empty && oldestMutant[0].updated >= newestTest
+                && oldestMutant[0].updated >= newestFile) {
             // only re-test old mutants if needed.
             logger.info("Mutation status is up to date").collectException;
             printStatus(oldestMutant, newestTest, newestFile);
@@ -1073,14 +1062,14 @@ nothrow:
                 return local.get!RetestOldMutant.maxReset;
             }
 
-            const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds).count);
+            const total = spinSql!(() => db.mutantApi.totalSrcMutants().count);
             const rval = cast(long)(1 + total
                     * local.get!RetestOldMutant.resetPercentage.get / 100.0);
             return rval;
         }();
 
         spinSql!(() {
-            auto oldest = db.mutantApi.getOldestMutants(kinds, testCnt, statusTypes);
+            auto oldest = db.mutantApi.getOldestMutants(testCnt, statusTypes);
             logger.infof("Adding %s old mutants to the worklist", oldest.length);
             foreach (const old; oldest) {
                 db.worklistApi.add(old.id);
@@ -1165,7 +1154,7 @@ nothrow:
         import dextool.plugin.mutate.backend.report.analyzers : reportScore, reportScores;
         import std.algorithm : canFind;
 
-        if (spinSql!(() => db.mutantApi.unknownSrcMutants(kinds)).count != 0)
+        if (spinSql!(() => db.mutantApi.unknownSrcMutants()).count != 0)
             return;
         // users are unhappy when the score go first up and then down because
         // mutants are first classified as "timeout" (killed) and then changed
@@ -1178,8 +1167,8 @@ nothrow:
             return;
 
         auto files = spinSql!(() => db.getFiles());
-        const fileScores = reportScores(*db, kinds, files);
-        const score = reportScore(*db, kinds);
+        const fileScores = reportScores(*db, files);
+        const score = reportScore(*db);
         const time = Clock.currTime.toUTC;
 
         // 10000 mutation scores is only ~80kbyte. Should be enough entries
@@ -1305,8 +1294,8 @@ nothrow:
             }
 
             foreach (l; kv.value) {
-                auto mutants = spinSql!(() => db.mutantApi.getMutationsOnLine(kinds,
-                        file_id.get, SourceLoc(l.value, 0)));
+                auto mutants = spinSql!(() => db.mutantApi.getMutationsOnLine(file_id.get,
+                        SourceLoc(l.value, 0)));
 
                 const preCnt = mutantIds.length;
                 foreach (v; mutants)
@@ -1448,7 +1437,7 @@ nothrow:
         const giveUpAfter = Clock.currTime + 30.dur!"seconds";
         NextMutationEntry next;
         while (Clock.currTime < giveUpAfter) {
-            next = spinSql!(() => db.nextMutation(kinds, maxParallelInstances));
+            next = spinSql!(() => db.nextMutation(maxParallelInstances));
 
             if (next.st == NextMutationEntry.Status.done)
                 break;
@@ -1502,7 +1491,7 @@ nothrow:
             // TODO: replace with my.collection.vector
             const id = schematas[0];
             schematas = schematas[1 .. $];
-            const mutants = spinSql!(() => db.schemaApi.countMutantsInWorklist(id, kinds));
+            const mutants = spinSql!(() => db.schemaApi.countMutantsInWorklist(id));
 
             logger.infof("Schema %s has %s mutants (threshold %s)", id.get,
                     mutants, threshold).collectException;
@@ -1528,7 +1517,7 @@ nothrow:
 
         try {
             auto driver = system.spawn(&spawnSchema, filesysIO, runner, dbPath, testCaseAnalyzer, schemaConf,
-                    data.id, stopCheck, kinds, conf.mutationCompile,
+                    data.id, stopCheck, conf.mutationCompile,
                     conf.buildCmdTimeout, dbSave, stat, timeout);
             scope (exit)
                 sendExit(driver, ExitReason.userShutdown);
@@ -1591,8 +1580,8 @@ nothrow:
 
         auto app = appender!(SchemataId[])();
         foreach (id; spinSql!(() => db.schemaApi.getSchematas(SchemaStatus.broken))) {
-            if (spinSql!(() => db.schemaApi.countMutantsInWorklist(id,
-                    kinds)) >= schemataMutantsThreshold(schemaConf.minMutantsPerSchema.get, 0, 0)) {
+            if (spinSql!(() => db.schemaApi.countMutantsInWorklist(
+                    id)) >= schemataMutantsThreshold(schemaConf.minMutantsPerSchema.get, 0, 0)) {
                 app.put(id);
             }
         }

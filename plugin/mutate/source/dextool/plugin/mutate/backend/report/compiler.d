@@ -24,18 +24,14 @@ import dextool.plugin.mutate.backend.report.utility : window, windowSize;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.backend.utility : Profile;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind, ReportSection;
+import dextool.plugin.mutate.type : ReportSection;
 
 @safe:
 
-void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf, FilesysIO fio) {
+void report(ref Database db, const ConfigReport conf, FilesysIO fio) {
     import dextool.plugin.mutate.backend.utility;
 
-    const kinds = toInternal(userKinds);
-
-    auto a = new ReportCompiler(kinds, conf.reportSection, fio);
-
-    a.mutationKindEvent(userKinds);
+    auto a = new ReportCompiler(conf.reportSection, fio);
 
     {
         auto profile = Profile("iterate mutants for report");
@@ -43,7 +39,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
             a.locationEvent(db, row);
         }
 
-        db.iterateMutants(kinds, &iter);
+        db.iterateMutants(&iter);
     }
 
     auto profile = Profile("post process report");
@@ -60,19 +56,15 @@ final class ReportCompiler {
     import dextool.plugin.mutate.backend.utility;
     import my.set;
 
-    const Mutation.Kind[] kinds;
     Set!ReportSection sections;
     FilesysIO fio;
 
     CompilerConsole!SimpleWriter compiler;
 
-    this(const Mutation.Kind[] kinds, const ReportSection[] sections, FilesysIO fio) {
-        this.kinds = kinds;
+    this(const ReportSection[] sections, FilesysIO fio) {
         this.fio = fio;
         this.sections = sections.toSet;
-    }
 
-    void mutationKindEvent(const MutationKind[]) {
         compiler = CompilerConsole!SimpleWriter(delegate(const(char)[] s) @trusted {
             import std.stdio : stderr, write;
 

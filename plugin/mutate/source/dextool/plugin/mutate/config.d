@@ -84,6 +84,9 @@ struct ConfigCompileDb {
 
 /// Configuration of how the mutation analyzer should act.
 struct ConfigAnalyze {
+    /// Mutants to analyze for and save in the database.
+    MutationKind[] mutation;
+
     /// User input of excludes before they are adjusted to relative root
     string[] rawExclude;
     /// User input of includes before they are adjusted to relative root
@@ -254,11 +257,14 @@ struct ConfigAdmin {
     Mutation.Status mutantStatus;
     Mutation.Status mutantToStatus;
     string testCaseRegex;
-    long mutationId;
+    long mutationStatusId;
     string mutantRationale;
 
     /// used to specify a kind of mutation
     Mutation.Kind[] subKind;
+
+    /// Sub-mutation operators to run operation on.
+    MutationKind[] mutation;
 }
 
 struct ConfigWorkArea {
@@ -279,7 +285,8 @@ struct ConfigWorkArea {
 
 /// Configuration of the generate mode.
 struct ConfigGenerate {
-    long mutationId;
+    long mutationStatusId;
+    MutationKind[] mutation;
 }
 
 struct ConfigSchema {

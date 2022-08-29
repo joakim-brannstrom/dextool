@@ -23,17 +23,13 @@ import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
 import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage, filesCss, tmplDefaultTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind;
 
-string makeDiffView(ref Database db, const ConfigReport conf,
-        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds,
-        ref Diff diff, from.my.path.AbsolutePath workdir) @trusted {
-    import std.datetime : Clock;
-
+string makeDiffView(ref Database db, const ConfigReport conf, ref Diff diff,
+        from.my.path.AbsolutePath workdir) @trusted {
     auto doc = tmplBasicPage.filesCss;
-    doc.title(format("Diff View %(%s %) %s", humanReadableKinds, Clock.currTime));
+    doc.title("Diff View");
 
-    toHtml(reportDiff(db, kinds, diff, workdir), doc.mainBody);
+    toHtml(reportDiff(db, diff, workdir), doc.mainBody);
 
     return doc.toPrettyString;
 }

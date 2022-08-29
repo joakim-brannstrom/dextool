@@ -21,7 +21,8 @@ import std.utf : validate;
 import blob_model : Blob, Edit, change, Interval, Uri, merge;
 
 import dextool.type : AbsolutePath, ExitStatusType, Path;
-import dextool.plugin.mutate.backend.database : Database, MutationEntry, MutationId, spinSql;
+import dextool.plugin.mutate.backend.database : Database, MutationEntry,
+    MutationStatusId, spinSql;
 import dextool.plugin.mutate.backend.type : Language;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, SafeOutput, ValidateLoc;
 import dextool.plugin.mutate.type : MutationKind;
@@ -36,7 +37,7 @@ enum GenerateMutantStatus {
 }
 
 ExitStatusType runGenerateMutant(const AbsolutePath dbPath, MutationKind[] kind,
-        MutationId user_mutation, FilesysIO fio, ValidateLoc val_loc) @trusted nothrow {
+        MutationStatusId user_mutation, FilesysIO fio, ValidateLoc val_loc) @trusted nothrow {
     import dextool.plugin.mutate.backend.mutation_type : toInternal;
 
     ExitStatusType helper(ref Database db) @safe {

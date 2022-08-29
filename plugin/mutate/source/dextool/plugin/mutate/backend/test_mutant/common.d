@@ -25,7 +25,6 @@ import my.set;
 import proc : DrainElement;
 import sumtype;
 
-import dextool.plugin.mutate.backend.database : MutationId;
 import dextool.plugin.mutate.backend.interface_;
 import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
@@ -44,10 +43,9 @@ version (unittest) {
 
 /// The result of running the test suite on one mutant.
 struct MutationTestResult {
-    import dextool.plugin.mutate.backend.database : MutationStatusId, MutationId;
+    import dextool.plugin.mutate.backend.database : MutationStatusId;
     import dextool.plugin.mutate.backend.type : Mutation, TestCase, ExitStatus;
 
-    MutationId mutId;
     MutationStatusId id;
     Mutation.Status status;
     MutantTimeProfile profile;

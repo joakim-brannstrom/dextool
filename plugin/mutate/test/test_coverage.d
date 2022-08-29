@@ -26,6 +26,7 @@ class ShallUseCoverage : CoverageFixutre {
         // dfmt off
         makeDextoolAnalyze(testEnv)
             .addInputArg(programCode)
+            .addPostArg(["--mutant", "all"])
             .addPostArg(["-c", (testData ~ "config/coverage.toml").toString])
             .run;
 
@@ -38,9 +39,10 @@ class ShallUseCoverage : CoverageFixutre {
             .run;
         // dfmt on
 
+        // because different libclang versions result in different number of mutants...
         auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString))["stat"];
-        j["alive"].integer.shouldBeGreaterThan(1);
-        j["killed"].integer.shouldEqual(4);
-        j["no_coverage"].integer.shouldEqual(2);
+        j["alive"].integer.shouldBeGreaterThan(2);
+        j["killed"].integer.shouldBeGreaterThan(1);
+        j["no_coverage"].integer.shouldBeGreaterThan(1);
     }
 }

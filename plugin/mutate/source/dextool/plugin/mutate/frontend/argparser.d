@@ -69,7 +69,6 @@ struct ArgParser {
     struct Data {
         AbsolutePath db;
         ExitStatusType exitStatus = ExitStatusType.Ok;
-        MutationKind[] mutation = defaultMutants;
         ToolMode toolMode;
         bool help;
         string[] inFiles;
@@ -398,18 +397,17 @@ struct ArgParser {
         const out_help = "path used as the root for mutation/reporting of files (default: .)";
         const conf_help = "load configuration (default: .dextool_mutate.toml)";
 
-        // specified by command line. if set it overwride the one from the config.
-        MutationKind[] mutants;
-
         // not used but need to be here. The one used is in MiniConfig.
         string conf_file;
         string db = data.db;
 
         void analyzerG(string[] args) {
+            data.toolMode = ToolMode.analyzer;
+
+            MutationKind[] mutation;
             bool noPrune;
             string[] compileDbs;
 
-            data.toolMode = ToolMode.analyzer;
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "allow-errors", "allow compilation errors during analysis (default: false)", compiler.allowErrors.getPtr,
@@ -425,7 +423,7 @@ struct ArgParser {
                    "id-algorithm", format("algorithm used to calculate mutant IDs (default:%s) [%(%s|%)]", analyze.idGenConfig, [EnumMembers!MutantIdGeneratorConfig]), &analyze.idGenConfig,
                    "in", "Input file to parse (default: all files in the compilation database)", &data.inFiles,
                    "include", include_help, &workArea.rawInclude,
-                   "m|mutant", "kind of mutation save in the database " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
+                   "m|mutant", "kind of mutation save in the database " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                    "no-prune", "do not prune the database of files that aren't found during the analyze", &noPrune,
                    "out", out_help, &workArea.rawRoot,
                    "profile", "print performance profile for the analyzers that are part of the report", &analyze.profile,
@@ -437,25 +435,30 @@ struct ArgParser {
 
             analyze.prune = !noPrune;
             updateCompileDb(compileDb, compileDbs);
+
+            if (!mutation.empty) {
+                analyze.mutation = mutation;
+            }
         }
 
         void generateMutantG(string[] args) {
             data.toolMode = ToolMode.generate_mutant;
+
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                    "c|config", conf_help, &conf_file,
                    "db", db_help, &db,
                    "exclude", exclude_help, &workArea.rawExclude,
                    "include", include_help, &workArea.rawInclude,
+                   "m|mutant", "kind of mutation save in the database " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &generate.mutation,
                    "out", out_help, &workArea.rawRoot,
-                   std.getopt.config.required, "id", "mutate the source code as mutant ID", &generate.mutationId,
+                   std.getopt.config.required, "id", "mutate the source code as mutant ID", &generate.mutationStatusId,
                    );
             // dfmt on
         }
 
         void testMutantsG(string[] args) {
-            import std.datetime : Clock;
-
+            MutationKind[] mutationDeprecated;
             bool noSkip;
             int maxAlive = -1;
             int parallelMutants;
@@ -490,7 +493,7 @@ struct ArgParser {
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
                    "metadata", "prioritieses files that are sent by JSON", &mutationTest.metadataPath,
-                   "m|mutant", "kind of mutation to test " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
+                   "m|mutant", "do not use. this option is deprecated", &mutationDeprecated,
                    "no-skipped", "do not skip mutants that are covered by others", &noSkip,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
                    "out", out_help, &workArea.rawRoot,
@@ -535,11 +538,15 @@ struct ArgParser {
                 mutationTest.maxRuntime = parseDuration(maxRuntime);
             mutationTest.constraint = parseUserTestConstraint(testConstraint);
             mutationTest.useSkipMutant.get = !noSkip;
+
+            if (!mutationDeprecated.empty)
+                logger.warning("CLI parameter -m|--mutant is deprecated for command group test. It only has an effect for analyze and admin.");
         }
 
         void reportG(string[] args) {
-            string[] compileDbs;
+            MutationKind[] mutationDeprecated;
             string logDir;
+            string[] compileDbs;
 
             data.toolMode = ToolMode.report;
             ReportSection[] sections;
@@ -555,7 +562,7 @@ struct ArgParser {
                    "high-interest-mutants-nr", "nr of mutants to show in the section", report.highInterestMutantsNr.getPtr,
                    "include", include_help, &workArea.rawInclude,
                    "logdir", "Directory to write log files to (default: .)", &logDir,
-                   "m|mutant", "kind of mutation to report " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
+                   "m|mutant", "do not use. this option is deprecated", &mutationDeprecated,
                    "out", out_help, &workArea.rawRoot,
                    "profile", "print performance profile for the analyzers that are part of the report", &report.profile,
                    "section", "sections to include in the report " ~ format("[%-(%s|%)]", [EnumMembers!ReportSection]), &sections,
@@ -574,26 +581,32 @@ struct ArgParser {
             if (!metadataPath.empty)
                 report.testMetadata = some(ConfigReport.TestMetaData(AbsolutePath(metadataPath)));
 
+            if (!mutationDeprecated.empty)
+                logger.warning("CLI parameter -m|--mutant is deprecated for command group report. It only has an effect for analyze and admin.");
+
             updateCompileDb(compileDb, compileDbs);
         }
 
         void adminG(string[] args) {
+            data.toolMode = ToolMode.admin;
+
+            MutationKind[] mutation;
             bool dump_conf;
             bool init_conf;
-            data.toolMode = ToolMode.admin;
+
             // dfmt off
             help_info = getopt(args, std.getopt.config.keepEndOfOptions,
                 "c|config", conf_help, &conf_file,
                 "db", db_help, &db,
                 "dump-config", "dump the detailed configuration used", &dump_conf,
                 "init", "create an initial config to use", &init_conf,
-                "m|mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutants,
+                "m|mutant", "mutants to operate on " ~ format("[%(%s|%)]", [EnumMembers!MutationKind]), &mutation,
                 "mutant-sub-kind", "kind of mutant " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Kind)]), &admin.subKind,
                 "operation", "administrative operation to perform " ~ format("[%(%s|%)]", [EnumMembers!AdminOperation]), &admin.adminOp,
                 "test-case-regex", "regex to use when removing test cases", &admin.testCaseRegex,
                 "status", "change mutants with this state to the value specified by --to-status " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantStatus,
                 "to-status", "reset mutants to state (default: unknown) " ~ format("[%(%s|%)]", [EnumMembers!(Mutation.Status)]), &admin.mutantToStatus,
-                "id", "specify mutant by Id", &admin.mutationId,
+                "id", "specify mutant by Id", &admin.mutationStatusId,
                 "rationale", "rationale for marking mutant", &admin.mutantRationale,
                 "out", out_help, &workArea.rawRoot,
                 );
@@ -603,6 +616,9 @@ struct ArgParser {
                 data.toolMode = ToolMode.dumpConfig;
             else if (init_conf)
                 data.toolMode = ToolMode.initConfig;
+
+            if (!mutation.empty)
+                admin.mutation = mutation;
         }
 
         groups["analyze"] = &analyzerG;
@@ -677,10 +693,6 @@ struct ArgParser {
         analyze.testFileMatcher = GlobFilter(analyze.rawTestInclude.map!(
                 a => buildPath(workArea.root, a)).array,
                 analyze.rawTestExclude.map!(a => buildPath(workArea.root, a)).array);
-
-        if (!mutants.empty) {
-            data.mutation = mutants;
-        }
 
         compiler.extraFlags = compiler.extraFlags ~ args.find("--").drop(1).array();
     }
@@ -934,7 +946,7 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
 
     callbacks["generic.mutants"] = (ref ArgParser c, ref TOMLValue v) {
         try {
-            c.mutation = v.array.map!(a => a.str.to!MutationKind).array;
+            c.analyze.mutation = v.array.map!(a => a.str.to!MutationKind).array;
         } catch (Exception e) {
             logger.info("Available mutation kinds ", [EnumMembers!MutationKind]);
             logger.warning(e.msg);
@@ -1409,7 +1421,7 @@ mutants = ["lcr"]
 `;
     auto doc = parseTOML(txt);
     auto ap = loadConfig(ArgParser.init, doc);
-    ap.data.mutation.shouldEqual([MutationKind.lcr]);
+    ap.analyze.mutation.shouldEqual([MutationKind.lcr]);
 }
 
 @("shall parse the files to inject the schema runtime to")

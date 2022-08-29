@@ -21,7 +21,7 @@ import dextool.plugin.mutate.backend.report.html.constants;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.backend.report.html.utility : generatePopupHelp;
 
-void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[] kinds) @trusted {
+void makeTrend(ref Database db, string tag, Element root) @trusted {
     import std.datetime : SysTime;
     import dextool.plugin.mutate.backend.report.html.tmpl : TimeScalePointGraph;
 
@@ -60,7 +60,7 @@ void makeTrend(ref Database db, string tag, Element root, const(Mutation.Kind)[]
                     "<i>trend</i> is a prediction of how the mutation score will change based on previous scores.");
     }
 
-    const codeChange = reportTrendByCodeChange(db, kinds);
+    const codeChange = reportTrendByCodeChange(db);
     if (codeChange.sample.length > 1) {
         ts = TimeScalePointGraph("ScoreByCodeChange");
         foreach (v; codeChange.sample) {

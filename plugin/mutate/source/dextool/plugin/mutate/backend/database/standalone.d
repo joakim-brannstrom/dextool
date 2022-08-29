@@ -134,12 +134,11 @@ struct Database {
     }
 
     /// Returns: the path ID for the mutant.
-    Nullable!FileId getFileId(const MutationId id) @trusted {
-        static immutable sql = "SELECT t1.file_id
-            FROM " ~ mutationTable ~ " t0, " ~ mutationPointTable ~ " t1
-            WHERE t0.id = :id AND t0.mp_id = t1.id";
+    Nullable!FileId getFileId(const MutationStatusId id) @trusted {
+        static immutable sql = "SELECT t1.file_id FROM " ~ mutationTable ~ " t0, "
+            ~ mutationPointTable ~ " t1 WHERE t0.st_id = :id AND t0.mp_id = t1.id";
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
+        stmt.get.bind(":id", id.get);
 
         typeof(return) rval;
         foreach (ref r; stmt.get.execute)
@@ -698,26 +697,6 @@ struct DbTestCase {
      *  id = ?
      *  tcs = test cases to add
      */
-    void updateMutationTestCases(const MutationId id, const(TestCase)[] tcs) @trusted {
-        if (tcs.length == 0)
-            return;
-
-        immutable statusId = () {
-            static immutable st_id_for_mutation_q = "SELECT st_id FROM "
-                ~ mutationTable ~ " WHERE id=:id";
-            auto stmt = db.prepare(st_id_for_mutation_q);
-            stmt.get.bind(":id", cast(long) id);
-            return stmt.get.execute.oneValue!long;
-        }();
-        updateMutationTestCases(MutationStatusId(statusId), tcs);
-    }
-
-    /** Add a link between the mutation and what test case killed it.
-     *
-     * Params:
-     *  id = ?
-     *  tcs = test cases to add
-     */
     void updateMutationTestCases(const MutationStatusId statusId, const(TestCase)[] tcs) @trusted {
         if (tcs.length == 0)
             return;
@@ -852,8 +831,8 @@ struct DbTestCase {
 
     /// Returns: test cases that has killed zero mutants.
     TestCase[] getTestCasesWithZeroKills() @trusted {
-        static immutable sql = format("SELECT t1.name FROM %s t1 WHERE t1.id NOT IN (SELECT tc_id FROM %s)",
-                allTestCaseTable, killedTestCaseTable);
+        static immutable sql = "SELECT t1.name FROM " ~ allTestCaseTable
+            ~ " t1 WHERE t1.id NOT IN (SELECT tc_id FROM " ~ killedTestCaseTable ~ ")";
 
         auto rval = appender!(TestCase[])();
         auto stmt = db.prepare(sql);
@@ -867,14 +846,9 @@ struct DbTestCase {
      *
      * Returns: test cases that has killed at least one mutant.
      */
-    TestCaseId[] getTestCasesWithAtLeastOneKill(const Mutation.Kind[] kinds) @trusted {
-        const sql = format!"SELECT DISTINCT t1.id
-            FROM %s t1, %s t2, %s t3
-            WHERE
-            t1.id = t2.tc_id AND
-            t2.st_id == t3.st_id AND
-            t3.kind IN (%(%s,%))"(allTestCaseTable, killedTestCaseTable,
-                mutationTable, kinds.map!(a => cast(int) a));
+    TestCaseId[] getTestCasesWithAtLeastOneKill() @trusted {
+        static immutable sql = "SELECT DISTINCT t1.id FROM " ~ allTestCaseTable
+            ~ " t1, " ~ killedTestCaseTable ~ " t2 WHERE t1.id = t2.tc_id";
 
         auto rval = appender!(TestCaseId[])();
         auto stmt = db.prepare(sql);
@@ -886,7 +860,7 @@ struct DbTestCase {
 
     /// Returns: the name of the test case.
     string getTestCaseName(const TestCaseId id) @trusted {
-        static immutable sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);
+        static immutable sql = "SELECT name FROM " ~ allTestCaseTable ~ " WHERE id = :id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
         auto res = stmt.get.execute;
@@ -894,18 +868,12 @@ struct DbTestCase {
     }
 
     /// Returns: stats about the test case.
-    TestCaseInfo getTestCaseInfo(const TestCaseId tcId, const Mutation.Kind[] kinds) @trusted {
-        const sql = format("SELECT sum(ctime),sum(ttime),count(*)
+    TestCaseInfo getTestCaseInfo(const TestCaseId tcId) @trusted {
+        static immutable sql = "SELECT sum(ctime),sum(ttime),count(*)
             FROM (
             SELECT sum(t2.compile_time_ms) ctime,sum(t2.test_time_ms) ttime
-            FROM %s t1, %s t2, %s t3
-            WHERE
-            :id = t1.tc_id AND
-            t1.st_id = t2.id AND
-            t1.st_id = t3.st_id AND
-            t3.kind IN (%(%s,%))
-            GROUP BY t1.st_id)", killedTestCaseTable, mutationStatusTable,
-                mutationTable, kinds.map!(a => cast(int) a));
+            FROM " ~ killedTestCaseTable ~ " t1, " ~ mutationStatusTable ~ " t2
+            WHERE :id = t1.tc_id AND t1.st_id = t2.id GROUP BY t1.st_id)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", tcId.get);
 
@@ -917,36 +885,32 @@ struct DbTestCase {
         return rval;
     }
 
-    Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc, const Mutation.Kind[] kinds) @safe {
+    Nullable!TestCaseInfo getTestCaseInfo(const TestCase tc) @safe {
         typeof(return) rval;
 
         auto id = getTestCaseId(tc);
         if (!id.isNull)
-            rval = getTestCaseInfo(id.get, kinds);
+            rval = getTestCaseInfo(id.get);
 
         return rval;
     }
 
     /// Returns: all test cases for the file and the mutants they killed.
-    TestCaseInfo2[] getAllTestCaseInfo2(const FileId file, const Mutation.Kind[] kinds) @trusted {
+    TestCaseInfo2[] getAllTestCaseInfo2(const FileId file) @trusted {
         // row of test case name and mutation id.
-        const sql = format("SELECT t0.name,t3.id
-            FROM %s t0, %s t1, %s t2, %s t3, %s t4
+        const sql = "SELECT t0.name,t2.id
+            FROM " ~ allTestCaseTable ~ " t0, " ~ killedTestCaseTable ~ " t1, "
+            ~ mutationStatusTable ~ " t2, " ~ filesTable ~ " t4
             WHERE
-            t0.id = t1.tc_id AND
-            t1.st_id = t2.id AND
-            t2.id = t3.st_id AND
-            t4.id = :file_id AND
-            t3.kind IN (%(%s,%))", allTestCaseTable, killedTestCaseTable,
-                mutationStatusTable, mutationTable, filesTable, kinds.map!(a => cast(int) a));
+            t0.id = t1.tc_id AND t1.st_id = t2.id AND t4.id = :file_id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":file_id", cast(long) file);
 
-        MutationId[][string] data;
+        MutationStatusId[][string] data;
         foreach (row; stmt.get.execute) {
             const name = row.peek!string(0);
-            auto id = MutationId(row.peek!long(1));
-            data.update(name, () => [id], (ref MutationId[] a) { a ~= id; });
+            auto id = MutationStatusId(row.peek!long(1));
+            data.update(name, () => [id], (ref MutationStatusId[] a) { a ~= id; });
         }
 
         auto app = appender!(TestCaseInfo2[])();
@@ -956,7 +920,7 @@ struct DbTestCase {
 
     /// Returns: the test case.
     Nullable!TestCase getTestCase(const TestCaseId id) @trusted {
-        static immutable sql = format!"SELECT name FROM %s WHERE id = :id"(allTestCaseTable);
+        static immutable sql = "SELECT name FROM " ~ allTestCaseTable ~ " WHERE id = :id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", cast(long) id);
 
@@ -969,7 +933,7 @@ struct DbTestCase {
 
     /// Returns: the test case id.
     Nullable!TestCaseId getTestCaseId(const TestCase tc) @trusted {
-        static immutable sql = format!"SELECT id FROM %s WHERE name = :name"(allTestCaseTable);
+        static immutable sql = "SELECT id FROM " ~ allTestCaseTable ~ " WHERE name = :name";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":name", tc.name);
 
@@ -982,27 +946,21 @@ struct DbTestCase {
 
     /// The mutation ids are guaranteed to be sorted.
     /// Returns: the mutants the test case killed.
-    MutationId[] getTestCaseMutantKills(const TestCaseId id, const Mutation.Kind[] kinds) @trusted {
-        immutable sql = format!"SELECT t2.id
-            FROM %s t1, %s t2
-            WHERE
-            t1.tc_id = :tid AND
-            t1.st_id = t2.st_id AND
-            t2.kind IN (%(%s,%))
-            GROUP BY t2.st_id
-            ORDER BY t2.id"(killedTestCaseTable, mutationTable, kinds.map!(a => cast(int) a));
+    MutationStatusId[] getTestCaseMutantKills(const TestCaseId id) @trusted {
+        static immutable sql = "SELECT t1.st_id FROM " ~ killedTestCaseTable
+            ~ " t1 WHERE t1.tc_id = :tid AND t1.st_id ORDER BY t1.st_id";
 
-        auto rval = appender!(MutationId[])();
+        auto rval = appender!(MutationStatusId[])();
         auto stmt = db.prepare(sql);
         stmt.get.bind(":tid", cast(long) id);
         foreach (a; stmt.get.execute)
-            rval.put(MutationId(a.peek!long(0)));
+            rval.put(MutationStatusId(a.peek!long(0)));
 
         return rval.data;
     }
 
     /// Returns: test cases that killed the mutant.
-    TestCase[] getTestCases(const MutationId id) @trusted {
+    TestCase[] getTestCases(const MutationStatusId id) @trusted {
         Appender!(TestCase[]) rval;
 
         static immutable get_test_cases_sql = format!"SELECT t1.name,t2.location
@@ -1021,8 +979,8 @@ struct DbTestCase {
 
     /// Returns: if the mutant have any test cases recorded that killed it
     bool hasTestCases(const MutationStatusId id) @trusted {
-        static immutable sql = format!"SELECT count(*) FROM %s t0 WHERE t0.st_id = :id"(
-                killedTestCaseTable);
+        static immutable sql = "SELECT count(*) FROM " ~ killedTestCaseTable
+            ~ " t0 WHERE t0.st_id = :id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         foreach (a; stmt.get.execute) {
@@ -1062,17 +1020,15 @@ struct DbTestCase {
     }
 
     /// Returns: mutants killed by the test case.
-    MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, const TestCaseId id) @trusted {
+    MutationStatusId[] testCaseKilledSrcMutants(const TestCaseId id) @trusted {
         const sql = format("SELECT t1.id
             FROM %s t0, %s t1, %s t3
             WHERE
             t0.st_id = t1.id AND
             t1.status = :st AND
-            t0.kind IN (%(%s,%)) AND
             t3.tc_id = :id AND
             t3.st_id = t1.id
-            GROUP BY t1.id", mutationTable, mutationStatusTable,
-                killedTestCaseTable, kinds.map!(a => cast(int) a));
+            GROUP BY t1.id", mutationTable, mutationStatusTable, killedTestCaseTable);
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":st", cast(long) Mutation.Status.killed);
@@ -1085,11 +1041,11 @@ struct DbTestCase {
         return app.data;
     }
 
-    MutationStatusId[] testCaseKilledSrcMutants(const Mutation.Kind[] kinds, const TestCase tc) @safe {
+    MutationStatusId[] testCaseKilledSrcMutants(const TestCase tc) @safe {
         auto id = getTestCaseId(tc);
         if (id.isNull)
             return null;
-        return testCaseKilledSrcMutants(kinds, id.get);
+        return testCaseKilledSrcMutants(id.get);
     }
 
     /// Returns: mutants at mutations points that the test case has killed mutants at.
@@ -1115,8 +1071,7 @@ struct DbTestCase {
         Mutation.Status.alive, Mutation.Status.killed, Mutation.Status.timeout
     ]);
 
-    private MutationStatusId[] testCaseCountSrcMutants(int[] status)(
-            const Mutation.Kind[] kinds, TestCase tc) @trusted {
+    private MutationStatusId[] testCaseCountSrcMutants(int[] status)(TestCase tc) @trusted {
         const query = format("
             SELECT t1.id
             FROM %s t0, %s t1
@@ -1131,10 +1086,9 @@ struct DbTestCase {
                       )
             AND
             t0.st_id = t1.id AND
-            t1.status IN (%(%s,%)) AND
-            t0.kind IN (%(%s,%))
-            GROUP BY t1.id", mutationTable, mutationStatusTable, mutationTable, mutationPointTable,
-                allTestCaseTable, killedTestCaseTable, status, kinds.map!(a => cast(int) a));
+            t1.status IN (%(%s,%))
+            GROUP BY t1.id", mutationTable, mutationStatusTable, mutationTable,
+                mutationPointTable, allTestCaseTable, killedTestCaseTable, status);
 
         auto stmt = db.prepare(query);
         stmt.get.bind(":name", tc.name);
@@ -1178,41 +1132,12 @@ struct DbMutant {
         return res.oneValue!long == 0;
     }
 
-    /** Update the status of a mutant.
-     *
-     * Params:
-     *  id = ID of the mutant
-     *  st = status to broadcast
-     *  d = time spent on veryfing the mutant
-     *  tcs = test cases that killed the mutant
-     *  counter = how to act with the counter
-     */
-    void update(const MutationId id, const Mutation.Status st,
-            const ExitStatus ecode, const MutantTimeProfile p, const(TestCase)[] tcs) @trusted {
-        static immutable sql = "UPDATE %s SET
-            status=:st,compile_time_ms=:compile,test_time_ms=:test,update_ts=:update_ts
-            WHERE id IN (SELECT st_id FROM %s WHERE id = :id)";
-
-        auto stmt = db.prepare(format!sql(mutationStatusTable, mutationTable));
-        stmt.get.bind(":st", cast(long) st);
-        stmt.get.bind(":id", id.get);
-        stmt.get.bind(":compile", p.compile.total!"msecs");
-        stmt.get.bind(":test", p.test.total!"msecs");
-        stmt.get.bind(":update_ts", Clock.currTime.toSqliteDateTime);
-        stmt.get.execute;
-
+    void update(const MutationStatusId id, const Mutation.Status st,
+            const ExitStatus ecode, const MutantTimeProfile p, const(TestCase)[] tcs) @safe {
+        update(id, st, ecode, p);
         wrapperDb.testCaseApi.updateMutationTestCases(id, tcs);
     }
 
-    /** Update the status of a mutant.
-     *
-     * Params:
-     *  id = ID of the mutant
-     *  st = status to broadcast
-     *  d = time spent on veryfing the mutant
-     *  tcs = test cases that killed the mutant
-     *  counter = how to act with the counter
-     */
     void update(const MutationStatusId id, const Mutation.Status st,
             const ExitStatus ecode, const MutantTimeProfile p) @trusted {
         static immutable sql = "UPDATE " ~ mutationStatusTable ~ " SET
@@ -1314,12 +1239,12 @@ struct DbMutant {
         return rval;
     }
 
-    Nullable!MutationEntry getMutation(const MutationId id) @trusted {
+    Nullable!MutationEntry getMutation(const MutationStatusId id) @trusted {
         import dextool.plugin.mutate.backend.type;
 
         typeof(return) rval;
         static immutable get_mut_sql = format("SELECT
-            t0.id,
+            t3.id,
             t0.kind,
             t3.compile_time_ms,
             t3.test_time_ms,
@@ -1328,18 +1253,17 @@ struct DbMutant {
             t1.line,
             t1.column,
             t2.path,
-            t2.lang,
-            t3.id
+            t2.lang
             FROM %s t0,%s t1,%s t2,%s t3
             WHERE
-            t0.id = :id AND
+            t0.st_id = :id AND
             t0.mp_id = t1.id AND
             t1.file_id = t2.id AND
             t3.id = t0.st_id
             ", mutationTable, mutationPointTable, filesTable, mutationStatusTable);
 
         auto stmt = db.prepare(get_mut_sql);
-        stmt.get.bind(":id", cast(long) id);
+        stmt.get.bind(":id", id.get);
         auto res = stmt.get.execute;
 
         if (res.empty)
@@ -1349,77 +1273,44 @@ struct DbMutant {
 
         auto mp = MutationPoint(Offset(v.peek!uint(4), v.peek!uint(5)));
         mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
-        auto pkey = MutationId(v.peek!long(0));
+        auto pkey = MutationStatusId(v.peek!long(0));
         auto file = Path(v.peek!string(8));
         auto sloc = SourceLoc(v.peek!uint(6), v.peek!uint(7));
         auto lang = v.peek!long(9).to!Language;
-        auto stId = MutationStatusId(v.peek!long(10));
 
         rval = MutationEntry(pkey, file, sloc, mp,
-                MutantTimeProfile(v.peek!long(2).dur!"msecs", v.peek!long(3).dur!"msecs"),
-                lang, stId);
+                MutantTimeProfile(v.peek!long(2).dur!"msecs", v.peek!long(3).dur!"msecs"), lang);
 
         return rval;
     }
 
-    MutantMetaData getMutantMetaData(const MutationId id) @trusted {
+    MutantMetaData getMutantMetaData(const MutationStatusId id) @trusted {
         auto rval = MutantMetaData(id);
-        foreach (res; db.run(select!NomutDataTbl.where("mut_id = :mutid", Bind("mutid")), id.get)) {
+        foreach (res; db.run(select!NomutDataTbl.where("st_id = :id", Bind("id")), id.get)) {
             rval.set(NoMut(res.tag, res.comment));
         }
         return rval;
     }
 
     // TODO: this is a bit inefficient. it should use a callback iterator
-    MutantMetaData[] getMutantMetaData(const Mutation.Kind[] kinds, const Mutation.Status status) @trusted {
-        const sql = format!"SELECT DISTINCT t.mut_id, t.tag, t.comment
-        FROM %s t, %s t1, %s t2
-        WHERE
-        t.mut_id = t1.id AND
-        t1.st_id = t2.id AND
-        t2.status = :status AND
-        t1.kind IN (%(%s,%))
-        ORDER BY
-        t.mut_id"(nomutDataTable, mutationTable, mutationStatusTable,
-                kinds.map!(a => cast(long) a));
+    MutantMetaData[] getMutantMetaData(const Mutation.Status status) @trusted {
+        static immutable sql = "SELECT DISTINCT t.st_id, t.tag, t.comment FROM " ~ nomutDataTable ~ " t, "
+            ~ mutationStatusTable
+            ~ " t2 WHERE t.st_id = t2.id AND t2.status = :status ORDER BY t.st_id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
 
         auto app = appender!(MutantMetaData[])();
         foreach (res; stmt.get.execute) {
-            app.put(MutantMetaData(MutationId(res.peek!long(0)),
+            app.put(MutantMetaData(MutationStatusId(res.peek!long(0)),
                     MutantAttr(NoMut(res.peek!string(1), res.peek!string(2)))));
         }
         return app.data;
     }
 
-    Nullable!Path getPath(const MutationId id) @trusted {
-        static immutable get_path_sql = format("SELECT t2.path
-            FROM
-            %s t0, %s t1, %s t2
-            WHERE
-            t0.id = :id AND
-            t0.mp_id = t1.id AND
-            t1.file_id = t2.id
-            ", mutationTable, mutationPointTable, filesTable);
-
-        auto stmt = db.prepare(get_path_sql);
-        stmt.get.bind(":id", cast(long) id);
-        auto res = stmt.get.execute;
-
-        typeof(return) rval;
-        if (!res.empty)
-            rval = Path(res.front.peek!string(0));
-        return rval;
-    }
-
     Nullable!Path getPath(const MutationStatusId id) @trusted {
-        static immutable get_path_sql = format("SELECT t2.path
-            FROM
-            %s t0, %s t1, %s t2
-            WHERE
-            t0.st_id = :id AND t0.mp_id = t1.id AND t1.file_id = t2.id
-            ", mutationTable, mutationPointTable, filesTable);
+        static immutable get_path_sql = "SELECT t2.path FROM " ~ mutationTable ~ " t0, " ~ mutationPointTable ~ " t1, "
+            ~ filesTable ~ " t2 WHERE t0.st_id = :id AND t0.mp_id = t1.id AND t1.file_id = t2.id";
 
         auto stmt = db.prepare(get_path_sql);
         stmt.get.bind(":id", id.get);
@@ -1432,23 +1323,22 @@ struct DbMutant {
     }
 
     /// Returns: the mutants that are connected to the mutation statuses.
-    MutantInfo[] getMutantsInfo(const Mutation.Kind[] kinds, const(MutationStatusId)[] id) @trusted {
+    MutantInfo[] getMutantsInfo(const(MutationStatusId)[] id) @trusted {
         const get_mutid_sql = format(
-                "SELECT t0.id,t2.status,t2.exit_code,t0.kind,t1.line,t1.column, t2.id
-            FROM %s t0,%s t1, %s t2
+                "SELECT t0.st_id,t2.status,t2.exit_code,t0.kind,t1.line,t1.column,t2.id
+            FROM " ~ mutationTable ~ " t0," ~ mutationPointTable ~ " t1, "
+                ~ mutationStatusTable ~ " t2
             WHERE
             t0.st_id IN (%(%s,%)) AND
             t0.st_id = t2.id AND
-            t0.kind IN (%(%s,%)) AND
-            t0.mp_id = t1.id", mutationTable, mutationPointTable, mutationStatusTable,
-                id.map!(a => a.get), kinds.map!(a => cast(int) a));
+            t0.mp_id = t1.id", id.map!(a => a.get));
         auto stmt = db.prepare(get_mutid_sql);
 
         auto app = appender!(MutantInfo[])();
         foreach (res; stmt.get.execute) {
-            app.put(MutantInfo(MutationId(res.peek!long(0)), res.peek!long(1)
-                    .to!(Mutation.Status), res.peek!int(2).ExitStatus,
-                    res.peek!long(3).to!(Mutation.Kind),
+            app.put(MutantInfo(res.peek!long(0).to!MutationStatusId,
+                    res.peek!long(1).to!(Mutation.Status), res.peek!int(2)
+                    .ExitStatus, res.peek!long(3).to!(Mutation.Kind),
                     SourceLoc(res.peek!uint(4), res.peek!uint(5)),
                     MutationStatusId(res.peek!long(6))));
         }
@@ -1456,7 +1346,7 @@ struct DbMutant {
         return app.data;
     }
 
-    /// Returns: the mutants that are connected to the mutation statuses.
+    /// Returns: information about the mutant
     Optional!MutantInfo2 getMutantInfo(const MutationStatusId id) @trusted {
         static const sql = format(
                 "SELECT t0.id,t2.status,t2.exit_code,t3.path,t1.line,t1.column,t2.prio,t2.update_ts,
@@ -1475,7 +1365,7 @@ struct DbMutant {
         foreach (res; stmt.get.execute) {
             // dfmt off
             return MutantInfo2(
-                res.peek!long(0).MutationId,
+                id,
                 res.peek!long(1).to!(Mutation.Status),
                 res.peek!int(2).to!ExitStatus,
                 res.peek!string(3).Path,
@@ -1487,37 +1377,6 @@ struct DbMutant {
         }
 
         return none!MutantInfo2;
-    }
-
-    /// Returns: the mutants that are connected to the mutation statuses.
-    MutationId[] getMutationIds(const(Mutation.Kind)[] kinds, const(MutationStatusId)[] id) @trusted {
-        if (id.length == 0)
-            return null;
-
-        const get_mutid_sql = format!"SELECT id FROM %s t0
-            WHERE
-            t0.st_id IN (%(%s,%)) AND
-            t0.kind IN (%(%s,%))"(mutationTable, id.map!(a => cast(long) a),
-                kinds.map!(a => cast(int) a));
-        auto stmt = db.prepare(get_mutid_sql);
-
-        auto app = appender!(MutationId[])();
-        foreach (res; stmt.get.execute)
-            app.put(MutationId(res.peek!long(0)));
-        return app.data;
-    }
-
-    Nullable!MutationId getMutationId(const MutationStatusId id) @trusted {
-        static immutable sql = format!"SELECT id FROM %s WHERE st_id=:st_id"(mutationTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":st_id", id.get);
-
-        typeof(return) rval;
-        foreach (res; stmt.get.execute) {
-            rval = res.peek!long(0).MutationId;
-            break;
-        }
-        return rval;
     }
 
     MutationStatus getMutationStatus2(const MutationStatusId id) @trusted {
@@ -1545,18 +1404,6 @@ struct DbMutant {
         return MutationStatus.init;
     }
 
-    Nullable!MutationStatusId getMutationStatusId(const MutationId id) @trusted {
-        static immutable sql = format!"SELECT st_id FROM %s WHERE id=:id"(mutationTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
-
-        typeof(return) rval;
-        foreach (res; stmt.get.execute) {
-            rval = MutationStatusId(res.peek!long(0));
-        }
-        return rval;
-    }
-
     // TODO: can be removed in the future now that a checksum is the ID.
     MutationStatusId getMutationStatusId(const Checksum cs) @trusted {
         return MutationStatusId(cs.c0);
@@ -1569,36 +1416,21 @@ struct DbMutant {
         s2.st_id = s1.id AND
         s2.mp_id = s4.id AND
         s3.id = s4.file_id AND
-        s3.path = :path);";
+        s3.path = :path)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":path", prioFile);
         stmt.get.execute;
     }
 
-    // TODO: maybe this need to return the exit code too?
-    // Returns: the status of the mutant
-    Nullable!(Mutation.Status) getMutationStatus(const MutationId id) @trusted {
-        auto s = format!"SELECT status FROM %s WHERE id IN (SELECT st_id FROM %s WHERE id=:mut_id)"(
-                mutationStatusTable, mutationTable);
-        auto stmt = db.prepare(s);
-        stmt.get.bind(":mut_id", cast(long) id);
-        typeof(return) rval;
-        foreach (res; stmt.get.execute)
-            rval = res.peek!long(0).to!(Mutation.Status);
-        return rval;
-    }
-
     /// Returns: the mutants in the file at the line.
-    MutationStatusId[] getMutationsOnLine(const(Mutation.Kind)[] kinds, FileId fid, SourceLoc sloc) @trusted {
+    MutationStatusId[] getMutationsOnLine(FileId fid, SourceLoc sloc) @trusted {
         // TODO: should it also be line_end?
-        const sql = format("SELECT DISTINCT t0.id FROM %s t0, %s t1, %s t2
+        static immutable sql = "SELECT DISTINCT t1.st_id FROM " ~ mutationTable
+            ~ " t1, " ~ mutationPointTable ~ " t2
                     WHERE
-                    t1.st_id = t0.id AND
-                    t1.kind IN (%(%s,%)) AND
                     t1.mp_id = t2.id AND
                     t2.file_id = :fid AND
-                    (:line BETWEEN t2.line AND t2.line_end)", mutationStatusTable,
-                mutationTable, mutationPointTable, kinds.map!(a => cast(int) a));
+                    (:line BETWEEN t2.line AND t2.line_end)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":fid", cast(long) fid);
         stmt.get.bind(":line", sloc.line);
@@ -1610,16 +1442,13 @@ struct DbMutant {
     }
 
     /// Returns: the `nr` mutants that where the longst since they where tested.
-    MutationStatusTime[] getOldestMutants(const(Mutation.Kind)[] kinds,
-            const long nr, const Mutation.Status[] status) @trusted {
-        const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
+    MutationStatusTime[] getOldestMutants(const long nr, const Mutation.Status[] status) @trusted {
+        const sql = format("SELECT t0.id,t0.update_ts FROM %s t0
                     WHERE
                     t0.update_ts IS NOT NULL AND
-                    t1.st_id = t0.id AND
-                    t1.kind IN (%(%s,%)) AND
                     t0.status IN (%(%s,%))
-                    ORDER BY t0.update_ts ASC LIMIT :limit", mutationStatusTable,
-                mutationTable, kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
+                    ORDER BY t0.update_ts ASC LIMIT :limit",
+                mutationStatusTable, status.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
 
@@ -1631,14 +1460,13 @@ struct DbMutant {
     }
 
     /// Returns: the `nr` mutants that where last tested.
-    MutationStatusTime[] getLatestMutants(const(Mutation.Kind)[] kinds, const long nr) @trusted {
-        const sql = format("SELECT t0.id,t0.update_ts FROM %s t0, %s t1
+    MutationStatusTime[] getLatestMutants(const long nr) @trusted {
+        static immutable sql = "SELECT t0.id,t0.update_ts FROM "
+            ~ mutationStatusTable ~ " t0, " ~ mutationTable ~ " t1
                     WHERE
                     t0.update_ts IS NOT NULL AND
-                    t1.st_id = t0.id AND
-                    t1.kind IN (%(%s,%))
-                    ORDER BY t0.update_ts DESC LIMIT :limit",
-                mutationStatusTable, mutationTable, kinds.map!(a => cast(int) a));
+                    t1.st_id = t0.id
+                    ORDER BY t0.update_ts DESC LIMIT :limit";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
 
@@ -1650,18 +1478,16 @@ struct DbMutant {
     }
 
     /// Returns: the `nr` mutant with the highest count that has not been killed and existed in the system the longest.
-    MutationStatus[] getHighestPrioMutant(const(Mutation.Kind)[] kinds,
-            const Mutation.Status status, const long nr) @trusted {
+    MutationStatus[] getHighestPrioMutant(const Mutation.Status status, const long nr) @trusted {
         const sql = format("SELECT t0.id,t0.status,t0.prio,t0.update_ts,t0.added_ts
             FROM %s t0, %s t1
             WHERE
             t0.update_ts IS NOT NULL AND
             t0.status = :status AND
             t1.st_id = t0.id AND
-            t1.kind IN (%(%s,%)) AND
             t1.st_id NOT IN (SELECT st_id FROM %s WHERE nomut != 0)
             ORDER BY t0.prio DESC LIMIT :limit", mutationStatusTable,
-                mutationTable, kinds.map!(a => cast(int) a), srcMetadataTable);
+                mutationTable, srcMetadataTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(long) status);
         stmt.get.bind(":limit", nr);
@@ -1689,21 +1515,6 @@ struct DbMutant {
         return app.data;
     }
 
-    /** Get SourceLoc for a specific mutation id.
-     */
-    Nullable!SourceLoc getSourceLocation(MutationId id) @trusted {
-        auto s = format!"SELECT line, column FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE id=:mut_id)"(
-                mutationPointTable, mutationTable);
-        auto stmt = db.prepare(s);
-        stmt.get.bind(":mut_id", cast(long) id);
-        typeof(return) rval;
-        foreach (res; stmt.get.execute)
-            rval = SourceLoc(res.peek!uint(0), res.peek!uint(1));
-        return rval;
-    }
-
-    /** Remove all mutations of kinds.
-     */
     void removeMutant(const Mutation.Kind[] kinds) @trusted {
         const s = format!"DELETE FROM %s WHERE id IN (SELECT mp_id FROM %s WHERE kind IN (%(%s,%)))"(
                 mutationPointTable, mutationTable, kinds.map!(a => cast(int) a));
@@ -1721,10 +1532,10 @@ struct DbMutant {
         stmt.get.execute;
     }
 
-    Mutation.Kind getKind(MutationId id) @trusted {
-        static immutable sql = format!"SELECT kind FROM %s WHERE id=:id"(mutationTable);
+    Mutation.Kind getKind(MutationStatusId id) @trusted {
+        static immutable sql = "SELECT kind FROM " ~ mutationTable ~ " WHERE st_id=:id";
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
+        stmt.get.bind(":id", id.get);
 
         typeof(return) rval;
         foreach (res; stmt.get.execute) {
@@ -1734,16 +1545,14 @@ struct DbMutant {
     }
 
     /// Returns: the `nr` mutants that where last tested.
-    MutantTestTime[] getLatestMutantTimes(const(Mutation.Kind)[] kinds, const long nr) @trusted {
-        const sql = format(
-                "SELECT t0.id,t0.status,t0.compile_time_ms,t0.test_time_ms FROM %s t0, %s t1
+    MutantTestTime[] getLatestMutantTimes(const long nr) @trusted {
+        static immutable sql = "SELECT t0.id,t0.status,t0.compile_time_ms,t0.test_time_ms FROM "
+            ~ mutationStatusTable ~ " t0, " ~ mutationTable ~ " t1
                     WHERE
                     t0.update_ts IS NOT NULL AND
                     t1.st_id = t0.id AND
-                    t1.kind IN (%(%s,%)) AND
                     (t0.compile_time_ms + t0.test_time_ms) > 0
-                    ORDER BY t0.update_ts DESC LIMIT :limit", mutationStatusTable,
-                mutationTable, kinds.map!(a => cast(int) a));
+                    ORDER BY t0.update_ts DESC LIMIT :limit";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":limit", nr);
 
@@ -1783,11 +1592,9 @@ struct DbMutant {
      * Params:
      *  status = status the mutants must be in to be counted.
      *  distinc = count based on unique source code changes.
-     *  kinds = the kind of mutants to count.
      *  file = file to count mutants in.
      */
-    private MutationReportEntry countMutants(int[] status)(const Mutation.Kind[] kinds,
-            string file = null) @trusted {
+    private MutationReportEntry countMutants(int[] status)(string file = null) @trusted {
         const qq = "
             SELECT count(*),sum(compile_time_ms),sum(test_time_ms)
             FROM (
@@ -1796,16 +1603,14 @@ struct DbMutant {
             WHERE
             %s
             t0.st_id = t1.id AND
-            t1.status IN (%(%s,%)) AND
-            t0.kind IN (%(%s,%))
+            t1.status IN (%(%s,%))
             GROUP BY t1.id)";
         const query = () {
             auto fq = file.length == 0
                 ? null : "t0.mp_id = t2.id AND t2.file_id = t3.id AND t3.path = :path AND";
             auto fq_from = file.length == 0 ? null : format(", %s t2, %s t3",
                     mutationPointTable, filesTable);
-            return format(qq, mutationTable, mutationStatusTable, fq_from, fq,
-                    status, kinds.map!(a => cast(int) a));
+            return format(qq, mutationTable, mutationStatusTable, fq_from, fq, status);
         }();
 
         typeof(return) rval;
@@ -1826,11 +1631,9 @@ struct DbMutant {
      * Params:
      *  status = status the mutants must be in to be counted.
      *  distinc = count based on unique source code changes.
-     *  kinds = the kind of mutants to count.
      *  file = file to count mutants in.
      */
-    private MetadataNoMutEntry countNoMutMutants(int[] status, bool distinct)(
-            const Mutation.Kind[] kinds, string file = null) @trusted {
+    private MetadataNoMutEntry countNoMutMutants(int[] status, bool distinct)(string file = null) @trusted {
         static if (distinct) {
             auto sql_base = "
                 SELECT count(*)
@@ -1842,8 +1645,7 @@ struct DbMutant {
                 t0.st_id = t1.id AND
                 t0.st_id = t4.st_id AND
                 t4.nomut != 0 AND
-                t1.status IN (%(%s,%)) AND
-                t0.kind IN (%(%s,%))
+                t1.status IN (%(%s,%))
                 GROUP BY t1.id)";
         } else {
             auto sql_base = "
@@ -1854,8 +1656,7 @@ struct DbMutant {
                 t0.st_id = t1.id AND
                 t0.st_id = t4.st_id AND
                 t4.nomut != 0 AND
-                t1.status IN (%(%s,%)) AND
-                t0.kind IN (%(%s,%))";
+                t1.status IN (%(%s,%))";
         }
         const query = () {
             auto fq = file.length == 0
@@ -1863,7 +1664,7 @@ struct DbMutant {
             auto fq_from = file.length == 0 ? null : format(", %s t2, %s t3",
                     mutationPointTable, filesTable);
             return format(sql_base, mutationTable, mutationStatusTable,
-                    srcMetadataTable, fq_from, fq, status, kinds.map!(a => cast(int) a));
+                    srcMetadataTable, fq_from, fq, status);
         }();
 
         typeof(return) rval;
@@ -1998,10 +1799,12 @@ struct DbMutant {
             mp_id = res.oneValue!long;
         }
 
-        static immutable sql = format!"SELECT DISTINCT t0.st_id FROM %s t0, %s t1 WHERE
+        static immutable sql = format!(
+                "SELECT DISTINCT t0.st_id FROM " ~ mutationTable ~ " t0, "
+                ~ mutationStatusTable ~ " t1 WHERE
             t0.mp_id = :id AND
             t0.st_id = t1.id AND
-            t1.status = %s"(mutationTable, mutationStatusTable, cast(int) Mutation.Status.alive);
+            t1.status = %s")(cast(int) Mutation.Status.alive);
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", mp_id);
@@ -2046,16 +1849,16 @@ struct DbWorklist {
 
     /** Add all mutants with the specific status to the worklist.
      */
-    void update(const Mutation.Kind[] kinds, const Mutation.Status[] status,
-            const long basePrio = 100, const MutationOrder userOrder = MutationOrder.random) @trusted {
+    void update(const Mutation.Status[] status, const long basePrio = 100,
+            const MutationOrder userOrder = MutationOrder.random) @trusted {
         const order = fromOrder(userOrder);
 
         const sql = format!"INSERT OR IGNORE INTO %s (id,prio)
-            SELECT t1.id,%s FROM %s t0, %s t1 WHERE t0.kind IN (%(%s,%)) AND
+            SELECT t1.id,%s FROM %s t0, %s t1 WHERE
             t0.st_id = t1.id AND
             t1.status IN (%(%s,%))
             "(mutantWorklistTable, order, mutationTable, mutationStatusTable,
-                kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
+                status.map!(a => cast(int) a));
         auto stmt = db.prepare(sql);
         stmt.get.bind(":base_prio", basePrio);
         stmt.get.execute;
@@ -2170,9 +1973,9 @@ struct DbMarkMutant {
         return *db_;
     }
 
-    bool isMarked(MutationId id) @trusted {
-        static immutable s = format!"SELECT COUNT(*) FROM %s WHERE st_id IN
-            (SELECT st_id FROM %s WHERE id=:id)"(markedMutantTable, mutationTable);
+    bool isMarked(MutationStatusId id) @trusted {
+        static immutable s = "SELECT COUNT(*) FROM " ~ markedMutantTable
+            ~ " t0, " ~ mutationStatusTable ~ " t1 WHERE t0.st_id=:id AND t1.id=:id";
         auto stmt = db.prepare(s);
         stmt.get.bind(":id", cast(long) id);
         auto res = stmt.get.execute;
@@ -2199,10 +2002,10 @@ struct DbMarkMutant {
 
     /** Mark a mutant with status and rationale (also adds metadata).
      */
-    void mark(const MutationId id, const Path file, const SourceLoc sloc, const MutationStatusId statusId,
+    void mark(const Path file, const SourceLoc sloc, const MutationStatusId statusId,
             const Checksum cs, const Mutation.Status s, const Rationale r, string mutationTxt) @trusted {
         db.run(insertOrReplace!MarkedMutantTbl, MarkedMutantTbl(cs.c0,
-                statusId.get, id.get, sloc.line, sloc.column, file, s,
+                statusId.get, sloc.line, sloc.column, file, s,
                 Clock.currTime.toUTC, r.get, mutationTxt));
     }
 
@@ -2321,8 +2124,8 @@ struct DbCoverage {
 
     /// Add coverage regions.
     void putCoverageMap(const FileId id, const Offset[] region) @trusted {
-        static immutable sql = format!"INSERT OR IGNORE INTO %1$s (file_id, begin, end)
-            VALUES(:fid, :begin, :end)"(srcCovTable);
+        static immutable sql = "INSERT OR IGNORE INTO " ~ srcCovTable
+            ~ " (file_id, begin, end) VALUES(:fid, :begin, :end)";
         auto stmt = db.prepare(sql);
 
         foreach (a; region) {
@@ -2335,7 +2138,7 @@ struct DbCoverage {
     }
 
     CovRegion[][FileId] getCoverageMap() @trusted {
-        static immutable sql = format!"SELECT file_id, begin, end, id FROM %s"(srcCovTable);
+        static immutable sql = "SELECT file_id, begin, end, id FROM " ~ srcCovTable;
         auto stmt = db.prepare(sql);
 
         typeof(return) rval;
@@ -2367,7 +2170,7 @@ struct DbCoverage {
     }
 
     long getCoverageMapCount() @trusted {
-        static immutable sql = format!"SELECT count(*) FROM %s"(srcCovTable);
+        static immutable sql = "SELECT count(*) FROM " ~ srcCovTable;
         auto stmt = db.prepare(sql);
         foreach (ref r; stmt.get.execute)
             return r.peek!long(0);
@@ -2382,8 +2185,8 @@ struct DbCoverage {
     }
 
     void putCoverageInfo(const CoverageRegionId regionId, bool status) {
-        static immutable sql = format!"INSERT OR REPLACE INTO %1$s (id, status) VALUES(:id, :status)"(
-                srcCovInfoTable);
+        static immutable sql = "INSERT OR REPLACE INTO " ~ srcCovInfoTable
+            ~ " (id, status) VALUES(:id, :status)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", regionId.get);
         stmt.get.bind(":status", status);
@@ -2391,7 +2194,7 @@ struct DbCoverage {
     }
 
     Optional!SysTime getCoverageTimeStamp() @trusted {
-        static immutable sql = format!"SELECT timeStamp FROM %s"(srcCovTimeStampTable);
+        static immutable sql = "SELECT timeStamp FROM " ~ srcCovTimeStampTable;
         auto stmt = db.prepare(sql);
 
         foreach (ref r; stmt.get.execute) {
@@ -2402,8 +2205,8 @@ struct DbCoverage {
 
     /// Set the timestamp to the current UTC time.
     void updateCoverageTimeStamp() @trusted {
-        static immutable sql = format!"INSERT OR REPLACE INTO %s (id, timestamp) VALUES(0, :time)"(
-                srcCovTimeStampTable);
+        static immutable sql = "INSERT OR REPLACE INTO " ~ srcCovTimeStampTable
+            ~ " (id, timestamp) VALUES(0, :time)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
         stmt.get.execute;
@@ -2486,23 +2289,19 @@ struct DbSchema {
         return rval;
     }
 
-    // TODO: remove kinds. it isn't necessary because the redesign of the tool
     // is that the user in the analyze phase decide what mutants to generate
     // and then those are expected to be used thereafter. therefor the test
     // phase should assume that "all" available mutants are to be tested.
     /// Returns: number of mutants in a schema with `status`.
-    long countMutants(const SchemataId id, const Mutation.Kind[] kinds,
-            const Mutation.Status[] status) @trusted {
+    long countMutants(const SchemataId id, const Mutation.Status[] status) @trusted {
         const sql = format!"SELECT count(*)
         FROM %s t1, %s t2, %s t3
         WHERE
         t1.schem_id = :id AND
         t1.st_id = t2.id AND
         t3.st_id = t1.st_id AND
-        t3.kind IN (%(%s,%)) AND
         t2.status IN (%(%s,%))
-        "(schemataMutantTable, mutationStatusTable, mutationTable,
-                kinds.map!(a => cast(int) a), status.map!(a => cast(int) a));
+        "(schemataMutantTable, mutationStatusTable, mutationTable, status.map!(a => cast(int) a));
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
@@ -2510,24 +2309,22 @@ struct DbSchema {
     }
 
     /// Returns: number of mutants in a schema that are marked for testing and in the worklist.
-    long countMutantsInWorklist(const SchemataId id, const Mutation.Kind[] kinds) @trusted {
+    long countMutantsInWorklist(const SchemataId id) @trusted {
         const sql = format!"SELECT count(*)
         FROM %s t1, %s t2, %s t3, %s t4
         WHERE
         t1.schem_id = :id AND
         t1.st_id = t2.id AND
         t3.st_id = t1.st_id AND
-        t2.id = t4.id AND
-        t3.kind IN (%(%s,%))
-        "(schemataMutantTable, mutationStatusTable, mutationTable,
-                mutantWorklistTable, kinds.map!(a => cast(int) a));
+        t2.id = t4.id
+        "(schemataMutantTable, mutationStatusTable, mutationTable, mutantWorklistTable);
 
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
         return stmt.get.execute.oneValue!long;
     }
 
-    MutationStatusId[] getSchemataMutants(const SchemataId id, const Mutation.Kind[] kinds) @trusted {
+    MutationStatusId[] getSchemataMutants(const SchemataId id) @trusted {
         // TODO: DISTINCT should not be needed. Instead use e.g. a constraint on the table or something
         immutable sql = format!"SELECT DISTINCT t1.st_id
             FROM %s t1, %s t2, %s t3, %s t4
@@ -2535,10 +2332,8 @@ struct DbSchema {
             t1.schem_id = :id AND
             t1.st_id = t2.id AND
             t3.st_id = t1.st_id AND
-            t2.id = t4.id AND
-            t3.kind IN (%(%s,%))
-            "(schemataMutantTable, mutationStatusTable, mutationTable,
-                mutantWorklistTable, kinds.map!(a => cast(int) a));
+            t2.id = t4.id
+            "(schemataMutantTable, mutationStatusTable, mutationTable, mutantWorklistTable);
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
 
@@ -2889,7 +2684,7 @@ struct DbMetaData {
 
         static immutable nomut_data_tbl = "INSERT INTO %s
             SELECT
-                t0.id as mut_id,
+                t0.st_id as st_id,
                 t0.mp_id as mp_id,
                 t1.line as line,
                 t1.tag as tag,
@@ -2963,8 +2758,8 @@ private:
 MarkedMutant make(MarkedMutantTbl m) {
     import dextool.plugin.mutate.backend.type;
 
-    return MarkedMutant(m.mutationStatusId.MutationStatusId, Checksum(m.checksum),
-            m.mutationId.MutationId, SourceLoc(m.line, m.column), m.path.Path,
+    return MarkedMutant(m.mutationStatusId.MutationStatusId,
+            Checksum(m.checksum), SourceLoc(m.line, m.column), m.path.Path,
             m.toStatus.to!(Mutation.Status), m.time, m.rationale.Rationale, m.mutText);
 }
 

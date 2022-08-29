@@ -60,26 +60,12 @@ for the analyze command.
 These are options that occur in multiple command groups.
 
 ```sh
---mutant
-```
-Mutants to operate on.
- - *all* : All mutants are generated.
- - *aor* : Arithmetical Operator Replacement.
- - *dcr* : Decision/Condition Requirement.
- - *lcr* : Logical Connector Replacement.
- - *lcrb* : Logical Connector Replacement (Bit-wise).
- - *ror* : Relational Operator Replacement.
- - *rorp* : Relational Operator Replacement (Pointer).
- - *sdl* : Statement Deletion.
- - *uoi* : Unary Operator Insertion.
-
-```sh
 --include
 --exclude
 ```
 Only files that match at least one of the include glob patterns and none of the
-exclude will be mutated (written to during the test phase). Default is "*" for
-include and none for exclude.  All patterns are adjusted to be relative to root
+exclude will be mutated (written to during the test phase). Default is `"*"` for
+include and none for exclude. All patterns are adjusted to be relative to root
 (default: .). This option is mostly used by e.g. header only libraries because
 dextool need to analyze the test case source code to *see* how the library is
 instantiated but the test code should not be mutated. Another use case is when
@@ -225,6 +211,23 @@ specify which of them to affect.
 Analyze-mode for the plugin. Is used to find mutation points in the project by
 traversing the AST for the eligible files. Will write results into a database
 that will be used later for testing and generation of mutants.
+
+```sh
+--mutant
+```
+The mutation operators to analyze for and save to the database. This option
+strongly affects the test and report phase.
+
+Mutants to operate on.
+ - *all* : All mutants are generated.
+ - *aor* : Arithmetical Operator Replacement.
+ - *dcr* : Decision/Condition Requirement.
+ - *lcr* : Logical Connector Replacement.
+ - *lcrb* : Logical Connector Replacement (Bit-wise).
+ - *ror* : Relational Operator Replacement.
+ - *rorp* : Relational Operator Replacement (Pointer).
+ - *sdl* : Statement Deletion.
+ - *uoi* : Unary Operator Insertion.
 
 ```sh
 --compile-db

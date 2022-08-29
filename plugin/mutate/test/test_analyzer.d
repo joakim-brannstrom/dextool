@@ -62,38 +62,12 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     auto r = makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "undesired_mutants.cpp")
-        .addPostArg(["--mutant", "all"])
         .addFlag("-std=c++11")
         .run;
 
     testAnyOrder!Re([
         `.*4.*dcrTrue`,
         `.*10.*dcrFalse`,
-    ]).shouldBeIn(r.output);
-}
-
-@(testId ~ "shall save specified mutants when analyzing")
-unittest {
-    mixin(EnvSetup(globalTestdir));
-    dextool_test.makeDextool(testEnv)
-        .setWorkdir(workDir)
-        .args(["mutate", "analyze"])
-        .addArg(["--mutant", "lcr"])
-        .addArg(["--profile"])
-        .addArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-        .addArg(["--fast-db-store"])
-        .addInputArg(testData ~ "all_kinds_of_abs_mutation_points.cpp")
-        .addArg(["--fast-db-store"])
-        .addFlag("-std=c++11")
-        .run;
-
-    auto r = makeDextoolReport(testEnv, testData ~ "all_kinds_of_abs_mutation_points.cpp")
-        .addPostArg(["--mutant", "aor"])
-        .run;
-
-    testConsecutiveSparseOrder!Re([
-        `Mutation operators: aor`,
-        `Total:\s*0`,
     ]).shouldBeIn(r.output);
 }
 
@@ -108,17 +82,14 @@ unittest {
 
     makeDextoolAnalyze(testEnv)
         .addInputArg(programCpp)
-        .addPostArg(["--mutant", "all"])
         .run;
 
     makeDextoolAnalyze(testEnv)
         .addInputArg(programCpp)
-        .addPostArg(["--mutant", "all"])
         .run;
 
     makeDextoolAnalyze(testEnv)
         .addInputArg(programCpp)
-        .addPostArg(["--mutant", "all"])
         .addFlag("-DIS_VERSION_TWO")
         .run;
 }
@@ -139,7 +110,6 @@ unittest {
 
     makeDextoolAnalyze(testEnv)
         .addInputArg(programCpp)
-        .addPostArg(["--mutant", "all"])
         .run;
 }
 
@@ -147,7 +117,6 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
     auto r = makeDextoolAnalyze(testEnv)
-        .addPostArg(["--mutant", "all"])
         .addInputArg(testData ~ "analyze_compile_error.cpp")
         .addPostArg("--allow-errors")
         .run;

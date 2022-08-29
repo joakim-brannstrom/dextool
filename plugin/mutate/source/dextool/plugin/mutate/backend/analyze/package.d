@@ -909,7 +909,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                             total, avgRemoveTime, timeLeft, predDoneAt.toSimpleString);
                 };
                 auto done = (size_t total) {
-                    logger.infof(total > 0, "%1$s/%1$s removed", total, total);
+                    logger.infof(total > 0, "%1$s/%1$s removed", total);
                 };
                 ctx.db.get.mutantApi.removeOrphanedMutants(progress.toDelegate, done.toDelegate);
             }
@@ -1329,12 +1329,9 @@ void updateMarkedMutants(ref Database db) @trusted {
 
     void update(MarkedMutant m) {
         const stId = db.mutantApi.getMutationStatusId(m.statusChecksum);
-        const mutId = db.mutantApi.getMutationId(stId);
-        if (mutId.isNull)
-            return;
         db.markMutantApi.remove(m.statusChecksum);
-        db.markMutantApi.mark(mutId.get, m.path, m.sloc, stId,
-                m.statusChecksum, m.toStatus, m.rationale, m.mutText);
+        db.markMutantApi.mark(m.path, m.sloc, stId, m.statusChecksum,
+                m.toStatus, m.rationale, m.mutText);
         db.mutantApi.update(stId, m.toStatus, ExitStatus(0));
     }
 
@@ -1364,7 +1361,7 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
     ]);
     foreach (m; lostMutants) {
         typeof(tbl).Row r = [
-            m.mutationId.get.to!string, m.path, m.sloc.line.to!string,
+            m.statusId.get.to!string, m.path, m.sloc.line.to!string,
             m.sloc.column.to!string, m.toStatus.to!string, m.rationale.get
         ];
         tbl.put(r);
@@ -1565,7 +1562,6 @@ auto updateSchemaQ(ref Database db) @trusted {
 }
 
 auto updateSchemaSizeQ(ref Database db, const long userInit, const long minSize) @trusted {
-    import std.traits : EnumMembers;
     import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaSizeQ;
     import dextool.plugin.mutate.backend.database : SchemaStatus;
 
@@ -1573,9 +1569,8 @@ auto updateSchemaSizeQ(ref Database db, const long userInit, const long minSize)
     auto sq = SchemaSizeQ.make(minSize, userInit * 3);
     sq.currentSize = db.schemaApi.getSchemaSize(userInit);
     scope getStatusCnt = (SchemaStatus s) @trusted => db.schemaApi.schemaMutantCount(s);
-    const kinds = [EnumMembers!(Mutation.Kind)];
-    sq.update(getStatusCnt, db.mutantApi.totalSrcMutants(kinds)
-            .count + db.mutantApi.unknownSrcMutants(kinds).count);
+    sq.update(getStatusCnt, db.mutantApi.totalSrcMutants()
+            .count + db.mutantApi.unknownSrcMutants().count);
     db.schemaApi.saveSchemaSize(sq.currentSize);
     return sq;
 }

@@ -276,11 +276,11 @@ struct NomutTbl {
 }
 
 @TableName(nomutDataTable)
-@TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
 struct NomutDataTbl {
-    @ColumnName("mut_id")
-    long mutationId;
+    @ColumnName("st_id")
+    long mutantStatusId;
 
     @ColumnName("mp_id")
     long mutationPointId;
@@ -525,10 +525,6 @@ struct MarkedMutantTbl {
     /// updated each analyze.
     @ColumnName("st_id")
     long mutationStatusId;
-
-    /// updated each analyze.
-    @ColumnName("mut_id")
-    long mutationId;
 
     uint line;
     uint column;
@@ -1379,6 +1375,25 @@ void upgradeV13(ref Miniorm db) {
 
 /// 2020-01-12
 void upgradeV14(ref Miniorm db) {
+    @TableName(nomutDataTable)
+    @TableForeignKey("mut_id", KeyRef("mutation(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
+    struct NomutDataTbl {
+        @ColumnName("mut_id")
+        long mutationId;
+
+        @ColumnName("mp_id")
+        long mutationPointId;
+
+        long line;
+
+        @ColumnParam("")
+        string tag;
+
+        @ColumnParam("")
+        string comment;
+    }
+
     db.run(format!"DROP VIEW %s"(srcMetadataTable));
     db.run(format!"DROP VIEW %s"(nomutTable));
     db.run(format!"DROP VIEW %s"(nomutDataTable));
@@ -2057,6 +2072,38 @@ void upgradeV53(ref Miniorm db) {
         long prio;
     }
 
+    @TableName(markedMutantTable)
+    @TablePrimaryKey("checksum")
+    struct MarkedMutantTbl {
+        // TODO: can be removed in the future considering mutationStatusId is the
+        // checksum from v55+.
+        /// Checksum of the mutant status the marking is related to.
+        /// it is the mutationStatusId id.
+        long checksum;
+
+        /// updated each analyze.
+        @ColumnName("st_id")
+        long mutationStatusId;
+
+        /// updated each analyze.
+        @ColumnName("mut_id")
+        long mutationId;
+
+        uint line;
+        uint column;
+        string path;
+
+        /// The status it should always be changed to.
+        long toStatus;
+
+        /// Time when the mutant where marked.
+        SysTime time;
+
+        string rationale;
+
+        string mutText;
+    }
+
     const newFilesTbl = "new_" ~ filesTable;
     db.run(buildSchema!FilesTbl("new_"));
     db.run("INSERT INTO " ~ newFilesTbl
@@ -2115,6 +2162,14 @@ void upgradeV55(ref Miniorm db) {
 
     db.run("DROP TABLE " ~ mutationStatusTable);
     db.run(buildSchema!MutationStatusTbl);
+}
+
+// 2022-08-23
+void upgradeV56(ref Miniorm db) {
+    foreach (tbl; [nomutDataTable, markedMutantTable]) {
+        db.run("DROP TABLE " ~ tbl);
+    }
+    db.run(buildSchema!(NomutDataTbl, MarkedMutantTbl));
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
