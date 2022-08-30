@@ -1159,48 +1159,63 @@ struct EstimateScore {
 /// Trend based on the latest code changes
 struct ScoreTrendByCodeChange {
     static struct Point {
-        SysTime timeStamp;
+        Path file;
 
         /// The mutation score.
         double value;
     }
 
-    Point[] sample;
+    static struct PointGroup {
+        Point[] points;
 
-    double value() @safe pure nothrow const @nogc {
-        if (sample.empty)
-            return typeof(return).init;
-        return sample[$ - 1].value;
+        double min() @safe pure nothrow const @nogc {
+            import std.algorithm : minElement;
+
+            return points.map!"a.value".minElement;
+        }
+    }
+
+    PointGroup[SysTime] sample;
+
+    bool empty() @safe pure nothrow const @nogc {
+        return sample.empty;
     }
 
 }
 
-/** Estimate the mutation score by running a kalman filter over the mutants in
- * the order they have been tested. It gives a rough estimate of where the test
- * suites quality is going over time.
+/** Report the latest date a file was changed and the score.
  *
+ * Files are grouped by day.
  */
 ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db) @trusted nothrow {
-    import dextool.plugin.mutate.backend.database.type : XFileScore = FileScore;
+    import dextool.plugin.mutate.backend.database.type : FileScore;
 
-    auto app = appender!(ScoreTrendByCodeChange.Point[])();
-    auto fileScores = spinSql!(() => db.getMutationFileScoreHistory);
+    Set!Path lastChangeFound;
+    FileScore[Path] lastChange;
 
-    double[SysTime] smallest;
-
-    foreach (key; fileScores.keys) {
-        foreach (value; fileScores[key]) {
-            if (!(value.timeStamp in smallest) || value.score.get < smallest[value.timeStamp]) {
-                smallest[value.timeStamp] = value.score.get;
-            }
+    foreach (a; spinSql!(() => db.fileApi.getFileScoreHistory).array
+            .sort!((a, b) => a.timeStamp > b.timeStamp)
+            .filter!(a => a.file !in lastChangeFound)) {
+        if (auto x = a.file in lastChange) {
+            if (x.score.get == a.score.get)
+                lastChange[a.file] = a;
+            else
+                lastChangeFound.add(a.file);
+        } else {
+            lastChange[a.file] = a;
         }
     }
 
-    foreach (date; smallest.keys) {
-        app.put(ScoreTrendByCodeChange.Point(date, smallest[date]));
+    typeof(return) rval;
+    foreach (a; lastChange.byValue) {
+        rval.sample.update(a.timeStamp, () => ScoreTrendByCodeChange.PointGroup(
+                [ScoreTrendByCodeChange.Point(a.file, a.score.get)]),
+                (ref ScoreTrendByCodeChange.PointGroup x) {
+            x.points ~= ScoreTrendByCodeChange.Point(a.file, a.score.get);
+        });
     }
 
-    return ScoreTrendByCodeChange(app.data);
+    return rval;
 }
 
 /** History of how the mutation score have evolved over time.

@@ -51,6 +51,9 @@ Fixes for dextool mutate
    schema, implementation and slightly improve the performance.
  * Fixed a bug when sorting mutants by datetime which resulted in e.g. "testing
    oldest mutant" not working as it should.
+ * The trend graph for file changes is redesigned to show when a files mutation
+   score last changed. It should make it easier to understand why the mutation
+   score have changed because it points to the files that are changed.
 
 # v4.3.0 Deep Steel
 

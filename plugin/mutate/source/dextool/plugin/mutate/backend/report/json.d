@@ -181,9 +181,7 @@ final class ReportJson {
 
         if (ReportSection.trend in sections) {
             const history = reportMutationScoreHistory(db);
-            const byCodeChange = reportTrendByCodeChange(db);
             JSONValue d;
-            d["code_change_score"] = byCodeChange.value;
 
             d["history_score"] = history.estimate.predScore;
             d["score_history"] = toJson(history);

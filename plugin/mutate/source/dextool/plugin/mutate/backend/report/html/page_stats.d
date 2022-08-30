@@ -13,7 +13,7 @@ import logger = std.experimental.logger;
 import std.datetime : Clock, dur;
 import std.format : format;
 
-import arsd.dom : Element, Link;
+import arsd.dom : Element, Link, Document;
 import my.path : AbsolutePath;
 
 import dextool.plugin.mutate.backend.database : Database;
@@ -25,7 +25,8 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable,
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.backend.report.html.utility;
 
-void makeStats(ref Database db, string tag, Element root, const AbsolutePath workListFname) @trusted {
+void makeStats(ref Database db, string tag, Document doc, Element root,
+        const AbsolutePath workListFname) @trusted {
     import dextool.plugin.mutate.backend.report.html.page_worklist;
 
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Overview");

@@ -344,30 +344,30 @@ Sections to include in the report.
 
 | Section                          | plain | json | html |
 |----------------------------------|-------|------|------|
-| alive                            | ✔    | ✔   |      |
-| all_mut                          | ✔    | ✔   | (✔) |
-| diff                             |       | ✔   | ✔   |
-| killed                           | ✔    | ✔   |      |
-| marked_mutants                   | ✔    |      |      |
-| mut_recommend_kill               |       |      | (✔) |
-| mut_stat                         | ✔    |      |      |
-| summary                          | ✔    | ✔   | ✔   |
-| tc_full_overlap                  | ✔    |      | (✔) |
-| tc_full_overlap_with_mutation_id | ✔    |      | ✔   |
-| tc_groups                        |       |      | ✔   |
-| tc_groups_similarity             |       |      | ✔   |
-| tc_killed                        | ✔    |      |      |
-| tc_killed_no_mutants             | ✔    | ✔   | (✔) |
-| tc_map                           | ✔    |      |      |
-| tc_min_set                       |       |      | ✔   |
-| tc_similarity                    |       |      | ✔   |
-| tc_stat                          | ✔    | ✔   |      |
-| tc_suggestion                    |       |      | ✔   |
-| tc_unique                        |       | ✔   | (✔) |
-| trend                            | ✔    | ✔   | ✔   |
+| alive                            | x     | x    |      |
+| all_mut                          | x     | x    | (x)  |
+| diff                             |       | x    | x    |
+| killed                           | x     | x    |      |
+| marked_mutants                   | x     |      |      |
+| mut_recommend_kill               |       |      | (x)  |
+| mut_stat                         | x     |      |      |
+| summary                          | x     | x    | x    |
+| tc_full_overlap                  | x     |      | (x)  |
+| tc_full_overlap_with_mutation_id | x     |      | x    |
+| tc_groups                        |       |      | x    |
+| tc_groups_similarity             |       |      | x    |
+| tc_killed                        | x     |      |      |
+| tc_killed_no_mutants             | x     | x    | (x)  |
+| tc_map                           | x     |      |      |
+| tc_min_set                       |       |      | x    |
+| tc_similarity                    |       |      | x    |
+| tc_stat                          | x     | x    |      |
+| tc_suggestion                    |       |      | x    |
+| tc_unique                        |       | x    | (x)  |
+| trend                            | x     | x    | x    |
 
 **Note**: styles may have automatic support for sections which are always on,
-indicated by a (✔)..
+indicated by a (x)..
 
 **alive**: Only report alive mutants.
 
