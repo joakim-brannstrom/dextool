@@ -98,15 +98,13 @@ alias SchemaActor = typedActor!(void function(Init, AbsolutePath, ShellCommand, 
             ShellCommand, Duration), void function(RestoreMsg), void function(StartTestMsg),
         void function(ScheduleTestMsg), void function(CheckStopCondMsg), void function(ConfTesters));
 
-auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, AbsolutePath dbPath,
-        TestCaseAnalyzer testCaseAnalyzer, ConfigSchema conf, SchemataId id,
-        TestStopCheck stopCheck, Mutation.Kind[] kinds,
-        ShellCommand buildCmd, Duration buildCmdTimeout, DbSaveActor.Address dbSave,
-        StatActor.Address stat, TimeoutConfig timeoutConf) @trusted {
+auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
+        AbsolutePath dbPath, TestCaseAnalyzer testCaseAnalyzer,
+        ConfigSchema conf, SchemataId id, TestStopCheck stopCheck, ShellCommand buildCmd, Duration buildCmdTimeout,
+        DbSaveActor.Address dbSave, StatActor.Address stat, TimeoutConfig timeoutConf) @trusted {
 
     static struct State {
         SchemataId id;
-        Mutation.Kind[] kinds;
         TestStopCheck stopCheck;
         DbSaveActor.Address dbSave;
         StatActor.Address stat;
@@ -136,7 +134,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         bool isRunning;
     }
 
-    auto st = tuple!("self", "state")(self, refCounted(State(id, kinds, stopCheck,
+    auto st = tuple!("self", "state")(self, refCounted(State(id, stopCheck,
             dbSave, stat, timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf)));
     alias Ctx = typeof(st);
 
@@ -161,8 +159,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
                 return ScheduleTest(testers);
             }();
 
-            ctx.state.get.injectIds = mutantsFromSchema(ctx.state.get.db,
-                    ctx.state.get.id, ctx.state.get.kinds);
+            ctx.state.get.injectIds = mutantsFromSchema(ctx.state.get.db, ctx.state.get.id);
 
             if (!ctx.state.get.injectIds.empty) {
                 send(ctx.self, UpdateWorkList.init);
@@ -200,9 +197,9 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
             break;
         case ok:
             const total = spinSql!(() => ctx.state.get.db.schemaApi.countMutants(ctx.state.get.id,
-                    ctx.state.get.kinds, [EnumMembers!(Mutation.Status)]));
+                    [EnumMembers!(Mutation.Status)]));
             const killed = spinSql!(() => ctx.state.get.db.schemaApi.countMutants(ctx.state.get.id,
-                    ctx.state.get.kinds, [
+                    [
                         Mutation.Status.killed, Mutation.Status.timeout,
                         Mutation.Status.memOverload
                     ]));
@@ -222,8 +219,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
 
         try {
             ctx.state.get.whiteList = spinSql!(
-                    () => ctx.state.get.db.schemaApi.getSchemataMutants(ctx.state.get.id,
-                    ctx.state.get.kinds)).toSet;
+                    () => ctx.state.get.db.schemaApi.getSchemataMutants(ctx.state.get.id)).toSet;
             logger.trace("update schema worklist mutants: ", ctx.state.get.whiteList.length);
             debug logger.trace("update schema worklist: ", ctx.state.get.whiteList.toRange);
         } catch (Exception e) {
@@ -377,10 +373,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         void print(MutationStatusId statusId) {
             import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
-            auto id = spinSql!(() => ctx.state.get.db.mutantApi.getMutationId(statusId));
-            if (id.isNull)
-                return;
-            auto entry_ = spinSql!(() => ctx.state.get.db.mutantApi.getMutation(id.get));
+            auto entry_ = spinSql!(() => ctx.state.get.db.mutantApi.getMutation(statusId));
             if (entry_.isNull)
                 return;
             auto entry = entry_.get;
@@ -538,9 +531,9 @@ struct InjectIdResult {
 }
 
 /// Extract the mutants that are part of the schema.
-InjectIdResult mutantsFromSchema(ref Database db, const SchemataId id, const Mutation.Kind[] kinds) {
+InjectIdResult mutantsFromSchema(ref Database db, const SchemataId id) {
     InjectIdBuilder builder;
-    foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(id, kinds))) {
+    foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(id))) {
         auto cs = spinSql!(() => db.mutantApi.getChecksum(mutant));
         builder.put(mutant, cs);
     }

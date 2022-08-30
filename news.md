@@ -41,6 +41,7 @@ New features for dextool mutate
  not change the mutant except when the mouse is over the window showing the
  mutants on the current line.
  * (html report) Fix the web browsers "back" button when looking at a file report.
+ * The CLI parameter `--mutant` has been removed from `test` and `report` command groups.
 
 Fixes for dextool mutate
 

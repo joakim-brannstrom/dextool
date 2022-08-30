@@ -30,20 +30,16 @@ import dextool.plugin.mutate.backend.report.type : ReportEvent;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize, Table;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind, ReportKind, ReportSection;
+import dextool.plugin.mutate.type : ReportKind, ReportSection;
 import dextool.plugin.mutate.backend.utility : Profile;
 
 @safe:
 
-void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf, FilesysIO fio) {
+void report(ref Database db, const ConfigReport conf, FilesysIO fio) {
     import dextool.plugin.mutate.backend.utility : Profile;
     import dextool.plugin.mutate.backend.mutation_type : toInternal;
 
-    const kinds = toInternal(userKinds);
-
-    auto a = new ReportPlain(kinds, conf, fio);
-
-    a.mutationKindEvent(userKinds);
+    auto a = new ReportPlain(conf, fio);
 
     {
         auto profile = Profile("iterate mutants for report");
@@ -51,7 +47,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
             a.locationEvent(db, row);
         }
 
-        db.iterateMutants(kinds, &iter);
+        db.iterateMutants(&iter);
     }
 
     auto profile = Profile("post process report");
@@ -66,22 +62,16 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
     import dextool.plugin.mutate.backend.utility;
     import my.set;
 
-    const Mutation.Kind[] kinds;
     const ConfigReport conf;
     Set!ReportSection sections;
     FilesysIO fio;
 
     long[MakeMutationTextResult] mutationStat;
 
-    this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio) {
-        this.kinds = kinds;
+    this(const ConfigReport conf, FilesysIO fio) {
         this.fio = fio;
         this.conf = conf;
         this.sections = conf.reportSection.toSet;
-    }
-
-    void mutationKindEvent(const MutationKind[] kind_) {
-        writefln("Mutation operators: %(%s, %)", kind_);
     }
 
     void locationEvent(ref Database db, const ref IterateMutantRow r) @trusted {
@@ -192,7 +182,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
             Table!3 tc_tbl;
 
             tc_tbl.heading = ["Percentage", "Count", "TestCase"];
-            auto r = reportTestCaseStats(db, kinds);
+            auto r = reportTestCaseStats(db);
             r.toTable(conf.tcKillSortNum, conf.tcKillSortOrder, tc_tbl);
 
             writeln(tc_tbl);
@@ -212,7 +202,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 
         if (ReportSection.tc_full_overlap in sections
                 || ReportSection.tc_full_overlap_with_mutation_id in sections) {
-            auto stat = reportTestCaseFullOverlap(db, kinds);
+            auto stat = reportTestCaseFullOverlap(db);
 
             if (ReportSection.tc_full_overlap in sections) {
                 logger.info("Redundant Test Cases (killing the same mutants)");
@@ -235,7 +225,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 
         if (ReportSection.marked_mutants in sections) {
             logger.info("Marked mutants");
-            auto r = reportMarkedMutants(db, kinds);
+            auto r = reportMarkedMutants(db);
             writeln(r.tbl);
         }
 
@@ -247,10 +237,10 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
 
         if (ReportSection.summary in sections) {
             logger.info("Summary");
-            auto summary = reportStatistics(db, kinds);
+            auto summary = reportStatistics(db);
             writeln(summary.toString);
 
-            syncStatus(db, kinds);
+            syncStatus(db);
         }
 
         writeln;
@@ -270,12 +260,12 @@ Table!2 toTable(MutationScoreHistory data) {
     return tbl;
 }
 
-void syncStatus(ref Database db, const(Mutation.Kind)[] kinds) {
+void syncStatus(ref Database db) {
     import std.algorithm : sort;
     import std.typecons : tuple;
     import dextool.plugin.mutate.backend.report.analyzers : reportSyncStatus;
 
-    auto status = reportSyncStatus(db, kinds, 1);
+    auto status = reportSyncStatus(db, 1);
     if (status.mutants.empty)
         return;
 

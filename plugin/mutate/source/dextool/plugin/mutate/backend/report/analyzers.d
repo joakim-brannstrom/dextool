@@ -140,12 +140,12 @@ void toTable(ref TestCaseStat st, const long take_,
 /** Extract the number of source code mutants that a test case has killed and
  * how much the kills contributed to the total.
  */
-TestCaseStat reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds) @safe nothrow {
+TestCaseStat reportTestCaseStats(ref Database db) @safe nothrow {
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
 
     auto profile = Profile(ReportSection.tc_stat);
 
-    const total = spinSql!(() { return db.mutantApi.totalSrcMutants(kinds).count; });
+    const total = spinSql!(() { return db.mutantApi.totalSrcMutants().count; });
     // nothing to do. this also ensure that we do not divide by zero.
     if (total == 0)
         return TestCaseStat.init;
@@ -156,7 +156,7 @@ TestCaseStat reportTestCaseStats(ref Database db, const Mutation.Kind[] kinds) @
 
     foreach (v; spinSql!(() { return db.testCaseApi.getDetectedTestCases; }).map!(
             a => TcInfo2(a, spinSql!(() {
-                return db.testCaseApi.getTestCaseInfo(a, kinds);
+                return db.testCaseApi.getTestCaseInfo(a);
             })))
             .filter!(a => !a.info.isNull)
             .map!(a => TcInfo(a.tc, a.info.get))) {
@@ -215,11 +215,9 @@ private Similarity setSimilarity(MutationStatusId[] lhs_, MutationStatusId[] rhs
  *
  * Params:
  *  db = ?
- *  kinds = mutation kinds to use in the distance analyze
  *  limit = limit the number of test cases to the top `limit`.
  */
-TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
-        const Mutation.Kind[] kinds, ulong limit) @safe {
+TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db, ulong limit) @safe {
     import std.container.binaryheap;
     import dextool.plugin.mutate.backend.database.type : TestCaseInfo;
 
@@ -232,7 +230,7 @@ TestCaseSimilarityAnalyse reportTestCaseSimilarityAnalyse(ref Database db,
     MutationStatusId[][TestCaseId] kill_cache2;
     MutationStatusId[] getKills(TestCaseId id) @trusted {
         return kill_cache2.require(id, spinSql!(() {
-                return db.testCaseApi.testCaseKilledSrcMutants(kinds, id);
+                return db.testCaseApi.testCaseKilledSrcMutants(id);
             }));
     }
 
@@ -354,33 +352,33 @@ struct FileScore {
     Path file;
 }
 
-MutationScore reportScore(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
+MutationScore reportScore(ref Database db, string file = null) @safe nothrow {
     auto profile = Profile("reportScore");
 
     typeof(return) rval;
-    rval.alive = spinSql!(() => db.mutantApi.aliveSrcMutants(kinds, file)).count;
-    rval.killed = spinSql!(() => db.mutantApi.killedSrcMutants(kinds, file)).count;
-    rval.timeout = spinSql!(() => db.mutantApi.timeoutSrcMutants(kinds, file)).count;
-    rval.aliveNoMut = spinSql!(() => db.mutantApi.aliveNoMutSrcMutants(kinds, file)).count;
-    rval.noCoverage = spinSql!(() => db.mutantApi.noCovSrcMutants(kinds, file)).count;
-    rval.equivalent = spinSql!(() => db.mutantApi.equivalentMutants(kinds, file)).count;
-    rval.skipped = spinSql!(() => db.mutantApi.skippedMutants(kinds, file)).count;
-    rval.memOverload = spinSql!(() => db.mutantApi.memOverloadMutants(kinds, file)).count;
+    rval.alive = spinSql!(() => db.mutantApi.aliveSrcMutants(file)).count;
+    rval.killed = spinSql!(() => db.mutantApi.killedSrcMutants(file)).count;
+    rval.timeout = spinSql!(() => db.mutantApi.timeoutSrcMutants(file)).count;
+    rval.aliveNoMut = spinSql!(() => db.mutantApi.aliveNoMutSrcMutants(file)).count;
+    rval.noCoverage = spinSql!(() => db.mutantApi.noCovSrcMutants(file)).count;
+    rval.equivalent = spinSql!(() => db.mutantApi.equivalentMutants(file)).count;
+    rval.skipped = spinSql!(() => db.mutantApi.skippedMutants(file)).count;
+    rval.memOverload = spinSql!(() => db.mutantApi.memOverloadMutants(file)).count;
 
-    const total = spinSql!(() => db.mutantApi.totalSrcMutants(kinds, file));
+    const total = spinSql!(() => db.mutantApi.totalSrcMutants(file));
     rval.totalTime = total.time;
     rval.total = total.count;
 
     return rval;
 }
 
-FileScore[] reportScores(ref Database db, const Mutation.Kind[] kinds, Path[] files) @safe nothrow {
+FileScore[] reportScores(ref Database db, Path[] files) @safe nothrow {
     auto profile = Profile("reportScores");
     auto app = appender!(FileScore[]);
 
     foreach (file; files) {
         FileScore result;
-        result.score = reportScore(db, kinds, file.toString).score();
+        result.score = reportScore(db, file.toString).score();
         result.file = file;
         app.put(result);
     }
@@ -509,24 +507,24 @@ struct MutationStat {
     }
 }
 
-MutationStat reportStatistics(ref Database db, const Mutation.Kind[] kinds, string file = null) @safe nothrow {
+MutationStat reportStatistics(ref Database db, string file = null) @safe nothrow {
     import core.time : dur;
     import dextool.plugin.mutate.backend.utility;
 
     auto profile = Profile(ReportSection.summary);
 
-    const untested = spinSql!(() => db.mutantApi.unknownSrcMutants(kinds, file));
+    const untested = spinSql!(() => db.mutantApi.unknownSrcMutants(file));
     const worklist = spinSql!(() => db.worklistApi.getCount);
-    const killedByCompiler = spinSql!(() => db.mutantApi.killedByCompilerSrcMutants(kinds, file));
+    const killedByCompiler = spinSql!(() => db.mutantApi.killedByCompilerSrcMutants(file));
 
     MutationStat st;
-    st.scoreData = reportScore(db, kinds, file);
+    st.scoreData = reportScore(db, file);
     st.untested = untested.count;
     st.killedByCompiler = killedByCompiler.count;
     st.worklist = worklist;
 
     st.predictedDone = () {
-        auto avg = calcAvgPerMutant(db, kinds);
+        auto avg = calcAvgPerMutant(db);
         return (st.worklist * avg.total!"msecs").dur!"msecs";
     }();
     st.killedByCompilerTime = killedByCompiler.time;
@@ -538,8 +536,7 @@ struct MarkedMutantsStat {
     Table!6 tbl;
 }
 
-MarkedMutantsStat reportMarkedMutants(ref Database db, const Mutation.Kind[] kinds,
-        string file = null) @safe {
+MarkedMutantsStat reportMarkedMutants(ref Database db, string file = null) @safe {
     MarkedMutantsStat st;
     st.tbl.heading = [
         "File", "Line", "Column", "Mutation", "Status", "Rationale"
@@ -645,7 +642,7 @@ template toTable(Flag!"colWithMutants" colMutants) {
 }
 
 /// Test cases that kill exactly the same mutants.
-TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Kind[] kinds) @safe {
+TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db) @safe {
     import my.hash;
 
     auto profile = Profile(ReportSection.tc_full_overlap);
@@ -653,9 +650,8 @@ TestCaseOverlapStat reportTestCaseFullOverlap(ref Database db, const Mutation.Ki
     TestCaseOverlapStat st;
     st.total = db.testCaseApi.getNumOfTestCases;
 
-    foreach (tc_id; db.testCaseApi.getTestCasesWithAtLeastOneKill(kinds)) {
-        auto muts = db.testCaseApi.getTestCaseMutantKills(tc_id, kinds)
-            .sort.map!(a => cast(long) a).array;
+    foreach (tc_id; db.testCaseApi.getTestCasesWithAtLeastOneKill) {
+        auto muts = db.testCaseApi.getTestCaseMutantKills(tc_id).sort.map!(a => cast(long) a).array;
         auto iso = makeCrc64Iso(cast(ubyte[]) muts);
         if (auto v = iso in st.tc_mut)
             (*v) ~= tc_id;
@@ -710,8 +706,7 @@ class TestGroupSimilarity {
  * because they are few so it is never a problem.
  *
  */
-TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
-        const(Mutation.Kind)[] kinds, const(TestGroup)[] test_groups) @safe {
+TestGroupSimilarity reportTestGroupsSimilarity(ref Database db, const(TestGroup)[] test_groups) @safe {
     auto profile = Profile(ReportSection.tc_groups_similarity);
 
     alias TgKills = Tuple!(TestGroupSimilarity.TestGroup, "testGroup",
@@ -727,7 +722,7 @@ TestGroupSimilarity reportTestGroupsSimilarity(ref Database db,
         auto kills = appender!(MutationStatusId[])();
         foreach (tc; test_cases.filter!(a => a.tc.isTestCaseInTestGroup(tg.re))) {
             kills.put(spinSql!(() {
-                    return db.testCaseApi.testCaseKilledSrcMutants(kinds, tc.id);
+                    return db.testCaseApi.testCaseKilledSrcMutants(tc.id);
                 }));
         }
         return kills.data;
@@ -790,8 +785,7 @@ private bool isTestCaseInTestGroup(const TestCase tc, const Regex!char tg) {
     return false;
 }
 
-TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
-        const(TestGroup) test_g) @safe {
+TestGroupStat reportTestGroups(ref Database db, const(TestGroup) test_g) @safe {
     auto profile = Profile(ReportSection.tc_groups);
 
     static struct TcStat {
@@ -816,15 +810,15 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
 
     // collect mutation statistics for each test case group
     foreach (const tc; r.testCases) {
-        foreach (const id; db.testCaseApi.testCaseMutationPointAliveSrcMutants(kinds, tc))
+        foreach (const id; db.testCaseApi.testCaseMutationPointAliveSrcMutants(tc))
             tc_stat.alive.add(id);
-        foreach (const id; db.testCaseApi.testCaseMutationPointKilledSrcMutants(kinds, tc))
+        foreach (const id; db.testCaseApi.testCaseMutationPointKilledSrcMutants(tc))
             tc_stat.killed.add(id);
-        foreach (const id; db.testCaseApi.testCaseMutationPointTimeoutSrcMutants(kinds, tc))
+        foreach (const id; db.testCaseApi.testCaseMutationPointTimeoutSrcMutants(tc))
             tc_stat.timeout.add(id);
-        foreach (const id; db.testCaseApi.testCaseMutationPointTotalSrcMutants(kinds, tc))
+        foreach (const id; db.testCaseApi.testCaseMutationPointTotalSrcMutants(tc))
             tc_stat.total.add(id);
-        foreach (const id; db.testCaseApi.testCaseKilledSrcMutants(kinds, tc))
+        foreach (const id; db.testCaseApi.testCaseKilledSrcMutants(tc))
             tc_stat.tcKilled.add(id);
     }
 
@@ -835,7 +829,7 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
     r.stats.scoreData.total = tc_stat.total.length;
 
     // associate mutants with their file
-    foreach (const m; db.mutantApi.getMutantsInfo(kinds, tc_stat.tcKilled.toArray)) {
+    foreach (const m; db.mutantApi.getMutantsInfo(tc_stat.tcKilled.toArray)) {
         auto fid = db.getFileId(m.id);
         r.killed[fid.get] ~= m;
 
@@ -845,7 +839,7 @@ TestGroupStat reportTestGroups(ref Database db, const(Mutation.Kind)[] kinds,
         }
     }
 
-    foreach (const m; db.mutantApi.getMutantsInfo(kinds, tc_stat.alive.toArray)) {
+    foreach (const m; db.mutantApi.getMutantsInfo(tc_stat.alive.toArray)) {
         auto fid = db.getFileId(m.id);
         r.alive[fid.get] ~= m;
 
@@ -870,31 +864,18 @@ class MutantSample {
 
     /// The mutant that has survived the longest in the system.
     MutationStatus[] highestPrio;
-
-    /// The latest mutants that where added and survived.
-    MutationStatusTime[] latest;
 }
 
 /// Returns: samples of mutants that are of high interest to the user.
-MutantSample reportSelectedAliveMutants(ref Database db, const(Mutation.Kind)[] kinds,
-        long historyNr) {
+MutantSample reportSelectedAliveMutants(ref Database db, long historyNr) {
     auto profile = Profile(ReportSection.mut_recommend_kill);
 
     auto rval = new typeof(return);
 
-    rval.highestPrio = db.mutantApi.getHighestPrioMutant(kinds, Mutation.Status.alive, historyNr);
+    rval.highestPrio = db.mutantApi.getHighestPrioMutant(Mutation.Status.alive, historyNr);
     foreach (const mutst; rval.highestPrio) {
-        auto ids = db.mutantApi.getMutationIds(kinds, [mutst.statusId]);
-        if (ids.length != 0)
-            rval.mutants[mutst.statusId] = db.mutantApi.getMutation(ids[0]).get;
+        rval.mutants[mutst.statusId] = db.mutantApi.getMutation(mutst.statusId).get;
     }
-
-    //rval.oldest = db.mutantApi.getOldestMutants(kinds, historyNr, [EnumMembers!(Mutation.Status)].filter!(a => a != Mutation.Status.noCoverage).array);
-    //foreach (const mutst; rval.oldest) {
-    //    auto ids = db.mutantApi.getMutationIds(kinds, [mutst.id]);
-    //    if (ids.length != 0)
-    //        rval.mutants[mutst.id] = db.mutantApi.getMutation(ids[0]).get;
-    //}
 
     return rval;
 }
@@ -940,8 +921,7 @@ class DiffReport {
     }
 }
 
-DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
-        ref Diff diff, AbsolutePath workdir) {
+DiffReport reportDiff(ref Database db, ref Diff diff, AbsolutePath workdir) {
     import dextool.plugin.mutate.backend.type : SourceLoc;
 
     auto profile = Profile(ReportSection.diff);
@@ -949,8 +929,8 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
     auto rval = new DiffReport;
 
     Set!MutationStatusId total;
-    Set!MutationId alive;
-    Set!MutationId killed;
+    Set!MutationStatusId alive;
+    Set!MutationStatusId killed;
 
     foreach (kv; diff.toRange(workdir)) {
         auto fid = db.getFileId(kv.key);
@@ -962,14 +942,14 @@ DiffReport reportDiff(ref Database db, const(Mutation.Kind)[] kinds,
         bool hasMutants;
         foreach (id; kv.value
                 .toRange
-                .map!(line => spinSql!(() => db.mutantApi.getMutationsOnLine(kinds,
-                    fid.get, SourceLoc(line))))
+                .map!(line => spinSql!(() => db.mutantApi.getMutationsOnLine(fid.get,
+                    SourceLoc(line))))
                 .joiner
                 .filter!(a => a !in total)) {
             hasMutants = true;
             total.add(id);
 
-            const info = db.mutantApi.getMutantsInfo(kinds, [id])[0];
+            const info = db.mutantApi.getMutantsInfo([id])[0];
             if (info.status == Mutation.Status.alive) {
                 rval.alive[fid.get] ~= info;
                 alive.add(info.id);
@@ -1018,7 +998,7 @@ struct MinimalTestSet {
     TestCaseInfo[string] testCaseTime;
 }
 
-MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
+MinimalTestSet reportMinimalSet(ref Database db) {
     import dextool.plugin.mutate.backend.database : TestCaseInfo;
 
     auto profile = Profile(ReportSection.tc_min_set);
@@ -1027,21 +1007,22 @@ MinimalTestSet reportMinimalSet(ref Database db, const Mutation.Kind[] kinds) {
 
     MinimalTestSet rval;
 
-    Set!MutationId killedMutants;
+    // TODO: must change to MutationStatusId
+    Set!MutationStatusId killedMutants;
 
     // start by picking test cases that have the fewest kills.
     foreach (const val; db.testCaseApi
             .getDetectedTestCases
             .map!(a => tuple(a, db.testCaseApi.getTestCaseId(a)))
             .filter!(a => !a[1].isNull)
-            .map!(a => TcIdInfo(a[0], a[1].get, db.testCaseApi.getTestCaseInfo(a[0], kinds).get))
+            .map!(a => TcIdInfo(a[0], a[1].get, db.testCaseApi.getTestCaseInfo(a[0]).get))
             .filter!(a => a.info.killedMutants != 0)
             .array
             .sort!((a, b) => a.info.killedMutants < b.info.killedMutants)) {
         rval.testCaseTime[val.tc.name] = val.info;
 
         const killed = killedMutants.length;
-        foreach (const id; db.testCaseApi.getTestCaseMutantKills(val.id, kinds)) {
+        foreach (const id; db.testCaseApi.getTestCaseMutantKills(val.id)) {
             killedMutants.add(id);
         }
 
@@ -1065,7 +1046,7 @@ struct TestCaseUniqueness {
 }
 
 /// Returns: a report of the mutants that a test case is the only one that kills.
-TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind[] kinds) {
+TestCaseUniqueness reportTestCaseUniqueness(ref Database db) {
     import dextool.plugin.mutate.backend.database.type : MutationStatusId;
 
     auto profile = Profile(ReportSection.tc_unique);
@@ -1075,8 +1056,8 @@ TestCaseUniqueness reportTestCaseUniqueness(ref Database db, const Mutation.Kind
     // killed by multiple test cases
     Set!MutationStatusId multiKill;
 
-    foreach (tc_id; db.testCaseApi.getTestCasesWithAtLeastOneKill(kinds)) {
-        auto muts = db.testCaseApi.testCaseKilledSrcMutants(kinds, tc_id);
+    foreach (tc_id; db.testCaseApi.getTestCasesWithAtLeastOneKill) {
+        auto muts = db.testCaseApi.testCaseKilledSrcMutants(tc_id);
         foreach (m; muts.filter!(a => a !in multiKill)) {
             if (m in killedBy) {
                 killedBy.remove(m);
@@ -1199,7 +1180,7 @@ struct ScoreTrendByCodeChange {
  * suites quality is going over time.
  *
  */
-ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db, const Mutation.Kind[] kinds) @trusted nothrow {
+ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db) @trusted nothrow {
     import dextool.plugin.mutate.backend.database.type : XFileScore = FileScore;
 
     auto app = appender!(ScoreTrendByCodeChange.Point[])();
@@ -1359,7 +1340,7 @@ struct SyncStatus {
     MutationStatusTime[] mutants;
 }
 
-SyncStatus reportSyncStatus(ref Database db, const(Mutation.Kind)[] kinds, const long nrMutants) {
+SyncStatus reportSyncStatus(ref Database db, const long nrMutants) {
     import std.datetime : Clock;
     import std.traits : EnumMembers;
     import dextool.plugin.mutate.backend.database : TestFile, TestFileChecksum, TestFilePath;
@@ -1369,8 +1350,7 @@ SyncStatus reportSyncStatus(ref Database db, const(Mutation.Kind)[] kinds, const
         .orElse(TestFile(TestFilePath.init, TestFileChecksum.init, Clock.currTime)).timeStamp;
     rval.code = spinSql!(() => db.getNewestFile).orElse(Clock.currTime);
     rval.coverage = spinSql!(() => db.coverageApi.getCoverageTimeStamp).orElse(Clock.currTime);
-    rval.mutants = spinSql!(() => db.mutantApi.getOldestMutants(kinds,
-            nrMutants,
+    rval.mutants = spinSql!(() => db.mutantApi.getOldestMutants(nrMutants,
             [EnumMembers!(Mutation.Status)].filter!(a => a != Mutation.Status.noCoverage).array));
     return rval;
 }
@@ -1498,10 +1478,10 @@ alias AverageTimePerMutant = NamedType!(Duration, Tag!"AverageTimePerMutant",
         Duration.init, TagStringable, ImplicitConvertable);
 
 /// Based on the last 100 tested mutants.
-AverageTimePerMutant calcAvgPerMutant(ref Database db, const Mutation.Kind[] kinds) nothrow {
+AverageTimePerMutant calcAvgPerMutant(ref Database db) nothrow {
     import core.time : dur;
 
-    auto times = spinSql!(() => db.mutantApi.getLatestMutantTimes(kinds, 100));
+    auto times = spinSql!(() => db.mutantApi.getLatestMutantTimes(100));
     if (times.length == 0)
         return AverageTimePerMutant.init;
 

@@ -31,7 +31,7 @@ import my.optional;
 import my.set;
 
 import dextool.plugin.mutate.backend.database : Database, FileRow,
-    FileMutantRow, MutationId, MutationStatusId;
+    FileMutantRow, MutationStatusId;
 import dextool.plugin.mutate.backend.database.type : CovRegionStatus;
 
 import dextool.plugin.mutate.backend.diff_parser : Diff;
@@ -51,15 +51,14 @@ import dextool.plugin.mutate.backend.database.type : FileScore;
 
 @safe:
 
-void report(ref System sys, AbsolutePath dbPath, const MutationKind[] userKinds,
-        ConfigReport conf, FilesysIO fio, ref Diff diff) @trusted {
+void report(ref System sys, AbsolutePath dbPath, ConfigReport conf, FilesysIO fio, ref Diff diff) @trusted {
     import dextool.plugin.mutate.backend.database : FileMutantRow;
     import dextool.plugin.mutate.backend.mutation_type : toInternal;
 
     auto flowCtrl = sys.spawn(&spawnFlowControlTotalCPUs);
     auto reportCollector = sys.spawn(&spawnFileReportCollector, flowCtrl);
     auto overview = sys.spawn(&spawnOverviewActor, flowCtrl, reportCollector,
-            dbPath, userKinds.dup, conf, fio, diff);
+            dbPath, conf, fio, diff);
 
     auto self = scopedActor;
     self.request(overview, infTimeout).send(WaitForDoneMsg.init).then((bool a) {});
@@ -101,7 +100,7 @@ struct FileCtx {
     FileId fileId;
 
     /// Find the test cases that killed a mutant. They are sorted by most killed -> least killed.
-    TestCaseInfo[][MutationId] tcKilledMutant;
+    TestCaseInfo[][MutationStatusId] tcKilledMutant;
 
     /// All test cases in the file.
     TestCaseInfo[] testCases;
@@ -142,9 +141,11 @@ struct FileCtx {
         return r;
     }
 
-    TestCaseInfo[] getTestCaseInfo(MutationId mutationId) @safe pure nothrow {
-        if (auto v = mutationId in tcKilledMutant)
-            return *v;
+    TestCaseInfo[] getTestCaseInfo(MutationStatusId id) @safe pure nothrow {
+        try {
+            return tcKilledMutant.get(id, null);
+        } catch (Exception e) {
+        }
         return null;
     }
 
@@ -195,18 +196,15 @@ nothrow:
         string mutation;
     }
 
-    MutationId id;
     MutationStatusId stId;
     Offset offset;
     Text txt;
     Mutation mut;
 
-    this(MutationId id, MutationStatusId stId, Offset offset, string original,
-            string mutation, Mutation mut) {
+    this(MutationStatusId stId, Offset offset, string original, string mutation, Mutation mut) {
         import std.utf : validate;
         import dextool.plugin.mutate.backend.type : invalidUtf8;
 
-        this.id = id;
         this.stId = stId;
         this.offset = offset;
         this.mut = mut;
@@ -230,8 +228,8 @@ nothrow:
         }
     }
 
-    this(MutationId id, MutationStatusId stId, Offset offset, string original) {
-        this(id, stId, offset, original, null, Mutation.init);
+    this(MutationStatusId stId, Offset offset, string original) {
+        this(stId, offset, original, null, Mutation.init);
     }
 
     string original() @safe pure nothrow const @nogc {
@@ -257,7 +255,7 @@ nothrow:
 
 @("shall be possible to construct a FileMutant in @safe")
 @safe unittest {
-    auto fmut = FileMutant(MutationId(1), MutationStatusId(1), Offset(1, 2), "smurf");
+    auto fmut = FileMutant(MutationStatusId(1), Offset(1, 2), "smurf");
 }
 
 /*
@@ -338,8 +336,8 @@ struct Spanner {
             Offset(a[0], a[1]), SourceLoc.init, SourceLoc.init, a[0].to!string)).retro.array;
     auto span = Spanner(toks);
 
-    span.put(FileMutant(MutationId(1), MutationStatusId(1), Offset(1, 10), "smurf"));
-    span.put(FileMutant(MutationId(1), MutationStatusId(1), Offset(9, 15), "donkey"));
+    span.put(FileMutant(MutationStatusId(1), Offset(1, 10), "smurf"));
+    span.put(FileMutant(MutationStatusId(1), Offset(9, 15), "donkey"));
 
     // TODO add checks
 }
@@ -447,35 +445,30 @@ struct Span {
             SourceLoc.init, a.begin.to!string)).retro.array;
     auto span = Spanner(toks);
 
-    span.put(FileMutant(MutationId(2), MutationStatusId(1), Offset(11, 15),
-            "token enclosing mutant"));
-    span.put(FileMutant(MutationId(3), MutationStatusId(1), Offset(31, 42),
-            "mutant beginning inside a token"));
-    span.put(FileMutant(MutationId(4), MutationStatusId(1), Offset(50, 80),
-            "mutant overlapping multiple tokens"));
+    span.put(FileMutant(MutationStatusId(2), Offset(11, 15), "token enclosing mutant"));
+    span.put(FileMutant(MutationStatusId(3), Offset(31, 42), "mutant beginning inside a token"));
+    span.put(FileMutant(MutationStatusId(4), Offset(50, 80), "mutant overlapping multiple tokens"));
 
-    span.put(FileMutant(MutationId(5), MutationStatusId(1), Offset(90, 100),
-            "1 multiple mutants for a token"));
-    span.put(FileMutant(MutationId(6), MutationStatusId(1), Offset(90, 110),
-            "2 multiple mutants for a token"));
-    span.put(FileMutant(MutationId(1), MutationStatusId(1), Offset(120, 130), "perfect overlap"));
+    span.put(FileMutant(MutationStatusId(5), Offset(90, 100), "1 multiple mutants for a token"));
+    span.put(FileMutant(MutationStatusId(6), Offset(90, 110), "2 multiple mutants for a token"));
+    span.put(FileMutant(MutationStatusId(1), Offset(120, 130), "perfect overlap"));
 
     auto res = span.toRange.array;
     //logger.tracef("%(%s\n%)", res);
-    res[1].muts[0].id.get.shouldEqual(2);
+    res[1].muts[0].stId.get.shouldEqual(2);
     res[2].muts.length.shouldEqual(0);
-    res[3].muts[0].id.get.shouldEqual(3);
-    res[4].muts[0].id.get.shouldEqual(3);
-    res[5].muts[0].id.get.shouldEqual(4);
-    res[6].muts[0].id.get.shouldEqual(4);
-    res[7].muts[0].id.get.shouldEqual(4);
+    res[3].muts[0].stId.get.shouldEqual(3);
+    res[4].muts[0].stId.get.shouldEqual(3);
+    res[5].muts[0].stId.get.shouldEqual(4);
+    res[6].muts[0].stId.get.shouldEqual(4);
+    res[7].muts[0].stId.get.shouldEqual(4);
     res[8].muts.length.shouldEqual(0);
     res[9].muts.length.shouldEqual(2);
-    res[9].muts[0].id.get.shouldEqual(5);
-    res[9].muts[1].id.get.shouldEqual(6);
-    res[10].muts[0].id.get.shouldEqual(6);
+    res[9].muts[0].stId.get.shouldEqual(5);
+    res[9].muts[1].stId.get.shouldEqual(6);
+    res[10].muts[0].stId.get.shouldEqual(6);
     res[11].muts.length.shouldEqual(0);
-    res[12].muts[0].id.get.shouldEqual(1);
+    res[12].muts[0].stId.get.shouldEqual(1);
     res[13].muts.length.shouldEqual(0);
 }
 
@@ -751,7 +744,6 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     import dextool.plugin.mutate.backend.mutation_type : toUser, mutationDescription;
 
     static struct MData {
-        MutationId id;
         MutationStatusId stId;
         FileMutant.Text txt;
         Mutation mut;
@@ -777,7 +769,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
     // used to make sure that metadata about a mutant is only written onces
     // to the global arrays.
-    Set!MutationId metadataOnlyOnce;
+    Set!MutationStatusId metadataOnlyOnce;
     auto muts = appender!(MData[])();
 
     // this is the last location. It is used to calculate the num of
@@ -828,12 +820,14 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 setAttribute("onclick", meta.onClick);
         }
 
-        foreach (m; s.muts.filter!(m => m.id !in metadataOnlyOnce)) {
-            metadataOnlyOnce.add(m.id);
+        // TODO: remove metadataOnlyOnce? i think it is there only because
+        // mutationId could occur multiple times.
+        foreach (m; s.muts.filter!(m => m.stId !in metadataOnlyOnce)) {
+            metadataOnlyOnce.add(m.stId);
 
-            const metadata = db.mutantApi.getMutantMetaData(m.id);
+            const metadata = db.mutantApi.getMutantMetaData(m.stId);
 
-            muts.put(MData(m.id, m.stId, m.txt, m.mut, metadata));
+            muts.put(MData(m.stId, m.txt, m.mut, metadata));
             {
                 auto mutantHtmlTag = d0.addChild("span").addClass("mutant")
                     .setAttribute("id", m.stId.toString);
@@ -844,8 +838,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 }
             }
 
-            //Need actual MutationId and not StatusId to get TestCase info
-            auto testCases = ctx.getTestCaseInfo(m.id);
+            auto testCases = ctx.getTestCaseInfo(m.stId);
             if (testCases.empty) {
                 mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : %s, 'mutText' : %s, 'meta' : '%s', 'size' : %d};",
                         m.stId, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
@@ -963,10 +956,10 @@ alias FileReportActor = typedActor!(void function(InitMsg, AbsolutePath dbPath, 
 
 auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtrl,
         FileReportCollectorActor.Address collector,
-        AbsolutePath dbPath, FilesysIO fio, Mutation.Kind[] kinds,
-        ConfigReport conf, AbsolutePath logFilesDir, FileRow fr) @trusted {
+        AbsolutePath dbPath, FilesysIO fio, ConfigReport conf, AbsolutePath logFilesDir, FileRow fr) @trusted {
+    import miniorm : spinSql;
+
     static struct State {
-        Mutation.Kind[] kinds;
         ConfigReport conf;
         FlowControlActor.Address flowCtrl;
         FileReportCollectorActor.Address collector;
@@ -979,8 +972,8 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
         FileCtx ctx;
     }
 
-    auto st = tuple!("self", "state", "fio")(self, refCounted(State(kinds,
-            conf, flowCtrl, collector, fr)), fio.dup);
+    auto st = tuple!("self", "state", "fio")(self, refCounted(State(conf,
+            flowCtrl, collector, fr)), fio.dup);
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, InitMsg, AbsolutePath dbPath, AbsolutePath logFilesDir) @trusted {
@@ -1001,8 +994,8 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
             auto raw = ctx.fio.makeInput(AbsolutePath(buildPath(ctx.fio.getOutputDir,
                     ctx.state.get.fileRow.file)));
 
-            auto tc_info = ctx.state.get.db.testCaseApi.getAllTestCaseInfo2(
-                    ctx.state.get.fileRow.id, ctx.state.get.kinds);
+            auto tc_info = spinSql!(() => ctx.state.get.db.testCaseApi.getAllTestCaseInfo2(
+                    ctx.state.get.fileRow.id));
 
             ctx.state.get.ctx = FileCtx.make(original, ctx.state.get.fileRow.id, raw, tc_info);
             ctx.state.get.ctx.processFile = ctx.state.get.fileRow.file;
@@ -1034,14 +1027,13 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
 
             auto txt = makeMutationText(ctx.state.get.ctx.raw,
                     fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
-            ctx.state.get.ctx.span.put(FileMutant(fr.id, fr.stId,
+            ctx.state.get.ctx.span.put(FileMutant(fr.stId,
                     fr.mutationPoint.offset, cleanup(txt.original),
                     cleanup(txt.mutation), fr.mutation));
         }
 
         try {
-            ctx.state.get.db.iterateFileMutants(ctx.state.get.kinds,
-                    ctx.state.get.fileRow.file, &fn);
+            ctx.state.get.db.iterateFileMutants(ctx.state.get.fileRow.file, &fn);
             generateFile(ctx.state.get.db, ctx.state.get.ctx);
 
             send(ctx.self, DoneMsg.init);
@@ -1055,8 +1047,7 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
         import dextool.plugin.mutate.backend.report.analyzers : reportScore;
 
         try {
-            auto stat = reportScore(ctx.state.get.db, ctx.state.get.kinds,
-                    ctx.state.get.fileRow.file);
+            auto stat = reportScore(ctx.state.get.db, ctx.state.get.fileRow.file);
             send(ctx.state.get.collector, FileIndex(ctx.state.get.reportFile,
                     ctx.state.get.fileRow.file, stat));
 
@@ -1270,9 +1261,8 @@ alias OverviewActor = typedActor!(void function(InitMsg, AbsolutePath), void fun
  * control and summarises the result from all the sub-report actors.
  */
 auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCtrl,
-        FileReportCollectorActor.Address fileCollector,
-        AbsolutePath dbPath, MutationKind[] userKinds, ConfigReport conf,
-        FilesysIO fio, ref Diff diff) @trusted {
+        FileReportCollectorActor.Address fileCollector, AbsolutePath dbPath,
+        ConfigReport conf, FilesysIO fio, ref Diff diff) @trusted {
     import std.stdio : writefln, writeln;
     import undead.xml : encode;
     import dextool.plugin.mutate.backend.report.analyzers : TestCaseMetadata;
@@ -1285,12 +1275,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         // Report alive mutants in this section
         Diff diff;
 
-        /// What the user configured.
-        MutationKind[] humanReadableKinds;
-
         Set!ReportSection sections;
-
-        Mutation.Kind[] kinds;
 
         /// The base directory of logdirs
         AbsolutePath logDir;
@@ -1316,7 +1301,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
     }
 
     auto st = tuple!("self", "state", "fio")(self, refCounted(State(flowCtrl,
-            fileCollector, conf, diff, userKinds, conf.reportSection.toSet)), fio.dup);
+            fileCollector, conf, diff, conf.reportSection.toSet)), fio.dup);
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, InitMsg, AbsolutePath dbPath) {
@@ -1325,8 +1310,6 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         import dextool.plugin.mutate.backend.report.analyzers : parseTestCaseMetadata;
 
         ctx.state.get.db = Database.make(dbPath);
-
-        ctx.state.get.kinds = toInternal(ctx.state.get.humanReadableKinds);
 
         ctx.state.get.logDir = buildPath(ctx.state.get.conf.logDir, HtmlStyle.dir)
             .Path.AbsolutePath;
@@ -1367,50 +1350,46 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
                 ctx.state.get.flow);
 
         runAnalyzer!makeStats(ctx.self, ctx.state.get.flow, collector,
-                SubContent("Overview", "#overview", null), dbPath, ctx.state.get.kinds,
+                SubContent("Overview", "#overview", null), dbPath,
                 AbsolutePath(ctx.state.get.logDir ~ Path("worklist" ~ HtmlStyle.ext)));
 
         runAnalyzer!makeMutantPage(ctx.self, ctx.state.get.flow, collector,
                 SubContent("Mutants", "#mutants", null), dbPath, ctx.state.get.conf,
-                ctx.state.get.kinds,
                 AbsolutePath(ctx.state.get.logDir ~ Path("mutants" ~ HtmlStyle.ext)));
 
         runAnalyzer!makeTestCases(ctx.self, ctx.state.get.flow, collector,
                 SubContent("Test Cases", "#test_cases", null), dbPath, ctx.state.get.conf,
-                ctx.state.get.kinds, ctx.state.get.metaData, ctx.state.get.logTestCasesDir);
+                ctx.state.get.metaData, ctx.state.get.logTestCasesDir);
 
         if (ReportSection.trend in ctx.state.get.sections) {
             runAnalyzer!makeTrend(ctx.self, ctx.state.get.flow, collector,
-                    SubContent("Trend", "#trend", null), dbPath, ctx.state.get.kinds);
+                    SubContent("Trend", "#trend", null), dbPath);
         }
 
         if (!ctx.state.get.diff.empty) {
             runAnalyzer!makeDiffView(ctx.self, ctx.state.get.flow, collector,
-                    SubPage(makeFname("diff_view"), "Diff View"), dbPath, ctx.state.get.conf,
-                    ctx.state.get.humanReadableKinds, ctx.state.get.kinds,
-                    ctx.state.get.diff, ctx.fio.getOutputDir);
+                    SubPage(makeFname("diff_view"), "Diff View"), dbPath,
+                    ctx.state.get.conf, ctx.state.get.diff, ctx.fio.getOutputDir);
         }
         if (ReportSection.tc_groups in ctx.state.get.sections) {
             runAnalyzer!makeTestGroups(ctx.self, ctx.state.get.flow, collector,
-                    SubPage(makeFname("test_groups"), "Test Groups"), dbPath,
-                    ctx.state.get.conf, ctx.state.get.humanReadableKinds, ctx.state.get.kinds);
+                    SubPage(makeFname("test_groups"), "Test Groups"), dbPath, ctx.state.get.conf);
         }
 
         if (ReportSection.tc_min_set in ctx.state.get.sections) {
             runAnalyzer!makeMinimalSetAnalyse(ctx.self, ctx.state.get.flow, collector,
-                    SubPage(makeFname("minimal_set"), "Minimal Test Set"), dbPath,
-                    ctx.state.get.conf, ctx.state.get.humanReadableKinds, ctx.state.get.kinds);
+                    SubPage(makeFname("minimal_set"), "Minimal Test Set"),
+                    dbPath, ctx.state.get.conf);
         }
 
         if (ReportSection.tc_groups_similarity in ctx.state.get.sections) {
             runAnalyzer!makeTestGroupSimilarityAnalyse(ctx.self, ctx.state.get.flow, collector,
-                    SubPage(makeFname("test_group_similarity"), "Test Group Similarity"), dbPath,
-                    ctx.state.get.conf, ctx.state.get.humanReadableKinds, ctx.state.get.kinds);
+                    SubPage(makeFname("test_group_similarity"), "Test Group Similarity"),
+                    dbPath, ctx.state.get.conf);
         }
 
         runAnalyzer!makeNomut(ctx.self, ctx.state.get.flow, collector,
-                SubPage(makeFname("nomut"), "NoMut Details"), dbPath, ctx.state.get.conf,
-                ctx.state.get.humanReadableKinds, ctx.state.get.kinds);
+                SubPage(makeFname("nomut"), "NoMut Details"), dbPath, ctx.state.get.conf);
 
         send(collector, DoneStartingReportersMsg.init);
 
@@ -1427,8 +1406,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         foreach (f; ctx.state.get.db.getDetailedFiles) {
             auto fa = ctx.self.homeSystem.spawn(&spawnFileReport,
                     ctx.state.get.flow, ctx.state.get.fileCollector, dbPath,
-                    ctx.fio.dup, ctx.state.get.kinds, ctx.state.get.conf,
-                    ctx.state.get.logFilesDir, f);
+                    ctx.fio.dup, ctx.state.get.conf, ctx.state.get.logFilesDir, f);
             send(ctx.state.get.fileCollector, StartReporterMsg.init);
         }
         send(ctx.state.get.fileCollector, DoneStartingReportersMsg.init);
@@ -1471,8 +1449,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         auto profile = Profile("post process report");
 
         auto index = makeDashboard;
-        index.title = format("Mutation Testing Report %(%s %) %s",
-                ctx.state.get.humanReadableKinds, Clock.currTime);
+        index.title = format("Mutation Testing Report %s", Clock.currTime);
 
         auto content = index.mainBody.getElementById("content");
 

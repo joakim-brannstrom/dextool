@@ -307,38 +307,41 @@ ExitStatusType modeAnalyze(ref ArgParser conf, ref DataAccess dacc) {
 
     printFileAnalyzeHelp(conf);
 
-    return runAnalyzer(conf.db, conf.data.mutation, conf.analyze,
+    return runAnalyzer(conf.db, conf.analyze.mutation, conf.analyze,
             conf.compiler, conf.schema, conf.coverage, dacc.frange, dacc.validateLoc, dacc.io);
 }
 
 ExitStatusType modeGenerateMutant(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : runGenerateMutant;
-    import dextool.plugin.mutate.backend.database.type : MutationId;
+    import dextool.plugin.mutate.backend.database.type : MutationStatusId;
 
-    return runGenerateMutant(conf.db, conf.data.mutation,
-            MutationId(conf.generate.mutationId), dacc.io, dacc.validateLoc);
+    return runGenerateMutant(conf.db, conf.generate.mutation,
+            MutationStatusId(conf.generate.mutationStatusId), dacc.io, dacc.validateLoc);
 }
 
 ExitStatusType modeTestMutants(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : makeTestMutant;
 
-    return makeTestMutant.config(conf.mutationTest).mutations(conf.data.mutation)
-        .config(conf.coverage).config(conf.schema).run(conf.db, dacc.io);
+    return makeTestMutant.config(conf.mutationTest).config(conf.coverage)
+        .config(conf.schema).run(conf.db, dacc.io);
 }
 
 ExitStatusType modeReport(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : runReport;
 
-    return runReport(conf.db, conf.data.mutation, conf.report, dacc.io);
+    // passing on the mutants used during analyze to visualize in the report.
+    // only actually works if it is set in the configuration
+    return runReport(conf.db, conf.report, dacc.io);
 }
 
 ExitStatusType modeAdmin(ref ArgParser conf, ref DataAccess dacc) {
     import dextool.plugin.mutate.backend : makeAdmin;
     import my.named_type;
 
-    return makeAdmin().operation(conf.admin.adminOp).mutations(conf.data.mutation)
+    return makeAdmin().operation(conf.admin.adminOp).mutations(conf.admin.mutation)
         .mutationsSubKind(conf.admin.subKind).fromStatus(conf.admin.mutantStatus)
         .toStatus(conf.admin.mutantToStatus).testCaseRegex(conf.admin.testCaseRegex).markMutantData(NamedType!(long,
-                Tag!"MutationId", 0, Comparable, Hashable, ConvertStringable)(conf.admin.mutationId),
-                conf.admin.mutantRationale, dacc.io).database(conf.db).run;
+                Tag!"MutationStatusId", 0, Comparable, Hashable, ConvertStringable)(
+                conf.admin.mutationStatusId), conf.admin.mutantRationale, dacc.io).database(conf.db)
+        .run;
 }

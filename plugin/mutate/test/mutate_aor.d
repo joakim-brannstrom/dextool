@@ -26,10 +26,9 @@ unittest {
         testEnv.outputSuffix(getValue);
         testEnv.setupEnv;
 
-        makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).addFlag("-std=c++11").run;
-        auto r = makeDextool(testEnv).addArg(["test"]).addArg([
-            "--mutant", "aor"
-        ]).run;
+        makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue)
+            .addFlag("-std=c++11").addArg(["--mutant", "aor"]).run;
+        auto r = makeDextool(testEnv).addArg(["test"]).run;
 
         testAnyOrder!SubStr(ops.map!(a => a)
                 .permutations
@@ -49,10 +48,9 @@ unittest {
         testEnv.outputSuffix(getValue);
         testEnv.setupEnv;
 
-        makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).addFlag("-std=c++11").run;
-        auto r = makeDextool(testEnv).addArg(["test"]).addArg([
-            "--mutant", "aors"
-        ]).run;
+        makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue)
+            .addFlag("-std=c++11").addArg(["--mutant", "aors"]).run;
+        auto r = makeDextool(testEnv).addArg(["test"]).run;
 
         testAnyOrder!SubStr([
             `from '+' to '-'`, `from '-' to '+'`, `from '/' to '*'`,
@@ -77,10 +75,10 @@ unittest {
         testEnv.outputSuffix(getValue);
         testEnv.setupEnv;
 
-        makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).run;
-        auto r = makeDextool(testEnv).addArg(["test"]).addArg([
+        makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).addArg([
             "--mutant", "aor"
         ]).run;
+        auto r = makeDextool(testEnv).addArg(["test"]).run;
 
         testAnyOrder!SubStr(ops.map!(a => format!"from 'a %s' to ''"(a)).array).shouldBeIn(
                 r.output);
@@ -96,9 +94,10 @@ class ShallOnlyGenerateValidAorSchemas : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode)
+            .addFlag("-std=c++11").addPostArg(["--mutant", "aor"]).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "aor"]).addFlag("-std=c++11").run;
+        auto r = runDextoolTest(testEnv).addFlag("-std=c++11").run;
 
         // modulo/reminder operator do not support floating point.
         testAnyOrder!SubStr(ops.map!(a => a)

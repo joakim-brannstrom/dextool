@@ -25,9 +25,11 @@ class ShallRunAorSchema : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "aor"
+        ]).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "aor"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         // dfmt off
         testConsecutiveSparseOrder!SubStr([
@@ -49,11 +51,11 @@ class ShallUseSchemaSanityCheck : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
-
-        auto r = runDextoolTest(testEnv).addPostArg([
-            "--mutant", "aor", "--schema-check"
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "aor"
         ]).run;
+
+        auto r = runDextoolTest(testEnv).addPostArg(["--schema-check"]).run;
 
         // dfmt off
         testConsecutiveSparseOrder!SubStr([
@@ -78,9 +80,11 @@ class ShallRunUoiSchema : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "uoi"
+        ]).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "uoi"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         // dfmt off
         testConsecutiveSparseOrder!SubStr([
@@ -96,9 +100,11 @@ class ShallRunLcrSchema : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "lcr"
+        ]).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "lcr"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         // dfmt off
         testConsecutiveSparseOrder!SubStr([
@@ -120,9 +126,11 @@ class ShallRemoveParenthesisBalanced : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "lcrb"
+        ]).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "lcrb"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         // dfmt off
         testAnyOrder!SubStr([
@@ -146,11 +154,12 @@ class ShallGenerateValidSchemaForOverload : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11")
+            .addPostArg([
+                "--mutant", "sdl", "--mutant", "aor", "--mutant", "rorp"
+            ]).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg([
-            "--mutant", "sdl", "--mutant", "aor", "--mutant", "rorp"
-        ]).addFlag("-std=c++11").run;
+        auto r = runDextoolTest(testEnv).addFlag("-std=c++11").run;
 
         testAnyOrder!SubStr([`from '+'`,]).shouldNotBeIn(r.output);
         testAnyOrder!SubStr([`from '=='`,]).shouldNotBeIn(r.output);
@@ -166,12 +175,10 @@ class ShallGenerateValidSchemaForNestedIf : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode)
+            .addFlag("-std=c++11").addPostArg(["--mutant", "sdl"]).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "sdl"]).run;
-
-        testAnyOrder!SubStr([`from '+'`,]).shouldNotBeIn(r.output);
-        testAnyOrder!SubStr([`from '=='`,]).shouldNotBeIn(r.output);
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -194,9 +201,10 @@ g++ -std=c++14 %s -o %s
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++14").run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode)
+            .addFlag("-std=c++14").addPostArg(["--mutant", "rorp"]).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "rorp"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -213,9 +221,10 @@ class ShallGenerateValidSchemaForPtr : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11").run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode)
+            .addFlag("-std=c++11").addPostArg(["--mutant", "aor"]).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "aor"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldBeIn(r.output);
     }
@@ -239,7 +248,7 @@ g++ -std=c++14 -fsyntax-only -c %s -o %s
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -257,7 +266,7 @@ class ShallGenerateValidSchemaForCallInReturn : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -275,7 +284,7 @@ class ShallGenerateValidSchemaClasses : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -293,7 +302,7 @@ class ShallGenerateValidSchemaArraySub : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -312,7 +321,7 @@ class ShallGenerateValidSchemaWithLambda : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -337,7 +346,7 @@ g++ -std=c++17 -fsyntax-only -c %s -o %s
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++17").run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -353,11 +362,9 @@ class ShallGenerateValidSchemaForSwitch : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-            "--mutant", "all"
-        ]).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -373,11 +380,9 @@ class ShallGenerateValidSchemaForBinOp : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-            "--mutant", "all"
-        ]).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -400,11 +405,9 @@ g++ -std=c++14 %s -o %s
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-            "--mutant", "all"
-        ]).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -420,11 +423,9 @@ class ShallGenerateValidSchemaForTerneryOp : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-            "--mutant", "all"
-        ]).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -440,11 +441,9 @@ class ShallGenerateValidSchemaForIfStmtAssign : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-            "--mutant", "all"
-        ]).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);
@@ -460,11 +459,9 @@ class ShallGenerateValidSchemaForGotoLabel : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
-            "--mutant", "all"
-        ]).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
 
-        auto r = runDextoolTest(testEnv).addPostArg(["--mutant", "all"]).run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr(["Skipping schema because it failed to compile"]).shouldNotBeIn(
                 r.output);

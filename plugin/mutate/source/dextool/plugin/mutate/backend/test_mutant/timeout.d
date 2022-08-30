@@ -181,7 +181,6 @@ struct TimeoutFsm {
     /// Data used by all states.
     static struct Global {
         MutantTimeoutCtx ctx;
-        Mutation.Kind[] kinds;
         Database* db;
         bool stop;
     }
@@ -201,8 +200,7 @@ struct TimeoutFsm {
         Global global;
     }
 
-    this(const Mutation.Kind[] kinds) nothrow {
-        global.kinds = kinds.dup;
+    void setLogLevel() @trusted nothrow {
         try {
             if (logger.globalLogLevel == logger.LogLevel.trace)
                 fsm.logger = (string s) { logger.trace(s); };
@@ -260,8 +258,7 @@ struct TimeoutFsm {
 
     private static void step(ref TimeoutFsm self, ref Database db) @safe {
         bool noUnknown() {
-            return db.mutantApi.unknownSrcMutants(self.global.kinds, null)
-                .count == 0 && db.worklistApi.getCount == 0;
+            return db.mutantApi.unknownSrcMutants().count == 0 && db.worklistApi.getCount == 0;
         }
 
         self.fsm.next!((Init a) {

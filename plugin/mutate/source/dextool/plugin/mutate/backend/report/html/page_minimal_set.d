@@ -22,25 +22,21 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     tmplDefaultTable, dashboardCss, tmplDefaultMatrixTable;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind;
 
-auto makeMinimalSetAnalyse(ref Database db, ref const ConfigReport conf,
-        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
-    import std.datetime : Clock;
-
+auto makeMinimalSetAnalyse(ref Database db, ref const ConfigReport conf) @trusted {
     auto doc = tmplBasicPage.dashboardCss;
 
     auto s = doc.root.childElements("head")[0].addChild("script");
     s.addChild(new RawSource(doc, jsTableOnClick));
 
-    doc.title(format("Minimal Set Analyse %(%s %) %s", humanReadableKinds, Clock.currTime));
+    doc.title("Minimal Set Analyse");
     doc.mainBody.setAttribute("onload", "init()");
     doc.mainBody.addChild("p",
             "This are the minimal set of mutants that result in the mutation score.");
 
     auto p = doc.mainBody.addChild("p");
 
-    toHtml(reportMinimalSet(db, kinds), doc.mainBody);
+    toHtml(reportMinimalSet(db), doc.mainBody);
 
     return doc.toPrettyString;
 }

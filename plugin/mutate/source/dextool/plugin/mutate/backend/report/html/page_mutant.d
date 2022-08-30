@@ -30,17 +30,16 @@ import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink, toSho
 import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation, toString;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind;
 import dextool.plugin.mutate.backend.report.html.utility : generatePopupHelp;
 
 @safe:
 
-void makeMutantPage(ref Database db, string tag, Element root, ref const ConfigReport conf,
-        const(Mutation.Kind)[] kinds, const AbsolutePath mutantPageFname) @trusted {
+void makeMutantPage(ref Database db, string tag, Element root,
+        ref const ConfigReport conf, const AbsolutePath mutantPageFname) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Mutants");
     root.addChild("a", "All mutants").href = mutantPageFname.baseName;
-    makeAllMutantsPage(db, kinds, mutantPageFname);
-    makeHighInterestMutants(db, kinds, conf.highInterestMutantsNr, root);
+    makeAllMutantsPage(db, mutantPageFname);
+    makeHighInterestMutants(db, conf.highInterestMutantsNr, root);
 }
 
 private:
@@ -93,7 +92,7 @@ shared static this() @trusted {
     ];
 }
 
-void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const AbsolutePath pageFname) @system {
+void makeAllMutantsPage(ref Database db, const AbsolutePath pageFname) @system {
     auto doc = tmplBasicPage.dashboardCss;
     scope (success)
         () {
@@ -166,7 +165,7 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
     }
 
     long[MutantStatus] statusCnt;
-    addMutants(db, kinds, tabContent, statusCnt);
+    addMutants(db, tabContent, statusCnt);
 
     foreach (a; statusCnt.byKeyValue) {
         tabLink[a.key].appendText(format!" %s"(a.value));
@@ -175,8 +174,7 @@ void makeAllMutantsPage(ref Database db, const(Mutation.Kind)[] kinds, const Abs
     }
 }
 
-void addMutants(ref Database db, const(Mutation.Kind)[] kinds,
-        ref Table[MutantStatus] content, ref long[MutantStatus] statusCnt) @system {
+void addMutants(ref Database db, ref Table[MutantStatus] content, ref long[MutantStatus] statusCnt) @system {
     import std.path : buildPath;
     import dextool.plugin.mutate.backend.database : IterateMutantRow2, MutationId, MutationStatusId;
 
@@ -202,15 +200,15 @@ void addMutants(ref Database db, const(Mutation.Kind)[] kinds,
         r.addChild("td", mut.mutant.status == Mutation.Status.unknown ? "" : mut.tested.toShortDate);
     }
 
-    db.iterateMutants(kinds, &mutant);
+    db.iterateMutants(&mutant);
 }
 
-void makeHighInterestMutants(ref Database db, const(Mutation.Kind)[] kinds,
+void makeHighInterestMutants(ref Database db,
         typeof(ConfigReport.highInterestMutantsNr) showInterestingMutants, Element root) @trusted {
     import std.path : buildPath;
     import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
 
-    const sample = reportSelectedAliveMutants(db, kinds, showInterestingMutants.get);
+    const sample = reportSelectedAliveMutants(db, showInterestingMutants.get);
     if (sample.highestPrio.empty)
         return;
 
@@ -229,7 +227,7 @@ void makeHighInterestMutants(ref Database db, const(Mutation.Kind)[] kinds,
             auto r = tbl.appendRow();
             r.addChild("td").addChild("a", format("%s:%s", mut.file,
                     mut.sloc.line)).href = format("%s#%s", buildPath(HtmlStyle.fileDir,
-                    pathToHtmlLink(mut.file)), mut.stId);
+                    pathToHtmlLink(mut.file)), mut.id);
             r.addChild("td", mutst.updated.toString);
             r.addChild("td", mutst.prio.get.to!string);
         }

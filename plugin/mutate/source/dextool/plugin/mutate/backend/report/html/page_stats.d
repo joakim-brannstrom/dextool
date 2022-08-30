@@ -25,14 +25,13 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplDefaultTable,
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.backend.report.html.utility;
 
-void makeStats(ref Database db, string tag, Element root,
-        const(Mutation.Kind)[] kinds, const AbsolutePath workListFname) @trusted {
+void makeStats(ref Database db, string tag, Element root, const AbsolutePath workListFname) @trusted {
     import dextool.plugin.mutate.backend.report.html.page_worklist;
 
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]), "Overview");
-    overallStat(reportStatistics(db, kinds), root.addChild("div"));
+    overallStat(reportStatistics(db), root.addChild("div"));
     makeWorklistPage(db, root, workListFname);
-    syncStatus(reportSyncStatus(db, kinds, 100), root);
+    syncStatus(reportSyncStatus(db, 100), root);
 }
 
 private:
@@ -79,8 +78,8 @@ void overallStat(const MutationStat s, Element base) {
     if (s.aliveNoMut != 0) {
         auto nmRow = tbl.appendRow;
         auto nmtd = nmRow.addChild("td", "NoMut");
-        generatePopupHelp(nmtd, "NoMut is the number of mutants that are alive but ignored. 
-            They are suppressed. 
+        generatePopupHelp(nmtd, "NoMut is the number of mutants that are alive but ignored.
+            They are suppressed.
             This result in those mutants increasing the mutation score.");
         nmtd.addChild("td", s.aliveNoMut.to!string);
 
