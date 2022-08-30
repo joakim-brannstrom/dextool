@@ -862,7 +862,7 @@ void upgrade(ref Miniorm db, UpgradeTable tbl) {
             db.run(format!"CREATE INDEX i%s ON %s(mp_id)"(i++, srcMetadataTable));
             db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, srcMetadataTable));
             db.run(format!"CREATE INDEX i%s ON %s(mp_id)"(i++, nomutTable));
-            db.run(format!"CREATE INDEX i%s ON %s(mut_id)"(i++, nomutDataTable));
+            db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, nomutDataTable));
             db.run(format!"CREATE INDEX i%s ON %s(mp_id)"(i++, nomutDataTable));
             db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, mutationPointTable));
             db.run(format!"CREATE INDEX i%s ON %s(mp_id)"(i++, mutationTable));
@@ -2170,6 +2170,11 @@ void upgradeV56(ref Miniorm db) {
         db.run("DROP TABLE " ~ tbl);
     }
     db.run(buildSchema!(NomutDataTbl, MarkedMutantTbl));
+}
+
+// 2022-08-30
+void upgradeV57(ref Miniorm db) {
+    // fejk upgrade to force recalculation of indexes
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
