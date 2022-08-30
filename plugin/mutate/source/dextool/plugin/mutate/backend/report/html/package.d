@@ -635,7 +635,7 @@ struct MetaSpan {
             }
         }
         if (muts.length != 0) {
-            onClick = "ui_set_mut(" ~ to!string(clickPrio.id.get) ~ ")";
+            onClick = format!"ui_set_mut('%s')"(clickPrio.id.get);
         }
     }
 }
@@ -765,7 +765,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     }
 
     mut_data.put("var g_muts_data = {};");
-    mut_data.put("g_muts_data[-1] = {'kind' : null, 'kindGroup' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null, 'size' : null};");
+    mut_data.put("g_muts_data['-1'] = {'kind' : null, 'kindGroup' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null, 'size' : null};");
 
     // used to make sure that metadata about a mutant is only written onces
     // to the global arrays.
@@ -868,7 +868,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 db.testCaseApi.getDetectedTestCases.length)));
         appendText("\n");
         addChild(new RawSource(ctx.doc, format("const g_mutids = [%(%s,%)];",
-                muts.data.map!(a => a.stId))));
+                muts.data.map!(a => a.stId.to!string))));
         appendText("\n");
         addChild(new RawSource(ctx.doc, format("const g_mut_st_map = [%('%s',%)'];",
                 [EnumMembers!(Mutation.Status)])));
