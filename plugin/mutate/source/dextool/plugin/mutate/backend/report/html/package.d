@@ -773,7 +773,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     }
 
     mut_data.put("var g_muts_data = {};");
-    mut_data.put("g_muts_data[-1] = {'kind' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null, 'size' : null};");
+    mut_data.put("g_muts_data[-1] = {'kind' : null, 'kindGroup' : null, 'status' : null, 'testCases' : null, 'orgText' : null, 'mutText' : null, 'meta' : null, 'size' : null};");
 
     // used to make sure that metadata about a mutant is only written onces
     // to the global arrays.
