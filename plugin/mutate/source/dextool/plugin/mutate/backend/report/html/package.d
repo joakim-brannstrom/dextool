@@ -840,13 +840,13 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
             auto testCases = ctx.getTestCaseInfo(m.stId);
             if (testCases.empty) {
-                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : %s, 'mutText' : %s, 'meta' : '%s', 'size' : %d};",
+                mut_data.put(format(`g_muts_data['%s'] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : null, 'orgText' : %s, 'mutText' : %s, 'meta' : '%s', 'size' : %d};`,
                         m.stId, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, toJson(window(m.txt.original)),
                         toJson(window(m.txt.mutation)), metadata.kindToString,
                         m.txt.mutation.length));
             } else {
-                mut_data.put(format("g_muts_data[%s] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : %s, 'mutText' : %s, 'meta' : '%s', 'size' : %d};",
+                mut_data.put(format(`g_muts_data['%s'] = {'kind' : %s, 'kindGroup' : %s, 'status' : %s, 'testCases' : [%('%s',%)'], 'orgText' : %s, 'mutText' : %s, 'meta' : '%s', 'size' : %d};`,
                         m.stId, m.mut.kind.to!int, toUser(m.mut.kind).to!int,
                         m.mut.status.to!ubyte, testCases.map!(a => a.name),
                         toJson(window(m.txt.original)), toJson(window(m.txt.mutation)),
