@@ -65,9 +65,9 @@ function init() {
     }
     select_loc(locs[0].id);
     //Select loc or mutant by hash
-    var mutid = -1;
+    var mutid = '-1';
     var hash = window.location.hash.substring(1);
-    if (document.getElementById(hash)) {
+    if (hash != "" && document.getElementById(hash)) {
         if (document.getElementById(hash).classList.contains('mutant')) {
             mutid = hash;
             set_active_mutant(mutid);
