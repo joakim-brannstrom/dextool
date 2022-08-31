@@ -60,12 +60,13 @@ void makeTrend(ref Database db, string tag, Document doc, Element root) @trusted
                     "<i>trend</i> is a prediction of how the mutation score will change based on previous scores.");
     }
 
-    addFileCodeChange(db, doc, base);
+    addFileCodeChangeGraph(db, doc, base);
+    addFileScoreJsVar(db, doc, base);
 }
 
 private:
 
-void addFileCodeChange(ref Database db, Document doc, Element root) {
+void addFileCodeChangeGraph(ref Database db, Document doc, Element root) {
     import std.algorithm : sort, joiner;
     import std.array : array, appender;
     import std.range : only;
@@ -80,13 +81,13 @@ void addFileCodeChange(ref Database db, Document doc, Element root) {
     root.addChild("script").appendChild(new RawSource(doc,
             `// Triggered every time a point is hovered on the ScoreByCodeChange graph
 const change = (tooltipItems) => {
-    // Convert the X value to the date format that is used in the file_score_data variable
+    // Convert the X value to the date format that is used in the file_graph_score_data variable
     var date = tooltipItems[0].xLabel.replace("T", " ");
     date = date.substring(0,5) + toMonthShort(date.substring(5,7)) + date.substring(date.length - 13);
 
     var scoreList = {};
     // Key = file_path, Value = {date : file_score}
-    for(const [key, value] of Object.entries(file_score_data)){
+    for(const [key, value] of Object.entries(file_graph_score_data)){
         if(value[date] != undefined){
             scoreList[key] = value[date];
         }
@@ -121,22 +122,52 @@ const change = (tooltipItems) => {
 
     Set!Path pathIsInit;
     auto filesData = appender!(string[])();
-    filesData.put("var file_score_data = {};");
+    filesData.put("var file_graph_score_data = {};");
 
     auto scoreData = appender!(string[])();
 
     foreach (fileScore; codeChange.sample.byKeyValue) {
         foreach (score; fileScore.value.points) {
             if (score.file !in pathIsInit) {
-                filesData.put(format!"file_score_data['%s'] = {};"(score.file));
+                filesData.put(format!"file_graph_score_data['%s'] = {};"(score.file));
                 pathIsInit.add(score.file);
             }
 
-            scoreData.put(format("file_score_data['%s']['%s'] = %.3f;",
+            scoreData.put(format("file_graph_score_data['%s']['%s'] = %.3f;",
                     score.file, fileScore.key, score.value));
         }
     }
 
     root.addChild("script").appendChild(new RawSource(doc, only(filesData.data,
             scoreData.data).joiner.joiner("\n").toUTF8));
+}
+
+void addFileScoreJsVar(ref Database db, Document doc, Element root) {
+    import std.algorithm : sort, joiner;
+    import std.array : array, appender;
+    import std.range : only;
+    import std.utf : toUTF8;
+    import miniorm : spinSql;
+    import my.set : Set;
+    import my.path : Path;
+
+    Set!Path pathIsInit;
+    auto filesData = appender!(string[])();
+    filesData.put("var file_score_data = {};");
+
+    auto scoreData = appender!(string[])();
+
+    foreach (score; spinSql!(() => db.fileApi.getFileScoreHistory)) {
+        if (score.file !in pathIsInit) {
+            filesData.put(format!"file_score_data['%s'] = {};"(score.file));
+            pathIsInit.add(score.file);
+        }
+
+        scoreData.put(format("file_score_data['%s']['%s'] = %s;", score.file,
+                score.timeStamp, score.score.get));
+    }
+
+    root.addChild("script").appendChild(new RawSource(doc, only(filesData.data,
+            scoreData.data).joiner.joiner("\n").toUTF8));
+
 }
