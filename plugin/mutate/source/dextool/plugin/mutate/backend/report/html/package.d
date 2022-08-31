@@ -47,7 +47,6 @@ import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.report.html.constants : HtmlStyle = Html, DashboardCss;
 import dextool.plugin.mutate.backend.report.html.tmpl;
 import dextool.plugin.mutate.backend.resource;
-import dextool.plugin.mutate.backend.database.type : FileScore;
 
 @safe:
 
@@ -892,7 +891,6 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
 
 Document makeDashboard() @trusted {
     import dextool.plugin.mutate.backend.resource : dashboard, jsIndex;
-    import dextool.plugin.mutate.backend.database.type : FileScore;
 
     auto data = dashboard();
 

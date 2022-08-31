@@ -21,6 +21,7 @@ function init() {
         theads[i].addEventListener('click', function (e) { sortable_table_onclick(e); });
     }
     setDocTime();
+    update_change(7);
 }
 
 function sortable_table_onclick(e) {
