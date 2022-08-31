@@ -118,7 +118,12 @@ const change = (tooltipItems) => {
             "ScoreByCodeChangeData['options']['tooltips']['callbacks'] = {footer:change};");
 
     auto info = root.addChild("div", "Code change");
-    generatePopupHelp(info, "Code change is a graph where the point's X values is the date when the tests were ran and the Y values is the lowest FileScore on that date. If you hover a point you can see all the FileScores on that date.");
+    generatePopupHelp(info,
+            "The graph is intended to help understand why the overall mutation score have changed (up/down). "
+            ~ "It may help locate the files that resulted in the change. "
+            ~ "Along the x-axis is the day when the file mutation score where last changed."
+            ~ " Multiple files that are changed on the same day are grouped together. "
+            ~ "The lowest score among the files changed for the day is plotted on the y-axis.");
 
     Set!Path pathIsInit;
     auto filesData = appender!(string[])();
