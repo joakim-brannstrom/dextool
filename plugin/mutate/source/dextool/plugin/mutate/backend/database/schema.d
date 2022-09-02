@@ -2177,6 +2177,12 @@ void upgradeV57(ref Miniorm db) {
     // fejk upgrade to force recalculation of indexes
 }
 
+// 2022-09-02
+void upgradeV58(ref Miniorm db) {
+    // clear out old junk values. those with zero mutants.
+    db.run("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE score=0");
+}
+
 void replaceTbl(ref Miniorm db, string src, string dst) {
     db.run("DROP TABLE " ~ dst);
     db.run("ALTER TABLE " ~ src ~ " RENAME TO " ~ dst);

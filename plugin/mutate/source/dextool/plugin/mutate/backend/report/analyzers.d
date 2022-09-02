@@ -347,11 +347,6 @@ struct MutationScore {
     }
 }
 
-struct FileScore {
-    double score;
-    Path file;
-}
-
 MutationScore reportScore(ref Database db, string file = null) @safe nothrow {
     auto profile = Profile("reportScore");
 
@@ -372,14 +367,19 @@ MutationScore reportScore(ref Database db, string file = null) @safe nothrow {
     return rval;
 }
 
+struct FileScore {
+    double score;
+    Path file;
+    bool hasMutants;
+}
+
 FileScore[] reportScores(ref Database db, Path[] files) @safe nothrow {
     auto profile = Profile("reportScores");
     auto app = appender!(FileScore[]);
 
     foreach (file; files) {
-        FileScore result;
-        result.score = reportScore(db, file.toString).score();
-        result.file = file;
+        const res = reportScore(db, file.toString);
+        auto result = FileScore(res.score(), file, res.total > 0);
         app.put(result);
     }
 
@@ -1186,6 +1186,7 @@ struct ScoreTrendByCodeChange {
 /** Report the latest date a file was changed and the score.
  *
  * Files are grouped by day.
+ * Files per day are sorted by lowest score first.
  */
 ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db) @trusted nothrow {
     import dextool.plugin.mutate.backend.database.type : FileScore;
@@ -1213,6 +1214,10 @@ ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db) @trusted nothrow
                 (ref ScoreTrendByCodeChange.PointGroup x) {
             x.points ~= ScoreTrendByCodeChange.Point(a.file, a.score.get);
         });
+    }
+
+    foreach (k; rval.sample.byKey) {
+        rval.sample[k].points = rval.sample[k].points.sort!((a, b) => a.value < b.value).array;
     }
 
     return rval;

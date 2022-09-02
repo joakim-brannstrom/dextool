@@ -711,7 +711,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
                 const relp = ctx.fio.toRelativeRoot(f);
                 const info = result.infoId[result.idFile[f]];
-                ctx.db.get.put(relp, info.checksum, info.language, f == result.root);
+                ctx.db.get.fileApi.put(relp, info.checksum, info.language, f == result.root);
 
                 ctx.state.get.savedFiles.add(f);
             }
@@ -734,7 +734,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 ctx.db.get.removeFile(relp);
                 // the language do not matter because it is a file without
                 // any mutants.
-                ctx.db.get.put(relp, result.rootCs, Language.init, true);
+                ctx.db.get.fileApi.put(relp, result.rootCs, Language.init, true);
                 ctx.state.get.savedFiles.add(ctx.fio.toAbsoluteRoot(result.root));
             }
 
