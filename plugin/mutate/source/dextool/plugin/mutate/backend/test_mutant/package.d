@@ -1166,26 +1166,27 @@ nothrow:
         if (spinSql!(() => db.timeoutApi.countMutantTimeoutWorklist) != 0)
             return;
 
-        auto files = spinSql!(() => db.getFiles());
-        const score = reportScore(*db);
-        const time = Clock.currTime.toUTC;
-
         // 10000 mutation scores is only ~80kbyte. Should be enough entries
         // without taking up unreasonable amount of space.
+        immutable maxScoreHistory = 10000;
 
+        const time = Clock.currTime.toUTC;
+
+        const score = reportScore(*db);
         spinSql!(() @trusted {
             auto t = db.transaction;
             db.putMutationScore(MutationScore(time, typeof(MutationScore.score)(score.score)));
-            db.trimMutationScore(10000);
+            db.trimMutationScore(maxScoreHistory);
             t.commit;
         });
 
-        foreach (fileScore; reportScores(*db, files).filter!(a => a.hasMutants)) {
+        foreach (fileScore; reportScores(*db, spinSql!(() => db.getFiles())).filter!(
+                a => a.hasMutants)) {
             spinSql!(() @trusted {
                 auto t = db.transaction;
                 db.fileApi.put(FileScore(time,
                     typeof(FileScore.score)(fileScore.score), fileScore.file));
-                db.fileApi.trim(fileScore.file, 10000);
+                db.fileApi.trim(fileScore.file, maxScoreHistory);
                 t.commit;
             });
         }
