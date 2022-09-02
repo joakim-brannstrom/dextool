@@ -1217,7 +1217,7 @@ ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db) @trusted nothrow
     }
 
     foreach (k; rval.sample.byKey) {
-        rval.sample[k].points = rval.sample[k].points.sort!((a,b) => a.value < b.value).array;
+        rval.sample[k].points = rval.sample[k].points.sort!((a, b) => a.value < b.value).array;
     }
 
     return rval;
