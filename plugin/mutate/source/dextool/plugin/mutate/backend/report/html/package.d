@@ -497,9 +497,10 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
         tbl = tmplSortableTable(root, [
                 "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
                 ], &shortColumn);
-        fltr.addChild("input").setAttribute("type", "text").setAttribute("id", "changeTimeFrameInput")
-            .setAttribute("onkeyup", "update_change(changeTimeFrameInput)").addClass(
-                    "form-control").setAttribute("placeholder", "Change timeframe");
+        fltr.addChild("input").setAttribute("type", "text").setAttribute("id",
+                "changeTimeFrameInput").setAttribute("onkeyup",
+                "update_change(changeTimeFrameInput.value)").addClass("form-control")
+            .setAttribute("placeholder", "Change timeframe");
         fltr.addChild("p", "Timeframe: Today - ").setAttribute("id", "timeFrameDate");
         generatePopupHelp(root.getElementById("col-2"), "This column shows: Current score - (average score within the timeframe). The timeframe spans between the current date and the given amount of days in the 'Change timeframe' box (It defaults to 7 days ago)");
         tbl.setAttribute("id", "fileTable");
