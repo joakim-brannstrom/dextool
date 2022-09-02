@@ -1184,9 +1184,9 @@ nothrow:
         foreach (fileScore; fileScores) {
             spinSql!(() @trusted {
                 auto t = db.transaction;
-                db.putFileScore(FileScore(time,
+                db.fileApi.put(FileScore(time,
                     typeof(FileScore.score)(fileScore.score), fileScore.file));
-                db.trimFileScore(10000, fileScore.file);
+                db.fileApi.trim(fileScore.file, 10000);
                 t.commit;
             });
         }
@@ -1195,7 +1195,7 @@ nothrow:
         //then the file's stored scores should be removed
         spinSql!(() @trusted {
             auto t = db.transaction;
-            db.removeFileScores();
+            db.fileApi.prune();
             t.commit;
         });
     }

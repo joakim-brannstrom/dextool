@@ -283,7 +283,7 @@ struct TestCaseDeadStat {
         return buf.data;
     }
 
-    void toString(Writer)(ref Writer w) @safe const 
+    void toString(Writer)(ref Writer w) @safe const
             if (isOutputRange!(Writer, char)) {
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -1186,6 +1186,7 @@ struct ScoreTrendByCodeChange {
 /** Report the latest date a file was changed and the score.
  *
  * Files are grouped by day.
+ * Files per day are sorted by lowest score first.
  */
 ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db) @trusted nothrow {
     import dextool.plugin.mutate.backend.database.type : FileScore;
@@ -1213,6 +1214,10 @@ ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db) @trusted nothrow
                 (ref ScoreTrendByCodeChange.PointGroup x) {
             x.points ~= ScoreTrendByCodeChange.Point(a.file, a.score.get);
         });
+    }
+
+    foreach (k; rval.sample.byKey) {
+        rval.sample[k].points = rval.sample[k].points.sort!((a,b) => a.value < b.value).array;
     }
 
     return rval;

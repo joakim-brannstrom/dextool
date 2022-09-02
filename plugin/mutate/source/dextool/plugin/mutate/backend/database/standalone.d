@@ -230,18 +230,6 @@ struct Database {
         return none!SysTime;
     }
 
-    void put(const Path p, Checksum cs, const Language lang, const bool isRoot) @trusted {
-        static immutable sql = format!"INSERT OR IGNORE INTO %s (path, checksum, lang, timestamp, root)
-            VALUES (:path, :checksum, :lang, :time, :root)"(filesTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":path", p.toString);
-        stmt.get.bind(":checksum", cast(long) cs.c0);
-        stmt.get.bind(":lang", cast(long) lang);
-        stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
-        stmt.get.bind(":root", isRoot);
-        stmt.get.execute;
-    }
-
     /** Remove all mutants points from the database.
      *
      * This removes all the mutants because of the cascade delete of the
@@ -285,42 +273,6 @@ struct Database {
                 (score, time) VALUES (:score, :time);");
         stmt.get.bind(":score", score.score.get);
         stmt.get.bind(":time", toSqliteDateTime(toDate(score.timeStamp)));
-        stmt.get.execute;
-    }
-
-    // Add a mutation score for the individual files
-    void putFileScore(const FileScore score) @trusted {
-        auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationFileScoreHistoryTable ~ "
-                (score, time_stamp, file_path) VALUES (:score, :time, :path);");
-        stmt.get.bind(":score", score.score.get);
-        stmt.get.bind(":time", toSqliteDateTime(toDate(score.timeStamp)));
-        stmt.get.bind(":path", score.file.toString);
-        stmt.get.execute;
-    }
-
-    void removeFileScores() @trusted {
-        auto stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ "
-                    WHERE file_path NOT IN (
-                    SELECT DISTINCT path
-                    FROM " ~ filesTable ~ ")");
-        stmt.get.execute;
-    }
-
-    void trimFileScore(const long keep, Path file) @trusted {
-        auto stmt = db.prepare(format!"SELECT count(*) FROM %s WHERE file_path=:file"(
-                mutationFileScoreHistoryTable));
-        stmt.get.bind(":file", file.toString);
-        const sz = stmt.get.execute.oneValue!long;
-
-        if (sz < keep)
-            return;
-
-        auto ids = appender!(long[])();
-        stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ "
-                WHERE id IN (SELECT id FROM " ~ mutationFileScoreHistoryTable ~ "
-                WHERE file_path=:file ORDER BY time_stamp ASC LIMIT :limit)");
-        stmt.get.bind(":file", file);
-        stmt.get.bind(":limit", sz - keep);
         stmt.get.execute;
     }
 
@@ -2752,7 +2704,7 @@ struct DbFile {
         return *db_;
     }
 
-    /// Returns: the stored scores in ascending order by their `time`.
+    /// The mutation score per file.
     FileScore[] getFileScoreHistory() @trusted {
         static immutable sql = "SELECT time_stamp, score, file_path FROM "
             ~ mutationFileScoreHistoryTable ~ " ORDER BY time_stamp ASC";
@@ -2766,6 +2718,56 @@ struct DbFile {
         }
 
         return app.data;
+    }
+
+    // Add a mutation score for the individual files
+    void put(const FileScore score) @trusted {
+        auto stmt = db.prepare("INSERT OR REPLACE INTO " ~ mutationFileScoreHistoryTable ~ "
+                (score, time_stamp, file_path) VALUES (:score, :time, :path);");
+        stmt.get.bind(":score", score.score.get);
+        stmt.get.bind(":time", toSqliteDateTime(toDate(score.timeStamp)));
+        stmt.get.bind(":path", score.file.toString);
+        stmt.get.execute;
+    }
+
+    /// Prune the score history for files that have been removed.
+    void prune() @trusted {
+        static immutable sql = "DELETE FROM " ~ mutationFileScoreHistoryTable
+            ~ " WHERE file_path NOT IN ( SELECT DISTINCT path FROM " ~ filesTable ~ ")";
+        auto stmt = db.prepare(sql);
+        stmt.get.execute;
+    }
+
+    void trim(Path file, const long keep) @trusted {
+        static immutable sql = format!"SELECT count(*) FROM "
+            ~ mutationFileScoreHistoryTable ~ " WHERE file_path=:file";
+
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":file", file.toString);
+        const sz = stmt.get.execute.oneValue!long;
+
+        if (sz < keep)
+            return;
+
+        auto ids = appender!(long[])();
+        stmt = db.prepare("DELETE FROM " ~ mutationFileScoreHistoryTable ~ "
+                WHERE id IN (SELECT id FROM " ~ mutationFileScoreHistoryTable ~ "
+                WHERE file_path=:file ORDER BY time_stamp ASC LIMIT :limit)");
+        stmt.get.bind(":file", file);
+        stmt.get.bind(":limit", sz - keep);
+        stmt.get.execute;
+    }
+
+    void put(const Path p, Checksum cs, const Language lang, const bool isRoot) @trusted {
+        static immutable sql = "INSERT OR IGNORE INTO " ~ filesTable
+            ~ " (path, checksum, lang, timestamp, root) VALUES (:path, :checksum, :lang, :time, :root)";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":path", p.toString);
+        stmt.get.bind(":checksum", cast(long) cs.c0);
+        stmt.get.bind(":lang", cast(long) lang);
+        stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
+        stmt.get.bind(":root", isRoot);
+        stmt.get.execute;
     }
 }
 
