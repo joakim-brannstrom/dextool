@@ -283,7 +283,7 @@ struct TestCaseDeadStat {
         return buf.data;
     }
 
-    void toString(Writer)(ref Writer w) @safe const
+    void toString(Writer)(ref Writer w) @safe const 
             if (isOutputRange!(Writer, char)) {
         import std.ascii : newline;
         import std.format : formattedWrite;
@@ -347,11 +347,6 @@ struct MutationScore {
     }
 }
 
-struct FileScore {
-    double score;
-    Path file;
-}
-
 MutationScore reportScore(ref Database db, string file = null) @safe nothrow {
     auto profile = Profile("reportScore");
 
@@ -372,14 +367,19 @@ MutationScore reportScore(ref Database db, string file = null) @safe nothrow {
     return rval;
 }
 
+struct FileScore {
+    double score;
+    Path file;
+    bool hasMutants;
+}
+
 FileScore[] reportScores(ref Database db, Path[] files) @safe nothrow {
     auto profile = Profile("reportScores");
     auto app = appender!(FileScore[]);
 
     foreach (file; files) {
-        FileScore result;
-        result.score = reportScore(db, file.toString).score();
-        result.file = file;
+        const res = reportScore(db, file.toString);
+        auto result = FileScore(res.score(), file, res.total > 0);
         app.put(result);
     }
 

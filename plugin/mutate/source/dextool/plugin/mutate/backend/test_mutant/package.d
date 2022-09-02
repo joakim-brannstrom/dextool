@@ -1167,7 +1167,6 @@ nothrow:
             return;
 
         auto files = spinSql!(() => db.getFiles());
-        const fileScores = reportScores(*db, files);
         const score = reportScore(*db);
         const time = Clock.currTime.toUTC;
 
@@ -1181,7 +1180,7 @@ nothrow:
             t.commit;
         });
 
-        foreach (fileScore; fileScores) {
+        foreach (fileScore; reportScores(*db, files).filter!(a => a.hasMutants)) {
             spinSql!(() @trusted {
                 auto t = db.transaction;
                 db.fileApi.put(FileScore(time,
@@ -1191,8 +1190,8 @@ nothrow:
             });
         }
 
-        //If a file only exists in the FileScores table, and not in the Files table,
-        //then the file's stored scores should be removed
+        // If a file only exists in the FileScores table, and not in the Files table,
+        // then the file's stored scores should be removed
         spinSql!(() @trusted {
             auto t = db.transaction;
             db.fileApi.prune();
