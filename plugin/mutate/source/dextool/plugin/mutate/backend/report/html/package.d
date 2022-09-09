@@ -868,16 +868,19 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
                 [EnumMembers!(MutationKind)])));
         appendText("\n");
 
-        // Creates a list of number of kills per testcase.
-        appendChild(new RawSource(ctx.doc, "var g_testcases_kills = {}"));
-        appendText("\n");
-        foreach (tc; ctx.testCases) {
-            import undead.xml : encode;
-
-            appendChild(new RawSource(ctx.doc, format("g_testcases_kills['%s'] = [%s];",
-                    encode(tc.name.name), tc.killed)));
+        {
+            appendChild(new RawSource(ctx.doc, "var g_testcase_info = {};"));
             appendText("\n");
+            foreach (tc; ctx.testCases) {
+                import undead.xml : encode;
+                import dextool.plugin.mutate.backend.report.html.utility : testCaseToHtmlLink;
+
+                appendChild(new RawSource(ctx.doc, format("g_testcase_info['%s'] = {'kills': %s, 'link': '%s'};",
+                        encode(tc.name.name), tc.killed, tc.name.testCaseToHtmlLink)));
+                appendText("\n");
+            }
         }
+
         appendChild(new RawSource(ctx.doc, mut_data.data.joiner("\n").toUTF8));
         appendText("\n");
     }

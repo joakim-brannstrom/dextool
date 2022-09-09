@@ -12,6 +12,7 @@ module dextool.plugin.mutate.backend.report.html.utility;
 import std.datetime : SysTime, Duration, dur;
 
 import dextool.plugin.mutate.backend.report.html.constants;
+import dextool.plugin.mutate.backend.type : TestCase;
 import dextool.type : Path;
 import arsd.dom : Element;
 
@@ -26,11 +27,15 @@ string pathToHtml(string p) {
     return p.pathSplitter.joiner("__").toUTF8;
 }
 
+Path pathToHtmlLink(string p) {
+    return Path(pathToHtml(p) ~ Html.ext);
+}
+
 string removeAllNonAlphaNum(string s) {
-    import std.ascii : isASCII;
-    import std.uni : byCodePoint, isAlphaNum;
     import std.array : appender;
+    import std.ascii : isASCII;
     import std.conv : text;
+    import std.uni : byCodePoint, isAlphaNum;
 
     auto result = appender!(char[])();
     foreach (c; s.byCodePoint) {
@@ -43,8 +48,8 @@ string removeAllNonAlphaNum(string s) {
     return result.data.idup;
 }
 
-Path pathToHtmlLink(string p) {
-    return Path(pathToHtml(p) ~ Html.ext);
+Path testCaseToHtmlLink(TestCase tc) {
+    return Path(tc.name.removeAllNonAlphaNum.pathToHtmlLink);
 }
 
 string toShortDate(SysTime ts) {
