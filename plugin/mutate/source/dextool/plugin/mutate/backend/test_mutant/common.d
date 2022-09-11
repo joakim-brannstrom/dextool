@@ -647,6 +647,28 @@ struct TestStopCheck {
             loadThreshold = baseLoadThreshold;
     }
 
+    /// Start a background thread that will forcefully terminate the application.
+    void startBgShutdown(Duration waitFor = 10.dur!"minutes") @trusted nothrow {
+        static void tick(Duration waitFor) @trusted nothrow {
+            import core.thread : Thread;
+            import core.stdc.stdlib : exit;
+
+            try {
+                Thread.sleep(waitFor);
+                logger.info("Force shutdown");
+            } catch (Exception e) {
+            }
+
+            // it is not really a failure just, a workaround if other parts
+            // lockup such as a thread pool. it happens sometimes.
+            exit(0);
+        }
+
+        import std.concurrency : spawn;
+
+        spawn(&tick, waitFor).collectException;
+    }
+
     string overloadToString() @safe const {
         return format!"Detected overload (%s > %s)"(load15, loadThreshold.get);
     }

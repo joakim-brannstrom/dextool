@@ -1476,6 +1476,7 @@ nothrow:
             break;
         case overloaded:
             logger.info(stopCheck.overloadToString).collectException;
+            stopCheck.startBgShutdown;
             break;
         }
         logger.warning(data.halt, "Halting").collectException;
