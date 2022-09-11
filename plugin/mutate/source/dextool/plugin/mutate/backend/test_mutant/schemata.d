@@ -442,7 +442,11 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         try {
             delayedSend(ctx.self, 5.dur!"seconds".delay, CheckStopCondMsg.init).collectException;
 
-            if (ctx.state.get.stopCheck.isHalt != TestStopCheck.HaltReason.none) {
+            const halt = ctx.state.get.stopCheck.isHalt;
+            if (halt == TestStopCheck.HaltReason.overloaded)
+                ctx.state.get.stopCheck.startBgShutdown;
+
+            if (halt != TestStopCheck.HaltReason.none) {
                 send(ctx.self, RestoreMsg.init);
                 logger.info(ctx.state.get.stopCheck.overloadToString).collectException;
             }

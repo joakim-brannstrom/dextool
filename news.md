@@ -56,6 +56,11 @@ Fixes for dextool mutate
  * The trend graph for file changes is redesigned to show when a files mutation
    score last changed. It should make it easier to understand why the mutation
    score have changed because it points to the files that are changed.
+ * `--load-behavior` halt sometimes failed because the threadpool used for
+   tests did not properly shutdown. Added a background thread that triggers after
+   10 minutes to forcefully shutdown dextool. This is mainly an issue when
+   dextool is running on a shared CI server and it becomes overloaded. It is hard
+   to reproduce but the server probably run out of memory.
 
 # v4.3.0 Deep Steel
 
