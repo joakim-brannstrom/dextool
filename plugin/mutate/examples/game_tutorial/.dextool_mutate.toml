@@ -12,12 +12,11 @@ exclude = []
 
 # default mutants to test if none is specified by --mutant
 # note that this affects the analyze phase thus the --mutant argument must be one of those specified here
-# available options are: ["all", "ror", "rorp", "lcr", "aor", "uoi", "sdl", "dcr", "lcrb", "cr"]
+# available options are: ["all", "ror", "rorp", "lcr", "aor", "uoi", "sdl", "dcr", "lcrb", "aors", "cr"]
 # **FOR THE READER**
-# the recommended is ["lcr", "lcrb", "sdl", "uoi", "dcr"]
-# but the config only uses lcr/lcrb so **you** will quickly will get to test
-# the test and report phase.
-mutants = ["lcr", "lcrb", "sdl", "uoi", "dcr", "aors", "rorp"]
+# The config only uses lcr/lcrb so **you** will get feedback fast.
+# As an example to play around with more operators shouldn't be used.
+mutants = ["lcr", "lcrb"]
 
 [analyze]
 
@@ -40,14 +39,20 @@ test_paths = ["test"]
 # test_include = ["*/*.ext"]
 # test_exclude = []
 
-id_algo = "relaxed"
+# Algorithm to use for generating unique ID's for mutants.
+# strict: IDs are dependent on all content in the file.
+# relaxed: IDs are dependent on the top most scope such as the function body.
+# Using relaxed make allows functions to be moved inside a file without
+# triggering the mutants in the functions to be re-tested
+# available options are: "relaxed", "strict"
+# id_algo = "relaxed"
 
 [schema]
 # Use scheman to reduce the compile+link time
 use = true
 
 # how to add the schema runtime to the SUT
-# available options are: ["inject", "library"]
+# available options are: "inject", "library"
 # runtime = inject
 
 # Default is to inject the runtime in all roots. A root is a file either provided by --in
@@ -55,6 +60,9 @@ use = true
 # If specified then the coverage and schemata runtime is only injected in these files.
 # paths are relative to root.
 # inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]
+
+# Number of schema mutants to test in parallel (default is the number of cores).
+# parallel_mutants = 8
 
 # minimum number of mutants per schema.
 # min_mutants_per_schema = 3
@@ -66,12 +74,18 @@ use = true
 # it is a slowdown but nice robustness that is usually worth having
 check_schemata = true
 
+# scale factor used when calculating the timeout for tests when they are executed with a schema injected.
+# the default scale factor is 2 but that may not be enough for scheman because
+# the now modified source code with the schema, containing 1000ths of mutants, result in a significantly slower test
+# timeout_scale = 2
+
 [coverage]
+
 # Use coverage to reduce the tested mutants
 use = true
 
 # how to add the coverage runtime to the SUT
-# available options are: ["inject", "library"]
+# available options are: "inject", "library"
 # runtime = inject
 
 # Default is to inject the runtime in all roots. A root is a file either provided by --in
@@ -121,6 +135,10 @@ build_cmd = ["cd build && make -j $(nproc) rl_test"]
 # path(s) to recursively look for test binaries to execute.
 # test_cmd_dir = ["./build/test"]
 
+# how to scan test_cmd_dir
+# available options are: ["recursive", "shallow"]
+# test_cmd_dir_search = "recursive"
+
 # flags to add to all executables found in test_cmd_dir.
 # test_cmd_dir_flag = ["--gtest_filter", "-foo*"]
 
@@ -141,6 +159,7 @@ test_cmd = "./build/rl_test"
 # analyze_cmd = "analyze.sh"
 
 # built-in analyzer of output from testing frameworks to find failing test cases
+# available options are: ["gtest", "ctest", "makefile", "test_cmd"]
 analyze_using_builtin = ["gtest"]
 
 # determine in what order mutants are chosen
@@ -165,7 +184,7 @@ oldest_mutants = "test"
 # how many of the oldest mutants to do the above with
 # oldest_mutants_nr = 10
 # how many of the oldest mutants to do the above with
-oldest_mutants_percentage = 50.0
+oldest_mutants_percentage = 100.0
 
 # number of threads to be used when running tests in parallel (default is the number of cores).
 # parallel_test = 1
@@ -190,6 +209,11 @@ test_cmd_checksum = true
 # Unit is Mbyte
 # max_test_cmd_output = 10
 
+# Kill test_cmd's if the total used memory goes above this limit.
+# This avoids the host from running out of memory.
+# Killed tests are tagged as timeout thus they will be re-tested
+max_mem_usage_percentage = 90.0
+
 [report]
 
 # default style to use
@@ -197,7 +221,7 @@ test_cmd_checksum = true
 style = "plain"
 
 # default report sections when no --section is specified
-# available options are: ["alive", "killed", "all_mut", "summary", "mut_stat", "tc_killed", "tc_stat", "tc_map", "tc_suggestion", "tc_killed_no_mutants", "tc_full_overlap", "tc_full_overlap_with_mutation_id", "tc_groups", "tc_min_set", "tc_similarity", "tc_groups_similarity", "treemap", "mut_recommend_kill", "diff", "tc_unique", "marked_mutants", "trend"]
+# available options are: ["alive", "killed", "all_mut", "summary", "mut_stat", "tc_killed", "tc_stat", "tc_map", "tc_suggestion", "tc_killed_no_mutants", "tc_full_overlap", "tc_full_overlap_with_mutation_id", "tc_groups", "tc_min_set", "tc_similarity", "tc_groups_similarity", "mut_recommend_kill", "diff", "tc_unique", "marked_mutants", "trend"]
 sections = ["summary"]
 
 # how many mutants to show in the high interest section
@@ -210,3 +234,8 @@ sections = ["summary"]
 # description = "use case 1"
 # pattern = "uc_1.*"
 # see for regex syntax: http://dlang.org/phobos/std_regex.html
+
+[test]
+
+# Path to a JSON file containing metadata about tests.
+# metadata = "test_data.json"
