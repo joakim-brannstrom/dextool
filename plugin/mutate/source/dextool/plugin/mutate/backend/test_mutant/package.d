@@ -1631,6 +1631,9 @@ nothrow:
         void propagate() @trusted {
             auto trans = db.transaction;
 
+            // needed if tests have changed but not the implementation
+            db.mutantApi.resetMutant([EnumMembers!(Mutation.Kind)], Mutation.Status.noCoverage, Mutation.Status.unknown);
+
             auto noCov = db.coverageApi.getNotCoveredMutants;
             foreach (id; noCov)
                 db.mutantApi.update(id, Mutation.Status.noCoverage, ExitStatus(0));

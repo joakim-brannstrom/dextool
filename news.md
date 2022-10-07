@@ -61,6 +61,8 @@ Fixes for dextool mutate
    10 minutes to forcefully shutdown dextool. This is mainly an issue when
    dextool is running on a shared CI server and it becomes overloaded. It is hard
    to reproduce but the server probably run out of memory.
+ * Fix coverage bug where a mutant where not re-tested if only tests changed
+   such that the mutant is not covered.
 
 # v4.3.0 Deep Steel
 
