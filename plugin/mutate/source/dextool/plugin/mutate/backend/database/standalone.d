@@ -193,13 +193,9 @@ struct Database {
     Path[] getFiles() @trusted {
         static const sql = "SELECT path FROM " ~ filesTable;
         auto stmt = db.prepare(sql);
-        auto res = stmt.get.execute;
-
         auto app = appender!(Path[]);
-        foreach (ref r; res) {
+        foreach (ref r; stmt.get.execute)
             app.put(Path(r.peek!string(0)));
-        }
-
         return app.data;
     }
 
@@ -285,8 +281,9 @@ struct Database {
             return;
 
         auto ids = appender!(long[])();
-        stmt = db.prepare(format!"SELECT t0.id FROM %s t0 ORDER BY t0.time ASC LIMIT :limit"(
-                mutationScoreHistoryTable));
+        stmt = db.prepare(
+                "SELECT t0.id FROM " ~ mutationScoreHistoryTable
+                ~ " t0 ORDER BY t0.time ASC LIMIT :limit");
         stmt.get.bind(":limit", sz - keep);
         foreach (a; stmt.get.execute)
             ids.put(a.peek!long(0));
@@ -1348,11 +1345,6 @@ struct DbMutant {
         return MutationStatus.init;
     }
 
-    // TODO: can be removed in the future now that a checksum is the ID.
-    MutationStatusId getMutationStatusId(const Checksum cs) @trusted {
-        return MutationStatusId(cs.c0);
-    }
-
     void increaseFilePrio(Path prioFile) {
         immutable sql = "UPDATE " ~ mutantWorklistTable ~ "
         SET prio = prio + 50000 WHERE id IN (SELECT s1.id FROM " ~ mutantWorklistTable ~ " AS s1, " ~ mutationTable
@@ -1625,11 +1617,6 @@ struct DbMutant {
     alias aliveNoMutSrcMutants = countNoMutMutants!([
         Mutation.Status.alive, Mutation.Status.noCoverage
     ], true);
-
-    // TODO: remove? now when id is the checksum...
-    Checksum getChecksum(MutationStatusId id) @trusted {
-        return Checksum(id.get);
-    }
 
     /// Store all found mutants.
     void put(MutationPointEntry2[] mps, AbsolutePath root) @trusted {
@@ -2185,255 +2172,83 @@ struct DbSchema {
         return *db_;
     }
 
-    /// Returns: all schematas excluding those that are known to not be
-    /// possible to compile.
-    SchemataId[] getSchematas(const SchemaStatus exclude) @trusted {
-        static immutable sql = format!"SELECT t0.id
-            FROM %1$s t0
-            WHERE
-            t0.id NOT IN (SELECT id FROM %2$s WHERE status = :status)"(schemataTable,
-                schemataUsedTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":status", cast(long) exclude);
-        auto app = appender!(SchemataId[])();
-        foreach (a; stmt.get.execute) {
-            app.put(SchemataId(a.peek!long(0)));
-        }
-        return app.data;
-    }
-
-    Nullable!Schemata getSchemata(SchemataId id) @trusted {
-        import std.zlib : uncompress;
-
-        static immutable sql = format!"SELECT
-            t1.path, t0.text, t0.offset_begin, t0.offset_end
-            FROM %1$s t0, %2$s t1
-            WHERE
-            t0.schem_id = :id AND
-            t0.file_id = t1.id
-            ORDER BY t0.order_ ASC
-            "(schemataFragmentTable, filesTable);
-
-        typeof(return) rval;
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
-
-        auto app = appender!(SchemataFragment[])();
-        foreach (a; stmt.get.execute) {
-            auto raw = a.peek!(ubyte[])(1);
-            auto offset = Offset(a.peek!uint(2), a.peek!uint(3));
-            app.put(SchemataFragment(a.peek!string(0).Path, offset,
-                    cast(const(ubyte)[]) uncompress(raw, offset.end - offset.begin)));
-        }
-
-        if (!app.data.empty) {
-            rval = Schemata(SchemataId(id), app.data);
-        }
-
-        return rval;
-    }
-
-    // is that the user in the analyze phase decide what mutants to generate
-    // and then those are expected to be used thereafter. therefor the test
-    // phase should assume that "all" available mutants are to be tested.
-    /// Returns: number of mutants in a schema with `status`.
-    long countMutants(const SchemataId id, const Mutation.Status[] status) @trusted {
-        const sql = format!"SELECT count(*)
-        FROM %s t1, %s t2, %s t3
-        WHERE
-        t1.schem_id = :id AND
-        t1.st_id = t2.id AND
-        t3.st_id = t1.st_id AND
-        t2.status IN (%(%s,%))
-        "(schemataMutantTable, mutationStatusTable, mutationTable, status.map!(a => cast(int) a));
-
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", id.get);
-        return stmt.get.execute.oneValue!long;
-    }
-
-    /// Returns: number of mutants in a schema that are marked for testing and in the worklist.
-    long countMutantsInWorklist(const SchemataId id) @trusted {
-        const sql = format!"SELECT count(*)
-        FROM %s t1, %s t2, %s t3, %s t4
-        WHERE
-        t1.schem_id = :id AND
-        t1.st_id = t2.id AND
-        t3.st_id = t1.st_id AND
-        t2.id = t4.id
-        "(schemataMutantTable, mutationStatusTable, mutationTable, mutantWorklistTable);
-
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", id.get);
-        return stmt.get.execute.oneValue!long;
-    }
-
-    MutationStatusId[] getSchemataMutants(const SchemataId id) @trusted {
-        // TODO: DISTINCT should not be needed. Instead use e.g. a constraint on the table or something
-        immutable sql = format!"SELECT DISTINCT t1.st_id
-            FROM %s t1, %s t2, %s t3, %s t4
-            WHERE
-            t1.schem_id = :id AND
-            t1.st_id = t2.id AND
-            t3.st_id = t1.st_id AND
-            t2.id = t4.id
-            "(schemataMutantTable, mutationStatusTable, mutationTable, mutantWorklistTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", id.get);
-
-        auto app = appender!(MutationStatusId[])();
-        foreach (a; stmt.get.execute) {
-            app.put(a.peek!long(0).MutationStatusId);
-        }
-
-        return app.data;
-    }
-
-    /// Returns: the kind of mutants a schemata contains.
-    Mutation.Kind[] getSchemataKinds(const SchemataId id) @trusted {
-        static immutable sql = format!"SELECT DISTINCT t1.kind
-            FROM %1$s t0, %2$s t1
-            WHERE
-            t0.schem_id = :id AND
-            t0.st_id = t1.st_id
-            "(schemataMutantTable, mutationTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
-
-        auto app = appender!(Mutation.Kind[])();
-        foreach (a; stmt.get.execute) {
-            app.put(a.peek!long(0).to!(Mutation.Kind));
-        }
-
-        return app.data;
-    }
-
-    /// Mark a schemata as used.
-    void markUsed(const SchemataId id, const SchemaStatus status) @trusted {
-        static immutable sql = format!"INSERT OR IGNORE INTO %1$s VALUES(:id, :status)"(
-                schemataUsedTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", cast(long) id);
-        stmt.get.bind(":status", status);
-        stmt.get.execute;
-    }
-
-    /// Create a schemata from a bundle of fragments.
-    Nullable!SchemataId putSchemata(SchemataChecksum cs,
-            const SchemataFragment[] fragments, MutationStatusId[] mutants) @trusted {
+    void putFragments(FileId fid, SchemaFragmentV2[] fragments) @trusted {
         import std.zlib : compress;
 
-        const schemId = cast(long) cs.value.c0;
+        static immutable sqlFragment = "INSERT OR IGNORE INTO " ~ schemaFragmentV2Table
+            ~ " (file_id, text, offset_begin, offset_end) VALUES(:fid, :text, :obegin, :oend)";
+        auto stmtFragment = db.prepare(sqlFragment);
+        static immutable sqlMutant = "INSERT OR IGNORE INTO " ~ schemaMutantV2Table
+            ~ " (fragment_id, st_id) VALUES(:fragment_id,:st_id)";
+        auto stmtMutant = db.prepare(sqlMutant);
 
-        const exists = () {
-            static immutable sql = format!"SELECT count(*) FROM %1$s WHERE id=:id"(schemataTable);
-            auto stmt = db.prepare(sql);
-            stmt.get.bind(":id", schemId);
-            return stmt.get.execute.oneValue!long != 0;
+        foreach (f; fragments) {
+            assert(f.offset.end >= f.offset.begin);
 
-        }();
+            const lastId = db.lastInsertRowid;
+            stmtFragment.get.bind(":fid", fid.get);
+            stmtFragment.get.bind(":text", compress(f.text));
+            stmtFragment.get.bind(":obegin", f.offset.begin);
+            stmtFragment.get.bind(":oend", f.offset.end);
+            stmtFragment.get.execute;
+            stmtFragment.get.reset;
 
-        if (exists)
-            return typeof(return)();
-
-        {
-            static immutable sql = format!"INSERT INTO %1$s VALUES(:id, :nr)"(schemataTable);
-            auto stmt = db.prepare(sql);
-            stmt.get.bind(":id", cast(long) cs.value.c0);
-            stmt.get.bind(":nr", cast(long) fragments.length);
-            stmt.get.execute;
-        }
-
-        foreach (f; fragments.enumerate) {
-            const fileId = wrapperDb.getFileId(f.value.file);
-            if (fileId.isNull) {
-                logger.warningf("Unable to add schemata fragment for file %s because it doesn't exist",
-                        f.value.file);
+            const id = db.lastInsertRowid;
+            // the id only change if the insert where successful. If it failed
+            // the constraint then the ID is unchanged.
+            if (id == lastId)
                 continue;
+
+            foreach (m; f.mutants) {
+                stmtMutant.get.bind(":fragment_id", id);
+                stmtMutant.get.bind(":st_id", m.get);
+                stmtMutant.get.execute;
+                stmtMutant.get.reset;
             }
-
-            db.run(insert!SchemataFragmentTable, SchemataFragmentTable(0,
-                    schemId, cast(long) fileId.get, f.index,
-                    compress(f.value.text), f.value.offset.begin, f.value.offset.end));
-        }
-
-        // relate mutants to this schemata.
-        db.run(insertOrIgnore!SchemataMutantTable,
-                mutants.map!(a => SchemataMutantTable(cast(long) a, schemId)));
-
-        return typeof(return)(schemId.SchemataId);
-    }
-
-    /// Prunes the database of schemas that where created by an older version.
-    void deleteAllSchemas() @trusted {
-        db.run(delete_!SchemataTable);
-    }
-
-    /// Prunes the database of schemas that are unusable.
-    void pruneSchemas() @trusted {
-        auto remove = () {
-            auto remove = appender!(long[])();
-
-            // remove those that have lost some fragments
-            static immutable sqlFragment = format!"SELECT t0.id
-            FROM
-            %1$s t0,
-            (SELECT schem_id id,count(*) fragments FROM %2$s GROUP BY schem_id) t1
-            WHERE
-            t0.id = t1.id AND
-            t0.fragments != t1.fragments
-            "(schemataTable, schemataFragmentTable);
-            auto stmt = db.prepare(sqlFragment);
-            foreach (a; stmt.get.execute) {
-                remove.put(a.peek!long(0));
-            }
-
-            // remove those that have lost all fragments
-            static immutable sqlNoFragment = format!"SELECT t0.id FROM %1$s t0 WHERE t0.id NOT IN (SELECT schem_id FROM %2$s)"(
-                    schemataTable, schemataFragmentTable);
-            stmt = db.prepare(sqlNoFragment);
-            foreach (a; stmt.get.execute) {
-                remove.put(a.peek!long(0));
-            }
-
-            return remove.data;
-        }();
-
-        static immutable sql = "DELETE FROM " ~ schemataTable ~ " WHERE id=:id";
-        auto stmt = db.prepare(sql);
-        foreach (a; remove) {
-            stmt.get.bind(":id", a);
-            stmt.get.execute;
-            stmt.get.reset;
         }
     }
 
-    /** Removes all schemas that either do not compile or have zero mutants.
-     *
-     * Returns: number of schemas removed.
-     */
-    long pruneUsedSchemas(const SchemaStatus[] status) @trusted {
-        auto remove = () {
-            auto remove = appender!(long[])();
+    void clearFragments() @trusted {
+        db.run("DELETE FROM " ~ schemaFragmentV2Table);
+    }
 
-            auto sqlUsed = format!"SELECT id FROM %s WHERE status IN (%(%s,%))"(schemataUsedTable,
-                    status.map!(a => cast(long) a));
-            auto stmt = db.prepare(sqlUsed);
-            foreach (a; stmt.get.execute) {
-                remove.put(a.peek!long(0));
+    /// Fragments in `file` which contains mutants that are in the worklist.
+    SchemaFragmentV2[] getFragments(const FileId file) @trusted {
+        import std.zlib : uncompress;
+
+        SchemaFragmentV2[long] res;
+
+        { // all fragments
+            static immutable sql = "SELECT id,text,offset_begin,offset_end FROM "
+                ~ schemaFragmentV2Table ~ " WHERE file_id=:fid";
+            auto stmt = db.prepare(sql);
+            stmt.get.bind(":fid", file.get);
+
+            foreach (ref a; stmt.get.execute) {
+                auto raw = a.peek!(ubyte[])(1);
+                auto offset = Offset(a.peek!uint(2), a.peek!uint(3));
+                assert(offset.end >= offset.begin);
+                res[a.peek!long(0)] = SchemaFragmentV2(offset,
+                        cast(const(ubyte)[]) uncompress(raw, offset.end - offset.begin));
             }
-            return remove.data;
-        }();
-
-        static immutable sql = "DELETE FROM " ~ schemataTable ~ " WHERE id=:id";
-        auto stmt = db.prepare(sql);
-        foreach (a; remove) {
-            stmt.get.bind(":id", a);
-            stmt.get.execute;
-            stmt.get.reset;
         }
 
-        return remove.length;
+        { // mutants per fragment
+            static immutable sql = "SELECT t0.fragment_id,t0.st_id FROM "
+                ~ schemaMutantV2Table ~ " t0, " ~ schemaFragmentV2Table ~ " t1 "
+                ~ "WHERE t0.fragment_id = t1.id AND t1.file_id = :fid AND t0.st_id IN (SELECT id FROM "
+                ~ mutantWorklistTable ~ ")";
+            auto stmt = db.prepare(sql);
+            stmt.get.bind(":fid", file.get);
+
+            foreach (ref a; stmt.get.execute) {
+                if (auto v = a.peek!long(0) in res) {
+                    v.mutants ~= a.peek!long(1).MutationStatusId;
+                }
+            }
+        }
+
+        return res.byValue.filter!(a => !a.mutants.empty).array;
     }
 
     int[Mutation.Kind][Checksum64] getMutantProbability() @trusted {
@@ -2464,57 +2279,17 @@ struct DbSchema {
      *  p = checksum of the path.
      */
     void saveMutantProbability(const Checksum64 p, int[Mutation.Kind] state, const int skipMax) @trusted {
-        auto stmt = db.prepare(
-                format!"INSERT OR REPLACE INTO %1$s (kind,probability,path) VALUES(:kind,:q,:path)"(
-                schemaMutantQTable));
-        foreach (a; state.byKeyValue) {
-            if (a.value != skipMax) {
-                stmt.get.bind(":kind", cast(long) a.key);
-                stmt.get.bind(":q", cast(long) a.value);
-                stmt.get.bind(":path", cast(long) p.c0);
-                stmt.get.execute;
-                stmt.get.reset;
-            }
-        }
-    }
-
-    /// Returns: all mutant subtypes that has `status`, can occur multiple times.
-    Mutation.Kind[] getSchemaUsedKinds(const Path p, const SchemaStatus status) @trusted {
-        static immutable sql = format!"SELECT DISTINCT t1.kind
-            FROM %1$s t0, %2$s t1, %3$s t2, %4$s t3, %5$s t4
-            WHERE
-            t4.status = :status AND
-            t4.id = t0.schem_id AND
-            t0.st_id = t1.st_id AND
-            t1.mp_id = t2.id AND
-            t2.file_id = t3.id AND
-            t3.path = :path
-            "(schemataMutantTable, mutationTable, mutationPointTable,
-                filesTable, schemataUsedTable);
+        static immutable sql = "INSERT OR REPLACE INTO " ~ schemaMutantQTable
+            ~ " (kind,probability,path) VALUES(:kind,:q,:path)";
 
         auto stmt = db.prepare(sql);
-        stmt.get.bind(":status", cast(long) status);
-        stmt.get.bind(":path", p.toString);
-
-        auto app = appender!(Mutation.Kind[])();
-        foreach (ref r; stmt.get.execute) {
-            auto k = r.peek!long(0).to!(Mutation.Kind);
-            app.put(k);
+        foreach (a; state.byKeyValue.filter!(a => a.value != skipMax)) {
+            stmt.get.bind(":kind", cast(long) a.key);
+            stmt.get.bind(":q", cast(long) a.value);
+            stmt.get.bind(":path", cast(long) p.c0);
+            stmt.get.execute;
+            stmt.get.reset;
         }
-
-        return app.data;
-    }
-
-    /// Returns: an array of the mutants that are in schemas with the specific status
-    long[] schemaMutantCount(const SchemaStatus status) @trusted {
-        static immutable sql = format!"SELECT (SELECT count(*) FROM %2$s WHERE schem_id=t0.id)
-            FROM %1$s t0 WHERE status=:status"(schemataUsedTable, schemataMutantTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":status", cast(long) status);
-        auto app = appender!(long[])();
-        foreach (ref r; stmt.get.execute)
-            app.put(r.peek!long(0));
-        return app.data;
     }
 
     long getSchemaSize(const long defaultValue) @trusted {
@@ -2768,6 +2543,16 @@ struct DbFile {
         stmt.get.bind(":time", Clock.currTime.toSqliteDateTime);
         stmt.get.bind(":root", isRoot);
         stmt.get.execute;
+    }
+
+    /// Returns: All files in the database.
+    FileId[] getFileIds() @trusted {
+        static const sql = "SELECT id FROM " ~ filesTable;
+        auto stmt = db.prepare(sql);
+        auto app = appender!(FileId[]);
+        foreach (ref r; stmt.get.execute)
+            app.put(r.peek!long(0).FileId);
+        return app.data;
     }
 }
 

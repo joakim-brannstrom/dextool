@@ -111,10 +111,8 @@ immutable runtimeHistoryTable = "test_cmd_runtime_history";
 immutable schemaMutantQTable = "schema_mutant_q";
 immutable schemaSizeQTable = "schema_size_q";
 immutable schemaVersionTable = "schema_version";
-immutable schemataFragmentTable = "schemata_fragment";
-immutable schemataMutantTable = "schemata_mutant";
-immutable schemataTable = "schemata";
-immutable schemataUsedTable = "schemata_used";
+immutable schemaFragmentV2Table = "schema_fragment_v2";
+immutable schemaMutantV2Table = "schemata_mutant_v2";
 immutable srcCovInfoTable = "src_cov_info";
 immutable srcCovTable = "src_cov_instr";
 immutable srcCovTimeStampTable = "src_cov_timestamp";
@@ -125,9 +123,13 @@ immutable testCmdRelMutantTable = "test_cmd_rel_mutant";
 immutable testCmdTable = "test_cmd";
 immutable testFilesTable = "test_files";
 
+private immutable schemataTable = "schemata";
+private immutable schemataMutantTable = "schemata_mutant";
+private immutable schemataUsedTable = "schemata_used";
 private immutable invalidSchemataTable = "invalid_schemata";
 private immutable schemataWorkListTable = "schemata_worklist";
 private immutable testCaseTableV1 = "test_case";
+private immutable schemataFragmentTable = "schemata_fragment";
 
 /** Initialize or open an existing database.
  *
@@ -456,8 +458,7 @@ struct MutationStatusTbl {
     long prio;
 }
 
-/** Mutants that should be tested.
- */
+/// Mutants that should be tested.
 @TableName(mutantWorklistTable)
 @TableForeignKey("id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
 struct MutantWorklistTbl {
@@ -541,51 +542,14 @@ struct MarkedMutantTbl {
     string mutText;
 }
 
-@TableName(schemataMutantTable)
-@TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
-@TableForeignKey("schem_id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
-@TableConstraint("unique_ UNIQUE (st_id, schem_id)")
-struct SchemataMutantTable {
-    @ColumnName("st_id")
-    long statusId;
-    @ColumnName("schem_id")
-    long schemaId;
-}
-
-@TableName(schemataTable)
-struct SchemataTable {
+@TableName(schemaFragmentV2Table)
+@TableForeignKey("file_id", KeyRef(filesTable ~ "(id)"), KeyParam("ON DELETE CASCADE"))
+@TableConstraint("unique_ UNIQUE (file_id, text, offset_begin, offset_end)")
+struct SchemaFragmentV2Table {
     long id;
-
-    // number of fragments the schemata consist of.
-    // used to detect if a fragment has been removed because its related file
-    // was changed.
-    long fragments;
-}
-
-@TableName(schemataUsedTable)
-@TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
-struct SchemataUsedTable {
-    import dextool.plugin.mutate.backend.database.type : SchemaStatus;
-
-    long id;
-
-    SchemaStatus status;
-}
-
-@TableName(schemataFragmentTable)
-@TableForeignKey("schem_id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
-@TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
-struct SchemataFragmentTable {
-    long id;
-
-    @ColumnName("schem_id")
-    long schemataId;
 
     @ColumnName("file_id")
     long fileId;
-
-    @ColumnName("order_")
-    long order;
 
     @ColumnParam("")
     const(ubyte)[] text;
@@ -594,6 +558,19 @@ struct SchemataFragmentTable {
     uint offsetBegin;
     @ColumnName("offset_end")
     uint offsetEnd;
+}
+
+@TableName(schemaMutantV2Table)
+@TableForeignKey("fragment_id", KeyRef(schemaFragmentV2Table ~ "(id)"),
+        KeyParam("ON DELETE CASCADE"))
+@TableForeignKey("st_id", KeyRef(mutationStatusTable ~ "(id)"), KeyParam("ON DELETE CASCADE"))
+@TableConstraint("unique_ UNIQUE (fragment_id, st_id)")
+struct SchemaMutantV2Table {
+    @ColumnName("fragment_id")
+    long fragmentId;
+
+    @ColumnName("st_id")
+    long statusId;
 }
 
 @TableName(schemaMutantQTable)
@@ -869,10 +846,10 @@ void upgrade(ref Miniorm db, UpgradeTable tbl) {
             db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, mutationTable));
             db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, killedTestCaseTable));
             db.run(format!"CREATE INDEX i%s ON %s(tc_id)"(i++, killedTestCaseTable));
-            db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, schemataMutantTable));
-            db.run(format!"CREATE INDEX i%s ON %s(schem_id)"(i++, schemataMutantTable));
-            db.run(format!"CREATE INDEX i%s ON %s(schem_id)"(i++, schemataFragmentTable));
-            db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, schemataFragmentTable));
+            // db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, schemataMutantTable));
+            // db.run(format!"CREATE INDEX i%s ON %s(schem_id)"(i++, schemataMutantTable));
+            // db.run(format!"CREATE INDEX i%s ON %s(schem_id)"(i++, schemataFragmentTable));
+            // db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, schemataFragmentTable));
             db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, srcCovTable));
             db.run(format!"CREATE INDEX i%s ON %s(dep_id)"(i++, depRootTable));
             db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, depRootTable));
@@ -894,16 +871,17 @@ void upgradeV0(ref Miniorm db) {
             MutationPointTbl, MutationTbl, TestCaseKilledTbl, AllTestCaseTbl,
             MutationStatusTbl, MutantTimeoutCtxTbl, MutantTimeoutWorklistTbl,
             MarkedMutantTbl, SrcMetadataTable, NomutTbl, NomutDataTbl,
-            NomutDataTbl, SchemataTable, SchemataFragmentTable,
-            SchemataMutantTable,
-            SchemataUsedTable, SchemaMutantKindQTable, SchemaSizeQTable,
-            MutantWorklistTbl, RuntimeHistoryTable, MutationScoreHistoryTable,
+            NomutDataTbl, SchemaMutantKindQTable, SchemaSizeQTable,
+            MutantWorklistTbl,
+            RuntimeHistoryTable,
+            MutationScoreHistoryTable,
             MutationFileScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
-            CoverageInfoTable, CoverageTimeTtampTable, DependencyFileTable,
-            DependencyRootTable,
-            DextoolVersionTable,
-            TestCmdOriginalTable, TestCmdMutatedTable,
-            MutantMemOverloadtWorklistTbl, TestCmdRelMutantTable, TestCmdTable));
+            CoverageInfoTable, CoverageTimeTtampTable,
+            DependencyFileTable, DependencyRootTable, DextoolVersionTable,
+            TestCmdOriginalTable,
+            TestCmdMutatedTable,
+            MutantMemOverloadtWorklistTbl,
+            TestCmdRelMutantTable, TestCmdTable, SchemaMutantV2Table, SchemaFragmentV2Table));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1458,6 +1436,30 @@ void upgradeV16(ref Miniorm db) {
         long schemaId;
     }
 
+    @TableName(schemataFragmentTable)
+    @TableForeignKey("schem_id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+    struct SchemataFragmentTable {
+        long id;
+
+        @ColumnName("schem_id")
+        long schemataId;
+
+        @ColumnName("file_id")
+        long fileId;
+
+        @ColumnName("order_")
+        long order;
+
+        @ColumnParam("")
+        const(ubyte)[] text;
+
+        @ColumnName("offset_begin")
+        uint offsetBegin;
+        @ColumnName("offset_end")
+        uint offsetEnd;
+    }
+
     db.run(buildSchema!(SchemataFragmentTable, SchemataWorkListTable, SchemataMutantTable));
 }
 
@@ -1505,11 +1507,22 @@ void upgradeV19(ref Miniorm db) {
         long version_;
     }
 
-    db.run(buildSchema!(SchemataTable, SchemataMutantTable, InvalidSchemataTable));
+    db.run(buildSchema!(SchemataTable, InvalidSchemataTable));
 }
 
 /// 2020-06-01
 void upgradeV20(ref Miniorm db) {
+    @TableName(schemataMutantTable)
+    @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableForeignKey("schem_id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableConstraint("unique_ UNIQUE (st_id, schem_id)")
+    struct SchemataMutantTable {
+        @ColumnName("st_id")
+        long statusId;
+        @ColumnName("schem_id")
+        long schemaId;
+    }
+
     db.run("DROP TABLE " ~ schemataMutantTable);
     db.run(buildSchema!(SchemataMutantTable));
 }
@@ -1902,13 +1915,23 @@ void upgradeV36(ref Miniorm db) {
 
 // 2021-04-18
 void upgradeV37(ref Miniorm db) {
-    db.run(format("DELETE FROM %s", schemataTable));
-    db.run(buildSchema!(DextoolVersionTable, SchemataTable));
+    db.run("DELETE FROM " ~ schemataTable);
+    db.run(buildSchema!(DextoolVersionTable));
 }
 
 // 2021-04-19
 void upgradeV38(ref Miniorm db) {
-    db.run(format("DROP TABLE %s", schemataTable));
+    @TableName(schemataTable)
+    struct SchemataTable {
+        long id;
+
+        // number of fragments the schemata consist of.
+        // used to detect if a fragment has been removed because its related file
+        // was changed.
+        long fragments;
+    }
+
+    db.run("DROP TABLE " ~ schemataTable);
     db.run(buildSchema!(SchemataTable));
 }
 
@@ -1921,10 +1944,10 @@ void upgradeV39(ref Miniorm db) {
 // 2021-05-06
 void upgradeV40(ref Miniorm db) {
     // force an upgrade because after this release all scheman will be zipped.
-    db.run(format("DELETE FROM %s", schemataFragmentTable));
-    db.run(format("DELETE FROM %s", schemataMutantTable));
-    db.run(format("DELETE FROM %s", schemataTable));
-    db.run(format("DELETE FROM %s", schemataUsedTable));
+    db.run("DELETE FROM " ~ schemataFragmentTable);
+    db.run("DELETE FROM " ~ schemataMutantTable);
+    db.run("DELETE FROM " ~ schemataTable);
+    db.run("DELETE FROM " ~ schemataUsedTable);
 }
 
 // 2021-05-09
@@ -1967,13 +1990,23 @@ void upgradeV44(ref Miniorm db) {
         long probability;
     }
 
-    db.run(format("DROP TABLE %s", schemataUsedTable));
+    @TableName(schemataUsedTable)
+    @TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
+    struct SchemataUsedTable {
+        import dextool.plugin.mutate.backend.database.type : SchemaStatus;
+
+        long id;
+
+        SchemaStatus status;
+    }
+
+    db.run("DROP TABLE " ~ schemataUsedTable);
     db.run(buildSchema!(SchemataUsedTable, SchemaMutantKindQ));
 }
 
 // 2021-08-30
 void upgradeV45(ref Miniorm db) {
-    db.run(format("DROP TABLE %s", schemaMutantQTable));
+    db.run("DROP TABLE " ~ schemaMutantQTable);
     db.run(buildSchema!(SchemaMutantKindQTable));
 }
 
@@ -2181,6 +2214,20 @@ void upgradeV57(ref Miniorm db) {
 void upgradeV58(ref Miniorm db) {
     // clear out old junk values. those with zero mutants.
     db.run("DELETE FROM " ~ mutationFileScoreHistoryTable ~ " WHERE score=0");
+}
+
+// 2022-09-07
+void upgradeV59(ref Miniorm db) {
+    db.run(buildSchema!(SchemaFragmentV2Table, SchemaMutantV2Table));
+}
+
+// 2022-10-09
+void upgradeV60(ref Miniorm db) {
+    foreach (a; [
+            schemataFragmentTable, schemataUsedTable, schemataMutantTable,
+            schemataTable
+        ])
+        db.run("DROP TABLE " ~ a);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

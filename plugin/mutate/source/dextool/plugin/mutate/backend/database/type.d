@@ -53,6 +53,18 @@ alias SchemataId = NamedType!(long, Tag!"SchemataId", long.init, Comparable,
 alias SchemataFragmentId = NamedType!(long, Tag!"SchemataFragmentId",
         long.init, Comparable, Hashable, TagStringable);
 
+Checksum toChecksum(const MutationStatusId id) {
+    return Checksum(id.get);
+}
+
+MutationStatusId toMutationStatusId(const Checksum cs) {
+    return MutationStatusId(cs.c0);
+}
+
+MutationStatusId toMutationStatusId(const CodeMutant m) {
+    return MutationStatusId(m.id.value.c0);
+}
+
 struct MutationEntry {
     MutationStatusId id;
     Path file;
@@ -306,6 +318,12 @@ struct SchemataFragment {
     Path file;
     Offset offset;
     const(ubyte)[] text;
+}
+
+struct SchemaFragmentV2 {
+    Offset offset;
+    const(ubyte)[] text;
+    MutationStatusId[] mutants;
 }
 
 struct Schemata {

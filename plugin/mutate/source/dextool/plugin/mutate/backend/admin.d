@@ -219,7 +219,7 @@ ExitStatusType markMutant(ref Database db, MutationStatusId id, const Mutation.K
         const Mutation.Status status, string rationale, FilesysIO fio) @trusted nothrow {
     import std.format : format;
     import std.string : strip;
-    import dextool.plugin.mutate.backend.database : Rationale;
+    import dextool.plugin.mutate.backend.database : Rationale, toChecksum;
     import dextool.plugin.mutate.backend.report.utility : window;
 
     if (rationale.empty) {
@@ -239,16 +239,14 @@ ExitStatusType markMutant(ref Database db, MutationStatusId id, const Mutation.K
         // because getMutation worked we know the ID is valid thus no need to
         // check the return values when it or derived values are used.
 
-        const checksum = db.mutantApi.getChecksum(id);
-
         const txt = () {
             auto tmp = makeMutationText(fio.makeInput(fio.toAbsoluteRoot(mut.get.file)),
                     mut.get.mp.offset, db.mutantApi.getKind(id), mut.get.lang);
             return window(format!"'%s'->'%s'"(tmp.original.strip, tmp.mutation.strip), 30);
         }();
 
-        db.markMutantApi.mark(mut.get.file, mut.get.sloc, id, checksum, status,
-                Rationale(rationale), txt);
+        db.markMutantApi.mark(mut.get.file, mut.get.sloc, id, toChecksum(id),
+                status, Rationale(rationale), txt);
 
         db.mutantApi.update(id, status, ExitStatus(0));
 

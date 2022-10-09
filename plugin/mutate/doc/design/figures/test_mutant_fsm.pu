@@ -54,13 +54,11 @@ ChecksumTestCmds --> MeasureTestSuite
 
 MeasureTestSuite --> Error : unreliable
 MeasureTestSuite --> Coverage : useCov && !hasConstraint
-MeasureTestSuite --> LoadSchematas : !useCov
+MeasureTestSuite --> UpdateTimeout : !useCov
 
 Coverage --> PropagateCov : !error
-Coverage --> LoadSchematas : error
-PropagateCov --> LoadSchematas
-
-LoadSchematas --> UpdateTimeout
+Coverage --> UpdateTimeout : error
+PropagateCov --> UpdateTimeout
 
 CheckStopCond --> UpdateTimeout
 CheckStopCond --> Done : runtime>max
@@ -68,10 +66,11 @@ CheckStopCond --> Done : runtime>max
 CheckPullRequestMutant --> NextMutant
 CheckPullRequestMutant --> Done : allTested
 
-NextSchemata --> SchemataTest : hasSchema
-NextSchemata --> Done : !hasSchema && user
+NextSchemata --> SchemataTest : useSchema && !done
 NextSchemata --> NextMutant
-SchemataTest --> CheckStopCond : done
+
+SchemataTest --> CheckStopCond : !onlySchema
+SchemataTest --> Done : onlySchema
 
 NextMutant --> CheckTimeout : allTested
 NextMutant --> MutationTest
