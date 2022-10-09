@@ -59,9 +59,7 @@ class ShallUseSchemaSanityCheck : SchemataFixutre {
 
         // dfmt off
         testConsecutiveSparseOrder!SubStr([
-            `Found schemata`,
-            `Schema`,
-            `Use schema`,
+            `Using schema with`,
             `Compile schema`,
             `Ok`,
             `Sanity check`,

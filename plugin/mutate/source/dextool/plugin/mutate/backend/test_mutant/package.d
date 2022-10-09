@@ -347,24 +347,24 @@ struct TestDriver {
         bool timeoutUnchanged;
     }
 
-    static struct NextSchemataData {
-        SchemataId[] schematas;
-        long totalSchematas;
-        long invalidSchematas;
+    static struct NextSchemata {
     }
 
-    static struct NextSchemata {
-        NamedType!(bool, Tag!"HasSchema", bool.init, TagStringable, ImplicitConvertable) hasSchema;
-        SchemataId schemataId;
+    static struct NextSchemataData {
+        enum State {
+            first,
+            runOnce,
+            done
+        }
 
-        /// stop mutation testing because the last schema has been used and the
-        /// user has configured that the testing should stop now.
-        NamedType!(bool, Tag!"StopTesting", bool.init, TagStringable, ImplicitConvertable) stop;
+        State runSchema;
     }
 
     static struct SchemataTest {
-        SchemataId id;
         bool fatalError;
+        // stop mutation testing because the last schema has been used and the
+        // user has configured that the testing should stop now.
+        NamedType!(bool, Tag!"StopTesting", bool.init, TagStringable, ImplicitConvertable) stop;
     }
 
     static struct Done {
@@ -407,9 +407,6 @@ struct TestDriver {
         bool halt;
     }
 
-    static struct LoadSchematas {
-    }
-
     static struct OverloadCheck {
         bool sleep;
     }
@@ -445,17 +442,17 @@ struct TestDriver {
             Cleanup, CheckMutantsLeft, PreCompileSut, MeasureTestSuite, NextMutant,
             MutationTest, HandleTestResult, CheckTimeout, Done, Error,
             UpdateTimeout, CheckStopCond, PullRequest, IncreaseFilePrio,
-            CheckPullRequestMutant, ParseStdin, FindTestCmds, UpdateTestCmds, ChooseMode,
-            NextSchemata, SchemataTest, LoadSchematas, Stop, SaveMutationScore,
-            UpdateTestCaseTag, OverloadCheck, Coverage, PropagateCoverage,
-            ContinuesCheckTestSuite, ChecksumTestCmds, SaveTestBinary);
+            CheckPullRequestMutant, ParseStdin, FindTestCmds, UpdateTestCmds,
+            ChooseMode, SchemataTest, Stop, SaveMutationScore, UpdateTestCaseTag,
+            OverloadCheck, Coverage, PropagateCoverage, ContinuesCheckTestSuite,
+            ChecksumTestCmds, SaveTestBinary, NextSchemata);
     alias LocalStateDataT = Tuple!(UpdateTimeoutData, CheckPullRequestMutantData, PullRequestData, ResetOldMutantData,
-            NextSchemataData, ContinuesCheckTestSuiteData, MutationTestData, NextMutantData);
+            ContinuesCheckTestSuiteData, MutationTestData, NextMutantData, NextSchemataData);
 
     private {
         Fsm fsm;
         TypeDataMap!(LocalStateDataT, UpdateTimeout, CheckPullRequestMutant, PullRequest,
-                RetestOldMutant, NextSchemata, ContinuesCheckTestSuite, MutationTest, NextMutant) local;
+                RetestOldMutant, ContinuesCheckTestSuite, MutationTest, NextMutant, NextSchemata) local;
         bool isRunning_ = true;
         bool isDone = false;
     }
@@ -566,23 +563,26 @@ struct TestDriver {
                 return fsm(Error.init);
             if (self.covConf.use && self.local.get!PullRequest.constraint.empty)
                 return fsm(Coverage.init);
-            return fsm(LoadSchematas.init);
+            return fsm(UpdateTimeout.init);
         }, (Coverage a) {
             if (a.fatalError)
                 return fsm(Error.init);
             if (a.propagate)
                 return fsm(PropagateCoverage.init);
-            return fsm(LoadSchematas.init);
-        }, (PropagateCoverage a) => LoadSchematas.init,
-                (LoadSchematas a) => fsm(UpdateTimeout.init), (CheckPullRequestMutant a) {
+            return fsm(UpdateTimeout.init);
+        }, (PropagateCoverage a) => UpdateTimeout.init, (CheckPullRequestMutant a) {
             if (a.noUnknownMutantsLeft)
                 return fsm(Done.init);
             return fsm(NextMutant.init);
         }, (NextSchemata a) {
-            if (a.hasSchema)
-                return fsm(SchemataTest(a.schemataId));
-            if (a.stop)
-                return fsm(Done.init);
+            if (self.schemaConf.use) {
+                if (self.local.get!NextSchemata.runSchema == NextSchemataData.State.runOnce)
+                    return fsm(SchemataTest.init);
+                if (self.local.get!NextSchemata.runSchema == NextSchemataData.State.done
+                    && self.schemaConf.stopAfterLastSchema)
+                    return fsm(Done.init);
+                return fsm(a);
+            }
             return fsm(NextMutant.init);
         }, (SchemataTest a) {
             if (a.fatalError)
@@ -1482,32 +1482,17 @@ nothrow:
         logger.warning(data.halt, "Halting").collectException;
     }
 
-    void opCall(ref NextSchemata data) {
-        auto schematas = local.get!NextSchemata.schematas;
-
-        const threshold = schemataMutantsThreshold(schemaConf.minMutantsPerSchema.get,
-                local.get!NextSchemata.invalidSchematas, local.get!NextSchemata.totalSchematas);
-
-        while (!schematas.empty && !data.hasSchema) {
-            // TODO: replace with my.collection.vector
-            const id = schematas[0];
-            schematas = schematas[1 .. $];
-            const mutants = spinSql!(() => db.schemaApi.countMutantsInWorklist(id));
-
-            logger.infof("Schema %s has %s mutants (threshold %s)", id.get,
-                    mutants, threshold).collectException;
-
-            if (mutants >= threshold) {
-                data.hasSchema.get = true;
-                data.schemataId = id;
-                logger.infof("Use schema %s (%s/%s)", id.get, local.get!NextSchemata.totalSchematas - schematas.length,
-                        local.get!NextSchemata.totalSchematas).collectException;
-            }
+    void opCall(NextSchemata data) {
+        final switch (local.get!NextSchemata.runSchema) {
+        case NextSchemataData.State.first:
+            local.get!NextSchemata.runSchema = NextSchemataData.State.runOnce;
+            break;
+        case NextSchemataData.State.runOnce:
+            local.get!NextSchemata.runSchema = NextSchemataData.State.done;
+            break;
+        case NextSchemataData.State.done:
+            break;
         }
-
-        local.get!NextSchemata.schematas = schematas;
-
-        data.stop.get = !data.hasSchema && schemaConf.stopAfterLastSchema;
     }
 
     void opCall(ref SchemataTest data) {
@@ -1517,9 +1502,9 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         try {
-            auto driver = system.spawn(&spawnSchema, filesysIO, runner, dbPath, testCaseAnalyzer, schemaConf,
-                    data.id, stopCheck, conf.mutationCompile,
-                    conf.buildCmdTimeout, dbSave, stat, timeout);
+            auto driver = system.spawn(&spawnSchema, filesysIO, runner,
+                    dbPath, testCaseAnalyzer, schemaConf, stopCheck,
+                    conf.mutationCompile, conf.buildCmdTimeout, dbSave, stat, timeout);
             scope (exit)
                 sendExit(driver, ExitReason.userShutdown);
             auto self = scopedActor;
@@ -1558,7 +1543,7 @@ nothrow:
                 data.fatalError = true;
                 break;
             case invalidSchema:
-                local.get!NextSchemata.invalidSchematas++;
+                // TODO: remove this enum value
                 break;
             case ok:
                 break;
@@ -1567,31 +1552,7 @@ nothrow:
             stopCheck.incrAliveMutants(fr.alive);
         } catch (Exception e) {
             logger.info(e.msg).collectException;
-            logger.warning("Failed executing schemata ", data.id).collectException;
-            spinSql!(() => db.schemaApi.markUsed(data.id, SchemaStatus.broken));
         }
-    }
-
-    void opCall(LoadSchematas data) {
-        import dextool.plugin.mutate.backend.database.type : SchemaStatus;
-
-        if (!schemaConf.use) {
-            return;
-        }
-
-        auto app = appender!(SchemataId[])();
-        foreach (id; spinSql!(() => db.schemaApi.getSchematas(SchemaStatus.broken))) {
-            if (spinSql!(() => db.schemaApi.countMutantsInWorklist(
-                    id)) >= schemataMutantsThreshold(schemaConf.minMutantsPerSchema.get, 0, 0)) {
-                app.put(id);
-            }
-        }
-
-        logger.trace("Found schematas: ", app.data).collectException;
-        // random reorder to reduce the chance that multipe instances of
-        // dextool use the same schema
-        local.get!NextSchemata.schematas = app.data.randomCover.array;
-        local.get!NextSchemata.totalSchematas = app.data.length;
     }
 
     void opCall(ref Coverage data) @trusted {
@@ -1632,7 +1593,8 @@ nothrow:
             auto trans = db.transaction;
 
             // needed if tests have changed but not the implementation
-            db.mutantApi.resetMutant([EnumMembers!(Mutation.Kind)], Mutation.Status.noCoverage, Mutation.Status.unknown);
+            db.mutantApi.resetMutant([EnumMembers!(Mutation.Kind)],
+                    Mutation.Status.noCoverage, Mutation.Status.unknown);
 
             auto noCov = db.coverageApi.getNotCoveredMutants;
             foreach (id; noCov)
@@ -1691,26 +1653,6 @@ nothrow:
 }
 
 private:
-
-/** A schemata must have at least this many mutants that have the status unknown
- * for it to be cost efficient to use schemata.
- *
- * The weights dynamically adjust with how many of the schemas that has failed
- * to compile.
- *
- * Params:
- *  checkSchemata = if the user has activated check_schemata that run all test cases before the schemata is used.
- */
-long schemataMutantsThreshold(const long minThreshold, const long invalidSchematas,
-        const long totalSchematas) @safe pure nothrow @nogc {
-    // "10" is a magic number that felt good but not too conservative. A future
-    // improvement is to instead base it on the ratio between compilation time
-    // and test suite execution time.
-    if (totalSchematas > 0)
-        return cast(long)(minThreshold + 10.0 * (
-                cast(double) invalidSchematas / cast(double) totalSchematas));
-    return cast(long) minThreshold;
-}
 
 /** Compare the old test cases with those that have been found this run.
  *
@@ -1772,6 +1714,7 @@ ulong toMinMemory(double percentageOfTotal) {
 }
 
 auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
+    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ, SchemaSizeQ;
     import dextool.plugin.mutate.backend.test_mutant.common_actors : Init, IsDone;
 
     static struct State {
@@ -1818,6 +1761,24 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
         });
     }
 
+    static void save3(ref Ctx ctx, SchemaQ result) @safe nothrow {
+        spinSql!(() @trusted {
+            auto t = ctx.state.get.db.transaction;
+            foreach (p; result.state.byKeyValue) {
+                ctx.state.get.db.schemaApi.saveMutantProbability(p.key, p.value, SchemaQ.MaxState);
+                debug logger.tracef("schemaq saving %s with %s values", p.key, p.value.length);
+                debug logger.trace(p.value);
+            }
+            t.commit;
+        });
+    }
+
+    static void save4(ref Ctx ctx, SchemaSizeQ result) @safe nothrow {
+        spinSql!(() @trusted {
+            ctx.state.get.db.schemaApi.saveSchemaSize(result.currentSize);
+        });
+    }
+
     static bool isDone(IsDone _) @safe nothrow {
         // the mailbox is a FIFO queue. all results have been saved if this returns true.
         return true;
@@ -1825,7 +1786,7 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
 
     self.name = "db";
     send(self, Init.init, dbPath);
-    return impl(self, &init_, st, &save, st, &save2, st, &isDone);
+    return impl(self, &init_, st, &save, st, &save2, st, &isDone, &save3, st, &save4, st);
 }
 
 auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {

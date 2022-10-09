@@ -99,22 +99,23 @@ class SchemataResult {
         CodeMutant[] mutants;
     }
 
-    static struct Schemata {
+    static struct Fragments {
         // TODO: change to using appender
         Fragment[] fragments;
     }
 
     private {
-        Schemata[AbsolutePath] schematas;
+        Fragments[AbsolutePath] fragments;
     }
 
-    Schemata[AbsolutePath] getSchematas() @safe {
-        return schematas;
+    /// Returns: all fragments containing mutants per file.
+    Fragments[AbsolutePath] getFragments() @safe {
+        return fragments;
     }
 
     /// Assuming that all fragments for a file should be merged to one huge.
     private void putFragment(AbsolutePath file, Fragment sf) {
-        schematas.update(file, () => Schemata([sf]), (ref Schemata a) {
+        fragments.update(file, () => Fragments([sf]), (ref Fragments a) {
             a.fragments ~= sf;
         });
     }
@@ -125,7 +126,7 @@ class SchemataResult {
 
         auto w = appender!string();
 
-        void toBuf(Schemata s) {
+        void toBuf(Fragments s) {
             foreach (f; s.fragments) {
                 formattedWrite(w, "  %s: %s\n", f.offset,
                         (cast(const(char)[]) f.text).byUTF!(const(char)));
@@ -133,10 +134,10 @@ class SchemataResult {
             }
         }
 
-        foreach (k; schematas.byKey.array.sort) {
+        foreach (k; fragments.byKey.array.sort) {
             try {
                 formattedWrite(w, "%s:\n", k);
-                toBuf(schematas[k]);
+                toBuf(fragments[k]);
             } catch (Exception e) {
             }
         }
@@ -196,7 +197,7 @@ struct SchemataBuilder {
     size_t cacheSize;
 
     /// Save fragments to use them to build schematan.
-    void put(scope FilesysIO fio, SchemataResult.Schemata[AbsolutePath] raw) {
+    void put(scope FilesysIO fio, SchemataResult.Fragments[AbsolutePath] raw) {
         foreach (schema; raw.byKeyValue) {
             const file = fio.toRelativeRoot(schema.key);
             put(schema.value.fragments, file);
