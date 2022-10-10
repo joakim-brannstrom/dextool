@@ -63,6 +63,13 @@ Fixes for dextool mutate
    to reproduce but the server probably run out of memory.
  * Fix coverage bug where a mutant where not re-tested if only tests changed
    such that the mutant is not covered.
+ * Improve scheman. Moved the schema generator from analyze to test phase to
+   make use of the internal worklist. The worklist contains what mutants to test.
+   The scheman are now built up from fragments containing mutants that are in the
+   worklist. This result in more mutants that are tested for each schema. A rough
+   test show a 50% reduction of the number of scheman needed which mean a
+   sometimes huge reduction in test time. A side effect of this is that the
+   analyze phase use a lot less memory.
 
 # v4.3.0 Deep Steel
 
