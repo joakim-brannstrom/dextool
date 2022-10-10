@@ -581,6 +581,8 @@ struct TestDriver {
                 if (self.local.get!NextSchemata.runSchema == NextSchemataData.State.done
                     && self.schemaConf.stopAfterLastSchema)
                     return fsm(Done.init);
+                if (self.local.get!NextSchemata.runSchema == NextSchemataData.State.done)
+                    return fsm(NextMutant.init);
                 return fsm(a);
             }
             return fsm(NextMutant.init);

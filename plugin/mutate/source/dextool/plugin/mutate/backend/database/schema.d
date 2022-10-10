@@ -846,10 +846,6 @@ void upgrade(ref Miniorm db, UpgradeTable tbl) {
             db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, mutationTable));
             db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, killedTestCaseTable));
             db.run(format!"CREATE INDEX i%s ON %s(tc_id)"(i++, killedTestCaseTable));
-            // db.run(format!"CREATE INDEX i%s ON %s(st_id)"(i++, schemataMutantTable));
-            // db.run(format!"CREATE INDEX i%s ON %s(schem_id)"(i++, schemataMutantTable));
-            // db.run(format!"CREATE INDEX i%s ON %s(schem_id)"(i++, schemataFragmentTable));
-            // db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, schemataFragmentTable));
             db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, srcCovTable));
             db.run(format!"CREATE INDEX i%s ON %s(dep_id)"(i++, depRootTable));
             db.run(format!"CREATE INDEX i%s ON %s(file_id)"(i++, depRootTable));
