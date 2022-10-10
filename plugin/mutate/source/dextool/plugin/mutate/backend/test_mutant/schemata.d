@@ -79,6 +79,9 @@ private {
 
     struct CheckStopCondMsg {
     }
+
+    struct Stop {
+    }
 }
 
 struct IsDone {
@@ -125,6 +128,9 @@ alias SchemaActor = typedActor!(
     void function(ScheduleTestMsg),
     void function(CheckStopCondMsg),
     void function(ConfTesters),
+    // Queue up a msg that set isRunning to false. Convenient to ensure that a
+    // RestoreMsg has been processed before setting to false.
+    void function(Stop),
     );
 // dfmt on
 
@@ -565,6 +571,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     static void checkHaltCond(ref Ctx ctx, CheckStopCondMsg _) @safe nothrow {
         if (!ctx.state.get.isRunning)
             return;
+
         try {
             delayedSend(ctx.self, 5.dur!"seconds".delay, CheckStopCondMsg.init).collectException;
 
@@ -574,6 +581,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
             if (halt != TestStopCheck.HaltReason.none) {
                 send(ctx.self, RestoreMsg.init);
+                send(ctx.self, Stop.init);
                 logger.info(ctx.state.get.stopCheck.overloadToString).collectException;
             }
         } catch (Exception e) {
@@ -630,16 +638,22 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             break;
         case SchemaBuildState.State.done:
             try {
-                if (ctx.state.get.isRunning)
+                if (ctx.state.get.isRunning) {
                     send(ctx.self, RestoreMsg.init);
+                    send(ctx.self, Stop.init);
+                }
             } catch (Exception e) {
                 ctx.state.get.hasFatalError = true;
+                ctx.state.get.isRunning = false;
             }
-            ctx.state.get.isRunning = false;
             break;
         default:
             break;
         }
+    }
+
+    static void stop(ref Ctx ctx, Stop _) @safe nothrow {
+        ctx.state.get.isRunning = false;
     }
 
     import std.functional : toDelegate;
@@ -656,7 +670,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     return impl(self, &init_, st, &isDone, st, &updateWlist, st,
             &doneStatus, st, &save, st, &mark, st, &injectAndCompile, st,
             &restore, st, &startTest, st, &test, st, &checkHaltCond, st,
-            &confTesters, st, &generateSchema, st, &initSchemaBuilder, st, &runSchema, st);
+            &confTesters, st, &generateSchema, st, &initSchemaBuilder, st,
+            &runSchema, st, &stop, st);
 }
 
 /** Generate schemata injection IDs (32bit) from mutant checksums (128bit).
