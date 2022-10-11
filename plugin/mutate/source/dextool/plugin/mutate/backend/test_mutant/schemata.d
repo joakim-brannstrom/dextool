@@ -155,6 +155,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         Duration buildCmdTimeout;
 
         SchemataBuilder.ET activeSchema;
+        // used to detect a corner case which is that no mutant in the schema is in the whitelist.
+        bool activeSchemaAtLeastOneInWhiteList;
 
         AbsolutePath[] modifiedFiles;
 
@@ -488,6 +490,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void startTest(ref Ctx ctx, StartTestMsg _) @safe nothrow {
+        ctx.state.get.activeSchemaAtLeastOneInWhiteList = false;
+
         try {
             foreach (_0; 0 .. ctx.state.get.scheduler.testers.length)
                 send(ctx.self, ScheduleTestMsg.init);
@@ -522,12 +526,17 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             }
         }
 
-        try {
-            if (!ctx.state.get.isRunning)
-                return;
+        if (!ctx.state.get.isRunning)
+            return;
 
+        try {
             if (ctx.state.get.injectIds.empty) {
-                logger.trace("no mutants left to test");
+                logger.trace("no mutants left to test ", ctx.state.get.scheduler.free.length);
+                if (!ctx.state.get.activeSchemaAtLeastOneInWhiteList
+                        && ctx.state.get.scheduler.full) {
+                    // no mutant has been tested in the schema thus the restore in save is never triggered.
+                    send(ctx.self, RestoreMsg.init);
+                }
                 return;
             }
 
@@ -548,6 +557,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             ctx.state.get.injectIds.popFront;
 
             if (m.statusId in ctx.state.get.whiteList) {
+                ctx.state.get.activeSchemaAtLeastOneInWhiteList = true;
                 auto testerId = ctx.state.get.scheduler.pop;
                 auto tester = ctx.state.get.scheduler.get(testerId);
                 print(m.statusId);
