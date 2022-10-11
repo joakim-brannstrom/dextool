@@ -155,8 +155,13 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         Duration buildCmdTimeout;
 
         SchemataBuilder.ET activeSchema;
+        enum ActiveSchemaCheck {
+            noMutantTested,
+            testing,
+            triggerRestoreOnce,
+        }
         // used to detect a corner case which is that no mutant in the schema is in the whitelist.
-        bool activeSchemaAtLeastOneInWhiteList;
+        ActiveSchemaCheck activeSchemaCheck;
 
         AbsolutePath[] modifiedFiles;
 
@@ -234,14 +239,12 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void runSchema(ref Ctx ctx, RunSchema _, SchemataBuilder.ET schema) @safe nothrow {
-        try {
-            if (!ctx.state.get.isRunning) {
-                send(ctx.self, GenSchema.init);
-                return;
-            }
+        if (!ctx.state.get.isRunning)
+            return;
 
+        try {
             ctx.state.get.activeSchema = schema;
-            ctx.state.get.injectIds = mutantsFromSchema(schema);
+            ctx.state.get.injectIds = mutantsFromSchema(schema, ctx.state.get.whiteList);
 
             logger.trace("schema built ", schema.checksum);
             logger.trace(schema.fragments.map!"a.file");
@@ -490,7 +493,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void startTest(ref Ctx ctx, StartTestMsg _) @safe nothrow {
-        ctx.state.get.activeSchemaAtLeastOneInWhiteList = false;
+        ctx.state.get.activeSchemaCheck = State.ActiveSchemaCheck.noMutantTested;
 
         try {
             foreach (_0; 0 .. ctx.state.get.scheduler.testers.length)
@@ -532,10 +535,11 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         try {
             if (ctx.state.get.injectIds.empty) {
                 logger.trace("no mutants left to test ", ctx.state.get.scheduler.free.length);
-                if (!ctx.state.get.activeSchemaAtLeastOneInWhiteList
+                if (ctx.state.get.activeSchemaCheck == State.ActiveSchemaCheck.noMutantTested
                         && ctx.state.get.scheduler.full) {
                     // no mutant has been tested in the schema thus the restore in save is never triggered.
                     send(ctx.self, RestoreMsg.init);
+                    ctx.state.get.activeSchemaCheck = State.ActiveSchemaCheck.triggerRestoreOnce;
                 }
                 return;
             }
@@ -557,7 +561,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             ctx.state.get.injectIds.popFront;
 
             if (m.statusId in ctx.state.get.whiteList) {
-                ctx.state.get.activeSchemaAtLeastOneInWhiteList = true;
+                ctx.state.get.activeSchemaCheck = State.ActiveSchemaCheck.testing;
                 auto testerId = ctx.state.get.scheduler.pop;
                 auto tester = ctx.state.get.scheduler.get(testerId);
                 print(m.statusId);
@@ -608,12 +612,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             }, (None a) { send(ctx.self, GenSchema.init); });
         }
 
-        logger.trace("Generate schema").collectException;
-        ctx.state.get.schemaBuild.tick;
-        switch (ctx.state.get.schemaBuild.st) {
-        case SchemaBuildState.State.processFiles:
-            logger.trace("Files ",
-                    ctx.state.get.schemaBuild.files.length).collectException;
+        static void processFile(ref Ctx ctx) @trusted nothrow {
+            logger.trace("Files left ", ctx.state.get.schemaBuild.files.filesLeft).collectException;
             spinSql!(() {
                 auto trans = ctx.state.get.db.transaction;
                 try {
@@ -633,6 +633,25 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 logger.trace(e.msg).collectException;
                 ctx.state.get.isRunning = false;
             }
+        }
+
+        logger.trace("Generate schema").collectException;
+        ctx.state.get.schemaBuild.tick;
+        final switch (ctx.state.get.schemaBuild.st) {
+        case SchemaBuildState.State.none:
+            break;
+        case SchemaBuildState.State.prepareProcessFiles2:
+            try {
+                send(ctx.self, GenSchema.init);
+            } catch (Exception e) {
+                logger.trace(e.msg).collectException;
+                ctx.state.get.isRunning = false;
+            }
+            break;
+        case SchemaBuildState.State.processFiles1:
+            goto case;
+        case SchemaBuildState.State.processFiles2:
+            processFile(ctx);
             break;
         case SchemaBuildState.State.reduction:
             goto case;
@@ -656,8 +675,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 ctx.state.get.hasFatalError = true;
                 ctx.state.get.isRunning = false;
             }
-            break;
-        default:
             break;
         }
     }
@@ -749,11 +766,11 @@ struct InjectIdResult {
 }
 
 /// Extract the mutants that are part of the schema.
-InjectIdResult mutantsFromSchema(ref SchemataBuilder.ET schema) {
+InjectIdResult mutantsFromSchema(ref SchemataBuilder.ET schema, ref Set!MutationStatusId whiteList) {
     import dextool.plugin.mutate.backend.database.type : toMutationStatusId;
 
     InjectIdBuilder builder;
-    foreach (mutant; schema.mutants) {
+    foreach (mutant; schema.mutants.filter!(a => a.id.toMutationStatusId in whiteList)) {
         builder.put(mutant.id.toMutationStatusId, mutant.id);
     }
     debug logger.trace(builder);
@@ -1332,7 +1349,11 @@ struct SchemaBuildState {
 
     enum State : ubyte {
         none,
-        processFiles,
+        // by doing it two times fragments are re-mixed which result in more
+        // possible scheman being generated from new combinations.
+        processFiles1,
+        prepareProcessFiles2,
+        processFiles2,
         reduction,
         finalize1,
         finalize2,
@@ -1341,21 +1362,29 @@ struct SchemaBuildState {
 
     static struct ProcessFiles {
         FileId[] files;
+        size_t idx;
 
         FileId pop() @safe pure nothrow scope {
-            if (files.empty)
+            if (idx == files.length)
                 return FileId.init;
-            auto tmp = files[$ - 1];
-            files = files[0 .. $ - 1];
-            return tmp;
+            return files[idx++];
         }
 
         bool isDone() @safe pure nothrow const @nogc scope {
-            return files.empty;
+            return idx == files.length;
         }
 
-        size_t length() @safe pure nothrow const @nogc scope {
-            return files.length;
+        size_t filesLeft() @safe pure nothrow const @nogc scope {
+            return idx;
+        }
+
+        void reset() @safe pure nothrow @nogc scope {
+            idx = 0;
+        }
+
+        void clear() @safe pure nothrow @nogc scope {
+            files = null;
+            idx = 0;
         }
     }
 
@@ -1372,8 +1401,15 @@ struct SchemaBuildState {
     typeof(ConfigSchema.minMutantsPerSchema) minMutantsPerSchema = 3;
     typeof(ConfigSchema.mutantsPerSchema) mutantsPerSchema = 1000;
 
-    void initFiles(FileId[] files) @safe pure nothrow @nogc {
-        this.files.files = files;
+    void initFiles(FileId[] files) @safe nothrow {
+        import std.random : randomCover;
+
+        try {
+            // makes the scheman non-determinstic which is good.
+            this.files.files = files.randomCover.array;
+        } catch (Exception e) {
+            this.files.files = files;
+        }
     }
 
     /// Step through the schema building.
@@ -1381,16 +1417,31 @@ struct SchemaBuildState {
         logger.tracef("state_pre: %s %s", st, builder.stats).collectException;
         final switch (st) {
         case State.none:
-            st = State.processFiles;
+            st = State.processFiles1;
             try {
                 setIntermediate;
             } catch (Exception e) {
                 st = State.done;
             }
             break;
-        case State.processFiles:
+        case State.processFiles1:
             if (files.isDone)
+                st = State.prepareProcessFiles2;
+            try {
+                setIntermediate;
+            } catch (Exception e) {
+                st = State.done;
+            }
+            break;
+        case State.prepareProcessFiles2:
+            st = State.processFiles2;
+            files.reset;
+            break;
+        case State.processFiles2:
+            if (files.isDone) {
                 st = State.reduction;
+                files.clear;
+            }
             try {
                 setIntermediate;
             } catch (Exception e) {
