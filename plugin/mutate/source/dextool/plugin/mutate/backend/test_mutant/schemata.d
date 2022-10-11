@@ -155,6 +155,13 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         Duration buildCmdTimeout;
 
         SchemataBuilder.ET activeSchema;
+        enum ActiveSchemaCheck {
+            noMutantTested,
+            testing,
+            triggerRestoreOnce,
+        }
+        // used to detect a corner case which is that no mutant in the schema is in the whitelist.
+        ActiveSchemaCheck activeSchemaCheck;
 
         AbsolutePath[] modifiedFiles;
 
@@ -234,6 +241,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     static void runSchema(ref Ctx ctx, RunSchema _, SchemataBuilder.ET schema) @safe nothrow {
         try {
             if (!ctx.state.get.isRunning) {
+                // important to trigger the last `done`.
                 send(ctx.self, GenSchema.init);
                 return;
             }
@@ -488,6 +496,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void startTest(ref Ctx ctx, StartTestMsg _) @safe nothrow {
+        ctx.state.get.activeSchemaCheck = State.ActiveSchemaCheck.noMutantTested;
+
         try {
             foreach (_0; 0 .. ctx.state.get.scheduler.testers.length)
                 send(ctx.self, ScheduleTestMsg.init);
@@ -522,12 +532,18 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             }
         }
 
-        try {
-            if (!ctx.state.get.isRunning)
-                return;
+        if (!ctx.state.get.isRunning)
+            return;
 
+        try {
             if (ctx.state.get.injectIds.empty) {
-                logger.trace("no mutants left to test");
+                logger.trace("no mutants left to test ", ctx.state.get.scheduler.free.length);
+                if (ctx.state.get.activeSchemaCheck == State.ActiveSchemaCheck.noMutantTested
+                        && ctx.state.get.scheduler.full) {
+                    // no mutant has been tested in the schema thus the restore in save is never triggered.
+                    send(ctx.self, RestoreMsg.init);
+                    ctx.state.get.activeSchemaCheck = State.ActiveSchemaCheck.triggerRestoreOnce;
+                }
                 return;
             }
 
@@ -540,7 +556,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             if (ctx.state.get.stopCheck.isOverloaded) {
                 logger.info(ctx.state.get.stopCheck.overloadToString).collectException;
                 delayedSend(ctx.self, 30.dur!"seconds".delay, ScheduleTestMsg.init);
-                ctx.state.get.stopCheck.pause;
                 return;
             }
 
@@ -548,6 +563,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             ctx.state.get.injectIds.popFront;
 
             if (m.statusId in ctx.state.get.whiteList) {
+                ctx.state.get.activeSchemaCheck = State.ActiveSchemaCheck.testing;
                 auto testerId = ctx.state.get.scheduler.pop;
                 auto tester = ctx.state.get.scheduler.get(testerId);
                 print(m.statusId);
@@ -598,12 +614,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             }, (None a) { send(ctx.self, GenSchema.init); });
         }
 
-        logger.trace("Generate schema").collectException;
-        ctx.state.get.schemaBuild.tick;
-        switch (ctx.state.get.schemaBuild.st) {
-        case SchemaBuildState.State.processFiles:
-            logger.trace("Files ",
-                    ctx.state.get.schemaBuild.files.length).collectException;
+        static void processFile(ref Ctx ctx) @trusted nothrow {
+            logger.trace("Files left ", ctx.state.get.schemaBuild.files.filesLeft).collectException;
             spinSql!(() {
                 auto trans = ctx.state.get.db.transaction;
                 try {
@@ -623,6 +635,15 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 logger.trace(e.msg).collectException;
                 ctx.state.get.isRunning = false;
             }
+        }
+
+        logger.trace("Generate schema").collectException;
+        ctx.state.get.schemaBuild.tick;
+        final switch (ctx.state.get.schemaBuild.st) {
+        case SchemaBuildState.State.none:
+            break;
+        case SchemaBuildState.State.processFiles:
+            processFile(ctx);
             break;
         case SchemaBuildState.State.reduction:
             goto case;
@@ -646,8 +667,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 ctx.state.get.hasFatalError = true;
                 ctx.state.get.isRunning = false;
             }
-            break;
-        default:
             break;
         }
     }
@@ -746,7 +765,6 @@ InjectIdResult mutantsFromSchema(ref SchemataBuilder.ET schema) {
     foreach (mutant; schema.mutants) {
         builder.put(mutant.id.toMutationStatusId, mutant.id);
     }
-    debug logger.trace(builder);
 
     return builder.finalize;
 }
@@ -1344,7 +1362,7 @@ struct SchemaBuildState {
             return files.empty;
         }
 
-        size_t length() @safe pure nothrow const @nogc scope {
+        size_t filesLeft() @safe pure nothrow const @nogc scope {
             return files.length;
         }
     }
@@ -1362,7 +1380,7 @@ struct SchemaBuildState {
     typeof(ConfigSchema.minMutantsPerSchema) minMutantsPerSchema = 3;
     typeof(ConfigSchema.mutantsPerSchema) mutantsPerSchema = 1000;
 
-    void initFiles(FileId[] files) @safe pure nothrow @nogc {
+    void initFiles(FileId[] files) @safe nothrow {
         this.files.files = files;
     }
 
