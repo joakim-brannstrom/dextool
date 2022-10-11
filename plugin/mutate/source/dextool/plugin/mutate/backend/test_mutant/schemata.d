@@ -1472,8 +1472,21 @@ struct SchemaBuildState {
         builder.useProbability = true;
         builder.useProbablitySmallSize = false;
         builder.mutantsPerSchema = mutantsPerSchema.get;
-        builder.minMutantsPerSchema = mutantsPerSchema.get;
         builder.thresholdStartValue = 1.0;
+
+        // seems like 200 Mbyte is large enough to generate scheman with >1000
+        // mutants easily when running on LLVM.
+        enum MaxCache = 200 * 1024 * 1024;
+        if (builder.cacheSize > MaxCache) {
+            // panic mode, just empty it as fast as possible.
+            logger.infof(
+                    "Schema cache is %s bytes (limit %s). Producing as many schemas as possible to flush the cache.",
+                    builder.cacheSize, MaxCache);
+
+            builder.minMutantsPerSchema = minMutantsPerSchema.get;
+        } else {
+            builder.minMutantsPerSchema = mutantsPerSchema.get;
+        }
     }
 
     void setReducedIntermediate(long sizeDiv, long threshold) {
