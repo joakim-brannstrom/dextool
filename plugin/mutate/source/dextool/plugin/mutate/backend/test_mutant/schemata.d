@@ -442,7 +442,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             scope (exit)
                 ctx.state.get.compileTime = sw.peek;
 
-            logger.infof("Using schema with %s mutants", ctx.state.get.activeSchema.mutants.length);
+            logger.infof("Using schema with %s mutants", ctx.state.get.injectIds.length);
 
             auto codeInject = CodeInject(ctx.state.get.fio, ctx.state.get.conf);
             ctx.state.get.modifiedFiles = codeInject.inject(ctx.state.get.db,
@@ -762,6 +762,10 @@ struct InjectIdResult {
 
     bool empty() @safe pure nothrow const @nogc {
         return ids.empty;
+    }
+
+    size_t length() @safe pure nothrow const @nogc {
+        return ids.length;
     }
 }
 
