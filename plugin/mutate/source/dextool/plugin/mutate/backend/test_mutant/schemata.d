@@ -1386,7 +1386,14 @@ struct SchemaBuildState {
     typeof(ConfigSchema.mutantsPerSchema) mutantsPerSchema = 1000;
 
     void initFiles(FileId[] files) @safe nothrow {
-        this.files.files = files;
+        import std.random : randomCover;
+
+        try {
+            // improve the schemas non-determinism between each `test` run.
+            this.files.files = files.randomCover.array;
+        } catch (Exception e) {
+            this.files.files = files;
+        }
     }
 
     /// Step through the schema building.
