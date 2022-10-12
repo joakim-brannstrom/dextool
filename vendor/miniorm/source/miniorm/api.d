@@ -34,7 +34,7 @@ struct Miniorm {
     private Database db;
     alias getUnderlyingDb this;
 
-    ref Database getUnderlyingDb() return  {
+    ref Database getUnderlyingDb() return {
         return db;
     }
 
@@ -521,7 +521,7 @@ auto spinSql(alias query, alias logFn = logger.warning)(Duration timeout, Durati
     throw new SpinSqlTimeout(null);
 }
 
-auto spinSql(alias query, alias logFn = logger.warning)(const string file = __FILE__,
+auto spinSql(alias query, alias logFn = logger.trace)(const string file = __FILE__,
         const size_t line = __LINE__) nothrow {
     while (true) {
         try {
