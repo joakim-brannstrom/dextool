@@ -247,14 +247,15 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             }
 
             ctx.state.get.activeSchema = schema;
-            ctx.state.get.injectIds = mutantsFromSchema(schema);
+            ctx.state.get.injectIds = mutantsFromSchema(schema, ctx.state.get.whiteList);
 
             logger.trace("schema built ", schema.checksum);
             logger.trace(schema.fragments.map!"a.file");
             logger.trace(schema.mutants);
             logger.trace(ctx.state.get.injectIds);
 
-            if (ctx.state.get.injectIds.empty) {
+            if (ctx.state.get.injectIds.empty
+                    || ctx.state.get.injectIds.length < ctx.state.get.conf.minMutantsPerSchema.get) {
                 send(ctx.self, GenSchema.init);
             } else {
                 send(ctx.self, UpdateWorkList.init, false);
@@ -755,14 +756,18 @@ struct InjectIdResult {
     bool empty() @safe pure nothrow const @nogc {
         return ids.empty;
     }
+
+    size_t length() @safe pure nothrow const @nogc scope {
+        return ids.length;
+    }
 }
 
 /// Extract the mutants that are part of the schema.
-InjectIdResult mutantsFromSchema(ref SchemataBuilder.ET schema) {
+InjectIdResult mutantsFromSchema(ref SchemataBuilder.ET schema, ref Set!MutationStatusId whiteList) {
     import dextool.plugin.mutate.backend.database.type : toMutationStatusId;
 
     InjectIdBuilder builder;
-    foreach (mutant; schema.mutants) {
+    foreach (mutant; schema.mutants.filter!(a => a.id.toMutationStatusId in whiteList)) {
         builder.put(mutant.id.toMutationStatusId, mutant.id);
     }
 
