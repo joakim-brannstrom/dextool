@@ -162,6 +162,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
         // used to detect a corner case which is that no mutant in the schema is in the whitelist.
         ActiveSchemaCheck activeSchemaCheck;
+        Set!Checksum usedScheman;
 
         AbsolutePath[] modifiedFiles;
 
@@ -245,8 +246,14 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 send(ctx.self, GenSchema.init);
                 return;
             }
+            if (schema.checksum.value in ctx.state.get.usedScheman) {
+                // discard, already used
+                send(ctx.self, GenSchema.init);
+                return;
+            }
 
             ctx.state.get.activeSchema = schema;
+            ctx.state.get.usedScheman.add(schema.checksum.value);
             ctx.state.get.injectIds = mutantsFromSchema(schema, ctx.state.get.whiteList);
 
             logger.trace("schema built ", schema.checksum);
@@ -616,6 +623,9 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
 
         static void processFile(ref Ctx ctx) @trusted nothrow {
+            if (ctx.state.get.schemaBuild.files.isDone)
+                return;
+
             logger.trace("Files left ", ctx.state.get.schemaBuild.files.filesLeft).collectException;
             spinSql!(() {
                 auto trans = ctx.state.get.db.transaction;
@@ -629,13 +639,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                     // TODO: error handling
                 }
             });
-
-            try {
-                process(ctx);
-            } catch (Exception e) {
-                logger.trace(e.msg).collectException;
-                ctx.state.get.isRunning = false;
-            }
         }
 
         logger.trace("Generate schema").collectException;
@@ -644,7 +647,24 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         case SchemaBuildState.State.none:
             break;
         case SchemaBuildState.State.processFiles:
-            processFile(ctx);
+            try {
+                processFile(ctx);
+                process(ctx);
+            } catch (Exception e) {
+                logger.trace(e.msg).collectException;
+                ctx.state.get.isRunning = false;
+            }
+            break;
+        case SchemaBuildState.State.prepareReduction:
+            goto case;
+        case SchemaBuildState.State.prepareFinalize:
+            try {
+                ctx.state.get.schemaBuild.files.reset;
+                send(ctx.self, GenSchema.init);
+            } catch (Exception e) {
+                logger.trace(e.msg).collectException;
+                ctx.state.get.isRunning = false;
+            }
             break;
         case SchemaBuildState.State.reduction:
             goto case;
@@ -652,6 +672,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             goto case;
         case SchemaBuildState.State.finalize2:
             try {
+                processFile(ctx);
                 process(ctx);
             } catch (Exception e) {
                 logger.trace(e.msg).collectException;
@@ -659,6 +680,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             }
             break;
         case SchemaBuildState.State.done:
+            ctx.state.get.schemaBuild.files.clear;
             try {
                 if (ctx.state.get.isRunning) {
                     send(ctx.self, RestoreMsg.init);
@@ -1317,12 +1339,8 @@ struct SchemataBuilder {
  */
 SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
     import dextool.plugin.mutate.backend.utility : BuildChecksum, toChecksum, toBytes;
-    import dextool.utility : dextoolBinaryId;
 
     BuildChecksum h;
-    // this make sure that schematas for a new version are always added to the
-    // database.
-    h.put(dextoolBinaryId.toBytes);
     foreach (a; mutants.sort!((a, b) => a.id.value < b.id.value)
             .map!(a => a.id.value)) {
         h.put(a.c0.toBytes);
@@ -1346,7 +1364,9 @@ struct SchemaBuildState {
     enum State : ubyte {
         none,
         processFiles,
+        prepareReduction,
         reduction,
+        prepareFinalize,
         finalize1,
         finalize2,
         done,
@@ -1354,21 +1374,29 @@ struct SchemaBuildState {
 
     static struct ProcessFiles {
         FileId[] files;
+        size_t idx;
 
         FileId pop() @safe pure nothrow scope {
-            if (files.empty)
+            if (idx == files.length)
                 return FileId.init;
-            auto tmp = files[$ - 1];
-            files = files[0 .. $ - 1];
-            return tmp;
+            return files[idx++];
         }
 
         bool isDone() @safe pure nothrow const @nogc scope {
-            return files.empty;
+            return idx == files.length;
         }
 
         size_t filesLeft() @safe pure nothrow const @nogc scope {
-            return files.length;
+            return files.length - idx;
+        }
+
+        void reset() @safe pure nothrow @nogc scope {
+            idx = 0;
+        }
+
+        void clear() @safe pure nothrow @nogc scope {
+            files = null;
+            reset;
         }
     }
 
@@ -1410,27 +1438,33 @@ struct SchemaBuildState {
             break;
         case State.processFiles:
             if (files.isDone)
-                st = State.reduction;
+                st = State.prepareReduction;
             try {
                 setIntermediate;
             } catch (Exception e) {
                 st = State.done;
             }
             break;
+        case State.prepareReduction:
+            st = State.reduction;
+            break;
         case State.reduction:
             immutable magic = 10; // reduce the size until it is 1/10 of the original
             immutable magic2 = 5; // if it goes <95% then it is too high probability to fail
 
             if (builder.empty)
-                st = State.finalize1;
+                st = State.prepareFinalize;
             else if (++reducedTicks > (magic * magic2))
-                st = State.finalize1;
+                st = State.prepareFinalize;
 
             try {
                 setReducedIntermediate(1 + reducedTicks / magic, reducedTicks % magic2);
             } catch (Exception e) {
                 st = State.done;
             }
+            break;
+        case State.prepareFinalize:
+            st = State.finalize1;
             break;
         case State.finalize1:
             st = State.finalize2;
@@ -1486,14 +1520,7 @@ struct SchemaBuildState {
         return rval;
     }
 
-    void setIntermediate() {
-        logger.trace("schema generator phase: intermediate");
-        builder.discardMinScheman = false;
-        builder.useProbability = true;
-        builder.useProbablitySmallSize = false;
-        builder.mutantsPerSchema = mutantsPerSchema.get;
-        builder.thresholdStartValue = 1.0;
-
+    void setMinMutants(long desiredValue) {
         // seems like 200 Mbyte is large enough to generate scheman with >1000
         // mutants easily when running on LLVM.
         enum MaxCache = 200 * 1024 * 1024;
@@ -1502,11 +1529,21 @@ struct SchemaBuildState {
             logger.infof(
                     "Schema cache is %s bytes (limit %s). Producing as many schemas as possible to flush the cache.",
                     builder.cacheSize, MaxCache);
-
             builder.minMutantsPerSchema = minMutantsPerSchema.get;
         } else {
-            builder.minMutantsPerSchema = mutantsPerSchema.get;
+            builder.minMutantsPerSchema = desiredValue;
         }
+    }
+
+    void setIntermediate() {
+        logger.trace("schema generator phase: intermediate");
+        builder.discardMinScheman = false;
+        builder.useProbability = true;
+        builder.useProbablitySmallSize = false;
+        builder.mutantsPerSchema = mutantsPerSchema.get;
+        builder.thresholdStartValue = 1.0;
+
+        setMinMutants(mutantsPerSchema.get);
     }
 
     void setReducedIntermediate(long sizeDiv, long threshold) {
@@ -1517,10 +1554,11 @@ struct SchemaBuildState {
         builder.useProbability = true;
         builder.useProbablitySmallSize = false;
         builder.mutantsPerSchema = mutantsPerSchema.get;
-        builder.minMutantsPerSchema = max(minMutantsPerSchema.get, mutantsPerSchema.get / sizeDiv);
         // TODO: interresting effect. this need to be studied. I think this
         // is the behavior that is "best".
         builder.thresholdStartValue = 1.0 - (cast(double) threshold / 100.0);
+
+        setMinMutants(max(minMutantsPerSchema.get, mutantsPerSchema.get / sizeDiv));
     }
 
     /// Consume all fragments or discard.
