@@ -626,19 +626,19 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             if (ctx.state.get.schemaBuild.files.isDone)
                 return;
 
-            logger.trace("Files left ", ctx.state.get.schemaBuild.files.filesLeft).collectException;
-            spinSql!(() {
-                auto trans = ctx.state.get.db.transaction;
-                try {
-                    ctx.state.get.schemaBuild.updateFiles((FileId id) => spinSql!(
-                        () => ctx.state.get.db.schemaApi.getFragments(id)),
+            size_t frags;
+            while (frags == 0 && ctx.state.get.schemaBuild.files.filesLeft != 0) {
+                logger.trace("Files left ",
+                        ctx.state.get.schemaBuild.files.filesLeft).collectException;
+                frags = spinSql!(() {
+                    auto trans = ctx.state.get.db.transaction;
+                    return ctx.state.get.schemaBuild.updateFiles(
+                        (FileId id) => spinSql!(() => ctx.state.get.db.schemaApi.getFragments(id)),
                         (FileId id) => spinSql!(() => ctx.state.get.db.getFile(id)),
                         (MutationStatusId id) => spinSql!(
                         () => ctx.state.get.db.mutantApi.getKind(id)));
-                } catch (Exception e) {
-                    // TODO: error handling
-                }
-            });
+                });
+            }
         }
 
         logger.trace("Generate schema").collectException;
@@ -1486,22 +1486,24 @@ struct SchemaBuildState {
 
     /// Add all fragments from one of the files to process to those to be
     /// incorporated into future schemas.
-    void updateFiles(scope SchemaFragmentV2[]delegate(FileId) @safe fragmentsFn,
+    /// Returns: number of fragments added.
+    size_t updateFiles(scope SchemaFragmentV2[]delegate(FileId) @safe fragmentsFn,
             scope Nullable!Path delegate(FileId) @safe fnameFn,
             scope Mutation.Kind delegate(MutationStatusId) @safe kindFn) @safe nothrow {
         import dextool.plugin.mutate.backend.type : CodeChecksum, Mutation;
         import dextool.plugin.mutate.backend.database : toChecksum;
 
         if (files.isDone)
-            return;
+            return 0;
         auto id = files.pop;
         try {
             const fname = fnameFn(id);
             if (fname.isNull)
-                return;
+                return 0;
 
             auto app = appender!(SchemataBuilder.Fragment[])();
-            foreach (a; fragmentsFn(id)) {
+            auto frags = fragmentsFn(id);
+            foreach (a; frags) {
                 auto cm = a.mutants.map!(a => CodeMutant(CodeChecksum(a.toChecksum),
                         Mutation(kindFn(a), Mutation.Status.unknown))).array;
                 app.put(SchemataBuilder.Fragment(SchemataBuilder.SchemataFragment(fname.get,
@@ -1509,9 +1511,11 @@ struct SchemaBuildState {
             }
 
             builder.put(app.data);
+            return frags.length;
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
+        return 0;
     }
 
     Optional!(SchemataBuilder.ET) process() {
