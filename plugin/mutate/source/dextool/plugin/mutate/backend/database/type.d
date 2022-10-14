@@ -53,14 +53,25 @@ alias SchemataId = NamedType!(long, Tag!"SchemataId", long.init, Comparable,
 alias SchemataFragmentId = NamedType!(long, Tag!"SchemataFragmentId",
         long.init, Comparable, Hashable, TagStringable);
 
+Checksum toChecksum(const MutationStatusId id) {
+    return Checksum(id.get);
+}
+
+MutationStatusId toMutationStatusId(const Checksum cs) {
+    return MutationStatusId(cs.c0);
+}
+
+MutationStatusId toMutationStatusId(const CodeMutant m) {
+    return MutationStatusId(m.id.value.c0);
+}
+
 struct MutationEntry {
-    MutationId id;
+    MutationStatusId id;
     Path file;
     SourceLoc sloc;
     MutationPoint mp;
     MutantTimeProfile profile;
     Language lang;
-    MutationStatusId stId;
 }
 
 struct NextMutationEntry {
@@ -117,7 +128,7 @@ struct MetadataNoMutEntry {
 }
 
 struct MutantInfo {
-    MutationId id;
+    MutationStatusId id;
     Mutation.Status status;
     ExitStatus ecode;
     Mutation.Kind kind;
@@ -126,7 +137,7 @@ struct MutantInfo {
 }
 
 struct MutantInfo2 {
-    MutationId id;
+    MutationStatusId id;
     Mutation.Status status;
     ExitStatus exitStatus;
     Path file;
@@ -149,7 +160,7 @@ struct TestCaseInfo {
 /// What mutants a test case killed.
 struct TestCaseInfo2 {
     TestCase name;
-    MutationId[] killed;
+    MutationStatusId[] killed;
 }
 
 struct MutationStatusTime {
@@ -230,14 +241,14 @@ alias LineAttr = SumType!(NoMetadata, NoMut);
 struct MutantMetaData {
     import std.range : isOutputRange;
 
-    MutationId id;
+    MutationStatusId id;
     MutantAttr attr;
 
-    this(MutationId id) {
+    this(MutationStatusId id) {
         this(id, MutantAttr.init);
     }
 
-    this(MutationId id, MutantAttr attr) {
+    this(MutationStatusId id, MutantAttr attr) {
         this.id = id;
         this.attr = attr;
     }
@@ -288,8 +299,6 @@ struct MarkedMutant {
     /// Checksum of the marked mutant.
     Checksum statusChecksum;
 
-    MutationId mutationId;
-
     SourceLoc sloc;
     Path path;
 
@@ -309,6 +318,12 @@ struct SchemataFragment {
     Path file;
     Offset offset;
     const(ubyte)[] text;
+}
+
+struct SchemaFragmentV2 {
+    Offset offset;
+    const(ubyte)[] text;
+    MutationStatusId[] mutants;
 }
 
 struct Schemata {

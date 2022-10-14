@@ -8,6 +8,7 @@ module dextool_test.test_mutant_tester;
 import core.thread : Thread;
 import core.time : dur, Duration;
 import std.algorithm : filter;
+import std.array : array;
 import std.file : readText;
 import std.format : format;
 import std.stdio : File;
@@ -40,7 +41,9 @@ class ShallReportTestCaseKilledMutant : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "dcr"
+        ]).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -48,7 +51,6 @@ class ShallReportTestCaseKilledMutant : SimpleFixture {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -66,7 +68,9 @@ class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "dcr"
+        ]).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -74,7 +78,6 @@ class ShallParseGtestReportForTestCasesThatKilledTheMutant : SimpleFixture {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -181,7 +184,9 @@ class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "dcr"
+        ]).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -189,7 +194,6 @@ class ShallParseCTestReportForTestCasesThatKilledTheMutant : SimpleFixture {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -583,7 +587,6 @@ class ShallDetectAllTestCases : TestCaseDetection {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -628,7 +631,6 @@ detected_new_test_case = "resetAlive"
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -671,7 +673,6 @@ EOF
             .addArg(["test"])
             .addPostArg("--dry-run")
             .addArg(["-c", conf_f])
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -697,7 +698,6 @@ class DroppedTestCases : TestCaseDetection {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -736,7 +736,6 @@ EOF
             .addArg(["test"])
             .addPostArg("--dry-run")
             .addPostArg(extra_args)
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -782,15 +781,16 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
 
         mixin(EnvSetup(globalTestdir));
         auto db = precondition(testEnv);
+        const mutants = db.mutantApi.getAllMutationStatus;
+        mutants.length.shouldBeGreaterThan(4);
 
-        db.mutantApi.update(MutationId(1), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero,
-                    5.dur!"msecs"), [TestCase("tc_1")]);
+        db.mutantApi.update(mutants[0], Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"));
+        db.testCaseApi.updateMutationTestCases(mutants[0], [TestCase("tc_1")]);
 
         // verify pre-condition that test cases exist in the DB
         // dfmt off
         auto r0 = makeDextoolReport(testEnv, testData.dirName)
-            .addPostArg(["--mutant", "all"])
             .addArg(["--section", "tc_stat"])
             .run;
         testConsecutiveSparseOrder!Re(
@@ -802,7 +802,6 @@ class ShallKeepTheTestCaseResultsLinkedToMutantsWhenReAnalyzing : DatabaseFixtur
 
         // Assert that the test cases are still their
         auto r1 = makeDextoolReport(testEnv, testData.dirName)
-            .addPostArg(["--mutant", "all"])
             .addArg(["--section", "tc_stat"])
             .run;
         testConsecutiveSparseOrder!Re([`|\s*100\s*|\s*1\s*|\s*tc_1\s*|`])
@@ -826,9 +825,9 @@ class ShallRetrieveOldestMutant : DatabaseFixture {
             db.mutantApi.update(id, Mutation.Status.killed, ExitStatus(0), Yes.updateTs);
 
         // act
-        const oldest = db.mutantApi.getOldestMutants([
-            EnumMembers!(Mutation.Kind)
-        ], 2, [EnumMembers!(Mutation.Status)]);
+        const oldest = db.mutantApi.getOldestMutants(2, [
+                EnumMembers!(Mutation.Status)
+                ]);
 
         // assert
         oldest.length.shouldEqual(2);
@@ -877,6 +876,9 @@ class ShallRetestOldestMutant : SimpleFixture {
             .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .run;
+        testConsecutiveSparseOrder!SubStr([
+            "info: Mutation status is up to date"
+        ]).shouldBeIn(r1.output);
 
         File(test, "w").write("bar");
 
@@ -897,9 +899,6 @@ class ShallRetestOldestMutant : SimpleFixture {
         // dfmt on
 
         testConsecutiveSparseOrder!SubStr([
-            "info: Mutation status is up to date"
-        ]).shouldBeIn(r1.output);
-        testConsecutiveSparseOrder!SubStr([
             "info: Mutation status is out of sync"
         ]).shouldBeIn(r2.output);
     }
@@ -910,7 +909,9 @@ class ShallStopAtMaxRuntime : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "dcr"
+        ]).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -918,7 +919,6 @@ class ShallStopAtMaxRuntime : SimpleFixture {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -938,7 +938,9 @@ class ShallTestMutantsOnSpecifiedLines : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "dcr"
+        ]).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -946,7 +948,6 @@ class ShallTestMutantsOnSpecifiedLines : SimpleFixture {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -971,7 +972,9 @@ class ShallTestMutantsInDiff : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programFile).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programFile).addPostArg([
+            "--mutant", "dcr"
+        ]).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -979,7 +982,6 @@ class ShallTestMutantsInDiff : SimpleFixture {
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg("--dry-run")
-            .addPostArg(["--mutant", "dcr"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
@@ -1050,7 +1052,9 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "all"
+        ]).run;
         const dbPath = (testEnv.outdir ~ defaultDb).toString;
         copy(dbPath, dbPath ~ ".bak");
 
@@ -1063,7 +1067,6 @@ class ShallBeDeterministicPullRequestTestSequence : SimpleFixture {
             .addArg(["test"])
             .addPostArg("--dry-run")
             .addPostArg(["--db", dbPath])
-            .addPostArg(["--mutant", "all"])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", "/bin/true"])
             .addPostArg(["--test-timeout", "10000"])
@@ -1095,7 +1098,9 @@ class ShallDetectWriteProtectedFiles : SimpleFixture {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "all"
+        ]).run;
 
         import core.sys.posix.sys.stat : S_IWUSR;
 
@@ -1112,7 +1117,6 @@ class ShallDetectWriteProtectedFiles : SimpleFixture {
             .addArg(["test"])
             .addPostArg("--dry-run")
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--mutant", "all"])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-timeout", "10000"])
@@ -1137,7 +1141,9 @@ exit 1
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "all"
+        ]).run;
 
         // dfmt off
         auto r = dextool_test.makeDextool(testEnv)
@@ -1146,7 +1152,6 @@ exit 1
             .addArg(["test"])
             .addPostArg("--dry-run")
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--mutant", "all"])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-timeout", "10000"])
@@ -1182,7 +1187,6 @@ exit 1
             .addArg(["test"])
             .addPostArg("--dry-run")
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--mutant", "all"])
             .addPostArg(["--build-cmd", compileScript])
             .addPostArg(["--test-cmd", testScript])
             .addPostArg(["--test-timeout", "10000"])
@@ -1192,9 +1196,7 @@ exit 1
 
         testConsecutiveSparseOrder!SubStr(["equivalent"]).shouldBeIn(r0.output);
 
-        auto r1 = makeDextoolReport(testEnv, testData.dirName).addPostArg([
-            "--mutant", "all"
-        ]).run;
+        auto r1 = makeDextoolReport(testEnv, testData.dirName).run;
 
         testConsecutiveSparseOrder!Re(["Equivalent:.*6"]).shouldBeIn(r1.output);
     }
@@ -1234,7 +1236,6 @@ g++ %s -o %s
             .args(["mutate"])
             .addArg(["test"])
             .addPostArg(["--db", (testEnv.outdir ~ defaultDb).toString])
-            .addPostArg(["--mutant", "all"])
             // zero forces it to be checked for every mutant
             .addPostArg(["--cont-test-suite", "--cont-test-suite-period", "0"])
             .addPostArg(["--build-cmd", compileScript])

@@ -53,7 +53,7 @@ Diff diffFromStdin() @trusted {
     import std.stdio : stdin;
     import dextool.plugin.mutate.backend.diff_parser : UnifiedDiffParser;
 
-    return toDiff(stdin.byLine);
+    return toDiff(stdin.byLineCopy);
 }
 
 /** Parse a range of lines to a diff.

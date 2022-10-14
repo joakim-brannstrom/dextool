@@ -37,13 +37,13 @@ import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink, toSho
 import dextool.plugin.mutate.backend.resource;
 import dextool.plugin.mutate.backend.type : Mutation, toString, TestCase;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind, ReportSection;
+import dextool.plugin.mutate.type : ReportSection;
 import dextool.plugin.mutate.backend.report.html.utility;
 
 @safe:
 
-void makeTestCases(ref Database db, string tag, Element root, ref const ConfigReport conf,
-        const(Mutation.Kind)[] kinds, TestCaseMetadata metaData, AbsolutePath testCasesDir) @trusted {
+void makeTestCases(ref Database db, string tag, Document doc, Element root,
+        ref const ConfigReport conf, TestCaseMetadata metaData, AbsolutePath testCasesDir) @trusted {
     DashboardCss.h2(root.addChild(new Link(tag, null)).setAttribute("id", tag[1 .. $]),
             "Test Cases");
     auto sections = conf.reportSection.toSet;
@@ -51,7 +51,7 @@ void makeTestCases(ref Database db, string tag, Element root, ref const ConfigRe
     ReportData data;
 
     if (ReportSection.tc_similarity in sections)
-        data.similaritiesData = reportTestCaseSimilarityAnalyse(db, kinds, 5);
+        data.similaritiesData = reportTestCaseSimilarityAnalyse(db, 5);
 
     data.addSuggestion = ReportSection.tc_suggestion in sections;
     // 10 is magic number. feels good.
@@ -88,14 +88,14 @@ void makeTestCases(ref Database db, string tag, Element root, ref const ConfigRe
     foreach (tcId; spinSql!(() => db.testCaseApi.getDetectedTestCaseIds)) {
         const name = spinSql!(() => db.testCaseApi.getTestCaseName(tcId));
 
-        auto reportFname = name.removeAllNonAlphaNum.pathToHtmlLink;
+        auto reportFname = TestCase(name).testCaseToHtmlLink;
         auto fout = File(testCasesDir ~ reportFname, "w");
         TestCaseSummary summary;
         spinSql!(() {
             // do all the heavy database interaction in a transaction to
             // speedup by reduce locking.
             auto t = db.transaction;
-            makeTestCasePage(db, kinds, name, tcId, (data.similaritiesData is null)
+            makeTestCasePage(db, name, tcId, (data.similaritiesData is null)
                 ? null : data.similaritiesData.similarities.get(tcId, null),
                 data, metaData, summary, fout);
         });
@@ -187,8 +187,8 @@ struct TestCaseSummary {
     long score;
 }
 
-void makeTestCasePage(ref Database db, const(Mutation.Kind)[] kinds, const string name,
-        const TestCaseId tcId, TestCaseSimilarityAnalyse.Similarity[] similarities,
+void makeTestCasePage(ref Database db, const string name, const TestCaseId tcId,
+        TestCaseSimilarityAnalyse.Similarity[] similarities,
         const ReportData rdata, TestCaseMetadata metaData, ref TestCaseSummary summary, ref File out_) @system {
     import std.path : baseName;
     import dextool.plugin.mutate.backend.type : TestCase;
@@ -212,7 +212,7 @@ void makeTestCasePage(ref Database db, const(Mutation.Kind)[] kinds, const strin
         doc.mainBody.addChild(new RawSource(doc, *v));
 
     doc.mainBody.addChild("h2").appendText("Killed");
-    addKilledMutants(db, kinds, tcId, rdata, summary, doc.mainBody);
+    addKilledMutants(db, tcId, rdata, summary, doc.mainBody);
 
     if (!similarities.empty) {
         doc.mainBody.addChild("h2").appendText("Similarity");
@@ -220,11 +220,11 @@ void makeTestCasePage(ref Database db, const(Mutation.Kind)[] kinds, const strin
     }
 }
 
-void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
-        const TestCaseId tcId, const ReportData rdata, ref TestCaseSummary summary, Element root) @system {
+void addKilledMutants(ref Database db, const TestCaseId tcId, const ReportData rdata,
+        ref TestCaseSummary summary, Element root) @system {
     import std.algorithm : min;
 
-    auto kills = db.testCaseApi.testCaseKilledSrcMutants(kinds, tcId);
+    auto kills = db.testCaseApi.testCaseKilledSrcMutants(tcId);
     summary.kills = kills.length;
     summary.score = kills.length == 0 ? 0 : long.max;
 
@@ -273,7 +273,7 @@ void addKilledMutants(ref Database db, const(Mutation.Kind)[] kinds,
                 // column sort in the html report do not work correctly if starting from 0.
                 auto td = tds.addChild("a", format("%s", s.index + 1));
                 td.href = format("%s#%s", buildPath("..", HtmlStyle.fileDir,
-                        pathToHtmlLink(info.file)), db.mutantApi.getMutationId(s.value).get);
+                        pathToHtmlLink(info.file)), s.value.get);
                 td.appendText(" ");
             }
         }
@@ -289,8 +289,7 @@ void addSimilarity(ref Database db, TestCaseSimilarityAnalyse.Similarity[] simil
 
     auto getPath = nullableCache!(MutationStatusId, string, (MutationStatusId id) {
         auto path = spinSql!(() => db.mutantApi.getPath(id)).get;
-        auto mutId = spinSql!(() => db.mutantApi.getMutationId(id)).get;
-        return format!"%s#%s"(buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(path)), mutId.get);
+        return format!"%s#%s"(buildPath("..", HtmlStyle.fileDir, pathToHtmlLink(path)), id.get);
     })(0, 30.dur!"seconds");
 
     root.addChild("p", "How similary this test case is to others.");
@@ -311,8 +310,7 @@ void addSimilarity(ref Database db, TestCaseSimilarityAnalyse.Similarity[] simil
         auto r = tbl.appendRow();
 
         const name = db.testCaseApi.getTestCaseName(sim.testCase);
-        r.addChild("td").addChild("a", name)
-            .href = buildPath(name.removeAllNonAlphaNum.pathToHtmlLink);
+        r.addChild("td").addChild("a", name).href = buildPath(TestCase(name).testCaseToHtmlLink);
 
         r.addChild("td", format("%#.3s", sim.similarity));
 

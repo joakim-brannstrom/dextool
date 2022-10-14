@@ -25,7 +25,6 @@ import my.set;
 import proc : DrainElement;
 import sumtype;
 
-import dextool.plugin.mutate.backend.database : MutationId;
 import dextool.plugin.mutate.backend.interface_;
 import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner;
@@ -44,10 +43,9 @@ version (unittest) {
 
 /// The result of running the test suite on one mutant.
 struct MutationTestResult {
-    import dextool.plugin.mutate.backend.database : MutationStatusId, MutationId;
+    import dextool.plugin.mutate.backend.database : MutationStatusId;
     import dextool.plugin.mutate.backend.type : Mutation, TestCase, ExitStatus;
 
-    MutationId mutId;
     MutationStatusId id;
     Mutation.Status status;
     MutantTimeProfile profile;
@@ -647,6 +645,28 @@ struct TestStopCheck {
             loadThreshold.get = max(1, baseLoadThreshold.get - 1);
         else
             loadThreshold = baseLoadThreshold;
+    }
+
+    /// Start a background thread that will forcefully terminate the application.
+    void startBgShutdown(Duration waitFor = 10.dur!"minutes") @trusted nothrow {
+        static void tick(Duration waitFor) @trusted nothrow {
+            import core.thread : Thread;
+            import core.stdc.stdlib : exit;
+
+            try {
+                Thread.sleep(waitFor);
+                logger.info("Force shutdown");
+            } catch (Exception e) {
+            }
+
+            // it is not really a failure just, a workaround if other parts
+            // lockup such as a thread pool. it happens sometimes.
+            exit(0);
+        }
+
+        import std.concurrency : spawn;
+
+        spawn(&tick, waitFor).collectException;
     }
 
     string overloadToString() @safe const {

@@ -20,7 +20,7 @@ import std.regex : matchFirst;
 import dextool.type;
 
 import dextool.plugin.mutate.type : MutationKind, AdminOperation;
-import dextool.plugin.mutate.backend.database : Database, MutationId;
+import dextool.plugin.mutate.backend.database : Database, MutationStatusId;
 import dextool.plugin.mutate.backend.type : Mutation, Offset, ExitStatus;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
@@ -43,7 +43,7 @@ struct BuildAdmin {
         Mutation.Status status;
         Mutation.Status to_status;
         Regex!char test_case_regex;
-        MutationId mutant_id;
+        MutationStatusId mutant_id;
         string mutant_rationale;
         FilesysIO fio;
         AbsolutePath dbPath;
@@ -94,7 +94,7 @@ struct BuildAdmin {
         return this;
     }
 
-    auto markMutantData(MutationId v, string s, FilesysIO f) nothrow {
+    auto markMutantData(MutationStatusId v, string s, FilesysIO f) nothrow {
         data.mutant_id = v;
         data.mutant_rationale = s;
         data.fio = f;
@@ -215,11 +215,11 @@ ExitStatusType resetTestCase(ref Database db, const Regex!char re) @trusted noth
     return ExitStatusType.Ok;
 }
 
-ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] kinds,
+ExitStatusType markMutant(ref Database db, MutationStatusId id, const Mutation.Kind[] kinds,
         const Mutation.Status status, string rationale, FilesysIO fio) @trusted nothrow {
     import std.format : format;
     import std.string : strip;
-    import dextool.plugin.mutate.backend.database : Rationale;
+    import dextool.plugin.mutate.backend.database : Rationale, toChecksum;
     import dextool.plugin.mutate.backend.report.utility : window;
 
     if (rationale.empty) {
@@ -239,23 +239,16 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
         // because getMutation worked we know the ID is valid thus no need to
         // check the return values when it or derived values are used.
 
-        const st_id = db.mutantApi.getMutationStatusId(id);
-        if (st_id.isNull) {
-            logger.errorf("Mutant with ID %s do not exist", id.get);
-            return ExitStatusType.Errors;
-        }
-        const checksum = db.mutantApi.getChecksum(st_id.get);
-
         const txt = () {
             auto tmp = makeMutationText(fio.makeInput(fio.toAbsoluteRoot(mut.get.file)),
                     mut.get.mp.offset, db.mutantApi.getKind(id), mut.get.lang);
             return window(format!"'%s'->'%s'"(tmp.original.strip, tmp.mutation.strip), 30);
         }();
 
-        db.markMutantApi.mark(id, mut.get.file, mut.get.sloc, st_id.get,
-                checksum, status, Rationale(rationale), txt);
+        db.markMutantApi.mark(mut.get.file, mut.get.sloc, id, toChecksum(id),
+                status, Rationale(rationale), txt);
 
-        db.mutantApi.update(st_id.get, status, ExitStatus(0));
+        db.mutantApi.update(id, status, ExitStatus(0));
 
         logger.infof(`Mutant %s marked with status %s and rationale %s`, id.get, status, rationale);
 
@@ -268,20 +261,14 @@ ExitStatusType markMutant(ref Database db, MutationId id, const Mutation.Kind[] 
     return ExitStatusType.Errors;
 }
 
-ExitStatusType removeMarkedMutant(ref Database db, MutationId id) @trusted nothrow {
+ExitStatusType removeMarkedMutant(ref Database db, MutationStatusId id) @trusted nothrow {
     try {
         auto trans = db.transaction;
 
         // MutationStatusId used as check, removal of marking and updating status to unknown
-        const st_id = db.mutantApi.getMutationStatusId(id);
-        if (st_id.isNull) {
-            logger.errorf("Mutant with ID %s do not exist", id.get);
-            return ExitStatusType.Errors;
-        }
-
         if (db.markMutantApi.isMarked(id)) {
-            db.markMutantApi.remove(st_id.get);
-            db.mutantApi.update(st_id.get, Mutation.Status.unknown, ExitStatus(0));
+            db.markMutantApi.remove(id);
+            db.mutantApi.update(id, Mutation.Status.unknown, ExitStatus(0));
             logger.infof("Removed marking for mutant %s.", id);
         } else {
             logger.errorf("Failure when removing marked mutant (mutant %s is not marked)", id.get);

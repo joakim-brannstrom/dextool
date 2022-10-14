@@ -24,15 +24,12 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     tmplDefaultTable, tmplDefaultMatrixTable, dashboardCss;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind;
 
-auto makeTestGroupSimilarityAnalyse(ref Database db, ref const ConfigReport conf,
-        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
+auto makeTestGroupSimilarityAnalyse(ref Database db, ref const ConfigReport conf) @trusted {
     auto doc = tmplBasicPage.dashboardCss;
     auto s = doc.root.childElements("head")[0].addChild("script");
     s.addChild(new RawSource(doc, jsTableOnClick));
-    doc.title(format("Test Group Similarity Analyse %(%s %) %s",
-            humanReadableKinds, Clock.currTime));
+    doc.title("Test Group Similarity Analyse");
     doc.mainBody.addChild("p",
             "This is the similarity between test groups as specified in the dextool mutate configuration file.")
         .appendText(" The closer to 1.0 the more similare the test groups are in what they verify.");
@@ -42,7 +39,7 @@ auto makeTestGroupSimilarityAnalyse(ref Database db, ref const ConfigReport conf
         p.appendText(": The analyse is based on the mutants that the test cases kill thus it is dependent on the mutation operators that are used when generating the report.");
     }
 
-    toHtml(db, reportTestGroupsSimilarity(db, kinds, conf.testGroups), doc.mainBody);
+    toHtml(db, reportTestGroupsSimilarity(db, conf.testGroups), doc.mainBody);
 
     return doc.toPrettyString;
 }
@@ -55,14 +52,13 @@ void toHtml(ref Database db, TestGroupSimilarity result, Element root) {
     import std.conv : to;
     import std.path : buildPath;
     import dextool.cachetools;
-    import dextool.plugin.mutate.backend.database : spinSql, MutationId, MutationStatusId;
+    import dextool.plugin.mutate.backend.database : spinSql, MutationStatusId;
     import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
     import dextool.type : Path;
 
     auto getPath = nullableCache!(MutationStatusId, string, (MutationStatusId id) {
         auto path = spinSql!(() => db.mutantApi.getPath(id)).get;
-        auto mutId = spinSql!(() => db.mutantApi.getMutationId(id)).get;
-        return format!"%s#%s"(buildPath("..", Html.fileDir, pathToHtmlLink(path)), mutId.get);
+        return format!"%s#%s"(buildPath("..", Html.fileDir, pathToHtmlLink(path)), id.get);
     })(0, 30.dur!"seconds");
 
     const test_groups = result.similarities.byKey.array.sort!((a, b) => a < b).array;

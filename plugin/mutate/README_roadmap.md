@@ -75,9 +75,7 @@ more complex may need to be broken down and added to the roadmap.
 
 New items are added at the top
 
- * visualize worklist. users want to see if a mutant is scheduled for testing.
  * investigate testing of oldest mutant. somethings seems to be wrong when they are picked.
- * display mutant prioritization to the user? Depending on how it is implemented.
  * implement a function mutation coverage metric or something. It can be argued
    that mutation score is somewhat "meeh" as a metric. hard to use. But hardly
    anyone can argue that a function that is executed but no mutant is killed in

@@ -17,7 +17,7 @@ import std.datetime : Duration, dur, Clock, SysTime;
 import std.datetime.stopwatch : StopWatch, AutoStart;
 import std.exception : collectException;
 import std.format : format;
-import std.typecons : Tuple, tuple;
+import std.typecons : Tuple, tuple, Nullable;
 
 import blob_model;
 import colorlog;
@@ -33,7 +33,7 @@ import my.path;
 import my.set;
 
 import dextool.plugin.mutate.backend.database : MutationStatusId, Database,
-    spinSql, SchemataId, Schemata;
+    spinSql, SchemataId, Schemata, FileId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.common_actors : DbSaveActor, StatActor;
@@ -48,6 +48,15 @@ import dextool.plugin.mutate.config : ConfigSchema;
 
 private {
     struct Init {
+    }
+
+    struct InitSchemaBuilder {
+    }
+
+    struct GenSchema {
+    }
+
+    struct RunSchema {
     }
 
     struct UpdateWorkList {
@@ -69,6 +78,9 @@ private {
     }
 
     struct CheckStopCondMsg {
+    }
+
+    struct Stop {
     }
 }
 
@@ -92,21 +104,42 @@ struct FinalResult {
 struct ConfTesters {
 }
 
-alias SchemaActor = typedActor!(void function(Init, AbsolutePath, ShellCommand, Duration),
-        bool function(IsDone), void function(UpdateWorkList), FinalResult function(GetDoneStatus),
-        void function(SchemaTestResult), void function(Mark, FinalResult.Status), void function(InjectAndCompile,
-            ShellCommand, Duration), void function(RestoreMsg), void function(StartTestMsg),
-        void function(ScheduleTestMsg), void function(CheckStopCondMsg), void function(ConfTesters));
+// dfmt off
+alias SchemaActor = typedActor!(
+    void function(Init, AbsolutePath, ShellCommand, Duration),
+    void function(InitSchemaBuilder),
+    /// Generate a schema, if possible
+    void function(GenSchema),
+    void function(RunSchema, SchemataBuilder.ET),
+    /// Quary the schema actor to see if it is done
+    bool function(IsDone),
+    /// Update the list of mutants that are still in the worklist.
+    void function(UpdateWorkList, bool),
+    FinalResult function(GetDoneStatus),
+    /// Save the result of running the schema to the DB.
+    void function(SchemaTestResult),
+    void function(Mark, FinalResult.Status),
+    /// Inject the schema in the source code and compile it.
+    void function(InjectAndCompile),
+    /// Restore the source code.
+    void function(RestoreMsg),
+    /// Start running the schema.
+    void function(StartTestMsg),
+    void function(ScheduleTestMsg),
+    void function(CheckStopCondMsg),
+    void function(ConfTesters),
+    // Queue up a msg that set isRunning to false. Convenient to ensure that a
+    // RestoreMsg has been processed before setting to false.
+    void function(Stop),
+    );
+// dfmt on
 
-auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, AbsolutePath dbPath,
-        TestCaseAnalyzer testCaseAnalyzer, ConfigSchema conf, SchemataId id,
-        TestStopCheck stopCheck, Mutation.Kind[] kinds,
-        ShellCommand buildCmd, Duration buildCmdTimeout, DbSaveActor.Address dbSave,
-        StatActor.Address stat, TimeoutConfig timeoutConf) @trusted {
+auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
+        AbsolutePath dbPath, TestCaseAnalyzer testCaseAnalyzer,
+        ConfigSchema conf, TestStopCheck stopCheck, ShellCommand buildCmd, Duration buildCmdTimeout,
+        DbSaveActor.Address dbSave, StatActor.Address stat, TimeoutConfig timeoutConf) @trusted {
 
     static struct State {
-        SchemataId id;
-        Mutation.Kind[] kinds;
         TestStopCheck stopCheck;
         DbSaveActor.Address dbSave;
         StatActor.Address stat;
@@ -117,6 +150,19 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         ConfigSchema conf;
 
         Database db;
+
+        ShellCommand buildCmd;
+        Duration buildCmdTimeout;
+
+        SchemataBuilder.ET activeSchema;
+        enum ActiveSchemaCheck {
+            noMutantTested,
+            testing,
+            triggerRestoreOnce,
+        }
+        // used to detect a corner case which is that no mutant in the schema is in the whitelist.
+        ActiveSchemaCheck activeSchemaCheck;
+        Set!Checksum usedScheman;
 
         AbsolutePath[] modifiedFiles;
 
@@ -131,13 +177,14 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         int alive;
 
         bool hasFatalError;
-        bool isInvalidSchema;
 
         bool isRunning;
+
+        SchemaBuildState schemaBuild;
     }
 
-    auto st = tuple!("self", "state")(self, refCounted(State(id, kinds, stopCheck,
-            dbSave, stat, timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf)));
+    auto st = tuple!("self", "state")(self, refCounted(State(stopCheck, dbSave,
+            stat, timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf)));
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath,
@@ -146,6 +193,11 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
 
         try {
             ctx.state.get.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
+            ctx.state.get.buildCmd = buildCmd;
+            ctx.state.get.buildCmdTimeout = buildCmdTimeout;
+
+            ctx.state.get.timeoutConf.timeoutScaleFactor = ctx.state.get.conf.timeoutScaleFactor;
+            logger.tracef("Timeout Scale Factor: %s", ctx.state.get.timeoutConf.timeoutScaleFactor);
 
             ctx.state.get.scheduler = () {
                 TestMutantActor.Address[] testers;
@@ -158,18 +210,65 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
                 return ScheduleTest(testers);
             }();
 
-            ctx.state.get.injectIds = mutantsFromSchema(ctx.state.get.db,
-                    ctx.state.get.id, ctx.state.get.kinds);
-
-            if (!ctx.state.get.injectIds.empty) {
-                send(ctx.self, UpdateWorkList.init);
-                send(ctx.self, InjectAndCompile.init, buildCmd, buildCmdTimeout);
-                send(ctx.self, CheckStopCondMsg.init);
-
-                ctx.state.get.isRunning = true;
-            }
+            send(ctx.self, UpdateWorkList.init, true);
+            send(ctx.self, InitSchemaBuilder.init);
+            send(ctx.self, CheckStopCondMsg.init);
+            ctx.state.get.isRunning = true;
         } catch (Exception e) {
             ctx.state.get.hasFatalError = true;
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    static void initSchemaBuilder(ref Ctx ctx, InitSchemaBuilder _) @safe nothrow {
+        import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
+
+        ctx.state.get.schemaBuild.mutantsPerSchema.get = spinSql!(
+                () => ctx.state.get.db.schemaApi.getSchemaSize(
+                ctx.state.get.conf.mutantsPerSchema.get));
+        ctx.state.get.schemaBuild.minMutantsPerSchema = ctx.state.get.conf.minMutantsPerSchema;
+
+        ctx.state.get.schemaBuild.initFiles(spinSql!(() => ctx.state.get.db.fileApi.getFileIds));
+        ctx.state.get.schemaBuild.builder.schemaQ = spinSql!(
+                () => SchemaQ(ctx.state.get.db.schemaApi.getMutantProbability));
+
+        try {
+            send(ctx.self, GenSchema.init);
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    static void runSchema(ref Ctx ctx, RunSchema _, SchemataBuilder.ET schema) @safe nothrow {
+        try {
+            if (!ctx.state.get.isRunning) {
+                // important to trigger the last `done`.
+                send(ctx.self, GenSchema.init);
+                return;
+            }
+            if (schema.checksum.value in ctx.state.get.usedScheman) {
+                // discard, already used
+                send(ctx.self, GenSchema.init);
+                return;
+            }
+
+            ctx.state.get.activeSchema = schema;
+            ctx.state.get.usedScheman.add(schema.checksum.value);
+            ctx.state.get.injectIds = mutantsFromSchema(schema, ctx.state.get.whiteList);
+
+            logger.trace("schema built ", schema.checksum);
+            logger.trace(schema.fragments.map!"a.file");
+            logger.trace(schema.mutants);
+            logger.trace(ctx.state.get.injectIds);
+
+            if (ctx.state.get.injectIds.empty
+                    || ctx.state.get.injectIds.length < ctx.state.get.conf.minMutantsPerSchema.get) {
+                send(ctx.self, GenSchema.init);
+            } else {
+                send(ctx.self, UpdateWorkList.init, false);
+                send(ctx.self, InjectAndCompile.init);
+            }
+        } catch (Exception e) {
             logger.error(e.msg).collectException;
         }
     }
@@ -184,44 +283,89 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         return !ctx.state.get.isRunning;
     }
 
-    static void mark(ref Ctx ctx, Mark _, FinalResult.Status status) {
+    static void mark(ref Ctx ctx, Mark _, FinalResult.Status status) @safe nothrow {
         import std.traits : EnumMembers;
+        import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
         import dextool.plugin.mutate.backend.database : SchemaStatus;
 
-        SchemaStatus schemaStatus;
-        final switch (status) with (FinalResult.Status) {
-        case fatalError:
-            break;
-        case invalidSchema:
-            schemaStatus = SchemaStatus.broken;
-            break;
-        case ok:
-            const total = spinSql!(() => ctx.state.get.db.schemaApi.countMutants(ctx.state.get.id,
-                    ctx.state.get.kinds, [EnumMembers!(Mutation.Status)]));
-            const killed = spinSql!(() => ctx.state.get.db.schemaApi.countMutants(ctx.state.get.id,
-                    ctx.state.get.kinds, [
-                        Mutation.Status.killed, Mutation.Status.timeout,
-                        Mutation.Status.memOverload
-                    ]));
-            schemaStatus = (total == killed) ? SchemaStatus.allKilled : SchemaStatus.ok;
-            break;
+        static void updateSchemaQ(ref SchemaQ sq, ref SchemataBuilder.ET schema,
+                const SchemaStatus status) @trusted {
+            import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
+            import dextool.plugin.mutate.backend.database : SchemaStatus;
+            import my.hash : Checksum64;
+            import my.set;
+
+            auto paths = schema.fragments.map!"a.file".toSet.toRange.array;
+            Set!Checksum64 latestFiles;
+
+            foreach (path; paths) {
+                scope getPath = (SchemaStatus s) {
+                    return (s == status) ? schema.mutants.map!"a.mut.kind".toSet.toRange.array
+                        : null;
+                };
+                sq.update(path, getPath);
+                latestFiles.add(sq.pathCache[path]);
+                debug logger.tracef("updating %s %s", path, sq.pathCache[path]);
+            }
+
+            // TODO: remove prob for non-existing files
+            sq.scatterTick;
         }
 
-        spinSql!(() => ctx.state.get.db.schemaApi.markUsed(ctx.state.get.id, schemaStatus));
+        static auto updateSchemaSizeQ(ref Database db, ref SchemataBuilder.ET schema,
+                const SchemaStatus status, const long userInit, const long minSize) @trusted {
+            import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaSizeQ;
+            import dextool.plugin.mutate.backend.database : SchemaStatus;
+
+            // *3 is a magic number. it feels good.
+            auto sq = SchemaSizeQ.make(minSize, userInit * 3);
+            sq.currentSize = spinSql!(() => db.schemaApi.getSchemaSize(userInit));
+            scope getStatusCnt = (SchemaStatus s) @safe {
+                return (s == status) ? [cast(long) schema.mutants.length] : null;
+            };
+            sq.update(getStatusCnt, spinSql!(() => db.mutantApi.totalSrcMutants())
+                    .count + spinSql!(() => db.mutantApi.unknownSrcMutants()).count);
+            return sq;
+        }
+
+        SchemaStatus schemaStatus = () {
+            final switch (status) with (FinalResult.Status) {
+            case fatalError:
+                goto case;
+            case invalidSchema:
+                return SchemaStatus.broken;
+            case ok:
+                // TODO: remove SchemaStatus.allKilled
+                return SchemaStatus.ok;
+            }
+        }();
+
+        try {
+            updateSchemaQ(ctx.state.get.schemaBuild.builder.schemaQ,
+                    ctx.state.get.activeSchema, schemaStatus);
+            send(ctx.state.get.dbSave, ctx.state.get.schemaBuild.builder.schemaQ);
+
+            auto sq = updateSchemaSizeQ(ctx.state.get.db, ctx.state.get.activeSchema,
+                    schemaStatus, ctx.state.get.conf.mutantsPerSchema.get,
+                    ctx.state.get.conf.minMutantsPerSchema.get);
+            ctx.state.get.schemaBuild.mutantsPerSchema.get = sq.currentSize;
+            send(ctx.state.get.dbSave, sq);
+        } catch (Exception e) {
+            logger.trace(e.msg).collectException;
+        }
     }
 
-    static void updateWlist(ref Ctx ctx, UpdateWorkList _) @safe nothrow {
+    static void updateWlist(ref Ctx ctx, UpdateWorkList _, bool repeat) @safe nothrow {
         if (!ctx.state.get.isRunning)
             return;
 
-        delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkList.init).collectException;
-        // TODO: should injectIds be updated too?
-
         try {
-            ctx.state.get.whiteList = spinSql!(
-                    () => ctx.state.get.db.schemaApi.getSchemataMutants(ctx.state.get.id,
-                    ctx.state.get.kinds)).toSet;
-            logger.trace("update schema worklist mutants: ", ctx.state.get.whiteList.length);
+            if (repeat)
+                delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkList.init, true);
+
+            ctx.state.get.whiteList = spinSql!(() => ctx.state.get.db.worklistApi.getAll)
+                .map!"a.id".toSet;
+            logger.trace("update schema worklist: ", ctx.state.get.whiteList.length);
             debug logger.trace("update schema worklist: ", ctx.state.get.whiteList.toRange);
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
@@ -232,13 +376,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         FinalResult.Status status = () {
             if (ctx.state.get.hasFatalError)
                 return FinalResult.Status.fatalError;
-            if (ctx.state.get.isInvalidSchema)
-                return FinalResult.Status.invalidSchema;
             return FinalResult.Status.ok;
         }();
-
-        if (!ctx.state.get.isRunning)
-            send(ctx.self, Mark.init, status).collectException;
 
         return FinalResult(status, ctx.state.get.alive);
     }
@@ -302,20 +441,24 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
                 logger.infof("%s mutants left to test.", x);
             }, (ref Actor self, ErrorMsg) {});
 
-        if (ctx.state.get.injectIds.empty)
+        if (ctx.state.get.injectIds.empty && ctx.state.get.scheduler.full) {
+            send(ctx.self, Mark.init, FinalResult.Status.ok);
             send(ctx.self, RestoreMsg.init).collectException;
+        }
     }
 
-    static void injectAndCompile(ref Ctx ctx, InjectAndCompile _,
-            ShellCommand buildCmd, Duration buildCmdTimeout) @safe nothrow {
+    static void injectAndCompile(ref Ctx ctx, InjectAndCompile _) @safe nothrow {
         try {
             auto sw = StopWatch(AutoStart.yes);
             scope (exit)
                 ctx.state.get.compileTime = sw.peek;
 
-            auto codeInject = CodeInject(ctx.state.get.fio, ctx.state.get.conf, ctx.state.get.id);
-            ctx.state.get.modifiedFiles = codeInject.inject(ctx.state.get.db);
-            codeInject.compile(buildCmd, buildCmdTimeout);
+            logger.infof("Using schema with %s mutants", ctx.state.get.activeSchema.mutants.length);
+
+            auto codeInject = CodeInject(ctx.state.get.fio, ctx.state.get.conf);
+            ctx.state.get.modifiedFiles = codeInject.inject(ctx.state.get.db,
+                    ctx.state.get.activeSchema);
+            codeInject.compile(ctx.state.get.buildCmd, ctx.state.get.buildCmdTimeout);
 
             if (ctx.state.get.conf.sanityCheckSchemata) {
                 logger.info("Sanity check of the generated schemata");
@@ -332,34 +475,40 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
                 } else {
                     logger.info("Skipping the schemata because the test suite failed".color(Color.yellow)
                             .toString);
-                    ctx.state.get.isInvalidSchema = true;
+                    send(ctx.self, Mark.init, FinalResult.Status.invalidSchema);
                     send(ctx.self, RestoreMsg.init).collectException;
                 }
             } else {
                 send(ctx.self, StartTestMsg.init);
             }
         } catch (Exception e) {
-            ctx.state.get.isInvalidSchema = true;
+            send(ctx.self, Mark.init, FinalResult.Status.invalidSchema).collectException;
             send(ctx.self, RestoreMsg.init).collectException;
             logger.warning(e.msg).collectException;
         }
     }
 
     static void restore(ref Ctx ctx, RestoreMsg _) @safe nothrow {
+        import dextool.plugin.mutate.backend.test_mutant.common : restoreFiles;
+
         try {
+            logger.trace("restore ", ctx.state.get.modifiedFiles);
             restoreFiles(ctx.state.get.modifiedFiles, ctx.state.get.fio);
-            ctx.state.get.isRunning = false;
+            ctx.state.get.modifiedFiles = null;
+            send(ctx.self, GenSchema.init);
         } catch (Exception e) {
             ctx.state.get.hasFatalError = true;
+            ctx.state.get.isRunning = false;
             logger.error(e.msg).collectException;
         }
     }
 
     static void startTest(ref Ctx ctx, StartTestMsg _) @safe nothrow {
+        ctx.state.get.activeSchemaCheck = State.ActiveSchemaCheck.noMutantTested;
+
         try {
             foreach (_0; 0 .. ctx.state.get.scheduler.testers.length)
                 send(ctx.self, ScheduleTestMsg.init);
-
             logger.tracef("sent %s ScheduleTestMsg", ctx.state.get.scheduler.testers.length);
         } catch (Exception e) {
             ctx.state.get.hasFatalError = true;
@@ -374,10 +523,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
         void print(MutationStatusId statusId) {
             import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
-            auto id = spinSql!(() => ctx.state.get.db.mutantApi.getMutationId(statusId));
-            if (id.isNull)
-                return;
-            auto entry_ = spinSql!(() => ctx.state.get.db.mutantApi.getMutation(id.get));
+            auto entry_ = spinSql!(() => ctx.state.get.db.mutantApi.getMutation(statusId));
             if (entry_.isNull)
                 return;
             auto entry = entry_.get;
@@ -394,12 +540,18 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
             }
         }
 
-        try {
-            if (!ctx.state.get.isRunning)
-                return;
+        if (!ctx.state.get.isRunning)
+            return;
 
+        try {
             if (ctx.state.get.injectIds.empty) {
-                logger.trace("no mutants left to test");
+                logger.trace("no mutants left to test ", ctx.state.get.scheduler.free.length);
+                if (ctx.state.get.activeSchemaCheck == State.ActiveSchemaCheck.noMutantTested
+                        && ctx.state.get.scheduler.full) {
+                    // no mutant has been tested in the schema thus the restore in save is never triggered.
+                    send(ctx.self, RestoreMsg.init);
+                    ctx.state.get.activeSchemaCheck = State.ActiveSchemaCheck.triggerRestoreOnce;
+                }
                 return;
             }
 
@@ -412,7 +564,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
             if (ctx.state.get.stopCheck.isOverloaded) {
                 logger.info(ctx.state.get.stopCheck.overloadToString).collectException;
                 delayedSend(ctx.self, 30.dur!"seconds".delay, ScheduleTestMsg.init);
-                ctx.state.get.stopCheck.pause;
                 return;
             }
 
@@ -420,6 +571,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
             ctx.state.get.injectIds.popFront;
 
             if (m.statusId in ctx.state.get.whiteList) {
+                ctx.state.get.activeSchemaCheck = State.ActiveSchemaCheck.testing;
                 auto testerId = ctx.state.get.scheduler.pop;
                 auto tester = ctx.state.get.scheduler.get(testerId);
                 print(m.statusId);
@@ -443,15 +595,107 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
     static void checkHaltCond(ref Ctx ctx, CheckStopCondMsg _) @safe nothrow {
         if (!ctx.state.get.isRunning)
             return;
+
         try {
             delayedSend(ctx.self, 5.dur!"seconds".delay, CheckStopCondMsg.init).collectException;
 
-            if (ctx.state.get.stopCheck.isHalt != TestStopCheck.HaltReason.none) {
+            const halt = ctx.state.get.stopCheck.isHalt;
+            if (halt == TestStopCheck.HaltReason.overloaded)
+                ctx.state.get.stopCheck.startBgShutdown;
+
+            if (halt != TestStopCheck.HaltReason.none) {
                 send(ctx.self, RestoreMsg.init);
+                send(ctx.self, Stop.init);
                 logger.info(ctx.state.get.stopCheck.overloadToString).collectException;
             }
         } catch (Exception e) {
+            ctx.state.get.isRunning = false;
+            logger.error(e.msg).collectException;
         }
+    }
+
+    static void generateSchema(ref Ctx ctx, GenSchema _) @trusted nothrow {
+        static void process(ref Ctx ctx) @safe {
+            auto value = ctx.state.get.schemaBuild.process;
+            value.match!((Some!(SchemataBuilder.ET) a) {
+                send(ctx.self, RunSchema.init, a.value);
+            }, (None a) { send(ctx.self, GenSchema.init); });
+        }
+
+        static void processFile(ref Ctx ctx) @trusted nothrow {
+            if (ctx.state.get.schemaBuild.files.isDone)
+                return;
+
+            size_t frags;
+            while (frags == 0 && ctx.state.get.schemaBuild.files.filesLeft != 0) {
+                logger.trace("Files left ",
+                        ctx.state.get.schemaBuild.files.filesLeft).collectException;
+                frags = spinSql!(() {
+                    auto trans = ctx.state.get.db.transaction;
+                    return ctx.state.get.schemaBuild.updateFiles(
+                        (FileId id) => spinSql!(() => ctx.state.get.db.schemaApi.getFragments(id)),
+                        (FileId id) => spinSql!(() => ctx.state.get.db.getFile(id)),
+                        (MutationStatusId id) => spinSql!(
+                        () => ctx.state.get.db.mutantApi.getKind(id)));
+                });
+            }
+        }
+
+        logger.trace("Generate schema").collectException;
+        ctx.state.get.schemaBuild.tick;
+        final switch (ctx.state.get.schemaBuild.st) {
+        case SchemaBuildState.State.none:
+            break;
+        case SchemaBuildState.State.processFiles:
+            try {
+                processFile(ctx);
+                process(ctx);
+            } catch (Exception e) {
+                logger.trace(e.msg).collectException;
+                ctx.state.get.isRunning = false;
+            }
+            break;
+        case SchemaBuildState.State.prepareReduction:
+            goto case;
+        case SchemaBuildState.State.prepareFinalize:
+            try {
+                ctx.state.get.schemaBuild.files.reset;
+                send(ctx.self, GenSchema.init);
+            } catch (Exception e) {
+                logger.trace(e.msg).collectException;
+                ctx.state.get.isRunning = false;
+            }
+            break;
+        case SchemaBuildState.State.reduction:
+            goto case;
+        case SchemaBuildState.State.finalize1:
+            goto case;
+        case SchemaBuildState.State.finalize2:
+            try {
+                processFile(ctx);
+                process(ctx);
+            } catch (Exception e) {
+                logger.trace(e.msg).collectException;
+                ctx.state.get.isRunning = false;
+            }
+            break;
+        case SchemaBuildState.State.done:
+            ctx.state.get.schemaBuild.files.clear;
+            try {
+                if (ctx.state.get.isRunning) {
+                    send(ctx.self, RestoreMsg.init);
+                    send(ctx.self, Stop.init);
+                }
+            } catch (Exception e) {
+                ctx.state.get.hasFatalError = true;
+                ctx.state.get.isRunning = false;
+            }
+            break;
+        }
+    }
+
+    static void stop(ref Ctx ctx, Stop _) @safe nothrow {
+        ctx.state.get.isRunning = false;
     }
 
     import std.functional : toDelegate;
@@ -467,7 +711,9 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner, Ab
 
     return impl(self, &init_, st, &isDone, st, &updateWlist, st,
             &doneStatus, st, &save, st, &mark, st, &injectAndCompile, st,
-            &restore, st, &startTest, st, &test, st, &checkHaltCond, st, &confTesters, st);
+            &restore, st, &startTest, st, &test, st, &checkHaltCond, st,
+            &confTesters, st, &generateSchema, st, &initSchemaBuilder, st,
+            &runSchema, st, &stop, st);
 }
 
 /** Generate schemata injection IDs (32bit) from mutant checksums (128bit).
@@ -532,16 +778,20 @@ struct InjectIdResult {
     bool empty() @safe pure nothrow const @nogc {
         return ids.empty;
     }
+
+    size_t length() @safe pure nothrow const @nogc scope {
+        return ids.length;
+    }
 }
 
 /// Extract the mutants that are part of the schema.
-InjectIdResult mutantsFromSchema(ref Database db, const SchemataId id, const Mutation.Kind[] kinds) {
+InjectIdResult mutantsFromSchema(ref SchemataBuilder.ET schema, ref Set!MutationStatusId whiteList) {
+    import dextool.plugin.mutate.backend.database.type : toMutationStatusId;
+
     InjectIdBuilder builder;
-    foreach (mutant; spinSql!(() => db.schemaApi.getSchemataMutants(id, kinds))) {
-        auto cs = spinSql!(() => db.mutantApi.getChecksum(mutant));
-        builder.put(mutant, cs);
+    foreach (mutant; schema.mutants.filter!(a => a.id.toMutationStatusId in whiteList)) {
+        builder.put(mutant.id.toMutationStatusId, mutant.id);
     }
-    debug logger.trace(builder);
 
     return builder.finalize;
 }
@@ -580,15 +830,15 @@ Edit[] makeHdr() {
 struct CodeInject {
     FilesysIO fio;
 
-    SchemataId schemataId;
-
     Set!AbsolutePath roots;
+
+    /// Unique checksum for the schema.
+    Checksum checksum;
 
     bool logSchema;
 
-    this(FilesysIO fio, ConfigSchema conf, SchemataId id) {
+    this(FilesysIO fio, ConfigSchema conf) {
         this.fio = fio;
-        this.schemataId = id;
         this.logSchema = conf.log;
 
         foreach (a; conf.userRuntimeCtrl) {
@@ -599,8 +849,8 @@ struct CodeInject {
 
     /// Throws an error on failure.
     /// Returns: modified files.
-    AbsolutePath[] inject(ref Database db) {
-        auto schemata = spinSql!(() => db.schemaApi.getSchemata(schemataId)).get;
+    AbsolutePath[] inject(ref Database db, SchemataBuilder.ET schemata) {
+        checksum = schemata.checksum.value;
         auto modifiedFiles = schemata.fragments.map!(a => fio.toAbsoluteRoot(a.file))
             .toSet.toRange.array;
 
@@ -641,7 +891,8 @@ struct CodeInject {
 
         void injectCode() {
             import std.path : extension, stripExtension;
-            import dextool.plugin.mutate.backend.database.type : SchemataFragment;
+
+            alias SchemataFragment = SchemataBuilder.SchemataFragment;
 
             Blob makeSchemata(Blob original, SchemataFragment[] fragments, Edit[] extra) {
                 auto edits = appender!(Edit[])();
@@ -676,7 +927,7 @@ struct CodeInject {
                 if (logSchema) {
                     const ext = fname.toString.extension;
                     fio.makeOutput(AbsolutePath(format!"%s.%s.schema%s"(fname.toString.stripExtension,
-                            schemataId.get, ext).Path)).write(s);
+                            checksum.c0, ext).Path)).write(s);
                 }
             }
         }
@@ -690,7 +941,7 @@ struct CodeInject {
     void compile(ShellCommand buildCmd, Duration buildCmdTimeout) {
         import dextool.plugin.mutate.backend.test_mutant.common : compile;
 
-        logger.infof("Compile schema %s", schemataId.get).collectException;
+        logger.infof("Compile schema %s", checksum.c0).collectException;
 
         compile(buildCmd, buildCmdTimeout, PrintCompileOnFailure(true)).match!((Mutation.Status a) {
             throw new Exception("Skipping schema because it failed to compile".color(Color.yellow)
@@ -723,6 +974,11 @@ struct ScheduleTest {
         this.testers = testers;
         foreach (size_t i; 0 .. testers.length)
             free.put(i);
+    }
+
+    /// Returns: if the tester is full, no worker used.
+    bool full() @safe pure nothrow const @nogc {
+        return testers.length == free.length;
     }
 
     bool empty() @safe pure nothrow const @nogc {
@@ -822,4 +1078,501 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
 
     self.name = "testMutant";
     return impl(self, &run, st, &doConf, st);
+}
+
+// private:
+
+import std.algorithm : sum;
+import std.format : formattedWrite, format;
+
+import dextool.plugin.mutate.backend.database.type : SchemataFragment;
+import dextool.plugin.mutate.backend.type : Language, SourceLoc, Offset,
+    SourceLocRange, CodeMutant, SchemataChecksum;
+import dextool.plugin.mutate.backend.analyze.utility;
+
+/// Language generic schemata result.
+class SchemataResult {
+    static struct Fragment {
+        Offset offset;
+        const(ubyte)[] text;
+        CodeMutant[] mutants;
+    }
+
+    static struct Fragments {
+        // TODO: change to using appender
+        Fragment[] fragments;
+    }
+
+    private {
+        Fragments[AbsolutePath] fragments;
+    }
+
+    /// Returns: all fragments containing mutants per file.
+    Fragments[AbsolutePath] getFragments() @safe {
+        return fragments;
+    }
+
+    /// Assuming that all fragments for a file should be merged to one huge.
+    private void putFragment(AbsolutePath file, Fragment sf) {
+        fragments.update(file, () => Fragments([sf]), (ref Fragments a) {
+            a.fragments ~= sf;
+        });
+    }
+
+    override string toString() @safe {
+        import std.range : put;
+        import std.utf : byUTF;
+
+        auto w = appender!string();
+
+        void toBuf(Fragments s) {
+            foreach (f; s.fragments) {
+                formattedWrite(w, "  %s: %s\n", f.offset,
+                        (cast(const(char)[]) f.text).byUTF!(const(char)));
+                formattedWrite(w, "%(    %s\n%)\n", f.mutants);
+            }
+        }
+
+        foreach (k; fragments.byKey.array.sort) {
+            try {
+                formattedWrite(w, "%s:\n", k);
+                toBuf(fragments[k]);
+            } catch (Exception e) {
+            }
+        }
+
+        return w.data;
+    }
+}
+
+/** Build scheman from the fragments.
+ *
+ * TODO: optimize the implementation. A lot of redundant memory allocations
+ * etc.
+ *
+ * Conservative to only allow up to <user defined> mutants per schemata but it
+ * reduces the chance that one failing schemata is "fatal", loosing too many
+ * muntats.
+ */
+struct SchemataBuilder {
+    import std.algorithm : any, all;
+    import my.container.vector;
+    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
+    import dextool.plugin.mutate.backend.database.type : SchemaFragmentV2;
+
+    static struct SchemataFragment {
+        Path file;
+        Offset offset;
+        const(ubyte)[] text;
+    }
+
+    static struct Fragment {
+        SchemataFragment fragment;
+        CodeMutant[] mutants;
+    }
+
+    static struct ET {
+        SchemataFragment[] fragments;
+        CodeMutant[] mutants;
+        SchemataChecksum checksum;
+    }
+
+    // TODO: remove SchemataChecksum?
+
+    /// Controls the probability that a mutant is part of the currently generating schema.
+    SchemaQ schemaQ;
+
+    /// use probability for if a mutant is injected or not
+    bool useProbability;
+
+    /// if the probability should also influence if the scheam is smaller.
+    bool useProbablitySmallSize;
+
+    // if fragments that are part of scheman that didn't reach the min
+    // threshold should be discarded.
+    bool discardMinScheman;
+
+    /// The threshold start at this value.
+    double thresholdStartValue = 0.0;
+
+    /// Max mutants per schema.
+    long mutantsPerSchema = 1000;
+
+    /// Minimal mutants that a schema must contain for it to be valid.
+    long minMutantsPerSchema = 3;
+
+    Vector!Fragment current;
+    Vector!Fragment rest;
+
+    /// Size in bytes of the cache of fragments.
+    size_t cacheSize;
+
+    /** Merge analyze fragments into larger schemata fragments. If a schemata
+     * fragment is large enough it is converted to a schemata. Otherwise kept
+     * for pass2.
+     *
+     * Schematan from this pass only contain one kind and only affect one file.
+     */
+    void put(Fragment[] fragments) {
+        foreach (a; fragments) {
+            current.put(a);
+            incrCache(a.fragment);
+        }
+    }
+
+    private void incrCache(ref SchemataFragment a) @safe pure nothrow @nogc {
+        cacheSize += a.text.length + (cast(const(ubyte)[]) a.file.toString).length + typeof(a)
+            .sizeof;
+    }
+
+    bool empty() @safe pure nothrow const @nogc {
+        return current.length == 0 && rest.length == 0;
+    }
+
+    auto stats() @safe pure nothrow const {
+        static struct Stats {
+            double cacheSizeMb;
+            size_t current;
+            size_t rest;
+        }
+
+        return Stats(cast(double) cacheSize / (1024 * 1024), current.length, rest.length);
+    }
+
+    /** Merge schemata fragments to schemas. A schemata from this pass may may
+     * contain multiple mutation kinds and span over multiple files.
+     */
+    Optional!ET next() {
+        import std.algorithm : max;
+
+        Index!Path index;
+        auto app = appender!(Fragment[])();
+        Set!CodeMutant local;
+        auto threshold = () => max(thresholdStartValue,
+                cast(double) local.length / cast(double) mutantsPerSchema);
+
+        while (!current.empty) {
+            if (local.length >= mutantsPerSchema) {
+                // done now so woop
+                break;
+            }
+
+            auto a = current.front;
+            current.popFront;
+
+            if (a.mutants.empty)
+                continue;
+
+            if (index.intersect(a.fragment.file, a.fragment.offset)) {
+                rest.put(a);
+                continue;
+            }
+
+            // if any of the mutants in the schema has already been included.
+            if (any!(a => a in local)(a.mutants)) {
+                rest.put(a);
+                continue;
+            }
+
+            // if any of the mutants fail the probability to be included
+            if (useProbability && any!(b => !schemaQ.use(a.fragment.file,
+                    b.mut.kind, threshold()))(a.mutants)) {
+                // TODO: remove this line of code in the future. used for now,
+                // ugly, to see that it behavies as expected.
+                //log.tracef("probability postpone fragment with mutants %s %s",
+                //        a.mutants.length, a.mutants.map!(a => a.mut.kind));
+                rest.put(a);
+                continue;
+            }
+
+            // no use in using a mutant that has zero probability because then, it will always fail.
+            if (any!(b => schemaQ.isZero(a.fragment.file, b.mut.kind))(a.mutants)) {
+                continue;
+            }
+
+            app.put(a);
+            local.add(a.mutants);
+            index.put(a.fragment.file, a.fragment.offset);
+
+            if (useProbablitySmallSize && local.length > minMutantsPerSchema
+                    && any!(b => !schemaQ.use(a.fragment.file, b.mut.kind, threshold()))(a.mutants)) {
+                break;
+            }
+        }
+
+        if (local.length == 0 || local.length < minMutantsPerSchema) {
+            if (discardMinScheman) {
+                logger.tracef("discarding %s fragments with %s mutants",
+                        app.data.length, app.data.map!(a => a.mutants.length).sum);
+            } else {
+                rest.put(app.data);
+            }
+            return none!ET;
+        }
+
+        ET v;
+        v.fragments = app.data.map!(a => a.fragment).array;
+        v.mutants = local.toArray;
+        v.checksum = toSchemataChecksum(v.mutants);
+
+        return some(v);
+    }
+
+    bool isDone() @safe pure nothrow const @nogc {
+        return current.empty;
+    }
+
+    void restart() @safe pure nothrow @nogc {
+        current = rest;
+        rest.clear;
+
+        cacheSize = 0;
+        foreach (a; current[])
+            incrCache(a.fragment);
+    }
+}
+
+/** A schema is uniquely identified by the mutants it contains.
+ *
+ * The order of the mutants are irrelevant because they are always sorted by
+ * their value before the checksum is calculated.
+ */
+SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
+    import dextool.plugin.mutate.backend.utility : BuildChecksum, toChecksum, toBytes;
+
+    BuildChecksum h;
+    foreach (a; mutants.sort!((a, b) => a.id.value < b.id.value)
+            .map!(a => a.id.value)) {
+        h.put(a.c0.toBytes);
+    }
+
+    return SchemataChecksum(toChecksum(h));
+}
+
+/** The total state for building schemas in runtime.
+ *
+ * The intention isn't to perfectly travers and handle all mutants in the
+ * worklist if the worklist is manipulated while the schema generation is
+ * running. It is just "good enough" to generate schemas for those mutants when
+ * it was started.
+ */
+struct SchemaBuildState {
+    import sumtype;
+    import my.optional;
+    import dextool.plugin.mutate.backend.database.type : FileId, SchemaFragmentV2;
+
+    enum State : ubyte {
+        none,
+        processFiles,
+        prepareReduction,
+        reduction,
+        prepareFinalize,
+        finalize1,
+        finalize2,
+        done,
+    }
+
+    static struct ProcessFiles {
+        FileId[] files;
+        size_t idx;
+
+        FileId pop() @safe pure nothrow scope {
+            if (idx == files.length)
+                return FileId.init;
+            return files[idx++];
+        }
+
+        bool isDone() @safe pure nothrow const @nogc scope {
+            return idx == files.length;
+        }
+
+        size_t filesLeft() @safe pure nothrow const @nogc scope {
+            return files.length - idx;
+        }
+
+        void reset() @safe pure nothrow @nogc scope {
+            idx = 0;
+        }
+
+        void clear() @safe pure nothrow @nogc scope {
+            files = null;
+            reset;
+        }
+    }
+
+    // State of the schema building
+    State st;
+    private int reducedTicks;
+
+    // Files to use when generating schemas.
+    ProcessFiles files;
+
+    SchemataBuilder builder;
+
+    // User configuration.
+    typeof(ConfigSchema.minMutantsPerSchema) minMutantsPerSchema = 3;
+    typeof(ConfigSchema.mutantsPerSchema) mutantsPerSchema = 1000;
+
+    void initFiles(FileId[] files) @safe nothrow {
+        import std.random : randomCover;
+
+        try {
+            // improve the schemas non-determinism between each `test` run.
+            this.files.files = files.randomCover.array;
+        } catch (Exception e) {
+            this.files.files = files;
+        }
+    }
+
+    /// Step through the schema building.
+    void tick() @safe nothrow {
+        logger.tracef("state_pre: %s %s", st, builder.stats).collectException;
+        final switch (st) {
+        case State.none:
+            st = State.processFiles;
+            try {
+                setIntermediate;
+            } catch (Exception e) {
+                st = State.done;
+            }
+            break;
+        case State.processFiles:
+            if (files.isDone)
+                st = State.prepareReduction;
+            try {
+                setIntermediate;
+            } catch (Exception e) {
+                st = State.done;
+            }
+            break;
+        case State.prepareReduction:
+            st = State.reduction;
+            break;
+        case State.reduction:
+            immutable magic = 10; // reduce the size until it is 1/10 of the original
+            immutable magic2 = 5; // if it goes <95% then it is too high probability to fail
+
+            if (builder.empty)
+                st = State.prepareFinalize;
+            else if (++reducedTicks > (magic * magic2))
+                st = State.prepareFinalize;
+
+            try {
+                setReducedIntermediate(1 + reducedTicks / magic, reducedTicks % magic2);
+            } catch (Exception e) {
+                st = State.done;
+            }
+            break;
+        case State.prepareFinalize:
+            st = State.finalize1;
+            break;
+        case State.finalize1:
+            st = State.finalize2;
+            try {
+                finalize;
+            } catch (Exception e) {
+                st = State.done;
+            }
+            break;
+        case State.finalize2:
+            if (builder.isDone)
+                st = State.done;
+            break;
+        case State.done:
+            break;
+        }
+        logger.trace("state_post: ", st).collectException;
+    }
+
+    /// Add all fragments from one of the files to process to those to be
+    /// incorporated into future schemas.
+    /// Returns: number of fragments added.
+    size_t updateFiles(scope SchemaFragmentV2[]delegate(FileId) @safe fragmentsFn,
+            scope Nullable!Path delegate(FileId) @safe fnameFn,
+            scope Mutation.Kind delegate(MutationStatusId) @safe kindFn) @safe nothrow {
+        import dextool.plugin.mutate.backend.type : CodeChecksum, Mutation;
+        import dextool.plugin.mutate.backend.database : toChecksum;
+
+        if (files.isDone)
+            return 0;
+        auto id = files.pop;
+        try {
+            const fname = fnameFn(id);
+            if (fname.isNull)
+                return 0;
+
+            auto app = appender!(SchemataBuilder.Fragment[])();
+            auto frags = fragmentsFn(id);
+            foreach (a; frags) {
+                auto cm = a.mutants.map!(a => CodeMutant(CodeChecksum(a.toChecksum),
+                        Mutation(kindFn(a), Mutation.Status.unknown))).array;
+                app.put(SchemataBuilder.Fragment(SchemataBuilder.SchemataFragment(fname.get,
+                        a.offset, a.text), cm));
+            }
+
+            builder.put(app.data);
+            return frags.length;
+        } catch (Exception e) {
+            logger.trace(e.msg).collectException;
+        }
+        return 0;
+    }
+
+    Optional!(SchemataBuilder.ET) process() {
+        auto rval = builder.next;
+        builder.restart;
+        return rval;
+    }
+
+    void setMinMutants(long desiredValue) {
+        // seems like 200 Mbyte is large enough to generate scheman with >1000
+        // mutants easily when running on LLVM.
+        enum MaxCache = 200 * 1024 * 1024;
+        if (builder.cacheSize > MaxCache) {
+            // panic mode, just empty it as fast as possible.
+            logger.infof(
+                    "Schema cache is %s bytes (limit %s). Producing as many schemas as possible to flush the cache.",
+                    builder.cacheSize, MaxCache);
+            builder.minMutantsPerSchema = minMutantsPerSchema.get;
+        } else {
+            builder.minMutantsPerSchema = desiredValue;
+        }
+    }
+
+    void setIntermediate() {
+        logger.trace("schema generator phase: intermediate");
+        builder.discardMinScheman = false;
+        builder.useProbability = true;
+        builder.useProbablitySmallSize = false;
+        builder.mutantsPerSchema = mutantsPerSchema.get;
+        builder.thresholdStartValue = 1.0;
+
+        setMinMutants(mutantsPerSchema.get);
+    }
+
+    void setReducedIntermediate(long sizeDiv, long threshold) {
+        import std.algorithm : max;
+
+        logger.tracef("schema generator phase: reduced size:%s threshold:%s", sizeDiv, threshold);
+        builder.discardMinScheman = false;
+        builder.useProbability = true;
+        builder.useProbablitySmallSize = false;
+        builder.mutantsPerSchema = mutantsPerSchema.get;
+        // TODO: interresting effect. this need to be studied. I think this
+        // is the behavior that is "best".
+        builder.thresholdStartValue = 1.0 - (cast(double) threshold / 100.0);
+
+        setMinMutants(max(minMutantsPerSchema.get, mutantsPerSchema.get / sizeDiv));
+    }
+
+    /// Consume all fragments or discard.
+    void finalize() {
+        logger.trace("schema generator phase: finalize");
+        builder.discardMinScheman = true;
+        builder.useProbability = false;
+        builder.useProbablitySmallSize = true;
+        builder.mutantsPerSchema = mutantsPerSchema.get;
+        builder.minMutantsPerSchema = minMutantsPerSchema.get;
+        builder.thresholdStartValue = 0;
+    }
 }

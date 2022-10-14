@@ -12,7 +12,7 @@ module dextool.plugin.mutate.backend.report.json;
 import logger = std.experimental.logger;
 import std.array : empty, appender;
 import std.exception : collectException;
-import std.json : JSONValue;
+import std.json : JSONValue, JSONException;
 import std.path : buildPath;
 
 import my.from_;
@@ -21,27 +21,22 @@ import dextool.type;
 
 import dextool.plugin.mutate.backend.database : Database, FileRow, FileMutantRow, MutationId;
 import dextool.plugin.mutate.backend.diff_parser : Diff;
-import dextool.plugin.mutate.backend.generate_mutant : MakeMutationTextResult, makeMutationText;
+import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.report.type : FileReport, FilesReporter;
 import dextool.plugin.mutate.backend.report.utility : window, windowSize;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind, ReportSection;
+import dextool.plugin.mutate.type : ReportSection;
 
 @safe:
 
-void report(ref Database db, const MutationKind[] userKinds, const ConfigReport conf,
-        FilesysIO fio, ref Diff diff) {
+void report(ref Database db, const ConfigReport conf, FilesysIO fio, ref Diff diff) {
     import dextool.plugin.mutate.backend.database : FileMutantRow;
     import dextool.plugin.mutate.backend.mutation_type : toInternal;
     import dextool.plugin.mutate.backend.utility : Profile;
 
-    const kinds = toInternal(userKinds);
-
-    auto fps = new ReportJson(kinds, conf, fio, diff);
-
-    fps.mutationKindEvent(userKinds);
+    auto fps = new ReportJson(conf, fio, diff);
 
     foreach (f; db.getDetailedFiles) {
         auto profile = Profile("generate report for " ~ f.file);
@@ -52,7 +47,7 @@ void report(ref Database db, const MutationKind[] userKinds, const ConfigReport 
             fps.fileMutantEvent(row);
         }
 
-        db.iterateFileMutants(kinds, f.file, &fn);
+        db.iterateFileMutants(f.file, &fn);
 
         fps.endFileEvent;
     }
@@ -74,7 +69,6 @@ final class ReportJson {
     import std.json;
     import my.set;
 
-    const Mutation.Kind[] kinds;
     const AbsolutePath logDir;
     Set!ReportSection sections;
     FilesysIO fio;
@@ -83,11 +77,10 @@ final class ReportJson {
     Diff diff;
 
     JSONValue report;
-    JSONValue[] current_file_mutants;
-    FileRow current_file;
+    JSONValue[] currentFileMutants;
+    FileRow currentFile;
 
-    this(const Mutation.Kind[] kinds, const ConfigReport conf, FilesysIO fio, ref Diff diff) {
-        this.kinds = kinds;
+    this(const ConfigReport conf, FilesysIO fio, ref Diff diff) {
         this.fio = fio;
         this.logDir = conf.logDir;
         this.diff = diff;
@@ -95,17 +88,13 @@ final class ReportJson {
         sections = conf.reportSection.toSet;
     }
 
-    void mutationKindEvent(const MutationKind[] kinds) {
-        report = ["types": kinds.map!(a => a.to!string).array, "files": []];
-    }
-
     void getFileReportEvent(ref Database db, const ref FileRow fr) @trusted {
-        current_file = fr;
+        currentFile = fr;
     }
 
     void fileMutantEvent(const ref FileMutantRow r) @trusted {
         auto appendMutant() {
-            JSONValue m = ["mutation_id": r.id.to!long];
+            JSONValue m = ["id": r.stId.get];
             m.object["kind"] = r.mutation.kind.to!string;
             m.object["status"] = r.mutation.status.to!string;
             m.object["line"] = r.sloc.line;
@@ -114,16 +103,15 @@ final class ReportJson {
             m.object["end"] = r.mutationPoint.offset.end;
 
             try {
-                MakeMutationTextResult mut_txt;
-                auto abs_path = AbsolutePath(buildPath(fio.getOutputDir, current_file.file.Path));
-                mut_txt = makeMutationText(fio.makeInput(abs_path),
+                auto abs_path = AbsolutePath(buildPath(fio.getOutputDir, currentFile.file.Path));
+                auto txt = makeMutationText(fio.makeInput(abs_path),
                         r.mutationPoint.offset, r.mutation.kind, r.lang);
-                m.object["value"] = mut_txt.mutation;
+                m.object["value"] = txt.mutation;
             } catch (Exception e) {
                 logger.warning(e.msg);
             }
 
-            current_file_mutants ~= m;
+            currentFileMutants ~= m;
         }
 
         if (sections.contains(ReportSection.all_mut) || sections.contains(ReportSection.alive)
@@ -135,18 +123,24 @@ final class ReportJson {
     }
 
     void endFileEvent() @trusted {
-        if (current_file_mutants.empty) {
+        if (currentFileMutants.empty) {
             return;
         }
 
         JSONValue s;
         s = [
-            "filename": current_file.file,
-            "checksum": format("%x", current_file.fileChecksum),
+            "filename": currentFile.file,
+            "checksum": format("%x", currentFile.fileChecksum),
         ];
-        s["mutants"] = JSONValue(current_file_mutants), report["files"].array ~= s;
+        s["mutants"] = JSONValue(currentFileMutants);
 
-        current_file_mutants = null;
+        try {
+            report["files"].array ~= s;
+        } catch (JSONException e) {
+            report["files"] = JSONValue([s]);
+        }
+
+        currentFileMutants = null;
     }
 
     void postProcessEvent(ref Database db) @trusted {
@@ -159,7 +153,7 @@ final class ReportJson {
             reportTrendByCodeChange;
 
         if (ReportSection.summary in sections) {
-            const stat = reportStatistics(db, kinds);
+            const stat = reportStatistics(db);
             JSONValue s = ["alive": stat.alive];
             s.object["no_coverage"] = stat.noCoverage;
             s.object["alive_nomut"] = stat.aliveNoMut;
@@ -180,17 +174,14 @@ final class ReportJson {
         }
 
         if (ReportSection.diff in sections) {
-            auto r = reportDiff(db, kinds, diff, fio.getOutputDir);
+            auto r = reportDiff(db, diff, fio.getOutputDir);
             JSONValue s = ["score": r.score];
             report["diff"] = s;
         }
 
         if (ReportSection.trend in sections) {
             const history = reportMutationScoreHistory(db);
-            const byCodeChange = reportTrendByCodeChange(db, kinds);
             JSONValue d;
-            d["code_change_score"] = byCodeChange.value.get;
-            d["code_change_score_error"] = byCodeChange.error.get;
 
             d["history_score"] = history.estimate.predScore;
             d["score_history"] = toJson(history);
@@ -207,7 +198,7 @@ final class ReportJson {
         }
 
         if (ReportSection.tc_stat in sections) {
-            auto r = reportTestCaseStats(db, kinds);
+            auto r = reportTestCaseStats(db);
             JSONValue s;
             foreach (a; r.testCases.byValue) {
                 JSONValue v = ["ratio": a.ratio];
@@ -221,7 +212,7 @@ final class ReportJson {
         }
 
         if (ReportSection.tc_unique in sections) {
-            auto r = reportTestCaseUniqueness(db, kinds);
+            auto r = reportTestCaseUniqueness(db);
             if (!r.uniqueKills.empty) {
                 JSONValue s;
                 foreach (a; r.uniqueKills.byKeyValue) {

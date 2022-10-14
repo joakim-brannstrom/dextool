@@ -449,19 +449,12 @@ nothrow:
     }
 
     void opCall(StoreResult data) {
-        const statusId = spinSql!(() => global.db.mutantApi.getMutationStatusId(global.mutp.id));
-
         global.swTest.stop;
         auto profile = MutantTimeProfile(global.swCompile.peek, global.swTest.peek);
 
-        if (statusId.isNull) {
-            logger.trace("No MutationStatusId for ", global.mutp.id.get).collectException;
-            return;
-        }
-
         result = [
-            MutationTestResult(global.mutp.id, statusId.get, global.testResult.status,
-                    profile, global.testCases, global.testResult.exitStatus,
+            MutationTestResult(global.mutp.id, global.testResult.status, profile,
+                    global.testCases, global.testResult.exitStatus,
                     global.testResult.output.byKey.array)
         ];
 
@@ -508,10 +501,7 @@ nothrow:
             foreach (const stId; global.db.mutantApi.mutantsInRegion(fid.get,
                     global.mutp.mp.offset, Mutation.Status.unknown, cover).filter!(
                     a => a != result[0].id)) {
-                const mutId = global.db.mutantApi.getMutationId(stId);
-                if (mutId.isNull)
-                    return;
-                result ~= MutationTestResult(mutId.get, stId, Mutation.Status.skipped,
+                result ~= MutationTestResult(stId, Mutation.Status.skipped,
                         MutantTimeProfile.init, null, ExitStatus(0));
             }
 

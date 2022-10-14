@@ -21,6 +21,7 @@ function init() {
         theads[i].addEventListener('click', function (e) { sortable_table_onclick(e); });
     }
     setDocTime();
+    update_change('7');
 }
 
 function sortable_table_onclick(e) {
@@ -177,8 +178,9 @@ function update_change(time_frame) {
       };
     
     var end_date = new Date();
-    if (time_frame.value != 0){
-        end_date.setTime(end_date.getTime() - (parseInt(time_frame.value) * 60 * 60 * 24 * 1000))
+    const days = parseInt(time_frame);
+    if (days != 0){
+        end_date.setTime(end_date.getTime() - (days * 60 * 60 * 24 * 1000))
     }else{
         //Default is seven days ago
         end_date.setTime(end_date.getTime() - (7 * 60 * 60 * 24 * 1000))
@@ -252,4 +254,12 @@ function update_change(time_frame) {
         }
     }
 
+}
+
+// Convert month number to short name, i.e. 08 => "Aug"
+function toMonthShort(num){
+    const date = new Date();
+    date.setMonth(num - 1);
+
+    return date.toLocaleString('en-us', { month: 'short' });
 }

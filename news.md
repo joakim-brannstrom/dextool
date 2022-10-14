@@ -41,6 +41,9 @@ New features for dextool mutate
  not change the mutant except when the mouse is over the window showing the
  mutants on the current line.
  * (html report) Fix the web browsers "back" button when looking at a file report.
+ * The CLI parameter `--mutant` has been removed from `test` and `report` command groups.
+ * (html report) The test cases in the info box in the file report is now a
+   link to the detailed test case report.
 
 Fixes for dextool mutate
 
@@ -50,6 +53,23 @@ Fixes for dextool mutate
    schema, implementation and slightly improve the performance.
  * Fixed a bug when sorting mutants by datetime which resulted in e.g. "testing
    oldest mutant" not working as it should.
+ * The trend graph for file changes is redesigned to show when a files mutation
+   score last changed. It should make it easier to understand why the mutation
+   score have changed because it points to the files that are changed.
+ * `--load-behavior` halt sometimes failed because the threadpool used for
+   tests did not properly shutdown. Added a background thread that triggers after
+   10 minutes to forcefully shutdown dextool. This is mainly an issue when
+   dextool is running on a shared CI server and it becomes overloaded. It is hard
+   to reproduce but the server probably run out of memory.
+ * Fix coverage bug where a mutant where not re-tested if only tests changed
+   such that the mutant is not covered.
+ * Improve scheman. Moved the schema generator from analyze to test phase to
+   make use of the internal worklist. The worklist contains what mutants to test.
+   The scheman are now built up from fragments containing mutants that are in the
+   worklist. This result in more mutants that are tested for each schema. A rough
+   test show a 50% reduction of the number of scheman needed which mean a
+   sometimes huge reduction in test time. A side effect of this is that the
+   analyze phase use a lot less memory.
 
 # v4.3.0 Deep Steel
 

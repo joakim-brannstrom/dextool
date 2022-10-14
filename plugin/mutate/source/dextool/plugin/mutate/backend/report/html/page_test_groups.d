@@ -10,7 +10,6 @@ one at http://mozilla.org/MPL/2.0/.
 module dextool.plugin.mutate.backend.report.html.page_test_groups;
 
 import logger = std.experimental.logger;
-import std.format : format;
 
 import arsd.dom : Document, Element, require, Table;
 
@@ -22,20 +21,16 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
     tmplDefaultTable, dashboardCss;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind;
 import dextool.type : AbsolutePath;
 
-auto makeTestGroups(ref Database db, ref const ConfigReport conf,
-        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
-    import std.datetime : Clock;
-
+auto makeTestGroups(ref Database db, ref const ConfigReport conf) @trusted {
     auto doc = tmplBasicPage.dashboardCss;
-    doc.title(format("Test Groups %(%s %) %s", humanReadableKinds, Clock.currTime));
+    doc.title("Test Groups");
 
     if (conf.testGroups.length != 0)
         doc.mainBody.addChild("h2", "Test Groups");
     foreach (tg; conf.testGroups)
-        testGroups(reportTestGroups(db, kinds, tg), doc.mainBody);
+        testGroups(reportTestGroups(db, tg), doc.mainBody);
 
     return doc.toPrettyString;
 }
@@ -46,6 +41,7 @@ void testGroups(const TestGroupStat test_g, Element root) {
     import std.algorithm : sort, map;
     import std.array : array;
     import std.conv : to;
+    import std.format : format;
     import std.path : buildPath;
     import std.typecons : tuple;
     import dextool.plugin.mutate.backend.mutation_type : toUser;

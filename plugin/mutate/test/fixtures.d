@@ -6,7 +6,6 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module dextool_test.fixtures;
 
 import std.algorithm : map;
-import std.array : array;
 import std.file : copy;
 import std.format : format;
 import std.stdio : File;
@@ -14,10 +13,6 @@ import std.stdio : File;
 import dextool.plugin.mutate.backend.database.standalone : Database;
 
 import dextool_test.utility;
-
-auto getAllMutationIds(ref Database db) {
-    return db.mutantApi.getAllMutationStatus.map!(a => db.mutantApi.getMutationId(a).get).array;
-}
 
 /// Fejk database entries
 class DatabaseFixture : TestCase {

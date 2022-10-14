@@ -394,105 +394,6 @@ alias StoreActor = typedActor!(void function(Start, ToolVersion), bool function(
 /// Store the result of the analyze.
 auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         RefCounted!(Database) db, StoreConfig conf, FilesysIO fio, Path[] rootFiles) @trusted {
-    static struct SchemataSaver {
-        import sumtype;
-        import my.optional;
-        import dextool.plugin.mutate.backend.analyze.pass_schemata : SchemataBuilder;
-
-        typeof(ConfigSchema.minMutantsPerSchema) minMutantsPerSchema;
-        typeof(ConfigSchema.mutantsPerSchema) mutantsPerSchema;
-        SchemataBuilder builder;
-
-        size_t cacheSize() @safe pure nothrow const @nogc {
-            return builder.cacheSize;
-        }
-
-        void put(FilesysIO fio, SchemataResult.Schemata[AbsolutePath] a) {
-            builder.put(fio, a);
-        }
-
-        void process(ref Database db, Optional!(SchemataBuilder.ET) value) {
-            value.match!((Some!(SchemataBuilder.ET) a) {
-                try {
-                    auto mutants = a.mutants.map!(a => db.mutantApi.getMutationStatusId(a.id))
-                        .array;
-                    if (!mutants.empty) {
-                        const id = db.schemaApi.putSchemata(a.checksum, a.fragments, mutants);
-                        log.infof(!id.isNull, "Saving schema with %s mutants (cache %0.2f Mbyte)",
-                            mutants.length, cast(double) cacheSize / (1024 * 1024));
-                    }
-                } catch (Exception e) {
-                    log.trace(e.msg);
-                }
-            }, (None a) {});
-        }
-
-        /// Consume fragments used by scheman containing >min mutants.
-        void setIntermediate() {
-            log.trace("schema generator phase: intermediate");
-            builder.discardMinScheman = false;
-            builder.useProbability = true;
-            builder.useProbablitySmallSize = false;
-            builder.mutantsPerSchema = mutantsPerSchema.get;
-            builder.minMutantsPerSchema = mutantsPerSchema.get;
-            builder.thresholdStartValue = 1.0;
-        }
-
-        void setReducedIntermediate(long sizeDiv, long threshold) {
-            import std.algorithm : max;
-
-            log.tracef("schema generator phase: reduced size:%s threshold:%s", sizeDiv, threshold);
-            builder.discardMinScheman = false;
-            builder.useProbability = true;
-            builder.useProbablitySmallSize = false;
-            builder.mutantsPerSchema = mutantsPerSchema.get;
-            builder.minMutantsPerSchema = max(minMutantsPerSchema.get,
-                    mutantsPerSchema.get / sizeDiv);
-            // TODO: interresting effect. this need to be studied. I think this
-            // is the behavior that is "best".
-            builder.thresholdStartValue = 1.0 - (cast(double) threshold / 100.0);
-        }
-
-        void run(ref Database db) {
-            // sort the fragments by file which should allow those with high
-            // probability to result in larger scheman while those with smaller
-            // end up with small scheman. Smaller are thus those that higly
-            // likely fail to compile.
-            // 2021-09-03: sorting the fragments where a bad idea. It lead to
-            // very large schemas in one and the same file which failed
-            // compilation because the computer ran out of memory.
-            // Therefor testing a strategy of shuffling instead.
-            builder.shuffle;
-
-            while (!builder.isDone) {
-                process(db, builder.next);
-            }
-
-            builder.restart;
-        }
-
-        /// Consume all fragments or discard.
-        void finalize(ref Database db) {
-            log.trace("schema generator phase: finalize");
-            builder.discardMinScheman = true;
-            builder.useProbability = false;
-            builder.useProbablitySmallSize = true;
-            builder.mutantsPerSchema = mutantsPerSchema.get;
-            builder.minMutantsPerSchema = minMutantsPerSchema.get;
-            builder.thresholdStartValue = 0;
-
-            // two loops to pass over all mutants and retry new schema
-            // compositions. Any schema that is less than the minimum will be
-            // discarded so the number of mutants will shrink.
-            while (!builder.isDone) {
-                while (!builder.isDone) {
-                    process(db, builder.next);
-                }
-                builder.restart;
-            }
-        }
-    }
-
     static struct State {
         // conditions governing when the analyze is done
         // if all analyze workers have been started and thus it is time to
@@ -517,9 +418,6 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         Set!AbsolutePath savedFiles;
         // clearing a file should only happen once.
         Set!AbsolutePath clearedFiles;
-
-        // generates scheman from fragments.
-        SchemataSaver schemas;
     }
 
     auto st = tuple!("self", "db", "state", "fio", "conf", "rootFiles", "flowCtrl")(self,
@@ -533,8 +431,6 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         log.trace("starting store actor");
 
         ctx.state.get.isToolVersionDifferent = ctx.db.get.isToolVersionDifferent(toolVersion);
-        ctx.state.get.schemas = SchemataSaver(ctx.conf.schema.minMutantsPerSchema,
-                ctx.conf.schema.mutantsPerSchema);
 
         if (ctx.conf.analyze.fastDbStore) {
             log.info(
@@ -542,49 +438,6 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             log.warning("Do NOT interrupt dextool in any way because it may corrupt the database");
             ctx.db.get.run("PRAGMA synchronous = OFF");
             ctx.db.get.run("PRAGMA journal_mode = MEMORY");
-        }
-
-        {
-            auto trans = ctx.db.get.transaction;
-            auto profile = Profile("update schema probability");
-            log.info("Update schema probability");
-
-            ctx.state.get.schemas.builder.schemaQ = updateSchemaQ(ctx.db.get);
-            ctx.state.get.schemas.builder.mutantsPerSchema = updateSchemaSizeQ(ctx.db.get,
-                    ctx.conf.schema.mutantsPerSchema.get, ctx.conf.schema.minMutantsPerSchema.get)
-                .currentSize;
-
-            trans.commit;
-        }
-        {
-            auto trans = ctx.db.get.transaction;
-            auto profile = Profile("prune old schemas");
-            if (ctx.state.get.isToolVersionDifferent) {
-                log.info("Prune database of scheman created by the old version");
-                ctx.db.get.schemaApi.deleteAllSchemas;
-            }
-            trans.commit;
-        }
-        {
-            import std.traits : EnumMembers;
-
-            auto trans = ctx.db.get.transaction;
-            auto profile = Profile("prune used schemas");
-            log.info("Prune the database of used schemas");
-            const removed = () {
-                if (ctx.conf.analyze.forceSaveAnalyze)
-                    return ctx.db.get.schemaApi.pruneUsedSchemas([
-                        EnumMembers!SchemaStatus
-                    ]);
-                return ctx.db.get.schemaApi.pruneUsedSchemas([
-                    SchemaStatus.allKilled, SchemaStatus.broken
-                ]);
-            }();
-            trans.commit;
-            if (removed != 0) {
-                logger.infof("Removed %s schemas", removed);
-                ctx.db.get.vacuum;
-            }
         }
 
         send(ctx.self, CheckPostProcess.init);
@@ -711,7 +564,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
                 const relp = ctx.fio.toRelativeRoot(f);
                 const info = result.infoId[result.idFile[f]];
-                ctx.db.get.put(relp, info.checksum, info.language, f == result.root);
+                ctx.db.get.fileApi.put(relp, info.checksum, info.language, f == result.root);
 
                 ctx.state.get.savedFiles.add(f);
             }
@@ -734,7 +587,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 ctx.db.get.removeFile(relp);
                 // the language do not matter because it is a file without
                 // any mutants.
-                ctx.db.get.put(relp, result.rootCs, Language.init, true);
+                ctx.db.get.fileApi.put(relp, result.rootCs, Language.init, true);
                 ctx.state.get.savedFiles.add(ctx.fio.toAbsoluteRoot(result.root));
             }
 
@@ -759,23 +612,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                     }
                 }
 
-                // only save the schematas if mutation points where saved.
-                // This ensure that only schematas for changed/new files
-                // are saved.
-                ctx.state.get.schemas.put(ctx.fio, result.schematas);
-                ctx.state.get.schemas.setIntermediate;
-                ctx.state.get.schemas.run(ctx.db.get);
-
-                // seems like 200 Mbyte is large enough to generate scheman
-                // with >1000 mutants easily when analyzing LLVM.
-                enum MaxCache = 200 * 1024 * 1024;
-                if (ctx.state.get.schemas.cacheSize > MaxCache) {
-                    // panic mode, just empty it as fast as possible.
-                    logger.infof("Schema cache is %s bytes (limit %s). Producing as many schemas as possible to flush the cache.",
-                            ctx.state.get.schemas.cacheSize, MaxCache);
-                    ctx.state.get.schemas.finalize(ctx.db.get);
-                    ctx.state.get.schemas.setIntermediate;
-                }
+                saveSchemaFragments(ctx.db.get, ctx.fio, result.schematas);
             }
         }
 
@@ -854,25 +691,19 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             }
         }
 
-        void finalizeSchema() {
-            auto trans = ctx.db.get.transaction;
+        void pruneSchemaMl() {
+            auto profile = Profile("prune schema_ml model");
+            log.info("Prune schema ML model");
 
-            immutable magic = 10; // reduce the size until it is 1/10 of the original
-            immutable magic2 = 5; // if it goes <95% then it is too high probability to fail
-            foreach (sizeDiv; 1 .. magic) {
-                foreach (threshold; 0 .. magic2) {
-                    ctx.state.get.schemas.setReducedIntermediate(sizeDiv, threshold);
-                    ctx.state.get.schemas.run(ctx.db.get);
-                }
+            Set!Checksum files;
+            foreach (a; ctx.db.get.getFiles)
+                files.add(checksum(cast(const(ubyte)[]) a.toString));
+
+            foreach (a; ctx.db.get.schemaApi.getMutantProbability.byKey.filter!(a => a !in files)) {
+                logger.trace("schema model. Dropping ", a);
+                ctx.db.get.schemaApi.removeMutantProbability(a);
             }
-
-            ctx.state.get.schemas.finalize(ctx.db.get);
-
-            trans.commit;
-            ctx.state.get.schemas = SchemataSaver.init;
         }
-
-        finalizeSchema;
 
         auto trans = ctx.db.get.transaction;
 
@@ -889,18 +720,11 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         if (ctx.conf.analyze.prune) {
             pruneFiles();
             {
-                auto profile = Profile("prune mangled schemas");
-                log.info("Prune the database of mangled schemas");
-                ctx.db.get.schemaApi.pruneSchemas;
-            }
-            {
                 auto profile = Profile("prune dependencies");
                 log.info("Prune dependencies");
                 ctx.db.get.dependencyApi.cleanup;
             }
             {
-                import std.functional : toDelegate;
-
                 auto profile = Profile("remove orphaned mutants");
                 log.info("Removing orphaned mutants");
                 auto progress = (size_t i, size_t total, const Duration avgRemoveTime,
@@ -909,9 +733,15 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                             total, avgRemoveTime, timeLeft, predDoneAt.toSimpleString);
                 };
                 auto done = (size_t total) {
-                    logger.infof(total > 0, "%1$s/%1$s removed", total, total);
+                    logger.infof(total > 0, "%1$s/%1$s removed", total);
                 };
                 ctx.db.get.mutantApi.removeOrphanedMutants(progress.toDelegate, done.toDelegate);
+            }
+            try {
+                pruneSchemaMl;
+            } catch (Exception e) {
+                logger.warning(e.msg);
+                logger.warning("Unable to prune schema ML model");
             }
         }
 
@@ -1067,7 +897,7 @@ struct Analyze {
             log.tracef("path dedup count:%s length_acc:%s",
                     ast.get.paths.count, ast.get.paths.lengthAccum);
 
-            result.schematas = schemas.getSchematas;
+            result.schematas = schemas.getFragments;
         }
 
         {
@@ -1227,7 +1057,7 @@ struct Analyze {
         LineMetadata[] metadata;
 
         /// Mutant schematas that has been generated.
-        SchemataResult.Schemata[AbsolutePath] schematas;
+        SchemataResult.Fragments[AbsolutePath] schematas;
 
         /// Coverage intervals that can be instrumented.
         Interval[][LocalFileId] coverage;
@@ -1324,17 +1154,15 @@ class TokenStreamImpl : TokenStream {
  * id and mutation id.
  */
 void updateMarkedMutants(ref Database db) @trusted {
-    import dextool.plugin.mutate.backend.database.type : MutationStatusId;
+    import dextool.plugin.mutate.backend.database.type : MutationStatusId,
+        toMutationStatusId, toChecksum;
     import dextool.plugin.mutate.backend.type : ExitStatus;
 
     void update(MarkedMutant m) {
-        const stId = db.mutantApi.getMutationStatusId(m.statusChecksum);
-        const mutId = db.mutantApi.getMutationId(stId);
-        if (mutId.isNull)
-            return;
+        const stId = toMutationStatusId(m.statusChecksum);
         db.markMutantApi.remove(m.statusChecksum);
-        db.markMutantApi.mark(mutId.get, m.path, m.sloc, stId,
-                m.statusChecksum, m.toStatus, m.rationale, m.mutText);
+        db.markMutantApi.mark(m.path, m.sloc, stId, m.statusChecksum,
+                m.toStatus, m.rationale, m.mutText);
         db.mutantApi.update(stId, m.toStatus, ExitStatus(0));
     }
 
@@ -1343,7 +1171,7 @@ void updateMarkedMutants(ref Database db) @trusted {
     // the relation to the correct mutation status id.
     foreach (m; db.markMutantApi
             .getMarkedMutants
-            .map!(a => tuple(a, db.mutantApi.getChecksum(a.statusId)))
+            .map!(a => tuple(a, toChecksum(a.statusId)))
             .filter!(a => a[0].statusChecksum != a[1])) {
         update(m[0]);
     }
@@ -1364,7 +1192,7 @@ void printLostMarkings(MarkedMutant[] lostMutants) {
     ]);
     foreach (m; lostMutants) {
         typeof(tbl).Row r = [
-            m.mutationId.get.to!string, m.path, m.sloc.line.to!string,
+            m.statusId.get.to!string, m.path, m.sloc.line.to!string,
             m.sloc.column.to!string, m.toStatus.to!string, m.rationale.get
         ];
         tbl.put(r);
@@ -1529,53 +1357,19 @@ bool isFileSupported(FilesysIO fio, AbsolutePath p) @safe {
     return res != 0;
 }
 
-auto updateSchemaQ(ref Database db) @trusted {
-    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
-    import dextool.plugin.mutate.backend.database : SchemaStatus;
-    import my.hash : Checksum64;
-    import my.set;
+void saveSchemaFragments(ref Database db, FilesysIO fio,
+        ref SchemataResult.Fragments[AbsolutePath] fragments) {
+    import std.typecons : tuple;
+    import dextool.plugin.mutate.backend.database.type : SchemaFragmentV2, toMutationStatusId;
 
-    auto sq = SchemaQ.make;
-    sq.state = db.schemaApi.getMutantProbability;
-
-    auto paths = db.getFiles;
-    Set!Checksum64 latestFiles;
-
-    foreach (path; paths) {
-        scope getPath = (SchemaStatus s) @trusted => db.schemaApi.getSchemaUsedKinds(path, s);
-        sq.update(path, getPath);
-        latestFiles.add(sq.pathCache[path]);
-        debug logger.tracef("updating %s %s", path, sq.pathCache[path]);
+    foreach (a; fragments.byKeyValue
+            .map!(a => tuple!("fileId",
+                "fragments")(db.getFileId(fio.toRelativeRoot(a.key)), a.value))
+            .filter!(a => !a.fileId.isNull)) {
+        // TODO: SchemaFragmentV2 and SchemataResult.Fragment are pretty
+        // similare to each other. Only CodeMutant is different.
+        db.schemaApi.putFragments(a.fileId.get,
+                a.fragments.fragments.map!(a => SchemaFragmentV2(a.offset,
+                    a.text, a.mutants.map!(a => a.id.toMutationStatusId).array)).array);
     }
-
-    foreach (p; sq.state.byKey.toSet.setDifference(latestFiles).toRange) {
-        db.schemaApi.removeMutantProbability(p);
-        sq.state.remove(p);
-        debug logger.trace("removing ", p);
-    }
-
-    sq.scatterTick;
-
-    foreach (p; sq.state.byKeyValue) {
-        db.schemaApi.saveMutantProbability(p.key, p.value, SchemaQ.MaxState);
-        debug logger.tracef("saving %s with %s values", p.key, p.value.length);
-    }
-
-    return sq;
-}
-
-auto updateSchemaSizeQ(ref Database db, const long userInit, const long minSize) @trusted {
-    import std.traits : EnumMembers;
-    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaSizeQ;
-    import dextool.plugin.mutate.backend.database : SchemaStatus;
-
-    // *3 is a magic number. it feels good.
-    auto sq = SchemaSizeQ.make(minSize, userInit * 3);
-    sq.currentSize = db.schemaApi.getSchemaSize(userInit);
-    scope getStatusCnt = (SchemaStatus s) @trusted => db.schemaApi.schemaMutantCount(s);
-    const kinds = [EnumMembers!(Mutation.Kind)];
-    sq.update(getStatusCnt, db.mutantApi.totalSrcMutants(kinds)
-            .count + db.mutantApi.unknownSrcMutants(kinds).count);
-    db.schemaApi.saveSchemaSize(sq.currentSize);
-    return sq;
 }

@@ -21,20 +21,16 @@ import dextool.plugin.mutate.backend.report.html.tmpl : tmplBasicPage,
 import dextool.plugin.mutate.backend.report.utility;
 import dextool.plugin.mutate.backend.type : Mutation;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind;
 import dextool.type : AbsolutePath;
 
-auto makeNomut(ref Database db, ref const ConfigReport conf,
-        const(MutationKind)[] humanReadableKinds, const(Mutation.Kind)[] kinds) @trusted {
-    import std.datetime : Clock;
-
+auto makeNomut(ref Database db, ref const ConfigReport conf) @trusted {
     auto doc = tmplBasicPage.dashboardCss;
-    doc.title(format("NoMut Details %(%s %) %s", humanReadableKinds, Clock.currTime));
+    doc.title("NoMut Details");
     doc.mainBody.addChild("h1", "NoMut Details");
     doc.mainBody.addChild("p",
             "This is all the mutation suppressions that are used and affects the analysis.");
 
-    db.mutantApi.getMutantMetaData(kinds, Mutation.Status.alive).toHtml(db, doc.mainBody);
+    db.mutantApi.getMutantMetaData(Mutation.Status.alive).toHtml(db, doc.mainBody);
 
     return doc.toPrettyString;
 }
@@ -51,11 +47,11 @@ void toHtml(MutantMetaData[] data, ref Database db, Element root) {
     import std.typecons : Tuple;
     import std.uni : toLower;
     import sumtype;
-    import dextool.plugin.mutate.backend.database : MutationId, NoMetadata, NoMut;
+    import dextool.plugin.mutate.backend.database : MutationStatusId, NoMetadata, NoMut;
     import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
 
-    alias IdComment = Tuple!(MutationId, "id", string, "comment");
-    string[MutationId][string] tags;
+    alias IdComment = Tuple!(MutationStatusId, "id", string, "comment");
+    string[MutationStatusId][string] tags;
 
     // group by the tag that can be added to a nomut via
     // // NOMUT (tag) <comment>

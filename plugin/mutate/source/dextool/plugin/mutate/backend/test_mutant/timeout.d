@@ -38,6 +38,8 @@ import dextool.plugin.mutate.backend.type : Mutation, ExitStatus;
 struct TimeoutConfig {
     import std.datetime : Duration;
 
+    double timeoutScaleFactor = 2.0;
+
     private {
         bool userConfigured_;
         Duration baseTimeout;
@@ -74,7 +76,7 @@ struct TimeoutConfig {
 
         // Assuming that a timeout <1s is too strict because of OS jitter and load.
         // It would lead to "false" timeout status of mutants.
-        return max(1.dur!"seconds", calculateTimeout(iteration, baseTimeout));
+        return max(1.dur!"seconds", calculateTimeout(iteration, baseTimeout, timeoutScaleFactor));
     }
 
     Duration base() @safe pure nothrow const @nogc {
@@ -88,15 +90,15 @@ void resetTimeoutContext(ref Database db) @trusted {
 }
 
 /// Calculate the timeout to use based on the context.
-std_.datetime.Duration calculateTimeout(const long iter, std_.datetime.Duration base) pure nothrow @nogc {
+std_.datetime.Duration calculateTimeout(const long iter,
+        std_.datetime.Duration base, const double timeoutScaleFactor) pure nothrow @nogc {
     import core.time : dur;
     import std.math : sqrt;
 
     static immutable double constant_factor = 1.5;
-    static immutable double scale_factor = 2.0;
     const double n = iter;
 
-    const double scale = constant_factor + sqrt(n) * scale_factor;
+    const double scale = constant_factor + sqrt(n) * timeoutScaleFactor;
     return (1L + (cast(long)(base.total!"msecs" * scale))).dur!"msecs";
 }
 
@@ -179,7 +181,6 @@ struct TimeoutFsm {
     /// Data used by all states.
     static struct Global {
         MutantTimeoutCtx ctx;
-        Mutation.Kind[] kinds;
         Database* db;
         bool stop;
     }
@@ -199,8 +200,7 @@ struct TimeoutFsm {
         Global global;
     }
 
-    this(const Mutation.Kind[] kinds) nothrow {
-        global.kinds = kinds.dup;
+    void setLogLevel() @trusted nothrow {
         try {
             if (logger.globalLogLevel == logger.LogLevel.trace)
                 fsm.logger = (string s) { logger.trace(s); };
@@ -258,8 +258,7 @@ struct TimeoutFsm {
 
     private static void step(ref TimeoutFsm self, ref Database db) @safe {
         bool noUnknown() {
-            return db.mutantApi.unknownSrcMutants(self.global.kinds, null)
-                .count == 0 && db.worklistApi.getCount == 0;
+            return db.mutantApi.unknownSrcMutants().count == 0 && db.worklistApi.getCount == 0;
         }
 
         self.fsm.next!((Init a) {

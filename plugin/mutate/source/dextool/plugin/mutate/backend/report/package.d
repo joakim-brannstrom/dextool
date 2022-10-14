@@ -24,10 +24,9 @@ import dextool.plugin.mutate.backend.diff_parser : Diff, diffFromStdin;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.utility : getProfileResult, Profile;
 import dextool.plugin.mutate.config : ConfigReport;
-import dextool.plugin.mutate.type : MutationKind, ReportKind;
+import dextool.plugin.mutate.type : ReportKind;
 
-ExitStatusType runReport(const AbsolutePath dbPath, const MutationKind[] kind,
-        ConfigReport conf, FilesysIO fio) @trusted {
+ExitStatusType runReport(const AbsolutePath dbPath, ConfigReport conf, FilesysIO fio) @trusted {
 
     auto sys = makeSystem;
 
@@ -42,27 +41,27 @@ ExitStatusType runReport(const AbsolutePath dbPath, const MutationKind[] kind,
                 import dextool.plugin.mutate.backend.report.plain : report;
 
                 auto db = Database.make(dbPath);
-                report(db, kind, conf, fio);
+                report(db, conf, fio);
             }
             break;
         case compiler: {
                 import dextool.plugin.mutate.backend.report.compiler : report;
 
                 auto db = Database.make(dbPath);
-                report(db, kind, conf, fio);
+                report(db, conf, fio);
             }
             break;
         case json: {
                 import dextool.plugin.mutate.backend.report.json : report;
 
                 auto db = Database.make(dbPath);
-                report(db, kind, conf, fio, diff);
+                report(db, conf, fio, diff);
             }
             break;
         case html:
             import dextool.plugin.mutate.backend.report.html : report;
 
-            report(sys, dbPath, kind, conf, fio, diff);
+            report(sys, dbPath, conf, fio, diff);
             break;
         }
 
@@ -81,6 +80,7 @@ ExitStatusType runReport(const AbsolutePath dbPath, const MutationKind[] kind,
     try {
         return helper();
     } catch (Exception e) {
+        logger.info(e).collectException;
         logger.error(e.msg).collectException;
     }
 

@@ -60,15 +60,14 @@ struct Database {
      * Params:
      *  kind = kind of mutation to retrieve.
      */
-    NextMutationEntry nextMutation(const(Mutation.Kind)[] kinds, const uint maxParallel) @trusted {
+    NextMutationEntry nextMutation(const uint maxParallel) @trusted {
         import dextool.plugin.mutate.backend.type;
 
         typeof(return) rval;
 
-        immutable sql = format("
-            SELECT * FROM
+        static immutable sql = "SELECT * FROM
             (SELECT
-            t0.id,
+            t3.id,
             t0.kind,
             t3.compile_time_ms,
             t3.test_time_ms,
@@ -78,16 +77,17 @@ struct Database {
             t1.column,
             t2.path,
             t2.lang
-            FROM %1$s t0,%2$s t1,%3$s t2,%4$s t3, %5$s t4
+            FROM " ~ mutationTable ~ " t0," ~ mutationPointTable ~ " t1," ~ filesTable
+            ~ " t2," ~ mutationStatusTable ~ " t3," ~ mutantWorklistTable ~ " t4
             WHERE
             t0.st_id = t3.id AND
             t3.id = t4.id AND
             t0.mp_id == t1.id AND
             t1.file_id == t2.id
-            ORDER BY t4.prio DESC LIMIT %6$s)
-            ORDER BY RANDOM() LIMIT 1", mutationTable, mutationPointTable,
-                filesTable, mutationStatusTable, mutantWorklistTable, maxParallel);
+            ORDER BY t4.prio DESC LIMIT :parallel)
+            ORDER BY RANDOM() LIMIT 1";
         auto stmt = db.db.prepare(sql);
+        stmt.get.bind(":parallel", maxParallel);
         auto res = stmt.get.execute;
         if (res.empty) {
             rval.st = NextMutationEntry.Status.done;
@@ -98,7 +98,7 @@ struct Database {
 
         auto mp = MutationPoint(Offset(v.peek!uint(4), v.peek!uint(5)));
         mp.mutations = [Mutation(v.peek!long(1).to!(Mutation.Kind))];
-        auto pkey = MutationId(v.peek!long(0));
+        auto pkey = MutationStatusId(v.peek!long(0));
         auto file = Path(v.peek!string(8));
         auto sloc = SourceLoc(v.peek!uint(6), v.peek!uint(7));
         auto lang = v.peek!long(9).to!Language;
@@ -109,14 +109,10 @@ struct Database {
         return rval;
     }
 
-    /// Iterate over the mutants of `kinds` in oldest->newest datum order.
-    void iterateMutantStatus(const Mutation.Kind[] kinds,
-            scope void delegate(const Mutation.Status, const SysTime added) dg) @trusted {
-        immutable sql = format("SELECT t1.status,t1.added_ts FROM %s t0, %s t1
-           WHERE
-           t0.st_id = t1.id AND
-           t0.kind IN (%(%s,%))
-           ORDER BY t1.added_ts", mutationTable, mutationStatusTable, kinds.map!(a => cast(int) a));
+    void iterateMutantStatus(scope void delegate(const Mutation.Status, const SysTime added) dg) @trusted {
+        static immutable sql = "SELECT t1.status,t1.added_ts FROM "
+            ~ mutationTable ~ " t0, " ~ mutationStatusTable ~ " t1
+           WHERE t0.st_id = t1.id ORDER BY t1.added_ts";
         auto stmt = db.db.prepare(sql);
         try {
             foreach (ref r; stmt.get.execute) {
@@ -127,11 +123,11 @@ struct Database {
         }
     }
 
-    void iterateMutants(const Mutation.Kind[] kinds, scope void delegate(const ref IterateMutantRow) dg) @trusted {
+    void iterateMutants(scope void delegate(const ref IterateMutantRow) dg) @trusted {
         import dextool.plugin.mutate.backend.utility : checksum;
 
         immutable all_mutants = format("SELECT
-            t0.id,
+            t0.st_id,
             t3.status,
             t0.kind,
             t1.offset_begin,
@@ -146,19 +142,18 @@ struct Database {
             t4.nomut
             FROM %s t0,%s t1,%s t2, %s t3, %s t4
             WHERE
-            t0.kind IN (%(%s,%)) AND
             t0.st_id = t3.id AND
             t0.mp_id = t1.id AND
             t1.file_id = t2.id AND
             t0.id = t4.mut_id
             ORDER BY t3.status", mutationTable, mutationPointTable, filesTable,
-                mutationStatusTable, srcMetadataTable, kinds.map!(a => cast(int) a));
+                mutationStatusTable, srcMetadataTable);
 
         try {
             auto stmt = db.db.prepare(all_mutants);
             foreach (ref r; stmt.get.execute) {
                 IterateMutantRow d;
-                d.id = MutationId(r.peek!long(0));
+                d.id = MutationStatusId(r.peek!long(0));
                 d.mutation = Mutation(r.peek!int(2).to!(Mutation.Kind),
                         r.peek!int(1).to!(Mutation.Status));
                 auto offset = Offset(r.peek!uint(3), r.peek!uint(4));
@@ -179,8 +174,8 @@ struct Database {
         }
     }
 
-    void iterateMutants(const Mutation.Kind[] kinds, void delegate(const ref IterateMutantRow2) dg) @trusted {
-        immutable sql = format("SELECT
+    void iterateMutants(void delegate(const ref IterateMutantRow2) dg) @trusted {
+        static immutable sql = "SELECT
             t3.id,
             t0.kind,
             t3.status,
@@ -190,18 +185,17 @@ struct Database {
             t1.line,
             t1.column,
             t3.update_ts,
-            (SELECT count(*) FROM %s WHERE t3.id=st_id) as vc_cnt,
+            (SELECT count(*) FROM " ~ killedTestCaseTable ~ " WHERE t3.id=st_id) as vc_cnt,
             t4.nomut
-            FROM %s t0,%s t1,%s t2, %s t3, %s t4
+            FROM " ~ mutationTable ~ " t0," ~ mutationPointTable ~ " t1," ~ filesTable
+            ~ " t2, " ~ mutationStatusTable ~ " t3, " ~ srcMetadataTable ~ " t4
             WHERE
-            t0.kind IN (%(%s,%)) AND
             t0.st_id = t3.id AND
             t0.mp_id = t1.id AND
             t1.file_id = t2.id AND
             t0.id = t4.mut_id
             GROUP BY t3.id
-            ORDER BY t2.path,t1.line,t3.id", killedTestCaseTable, mutationTable, mutationPointTable,
-                filesTable, mutationStatusTable, srcMetadataTable, kinds.map!"cast(int) a");
+            ORDER BY t2.path,t1.line,t3.id";
 
         try {
             auto stmt = db.db.prepare(sql);
@@ -218,7 +212,7 @@ struct Database {
                 d.killedByTestCases = r.peek!long(9);
 
                 if (r.peek!long(10) != 0) {
-                    d.attrs = MutantMetaData(d.id, MutantAttr(NoMut.init));
+                    d.attrs = MutantMetaData(d.stId, MutantAttr(NoMut.init));
                 }
 
                 dg(d);
@@ -232,7 +226,8 @@ struct Database {
         import std.array : appender;
         import dextool.plugin.mutate.backend.utility : checksum;
 
-        enum files_q = format("SELECT t0.path, t0.checksum, t0.lang, t0.id FROM %s t0", filesTable);
+        static immutable files_q = "SELECT t0.path, t0.checksum, t0.lang, t0.id FROM "
+            ~ filesTable ~ " t0";
         auto app = appender!(FileRow[])();
         auto stmt = db.db.prepare(files_q);
         foreach (ref r; stmt.get.execute) {
@@ -250,16 +245,16 @@ struct Database {
      * file.
      *
      * Params:
-     *  kinds = the type of mutation operators to have in the report
      *  file = the file to retrieve mutants from
      *  dg = callback for reach row
      */
-    void iterateFileMutants(const Mutation.Kind[] kinds, Path file,
-            scope void delegate(ref const FileMutantRow) dg) @trusted {
+    void iterateFileMutants(Path file, scope void delegate(ref const FileMutantRow) dg) @trusted {
         import std.algorithm : map;
 
-        immutable all_fmut = format("SELECT
-            t0.id,
+        // TODO: remove the dummy value zero. it is just there to avoid having
+        // to update all the peeks.
+        static immutable sql = "SELECT
+            0,
             t3.id,
             t0.kind,
             t3.status,
@@ -270,23 +265,20 @@ struct Database {
             t1.line_end,
             t1.column_end,
             t2.lang
-            FROM %s t0, %s t1, %s t2, %s t3
+            FROM " ~ mutationTable ~ " t0, " ~ mutationPointTable ~ " t1, "
+            ~ filesTable ~ " t2, " ~ mutationStatusTable ~ " t3
             WHERE
-            t0.kind IN (%(%s,%)) AND
             t0.st_id = t3.id AND
             t0.mp_id = t1.id AND
             t1.file_id = t2.id AND
             t2.path = :path
             GROUP BY t3.id
-            ORDER BY t1.offset_begin
-            ", mutationTable, mutationPointTable, filesTable,
-                mutationStatusTable, kinds.map!(a => cast(int) a));
+            ORDER BY t1.offset_begin";
 
-        auto stmt = db.db.prepare(all_fmut);
+        auto stmt = db.db.prepare(sql);
         stmt.get.bind(":path", cast(string) file);
         foreach (ref r; stmt.get.execute) {
             FileMutantRow fr;
-            fr.id = MutationId(r.peek!long(0));
             fr.stId = MutationStatusId(r.peek!long(1));
             fr.mutation = Mutation(r.peek!int(2).to!(Mutation.Kind),
                     r.peek!int(3).to!(Mutation.Status));
@@ -302,7 +294,7 @@ struct Database {
 }
 
 struct IterateMutantRow {
-    MutationId id;
+    MutationStatusId id;
     Mutation mutation;
     MutationPoint mutationPoint;
     Path file;
@@ -314,7 +306,6 @@ struct IterateMutantRow {
 }
 
 struct IterateMutantRow2 {
-    MutationId id;
     MutationStatusId stId;
     Mutation mutant;
     ExitStatus exitStatus;
@@ -334,7 +325,6 @@ struct FileRow {
 }
 
 struct FileMutantRow {
-    MutationId id;
     MutationStatusId stId;
     Mutation mutation;
     MutationPoint mutationPoint;

@@ -10,10 +10,9 @@ import std.conv : to;
 import std.file : copy;
 import std.format : format;
 import std.path : relativePath;
-import std.traits : EnumMembers;
 
 import dextool.plugin.mutate.backend.database.standalone;
-import dextool.plugin.mutate.backend.database.type : MutationId, Rationale;
+import dextool.plugin.mutate.backend.database.type : MutationStatusId, Rationale;
 import dextool.plugin.mutate.backend.type : Mutation, ExitStatus, MutantTimeProfile;
 static import dextool.type;
 
@@ -29,12 +28,14 @@ class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
     }
 
     override void test() {
+        import dextool.plugin.mutate.backend.type : TestCase;
+
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-
-        import dextool.plugin.mutate.backend.type : TestCase;
+        const mutants = db.mutantApi.getAllMutationStatus;
+        mutants.length.shouldBeGreaterThan(4);
 
         // Arrange
         const tc1 = TestCase("tc_1");
@@ -43,36 +44,24 @@ class ShallResetMutantsThatATestCaseKilled : SimpleAnalyzeFixture {
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
         // tc3: [1,12]
-        db.mutantApi.update(MutationId(1), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1, tc2, tc3
-                ]);
-        db.mutantApi.update(MutationId(2), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1
-                ]);
-        db.mutantApi.update(MutationId(3), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1, tc2
-                ]);
-        db.mutantApi.update(MutationId(4), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1, tc2, tc3
-                ]);
-        db.mutantApi.update(MutationId(5), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1, tc2
-                ]);
+        db.mutantApi.update(mutants[0], Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.mutantApi.update(mutants[1], Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1]);
+        db.mutantApi.update(mutants[2], Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
+        db.mutantApi.update(mutants[3], Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2, tc3]);
+        db.mutantApi.update(mutants[4], Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [tc1, tc2]);
 
-        db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
-            .get.killedMutants.shouldBeGreaterThan(1);
+        db.testCaseApi.getTestCaseInfo(tc1).get.killedMutants.shouldBeGreaterThan(1);
 
         auto r = makeDextoolAdmin(testEnv).addArg([
             "--operation", "resetTestCase"
         ]).addArg(["--test-case-regex", `.*_1`]).run;
 
-        db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
-            .get.killedMutants.shouldEqual(0);
+        db.testCaseApi.getTestCaseInfo(tc1).get.killedMutants.shouldEqual(0);
     }
 }
 
@@ -82,43 +71,40 @@ class ShallRemoveTestCase : SimpleAnalyzeFixture {
     }
 
     override void test() {
+        import dextool.plugin.mutate.backend.type : TestCase;
+
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
-
-        import dextool.plugin.mutate.backend.type : TestCase;
+        const mutants = db.mutantApi.getAllMutationStatus;
+        mutants.length.shouldBeGreaterThan(4);
 
         // Arrange
         const tc1 = TestCase("tc_1");
         const tc2 = TestCase("tc_2");
         // tc1: [1,3,8,12,15]
         // tc2: [1,8,12,15]
-        db.mutantApi.update(MutationId(1), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1, tc2
-                ]);
-        db.mutantApi.update(MutationId(2), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1
-                ]);
-        db.mutantApi.update(MutationId(3), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1, tc2
-                ]);
-        db.mutantApi.update(MutationId(4), Mutation.Status.killed,
-                ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"), [
-                    tc1, tc2
-                ]);
+        db.mutantApi.update(mutants[0], Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"));
+        db.testCaseApi.updateMutationTestCases(mutants[0], [tc1, tc2]);
+        db.mutantApi.update(mutants[1], Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"));
+        db.testCaseApi.updateMutationTestCases(mutants[1], [tc1]);
+        db.mutantApi.update(mutants[2], Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"));
+        db.testCaseApi.updateMutationTestCases(mutants[2], [tc1, tc2]);
+        db.mutantApi.update(mutants[3], Mutation.Status.killed, ExitStatus(0),
+                MutantTimeProfile(Duration.zero, 5.dur!"msecs"));
+        db.testCaseApi.updateMutationTestCases(mutants[3], [tc1, tc2]);
 
-        db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)])
-            .get.killedMutants.shouldBeGreaterThan(1);
+        db.testCaseApi.getTestCaseInfo(tc1).get.killedMutants.shouldBeGreaterThan(1);
 
         auto r = makeDextoolAdmin(testEnv).addArg([
             "--operation", "removeTestCase"
         ]).addArg(["--test-case-regex", `.*_1`]).run;
 
-        db.testCaseApi.getTestCaseInfo(tc1, [EnumMembers!(Mutation.Kind)]).isNull.shouldBeTrue;
+        db.testCaseApi.getTestCaseInfo(tc1).isNull.shouldBeTrue;
     }
 }
 
@@ -130,17 +116,19 @@ unittest {
     copy((testData ~ "mark_sdl_mutant.cpp").toString, dst.toString);
     makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
+    auto db = openDatabase(testEnv);
+    const mutants = db.mutantApi.getAllMutationStatus;
+
     // dfmt off
     // act
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        to!string(1)])
+        .addArg(["--id",        mutants[0].to!string])
         .addArg(["--to-status", to!string(Status.killed)])
         .addArg(["--rationale", `"A good rationale"`])
         .run;
 
     auto report = makeDextoolReport(testEnv, testData.dirName)
-        .addPostArg(["--mutant", "all"])
         .addArg(["--section", "all_mut"])
         .addArg(["--section", "marked_mutants"])
         .run;
@@ -162,13 +150,13 @@ unittest {
     mixin(EnvSetup(globalTestdir));
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
-    makeDextoolAnalyze(testEnv).addInputArg(dst).run;
+    makeDextoolAnalyze(testEnv).addInputArg(dst).addPostArg(["--mutant", "all"]).run;
 
     // act
     // dfmt off
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        "5000"])
+        .addArg(["--id",        "1"])
         .addArg(["--to-status", "killed"])
         .addArg(["--rationale", `"This mutant should not exist"`])
         .throwOnExitStatus(false)
@@ -178,11 +166,11 @@ unittest {
     // assert
     r.success.shouldBeFalse;
 
-    auto db = createDatabase(testEnv);
-    db.mutantApi.getMutation(MutationId(5000)).isNull.shouldBeTrue;
+    auto db = openDatabase(testEnv);
+    db.mutantApi.getMutation(MutationStatusId(1)).isNull.shouldBeTrue;
 
     testAnyOrder!SubStr(["error"]).shouldBeIn(r.output);
-    testAnyOrder!SubStr([format!"Mutant with ID %s do not exist"(5000)]).shouldBeIn(r.output);
+    testAnyOrder!SubStr([format!"Mutant with ID %s do not exist"(1)]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall mark same mutant twice")
@@ -193,17 +181,20 @@ unittest {
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
     makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
+    auto db = openDatabase(testEnv);
+    const id = db.mutantApi.getAllMutationStatus[0].to!string;
+
     // act
     // dfmt off
     auto firstRes = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        "3"])
+        .addArg(["--id",        id])
         .addArg(["--to-status", to!string(Status.killedByCompiler)])
         .addArg(["--rationale", `"Backend claims mutant should not compile on target cpu"`])
         .run;
     auto secondRes = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        "3"])
+        .addArg(["--id",        id])
         .addArg(["--to-status", to!string(Status.unknown)])
         .addArg(["--rationale", `"Backend was wrong, mutant is legit..."`])
         .run;
@@ -211,7 +202,7 @@ unittest {
     // assert
     testAnyOrder!SubStr(["error"]).shouldNotBeIn(secondRes.output);
     testAnyOrder!SubStr([
-        "3",
+        id,
         to!string(Status.unknown),
         `"Backend was wrong, mutant is legit..."`
     ]).shouldBeIn(secondRes.output);
@@ -225,31 +216,33 @@ unittest {
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
     makeDextoolAnalyze(testEnv).addInputArg(dst).run;
-    auto db = createDatabase(testEnv);
+
+    auto db = openDatabase(testEnv);
+    const mutants = db.mutantApi.getAllMutationStatus;
+    const id = mutants[0].to!string;
 
     // act
     // dfmt off
     makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        "10"])
+        .addArg(["--id",        id])
         .addArg(["--to-status", to!string(Status.killed)])
         .addArg(["--rationale", `"This marking should not exist"`])
         .run;
-    db.markMutantApi.isMarked(MutationId(10)).shouldBeTrue;
+    db.markMutantApi.isMarked(mutants[0]).shouldBeTrue;
+
     auto r = makeDextoolAdmin(testEnv)
         .addArg(["--operation", "removeMarkedMutant"])
-        .addArg(["--id",        "10"])
+        .addArg(["--id",        id])
         .run;
     // dfmt on
 
     // assert
     testAnyOrder!SubStr(["error"]).shouldNotBeIn(r.output);
-    db.markMutantApi.isMarked(MutationId(10)).shouldBeFalse;
-    (db.mutantApi.getMutationStatus(MutationId(10)) == Status.unknown).shouldBeTrue;
+    db.markMutantApi.isMarked(mutants[0]).shouldBeFalse;
+    (db.mutantApi.getMutationStatus(mutants[0]) == Status.unknown).shouldBeTrue;
 
-    testAnyOrder!SubStr([
-        format!"info: Removed marking for mutant %s"(to!string(MutationId(10)))
-    ]).shouldBeIn(r.output);
+    testAnyOrder!SubStr([format!"info: Removed marking for mutant %s"(id)]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall fail to remove a marked mutant")
@@ -259,7 +252,7 @@ unittest {
     immutable dst = testEnv.outdir ~ "fibonacci.cpp";
     copy((testData ~ "fibonacci.cpp").toString, dst.toString);
     makeDextoolAnalyze(testEnv).addInputArg(dst).run;
-    auto db = createDatabase(testEnv);
+    auto db = openDatabase(testEnv);
 
     // act
     // dfmt off
@@ -270,7 +263,7 @@ unittest {
     // dfmt on
 
     // assert
-    db.markMutantApi.isMarked(MutationId(20)).shouldBeFalse;
+    db.markMutantApi.isMarked(MutationStatusId(20)).shouldBeFalse;
 
     testAnyOrder!SubStr(["error"]).shouldBeIn(r.output);
     testAnyOrder!SubStr([
@@ -287,11 +280,14 @@ unittest {
 
     makeDextoolAnalyze(testEnv).addInputArg(dst).run;
 
+    auto db = openDatabase(testEnv);
+    const id = db.mutantApi.getAllMutationStatus[0].to!string;
+
     // act
     // dfmt off
     makeDextoolAdmin(testEnv)
         .addArg(["--operation", "markMutant"])
-        .addArg(["--id",        3.to!string])
+        .addArg(["--id",        id])
         .addArg(["--to-status", to!string(Status.killedByCompiler)])
         .addArg(["--rationale", `"Lost"`])
         .run;
@@ -302,7 +298,7 @@ unittest {
     // assert
     testAnyOrder!Re([ // only check filename, not absolutepath (order is assumed in stdout)
         "| ID |", " File ", "    | Line | Column | Status           | Rationale |",
-        "| 3  |", `fibonacci.cpp |.*|.*|.*| "Lost"    |`,
+        format!"| %s  |"(id), `fibonacci.cpp |.*|.*|.*| "Lost"    |`,
     ]).shouldBeIn(r.output);
     // dfmt on
 }

@@ -12,6 +12,7 @@ module dextool.plugin.mutate.backend.test_mutant.common_actors;
 import my.actor : typedActor;
 import my.path : AbsolutePath;
 
+import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ, SchemaSizeQ;
 import dextool.plugin.mutate.backend.database : dbOpenTimeout;
 import dextool.plugin.mutate.backend.test_mutant.common : MutationTestResult;
 import dextool.plugin.mutate.backend.test_mutant.timeout : TimeoutFsm;
@@ -34,6 +35,8 @@ alias DbSaveActor = typedActor!(
         // save the result to the database
         void function(MutationTestResult result, TimeoutFsm timeoutFsm),
         void function(MutationTestResult result, long timeoutIter),
+        void function(SchemaQ),
+        void function(SchemaSizeQ),
         // query if it has finished saving to the db.
         bool function(IsDone));
 // dfmt on

@@ -46,7 +46,7 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
     import std.algorithm : map, filter;
     import std.path : buildPath;
     import std.range : enumerate;
-    import dextool.plugin.mutate.backend.database : IterateMutantRow2, MutationId;
+    import dextool.plugin.mutate.backend.database : IterateMutantRow2, MutationStatusId;
     import dextool.plugin.mutate.backend.report.analyzers : calcAvgPerMutant;
 
     auto doc = tmplBasicPage.dashboardCss;
@@ -96,11 +96,11 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
             "Order", "ID", "Link", "Priority", "Tested", "Status", "Finished"
             ], &addPopupHelp);
 
-    static string toLinkPath(Path path, MutationId id) {
+    static string toLinkPath(Path path, MutationStatusId id) {
         return format!"%s#%s"(buildPath(HtmlStyle.fileDir, pathToHtmlLink(path)), id);
     }
 
-    const avg = calcAvgPerMutant(db, [EnumMembers!(Mutation.Kind)]);
+    const avg = calcAvgPerMutant(db);
 
     foreach (data; spinSql!(() => db.worklistApi.getAll).map!(
             a => spinSql!(() => tuple(a.prio, db.mutantApi.getMutantInfo(a.id))))

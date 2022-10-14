@@ -60,26 +60,12 @@ for the analyze command.
 These are options that occur in multiple command groups.
 
 ```sh
---mutant
-```
-Mutants to operate on.
- - *all* : All mutants are generated.
- - *aor* : Arithmetical Operator Replacement.
- - *dcr* : Decision/Condition Requirement.
- - *lcr* : Logical Connector Replacement.
- - *lcrb* : Logical Connector Replacement (Bit-wise).
- - *ror* : Relational Operator Replacement.
- - *rorp* : Relational Operator Replacement (Pointer).
- - *sdl* : Statement Deletion.
- - *uoi* : Unary Operator Insertion.
-
-```sh
 --include
 --exclude
 ```
 Only files that match at least one of the include glob patterns and none of the
-exclude will be mutated (written to during the test phase). Default is "*" for
-include and none for exclude.  All patterns are adjusted to be relative to root
+exclude will be mutated (written to during the test phase). Default is `"*"` for
+include and none for exclude. All patterns are adjusted to be relative to root
 (default: .). This option is mostly used by e.g. header only libraries because
 dextool need to analyze the test case source code to *see* how the library is
 instantiated but the test code should not be mutated. Another use case is when
@@ -227,6 +213,23 @@ traversing the AST for the eligible files. Will write results into a database
 that will be used later for testing and generation of mutants.
 
 ```sh
+--mutant
+```
+The mutation operators to analyze for and save to the database. This option
+strongly affects the test and report phase.
+
+Mutants to operate on.
+ - *all* : All mutants are generated.
+ - *aor* : Arithmetical Operator Replacement.
+ - *dcr* : Decision/Condition Requirement.
+ - *lcr* : Logical Connector Replacement.
+ - *lcrb* : Logical Connector Replacement (Bit-wise).
+ - *ror* : Relational Operator Replacement.
+ - *rorp* : Relational Operator Replacement (Pointer).
+ - *sdl* : Statement Deletion.
+ - *uoi* : Unary Operator Insertion.
+
+```sh
 --compile-db
 ```
 Retrieve compilation parameters from a specific compilation-database. This can
@@ -341,30 +344,30 @@ Sections to include in the report.
 
 | Section                          | plain | json | html |
 |----------------------------------|-------|------|------|
-| alive                            | ✔    | ✔   |      |
-| all_mut                          | ✔    | ✔   | (✔) |
-| diff                             |       | ✔   | ✔   |
-| killed                           | ✔    | ✔   |      |
-| marked_mutants                   | ✔    |      |      |
-| mut_recommend_kill               |       |      | (✔) |
-| mut_stat                         | ✔    |      |      |
-| summary                          | ✔    | ✔   | ✔   |
-| tc_full_overlap                  | ✔    |      | (✔) |
-| tc_full_overlap_with_mutation_id | ✔    |      | ✔   |
-| tc_groups                        |       |      | ✔   |
-| tc_groups_similarity             |       |      | ✔   |
-| tc_killed                        | ✔    |      |      |
-| tc_killed_no_mutants             | ✔    | ✔   | (✔) |
-| tc_map                           | ✔    |      |      |
-| tc_min_set                       |       |      | ✔   |
-| tc_similarity                    |       |      | ✔   |
-| tc_stat                          | ✔    | ✔   |      |
-| tc_suggestion                    |       |      | ✔   |
-| tc_unique                        |       | ✔   | (✔) |
-| trend                            | ✔    | ✔   | ✔   |
+| alive                            | x     | x    |      |
+| all_mut                          | x     | x    | (x)  |
+| diff                             |       | x    | x    |
+| killed                           | x     | x    |      |
+| marked_mutants                   | x     |      |      |
+| mut_recommend_kill               |       |      | (x)  |
+| mut_stat                         | x     |      |      |
+| summary                          | x     | x    | x    |
+| tc_full_overlap                  | x     |      | (x)  |
+| tc_full_overlap_with_mutation_id | x     |      | x    |
+| tc_groups                        |       |      | x    |
+| tc_groups_similarity             |       |      | x    |
+| tc_killed                        | x     |      |      |
+| tc_killed_no_mutants             | x     | x    | (x)  |
+| tc_map                           | x     |      |      |
+| tc_min_set                       |       |      | x    |
+| tc_similarity                    |       |      | x    |
+| tc_stat                          | x     | x    |      |
+| tc_suggestion                    |       |      | x    |
+| tc_unique                        |       | x    | (x)  |
+| trend                            | x     | x    | x    |
 
 **Note**: styles may have automatic support for sections which are always on,
-indicated by a (✔)..
+indicated by a (x)..
 
 **alive**: Only report alive mutants.
 
