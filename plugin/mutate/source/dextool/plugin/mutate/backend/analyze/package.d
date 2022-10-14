@@ -691,6 +691,20 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             }
         }
 
+        void pruneSchemaMl() {
+            auto profile = Profile("prune schema_ml model");
+            log.info("Prune schema ML model");
+
+            Set!Checksum files;
+            foreach (a; ctx.db.get.getFiles)
+                files.add(checksum(cast(const(ubyte)[]) a.toString));
+
+            foreach (a; ctx.db.get.schemaApi.getMutantProbability.byKey.filter!(a => a !in files)) {
+                logger.trace("schema model. Dropping ", a.value);
+                ctx.db.get.schemaApi.removeMutantProbability(a);
+            }
+        }
+
         auto trans = ctx.db.get.transaction;
 
         addRoots;
@@ -711,8 +725,6 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 ctx.db.get.dependencyApi.cleanup;
             }
             {
-                import std.functional : toDelegate;
-
                 auto profile = Profile("remove orphaned mutants");
                 log.info("Removing orphaned mutants");
                 auto progress = (size_t i, size_t total, const Duration avgRemoveTime,
@@ -724,6 +736,12 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                     logger.infof(total > 0, "%1$s/%1$s removed", total);
                 };
                 ctx.db.get.mutantApi.removeOrphanedMutants(progress.toDelegate, done.toDelegate);
+            }
+            try {
+                pruneSchemaMl;
+            } catch (Exception e) {
+                logger.warning(e.msg);
+                logger.warning("Unable to prune schema ML model");
             }
         }
 
