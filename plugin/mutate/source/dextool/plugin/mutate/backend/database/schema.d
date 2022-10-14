@@ -658,19 +658,6 @@ struct CoverageCodeRegionTable {
     uint end;
 }
 
-/** Each coverage region that has a valid status has an entry in this table.
- * It do mean that there can be region that do not exist in this table. That
- * mean that something went wrong when gathering the data.
- */
-@TableName(srcCovInfoTable)
-@TableForeignKey("id", KeyRef("src_cov_instr(id)"), KeyParam("ON DELETE CASCADE"))
-struct CoverageInfoTable {
-    long id;
-
-    /// True if the region has been visited.
-    bool status;
-}
-
 /// When the coverage information was gathered.
 @TableName(srcCovTimeStampTable)
 struct CoverageTimeTtampTable {
@@ -875,9 +862,8 @@ void upgradeV0(ref Miniorm db) {
             RuntimeHistoryTable,
             MutationScoreHistoryTable,
             MutationFileScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
-            CoverageInfoTable, CoverageTimeTtampTable,
-            DependencyFileTable, DependencyRootTable, DextoolVersionTable,
-            TestCmdOriginalTable,
+            CoverageTimeTtampTable, DependencyFileTable,
+            DependencyRootTable, DextoolVersionTable, TestCmdOriginalTable,
             TestCmdMutatedTable,
             MutantMemOverloadtWorklistTbl,
             TestCmdRelMutantTable, TestCmdTable, SchemaMutantV2Table, SchemaFragmentV2Table));
@@ -2062,6 +2048,19 @@ void upgradeV50(ref Miniorm db) {
 
 // 2022-06-14
 void upgradeV51(ref Miniorm db) {
+    /** Each coverage region that has a valid status has an entry in this table.
+     * It do mean that there can be region that do not exist in this table. That
+     * mean that something went wrong when gathering the data.
+     */
+    @TableName(srcCovInfoTable)
+    @TableForeignKey("id", KeyRef("src_cov_instr(id)"), KeyParam("ON DELETE CASCADE"))
+    struct CoverageInfoTable {
+        long id;
+
+        /// True if the region has been visited.
+        bool status;
+    }
+
     db.run("DROP TABLE " ~ srcCovInfoTable);
     db.run(buildSchema!CoverageInfoTable);
 }
@@ -2241,6 +2240,13 @@ void upgradeV60(ref Miniorm db) {
             schemataTable
         ])
         db.run("DROP TABLE " ~ a);
+}
+
+// 2022-10-14
+void upgradeV61(ref Miniorm db) {
+    foreach (a; [srcCovTable, srcCovInfoTable])
+        db.run("DROP TABLE " ~ a);
+    db.run(buildSchema!CoverageCodeRegionTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

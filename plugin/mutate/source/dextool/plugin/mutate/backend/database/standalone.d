@@ -2069,20 +2069,18 @@ struct DbCoverage {
     }
 
     /// Add coverage regions with status.
-    void putCoverageMap(const Path filePath, const Offset[] region, const bool[] statuses) @trusted {
-        static immutable sql = format!"INSERT OR IGNORE INTO %1$s (file_id, status, begin, end)
-            VALUES((SELECT id FROM %2$s WHERE path = :path), :status, :begin, :end)"(srcCovTable,
-                filesTable);
+    void putCoverageMap(const Path file, const Offset[] region, const bool[] statuses) @trusted {
+        static immutable sql = "INSERT OR IGNORE INTO " ~ srcCovTable
+            ~ " (file_id, status, begin, end)
+            VALUES((SELECT id FROM " ~ filesTable ~ " WHERE path=:path), :status, :begin, :end)";
         auto stmt = db.prepare(sql);
-        int i = 0;
-        stmt.get.bind(":path", filePath);
-        foreach (a; region) {
+        stmt.get.bind(":path", file);
+        foreach (i, a; region) {
             stmt.get.bind(":status", statuses[i]);
             stmt.get.bind(":begin", a.begin);
             stmt.get.bind(":end", a.end);
             stmt.get.execute;
             stmt.get.reset;
-            i++;
         }
     }
 
@@ -2102,14 +2100,6 @@ struct DbCoverage {
         }
 
         return rval;
-    }
-
-    void putCoverageStatus(const CoverageRegionId regionId, bool status) {
-        static immutable sql = format!"UPDATE %1s SET status = :status WHERE id = :id"(srcCovTable);
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":id", regionId.get);
-        stmt.get.bind(":status", status);
-        stmt.get.execute;
     }
 
     CovRegionStatus[] getCoverageStatus(FileId fileId) @trusted {
@@ -2136,6 +2126,14 @@ struct DbCoverage {
         static immutable sql = "DELETE FROM " ~ srcCovTable ~ " WHERE file_id = :id";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", id.get);
+        stmt.get.execute;
+    }
+
+    void putCoverageStatus(const CoverageRegionId regionId, const bool status) @trusted {
+        static immutable sql = "UPDATE " ~ srcCovTable ~ " SET status = :status WHERE id = :id";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":id", regionId.get);
+        stmt.get.bind(":status", status);
         stmt.get.execute;
     }
 
