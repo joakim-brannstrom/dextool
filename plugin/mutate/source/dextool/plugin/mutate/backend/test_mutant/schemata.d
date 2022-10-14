@@ -317,8 +317,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaSizeQ;
             import dextool.plugin.mutate.backend.database : SchemaStatus;
 
-            // *3 is a magic number. it feels good.
-            auto sq = SchemaSizeQ.make(minSize, userInit * 3);
+            // 1.5 is a magic number. it feels good.
+            auto sq = SchemaSizeQ.make(minSize, cast(long) (userInit * 1.5));
             sq.currentSize = spinSql!(() => db.schemaApi.getSchemaSize(userInit));
             scope getStatusCnt = (SchemaStatus s) @safe {
                 return (s == status) ? [cast(long) schema.mutants.length] : null;
