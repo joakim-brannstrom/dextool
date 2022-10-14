@@ -332,7 +332,9 @@ struct ConfigCoverage {
     /// If the generated coverage files should be saved.
     bool log;
 
-    string metadataPath;
+    alias CoverageMetaData = NamedType!(AbsolutePath, Tag!"CoverageMetaData",
+            AbsolutePath.init, TagStringable);
+    Optional!CoverageMetaData metaData;
 
     /// allows a user to control exactly which files the coverage and schemata
     /// runtime is injected in.

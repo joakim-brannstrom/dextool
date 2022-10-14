@@ -464,6 +464,7 @@ struct ArgParser {
             int parallelMutants;
             long mutationTesterRuntime;
             string maxRuntime;
+            string metaDataPath;
             string mutationCompile;
             string[] mutationTestCaseAnalyze;
             string[] mutationTester;
@@ -492,7 +493,7 @@ struct ArgParser {
                    "log-coverage", "write the instrumented coverage files to a separate file", &coverage.log,
                    "max-alive", "stop after NR alive mutants is found (only effective with -L or --diff-from-stdin)", &maxAlive,
                    "max-runtime", format("max time to run the mutation testing for (default: %s)", mutationTest.maxRuntime), &maxRuntime,
-                   "metadata", "prioritieses files that are sent by JSON", &mutationTest.metadataPath,
+                   "metadata", "prioritieses files that are sent by JSON", &metaDataPath,
                    "m|mutant", "do not use. this option is deprecated", &mutationDeprecated,
                    "no-skipped", "do not skip mutants that are covered by others", &noSkip,
                    "order", "determine in what order mutants are chosen " ~ format("[%(%s|%)]", [EnumMembers!MutationOrder]), &mutationTest.mutationOrder,
@@ -539,7 +540,9 @@ struct ArgParser {
             mutationTest.constraint = parseUserTestConstraint(testConstraint);
             mutationTest.useSkipMutant.get = !noSkip;
 
-            coverage.metadataPath = mutationTest.metadataPath;
+            if (!metaDataPath.empty)
+                coverage.metaData = some(
+                        ConfigCoverage.CoverageMetaData(AbsolutePath(metaDataPath)));
 
             if (!mutationDeprecated.empty)
                 logger.warning("CLI parameter -m|--mutant is deprecated for command group test. It only has an effect for analyze and admin.");

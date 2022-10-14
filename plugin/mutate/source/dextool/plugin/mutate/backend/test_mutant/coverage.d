@@ -115,7 +115,7 @@ struct CoverageDriver {
 
         bool importExists = false;
 
-        string metadataPath;
+        ConfigCoverage.CoverageMetaData metaData;
     }
 
     this(FilesysIO fio, Database* db, TestRunner* runner, ConfigCoverage conf,
@@ -127,7 +127,7 @@ struct CoverageDriver {
         this.buildCmdTimeout = buildCmdTimeout;
         this.log = conf.log;
         this.runtime = conf.runtime;
-        this.metadataPath = conf.metadataPath;
+        this.metaData = conf.metaData.orElse(ConfigCoverage.CoverageMetaData.init);
 
         foreach (a; conf.userRuntimeCtrl) {
             auto p = fio.toAbsoluteRoot(a.file);
@@ -256,9 +256,12 @@ nothrow:
         import std.json : JSONValue, JSONOptions, parseJSON;
         import std.string : startsWith;
 
-        if (metadataPath.length == 0) {
+        if (metaData.get.empty)
             return;
-        } else if (!exists(metadataPath)) {
+
+        auto metadataPath = metaData.get;
+
+        if (!exists(metadataPath)) {
             logger.error("File: " ~ metadataPath ~ " does not exist").collectException;
             return;
         }
