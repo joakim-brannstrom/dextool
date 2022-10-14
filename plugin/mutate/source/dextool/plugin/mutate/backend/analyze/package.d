@@ -700,7 +700,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 files.add(checksum(cast(const(ubyte)[]) a.toString));
 
             foreach (a; ctx.db.get.schemaApi.getMutantProbability.byKey.filter!(a => a !in files)) {
-                logger.trace("schema model. Dropping ", a.value);
+                logger.trace("schema model. Dropping ", a);
                 ctx.db.get.schemaApi.removeMutantProbability(a);
             }
         }
