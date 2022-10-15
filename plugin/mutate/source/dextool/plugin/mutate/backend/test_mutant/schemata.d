@@ -318,7 +318,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             import dextool.plugin.mutate.backend.database : SchemaStatus;
 
             // 1.5 is a magic number. it feels good.
-            auto sq = SchemaSizeQ.make(minSize, cast(long) (userInit * 1.5));
+            auto sq = SchemaSizeQ.make(minSize, cast(long)(userInit * 1.5));
             sq.currentSize = spinSql!(() => db.schemaApi.getSchemaSize(userInit));
             scope getStatusCnt = (SchemaStatus s) @safe {
                 return (s == status) ? [cast(long) schema.mutants.length] : null;
@@ -453,7 +453,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             scope (exit)
                 ctx.state.get.compileTime = sw.peek;
 
-            logger.infof("Using schema with %s mutants", ctx.state.get.activeSchema.mutants.length);
+            logger.infof("Using schema with %s mutants", ctx.state.get.injectIds.length);
 
             auto codeInject = CodeInject(ctx.state.get.fio, ctx.state.get.conf);
             ctx.state.get.modifiedFiles = codeInject.inject(ctx.state.get.db,
@@ -632,7 +632,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                         ctx.state.get.schemaBuild.files.filesLeft).collectException;
                 frags = spinSql!(() {
                     auto trans = ctx.state.get.db.transaction;
-                    return ctx.state.get.schemaBuild.updateFiles(
+                    return ctx.state.get.schemaBuild.updateFiles(ctx.state.get.whiteList,
                         (FileId id) => spinSql!(() => ctx.state.get.db.schemaApi.getFragments(id)),
                         (FileId id) => spinSql!(() => ctx.state.get.db.getFile(id)),
                         (MutationStatusId id) => spinSql!(
@@ -1487,8 +1487,8 @@ struct SchemaBuildState {
     /// Add all fragments from one of the files to process to those to be
     /// incorporated into future schemas.
     /// Returns: number of fragments added.
-    size_t updateFiles(scope SchemaFragmentV2[]delegate(FileId) @safe fragmentsFn,
-            scope Nullable!Path delegate(FileId) @safe fnameFn,
+    size_t updateFiles(ref Set!MutationStatusId whiteList, scope SchemaFragmentV2[]delegate(
+            FileId) @safe fragmentsFn, scope Nullable!Path delegate(FileId) @safe fnameFn,
             scope Mutation.Kind delegate(MutationStatusId) @safe kindFn) @safe nothrow {
         import dextool.plugin.mutate.backend.type : CodeChecksum, Mutation;
         import dextool.plugin.mutate.backend.database : toChecksum;
@@ -1504,14 +1504,19 @@ struct SchemaBuildState {
             auto app = appender!(SchemataBuilder.Fragment[])();
             auto frags = fragmentsFn(id);
             foreach (a; frags) {
-                auto cm = a.mutants.map!(a => CodeMutant(CodeChecksum(a.toChecksum),
-                        Mutation(kindFn(a), Mutation.Status.unknown))).array;
-                app.put(SchemataBuilder.Fragment(SchemataBuilder.SchemataFragment(fname.get,
-                        a.offset, a.text), cm));
+                auto cm = a.mutants
+                    .filter!(a => a in whiteList)
+                    .map!(a => CodeMutant(CodeChecksum(a.toChecksum),
+                            Mutation(kindFn(a), Mutation.Status.unknown)))
+                    .array;
+                if (!cm.empty) {
+                    app.put(SchemataBuilder.Fragment(SchemataBuilder.SchemataFragment(fname.get,
+                            a.offset, a.text), cm));
+                }
             }
 
             builder.put(app.data);
-            return frags.length;
+            return app.data.length;
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
