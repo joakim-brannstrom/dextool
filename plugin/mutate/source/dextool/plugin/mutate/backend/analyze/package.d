@@ -395,6 +395,8 @@ alias StoreActor = typedActor!(void function(Start, ToolVersion), bool function(
 auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         RefCounted!(Database) db, StoreConfig conf, FilesysIO fio, Path[] rootFiles) @trusted {
     static struct State {
+        import dextool.plugin.mutate.backend.type : CodeMutant;
+
         // conditions governing when the analyze is done
         // if all analyze workers have been started and thus it is time to
         // start checking if startedAnalyzers == savedResult.
@@ -413,6 +415,11 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         bool isDone;
 
         bool isToolVersionDifferent;
+
+        // only save new mutants. assuming that it is faster to check if the
+        // mutants have been saved before than to go through multiple sql
+        // queries.
+        Set!CodeMutant saved;
 
         // files that have been saved to the database.
         Set!AbsolutePath savedFiles;
@@ -586,8 +593,10 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
             {
                 auto app = appender!(MutationPointEntry2[])();
-                foreach (mp; result.mutationPoints.filter!(a => a.file !in skipFile)) {
+                foreach (mp; result.mutationPoints.filter!(a => a.file !in skipFile
+                        && a.cm !in ctx.state.get.saved)) {
                     app.put(mp);
+                    ctx.state.get.saved.add(mp.cm);
                 }
                 ctx.db.get.mutantApi.put(app.data, ctx.fio.getOutputDir);
             }
