@@ -70,6 +70,10 @@ Fixes for dextool mutate
    test show a 50% reduction of the number of scheman needed which mean a
    sometimes huge reduction in test time. A side effect of this is that the
    analyze phase use a lot less memory.
+ * Analyze phase where not stable. The same mutants where not saved to the
+   database even if no source code where changed. Luckily the bug where in the
+   SQL schema definition which prohibited the same mutant kind to affect one and
+   the same source code location.
 
 # v4.3.0 Deep Steel
 

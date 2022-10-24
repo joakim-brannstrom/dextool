@@ -367,13 +367,12 @@ struct MutationPointTbl {
 @TableName(mutationTable)
 @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
 @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
-@TableConstraint("unique_ UNIQUE (mp_id, kind)")
+@TableConstraint("unique_ UNIQUE (mp_id, st_id, kind)")
 struct MutationTbl {
     long id;
 
     long mp_id;
 
-    @ColumnParam("")
     long st_id;
 
     long kind;
@@ -1966,6 +1965,21 @@ void upgradeV42(ref Miniorm db) {
 
 // 2021-06-07
 void upgradeV43(ref Miniorm db) {
+    @TableName(mutationTable)
+    @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableConstraint("unique_ UNIQUE (mp_id, kind)")
+    struct MutationTbl {
+        long id;
+
+        long mp_id;
+
+        @ColumnParam("")
+        long st_id;
+
+        long kind;
+    }
+
     immutable newTbl = "new_" ~ mutationTable;
     db.run(buildSchema!MutationTbl("new_"));
 
@@ -2224,6 +2238,15 @@ void upgradeV60(ref Miniorm db) {
             schemataTable
         ])
         db.run("DROP TABLE " ~ a);
+}
+
+void upgradeV61(ref Miniorm db) {
+    immutable newTbl = "new_" ~ mutationTable;
+    db.run(buildSchema!MutationTbl("new_"));
+
+    db.run("INSERT OR IGNORE INTO " ~ newTbl ~ " (id,mp_id,st_id,kind)
+        SELECT id,mp_id,st_id,kind FROM " ~ mutationTable);
+    replaceTbl(db, newTbl, mutationTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
