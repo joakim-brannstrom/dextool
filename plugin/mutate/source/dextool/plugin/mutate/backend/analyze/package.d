@@ -509,8 +509,8 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         send(ctx.flowCtrl, ReturnTokenMsg.init);
 
         ctx.state.get.savedResult++;
-        log.infof("Analyzed file %s/%s", ctx.state.get.savedResult,
-                ctx.state.get.startedAnalyzers);
+        log.infof("Analyzed %s/%s %s", ctx.state.get.savedResult,
+                ctx.state.get.startedAnalyzers, result.root);
 
         auto getFileId = nullableCache!(string, FileId, (string p) => ctx.db.get.getFileId(p.Path))(256,
                 10.dur!"seconds");
@@ -558,7 +558,8 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         {
             bool isChanged = ctx.state.get.isToolVersionDifferent;
 
-            foreach (f; result.idFile.byKey.filter!(a => a !in skipFile)) {
+            foreach (f; result.idFile.byKey.filter!(a => a !in skipFile
+                    && a !in ctx.state.get.savedFiles)) {
                 isChanged = true;
                 log.info("Saving ".color(Color.green), f);
 
@@ -567,14 +568,6 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 ctx.db.get.fileApi.put(relp, info.checksum, info.language, f == result.root);
 
                 ctx.state.get.savedFiles.add(f);
-            }
-
-            {
-                auto app = appender!(MutationPointEntry2[])();
-                foreach (mp; result.mutationPoints.filter!(a => a.file !in skipFile)) {
-                    app.put(mp);
-                }
-                ctx.db.get.mutantApi.put(app.data, ctx.fio.getOutputDir);
             }
 
             if (result.root !in ctx.state.get.savedFiles) {
@@ -589,6 +582,14 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 // any mutants.
                 ctx.db.get.fileApi.put(relp, result.rootCs, Language.init, true);
                 ctx.state.get.savedFiles.add(ctx.fio.toAbsoluteRoot(result.root));
+            }
+
+            {
+                auto app = appender!(MutationPointEntry2[])();
+                foreach (mp; result.mutationPoints.filter!(a => a.file !in skipFile)) {
+                    app.put(mp);
+                }
+                ctx.db.get.mutantApi.put(app.data, ctx.fio.getOutputDir);
             }
 
             // must always update dependencies because they may not contain
