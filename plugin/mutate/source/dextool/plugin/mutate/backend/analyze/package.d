@@ -596,8 +596,11 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 foreach (mp; result.mutationPoints.filter!(a => a.file !in skipFile
                         && a.cm !in ctx.state.get.saved)) {
                     app.put(mp);
-                    ctx.state.get.saved.add(mp.cm);
                 }
+                // only block new mutants of the same source code change after
+                // a whole "pass" because the same mutant kind can result in
+                // the same CodeChecksum.
+                ctx.state.get.saved.add(app.data.map!(a => a.cm));
                 ctx.db.get.mutantApi.put(app.data, ctx.fio.getOutputDir);
             }
 
