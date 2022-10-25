@@ -785,10 +785,14 @@ class ShallReportMutationScoreTrend : SimpleAnalyzeFixture {
 
         auto db = Database.make((testEnv.outdir ~ defaultDb).toString);
         auto ts = Clock.currTime - 2.dur!"weeks";
-        foreach (d; 0 .. 5)
+        foreach (d; 0 .. 50) {
                 db.fileApi.put(FileScore(ts + d.dur!"days", typeof(FileScore.score)(0.2 + 0.05*d), Path("foo.d")));
-        foreach (d; 5 .. 10)
+                db.putMutationScore(MutationScore(ts + d.dur!"days", typeof(MutationScore.score)(0.2 + 0.05*d)));
+        }
+        foreach (d; 5 .. 50) {
                 db.fileApi.put(FileScore(ts + d.dur!"days", typeof(FileScore.score)(0.2 + 0.05*5 - 0.01*d), Path("foo.d")));
+                db.putMutationScore(MutationScore(ts + d.dur!"days", typeof(MutationScore.score)(0.2 + 0.05*d - 0.01*d)));
+        }
 
         foreach (id; db.mutantApi.getAllMutationStatus.enumerate)
             db.mutantApi.update(id.value, id.index % 3 == 0 ? Mutation.Status.alive : Mutation.Status.killed, ExitStatus(0), MutantTimeProfile(Duration.zero, 5.dur!"msecs"));
