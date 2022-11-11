@@ -27,24 +27,24 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
 
 * 💉 Supports conventional mutation operators:
     [AOR, ROR, DCC, DCR, LCR, SDL, UOI](doc/design/mutations.md).
+* 💉 Supports extreme mutation where entire functions/methods are removed.
 * 📈 Provides multiple [report](#report) formats (Console, Compiler warnings,
   JSON, HTML).
 * 💪 Detects "useless" test cases that do not kill any mutants.
 * 💪 Detects "redundant" test cases that kill the same mutants.
 * 💪 Detects "redundant" test cases that do not uniquely kill any mutants.
-* 💪 Lists "near" test cases that can be helpful when [closing in for the kill](#kill).
+* 💪 Lists "near" test cases that can be helpful when [killing a mutant](#kill).
 * 🔄 Supports [change-based mutation testing](README_ci.md#change-based) for
   fast feedback in a pull request workflow.
 * 🐇 Can [continue](README_ci.md#incremental-mutation-test) from where a
-  testing session was interrupted.
-* 🐇 Can resume an interrupted analysis.
+  testing session or analysis was interrupted.
 * 🐇 Allows multiple instances to be [run in parallel](README_parallel.md).
-* 🐇 Can reuse previous results when a subset of the SUT changes by only testing those changes (files for now).
+* 🐇 Can reuse previous results when the SUT changes by only testing the change.
 * 🐇 Can automatically [rerun the mutations that previously survived](#re-test-alive)
-  when new tests are added to the test suite.
+  when new tests are added.
 * 🐇 Does automatic handling of infinite loops (timeout).
 * 🐇 Uses coverage information to only test mutants in functions/methods
-  covered by the test suite.
+  covered by the tests.
 * 🐇 Uses [mutant schemata](doc/design/notes/schemata.md) to compile and link
   once per SUT, rather than once per mutant.
 * 🔨 Works with all C/C++ versions.
@@ -171,7 +171,7 @@ analysises is:
 dextool mutate report --style html --section summary --section tc_suggestion --section tc_killed_no_mutants --section tc_unique --section tc_similarity --section trend
 ```
 
-## Closing in for the kill <a name="kill"></a> 🦁
+## Killing a Mutant <a name="kill"></a> 🦁
 
 The HTML report will for every killed mutant list the test cases that killed it
 when the mutant is expanded.
