@@ -27,6 +27,7 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
 
 * 💉 Supports conventional mutation operators:
     [AOR, ROR, DCC, DCR, LCR, SDL, UOI](doc/design/mutations.md).
+* 💉 Supports extreme mutation where entire functions/methods are removed.
 * 📈 Provides multiple [report](#report) formats (Console, Compiler warnings,
   JSON, HTML).
 * 💪 Detects "useless" test cases that do not kill any mutants.
