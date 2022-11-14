@@ -1500,7 +1500,6 @@ nothrow:
     void opCall(ref SchemataTest data) {
         import core.thread : Thread;
         import core.time : dur;
-        import dextool.plugin.mutate.backend.database : SchemaStatus;
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         try {
@@ -1773,10 +1772,12 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
             }
             t.commit;
         });
+        logger.trace("Saved schemaq").collectException;
     }
 
     static void save4(ref Ctx ctx, SchemaSizeQ result) @safe nothrow {
-        spinSql!(() @trusted {
+        logger.trace("Saving schema size ", result.currentSize).collectException;
+        spinSql!(() @safe {
             ctx.state.get.db.schemaApi.saveSchemaSize(result.currentSize);
         });
     }

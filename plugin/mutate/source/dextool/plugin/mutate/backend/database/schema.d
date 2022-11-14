@@ -2003,7 +2003,16 @@ void upgradeV44(ref Miniorm db) {
     @TableName(schemataUsedTable)
     @TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
     struct SchemataUsedTable {
-        import dextool.plugin.mutate.backend.database.type : SchemaStatus;
+        enum SchemaStatus {
+            /// no status exist
+            none,
+            /// the schema compiled and the test suite executed OK
+            ok,
+            /// either it failed to compile or the test suite failed
+            broken,
+            /// the schema only contain killed mutants
+            allKilled,
+        }
 
         long id;
 

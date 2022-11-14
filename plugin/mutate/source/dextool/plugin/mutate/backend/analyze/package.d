@@ -38,9 +38,9 @@ static import colorlog;
 
 import dextool.utility : dextoolBinaryId;
 
-import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
 import dextool.compilation_db : CompileCommandFilter, defaultCompilerFlagFilter, CompileCommandDB,
     ParsedCompileCommandRange, ParsedCompileCommand, ParseFlags, SystemIncludePath;
+import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
 import dextool.plugin.mutate.backend.analyze.internal : TokenStream;
 import dextool.plugin.mutate.backend.analyze.pass_schemata : SchemataResult;
 import dextool.plugin.mutate.backend.database : Database, LineMetadata,
@@ -227,8 +227,6 @@ struct StoreDoneMsg {
 }
 
 struct AnalyzeConfig {
-    import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
-
     ConfigCompiler compiler;
     ConfigAnalyze analyze;
     ConfigCoverage coverage;
@@ -432,9 +430,6 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
     alias Ctx = typeof(st);
 
     static void start(ref Ctx ctx, Start, ToolVersion toolVersion) {
-        import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
-        import dextool.plugin.mutate.backend.database : SchemaStatus;
-
         log.trace("starting store actor");
 
         ctx.state.get.isToolVersionDifferent = ctx.db.get.isToolVersionDifferent(toolVersion);
