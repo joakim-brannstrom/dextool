@@ -144,7 +144,7 @@ struct RefCounted(T) {
     }
 
     /// Returns: pointer to the item or null.
-    inout(T*) ptr() inout scope return  {
+    inout(T*) ptr() inout return {
         return item;
     }
 

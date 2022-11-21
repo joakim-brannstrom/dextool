@@ -6,7 +6,7 @@ license "BSL-1.0"
 
 targetPath "build"
 
-lflags "-L/usr/lib/llvm-11/lib"
+lflags "-L/usr/lib/llvm-15/lib"
 libs  ":libclang.so.1"
 
 # have to manually adjust the path to the specific libclang source that is used

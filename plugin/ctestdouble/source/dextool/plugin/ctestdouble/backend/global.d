@@ -35,9 +35,13 @@ TypeKind resolveTypedef(TypeKind type, ref Container container) @trusted nothrow
     TypeKind rval = type;
     auto found = typeof(container.find!TypeKind(USRType.init)).init;
 
-    type.info.match!((TypeKind.TypeRefInfo t) {
-        found = container.find!TypeKind(t.canonicalRef);
-    }, (_) {});
+    try {
+        type.info.match!((TypeKind.TypeRefInfo t) {
+            found = container.find!TypeKind(t.canonicalRef);
+        }, (_) {});
+    } catch (Exception e) {
+        return TypeKind.init;
+    }
 
     foreach (item; found)
         rval = item;

@@ -78,7 +78,7 @@ struct Database {
         return Database(initializeDB(db));
     }
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return db_;
     }
 
@@ -382,7 +382,7 @@ struct DbDependency {
     private Miniorm* db_;
     private Database* wrapperDb;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -475,7 +475,7 @@ struct DbTestCmd {
 
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -628,7 +628,7 @@ struct DbTestCmd {
 struct DbTestCase {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -1060,7 +1060,7 @@ struct DbMutant {
     private Miniorm* db_;
     private Database* wrapperDb;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -1774,7 +1774,7 @@ struct DbMutant {
 struct DbWorklist {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -1870,7 +1870,7 @@ struct DbWorklist {
 struct DbMemOverload {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -1900,7 +1900,7 @@ struct DbMemOverload {
 struct DbMarkMutant {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -1966,7 +1966,7 @@ struct DbMarkMutant {
 struct DbTimeout {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2049,7 +2049,7 @@ struct DbTimeout {
 struct DbCoverage {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2168,7 +2168,7 @@ struct DbSchema {
     private Miniorm* db_;
     private Database* wrapperDb;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2312,7 +2312,7 @@ struct DbSchema {
 struct DbMetaData {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2420,7 +2420,7 @@ struct DbMetaData {
 struct DbTestFile {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2475,7 +2475,7 @@ struct DbTestFile {
 struct DbFile {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 

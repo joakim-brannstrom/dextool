@@ -271,7 +271,7 @@ struct StrongAddress {
         return WeakAddress(addr);
     }
 
-    package Address* get() @safe pure nothrow @nogc scope return  {
+    package Address* get() @safe pure nothrow @nogc return {
         return addr;
     }
 }

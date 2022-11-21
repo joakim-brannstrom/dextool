@@ -109,6 +109,8 @@ string llvmMajorVersion() {
     versionToBinding[5] = defaultVersion;
     versionToBinding[6] = defaultVersion;
     versionToBinding[7] = defaultVersion;
+    // all tests where green using bindings for 13
+    versionToBinding[14] = 13;
 
     foreach (d; dirEntries("libs/libclang", SpanMode.shallow)) {
         try {
