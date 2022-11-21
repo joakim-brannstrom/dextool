@@ -49,19 +49,33 @@ LogLevel toLogLevel(VerboseMode mode) @safe pure nothrow @nogc {
 /** Configure `std.experimental.logger` `sharedLog` with a colorlog instance
  * and register it with name "_".
  */
-void confLogger(VerboseMode mode) @safe {
+void confLogger(VerboseMode mode) @trusted {
     logger.globalLogLevel = toLogLevel(mode);
 
-    final switch (mode) {
-    case VerboseMode.info:
-        logger.sharedLog = new SimpleLogger(logger.LogLevel.info);
-        break;
-    case VerboseMode.trace:
-        logger.sharedLog = new DebugLogger(logger.LogLevel.all);
-        break;
-    case VerboseMode.warning:
-        logger.sharedLog = new SimpleLogger(logger.LogLevel.info);
-        break;
+    static if (__VERSION__ <= 2100) {
+        final switch (mode) {
+        case VerboseMode.info:
+            logger.sharedLog = new SimpleLogger(logger.LogLevel.info);
+            break;
+        case VerboseMode.trace:
+            logger.sharedLog = new DebugLogger(logger.LogLevel.all);
+            break;
+        case VerboseMode.warning:
+            logger.sharedLog = new SimpleLogger(logger.LogLevel.info);
+            break;
+        }
+    } else {
+        final switch (mode) {
+        case VerboseMode.info:
+            logger.sharedLog = cast(shared) new SimpleLogger(logger.LogLevel.info);
+            break;
+        case VerboseMode.trace:
+            logger.sharedLog = cast(shared) new DebugLogger(logger.LogLevel.all);
+            break;
+        case VerboseMode.warning:
+            logger.sharedLog = cast(shared) new SimpleLogger(logger.LogLevel.info);
+            break;
+        }
     }
 
     () @trusted { register(logger.sharedLog, RootLogger); }();
@@ -152,15 +166,27 @@ string mixinModuleLogger(logger.LogLevel defaultLogLvl = logger.LogLevel.all) @s
 }
 
 /// Register a logger for the module and make it configurable from "outside" via the registry.
-void register(logger.Logger logger, string name = __MODULE__) {
-    synchronized (poolLock) {
-        loggers[name] = cast(shared) logger;
+static if (__VERSION__ <= 2100) {
+    void register(logger.Logger logger, string name = __MODULE__) {
+        synchronized (poolLock) {
+            loggers[name] = cast(shared) logger;
+        }
+    }
+} else {
+    void register(shared logger.Logger logger, string name = __MODULE__) {
+        synchronized (poolLock) {
+            loggers[name] = logger;
+        }
     }
 }
 
 /// Create a logger for the module and make it configurable from "outside" via the registry.
 void make(LoggerT)(const logger.LogLevel lvl = logger.LogLevel.all, string name = __MODULE__) @trusted {
-    register(new LoggerT(lvl), name);
+    static if (__VERSION__ <= 2100) {
+        register(new LoggerT(lvl), name);
+    } else {
+        register(cast(shared) new LoggerT(lvl), name);
+    }
 }
 
 /// Returns: the name of all registered loggers.
