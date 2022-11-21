@@ -5,6 +5,7 @@ Fixes
  * Updated support to llvm-14. This fix should make dextool automatically work
    with future versions of llvm as long as the C bindings that are used by
    dextool are unchanged.
+ * Bindings updated to support llvm-15.
 
 New features for dextool mutate
 
