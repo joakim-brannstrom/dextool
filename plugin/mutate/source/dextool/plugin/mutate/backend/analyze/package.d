@@ -737,7 +737,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
                 log.info("Removing orphaned mutants");
                 auto progress = (size_t i, size_t total, const Duration avgRemoveTime,
                         const Duration timeLeft, SysTime predDoneAt) {
-                    logger.infof("%s/%s removed (average %sms) (%s) (%s)", i,
+                    logger.infof("%s/%s removed (average %s) (%s) (%s)", i,
                             total, avgRemoveTime, timeLeft, predDoneAt.toSimpleString);
                 };
                 auto done = (size_t total) {
