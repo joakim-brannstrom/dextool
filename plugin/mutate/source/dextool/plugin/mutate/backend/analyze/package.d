@@ -64,10 +64,10 @@ alias log = colorlog.log!"analyze";
 
 /** Analyze the files in `frange` for mutations.
  */
-ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userKinds,
-        ConfigAnalyze analyzeConf, ConfigCompiler compilerConf,
-        ConfigSchema schemaConf, ConfigCoverage covConf,
-        ParsedCompileCommandRange frange, ValidateLoc valLoc, FilesysIO fio) @trusted {
+ExitStatusType runAnalyzer(const AbsolutePath dbPath, const AbsolutePath confFile,
+        const MutationKind[] userKinds, ConfigAnalyze analyzeConf,
+        ConfigCompiler compilerConf, ConfigSchema schemaConf,
+        ConfigCoverage covConf, ParsedCompileCommandRange frange, ValidateLoc valLoc, FilesysIO fio) @trusted {
     import dextool.plugin.mutate.backend.diff_parser : diffFromStdin, Diff;
     import dextool.plugin.mutate.backend.mutation_type : toInternal;
 
@@ -96,15 +96,17 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const MutationKind[] userK
 
     auto db = refCounted(Database.make(dbPath));
 
+    auto needFullAnalyzeRes = needFullAnalyze(db.get, confFile);
+
     // if a dependency of a root file has been changed.
-    auto changedDeps = dependencyAnalyze(db.get, fio);
+    auto changedDeps = dependencyAnalyze(db.get, needFullAnalyzeRes.status, fio);
     auto schemaQ = SchemaQ(db.get.schemaApi.getMutantProbability);
 
     auto store = sys.spawn(&spawnStoreActor, flowCtrl, db,
             StoreConfig(analyzeConf, schemaConf, covConf), fio, changedDeps.byKeyValue
             .filter!(a => !a.value)
             .map!(a => a.key)
-            .array);
+            .array, needFullAnalyzeRes);
     db.release;
     // it crashes if the store actor try to call dextoolBinaryId. I don't know
     // why... TLS store trashed? But it works, somehow, if I put some writeln
@@ -390,10 +392,12 @@ alias StoreActor = typedActor!(void function(Start, ToolVersion), bool function(
         void function(CheckPostProcess), void function(PostProcess),);
 
 /// Store the result of the analyze.
-auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
-        RefCounted!(Database) db, StoreConfig conf, FilesysIO fio, Path[] rootFiles) @trusted {
+auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl, RefCounted!(Database) db,
+        StoreConfig conf, FilesysIO fio, Path[] rootFiles, NeedFullAnalyzeResult needFullAnalyze) @trusted {
     static struct State {
         import dextool.plugin.mutate.backend.type : CodeMutant;
+
+        NeedFullAnalyzeResult needFullAnalyze;
 
         // conditions governing when the analyze is done
         // if all analyze workers have been started and thus it is time to
@@ -412,8 +416,6 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         /// Set when the whole analyze process is done and all results are saved to the database.
         bool isDone;
 
-        bool isToolVersionDifferent;
-
         // only save new mutants. assuming that it is faster to check if the
         // mutants have been saved before than to go through multiple sql
         // queries.
@@ -426,13 +428,11 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
     }
 
     auto st = tuple!("self", "db", "state", "fio", "conf", "rootFiles", "flowCtrl")(self,
-            db, refCounted(State.init), fio.dup, conf, rootFiles, flowCtrl);
+            db, refCounted(State(needFullAnalyze)), fio.dup, conf, rootFiles, flowCtrl);
     alias Ctx = typeof(st);
 
     static void start(ref Ctx ctx, Start, ToolVersion toolVersion) {
         log.trace("starting store actor");
-
-        ctx.state.get.isToolVersionDifferent = ctx.db.get.isToolVersionDifferent(toolVersion);
 
         if (ctx.conf.analyze.fastDbStore) {
             log.info(
@@ -543,7 +543,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
             const relp = ctx.fio.toRelativeRoot(f);
 
             if (getFileDbChecksum(relp) != getFileFsChecksum(f)
-                    || ctx.conf.analyze.forceSaveAnalyze || ctx.state.get.isToolVersionDifferent) {
+                    || ctx.conf.analyze.forceSaveAnalyze || ctx.state.get.needFullAnalyze.status) {
                 // this is critical in order to remove old data about a file.
                 if (f !in ctx.state.get.clearedFiles) {
                     ctx.db.get.removeFile(relp);
@@ -558,7 +558,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         }
 
         {
-            bool isChanged = ctx.state.get.isToolVersionDifferent;
+            bool isChanged = ctx.state.get.needFullAnalyze.status;
 
             foreach (f; result.idFile.byKey.filter!(a => a !in skipFile
                     && a !in ctx.state.get.savedFiles)) {
@@ -677,7 +677,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         }
 
         void addRoots() {
-            if (ctx.conf.analyze.forceSaveAnalyze || ctx.state.get.isToolVersionDifferent)
+            if (ctx.conf.analyze.forceSaveAnalyze || ctx.state.get.needFullAnalyze.status)
                 return;
 
             // add root files and their dependencies that has not been analyzed because nothing has changed.
@@ -757,9 +757,11 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
         updateMarkedMutants(ctx.db.get);
         printLostMarkings(ctx.db.get.markMutantApi.getLostMarkings);
 
-        if (ctx.state.get.isToolVersionDifferent) {
+        if (ctx.state.get.needFullAnalyze.status) {
             log.info("Updating tool version");
-            ctx.db.get.updateToolVersion(ToolVersion(dextoolBinaryId));
+            ctx.db.get.miscApi.setToolVersion(ToolVersion(dextoolBinaryId));
+            log.info("Update config version");
+            ctx.db.get.miscApi.setConfigVersion(ctx.state.get.needFullAnalyze.cs);
         }
 
         log.info("Committing changes");
@@ -768,7 +770,7 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl,
 
         fastDbOff();
 
-        if (ctx.state.get.isToolVersionDifferent) {
+        if (ctx.state.get.needFullAnalyze.status) {
             auto profile = Profile("compact");
             log.info("Compacting the database");
             ctx.db.get.vacuum;
@@ -1286,7 +1288,7 @@ Optional!AbsolutePath toAbsolutePath(Path file, AbsolutePath workDir,
 /** Returns: the root files that need to be re-analyzed because either them or
  * their dependency has changed.
  */
-bool[Path] dependencyAnalyze(ref Database db, FilesysIO fio) @trusted {
+bool[Path] dependencyAnalyze(ref Database db, const bool needFullAnalyze, FilesysIO fio) @trusted {
     import dextool.cachetools : nullableCache;
     import dextool.plugin.mutate.backend.database : FileId;
 
@@ -1312,9 +1314,8 @@ bool[Path] dependencyAnalyze(ref Database db, FilesysIO fio) @trusted {
         foreach (a; db.dependencyApi.getAll)
             dbDeps[a.file] = a.checksum;
 
-        const isToolVersionDifferent = db.isToolVersionDifferent(ToolVersion(dextoolBinaryId));
         bool isChanged(T)(T f) {
-            if (isToolVersionDifferent) {
+            if (needFullAnalyze) {
                 // because the tool version is updated then all files need to
                 // be re-analyzed. an update can mean that scheman are
                 // improved, mutants has been changed/removed etc. it is
@@ -1380,4 +1381,23 @@ void saveSchemaFragments(ref Database db, FilesysIO fio,
                 a.fragments.fragments.map!(a => SchemaFragmentV2(a.offset,
                     a.text, a.mutants.map!(a => a.id.toMutationStatusId).array)).array);
     }
+}
+
+struct NeedFullAnalyzeResult {
+    Checksum cs;
+    bool status;
+}
+
+NeedFullAnalyzeResult needFullAnalyze(ref Database db, AbsolutePath config) @safe nothrow {
+    try {
+        const cs = checksum(config);
+        const prevConfigCs = db.miscApi.getConfigVersion;
+        const status = cs != prevConfigCs
+            || db.miscApi.isToolVersionDifferent(ToolVersion(dextoolBinaryId));
+        logger.tracef("Config prev:%s curr:%s status:%s", prevConfigCs.c0, cs.c0, status);
+        return typeof(return)(cs, status);
+    } catch (Exception e) {
+        logger.trace(e.msg).collectException;
+    }
+    return typeof(return)(Checksum.init, true);
 }

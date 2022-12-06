@@ -45,6 +45,7 @@ New features for dextool mutate
  * The CLI parameter `--mutant` has been removed from `test` and `report` command groups.
  * (html report) The test cases in the info box in the file report is now a
    link to the detailed test case report.
+* Automatically trigger a full analyze when the configuration is changed.
 
 Fixes for dextool mutate
 
