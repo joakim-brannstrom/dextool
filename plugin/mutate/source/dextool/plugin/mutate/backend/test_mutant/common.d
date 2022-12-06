@@ -455,7 +455,6 @@ CompileResult compile(ShellCommand cmd, Duration timeout, PrintCompileOnFailure 
             return pipeProcess(cmd.value).sandbox.timeout(timeout).rcKill;
         }();
 
-        ulong bytes;
         foreach (a; p.process.drain) {
             if (!a.empty && print) {
                 write(a.byUTF8);
