@@ -89,6 +89,7 @@ import miniorm : Miniorm, TableName, buildSchema, ColumnParam, TableForeignKey, 
     TablePrimaryKey, KeyRef, KeyParam, ColumnName, delete_, insert, select, spinSql, silentLog;
 
 immutable allTestCaseTable = "all_test_case";
+immutable configVersionTable = "config_version";
 immutable depFileTable = "dependency_file";
 immutable depRootTable = "rel_dependency_root";
 immutable dextoolVersionTable = "dextool_version";
@@ -99,20 +100,20 @@ immutable mutantMemOverloadWorklistTable = "mutant_memoverload_worklist";
 immutable mutantTimeoutCtxTable = "mutant_timeout_ctx";
 immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
 immutable mutantWorklistTable = "mutant_worklist";
+immutable mutationFileScoreHistoryTable = "mutation_file_score_history";
 immutable mutationPointTable = "mutation_point";
 immutable mutationScoreHistoryTable = "mutation_score_history";
-immutable mutationFileScoreHistoryTable = "mutation_file_score_history";
 immutable mutationStatusTable = "mutation_status";
 immutable mutationTable = "mutation";
 immutable nomutDataTable = "nomut_data";
 immutable nomutTable = "nomut";
 immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable runtimeHistoryTable = "test_cmd_runtime_history";
+immutable schemaFragmentV2Table = "schema_fragment_v2";
 immutable schemaMutantQTable = "schema_mutant_q";
+immutable schemaMutantV2Table = "schemata_mutant_v2";
 immutable schemaSizeQTable = "schema_size_q";
 immutable schemaVersionTable = "schema_version";
-immutable schemaFragmentV2Table = "schema_fragment_v2";
-immutable schemaMutantV2Table = "schemata_mutant_v2";
 immutable srcCovInfoTable = "src_cov_info";
 immutable srcCovTable = "src_cov_instr";
 immutable srcCovTimeStampTable = "src_cov_timestamp";
@@ -304,7 +305,11 @@ struct VersionTbl {
 
 @TableName(dextoolVersionTable)
 struct DextoolVersionTable {
-    /// checksum is 64bit.
+    long checksum;
+}
+
+@TableName(configVersionTable)
+struct ConfigVersionTable {
     long checksum;
 }
 
@@ -871,12 +876,12 @@ void upgradeV0(ref Miniorm db) {
             RuntimeHistoryTable,
             MutationScoreHistoryTable,
             MutationFileScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
-            CoverageInfoTable, CoverageTimeTtampTable,
-            DependencyFileTable, DependencyRootTable, DextoolVersionTable,
+            CoverageInfoTable, CoverageTimeTtampTable, DependencyFileTable,
+            DependencyRootTable, DextoolVersionTable, ConfigVersionTable,
             TestCmdOriginalTable,
             TestCmdMutatedTable,
-            MutantMemOverloadtWorklistTbl,
-            TestCmdRelMutantTable, TestCmdTable, SchemaMutantV2Table, SchemaFragmentV2Table));
+            MutantMemOverloadtWorklistTbl, TestCmdRelMutantTable,
+            TestCmdTable, SchemaMutantV2Table, SchemaFragmentV2Table));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -2256,6 +2261,10 @@ void upgradeV61(ref Miniorm db) {
     db.run("INSERT OR IGNORE INTO " ~ newTbl ~ " (id,mp_id,st_id,kind)
         SELECT id,mp_id,st_id,kind FROM " ~ mutationTable);
     replaceTbl(db, newTbl, mutationTable);
+}
+
+void upgradeV62(ref Miniorm db) {
+    db.run(buildSchema!ConfigVersionTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {
