@@ -1,4 +1,16 @@
-# vNext
+# v5.0 Limestone
+
+Lots of changes. The user visible highlight is the significant improvements to
+the HTML report. Everything has been improved from the overview to the file
+mutant navigation. It is now a much more pleasent experience to read the
+report.
+
+The significant behavior change with this release is the removal of `--mutant`.
+Allowing `test` and `report` to use other mutantion operators than what where
+used during the analyze phase both resulted in a higher implementation
+complexity and surprising user behavior. The new behavior is that what has been
+analyzed is tested and reported. It is both more logical as implemented and how
+it is used.
 
 Fixes
 
@@ -15,37 +27,39 @@ New features for dextool mutate
    `NOMUTNEXT` to ignore the mutants on the next line and `NOMUTBEGIN`/`NOMUTEND`
    to ignore mutants in a whole block of code.
  * (html report) Auto detect when javascript is deactivated to print a warning.
- This is mainly for Jenkins servers wherein the security settings may have
- activated `CSP`. The HTML report look really bad and isn't working as
- expected. For a new user it may seem like it should be "this bad". The auto
- detect thus print show a warning to the user and a hint of how to solve it if
- CSP is the problem.
+   This is mainly for Jenkins servers wherein the security settings may have
+   activated `CSP`. The HTML report look really bad and isn't working as
+   expected. For a new user it may seem like it should be "this bad". The auto
+   detect thus print show a warning to the user and a hint of how to solve it
+   if CSP is the problem.
  * Add support for constant replacement of floating point numbers.
  * (html report) Improve the sortable tables
  * (html report) Improve how mutants that span multiple lines are displayed.
  * (html report) Remove buggy treemap.
  * (html report) Display an explanation for the mutation operator abbreviations
- when hovering with the mouse.
+   when hovering with the mouse.
  * (html report) Display how an individual files mutation score have changed
- compared to the last 7 days average. This is to help in identifying negative
- trends.
+   compared to the last 7 days average. This is to help in identifying negative
+   trends.
  * (html report) Display coverage information.
- * (html report) Move help text and explanations to a popup dialog (I) to reduce the clutter.
+ * (html report) Move help text and explanations to a popup dialog (I) to
+   reduce the clutter.
  * (html report) When clicking on a mutant choose the smallest mutants under
- the cursors. This is to fix the annoying behavior wherein the first mutant
- where chosen which could be one that span multiple lines. It is hardly ever
- that one that is of interest. If the mouse is over e.g. a `+` then the
- expected behavior is to show the AOR mutants under the cursor (`-`).
+   the cursors. This is to fix the annoying behavior wherein the first mutant
+   where chosen which could be one that span multiple lines. It is hardly ever
+   that one that is of interest. If the mouse is over e.g. a `+` then the
+   expected behavior is to show the AOR mutants under the cursor (`-`).
  * (html report) Deduplicate mutants that have the same source code
- transformation to make it easier to find the relevant mutant to look.
+   transformation to make it easier to find the relevant mutant to look.
  * (html report) Fix scrolling in a file report. Scrolling with the mouse do
- not change the mutant except when the mouse is over the window showing the
- mutants on the current line.
+   not change the mutant except when the mouse is over the window showing the
+   mutants on the current line.
  * (html report) Fix the web browsers "back" button when looking at a file report.
- * The CLI parameter `--mutant` has been removed from `test` and `report` command groups.
+ * The CLI parameter `--mutant` has been removed from `test` and `report`
+   command groups.
  * (html report) The test cases in the info box in the file report is now a
    link to the detailed test case report.
-* Automatically trigger a full analyze when the configuration is changed.
+ * Automatically trigger a full analyze when the configuration is changed.
 
 Fixes for dextool mutate
 
