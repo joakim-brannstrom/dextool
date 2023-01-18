@@ -1,3 +1,16 @@
+# vNext
+
+Fixes for dextool mutate
+
+ * It is problematic to inject mutant schema in C++ templates because it may be
+   highly likely that the resulting schema fail to compile. If it is likely or
+   not depend on the source code. Sometimes it works fine, sometimes it doesn't
+   Because dextool mutate is intended to be generically applicable this release
+   changes the schema generator to be conservative. If it is a C++ template
+   then do not inject a schema code in them. This may result in slower mutation
+   testing for some and faster for others. If it turns out to be a problem this
+   behavior may become configurable.
+
 # v5.0 Limestone
 
 Lots of changes. The user visible highlight is the significant improvements to
