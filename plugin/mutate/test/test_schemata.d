@@ -484,3 +484,18 @@ class ShallChangeTimeoutScaleFactor : SchemataFixutre {
         testAnyOrder!SubStr(["Timeout Scale Factor: 3"]).shouldBeIn(r.output);
     }
 }
+
+class ShallBlockSchemaInCtorDtor : SchemataFixutre {
+    override string programFile() {
+        return (testData ~ "schemata_ctor_dtor.cpp").toString;
+    }
+
+    override void test() {
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        auto r = makeDextoolAnalyze(testEnv).addInputArg(programCode).run;
+
+        testAnyOrder!Re([".*Function.*!schema.*"]).shouldBeIn(r.output);
+    }
+}

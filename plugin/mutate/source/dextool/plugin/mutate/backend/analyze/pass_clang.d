@@ -536,8 +536,7 @@ final class BaseVisitor : ExtendedVisitor {
         auto n = ast.get.make!(analyze.Poison);
         n.context = true;
         n.covBlacklist = true;
-        n.schemaBlacklist = n.schemaBlacklist
-            || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
+        n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
@@ -548,8 +547,7 @@ final class BaseVisitor : ExtendedVisitor {
         auto n = ast.get.make!(analyze.Poison);
         n.context = true;
         n.covBlacklist = true;
-        n.schemaBlacklist = n.schemaBlacklist
-            || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
+        n.schemaBlacklist = true;
         pushStack(n, v);
         v.accept(this);
     }
@@ -1027,8 +1025,8 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         // to avoid infinite recursion, which may occur in e.g. postgresql, block
         // segfault on 300
-        if (indent > 200) {
-            throw new Exception("max analyze depth reached (200)");
+        if (indent > 100) {
+            throw new Exception("max analyze depth reached (100)");
         }
 
         auto n = ast.get.make!(analyze.BranchBundle);
@@ -1249,7 +1247,7 @@ final class BaseVisitor : ExtendedVisitor {
             return null;
 
         auto n = ast.get.make!(analyze.Function);
-        n.schemaBlacklist = isConstExpr(v);
+        n.schemaBlacklist = v.cursor.kind == CXCursorKind.functionTemplate || isConstExpr(v);
         nstack.back.children ~= n;
         pushStack(v.cursor, n, loc, v.cursor.kind);
 
