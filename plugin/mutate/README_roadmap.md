@@ -52,14 +52,8 @@ for the next release together with mapping the items to implement.
 
 ## Arc Current
 
-The focus is on usability. Improve the HTML report, make it easier to read and
-faster to act on important information.
-
 ### Tasks
 
- * present the first mutant that survived in a pull request as a diff. It
-   should be "good enough" because the user is working on the pieace of code
-   thus it should be able to "fast" understand what the mutant means.
  * save the function name in the database for a coverage region.
  * add function metric to present to user a under-tested function. It is
    basically a mutation score per function.
@@ -85,29 +79,13 @@ New items are added at the top
  * add an option to rank mutants by how much they change the code coverage (test impact).
     * computationally expensive so maybe add first after the static approaches
       are implemented such as AST affection.
- * rank mutants by how much they changed the source code. more tokens then
-   higher risk? Add to high interest mutants.  an alternative would be how much
-   they change the dataflow based on the LLVM IR.
  * document the coverage map and how to integrate with it such that a custom
    format can be integrated. This is to make it possible to e.g. use the
    coverage information from a [lauterbach probe](https://www.lauterbach.com/frames.html?home.html).
- * integrate coverage with embedded systems.
-    * one way is to make it possible for a user to write to create a coverage
-      map themself. this could be by e.g. exporting a json of what each byte
-      represent.
-    * another way is to import a plain json as coverage data. then the user can
-      transform from whatever they want to this json and dextool imports it.
  * add an option to let the compilation flags be part of the checksum.
- * embed the configuration in the database to make it easier to share, review
-   and archive. "how was the mutation testing tool actually executed?".
  * make it possible for the user to define "mutation operator sets" from the
    40+ primitives. There is no reason why they are hardcoded.
  * implement merge of databases. It is to make it possible for a team to work "distributed".
    For example make a copy of the database, make changes to the SUT and rerun the mutation testning.
    The take the result and "merge it back" into the teams shared database.
- * the time spent on mutations should always be added to the existing time, not overwritten.
- * Implement the optimization found in [Improving Quality of Avionics Software
-   Using Mutation
-   Testing](http://liu.diva-portal.org/smash/record.jsf?pid=diva2%3A707336&dswid=-3612)
-   to reduce the amount of equivalent mutants.
  * the html report have an off-by-one error when displaying mutants.
