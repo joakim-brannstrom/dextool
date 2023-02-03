@@ -55,31 +55,39 @@ Join the community at [discord](https://discord.gg/Gc27DyQ5yx).
 
 # Mutation Testing
 
-Mutation testing is a software testing technique and an active research area.
-It was first proposed in 1971 by Richard Lipton. The technique can be described
-as a process in which the "tests are tested" in order to determine the adequacy
-of the test suite. Code coverage determine the adequacy of the test suite by
-executed the system under test and measuring how much this execution covered of
-the total program. Mutation testing determine the adequacy by injecting
-syntactical faults (mutants) and executing the test suite. If the test suite
-"fail" it is interpreted as the syntactical fault (mutant) being found and
-killed by the test suite (good).
+Mutation testing is a software testing technique in which small, deliberate
+changes are made to the source code, and the system is then tested to see if it
+can detect the changes, also known as mutations. This helps to evaluate the
+quality of the test suite and determine if it provides adequate coverage and is
+able to detect faults in the code. The idea is that if the tests can detect the
+changes, then they are strong and likely to detect actual faults in the code.
 
-Mutation testing requires a test to verify the output in order to kill a
-mutant. A test suite that kill a mutant thus *detected* the semantic change and
-by killing the mutant reject the behavior change.
+To use mutation testing, you need to follow these general steps:
+
+ * Create test cases: You need to have a set of automated test cases that cover
+   the codebase. The goal is to ensure that the mutations introduced in the
+   code are detected by the tests.
+ * Run dextool mutate: You run the mutation testing tool on your codebase and
+   let it make mutations to the source code. The tool will then run the test
+   suite to see if the tests can detect the mutations.
+ * Analyze the results: The tool will provide a report on the number of mutants
+   that were killed (detected by the tests) and the number of alive (not
+   detected by the tests). You can then analyze the results to determine which
+   parts of the code need more testing and which test cases need to be updated.
+ * Improve the tests: Based on the results of the mutation testing, you can
+   improve the test suite by adding more test cases, updating existing ones to
+   ensure that they detect all mutations or refactor the codebase.
 
 The algorithm for mutation testing is thus:
 
- * inject one mutant.
- * execute the test suite.
- * if the test suite **failed** record the mutant as **killed** otherwise
+ * Inject one mutant.
+ * Execute the test suite.
+ * If the test suite **failed** record the mutant as **killed** otherwise
    **alive**.
 
-The type of mutant that is injected follow a *schema* which in the literature
-is called a "mutant operator". The mutation operators focus on different
-semantical changes such as logical, control flow, data flow, *math*, boundary
-etc.
+The mutants are generated following a schema, which in the literature is called
+a "mutation operator". The mutation operators focus on different semantical
+changes such as logical, control flow, data flow, *math*, boundary etc.
 
 The recommended operators to use try to affect the logic and data flow:
 
@@ -88,7 +96,7 @@ The recommended operators to use try to affect the logic and data flow:
    assignments and calls.
  * dcr. Replaes logic with `true` and `false`. Strongly affects the control
    flow.
- * uoi. Deletes negation `!`.
+ * uoi. Delete negation `!`.
 
 Optional that are good candidates are:
 
@@ -97,6 +105,9 @@ Optional that are good candidates are:
    counter mutation e.g. + to -. It thus is 1/4 of the mutants
  * rorp. Changes the relational operators such as `<` to its close relative
    `<=`. Strongly affects the boundaries how values are used and indexing.
+ * cr. Replace constants with zero.
+
+See [mutaton operators](README_mutation_operators.md) for a detailed explanation.
 
 ```
 /---------------------------\    /-----------------------------------------------------\
@@ -168,7 +179,7 @@ A basic report with a file list, statistics and some simple test case
 analysises is:
 
 ```sh
-dextool mutate report --style html --section summary --section tc_suggestion --section tc_killed_no_mutants --section tc_unique --section tc_similarity --section trend
+dextool mutate report --style html --section summary --section tc_suggestion --section tc_killed_no_mutants --section tc_unique --section tc_similarity
 ```
 
 ## Killing a Mutant <a name="kill"></a> 🦁
@@ -217,11 +228,9 @@ int y = 43;
 int z = 43; 
  ```
 
-All mutants that are marked is subtracted from the total when
-calculating the mutation score. Additional fields in the statistics are
-also added which highlight how many of the total that are annotated as `NOMUT`.
-This is to make it easier to find and react if it where to become too many of
-them.
+All mutants that are marked is subtracted from the total when calculating the
+mutation score. Additional fields in the statistics are added which highlight
+how many of the total that are annotated as `NOMUT`.
 
 In the HTML report the `tag` is used to group mutants to make it easier to
 distinguish them from each other and help in understanding why they are
