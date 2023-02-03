@@ -1,11 +1,30 @@
 ## Mutation Operators
 
-This is the mutation operators that dextool support with a description of how
-the operator mutate the codebase.
+A mutation operator is a specific rule or algorithm used in mutation testing to
+generate mutations, or deliberate changes, in the source code being tested.
+Mutation operators are used to simulate faults or defects in the code and
+assess the effectiveness of the test suite.
+
+Each mutation operator is designed to make a specific type of change to the
+code, such as changing an operator, flipping a conditional, or removing a
+statement. After the mutations are generated, the test suite is executed to
+determine if it can detect the changes. If the test suite fails to detect a
+mutation, it indicates that there may be a weakness in the test suite, or that
+the code itself is faulty.
+
+Mutation operators can vary in terms of their complexity, scope, and impact on
+the code. Some mutation operators are simple and only make minor changes to the
+code, while others are more complex and can cause significant changes in the
+code's behavior.
+
+The selection of mutation operators can have a significant impact on the
+results of the mutation testing, so it is important to choose operators that
+are appropriate for the specific code being tested and that provide adequate
+coverage of the code.
 
 ### Relational Operator Replacement (ROR)
 
-Dextool implement the ROR operator as descripted in the paper "Improving
+Dextool implement the ROR operator as described in the paper "Improving
 Logic-Based Testing" (Journal of Systems and Software 2012 by Kaminski, Gary,
 Paul Ammann, and Jeff Offutt).
 
@@ -39,12 +58,12 @@ of an operator are of boolean type.
 
 #### ROR for Floating Points
 
-The purpuse of the special casing of floating points are to reduce the number
+The purpose of the special casing of floating points are to reduce the number
 of undesired/junk mutants.
 
 Strict equal is not recommended to ever use for floating point numbers. Because
 of this the test suite is probably not designed to catch these type of
-mutations which lead to *undesired* mutants. They are *techincally* not
+mutations which lead to *undesired* mutants. They are *technically* not
 equivalent but they aren't supposed to be caught because the SUT is never
 supposed to do these type of operations.
 
@@ -166,7 +185,11 @@ their counter part.
 | `x || y` | `x && y` | `true`   | `false`  | `x` | `y` |
 
 A note for the eagle eye is that the schema is extended compared to the
-academical literature. This where done based on a study by Google 2018 ["An Industrial Application of Mutation Testing: Lessons, Challenges and Research Directions" published in ICST 2018 by Goran Petrovic, Marko Ivankovic, Bob Kurtz, Paul Ammann, Rene Just](https://people.cs.umass.edu/~rjust/publ/industrial_mutation_icst_2018.pdf)
+academical literature. This where done based on a study by Google 2018 ["An
+Industrial Application of Mutation Testing: Lessons, Challenges and Research
+Directions" published in ICST 2018 by Goran Petrovic, Marko Ivankovic, Bob
+Kurtz, Paul Ammann, Rene
+Just](https://people.cs.umass.edu/~rjust/publ/industrial_mutation_icst_2018.pdf)
 
 ### Logical Connector Replacement Bit-wise (LCRB)
 
