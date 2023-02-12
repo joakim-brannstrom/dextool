@@ -5,12 +5,11 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module my.actor.mailbox;
 
-import logger = std.experimental.logger;
 import core.sync.mutex : Mutex;
+import logger = std.experimental.logger;
 import std.datetime : SysTime;
+import std.sumtype;
 import std.variant : Variant;
-
-import sumtype;
 
 import my.actor.common;
 import my.gc.refc;

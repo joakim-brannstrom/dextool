@@ -55,8 +55,7 @@ import std.path : buildPath;
 import std.range : isInputRange;
 import std.string : toStringz, fromStringz;
 import std.exception : collectException;
-
-import sumtype;
+import std.sumtype;
 
 import my.named_type;
 import my.optional;
@@ -879,10 +878,10 @@ struct FdPoller {
         foreach (a; fds.filter!(a => a.revents != 0)) {
             PollResult res;
             res.status = BitArray([
-                    (a.revents & POLLIN) != 0, (a.revents & POLLOUT) != 0,
-                    (a.revents & POLLPRI) != 0, (a.revents & POLLERR) != 0,
-                    (a.revents & POLLHUP) != 0, (a.revents & POLLNVAL) != 0,
-                    ]);
+                (a.revents & POLLIN) != 0, (a.revents & POLLOUT) != 0,
+                (a.revents & POLLPRI) != 0, (a.revents & POLLERR) != 0,
+                (a.revents & POLLHUP) != 0, (a.revents & POLLNVAL) != 0,
+            ]);
             res.fd = FdPoll(a.fd);
             results[idx] = res;
             idx++;
