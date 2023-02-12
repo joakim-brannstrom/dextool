@@ -7,13 +7,12 @@ Extracted information of types.
 */
 module cpptooling.data.kind_type;
 
+import logger = std.experimental.logger;
 import std.conv : to;
 import std.string : format;
+import std.sumtype;
 import std.traits;
 import std.typecons : Tuple, Flag, Nullable;
-import logger = std.experimental.logger;
-
-import sumtype;
 
 import cpptooling.data.symbol.types : USRType;
 import cpptooling.data.type : LocationTag;

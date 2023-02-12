@@ -13,9 +13,9 @@ See: test.component.generator
 module cpptooling.generator.gtest;
 
 import std.range : isInputRange;
+import std.sumtype;
 
 import dsrcgen.cpp : CppModule, E;
-import sumtype;
 import my.path : Path;
 
 import dextool.type : DextoolVersion;

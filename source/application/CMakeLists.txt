@@ -32,4 +32,4 @@ add_custom_command(
 install(TARGETS ${DEXTOOL_MAIN_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
 list(APPEND SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/ut_main.d")
-compile_d_unittest(${DEXTOOL_MAIN_EXE} "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}" "dextool_dextool;dextool_colorlog;dextool_mylib;dextool_sumtype")
+compile_d_unittest(${DEXTOOL_MAIN_EXE} "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}" "dextool_dextool;dextool_colorlog;dextool_mylib")

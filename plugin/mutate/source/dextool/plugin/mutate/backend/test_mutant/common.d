@@ -18,12 +18,12 @@ import std.datetime : Duration, dur;
 import std.exception : collectException;
 import std.path : buildPath;
 import std.typecons : Flag, No;
+import std.sumtype;
 
 import blob_model : Blob;
 import my.named_type;
 import my.set;
 import proc : DrainElement;
-import sumtype;
 
 import dextool.plugin.mutate.backend.interface_;
 import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;

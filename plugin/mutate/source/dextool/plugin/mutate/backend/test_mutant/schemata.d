@@ -18,6 +18,7 @@ import std.datetime.stopwatch : StopWatch, AutoStart;
 import std.exception : collectException;
 import std.format : format;
 import std.typecons : Tuple, tuple, Nullable;
+import std.sumtype;
 
 import blob_model;
 import colorlog;
@@ -27,7 +28,6 @@ import my.gc.refc;
 import my.optional;
 import my.container.vector;
 import proc : DrainElement;
-import sumtype;
 
 import my.path;
 import my.set;
@@ -1521,7 +1521,7 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
  * it was started.
  */
 struct SchemaBuildState {
-    import sumtype;
+    import std.sumtype;
     import my.optional;
     import dextool.plugin.mutate.backend.database.type : FileId, SchemaFragmentV2;
 

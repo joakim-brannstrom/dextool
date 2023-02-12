@@ -9,7 +9,7 @@ import std.typecons : Yes, No;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
-import sumtype;
+import std.sumtype;
 
 import cpptooling.type : MainNs, MainInterface;
 

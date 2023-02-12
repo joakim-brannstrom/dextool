@@ -10,7 +10,6 @@ include(dextool_colorlog.cmake)
 include(dextool_d2sqlite3.cmake)
 include(dextool_gtest.cmake)
 include(dextool_miniorm.cmake)
-include(dextool_sumtype.cmake)
 include(dextool_toml.cmake)
 include(dextool_undead.cmake)
 

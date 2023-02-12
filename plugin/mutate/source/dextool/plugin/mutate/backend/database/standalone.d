@@ -2337,7 +2337,7 @@ struct DbMetaData {
      * metadata with mutants.
      */
     void put(const LineMetadata[] mdata) {
-        import sumtype;
+        import std.sumtype;
 
         if (mdata.empty)
             return;

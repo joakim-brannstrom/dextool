@@ -17,6 +17,7 @@ import std.algorithm : sort, map, filter, among;
 import std.array : empty, array;
 import std.exception : collectException;
 import std.path : buildPath;
+import std.sumtype;
 
 import miniorm : spinSql;
 import my.fsm : next, act, get, TypeDataMap;
@@ -25,7 +26,6 @@ import my.named_type;
 import my.optional;
 import my.set;
 import proc : DrainElement;
-import sumtype;
 
 static import my.fsm;
 
