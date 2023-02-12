@@ -58,4 +58,3 @@ You will now and then see output in the console about the database being
 locked. That is as it should be. As noted earlier in this guide it scales OK to
 five instances. This is the source of the scaling problem. The more instances
 the more lock contention for the database.
-
