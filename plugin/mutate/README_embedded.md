@@ -3,12 +3,12 @@
 It can be a bit tricky to use mutation testing for embedded systems. The most
 common problem is that the test framework that is used is a simple, custom made
 framework. Dextool allow you, as the user, to write your own analyser of the
-test suites output without changing dextool.
+test suites output without changing dextool or the test framework.
 
 There is an additional feature enabled when using this and that is the
 `unstable` signal. A test suite that is executed on developer breadboards can
-have intermitten problems such as the probe being down, the breadboard failed
-to power up, the test suite "locked up" the breadboard etc. See the
+have intermitten problems such as the JTAG-probe glitching, the breadboard
+failed to power up, the test suite deadlock the breadboard etc. See the
 documentation further down for how to use `unstable`.
 
 Note that you **probably** want to turn schemata off if the way that the tests
@@ -26,7 +26,7 @@ when it is measuring the performance of the test suite. This is why the
 
 To be able to map which test case killed which mutant it needs help finding the
 test cases that failed when the mutant where injected. This is where the
-`failed:` part comes in
+`failed:` part comes in.
 
 To be able to test a mutant again because the test suite is unstable when it is
 executed on the injected mutant it needs some help. This is signaled from the
