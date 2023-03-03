@@ -295,7 +295,7 @@ string[] fieldNames(string name, T)(string prefix = "") {
 }
 
 @("shall derive the field names from the inspected struct")
-unittest {
+@system unittest {
     struct Foo {
         ulong id;
         float xx;
@@ -316,8 +316,8 @@ unittest {
             "'id'", "'abc'", "'foo.id'", "'foo.xx'", "'foo.yy'", "'baz'"
             ]);
     fieldToCol!("", Bar).map!"a.quoteIdentifier".shouldEqual([
-            "'id'", "'abc'", "'foo.id'", "'foo.xx'", "'foo.yy'", "'baz'"
-            ]);
+        "'id'", "'abc'", "'foo.id'", "'foo.xx'", "'foo.yy'", "'baz'"
+    ]);
 }
 
 struct FieldColumn {
@@ -446,7 +446,7 @@ FieldColumn[] fieldToColInternal(string name, string primaryKey, T, ulong depth,
     }
 }
 
-unittest {
+@system unittest {
     struct Baz {
         string a, b;
     }
@@ -469,10 +469,9 @@ unittest {
     enum shouldWorkAtCompileTime = fieldToCol!("", Bar);
 
     fieldToCol!("", Bar)().map!"a.toColumn".shouldEqual([
-            "'id' INTEGER PRIMARY KEY", "'abc' REAL NOT NULL",
-            "'foo.xx' REAL NOT NULL", "'foo.yy' TEXT NOT NULL",
-            "'foo.baz.a' TEXT NOT NULL", "'foo.baz.b' TEXT NOT NULL",
-            "'foo.zz' INTEGER NOT NULL", "'baz' TEXT NOT NULL",
-            "'data' BLOB NOT NULL"
-            ]);
+        "'id' INTEGER PRIMARY KEY", "'abc' REAL NOT NULL",
+        "'foo.xx' REAL NOT NULL", "'foo.yy' TEXT NOT NULL",
+        "'foo.baz.a' TEXT NOT NULL", "'foo.baz.b' TEXT NOT NULL",
+        "'foo.zz' INTEGER NOT NULL", "'baz' TEXT NOT NULL", "'data' BLOB NOT NULL"
+    ]);
 }
