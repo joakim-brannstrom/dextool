@@ -244,7 +244,7 @@ unittest {
 }
 
 @("Shall get the short text for the plugins")
-@safe unittest {
+unittest {
     import std.algorithm;
     import std.array;
 

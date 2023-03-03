@@ -435,7 +435,7 @@ auto count(T)() {
 }
 
 struct Count(T) {
-    import miniorm.query_ast : Sql;
+    static import miniorm.query_ast;
 
     Select!T query_;
 
@@ -448,7 +448,7 @@ struct Count(T) {
     }
 
     /// Convert to a SQL statement that can e.g. be pretty printed.
-    Sql toSql() {
+    miniorm.query_ast.Sql toSql() {
         return query_.toSql;
     }
 

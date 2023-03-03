@@ -160,7 +160,7 @@ struct Histogram {
             return 1.0;
         }();
 
-        const indexWidth = cast(int) ceil(log10(buckets.length) + 1);
+        const indexWidth = cast(int) ceil(log10(cast(double) buckets.length)) + 1;
 
         foreach (const i; 0 .. buckets.length) {
             const row = format("[%.3f, %.3f]", (low + i * interval), (low + (i + 1) * interval));

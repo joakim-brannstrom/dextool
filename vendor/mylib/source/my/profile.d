@@ -186,8 +186,8 @@ class ProfileResults {
 
         const sec = 1000000000.0;
         // 16 is the number of letters after the dot in "0.0000 (100.1%)" + 1 empty whitespace.
-        const wallMaxLen = cast(int) results.byValue.map!(a => a.total!"seconds")
-            .maxElement(1).log10 + 15;
+        const wallMaxLen = cast(int) log10(
+                cast(double) results.byValue.map!(a => a.total!"seconds").maxElement(1)) + 15;
 
         auto app = appender!string;
         formattedWrite(app,

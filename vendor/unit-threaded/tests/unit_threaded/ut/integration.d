@@ -82,3 +82,36 @@ import unit_threaded.integration;
         shouldEqualLines("lines.txt", ["foo", "toto"]);
     }
 }
+
+version(Windows) {
+    @safe unittest {
+        with(immutable Sandbox()) {
+            writeFile("newline.txt", "\r\n");
+            shouldEqualContent("newline.txt", "\r\n\n");
+        }
+    }
+}
+
+@safe unittest {
+    with(immutable Sandbox()) {
+        import unit_threaded.should;
+
+        shouldSucceed("definitely_not_an_existing_command_or_executable").shouldThrow;
+        shouldFail("definitely_not_an_existing_command_or_executable");
+
+        writeFile("hello.d", q{import std; void main() {writeln("hello");}});
+
+        version(LDC) {
+            shouldExecuteOk(["ldc2", inSandboxPath("hello.d")]);
+        } else {
+            shouldExecuteOk(["dmd", inSandboxPath("hello.d")]);
+        }
+        
+        version (Windows)
+            immutable exe = "hello.exe";
+        else
+            immutable exe = "hello";
+        shouldSucceed(inSandboxPath(exe));
+        shouldFail(inSandboxPath(exe)).shouldThrow;
+    }
+}
