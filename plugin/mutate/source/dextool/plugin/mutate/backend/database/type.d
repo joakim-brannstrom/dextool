@@ -11,10 +11,10 @@ module dextool.plugin.mutate.backend.database.type;
 
 import core.time : Duration;
 import std.datetime : SysTime;
+import std.sumtype;
 
 import my.named_type;
 import my.hash : Checksum64;
-import sumtype;
 
 import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.type;

@@ -98,7 +98,7 @@ build_d_executable(
     "${SRC};${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/standard.d"
     "${flags}"
     "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}"
-    "dextool_mutate_analyze;dextool_mutate_database;dextool_proc;dextool_automem;dextool_blob_model;dextool_dextool;dextool_libclang_ast;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_colorlog;dextool_toml;dextool_arsd;dextool_cachetools;dextool_mylib;dextool_sumtype;dextool_undead"
+    "dextool_mutate_analyze;dextool_mutate_database;dextool_proc;dextool_automem;dextool_blob_model;dextool_dextool;dextool_libclang_ast;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_colorlog;dextool_toml;dextool_arsd;dextool_cachetools;dextool_mylib;dextool_undead"
 )
 
 collect_binary_in_root(${EXE_NAME})
@@ -110,7 +110,7 @@ install(TARGETS ${EXE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 file(GLOB_RECURSE DATA_FILES ${CMAKE_CURRENT_LIST_DIR}/data/*)
 install(FILES ${DATA_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/data/mutate)
 
-compile_d_unittest(mutate "${SRC};${ANALYZE_SRC};${CMAKE_CURRENT_LIST_DIR}/ut_main.d" "${flags}" "" "dextool_mutate_database;dextool_proc;dextool_automem;dextool_colorlog;dextool_blob_model;dextool_dextool;dextool_libclang_ast;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools;dextool_mylib;dextool_sumtype")
+compile_d_unittest(mutate "${SRC};${ANALYZE_SRC};${CMAKE_CURRENT_LIST_DIR}/ut_main.d" "${flags}" "" "dextool_mutate_database;dextool_proc;dextool_automem;dextool_colorlog;dextool_blob_model;dextool_dextool;dextool_libclang_ast;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_toml;dextool_arsd;dextool_cachetools;dextool_mylib")
 
 setup_integration_testing_env()
 
@@ -120,7 +120,7 @@ list(APPEND SUT_REUSED_FILES
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/plugin/mutate/backend/type.d
     ${CMAKE_CURRENT_LIST_DIR}/source/dextool/plugin/mutate/type.d
     )
-compile_d_integration_test(${EXE_NAME} "${TEST_SRC_FILES};${SUT_REUSED_FILES}" "${flags}" "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}" "dextool_mutate_standalone_database;dextool_dextool_test;dextool_miniorm;dextool_d2sqlite3;dextool_dextool;dextool_mylib;dextool_sumtype" "${TESTDATA_FILES}")
+compile_d_integration_test(${EXE_NAME} "${TEST_SRC_FILES};${SUT_REUSED_FILES}" "${flags}" "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}" "dextool_mutate_standalone_database;dextool_dextool_test;dextool_miniorm;dextool_d2sqlite3;dextool_dextool;dextool_mylib" "${TESTDATA_FILES}")
 
 # c/c++ code
 

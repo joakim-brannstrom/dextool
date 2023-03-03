@@ -29,7 +29,7 @@ import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
 
 import dsrcgen.plantuml;
-import sumtype;
+import std.sumtype;
 
 import dextool.type;
 import cpptooling.type : FilePrefix;
@@ -723,9 +723,9 @@ unittest {
     r.put(Relate.Key("B"), Relate.Kind.Associate);
 
     r.toStringArray(Relate.Key("A")).shouldEqual([
-            "A -Extend- [1]B", "A -Compose- [1]B", "A -Aggregate- [1]B",
-            "A -Associate- [1]B"
-            ]);
+        "A -Extend- [1]B", "A -Compose- [1]B", "A -Aggregate- [1]B",
+        "A -Associate- [1]B"
+    ]);
 }
 
 @Name("Should be two relates to the same target")

@@ -15,6 +15,7 @@ import std.datetime : SysTime, Clock, dur;
 import std.exception : collectException;
 import std.functional : toDelegate;
 import std.meta : staticMap;
+import std.sumtype;
 import std.traits : Parameters, Unqual, ReturnType, isFunctionPointer, isFunction;
 import std.typecons : Tuple, tuple;
 import std.variant : Variant;
@@ -25,7 +26,6 @@ import my.actor.msg;
 import my.actor.system : System;
 import my.actor.typed : isTypedAddress, isTypedActorImpl;
 import my.gc.refc;
-import sumtype;
 
 private struct PromiseData {
     WeakAddress replyTo;

@@ -20,6 +20,7 @@ import std.format : format;
 import std.random : randomCover;
 import std.traits : EnumMembers;
 import std.typecons : Nullable, Tuple, Yes, tuple;
+import std.sumtype;
 
 import blob_model : Blob;
 import miniorm : spinSql, silentLog;
@@ -32,7 +33,6 @@ import my.named_type;
 import my.optional;
 import my.set;
 import proc : DrainElement;
-import sumtype;
 static import my.fsm;
 
 import dextool.plugin.mutate.backend.database : Database, MutationEntry,

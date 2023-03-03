@@ -103,7 +103,7 @@ import std.meta : AliasSeq;
 import std.range.primitives : put, isOutputRange;
 import std.traits : TemplateArgsOf;
 
-import sumtype;
+import std.sumtype;
 
 @safe:
 
@@ -159,7 +159,7 @@ struct Select {
     SumType!(None, Limit) limit;
 
     mixin(makeAssign!(typeof(this))([
-                "columns", "from", "where", "orderBy", "limit"
+            "columns", "from", "where", "orderBy", "limit"
             ]));
 
     void toString(Writer)(ref Writer w) if (isOutputRange!(Writer, char)) {

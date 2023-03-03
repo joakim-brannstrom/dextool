@@ -8,7 +8,7 @@ module dextool.plugin.ctestdouble.backend.adapter;
 import logger = std.experimental.logger;
 
 import dsrcgen.cpp : CppModule;
-import sumtype;
+import std.sumtype;
 
 import cpptooling.type : StubPrefix;
 import cpptooling.data : CppClass, CppClassName, CppNamespace, CppNs;

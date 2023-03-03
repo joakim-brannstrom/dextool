@@ -28,7 +28,7 @@ compile_d_static_lib(dextool_dextool
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_libclang_ast;dextool_mylib;dextool_sumtype;dextool_colorlog")
+    "dextool_libclang_ast;dextool_mylib;dextool_colorlog")
 
 add_dependencies(dextool_dextool dextool_embedded_version)
 

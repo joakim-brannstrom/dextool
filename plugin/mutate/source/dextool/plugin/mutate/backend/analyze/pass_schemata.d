@@ -19,11 +19,11 @@ import std.meta : AliasSeq;
 import std.range : ElementType, only;
 import std.traits : EnumMembers;
 import std.typecons : tuple, Tuple, scoped;
+import std.sumtype;
 
 import my.container.vector : vector, Vector;
 import my.optional;
 import my.set;
-import sumtype;
 
 static import colorlog;
 

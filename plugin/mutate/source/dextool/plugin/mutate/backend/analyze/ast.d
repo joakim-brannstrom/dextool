@@ -21,7 +21,7 @@ import std.meta : AliasSeq;
 import std.range : isOutputRange;
 
 import my.optional;
-import sumtype;
+import std.sumtype;
 
 import dextool.type : AbsolutePath, Path;
 

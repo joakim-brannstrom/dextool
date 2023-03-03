@@ -15,11 +15,11 @@ module cpptooling.analyzer.clang.analyze_helper;
 
 import logger = std.experimental.logger;
 
+import std.meta : staticIndexOf;
+import std.sumtype;
 import std.traits : Unqual;
 import std.typecons : tuple, Flag, Yes, No, Nullable;
-import std.meta : staticIndexOf;
 
-import sumtype;
 import my.sumtype;
 
 import clang.c.Index : CX_CXXAccessSpecifier, CX_StorageClass, CXLanguageKind;

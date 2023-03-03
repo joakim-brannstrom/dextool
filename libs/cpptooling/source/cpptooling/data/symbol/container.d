@@ -9,10 +9,9 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module cpptooling.data.symbol.container;
 
-import std.typecons : Flag, Yes, No;
 import logger = std.experimental.logger;
-
-import sumtype;
+import std.sumtype;
+import std.typecons : Flag, Yes, No;
 
 //TODO move TypeKind to .data
 import cpptooling.data.kind_type : TypeKind, Void;

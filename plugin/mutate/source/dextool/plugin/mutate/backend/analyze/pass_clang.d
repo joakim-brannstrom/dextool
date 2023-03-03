@@ -1412,13 +1412,13 @@ final class FindVisitor(T) : Visitor {
  * not the VarDecl.
  */
 void rewriteCondition(ref analyze.Ast ast, analyze.Condition root) {
-    import sumtype;
+    import std.sumtype;
     import dextool.plugin.mutate.backend.analyze.ast : TypeId, VarDecl, Kind;
 
     // set the type of the Condition to the first expression with a type.
     foreach (ty; BreathFirstRange(root).map!(a => ast.typeId(a))
             .filter!(a => a.hasValue)) {
-        sumtype.match!((Some!TypeId a) => ast.put(root, a), (None a) {})(ty);
+        std.sumtype.match!((Some!TypeId a) => ast.put(root, a), (None a) {})(ty);
         break;
     }
 }
