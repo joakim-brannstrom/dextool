@@ -5,7 +5,6 @@
 module unit_threaded.ut.modules.module_with_tests;
 
 import unit_threaded.runner.attrs;
-import unit_threaded.runner.reflection: Test;
 
 import std.meta;
 import unit_threaded.should;
@@ -14,7 +13,6 @@ import unit_threaded.should;
 void testFoo() {}
 void testBar() {}
 private void testPrivate() { } //should not show up
-@UnitTest void funcThatShouldShowUpCosOfAttr() { }
 
 //non-test functions
 private void someFun() {}
@@ -23,11 +21,6 @@ private void tes() {}
 
 //non-test non-functions
 int testInt;
-
-//test classes
-class FooTest { void test() { } }
-class BarTest { void test() { } }
-@UnitTest class Blergh { }
 
 //non-test classes
 class NotATest { void tes() { } }
@@ -70,26 +63,3 @@ struct StructWithUnitTests{
 
 // github issue #26 - template instance GetTypes!uint does not match template declaration
 alias RGB = uint;
-
-
-import unit_threaded: TestCase;
-
-class Issue83: TestCase {
-    this() {}
-    override void test() {}
-}
-
-
-mixin Test!(
-    "this is my successful test name",
-    {
-
-    }
-);
-
-mixin Test!(
-    "this is my unsuccessful test name",
-    {
-        assert(false);
-    }
-);

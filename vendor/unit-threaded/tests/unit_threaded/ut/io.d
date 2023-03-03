@@ -16,7 +16,7 @@ unittest {
             this.output ~= output;
         }
 
-        override void flush() {}
+        override void flush(bool failed) {}
     }
 
     class PrintTest: TestCase {
@@ -40,6 +40,7 @@ unittest {
     );
 }
 
+
 unittest {
     import unit_threaded.should;
     import unit_threaded.runner.testcase: TestCase;
@@ -58,7 +59,7 @@ unittest {
             this.output ~= output;
         }
 
-        override void flush() {}
+        override void flush(bool failed) {}
     }
 
     class PrintTest: TestCase {
@@ -400,4 +401,57 @@ unittest {
         if(!gOut.lines.canFind(messages))
             throw new Exception(text("Could not find ", messages, " in:\n", gOut.lines));
     }
+}
+
+
+unittest {
+    import unit_threaded.runner.testcase: TestCase;
+    import unit_threaded.should;
+    import std.string: splitLines;
+    import std.path: buildPath;
+
+    enableDebugOutput(false);
+
+    class TestOutput: Output {
+        string output;
+        override void send(in string output) {
+            import std.conv: text;
+            this.output ~= output;
+        }
+
+        override void flush(bool failed) {}
+    }
+
+    class OkTest: TestCase {
+        override void test() { }
+        override string getPath() @safe pure nothrow const {
+            return "OkTest";
+        }
+    }
+
+    class OopsTest: TestCase {
+        override void test() { throw new UnitTestException("oops"); }
+        override string getPath() @safe pure nothrow const {
+            return "OopsTest";
+        }
+    }
+
+    auto ok = new OkTest;
+    auto oops = new OopsTest;
+    auto writer = new TestOutput;
+
+    foreach(test; [ok, oops]) {
+        test.setOutput(writer);
+        test.quiet;
+    }
+
+    ok();
+    writer.output.splitLines.shouldBeEmpty;
+
+    oops();
+    writer.output.splitLines.should == [
+        "OopsTest:",
+        "    " ~ buildPath("tests", "unit_threaded", "ut", "io.d") ~ ":433 - oops",
+        "",
+    ];
 }

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  schedule:
+    - cron: '30 7 1 * *'
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04, windows-2019, macos-10.15]
+        dc:
+          - dmd-2.102.1
+          - dmd-2.099.1
+          - ldc-1.31.0
+          - ldc-1.29.0
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install ${{ matrix.dc }}
+        uses: dlang-community/setup-dlang@v1.1.1
+        with:
+          compiler: ${{ matrix.dc }}
+
+      - name: "Posix: Run tests"
+        if: runner.os != 'Windows'
+        run: build/ci.sh
+        env:
+          TERM: xterm
+
+      - name: "Windows: Run tests"
+        if: runner.os == 'Windows'
+        run: build\ci.bat
+
+      - uses: codecov/codecov-action@v3

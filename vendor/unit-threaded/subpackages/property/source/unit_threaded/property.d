@@ -20,15 +20,13 @@ class PropertyException : Exception
  */
 void check(alias F, int numFuncCalls = 100)
           (in uint seed = from!"std.random".unpredictableSeed,
-           in string file = __FILE__,
-           in size_t line = __LINE__)
-    @trusted
+           string file = __FILE__,
+           size_t line = __LINE__)
 {
-
     import unit_threaded.randomized.random: RndValueGen;
     import unit_threaded.exception: UnitTestException;
     import std.conv: text;
-    import std.traits: ReturnType, Parameters, isSomeString;
+    import std.traits: ReturnType, Parameters, isSomeString, isSafe;
     import std.array: join;
     import std.typecons: Flag, Yes, No;
     import std.random: Random;
@@ -36,50 +34,73 @@ void check(alias F, int numFuncCalls = 100)
     static assert(is(ReturnType!F == bool),
                   text("check only accepts functions that return bool, not ", ReturnType!F.stringof));
 
-    auto random = Random(seed);
-    auto gen = RndValueGen!(Parameters!F)(&random);
+    // `Random` could be put on the stack, but only with -dip1000:
+    // https://github.com/atilaneves/unit-threaded/issues/187
+    // With -dip1000, https://issues.dlang.org/show_bug.cgi?id=20150 manifested here
+    auto gen = RndValueGen!(Parameters!F)(new Random(seed));
 
     auto input(Flag!"shrink" shrink = Yes.shrink) {
-        string[] ret;
+
+        scope string[] ret;
+
         static if(Parameters!F.length == 1 && canShrink!(Parameters!F[0])) {
             auto val = gen.values[0].value;
             auto shrunk = shrink ? val.shrink!F : val;
-            ret ~= shrunk.text;
+            ret ~= shrunk.text.idup;
             static if(isSomeString!(Parameters!F[0]))
                 ret[$-1] = `"` ~ ret[$-1] ~ `"`;
-        } else
+        } else {
             foreach(ref valueGen; gen.values) {
                 ret ~= valueGen.text;
             }
+        }
+
         return ret.join(", ");
     }
 
     foreach(i; 0 .. numFuncCalls) {
         bool pass;
 
-        try {
-            gen.genValues;
-        } catch(Throwable t) {
-            throw new PropertyException("Error generating values\n" ~ t.toString, file, line, t);
-        }
+        safelyCatchThrowable!(
+            { gen.genValues; },
+            (Throwable t) @trusted { throw new PropertyException("Error generating values\n" ~ t.toString, file, line, t); }
+        );
 
-        try {
-            pass = F(gen.values);
-        } catch(Throwable t) {
-            // trying to shrink when an exeption is thrown is too much of a bother code-wise
-            throw new UnitTestException(
-                text("Property threw. Seed: ", seed, ". Input: ", input(No.shrink), ". Message: ", t.msg),
-                file,
-                line,
-                t,
-            );
-        }
+        pass = safelyCatchThrowable!(
+            () => F(gen.values),
+            (Throwable t) @trusted {
+                throw new UnitTestException(
+                    text("Property threw. Seed: ", seed, ". Input: ", input(No.shrink), ". Message: ", t.msg),
+                    file,
+                    line,
+                    t,
+                    );
+            }
+        );
 
-        if(!pass) {
+        if(!pass)
             throw new UnitTestException(text("Property failed. Seed: ", seed, ". Input: ", input), file, line);
-        }
     }
 }
+
+
+private auto safelyCatchThrowable(alias Func, alias Handler, A...)(auto ref A args) {
+    import std.traits: isSafe, ReturnType;
+
+    ReturnType!Func impl() {
+        try
+            return Func(args);
+        catch(Throwable t)
+            Handler(t);
+        assert(0);
+    }
+
+    static if(isSafe!Func && isSafe!Handler)
+        return () @trusted { return impl; }();
+    else
+        return impl;
+}
+
 
 /**
    For values that unit-threaded doesn't know how to generate, test that the Predicate

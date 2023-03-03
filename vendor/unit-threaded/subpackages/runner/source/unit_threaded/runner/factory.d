@@ -16,6 +16,7 @@ private CompositeTestCase[string] serialComposites;
 from!"unit_threaded.runner.testcase".TestCase[] createTestCases(
     in from!"unit_threaded.runner.reflection".TestData[] testData,
     in string[] testsToRun = [])
+    @safe
 {
     import unit_threaded.runner.testcase: TestCase;
     import std.algorithm: sort;
@@ -26,40 +27,32 @@ from!"unit_threaded.runner.testcase".TestCase[] createTestCases(
     foreach(const data; testData) {
         if(!isWantedTest(data, testsToRun)) continue;
         auto test = createTestCase(data);
-         if(test !is null) tests[test] = true; //can be null if abtract base class
+        if(test !is null) tests[test] = true; //can be null if abtract base class
     }
 
-    return tests.keys.sort!((a, b) => a.getPath < b.getPath).array;
+    return () @trusted { return tests.keys.sort!((a, b) => a.getPath < b.getPath).array; }();
 }
 
 
 from!"unit_threaded.runner.testcase".TestCase createTestCase(
     in from!"unit_threaded.runner.reflection".TestData testData)
+    @safe
 {
     import unit_threaded.runner.testcase: TestCase;
-    import std.algorithm: splitter, reduce;
-    import std.array: array;
 
     TestCase createImpl() {
         import unit_threaded.runner.testcase:
             BuiltinTestCase, FunctionTestCase, ShouldFailTestCase, FlakyTestCase;
         import std.conv: text;
 
-        TestCase testCase;
-
-        if(testData.isTestClass)
-            testCase = cast(TestCase) Object.factory(testData.name);
-         else
-            testCase = testData.builtin
-                ? new BuiltinTestCase(testData)
-                : new FunctionTestCase(testData);
+        TestCase testCase = testData.builtin
+            ? new BuiltinTestCase(testData)
+            : new FunctionTestCase(testData);
 
         version(unitThreadedLight) {}
         else
             assert(testCase !is null,
-                   text("Error creating test case with ",
-                        testData.isTestClass ? "test class data: " : "data: ",
-                        testData));
+                   text("Error creating test case with data: ", testData));
 
         if(testData.shouldFail) {
             testCase = new ShouldFailTestCase(testCase, testData.exceptionTypeInfo);
@@ -76,9 +69,7 @@ from!"unit_threaded.runner.testcase".TestCase createTestCase(
         // A CompositeTestCase is created for each module with at least
         // one @Serial test and subsequent @Serial tests
         // appended to it
-        const moduleName = testData.name.splitter(".")
-            .array[0 .. $ - 1].
-            reduce!((a, b) => a ~ "." ~ b);
+        const moduleName = testData.moduleName;
 
         // create one if not already there
         if(moduleName !in serialComposites) {
@@ -100,6 +91,7 @@ from!"unit_threaded.runner.testcase".TestCase createTestCase(
 
 bool isWantedTest(in from!"unit_threaded.runner.reflection".TestData testData,
                   in string[] testsToRun)
+    @safe pure
 {
 
     import std.algorithm: filter, all, startsWith, canFind;
@@ -122,6 +114,7 @@ bool isWantedTest(in from!"unit_threaded.runner.reflection".TestData testData,
 
 private bool isWantedNonTagTest(in from!"unit_threaded.runner.reflection".TestData testData,
                                 in string[] testsToRun)
+    @safe pure
 {
 
     import std.algorithm: any, startsWith, canFind;
@@ -138,10 +131,5 @@ private bool isWantedNonTagTest(in from!"unit_threaded.runner.reflection".TestDa
                            getPath.startsWith(t) && getPath[t.length .. $].canFind(".");
     }
 
-    return testsToRun.any!(a => matchesExactly(a) || matchesPackage(a));
-}
-
-
-unittest {
-    assert(false);
+    return () @trusted { return testsToRun.any!(a => matchesExactly(a) || matchesPackage(a)); }();
 }

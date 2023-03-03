@@ -1,6 +1,19 @@
 module unit_threaded.ut.randomized.gen;
 
+
 import unit_threaded.randomized.gen;
+
+static if (__VERSION__ >= 2096)
+    import std.math: close = isClose;
+else
+    import std.math: close = approxEqual;
+
+
+/*
+Regarding `version(OldWindows)` blocks below: It is unclear what conditions
+made Windows behave differently. Nowadays, with dmd v2.094 on Windows 10 in
+November 2020, there is no difference between Windows and Posix.
+*/
 
 @safe pure unittest {
     import unit_threaded.asserts: assertEqual;
@@ -18,7 +31,6 @@ import unit_threaded.randomized.gen;
 @safe unittest {
     // not pure because of floating point flags
     import unit_threaded.asserts: assertEqual;
-    import std.math: approxEqual;
     import std.conv: to;
     import std.random: Random;
 
@@ -27,15 +39,14 @@ import unit_threaded.randomized.gen;
     assertEqual(gen.gen(rnd), 0);
     assertEqual(gen.gen(rnd), float.epsilon);
     assertEqual(gen.gen(rnd), float.min_normal);
-    assert(approxEqual(gen.gen(rnd), 6.022E23), gen.value.to!string);
-    assert(approxEqual(gen.gen(rnd), 1.57791E23), gen.value.to!string);
+    assert(close(gen.gen(rnd), 6.022E23), gen.value.to!string);
+    assert(close(gen.gen(rnd), 1.57791E23), gen.value.to!string);
 }
 
 
 @safe unittest {
     // not pure because of floating point flags
     import unit_threaded.asserts: assertEqual;
-    import std.math: approxEqual;
     import std.conv: to;
     import std.random: Random;
 
@@ -45,7 +56,7 @@ import unit_threaded.randomized.gen;
     assertEqual(gen.gen(rnd), float.epsilon);
     assertEqual(gen.gen(rnd), float.min_normal);
     assertEqual(gen.gen(rnd), 5);
-    assert(approxEqual(gen.gen(rnd), 1.31012), gen.value.to!string);
+    assert(close(gen.gen(rnd), 1.31012), gen.value.to!string);
 }
 
 @safe unittest {
@@ -79,7 +90,7 @@ else {
         GenASCIIString!() gen;
         assertEqual(gen.gen(rnd), "");
         assertEqual(gen.gen(rnd), "a");
-        version(Windows)
+        version(OldWindows) // See comment above.
             assertEqual(gen.gen(rnd), "yt4>%PnZwJ*Nv3L5:9I#N_ZK");
         else
             assertEqual(gen.gen(rnd), "i<pDqp7-LV;W`d)w/}VXi}TR=8CO|m");
@@ -96,7 +107,7 @@ else {
 
     // first the front-loaded values
     assertEqual(gen.gen(rnd), []);
-    version(Windows)
+    version(OldWindows) // See comment above.
         assertEqual(gen.gen(rnd), [0, 1]);
     else
         assertEqual(gen.gen(rnd), [0, 1, -2147483648, 2147483647, 681542492, 913057000, 1194544295, -1962453543, 1972751015]);
@@ -124,7 +135,7 @@ else {
     // first the front-loaded values
     assertEqual(gen.gen(rnd), []);
     // then the pseudo-random ones
-    version(Windows)
+    version(OldWindows) // See comment above.
         assertEqual(gen.gen(rnd).length, 2);
     else
         assertEqual(gen.gen(rnd).length, 9);

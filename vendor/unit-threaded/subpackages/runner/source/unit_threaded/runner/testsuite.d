@@ -35,7 +35,7 @@ struct TestSuite
      * options = The options to run tests with.
      * testData = The information about the tests to run.
      */
-    this(in Options options, in TestData[] testData) {
+    this(in Options options, const(TestData)[] testData) {
         import unit_threaded.runner.io: WriterThread;
         this(options, testData, WriterThread.get);
     }
@@ -46,7 +46,7 @@ struct TestSuite
      * testData = The information about the tests to run.
      * output = Where to send text output.
      */
-    this(in Options options, in TestData[] testData, Output output) {
+    this(in Options options, const(TestData)[] testData, Output output) {
         import unit_threaded.runner.factory: createTestCases;
 
         _options = options;
@@ -64,6 +64,12 @@ struct TestSuite
         import unit_threaded.runner.io: writelnRed, writeln, writeRed, write, writeYellow, writelnGreen;
         import std.algorithm: filter, count;
         import std.conv: text;
+
+        if (!_testData.length) {
+            _output.writeln("No tests to run");
+            _output.writelnGreen("OK!\n");
+            return true;
+        }
 
         if (!_testCases.length) {
             _output.writelnRed("Error! No tests to run for args: ");
@@ -146,7 +152,7 @@ private:
     Duration doRun() {
 
         import std.algorithm: reduce;
-        import std.parallelism: taskPool;
+        import std.parallelism: TaskPool;
 
         auto tests = getTests();
 
@@ -154,14 +160,28 @@ private:
             foreach(test; tests)
                 test.showChrono;
 
+        if(_options.quiet)
+            foreach(test; tests)
+                test.quiet;
+
         _stopWatch.start();
 
         if (_options.multiThreaded) {
+            // use a dedicated task pool with non-daemon worker threads
+            auto taskPool = new TaskPool;
             _failures = reduce!((a, b) => a ~ b)(_failures, taskPool.amap!runTest(tests));
+            taskPool.finish(/*blocking=*/false);
         } else {
             foreach (test; tests) {
                 _failures ~= test();
             }
+        }
+
+        version(Windows) {
+            // spawned child processes etc. may have tampered with the console,
+            // try to re-enable the ANSI escape codes for colors
+            import unit_threaded.runner.io: tryEnableEscapeCodes;
+            tryEnableEscapeCodes();
         }
 
         handleFailures();
