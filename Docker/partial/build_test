@@ -1,5 +1,5 @@
 RUN ["/bin/bash", "-c", "echo ${PATH}"]
 
 RUN cd build && make all VERBOSE=1
-RUN cd build && make check VERBOSE=1
-RUN cd build && make check_integration VERBOSE=1
+RUN cd build && make -j$(nproc) check VERBOSE=1
+RUN cd build && make -j$(nproc) check_integration VERBOSE=1
