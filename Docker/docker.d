@@ -67,10 +67,10 @@ int main(string[] args) {
     // * release build for centos8 with minimal compiler
 
     // Setup tests
-    tests["ldc-ubuntu-min-test"] ~= () {
+    tests["ldc-ubuntu-min-release"] ~= () {
         build(mergeFiles([
                 "ubuntu_minimal_base", "ldc_min_version", "ldc", "fix_repo",
-                "prepare_test_build_min_ubuntu", "build_test"
+                "prepare_release_build_ubuntu", "build_release"
                 ]), tag.next);
     };
     tests["ldc-ubuntu-latest-release"] ~= () {

@@ -17,8 +17,8 @@ jobs:
     - template: .azure-pipelines/posix.yml
   strategy:
     matrix:
-      ldc-ubuntu-min-test:
-        TEST_GROUP: ldc-ubuntu-min-test
+      ldc-ubuntu-min-release:
+        TEST_GROUP: ldc-ubuntu-min-release
       dmd-ubuntu-min-test:
         TEST_GROUP: dmd-ubuntu-min-test
       dmd-ubuntu-latest-test:
