@@ -127,3 +127,29 @@ test_cmd_dir_flag = ["--foo"]`, [testEnv.outdir.toString]);
         ]).shouldBeIn(r.output);
     }
 }
+
+class ReanalyzeOnConfigChange : SimpleFixture {
+    override void test() {
+        import std.path : buildPath;
+
+        mixin(EnvSetup(globalTestdir));
+        precondition(testEnv);
+
+        immutable dextoolConf = buildPath(testEnv.outdir.toString, ".dextool_mutate.toml");
+        copy(buildPath(testData.toString, "config", "test_cmd_dir.toml"), dextoolConf);
+
+        auto r0 = makeDextoolAnalyze(testEnv).addInputArg(programFile)
+            .addPostArg(["-c", dextoolConf]).run;
+        testConsecutiveSparseOrder!Re([".*Saving.*report_one_ror.*"]).shouldBeIn(r0.output);
+
+        auto r1 = makeDextoolAnalyze(testEnv).addInputArg(programFile)
+            .addPostArg(["-c", dextoolConf]).run;
+        testConsecutiveSparseOrder!Re([".*Unchanged.*report_one_ror.*"]).shouldBeIn(r1.output);
+
+        File(dextoolConf, "a").writeln;
+
+        auto r2 = makeDextoolAnalyze(testEnv).addInputArg(programFile)
+            .addPostArg(["-c", dextoolConf]).run;
+        testConsecutiveSparseOrder!Re([".*Saving.*report_one_ror.*"]).shouldBeIn(r2.output);
+    }
+}

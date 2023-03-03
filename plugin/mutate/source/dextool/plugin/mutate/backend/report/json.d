@@ -180,11 +180,16 @@ final class ReportJson {
         }
 
         if (ReportSection.trend in sections) {
+            import std.conv : to;
+
             const history = reportMutationScoreHistory(db);
             JSONValue d;
 
-            d["history_score"] = history.estimate.predScore;
-            d["score_history"] = toJson(history);
+            d["score"] = toJson(history);
+            d["score_rolling_mean_" ~ MutationScoreHistory.avgShort.to!string] = toJson(
+                    history.rollingAvg(MutationScoreHistory.avgShort));
+            d["score_rolling_mean_" ~ MutationScoreHistory.avgLong.to!string] = toJson(
+                    history.rollingAvg(MutationScoreHistory.avgLong));
             report["trend"] = d;
         }
 

@@ -57,6 +57,7 @@ struct Database {
         DbCoverage dbCoverage_;
         DbDependency dbDependency_;
         DbFile dbFile_;
+        DbMisc dbMisc_;
         DbMarkMutant dbMarkMutant_;
         DbMemOverload dbMemOverload_;
         DbMetaData dbMetaData_;
@@ -78,7 +79,7 @@ struct Database {
         return Database(initializeDB(db));
     }
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return db_;
     }
 
@@ -88,20 +89,6 @@ struct Database {
 
     void run(string sql) {
         db.run(sql);
-    }
-
-    bool isToolVersionDifferent(ToolVersion compareTo) @trusted {
-        foreach (a; db.run(select!DextoolVersionTable)) {
-            return a.checksum != compareTo.get;
-        }
-        // if there is no tool version recorded then assume it is different.
-        return true;
-    }
-
-    /// Update the version of the tool.
-    void updateToolVersion(const ToolVersion tv) @trusted {
-        db.run(delete_!DextoolVersionTable);
-        db.run(insert!DextoolVersionTable, DextoolVersionTable(tv.get));
     }
 
     /// If the file has already been analyzed.
@@ -373,6 +360,11 @@ struct Database {
         dbFile_ = typeof(return)(&db_);
         return dbFile_;
     }
+
+    ref DbMisc miscApi() return @trusted {
+        dbMisc_ = typeof(return)(&db_);
+        return dbMisc_;
+    }
 }
 
 /** Dependencies between root and those files that should trigger a re-analyze
@@ -382,7 +374,7 @@ struct DbDependency {
     private Miniorm* db_;
     private Database* wrapperDb;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -475,7 +467,7 @@ struct DbTestCmd {
 
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -628,7 +620,7 @@ struct DbTestCmd {
 struct DbTestCase {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -1060,7 +1052,7 @@ struct DbMutant {
     private Miniorm* db_;
     private Database* wrapperDb;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -1774,7 +1766,7 @@ struct DbMutant {
 struct DbWorklist {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -1870,7 +1862,7 @@ struct DbWorklist {
 struct DbMemOverload {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -1900,7 +1892,7 @@ struct DbMemOverload {
 struct DbMarkMutant {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -1966,7 +1958,7 @@ struct DbMarkMutant {
 struct DbTimeout {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2049,7 +2041,7 @@ struct DbTimeout {
 struct DbCoverage {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2180,7 +2172,7 @@ struct DbSchema {
     private Miniorm* db_;
     private Database* wrapperDb;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2324,7 +2316,7 @@ struct DbSchema {
 struct DbMetaData {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2357,7 +2349,7 @@ struct DbMetaData {
      * metadata with mutants.
      */
     void put(const LineMetadata[] mdata) {
-        import sumtype;
+        import std.sumtype;
 
         if (mdata.empty)
             return;
@@ -2432,7 +2424,7 @@ struct DbMetaData {
 struct DbTestFile {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2487,7 +2479,7 @@ struct DbTestFile {
 struct DbFile {
     private Miniorm* db_;
 
-    scope ref Miniorm db() return @safe {
+    ref Miniorm db() return @safe {
         return *db_;
     }
 
@@ -2565,6 +2557,40 @@ struct DbFile {
         foreach (ref r; stmt.get.execute)
             app.put(r.peek!long(0).FileId);
         return app.data;
+    }
+}
+
+/// Misc operations that do not really fit in any other category.
+struct DbMisc {
+    private Miniorm* db_;
+
+    ref Miniorm db() return @safe {
+        return *db_;
+    }
+
+    bool isToolVersionDifferent(ToolVersion compareTo) @trusted {
+        foreach (a; db.run(select!DextoolVersionTable)) {
+            return a.checksum != compareTo.get;
+        }
+        // if there is no tool version recorded then assume it is different.
+        return true;
+    }
+
+    /// Update the version of the tool.
+    void setToolVersion(const ToolVersion tv) @trusted {
+        db.run(delete_!DextoolVersionTable);
+        db.run(insert!DextoolVersionTable, DextoolVersionTable(tv.get));
+    }
+
+    Checksum getConfigVersion() @trusted {
+        foreach (a; db.run(select!ConfigVersionTable))
+            return Checksum(a.checksum);
+        return Checksum.init;
+    }
+
+    void setConfigVersion(const Checksum a) @trusted {
+        db.run(delete_!ConfigVersionTable);
+        db.run(insert!ConfigVersionTable, ConfigVersionTable(cast(long) a.c0));
     }
 }
 

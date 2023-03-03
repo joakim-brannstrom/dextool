@@ -18,6 +18,7 @@ import std.datetime.stopwatch : StopWatch, AutoStart;
 import std.exception : collectException;
 import std.format : format;
 import std.typecons : Tuple, tuple, Nullable;
+import std.sumtype;
 
 import blob_model;
 import colorlog;
@@ -27,7 +28,6 @@ import my.gc.refc;
 import my.optional;
 import my.container.vector;
 import proc : DrainElement;
-import sumtype;
 
 import my.path;
 import my.set;
@@ -35,6 +35,7 @@ import my.set;
 import dextool.plugin.mutate.backend.database : MutationStatusId, Database,
     spinSql, SchemataId, Schemata, FileId;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
+import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ, SchemaSizeQ, SchemaStatus;
 import dextool.plugin.mutate.backend.test_mutant.common;
 import dextool.plugin.mutate.backend.test_mutant.common_actors : DbSaveActor, StatActor;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
@@ -50,9 +51,6 @@ private {
     struct Init {
     }
 
-    struct InitSchemaBuilder {
-    }
-
     struct GenSchema {
     }
 
@@ -62,7 +60,7 @@ private {
     struct UpdateWorkList {
     }
 
-    struct Mark {
+    struct MarkMsg {
     }
 
     struct InjectAndCompile {
@@ -106,11 +104,10 @@ struct ConfTesters {
 
 // dfmt off
 alias SchemaActor = typedActor!(
-    void function(Init, AbsolutePath, ShellCommand, Duration),
-    void function(InitSchemaBuilder),
+    void function(Init, AbsolutePath database, ShellCommand, Duration),
     /// Generate a schema, if possible
     void function(GenSchema),
-    void function(RunSchema, SchemataBuilder.ET),
+    void function(RunSchema, SchemataBuilder.ET, InjectIdResult),
     /// Quary the schema actor to see if it is done
     bool function(IsDone),
     /// Update the list of mutants that are still in the worklist.
@@ -118,7 +115,7 @@ alias SchemaActor = typedActor!(
     FinalResult function(GetDoneStatus),
     /// Save the result of running the schema to the DB.
     void function(SchemaTestResult),
-    void function(Mark, FinalResult.Status),
+    void function(MarkMsg, FinalResult.Status),
     /// Inject the schema in the source code and compile it.
     void function(InjectAndCompile),
     /// Restore the source code.
@@ -151,6 +148,9 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
         Database db;
 
+        GenSchemaActor.Address genSchema;
+        SchemaSizeQUpdateActor.Address sizeQUpdater;
+
         ShellCommand buildCmd;
         Duration buildCmdTimeout;
 
@@ -179,8 +179,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         bool hasFatalError;
 
         bool isRunning;
-
-        SchemaBuildState schemaBuild;
     }
 
     auto st = tuple!("self", "state")(self, refCounted(State(stopCheck, dbSave,
@@ -210,9 +208,18 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 return ScheduleTest(testers);
             }();
 
+            ctx.state.get.sizeQUpdater = ctx.self.homeSystem.spawn(&spawnSchemaSizeQ,
+                    getSchemaSizeQ(ctx.state.get.db, ctx.state.get.conf.mutantsPerSchema.get,
+                        ctx.state.get.conf.minMutantsPerSchema.get), ctx.state.get.dbSave);
+            linkTo(ctx.self, ctx.state.get.sizeQUpdater);
+
+            ctx.state.get.genSchema = ctx.self.homeSystem.spawn(&spawnGenSchema,
+                    dbPath, ctx.state.get.conf, ctx.state.get.sizeQUpdater);
+            linkTo(ctx.self, ctx.state.get.genSchema);
+
             send(ctx.self, UpdateWorkList.init, true);
-            send(ctx.self, InitSchemaBuilder.init);
             send(ctx.self, CheckStopCondMsg.init);
+            send(ctx.self, GenSchema.init);
             ctx.state.get.isRunning = true;
         } catch (Exception e) {
             ctx.state.get.hasFatalError = true;
@@ -220,30 +227,33 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
     }
 
-    static void initSchemaBuilder(ref Ctx ctx, InitSchemaBuilder _) @safe nothrow {
-        import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
-
-        ctx.state.get.schemaBuild.mutantsPerSchema.get = spinSql!(
-                () => ctx.state.get.db.schemaApi.getSchemaSize(
-                ctx.state.get.conf.mutantsPerSchema.get));
-        ctx.state.get.schemaBuild.minMutantsPerSchema = ctx.state.get.conf.minMutantsPerSchema;
-
-        ctx.state.get.schemaBuild.initFiles(spinSql!(() => ctx.state.get.db.fileApi.getFileIds));
-        ctx.state.get.schemaBuild.builder.schemaQ = spinSql!(
-                () => SchemaQ(ctx.state.get.db.schemaApi.getMutantProbability));
-
+    static void generateSchema(ref Ctx ctx, GenSchema _) @trusted nothrow {
         try {
-            send(ctx.self, GenSchema.init);
+            ctx.state.get.activeSchema = typeof(ctx.state.get.activeSchema).init;
+            ctx.state.get.injectIds = typeof(ctx.state.get.injectIds).init;
+
+            ctx.self.request(ctx.state.get.genSchema, infTimeout)
+                .send(GenSchema.init).capture(ctx).then((ref Ctx ctx, GenSchemaResult result) nothrow{
+                    if (result.noMoreScheman) {
+                        ctx.state.get.isRunning = false;
+                    } else {
+                        try {
+                            send(ctx.self, RunSchema.init, result.schema, result.injectIds);
+                        } catch (Exception e) {
+                            ctx.state.get.isRunning = false;
+                            logger.error(e.msg).collectException;
+                        }
+                    }
+                });
         } catch (Exception e) {
-            logger.error(e.msg).collectException;
+            logger.warning(e.msg).collectException;
         }
     }
 
-    static void runSchema(ref Ctx ctx, RunSchema _, SchemataBuilder.ET schema) @safe nothrow {
+    static void runSchema(ref Ctx ctx, RunSchema _, SchemataBuilder.ET schema,
+            InjectIdResult injectIds) @safe nothrow {
         try {
             if (!ctx.state.get.isRunning) {
-                // important to trigger the last `done`.
-                send(ctx.self, GenSchema.init);
                 return;
             }
             if (schema.checksum.value in ctx.state.get.usedScheman) {
@@ -252,20 +262,18 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 return;
             }
 
-            ctx.state.get.activeSchema = schema;
             ctx.state.get.usedScheman.add(schema.checksum.value);
-            ctx.state.get.injectIds = mutantsFromSchema(schema, ctx.state.get.whiteList);
 
-            logger.trace("schema built ", schema.checksum);
+            logger.trace("schema generated ", schema.checksum);
             logger.trace(schema.fragments.map!"a.file");
             logger.trace(schema.mutants);
-            logger.trace(ctx.state.get.injectIds);
+            logger.trace(injectIds);
 
-            if (ctx.state.get.injectIds.empty
-                    || ctx.state.get.injectIds.length < ctx.state.get.conf.minMutantsPerSchema.get) {
+            if (injectIds.empty || injectIds.length < ctx.state.get.conf.minMutantsPerSchema.get) {
                 send(ctx.self, GenSchema.init);
             } else {
-                send(ctx.self, UpdateWorkList.init, false);
+                ctx.state.get.activeSchema = schema;
+                ctx.state.get.injectIds = injectIds;
                 send(ctx.self, InjectAndCompile.init);
             }
         } catch (Exception e) {
@@ -283,15 +291,11 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         return !ctx.state.get.isRunning;
     }
 
-    static void mark(ref Ctx ctx, Mark _, FinalResult.Status status) @safe nothrow {
-        import std.traits : EnumMembers;
+    static void mark(ref Ctx ctx, MarkMsg _, FinalResult.Status status) @safe nothrow {
         import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
-        import dextool.plugin.mutate.backend.database : SchemaStatus;
 
         static void updateSchemaQ(ref SchemaQ sq, ref SchemataBuilder.ET schema,
-                const SchemaStatus status) @trusted {
-            import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
-            import dextool.plugin.mutate.backend.database : SchemaStatus;
+                const SchemaStatus status) @trusted nothrow {
             import my.hash : Checksum64;
             import my.set;
 
@@ -303,29 +307,17 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                     return (s == status) ? schema.mutants.map!"a.mut.kind".toSet.toRange.array
                         : null;
                 };
-                sq.update(path, getPath);
+                try {
+                    sq.update(path, getPath);
+                } catch (Exception e) {
+                    logger.warning(e.msg).collectException;
+                }
                 latestFiles.add(sq.pathCache[path]);
                 debug logger.tracef("updating %s %s", path, sq.pathCache[path]);
             }
 
             // TODO: remove prob for non-existing files
             sq.scatterTick;
-        }
-
-        static auto updateSchemaSizeQ(ref Database db, ref SchemataBuilder.ET schema,
-                const SchemaStatus status, const long userInit, const long minSize) @trusted {
-            import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaSizeQ;
-            import dextool.plugin.mutate.backend.database : SchemaStatus;
-
-            // *3 is a magic number. it feels good.
-            auto sq = SchemaSizeQ.make(minSize, userInit * 3);
-            sq.currentSize = spinSql!(() => db.schemaApi.getSchemaSize(userInit));
-            scope getStatusCnt = (SchemaStatus s) @safe {
-                return (s == status) ? [cast(long) schema.mutants.length] : null;
-            };
-            sq.update(getStatusCnt, spinSql!(() => db.mutantApi.totalSrcMutants())
-                    .count + spinSql!(() => db.mutantApi.unknownSrcMutants()).count);
-            return sq;
         }
 
         SchemaStatus schemaStatus = () {
@@ -341,15 +333,12 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }();
 
         try {
-            updateSchemaQ(ctx.state.get.schemaBuild.builder.schemaQ,
-                    ctx.state.get.activeSchema, schemaStatus);
-            send(ctx.state.get.dbSave, ctx.state.get.schemaBuild.builder.schemaQ);
+            auto schemaQ = spinSql!(() => SchemaQ(ctx.state.get.db.schemaApi.getMutantProbability));
+            updateSchemaQ(schemaQ, ctx.state.get.activeSchema, schemaStatus);
+            send(ctx.state.get.dbSave, schemaQ);
 
-            auto sq = updateSchemaSizeQ(ctx.state.get.db, ctx.state.get.activeSchema,
-                    schemaStatus, ctx.state.get.conf.mutantsPerSchema.get,
-                    ctx.state.get.conf.minMutantsPerSchema.get);
-            ctx.state.get.schemaBuild.mutantsPerSchema.get = sq.currentSize;
-            send(ctx.state.get.dbSave, sq);
+            send(ctx.state.get.sizeQUpdater, SchemaGenStatusMsg.init,
+                    schemaStatus, cast(long) ctx.state.get.activeSchema.mutants.length);
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
@@ -365,6 +354,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
             ctx.state.get.whiteList = spinSql!(() => ctx.state.get.db.worklistApi.getAll)
                 .map!"a.id".toSet;
+            send(ctx.state.get.genSchema, ctx.state.get.whiteList.toArray);
+
             logger.trace("update schema worklist: ", ctx.state.get.whiteList.length);
             debug logger.trace("update schema worklist: ", ctx.state.get.whiteList.toRange);
         } catch (Exception e) {
@@ -442,7 +433,10 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             }, (ref Actor self, ErrorMsg) {});
 
         if (ctx.state.get.injectIds.empty && ctx.state.get.scheduler.full) {
-            send(ctx.self, Mark.init, FinalResult.Status.ok);
+            logger.trace("done saving result for schema ",
+                    ctx.state.get.activeSchema.checksum).collectException;
+            send(ctx.self, MarkMsg.init, FinalResult.Status.ok);
+            send(ctx.self, UpdateWorkList.init, false);
             send(ctx.self, RestoreMsg.init).collectException;
         }
     }
@@ -453,7 +447,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             scope (exit)
                 ctx.state.get.compileTime = sw.peek;
 
-            logger.infof("Using schema with %s mutants", ctx.state.get.activeSchema.mutants.length);
+            logger.infof("Using schema with %s mutants", ctx.state.get.injectIds.length);
 
             auto codeInject = CodeInject(ctx.state.get.fio, ctx.state.get.conf);
             ctx.state.get.modifiedFiles = codeInject.inject(ctx.state.get.db,
@@ -475,14 +469,14 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 } else {
                     logger.info("Skipping the schemata because the test suite failed".color(Color.yellow)
                             .toString);
-                    send(ctx.self, Mark.init, FinalResult.Status.invalidSchema);
+                    send(ctx.self, MarkMsg.init, FinalResult.Status.invalidSchema);
                     send(ctx.self, RestoreMsg.init).collectException;
                 }
             } else {
                 send(ctx.self, StartTestMsg.init);
             }
         } catch (Exception e) {
-            send(ctx.self, Mark.init, FinalResult.Status.invalidSchema).collectException;
+            send(ctx.self, MarkMsg.init, FinalResult.Status.invalidSchema).collectException;
             send(ctx.self, RestoreMsg.init).collectException;
             logger.warning(e.msg).collectException;
         }
@@ -614,86 +608,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
     }
 
-    static void generateSchema(ref Ctx ctx, GenSchema _) @trusted nothrow {
-        static void process(ref Ctx ctx) @safe {
-            auto value = ctx.state.get.schemaBuild.process;
-            value.match!((Some!(SchemataBuilder.ET) a) {
-                send(ctx.self, RunSchema.init, a.value);
-            }, (None a) { send(ctx.self, GenSchema.init); });
-        }
-
-        static void processFile(ref Ctx ctx) @trusted nothrow {
-            if (ctx.state.get.schemaBuild.files.isDone)
-                return;
-
-            size_t frags;
-            while (frags == 0 && ctx.state.get.schemaBuild.files.filesLeft != 0) {
-                logger.trace("Files left ",
-                        ctx.state.get.schemaBuild.files.filesLeft).collectException;
-                frags = spinSql!(() {
-                    auto trans = ctx.state.get.db.transaction;
-                    return ctx.state.get.schemaBuild.updateFiles(
-                        (FileId id) => spinSql!(() => ctx.state.get.db.schemaApi.getFragments(id)),
-                        (FileId id) => spinSql!(() => ctx.state.get.db.getFile(id)),
-                        (MutationStatusId id) => spinSql!(
-                        () => ctx.state.get.db.mutantApi.getKind(id)));
-                });
-            }
-        }
-
-        logger.trace("Generate schema").collectException;
-        ctx.state.get.schemaBuild.tick;
-        final switch (ctx.state.get.schemaBuild.st) {
-        case SchemaBuildState.State.none:
-            break;
-        case SchemaBuildState.State.processFiles:
-            try {
-                processFile(ctx);
-                process(ctx);
-            } catch (Exception e) {
-                logger.trace(e.msg).collectException;
-                ctx.state.get.isRunning = false;
-            }
-            break;
-        case SchemaBuildState.State.prepareReduction:
-            goto case;
-        case SchemaBuildState.State.prepareFinalize:
-            try {
-                ctx.state.get.schemaBuild.files.reset;
-                send(ctx.self, GenSchema.init);
-            } catch (Exception e) {
-                logger.trace(e.msg).collectException;
-                ctx.state.get.isRunning = false;
-            }
-            break;
-        case SchemaBuildState.State.reduction:
-            goto case;
-        case SchemaBuildState.State.finalize1:
-            goto case;
-        case SchemaBuildState.State.finalize2:
-            try {
-                processFile(ctx);
-                process(ctx);
-            } catch (Exception e) {
-                logger.trace(e.msg).collectException;
-                ctx.state.get.isRunning = false;
-            }
-            break;
-        case SchemaBuildState.State.done:
-            ctx.state.get.schemaBuild.files.clear;
-            try {
-                if (ctx.state.get.isRunning) {
-                    send(ctx.self, RestoreMsg.init);
-                    send(ctx.self, Stop.init);
-                }
-            } catch (Exception e) {
-                ctx.state.get.hasFatalError = true;
-                ctx.state.get.isRunning = false;
-            }
-            break;
-        }
-    }
-
     static void stop(ref Ctx ctx, Stop _) @safe nothrow {
         ctx.state.get.isRunning = false;
     }
@@ -712,8 +626,258 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     return impl(self, &init_, st, &isDone, st, &updateWlist, st,
             &doneStatus, st, &save, st, &mark, st, &injectAndCompile, st,
             &restore, st, &startTest, st, &test, st, &checkHaltCond, st,
-            &confTesters, st, &generateSchema, st, &initSchemaBuilder, st,
-            &runSchema, st, &stop, st);
+            &confTesters, st, &generateSchema, st, &runSchema, st, &stop, st);
+}
+
+private SchemaSizeQ getSchemaSizeQ(ref Database db, const long userInit, const long minSize) @trusted nothrow {
+    // 1.1 is a magic number. it feels good. the purpose is to be a little
+    // leniant with the size to demonstrate to the user that it is OK to
+    // raise the max size. At the same time it shouldn't be too much
+    // because the user may have configured it to a low value for a reason.
+    auto sq = SchemaSizeQ.make(minSize, cast(long)(userInit * 1.1));
+    sq.updateSize(spinSql!(() => db.schemaApi.getSchemaSize(userInit)));
+    sq.testMutantsSize = spinSql!(() => db.worklistApi.getCount);
+    return sq;
+}
+
+private {
+    struct GenSchemaResult {
+        bool noMoreScheman;
+        SchemataBuilder.ET schema;
+        InjectIdResult injectIds;
+    }
+}
+
+// dfmt off
+alias GenSchemaActor = typedActor!(
+    void function(Init, AbsolutePath database, ConfigSchema conf),
+    GenSchemaResult function(GenSchema),
+    void function(MutationStatusId[] whiteList),
+    );
+// dfmt on
+
+private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
+        ConfigSchema conf, SchemaSizeQUpdateActor.Address sizeQUpdater) @trusted {
+    static struct State {
+        ConfigSchema conf;
+        SchemaSizeQUpdateActor.Address sizeQUpdater;
+        Database db;
+        SchemaBuildState schemaBuild;
+        Set!MutationStatusId whiteList;
+    }
+
+    auto st = tuple!("self", "state")(self, refCounted(State(conf, sizeQUpdater)));
+    alias Ctx = typeof(st);
+
+    static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath, ConfigSchema conf) nothrow {
+        import dextool.plugin.mutate.backend.database : dbOpenTimeout;
+
+        try {
+            ctx.state.get.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
+
+            ctx.state.get.schemaBuild.minMutantsPerSchema = ctx.state.get.conf.minMutantsPerSchema;
+            ctx.state.get.schemaBuild.mutantsPerSchema.get = ctx.state.get.conf
+                .mutantsPerSchema.get;
+            ctx.state.get.schemaBuild.initFiles(
+                    spinSql!(() => ctx.state.get.db.fileApi.getFileIds));
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            // TODO: should terminate?
+        }
+    }
+
+    static void updateWhiteList(ref Ctx ctx, MutationStatusId[] whiteList) @trusted nothrow {
+        try {
+            ctx.state.get.whiteList = whiteList.toSet;
+            send(ctx.state.get.sizeQUpdater, MutantsToTestMsg.init,
+                    cast(long) ctx.state.get.whiteList.length);
+
+            ctx.state.get.schemaBuild.builder.schemaQ = spinSql!(
+                    () => SchemaQ(ctx.state.get.db.schemaApi.getMutantProbability));
+
+            ctx.self.request(ctx.state.get.sizeQUpdater, infTimeout)
+                .send(GetSchemaSizeMsg.init).capture(ctx).then((ref Ctx ctx, long sz) nothrow{
+                    ctx.state.get.schemaBuild.mutantsPerSchema.get = sz;
+                });
+        } catch (Exception e) {
+        }
+    }
+
+    static GenSchemaResult genSchema(ref Ctx ctx, GenSchema _) nothrow {
+        static void process(ref Ctx ctx, ref GenSchemaResult result,
+                ref Set!MutationStatusId whiteList) @safe {
+            auto value = ctx.state.get.schemaBuild.process;
+            value.match!((Some!(SchemataBuilder.ET) a) {
+                result.schema = a;
+                result.injectIds = mutantsFromSchema(a, whiteList);
+            }, (None a) {});
+        }
+
+        static void processFile(ref Ctx ctx, ref Set!MutationStatusId whiteList) @trusted nothrow {
+            if (ctx.state.get.schemaBuild.files.isDone)
+                return;
+
+            size_t frags;
+            while (frags == 0 && ctx.state.get.schemaBuild.files.filesLeft != 0) {
+                logger.trace("Files left ",
+                        ctx.state.get.schemaBuild.files.filesLeft).collectException;
+                frags = spinSql!(() {
+                    auto trans = ctx.state.get.db.transaction;
+                    return ctx.state.get.schemaBuild.updateFiles(whiteList,
+                        (FileId id) => spinSql!(() => ctx.state.get.db.schemaApi.getFragments(id)),
+                        (FileId id) => spinSql!(() => ctx.state.get.db.getFile(id)),
+                        (MutationStatusId id) => spinSql!(
+                        () => ctx.state.get.db.mutantApi.getKind(id)));
+                });
+            }
+        }
+
+        GenSchemaResult result;
+
+        logger.trace("Generate schema").collectException;
+        while (ctx.state.get.schemaBuild.st != SchemaBuildState.State.done) {
+            ctx.state.get.schemaBuild.tick;
+
+            final switch (ctx.state.get.schemaBuild.st) {
+            case SchemaBuildState.State.none:
+                break;
+            case SchemaBuildState.State.processFiles:
+                try {
+                    processFile(ctx, ctx.state.get.whiteList);
+                    process(ctx, result, ctx.state.get.whiteList);
+                } catch (Exception e) {
+                    logger.trace(e.msg).collectException;
+                    return GenSchemaResult(true);
+                }
+                break;
+            case SchemaBuildState.State.prepareReduction:
+                send(ctx.state.get.sizeQUpdater,
+                        FullSchemaGenDoneMsg.init).collectException;
+                goto case;
+            case SchemaBuildState.State.prepareFinalize:
+                try {
+                    ctx.state.get.schemaBuild.files.reset;
+                } catch (Exception e) {
+                    logger.trace(e.msg).collectException;
+                    return GenSchemaResult(true);
+                }
+                break;
+            case SchemaBuildState.State.reduction:
+                goto case;
+            case SchemaBuildState.State.finalize1:
+                goto case;
+            case SchemaBuildState.State.finalize2:
+                try {
+                    processFile(ctx, ctx.state.get.whiteList);
+                    process(ctx, result, ctx.state.get.whiteList);
+                } catch (Exception e) {
+                    logger.trace(e.msg).collectException;
+                    return GenSchemaResult(true);
+                }
+                break;
+            case SchemaBuildState.State.done:
+                ctx.state.get.schemaBuild.files.clear;
+                return GenSchemaResult(true);
+            }
+
+            if (!result.injectIds.empty)
+                return result;
+        }
+
+        return GenSchemaResult(true);
+    }
+
+    self.name = "generateSchema";
+
+    try {
+        send(self, Init.init, dbPath, conf);
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+        self.shutdown;
+    }
+
+    return impl(self, &init_, st, &genSchema, st, &updateWhiteList, st);
+}
+
+private {
+    struct FullSchemaGenDoneMsg {
+    }
+
+    struct MutantsToTestMsg {
+    }
+
+    struct SchemaGenStatusMsg {
+    }
+
+    struct GetSchemaSizeMsg {
+    }
+
+    struct SaveSizeQMsg {
+    }
+}
+
+// dfmt off
+alias SchemaSizeQUpdateActor = typedActor!(
+    // Signal that no more full scheman are generated.
+    void function(FullSchemaGenDoneMsg),
+    // mutants to test when the scheman where generated
+    void function(MutantsToTestMsg, long number),
+    // if the generation where successfull
+    void function(SchemaGenStatusMsg, SchemaStatus, long mutantsInSchema),
+    /// The currently state of the size to use for scheman.
+    long function(GetSchemaSizeMsg),
+    );
+// dfmt on
+
+private auto spawnSchemaSizeQ(SchemaSizeQUpdateActor.Impl self,
+        SchemaSizeQ sizeQ, DbSaveActor.Address dbSave) @trusted {
+    static struct State {
+        DbSaveActor.Address dbSave;
+        // state of the sizeq algorithm.
+        SchemaSizeQ sizeQ;
+        // number of scheman that has been generated.
+        long genCount;
+    }
+
+    auto st = tuple!("self", "state")(self, refCounted(State(dbSave, sizeQ)));
+    alias Ctx = typeof(st);
+
+    static void updateMutantsNumber(ref Ctx ctx, MutantsToTestMsg _, long number) @safe nothrow {
+        ctx.state.get.sizeQ.testMutantsSize = number;
+    }
+
+    static void genStatus(ref Ctx ctx, SchemaGenStatusMsg,
+            SchemaStatus status, long mutantsInSchema) @safe nothrow {
+        ctx.state.get.genCount++;
+        try {
+            ctx.state.get.sizeQ.update(status, mutantsInSchema);
+            send(ctx.state.get.dbSave, ctx.state.get.sizeQ);
+            logger.trace(ctx.state.get.sizeQ);
+        } catch (Exception e) {
+            logger.info(e.msg).collectException;
+        }
+    }
+
+    static void fullGenDone(ref Ctx ctx, FullSchemaGenDoneMsg _) @safe nothrow {
+        if (ctx.state.get.genCount == 0) {
+            try {
+                ctx.state.get.sizeQ.noCurrentSize;
+                send(ctx.state.get.dbSave, ctx.state.get.sizeQ);
+                logger.trace(ctx.state.get.sizeQ);
+            } catch (Exception e) {
+                logger.info(e.msg).collectException;
+            }
+        }
+    }
+
+    static long getSize(ref Ctx ctx, GetSchemaSizeMsg _) @safe nothrow {
+        return ctx.state.get.sizeQ.currentSize;
+    }
+
+    self.name = "schemaSizeQUpdater";
+
+    return impl(self, &updateMutantsNumber, st, &getSize, st, &genStatus,
+            st, &fullGenDone, st);
 }
 
 /** Generate schemata injection IDs (32bit) from mutant checksums (128bit).
@@ -1357,7 +1521,7 @@ SchemataChecksum toSchemataChecksum(CodeMutant[] mutants) {
  * it was started.
  */
 struct SchemaBuildState {
-    import sumtype;
+    import std.sumtype;
     import my.optional;
     import dextool.plugin.mutate.backend.database.type : FileId, SchemaFragmentV2;
 
@@ -1487,8 +1651,8 @@ struct SchemaBuildState {
     /// Add all fragments from one of the files to process to those to be
     /// incorporated into future schemas.
     /// Returns: number of fragments added.
-    size_t updateFiles(scope SchemaFragmentV2[]delegate(FileId) @safe fragmentsFn,
-            scope Nullable!Path delegate(FileId) @safe fnameFn,
+    size_t updateFiles(ref Set!MutationStatusId whiteList, scope SchemaFragmentV2[]delegate(
+            FileId) @safe fragmentsFn, scope Nullable!Path delegate(FileId) @safe fnameFn,
             scope Mutation.Kind delegate(MutationStatusId) @safe kindFn) @safe nothrow {
         import dextool.plugin.mutate.backend.type : CodeChecksum, Mutation;
         import dextool.plugin.mutate.backend.database : toChecksum;
@@ -1504,14 +1668,19 @@ struct SchemaBuildState {
             auto app = appender!(SchemataBuilder.Fragment[])();
             auto frags = fragmentsFn(id);
             foreach (a; frags) {
-                auto cm = a.mutants.map!(a => CodeMutant(CodeChecksum(a.toChecksum),
-                        Mutation(kindFn(a), Mutation.Status.unknown))).array;
-                app.put(SchemataBuilder.Fragment(SchemataBuilder.SchemataFragment(fname.get,
-                        a.offset, a.text), cm));
+                auto cm = a.mutants
+                    .filter!(a => a in whiteList)
+                    .map!(a => CodeMutant(CodeChecksum(a.toChecksum),
+                            Mutation(kindFn(a), Mutation.Status.unknown)))
+                    .array;
+                if (!cm.empty) {
+                    app.put(SchemataBuilder.Fragment(SchemataBuilder.SchemataFragment(fname.get,
+                            a.offset, a.text), cm));
+                }
             }
 
             builder.put(app.data);
-            return frags.length;
+            return app.data.length;
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }

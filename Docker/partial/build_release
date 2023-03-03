@@ -1,4 +1,4 @@
-RUN cd build && make all -j$(nproc) VERBOSE=1
+RUN cd build && make all VERBOSE=1
 RUN cd build && make install VERBOSE=1
 RUN rm -rf build
 

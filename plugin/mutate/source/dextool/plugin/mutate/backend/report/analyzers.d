@@ -1231,59 +1231,19 @@ ScoreTrendByCodeChange reportTrendByCodeChange(ref Database db) @trusted nothrow
 struct MutationScoreHistory {
     import dextool.plugin.mutate.backend.database.type : MutationScore;
 
-    enum Trend {
-        undecided,
-        negative,
-        positive
-    }
-
-    static struct Estimate {
-        SysTime x;
-        double avg = 0;
-        SysTime predX;
-        double predScore = 0;
-        Trend trend;
-    }
+    static immutable size_t avgShort = 7;
+    static immutable size_t avgLong = 30;
 
     /// only one score for each date.
     MutationScore[] data;
-    Estimate estimate;
 
     this(MutationScore[] data) {
-        import std.algorithm : sum, map, min;
-
         this.data = data;
-        if (data.length < 6)
-            return;
-
-        const values = data[$ - 5 .. $];
-        {
-            const avg = sum(values.map!(a => a.score.get)) / 5.0;
-            const xDiff = values[$ - 1].timeStamp - values[0].timeStamp;
-            const dy = (values[$ - 1].score.get - avg) / (xDiff.total!"days" / 2.0);
-
-            estimate.x = values[0].timeStamp + xDiff / 2;
-            estimate.avg = avg;
-            estimate.predX = values[$ - 1].timeStamp + xDiff / 2;
-            estimate.predScore = min(1.0, dy * xDiff.total!"days" / 2.0 + values[$ - 1].score.get);
-        }
-
-        {
-            // small changes / fluctuations are ignored
-            const diff = estimate.predScore - values[$ - 1].score.get;
-            int fluctuation = ignoreFluctuations(diff);
-            if (fluctuation == -1) {
-                estimate.trend = Trend.negative;
-            } else if (fluctuation == 1) {
-                estimate.trend = Trend.positive;
-            }
-        }
     }
 
-    const(MutationScoreHistory) rollingAvg() @safe const {
-        immutable avgDays = 7;
+    const(MutationScoreHistory) rollingAvg(const size_t avgDays) @safe const {
         if (data.length < avgDays)
-            return this;
+            return MutationScoreHistory(null);
 
         auto app = appender!(MutationScore[])();
         foreach (i; 0 .. data.length - avgDays)

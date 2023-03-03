@@ -7,9 +7,8 @@ Definition of an optional type using sumtype.
 */
 module my.optional;
 
+import std.sumtype;
 import std.traits : isSomeFunction, ReturnType;
-
-import sumtype;
 
 alias Optional(T) = SumType!(None, Some!T);
 

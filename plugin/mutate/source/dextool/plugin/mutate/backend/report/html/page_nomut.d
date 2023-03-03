@@ -46,7 +46,7 @@ void toHtml(MutantMetaData[] data, ref Database db, Element root) {
     import std.path : buildPath;
     import std.typecons : Tuple;
     import std.uni : toLower;
-    import sumtype;
+    import std.sumtype;
     import dextool.plugin.mutate.backend.database : MutationStatusId, NoMetadata, NoMut;
     import dextool.plugin.mutate.backend.report.html.utility : pathToHtmlLink;
 

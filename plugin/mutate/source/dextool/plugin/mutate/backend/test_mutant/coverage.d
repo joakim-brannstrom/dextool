@@ -12,6 +12,7 @@ import std.array : array, appender, empty;
 import std.exception : collectException;
 import std.stdio : File;
 import std.typecons : tuple, Tuple;
+import std.sumtype;
 
 import blob_model;
 import miniorm;
@@ -19,7 +20,6 @@ import my.fsm : next, act;
 import my.optional;
 import my.path;
 import my.set;
-import sumtype;
 
 static import my.fsm;
 

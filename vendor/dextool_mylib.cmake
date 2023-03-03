@@ -8,7 +8,7 @@ compile_d_static_lib(
     "${SRC_FILES}"
     "${flags}"
     ""
-    "dextool_sumtype"
+    ""
 )
 
 compile_d_unittest(
@@ -16,5 +16,5 @@ compile_d_unittest(
     "${SRC_FILES};"
     "${flags} -main"
     ""
-    "dextool_sumtype"
+    ""
 )

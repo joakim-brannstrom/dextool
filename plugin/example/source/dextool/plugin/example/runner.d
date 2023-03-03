@@ -20,7 +20,7 @@ module dextool.plugin.runner;
 import std.stdio;
 import logger = std.experimental.logger;
 
-import sumtype;
+import std.sumtype;
 
 import dextool.type : ExitStatusType, Path, AbsolutePath;
 

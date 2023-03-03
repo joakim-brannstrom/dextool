@@ -29,4 +29,4 @@ set(flags "-I${CMAKE_SOURCE_DIR}/source
 -J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
-compile_d_unittest(component "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}" "dextool_cpptooling;dextool_libclang_ast;dextool_blob_model;dextool_mylib;dextool_sumtype;dextool_colorlog")
+compile_d_unittest(component "${SRC_FILES}" "${flags}" "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}" "dextool_cpptooling;dextool_libclang_ast;dextool_blob_model;dextool_mylib;dextool_colorlog")

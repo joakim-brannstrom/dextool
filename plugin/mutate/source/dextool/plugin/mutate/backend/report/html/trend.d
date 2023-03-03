@@ -29,42 +29,38 @@ void makeTrend(ref Database db, string tag, Document doc, Element root) @trusted
 
     auto base = root.addChild("div");
 
-    auto ts = TimeScalePointGraph("ScoreHistory");
-
-    const history = reportMutationScoreHistory(db).rollingAvg;
-    if (history.data.length > 2 && history.estimate.x != SysTime.init) {
-        foreach (v; history.data) {
-            ts.put("Score", TimeScalePointGraph.Point(v.timeStamp, v.score.get));
-        }
-        ts.setColor("Score", "blue");
-
-        ts.put("Trend", TimeScalePointGraph.Point(history.estimate.x, history.estimate.avg));
-        ts.put("Trend", TimeScalePointGraph.Point(history.data[$ - 1].timeStamp,
-                history.data[$ - 1].score.get));
-        ts.put("Trend", TimeScalePointGraph.Point(history.estimate.predX,
-                history.estimate.predScore));
-        ts.setColor("Trend", () {
-            final switch (history.estimate.trend) with (MutationScoreHistory.Trend) {
-            case undecided:
-                return "grey";
-            case negative:
-                return "red";
-            case positive:
-                return "green";
-            }
-        }());
-
-        ts.html(base, TimeScalePointGraph.Width(80));
-        base.addChild("p")
-            .appendHtml(
-                    "<i>trend</i> is a prediction of how the mutation score will change based on previous scores.");
-    }
-
+    addTrendGraph(db, doc, base);
     addFileCodeChangeGraph(db, doc, base);
     addFileScoreJsVar(db, doc, base);
 }
 
 private:
+
+void addTrendGraph(ref Database db, Document doc, Element root) {
+    import std.conv : to;
+
+    const history = reportMutationScoreHistory(db);
+    if (history.data.length < 2)
+        return;
+
+    auto ts = TimeScalePointGraph("ScoreHistory");
+    foreach (v; history.rollingAvg(MutationScoreHistory.avgLong).data)
+        ts.put("Score" ~ MutationScoreHistory.avgLong.to!string,
+                TimeScalePointGraph.Point(v.timeStamp, v.score.get));
+    ts.setColor("Score" ~ MutationScoreHistory.avgLong.to!string, "darkblue");
+    foreach (v; history.rollingAvg(MutationScoreHistory.avgShort).data)
+        ts.put("Score" ~ MutationScoreHistory.avgShort.to!string,
+                TimeScalePointGraph.Point(v.timeStamp, v.score.get));
+    ts.setColor("Score" ~ MutationScoreHistory.avgShort.to!string, "blue");
+
+    ts.html(root, TimeScalePointGraph.Width(80));
+
+    generatePopupHelp(root.addChild("div", "ScoreX"),
+            "The rolling mean where X is the days it is calculated over."
+            ~ " Useful to see a trend of the test suite over a short and long term. "
+            ~ "If e.g. the long term is starting to go down then it may be time to react."
+            ~ " 'Has our teams methodology for how we work with tests degenerated?'");
+}
 
 void addFileCodeChangeGraph(ref Database db, Document doc, Element root) {
     import std.algorithm : sort, joiner;

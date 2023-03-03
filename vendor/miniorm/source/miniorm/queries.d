@@ -5,9 +5,9 @@ import std.conv : to;
 import std.exception : enforce;
 import std.format : format;
 import std.string : join;
+import std.sumtype;
 
 import d2sqlite3;
-import sumtype;
 
 import miniorm.api : Miniorm;
 import miniorm.exception;
@@ -166,7 +166,7 @@ struct Insert(T) {
 
     /// Number of values the user wants to insert.
     auto values(size_t cnt)
-    in(cnt >= 1, "values must be >=1") {
+    in (cnt >= 1, "values must be >=1") {
         import std.array : array;
         import std.range : repeat;
 

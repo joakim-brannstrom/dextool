@@ -5,7 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module my.sumtype;
 
-public import sumtype;
+public import std.sumtype;
 
 /** Check if an instance of a sumtype contains the specific type.
  *

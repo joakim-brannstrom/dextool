@@ -89,6 +89,7 @@ import miniorm : Miniorm, TableName, buildSchema, ColumnParam, TableForeignKey, 
     TablePrimaryKey, KeyRef, KeyParam, ColumnName, delete_, insert, select, spinSql, silentLog;
 
 immutable allTestCaseTable = "all_test_case";
+immutable configVersionTable = "config_version";
 immutable depFileTable = "dependency_file";
 immutable depRootTable = "rel_dependency_root";
 immutable dextoolVersionTable = "dextool_version";
@@ -99,20 +100,20 @@ immutable mutantMemOverloadWorklistTable = "mutant_memoverload_worklist";
 immutable mutantTimeoutCtxTable = "mutant_timeout_ctx";
 immutable mutantTimeoutWorklistTable = "mutant_timeout_worklist";
 immutable mutantWorklistTable = "mutant_worklist";
+immutable mutationFileScoreHistoryTable = "mutation_file_score_history";
 immutable mutationPointTable = "mutation_point";
 immutable mutationScoreHistoryTable = "mutation_score_history";
-immutable mutationFileScoreHistoryTable = "mutation_file_score_history";
 immutable mutationStatusTable = "mutation_status";
 immutable mutationTable = "mutation";
 immutable nomutDataTable = "nomut_data";
 immutable nomutTable = "nomut";
 immutable rawSrcMetadataTable = "raw_src_metadata";
 immutable runtimeHistoryTable = "test_cmd_runtime_history";
+immutable schemaFragmentV2Table = "schema_fragment_v2";
 immutable schemaMutantQTable = "schema_mutant_q";
+immutable schemaMutantV2Table = "schemata_mutant_v2";
 immutable schemaSizeQTable = "schema_size_q";
 immutable schemaVersionTable = "schema_version";
-immutable schemaFragmentV2Table = "schema_fragment_v2";
-immutable schemaMutantV2Table = "schemata_mutant_v2";
 immutable srcCovTable = "src_cov_instr";
 immutable srcCovTimeStampTable = "src_cov_timestamp";
 immutable srcMetadataTable = "src_metadata";
@@ -304,7 +305,11 @@ struct VersionTbl {
 
 @TableName(dextoolVersionTable)
 struct DextoolVersionTable {
-    /// checksum is 64bit.
+    long checksum;
+}
+
+@TableName(configVersionTable)
+struct ConfigVersionTable {
     long checksum;
 }
 
@@ -367,13 +372,12 @@ struct MutationPointTbl {
 @TableName(mutationTable)
 @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
 @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
-@TableConstraint("unique_ UNIQUE (mp_id, kind)")
+@TableConstraint("unique_ UNIQUE (mp_id, st_id, kind)")
 struct MutationTbl {
     long id;
 
     long mp_id;
 
-    @ColumnParam("")
     long st_id;
 
     long kind;
@@ -863,10 +867,10 @@ void upgradeV0(ref Miniorm db) {
             MutationScoreHistoryTable,
             MutationFileScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
             CoverageTimeTtampTable, DependencyFileTable,
-            DependencyRootTable, DextoolVersionTable, TestCmdOriginalTable,
+            DependencyRootTable, DextoolVersionTable, ConfigVersionTable,
             TestCmdMutatedTable,
-            MutantMemOverloadtWorklistTbl,
-            TestCmdRelMutantTable, TestCmdTable, SchemaMutantV2Table, SchemaFragmentV2Table));
+            MutantMemOverloadtWorklistTbl, TestCmdRelMutantTable,
+            TestCmdTable, SchemaMutantV2Table, SchemaFragmentV2Table));
 
     updateSchemaVersion(db, tbl.latestSchemaVersion);
 }
@@ -1969,6 +1973,21 @@ void upgradeV42(ref Miniorm db) {
 
 // 2021-06-07
 void upgradeV43(ref Miniorm db) {
+    @TableName(mutationTable)
+    @TableForeignKey("mp_id", KeyRef("mutation_point(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableForeignKey("st_id", KeyRef("mutation_status(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableConstraint("unique_ UNIQUE (mp_id, kind)")
+    struct MutationTbl {
+        long id;
+
+        long mp_id;
+
+        @ColumnParam("")
+        long st_id;
+
+        long kind;
+    }
+
     immutable newTbl = "new_" ~ mutationTable;
     db.run(buildSchema!MutationTbl("new_"));
 
@@ -1992,7 +2011,16 @@ void upgradeV44(ref Miniorm db) {
     @TableName(schemataUsedTable)
     @TableForeignKey("id", KeyRef("schemata(id)"), KeyParam("ON DELETE CASCADE"))
     struct SchemataUsedTable {
-        import dextool.plugin.mutate.backend.database.type : SchemaStatus;
+        enum SchemaStatus {
+            /// no status exist
+            none,
+            /// the schema compiled and the test suite executed OK
+            ok,
+            /// either it failed to compile or the test suite failed
+            broken,
+            /// the schema only contain killed mutants
+            allKilled,
+        }
 
         long id;
 
@@ -2242,11 +2270,17 @@ void upgradeV60(ref Miniorm db) {
         db.run("DROP TABLE " ~ a);
 }
 
-// 2022-10-14
 void upgradeV61(ref Miniorm db) {
-    foreach (a; [srcCovTable, srcCovInfoTable])
-        db.run("DROP TABLE " ~ a);
-    db.run(buildSchema!CoverageCodeRegionTable);
+    immutable newTbl = "new_" ~ mutationTable;
+    db.run(buildSchema!MutationTbl("new_"));
+
+    db.run("INSERT OR IGNORE INTO " ~ newTbl ~ " (id,mp_id,st_id,kind)
+        SELECT id,mp_id,st_id,kind FROM " ~ mutationTable);
+    replaceTbl(db, newTbl, mutationTable);
+}
+
+void upgradeV62(ref Miniorm db) {
+    db.run(buildSchema!ConfigVersionTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

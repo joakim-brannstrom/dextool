@@ -18,9 +18,9 @@ import std.format : format;
  * See the unittests for example of how to use the implementation.
  */
 struct Fsm(StateTT...) {
-    static import sumtype;
+    static import std.sumtype;
 
-    alias StateT = sumtype.SumType!StateTT;
+    alias StateT = std.sumtype.SumType!StateTT;
 
     /// The states and state specific data.
     StateT state;
@@ -53,12 +53,12 @@ template next(handlers...) {
 
     void next(Self)(auto ref Self self) if (is(Self : Fsm!StateT, StateT...)) {
         import std.meta : staticMap;
-        static import sumtype;
+        static import std.sumtype;
 
         alias CoerceReturnSelf(alias Matcher) = CoerceReturn!(Self, Matcher);
         alias Handlers = staticMap!(CoerceReturnSelf, handlers);
 
-        auto nextSt = sumtype.match!Handlers(self.state);
+        auto nextSt = std.sumtype.match!Handlers(self.state);
         if (self.logger)
             self.logger(format!"%s -> %s"(self.state, nextSt));
 
@@ -69,9 +69,9 @@ template next(handlers...) {
 /// Act on the current state. Use `(ref S)` to modify the states data.
 template act(handlers...) {
     void act(Self)(auto ref Self self) if (is(Self : Fsm!StateT, StateT...)) {
-        static import sumtype;
+        static import std.sumtype;
 
-        sumtype.match!handlers(self.state);
+        std.sumtype.match!handlers(self.state);
     }
 }
 

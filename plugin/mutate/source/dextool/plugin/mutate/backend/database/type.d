@@ -11,10 +11,10 @@ module dextool.plugin.mutate.backend.database.type;
 
 import core.time : Duration;
 import std.datetime : SysTime;
+import std.sumtype;
 
 import my.named_type;
 import my.hash : Checksum64;
-import sumtype;
 
 import dextool.type : AbsolutePath, Path;
 import dextool.plugin.mutate.backend.type;
@@ -390,17 +390,6 @@ alias ChecksumTestCmdOriginal = NamedType!(Checksum64,
 
 alias ChecksumTestCmdMutated = NamedType!(Checksum64,
         Tag!"ChecksumTestCmdMutated", Checksum64.init, TagStringable);
-
-enum SchemaStatus {
-    /// no status exist
-    none,
-    /// the schema compiled and the test suite executed OK
-    ok,
-    /// either it failed to compile or the test suite failed
-    broken,
-    /// the schema only contain killed mutants
-    allKilled,
-}
 
 struct WorklistItem {
     MutationStatusId id;

@@ -1,0 +1,16 @@
+# install sqlite3 because too old in centos8 repo
+RUN mkdir -p sqlite && cd sqlite && cmake ../dextool/vendor/sqlite3
+RUN cd sqlite && make
+
+# to figure out what version of llvm
+#RUN find /usr -iname "Index.h"
+# CINDEX_VERSION_MINOR 62 is clang-13
+#RUN head -n100 /usr/include/clang-c/Index.h
+
+# to figure out what to link against
+#RUN dnf repoquery -l clang-devel|grep -i ".so"
+#RUN dnf repoquery -l llvm-devel|grep -i ".so"
+
+# something borks out when expanding a variable holding the ld flags.
+# therefore LIBCLANG_LD_FLAGS are hard coded here.
+RUN mkdir -p build && cd build && cmake ../dextool -DCMAKE_BUILD_TYPE=Release -DLOW_MEM=ON $LIBLLVM_CXX_EXTRA_FLAGS -DSQLITE3_LIB="-L/opt/sqlite -lsqlite3" -DLIBCLANG_LDFLAGS="-Wl,--enable-new-dtags -Wl,--no-as-needed" -DLIBCLANG_LIBS="-lclang -lclang-cpp" -DLIBLLVM_VERSION=12_0_0 -DLIBLLVM_MAJOR_VERSION=12

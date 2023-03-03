@@ -18,12 +18,12 @@ import std.datetime : Duration, dur;
 import std.exception : collectException;
 import std.path : buildPath;
 import std.typecons : Flag, No;
+import std.sumtype;
 
 import blob_model : Blob;
 import my.named_type;
 import my.set;
 import proc : DrainElement;
-import sumtype;
 
 import dextool.plugin.mutate.backend.interface_;
 import dextool.plugin.mutate.backend.test_mutant.test_case_analyze : GatherTestCase;
@@ -455,7 +455,6 @@ CompileResult compile(ShellCommand cmd, Duration timeout, PrintCompileOnFailure 
             return pipeProcess(cmd.value).sandbox.timeout(timeout).rcKill;
         }();
 
-        ulong bytes;
         foreach (a; p.process.drain) {
             if (!a.empty && print) {
                 write(a.byUTF8);
@@ -649,24 +648,38 @@ struct TestStopCheck {
 
     /// Start a background thread that will forcefully terminate the application.
     void startBgShutdown(Duration waitFor = 10.dur!"minutes") @trusted nothrow {
+        import std.concurrency : spawnLinked, receiveTimeout, LinkTerminated, OwnerTerminated;
+
         static void tick(Duration waitFor) @trusted nothrow {
-            import core.thread : Thread;
             import core.stdc.stdlib : exit;
 
-            try {
-                Thread.sleep(waitFor);
-                logger.info("Force shutdown");
-            } catch (Exception e) {
+            const stopAt = Clock.currTime + waitFor;
+            bool parentAlive = true;
+
+            while (parentAlive && Clock.currTime < stopAt) {
+                try {
+                    receiveTimeout(10.dur!"seconds", (int) {});
+                } catch (LinkTerminated) {
+                    parentAlive = false;
+                } catch (OwnerTerminated) {
+                    // owner terminated thus assuming the program is progressing to a clean shutdown.
+                    return;
+                } catch (Exception e) {
+                }
             }
 
+            logger.info("Force shutdown").collectException;
+            // note: the below assumption may not be correct because if the
+            // shutdown triggers before files on disc have been restored then
+            // well. It isn't a severe problem as long as the user always setup
+            // the source code from scratch/cleanly when starting.
+            //
             // it is not really a failure just, a workaround if other parts
             // lockup such as a thread pool. it happens sometimes.
             exit(0);
         }
 
-        import std.concurrency : spawn;
-
-        spawn(&tick, waitFor).collectException;
+        spawnLinked(&tick, waitFor).collectException;
     }
 
     string overloadToString() @safe const {

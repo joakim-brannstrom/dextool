@@ -64,49 +64,49 @@ int main(string[] args) {
     // Test strategy:
     // * test minimal requirements for ubuntu, both compilers.
     // * test latest dmd for ubuntu with dub integration. This also tests the release build.
-    // * release build for centos7 with minimal compiler
+    // * release build for centos8 with minimal compiler
 
     // Setup tests
-    tests["ldc-ubuntu-min-test"] ~= () {
+    tests["ldc-ubuntu-min-release"] ~= () {
         build(mergeFiles([
-                    "ubuntu_minimal_base", "ldc_min_version", "ldc", "fix_repo",
-                    "prepare_test_build_min_ubuntu", "build_test"
+                "ubuntu_minimal_base", "ldc_min_version", "ldc", "fix_repo",
+                "prepare_release_build_ubuntu", "build_release"
                 ]), tag.next);
     };
     tests["ldc-ubuntu-latest-release"] ~= () {
         build(mergeFiles([
-                    "ubuntu_latest_base", "ldc_latest_version", "ldc", "fix_repo",
-                    "prepare_release_build_ubuntu", "build_release"
+                "ubuntu_latest_base", "ldc_latest_version", "ldc", "fix_repo",
+                "prepare_release_build_ubuntu", "build_release"
                 ]), tag.next);
     };
     tests["ldc-fedora-latest-release"] ~= () {
         build(mergeFiles([
-                    "fedora_base", "ldc_latest_version", "ldc", "fix_repo",
-                    "prepare_release_build_fedora", "build_release"
+                "fedora_base", "ldc_latest_version", "ldc", "fix_repo",
+                "prepare_release_build_fedora", "build_release"
                 ]), tag.next);
     };
-    tests["ldc-centos7-min-release"] ~= () {
+    tests["ldc-centos8-min-release"] ~= () {
         build(mergeFiles([
-                    "centos7_base", "ldc_min_version", "ldc", "fix_repo",
-                    "prepare_release_build_centos7", "build_release"
+                "centos8_base", "ldc_min_version", "ldc", "fix_repo",
+                "prepare_release_build_centos8", "build_release"
                 ]), tag.next);
     };
     tests["dmd-ubuntu-min-test"] ~= () {
         build(mergeFiles([
-                    "ubuntu_minimal_base", "dmd_min_version", "dmd", "fix_repo",
-                    "prepare_test_build_min_ubuntu", "build_test"
+                "ubuntu_minimal_base", "dmd_min_version", "dmd", "fix_repo",
+                "prepare_test_build_min_ubuntu", "build_test"
                 ]), tag.next);
     };
     tests["dmd-ubuntu-latest-test"] ~= () {
         build(mergeFiles([
-                    "ubuntu_latest_base", "dmd_latest_version", "dmd",
-                    "fix_repo", "prepare_test_build_ubuntu", "build_test"
+                "ubuntu_latest_base", "dmd_latest_version", "dmd", "fix_repo",
+                "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
     tests["ldc-ubuntu-latest-dub"] ~= () {
         build(mergeFiles([
-                    "ubuntu_latest_base", "ldc_latest_version", "ldc",
-                    "fix_repo", "build_with_dub"
+                "ubuntu_latest_base", "ldc_latest_version", "ldc", "fix_repo",
+                "build_with_dub"
                 ]), tag.next);
     };
 
@@ -132,9 +132,9 @@ void prepareTarBall(string tarName) {
 /// Build a docker image.
 void build(string dockerFile, string tag) {
     if (spawnProcess([
-                "docker", "image", "build", "--network", "host", "-f", dockerFile,
-                "-t", tag, "."
-            ]).wait != 0)
+            "docker", "image", "build", "--network", "host", "-f", dockerFile,
+            "-t", tag, "."
+        ]).wait != 0)
         throw new Exception("Failed building " ~ dockerFile ~ " " ~ tag);
 }
 

@@ -23,9 +23,17 @@ import std.random : uniform01, MinstdRand0, unpredictableSeed;
 import std.range : only;
 
 import dextool.plugin.mutate.backend.type : Mutation;
-import dextool.plugin.mutate.backend.database.type : SchemaStatus;
 
 @safe:
+
+enum SchemaStatus {
+    /// no status exist
+    none,
+    /// the schema compiled and the test suite executed OK
+    ok,
+    /// either it failed to compile or the test suite failed
+    broken
+}
 
 struct SchemaQ {
     import std.traits : EnumMembers;
@@ -90,7 +98,7 @@ struct SchemaQ {
                 x -= LearnRate;
             });
         // reward
-        foreach (k; only(data(SchemaStatus.ok), data(SchemaStatus.allKilled)).joiner)
+        foreach (k; data(SchemaStatus.ok))
             change.update(k, () => (1.0 + LearnRate), (ref double x) {
                 x += LearnRate;
             });
@@ -115,7 +123,7 @@ struct SchemaQ {
 
     /** To allow those with zero probability to self heal give them a random +1 now and then.
      */
-    void scatterTick() {
+    void scatterTick() nothrow {
         foreach (p; state.byKeyValue) {
             foreach (k; p.value.byKeyValue.filter!(a => a.value == 0 && uniform01(rnd0) < 0.05)) {
                 state[p.key][k.key] = 1;
@@ -198,7 +206,7 @@ unittest {
     Mutation.Kind[] r2(SchemaStatus s) {
         if (s == SchemaStatus.broken)
             return [Mutation.Kind.rorLE, Mutation.Kind.rorLT];
-        if (s == SchemaStatus.allKilled)
+        if (s == SchemaStatus.ok)
             return [Mutation.Kind.rorLT];
         return null;
     }
@@ -211,39 +219,71 @@ unittest {
 
 struct SchemaSizeQ {
     static immutable LearnRate = 0.01;
+    static immutable Threshold = 0.9;
 
-    // Returns: an array of the nr of mutants schemas matching the condition.
-    alias StatusData = long[]delegate(SchemaStatus);
-
-    MinstdRand0 rnd0;
+    /// min size of a schema.
     long minSize;
+    /// max size of a schema.
     long maxSize;
-    long currentSize;
+    /// current size of that are used to generate scheman.
+    private long currentSize_;
+    /// total number of mutants that are to be tested when schemas are generated.
+    long testMutantsSize;
 
     static auto make(const long minSize, const long maxSize) {
-        return SchemaSizeQ(MinstdRand0(unpredictableSeed), minSize, maxSize);
+        return SchemaSizeQ(minSize, maxSize, maxSize);
     }
 
-    void update(scope StatusData data, const long totalMutants) {
-        import std.math : pow;
+    void updateSize(const double sz) @safe pure nothrow @nogc {
+        currentSize_ = clamp(cast(long) sz, minSize, maxSize);
+    }
 
-        double newValue = currentSize;
-        scope (exit)
-            currentSize = clamp(cast(long) newValue, minSize, maxSize);
+    long currentSize() @safe pure nothrow const @nogc {
+        return currentSize_;
+    }
+
+    /**
+     * Params:
+     *  schemaMutants = mutants in the schema
+     */
+    void update(const SchemaStatus status, const long schemaMutants) {
+        double newValue = currentSize_;
 
         double adjust = 1.0;
-        // ensure there is at least some change even though there is rounding
-        // errors or some schemas are small.
+        // ensure there is at least some change.
         long fixed;
-        foreach (const v; data(SchemaStatus.broken).filter!(a => a < currentSize)) {
-            adjust -= LearnRate * (cast(double) v / cast(double) totalMutants);
-            fixed--;
+
+        final switch (status) {
+        case SchemaStatus.none:
+            break;
+        case SchemaStatus.ok:
+            // only try to increase the size if the schema where close to max
+            if (maxSize > 0 && schemaMutants > currentSize_ * Threshold) {
+                adjust += LearnRate * (cast(double) schemaMutants / cast(double) maxSize);
+                fixed++;
+            }
+            break;
+        case SchemaStatus.broken:
+            if (maxSize > 0 && schemaMutants > currentSize_ * Threshold) {
+                adjust -= LearnRate * (cast(double) schemaMutants / cast(double) maxSize);
+                fixed--;
+            }
+            break;
         }
-        foreach (const v; only(data(SchemaStatus.allKilled), data(SchemaStatus.ok)).joiner.filter!(
-                a => a > currentSize)) {
-            adjust += LearnRate * (cast(double) v / cast(double) totalMutants);
-            fixed++;
-        }
-        newValue = newValue * adjust + fixed;
+
+        updateSize(newValue * adjust + fixed);
+    }
+
+    /// No schema with `currentSize_` where generated.
+    void noCurrentSize() {
+        if (maxSize > 0 && testMutantsSize > currentSize_ * Threshold)
+            updateSize(currentSize_ - currentSize_ * LearnRate);
+    }
+
+    string toString() @safe pure const {
+        import std.format : format;
+
+        return format!"SchemaSizeQ(min:%s, max:%s, current:%s, testMutantsSize:%s)"(minSize,
+                maxSize, currentSize_, testMutantsSize);
     }
 }
