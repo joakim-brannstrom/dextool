@@ -1,8 +1,0 @@
-# install sqlite3 because too old in centos7 repo
-RUN mkdir -p sqlite && cd sqlite && cmake ../dextool/vendor/sqlite3
-RUN cd sqlite && make
-
-# something borks out when expanding a variable holding the ld flags.
-# therefore LIBCLANG_LD_FLAGS are hard coded here.
-RUN mkdir -p build && cd build && cmake ../dextool -DCMAKE_BUILD_TYPE=Release $LIBLLVM_CXX_EXTRA_FLAGS -DSQLITE3_LIB="-L/opt/sqlite -lsqlite3" -DLIBCLANG_LDFLAGS="-Wl,--enable-new-dtags -Wl,--no-as-needed -L/opt/rh/llvm-toolset-7/root/usr/lib64/ -Wl,-rpath,/opt/rh/llvm-toolset-7/root/usr/lib64/" -DLIBCLANG_LIBS="-lclang -lclangFrontendTool -lclangRewriteFrontend -lclangDynamicASTMatchers -lclangFrontend -lclangASTMatchers -lclangParse -lclangSerialization -lclangRewrite -lclangSema -lclangEdit -lclangAnalysis -lclangAST -lclangLex -lclangBasic" -DLOW_MEM=ON
-RUN ls /opt/rh/llvm-toolset-7/root/usr/lib64
