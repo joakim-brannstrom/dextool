@@ -237,7 +237,8 @@ do {
 
         logTypeResult(tr, indent);
         tr.get.primary.type.kind.info.match!(ignore!(TypeKind.FuncInfo), (_) {
-            assert(0, "wrong type");
+            logger.infof("Wrong type detected when trying to deduce the referenced concrete type of %s",
+                c.location());
         });
 
         return tr;
