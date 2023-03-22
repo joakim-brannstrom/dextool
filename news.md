@@ -10,6 +10,10 @@ Fixes for dextool mutate
    then do not inject a schema code in them. This may result in slower mutation
    testing for some and faster for others. If it turns out to be a problem this
    behavior may become configurable.
+ * The unique identifier calculated by the relaxed algorithm didn't work
+   correctly for mutants in headers. It often lead to duplication of mutants
+   which lead to a misleading mutation score and made the tool many times
+   slower than it should have been.
 
 # v5.0 Limestone
 

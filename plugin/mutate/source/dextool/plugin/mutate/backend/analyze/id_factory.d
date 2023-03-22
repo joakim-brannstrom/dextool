@@ -11,8 +11,6 @@ Generate unique ID's for used to identify mutants.
 */
 module dextool.plugin.mutate.backend.analyze.id_factory;
 
-import logger = std.experimental.logger;
-
 import dextool.type : Path;
 
 import dextool.plugin.mutate.backend.analyze.extensions;
@@ -68,6 +66,8 @@ class StrictImpl : MutantIdFactory {
     private {
         /// Checksum of the filename containing the mutants.
         Checksum file;
+        bool newFile = true;
+
         /// Checksum of all tokens content.
         Checksum content;
 
@@ -83,6 +83,7 @@ class StrictImpl : MutantIdFactory {
     }
 
     override void changeFile(Path fileName, scope Token[] tokens) {
+        newFile = true;
         file = () {
             BuildChecksum64 bc;
             bc.put(cast(const(ubyte)[]) fileName.toString);
@@ -100,7 +101,7 @@ class StrictImpl : MutantIdFactory {
 
     override void update(const Offset content, const Offset mutant, scope Token[] tokens) {
         // only do it if the position changes
-        if (mutant == mutantLoc)
+        if (!newFile && mutant == mutantLoc)
             return;
         mutantLoc = mutant;
 
@@ -116,6 +117,8 @@ class StrictImpl : MutantIdFactory {
             bc.put(split.end.toBytes);
             postMutant = toChecksum64(bc);
         }
+
+        newFile = false;
     }
 
     override CodeMutant make(Mutation m, scope const(ubyte)[] mut) @safe pure nothrow scope {
@@ -145,17 +148,16 @@ class StrictImpl : MutantIdFactory {
  * inside a file.
  *
  * The algorithm is a checksum of:
- *  * the content of all relevant tokens, e.g. all except comments
+ *  * the content of all relevant tokens in the current scope, e.g. all except comments
  *  * the token position before and after the mutant.
  *  * the original text
  *  * the mutated text
  */
 class RelaxedImpl : MutantIdFactory {
-    import my.set;
-
     private {
         /// Checksum of the filename containing the mutants.
         Checksum file;
+        bool newFile = true;
 
         // the offset of the last window
         Offset contentLoc;
@@ -176,22 +178,25 @@ class RelaxedImpl : MutantIdFactory {
     }
 
     override void changeFile(Path fileName, scope Token[] tokens) {
-        file = () {
-            BuildChecksum64 bc;
-            bc.put(cast(const(ubyte)[]) fileName.toString);
-            return toChecksum64(bc);
-        }();
+        BuildChecksum64 bc;
+        bc.put(cast(const(ubyte)[]) fileName.toString);
+        file = toChecksum64(bc);
+        newFile = true;
+
+        content = Window.init;
+        contentLoc = Offset.init;
+        mutantLoc = Offset.init;
     }
 
     override void update(const Offset content, const Offset mutant, scope Token[] tokens) {
         // only do it if the position changes
-        if (contentLoc != content) {
+        if (newFile || contentLoc != content) {
             contentLoc = content;
             auto s = splice(tokens, content);
             this.content.update(s, tokens);
         }
 
-        if (mutant != mutantLoc) {
+        if (newFile || mutant != mutantLoc) {
             mutantLoc = mutant;
             auto s = this.content.toInside(splice(tokens, mutant));
 
@@ -206,6 +211,8 @@ class RelaxedImpl : MutantIdFactory {
                 postMutant = toChecksum64(bc);
             }
         }
+
+        newFile = false;
     }
 
     override CodeMutant make(Mutation m, scope const(ubyte)[] mut) @safe pure nothrow scope {

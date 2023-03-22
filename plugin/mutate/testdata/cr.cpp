@@ -2,6 +2,7 @@
 /// @date 2021
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
+namespace bar {
 int x = 42;
 float a = 2.0;
 double z = 3.0;
@@ -17,3 +18,4 @@ void fn() {
     auto w = 55;
     const auto a = 88;
 }
+} // namespace bar
