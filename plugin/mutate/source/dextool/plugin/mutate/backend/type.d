@@ -442,7 +442,7 @@ struct Token {
     }
 
     string toId() @safe const {
-        return format("%s-%s", offset.begin, offset.end);
+        return format!"%s-%s"(offset.begin, offset.end);
     }
 
     string toName() @safe const {

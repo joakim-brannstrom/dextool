@@ -328,17 +328,24 @@ class MutantVisitor : DepthFirstVisitor {
 
     Ast* ast;
     MutantsResult result;
+    FilesysIO fio;
+    ValidateLoc vloc;
+
     Offset context;
+    AbsolutePath contextPath;
 
     private {
         uint depth;
         Stack!(Node) nstack;
+        Stack!(Offset) contextStack;
     }
 
     alias visit = DepthFirstVisitor.visit;
 
     this(Ast* ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) {
         this.ast = ast;
+        this.fio = fio;
+        this.vloc = vloc;
         result = new MutantsResult(ast.lang, fio, vloc, kinds);
 
         // by adding the locations here the rest of the visitor do not have to
@@ -349,12 +356,26 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visitPush(Node n) {
+        updateContextOnFileChange(n);
         nstack.put(n, ++depth);
     }
 
     override void visitPop(Node n) {
         nstack.pop;
         --depth;
+    }
+
+    void updateContextOnFileChange(Node n) nothrow {
+        try {
+            const l = ast.location(n);
+            if (l.file != contextPath && vloc.isInsideOutputDir(l.file)) {
+                contextPath = l.file;
+                auto fin = fio.makeInput(l.file);
+                context = Offset(0, cast(uint) fin.content.length);
+            }
+        } catch (Exception e) {
+            logger.info(e.msg).collectException;
+        }
     }
 
     /// Returns: the closest function from the current node.
@@ -415,7 +436,6 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(TranslationUnit n) {
-        context = ast.location(n).interval;
         accept(n, this);
     }
 
@@ -427,8 +447,11 @@ class MutantVisitor : DepthFirstVisitor {
         auto old = context;
         scope (exit)
             context = old;
-        if (n.context)
-            context = ast.location(n).interval;
+        if (n.context) {
+            const l = ast.location(n);
+            contextPath = l.file;
+            context = l.interval;
+        }
         accept(n, this);
     }
 
