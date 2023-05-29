@@ -429,6 +429,7 @@ struct ArgParser {
                    "profile", "print performance profile for the analyzers that are part of the report", &analyze.profile,
                    "schema-min-mutants", "mini number of mutants per schema", schema.minMutantsPerSchema.getPtr,
                    "schema-mutants", "number of mutants per schema (soft upper limit)", schema.mutantsPerSchema.getPtr,
+                   "system-compiler", "compiler to analyze for system headers", &compiler.useCompilerSystemIncludes.value,
                    "threads", "number of threads to use for analysing files (default: CPU cores available)", &analyze.poolSize,
                    );
             // dfmt on

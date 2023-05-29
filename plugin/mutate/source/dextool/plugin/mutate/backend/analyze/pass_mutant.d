@@ -331,13 +331,16 @@ class MutantVisitor : DepthFirstVisitor {
     FilesysIO fio;
     ValidateLoc vloc;
 
-    Offset context;
-    AbsolutePath contextPath;
-
     private {
         uint depth;
-        Stack!(Node) nstack;
-        Stack!(Offset) contextStack;
+        Stack!Node nstack;
+
+        static struct ContextData {
+            Offset pos;
+            AbsolutePath path;
+        }
+
+        Stack!ContextData context;
     }
 
     alias visit = DepthFirstVisitor.visit;
@@ -356,25 +359,59 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visitPush(Node n) {
+        ++depth;
+        nstack.put(n, depth);
         updateContextOnFileChange(n);
-        nstack.put(n, ++depth);
     }
 
     override void visitPop(Node n) {
         nstack.pop;
+        context.pop;
         --depth;
     }
 
     void updateContextOnFileChange(Node n) nothrow {
+        // a value must be added to the stack each a node is visited otherwise
+        // pop will be out of sync.
+
         try {
             const l = ast.location(n);
-            if (l.file != contextPath && vloc.isInsideOutputDir(l.file)) {
-                contextPath = l.file;
+            if (!vloc.isInsideOutputDir(l.file)) {
+                context.put(ContextData.init, depth);
+            } else if (context.empty || l.file != context.back.path) {
                 auto fin = fio.makeInput(l.file);
-                context = Offset(0, cast(uint) fin.content.length);
+                auto pos = Offset(0, cast(uint) fin.content.length);
+                context.put(ContextData(pos, l.file), depth);
+            } else {
+                context.put(context.back, depth);
             }
         } catch (Exception e) {
             logger.info(e.msg).collectException;
+            context.put(ContextData.init, depth);
+        }
+    }
+
+    static struct ContextScope {
+        MutantVisitor parent;
+        bool doPop;
+
+        this(MutantVisitor parent, Node n) nothrow {
+            this.parent = parent;
+            try {
+                if (n.context) {
+                    const l = parent.ast.location(n);
+                    parent.context.put(ContextData(l.interval, l.file), parent.depth);
+                    doPop = true;
+                }
+            } catch (Exception e) {
+                logger.info(e.msg).collectException;
+            }
+        }
+
+        ~this() nothrow {
+            if (doPop) {
+                parent.context.pop;
+            }
         }
     }
 
@@ -431,7 +468,7 @@ class MutantVisitor : DepthFirstVisitor {
 
         foreach (kind; kinds) {
             result.put(loc.file, MutantsResult.MutationPoint(loc.interval,
-                    loc.sloc, context), kind);
+                    loc.sloc, context.back.pos), kind);
         }
     }
 
@@ -444,14 +481,7 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Function n) {
-        auto old = context;
-        scope (exit)
-            context = old;
-        if (n.context) {
-            const l = ast.location(n);
-            contextPath = l.file;
-            context = l.interval;
-        }
+        auto cs = ContextScope(this, n);
         accept(n, this);
     }
 
@@ -537,11 +567,7 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Poison n) {
-        auto old = context;
-        scope (exit)
-            context = old;
-        if (n.context)
-            context = ast.location(n).interval;
+        auto cs = ContextScope(this, n);
         accept(n, this);
     }
 
