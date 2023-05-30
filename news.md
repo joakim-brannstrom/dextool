@@ -14,6 +14,19 @@ Fixes for dextool mutate
    correctly for mutants in headers. It often lead to duplication of mutants
    which lead to a misleading mutation score and made the tool many times
    slower than it should have been.
+ * Stopped generated statement delete mutants of `return;` because those
+   mutants overlap in behavior with other mutants thus they are redundant. An
+   example of such a mutant is the early return programming pattern.
+```c++
+void fn(int x) {
+    if (x > 42) { return; }
+    /* other stuff */
+}
+```
+   The mutant `x>42` to `false` is the same as deleting `return;`. Because
+   mutation testing is a somewhat slow process it is better to generate less
+   mutants wherein every mutant that is generated are useful (test something new).
+
 
 # v5.0 Limestone
 

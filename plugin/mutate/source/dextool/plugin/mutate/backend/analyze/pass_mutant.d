@@ -547,15 +547,6 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Return n) {
-        auto ty = closestFuncType;
-
-        if (ty !is null && ty.kind == TypeKind.top) {
-            auto loc = ast.location(n);
-            // only function with return type void (top, no type) can be
-            // deleted without introducing undefined behavior.
-            put(loc, stmtDelMutations(n.kind), n.blacklist);
-        }
-
         accept(n, this);
     }
 
