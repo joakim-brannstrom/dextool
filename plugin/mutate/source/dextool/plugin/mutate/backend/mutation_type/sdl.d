@@ -21,8 +21,6 @@ Mutation.Kind[] stmtDelMutations(Kind operator) @safe pure nothrow {
     Mutation.Kind[] rval;
 
     switch (operator) with (Mutation.Kind) {
-    case Kind.Return:
-        goto case;
     case Kind.Block:
         goto case;
     case Kind.Loop:
