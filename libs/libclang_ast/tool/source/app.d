@@ -25,7 +25,6 @@ import libclang_ast.ast.nodes;
 void main(string[] args) {
     generateNodeCode(AttributeSeq, "Attribute");
     generateNodeCode(DeclarationSeq, "Declaration");
-    generateNodeCode(DirectiveSeq, "Directive");
     generateNodeCode(ExpressionSeq, "Expression");
     generateNodeCode(ExtraSeq, "Extra");
     generateNodeCode(PreprocessorSeq, "Preprocessor");
@@ -41,7 +40,6 @@ void main(string[] args) {
     generateVisitorCode(
                         SeqBase(AttributeSeq, "Attribute"),
                         SeqBase(DeclarationSeq, "Declaration"),
-                        SeqBase(DirectiveSeq, "Directive"),
                         SeqBase(ExpressionSeq, "Expression"),
                         SeqBase(ExtraSeq, "Extra"),
                         SeqBase(PreprocessorSeq, "Preprocessor"),
@@ -57,7 +55,7 @@ void generateNodeCode(Char)(Char[] seq, string name) {
     // 1: the name of the base module.
     // 2: data containing the specialized nodes.
     immutable template_ = `/**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 

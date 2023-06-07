@@ -17,7 +17,6 @@ import clang.c.Index : CXCursorKind;
 
 import libclang_ast.ast.attribute;
 import libclang_ast.ast.declaration;
-import libclang_ast.ast.directive;
 import libclang_ast.ast.expression;
 import libclang_ast.ast.extra;
 import libclang_ast.ast.preprocessor;
@@ -107,7 +106,6 @@ void dispatch(VisitorT)(scope const Cursor cursor, scope VisitorT visitor) @trus
     switch (cursor.kind) {
         mixin(wrapCursor!(visitor, cursor)(AttributeSeq));
         mixin(wrapCursor!(visitor, cursor)(DeclarationSeq));
-        mixin(wrapCursor!(visitor, cursor)(DirectiveSeq));
         mixin(wrapCursor!(visitor, cursor)(ExpressionSeq));
         mixin(wrapCursor!(visitor, cursor)(ExtraSeq));
         mixin(wrapCursor!(visitor, cursor)(PreprocessorSeq));
@@ -170,11 +168,6 @@ case Dummy.xCase2: scope wrapped = new Case2(cursor); visitor.visit(wrapped); br
             declaration = true;
         }
 
-        bool directive;
-        override void visit(const(Directive)) {
-            directive = true;
-        }
-
         bool expression;
         override void visit(const(Expression)) {
             expression = true;
@@ -211,20 +204,18 @@ case Dummy.xCase2: scope wrapped = new Case2(cursor); visitor.visit(wrapped); br
     Cursor cursor;
 
     foreach (kind; [
-            __traits(getMember, CXCursorKind, AttributeSeq[0]),
-            __traits(getMember, CXCursorKind, DeclarationSeq[0]),
-            __traits(getMember, CXCursorKind, DirectiveSeq[0]),
-            __traits(getMember, CXCursorKind, ExpressionSeq[0]),
-            __traits(getMember, CXCursorKind, ExtraSeq[0]),
-            __traits(getMember, CXCursorKind, PreprocessorSeq[0]),
-            __traits(getMember, CXCursorKind, ReferenceSeq[0]),
-            __traits(getMember, CXCursorKind, StatementSeq[0]),
-            __traits(getMember, CXCursorKind, TranslationUnitSeq[0])
-        ]) {
+        __traits(getMember, CXCursorKind, AttributeSeq[0]),
+        __traits(getMember, CXCursorKind, DeclarationSeq[0]),
+        __traits(getMember, CXCursorKind, ExpressionSeq[0]),
+        __traits(getMember, CXCursorKind, ExtraSeq[0]),
+        __traits(getMember, CXCursorKind, PreprocessorSeq[0]),
+        __traits(getMember, CXCursorKind, ReferenceSeq[0]),
+        __traits(getMember, CXCursorKind, StatementSeq[0]),
+        __traits(getMember, CXCursorKind, TranslationUnitSeq[0])
+    ]) {
         switch (kind) {
             mixin(wrapCursor!(test, cursor)(AttributeSeq));
             mixin(wrapCursor!(test, cursor)(DeclarationSeq));
-            mixin(wrapCursor!(test, cursor)(DirectiveSeq));
             mixin(wrapCursor!(test, cursor)(ExpressionSeq));
             mixin(wrapCursor!(test, cursor)(ExtraSeq));
             mixin(wrapCursor!(test, cursor)(PreprocessorSeq));
@@ -238,7 +229,6 @@ case Dummy.xCase2: scope wrapped = new Case2(cursor); visitor.visit(wrapped); br
 
     test.attribute.shouldBeTrue;
     test.declaration.shouldBeTrue;
-    test.directive.shouldBeTrue;
     test.expression.shouldBeTrue;
     test.extra.shouldBeTrue;
     test.preprocessor.shouldBeTrue;

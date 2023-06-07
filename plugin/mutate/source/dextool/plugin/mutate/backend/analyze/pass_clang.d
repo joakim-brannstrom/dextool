@@ -611,11 +611,6 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(ast.get.make!(analyze.VarDecl), v);
     }
 
-    override void visit(scope const Directive v) {
-        mixin(mixinNodeLog!());
-        v.accept(this);
-    }
-
     override void visit(scope const InclusionDirective v) @trusted {
         import std.file : exists;
         import std.path : buildPath, dirName;

@@ -11,7 +11,6 @@ set(SRC_FILES
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/ast/attribute.d
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/ast/base_visitor.d
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/ast/declaration.d
-    ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/ast/directive.d
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/ast/expression.d
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/ast/extra.d
     ${CMAKE_CURRENT_LIST_DIR}/source/libclang_ast/ast/node.d

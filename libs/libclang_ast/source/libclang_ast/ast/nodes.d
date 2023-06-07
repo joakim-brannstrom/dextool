@@ -9,6 +9,10 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module libclang_ast.ast.nodes;
 
+import clang.c.Index : CINDEX_VERSION_MINOR;
+
+enum Lllvm16Plus = 63;
+
 string makeNodeClassName(string s) {
     import std.string;
 
@@ -22,16 +26,24 @@ immutable string[] TranslationUnitSeq = [
 // dfmt on
 
 // dfmt off
-immutable string[] ExtraSeq = [
+immutable string[] ExtraSeq1 = [
     "moduleImportDecl",
     "typeAliasTemplateDecl",
     "staticAssert",
-    "friendDecl",
-    ];
+    "friendDecl",];
+immutable string[] ExtraSeq2 = [
+    "conceptDecl",
+    "overloadCandidate",
+];
 // dfmt on
+static if (CINDEX_VERSION_MINOR >= Lllvm16Plus) {
+    immutable string[] ExtraSeq = ExtraSeq1 ~ ExtraSeq2;
+} else {
+    alias ExtraSeq = ExtraSeq1;
+}
 
 // dfmt off
-immutable string[] AttributeSeq = [
+immutable string[] AttributeSeq1 = [
     "unexposedAttr",
     "ibActionAttr",
     "ibOutletAttr",
@@ -51,10 +63,39 @@ immutable string[] AttributeSeq = [
     "cudaSharedAttr",
     "visibilityAttr",
     "dllExport",
-    "dllImport",
-    ];
-
+    "dllImport"
+];
+immutable AttributeSeq2 = [
+    "nsReturnsRetained",
+    "nsReturnsNotRetained",
+    "nsReturnsAutoreleased",
+    "nsConsumesSelf",
+    "nsConsumed",
+    "objCException",
+    "objCNSObject",
+    "objCIndependentClass",
+    "objCPreciseLifetime",
+    "objCReturnsInnerPointer",
+    "objCRequiresSuper",
+    "objCRootClass",
+    "objCSubclassingRestricted",
+    "objCExplicitProtocolImpl",
+    "objCDesignatedInitializer",
+    "objCRuntimeVisible",
+    "objCBoxable",
+    "flagEnum",
+    "convergentAttr",
+    "warnUnusedAttr",
+    "warnUnusedResultAttr",
+    "alignedAttr",
+];
 // dfmt on
+
+static if (CINDEX_VERSION_MINOR >= Lllvm16Plus) {
+    immutable string[] AttributeSeq = AttributeSeq1 ~ AttributeSeq2;
+} else {
+    alias AttributeSeq = AttributeSeq1;
+}
 
 // dfmt off
 immutable string[] DeclarationSeq = [
@@ -100,59 +141,7 @@ immutable string[] DeclarationSeq = [
 // dfmt on
 
 // dfmt off
-immutable string[] DirectiveSeq = [
-    "ompParallelDirective",
-    "ompSimdDirective",
-    "ompForDirective",
-    "ompSectionsDirective",
-    "ompSectionDirective",
-    "ompSingleDirective",
-    "ompParallelForDirective",
-    "ompParallelSectionsDirective",
-    "ompTaskDirective",
-    "ompMasterDirective",
-    "ompCriticalDirective",
-    "ompTaskyieldDirective",
-    "ompBarrierDirective",
-    "ompTaskwaitDirective",
-    "ompFlushDirective",
-    "ompOrderedDirective",
-    "ompAtomicDirective",
-    "ompForSimdDirective",
-    "ompParallelForSimdDirective",
-    "ompTargetDirective",
-    "ompTeamsDirective",
-    "ompTaskgroupDirective",
-    "ompCancellationPointDirective",
-    "ompCancelDirective",
-    "ompTargetDataDirective",
-    "ompTaskLoopDirective",
-    "ompTaskLoopSimdDirective",
-    "ompDistributeDirective",
-    "ompTargetEnterDataDirective",
-    "ompTargetExitDataDirective",
-    "ompTargetParallelDirective",
-    "ompTargetParallelForDirective",
-    "ompTargetUpdateDirective",
-    "ompDistributeParallelForDirective",
-    "ompDistributeParallelForSimdDirective",
-    "ompDistributeSimdDirective",
-    "ompTargetParallelForSimdDirective",
-    "ompTargetSimdDirective",
-    "ompTeamsDistributeDirective",
-    "ompTeamsDistributeSimdDirective",
-    "ompTeamsDistributeParallelForSimdDirective",
-    "ompTeamsDistributeParallelForDirective",
-    "ompTargetTeamsDirective",
-    "ompTargetTeamsDistributeDirective",
-    "ompTargetTeamsDistributeParallelForDirective",
-    "ompTargetTeamsDistributeParallelForSimdDirective",
-    "ompTargetTeamsDistributeSimdDirective",
-    ];
-// dfmt on
-
-// dfmt off
-immutable string[] ExpressionSeq = [
+immutable string[] ExpressionSeq1 = [
     "unexposedExpr",
     "declRefExpr",
     "memberRefExpr",
@@ -201,9 +190,24 @@ immutable string[] ExpressionSeq = [
     "objCBoolLiteralExpr",
     "objCSelfExpr",
     "ompArraySectionExpr",
-    "objCAvailabilityCheckExpr",
-    ];
+    "objCAvailabilityCheckExpr"
+];
+immutable string[] ExpressionSeq2 = [
+    "fixedPointLiteral",
+    "ompArrayShapingExpr",
+    "ompIteratorExpr",
+    "cxxAddrspaceCastExpr",
+    "conceptSpecializationExpr",
+    "requiresExpr",
+    "cxxParenListInitExpr",
+];
 // dfmt on
+
+static if (CINDEX_VERSION_MINOR >= Lllvm16Plus) {
+    immutable string[] ExpressionSeq = ExpressionSeq1 ~ ExpressionSeq2;
+} else {
+    immutable string[] ExpressionSeq = ExpressionSeq1;
+}
 
 // dfmt off
 immutable string[] PreprocessorSeq = [
@@ -233,7 +237,7 @@ immutable string[] ReferenceSeq = [
 // dfmt on
 
 // dfmt off
-immutable string[] StatementSeq = [
+immutable string[] StatementSeq1 = [
     "unexposedStmt",
     "labelStmt",
     "compoundStmt",
@@ -269,5 +273,70 @@ immutable string[] StatementSeq = [
     "nullStmt",
     "declStmt",
     "sehLeaveStmt",
+    "ompOrderedDirective",
+    "ompAtomicDirective",
+    "ompForSimdDirective",
+    "ompParallelForSimdDirective",
+    "ompTargetDirective",
+    "ompTeamsDirective",
+    "ompTaskgroupDirective",
+    "ompCancellationPointDirective",
+    "ompCancelDirective",
+    "ompTargetDataDirective",
+    "ompTaskLoopDirective",
+    "ompTaskLoopSimdDirective",
+    "ompDistributeDirective",
+    "ompTargetEnterDataDirective",
+    "ompTargetExitDataDirective",
+    "ompTargetParallelDirective",
+    "ompTargetParallelForDirective",
+    "ompTargetUpdateDirective",
+    "ompDistributeParallelForDirective",
+    "ompDistributeParallelForSimdDirective",
+    "ompDistributeSimdDirective",
+    "ompTargetParallelForSimdDirective",
+    "ompTargetSimdDirective",
+    "ompTeamsDistributeDirective",
+    "ompTeamsDistributeSimdDirective",
+    "ompTeamsDistributeParallelForSimdDirective",
+    "ompTeamsDistributeParallelForDirective",
+    "ompTargetTeamsDirective",
+    "ompTargetTeamsDistributeDirective",
+    "ompTargetTeamsDistributeParallelForDirective",
+    "ompTargetTeamsDistributeParallelForSimdDirective",
+    "ompTargetTeamsDistributeSimdDirective",
+];
+immutable string[] StatementSeq2 = [
+    "builtinBitCastExpr",
+    "ompMasterTaskLoopDirective",
+    "ompParallelMasterTaskLoopDirective",
+    "ompMasterTaskLoopSimdDirective",
+    "ompParallelMasterTaskLoopSimdDirective",
+    "ompParallelMasterDirective",
+    "ompDepobjDirective",
+    "ompScanDirective",
+    "ompTileDirective",
+    "ompCanonicalLoop",
+    "ompInteropDirective",
+    "ompDispatchDirective",
+    "ompMaskedDirective",
+    "ompUnrollDirective",
+    "ompMetaDirective",
+    "ompGenericLoopDirective",
+    "ompTeamsGenericLoopDirective",
+    "ompTargetTeamsGenericLoopDirective",
+    "ompParallelGenericLoopDirective",
+    "ompTargetParallelGenericLoopDirective",
+    "ompParallelMaskedDirective",
+    "ompMaskedTaskLoopDirective",
+    "ompMaskedTaskLoopSimdDirective",
+    "ompParallelMaskedTaskLoopDirective",
+    "ompParallelMaskedTaskLoopSimdDirective",
+    "ompErrorDirective",
     ];
 // dfmt on
+static if (CINDEX_VERSION_MINOR >= Lllvm16Plus) {
+    immutable string[] StatementSeq = StatementSeq1 ~ StatementSeq2;
+} else {
+    alias StatementSeq = StatementSeq1;
+}

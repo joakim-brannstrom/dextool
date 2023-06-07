@@ -138,11 +138,11 @@ string llvmLibClang() {
 
     string[] rval;
     foreach (lib; [
-            "clangFrontendTool", "clangRewriteFrontend", "clangDynamicASTMatchers",
-            "clangFrontend", "clangASTMatchers", "clangParse",
-            "clangSerialization", "clangRewrite", "clangSema", "clangEdit",
-            "clangAnalysis", "clangAST", "clangLex", "clangBasic"
-        ]) {
+        "clangFrontendTool", "clangRewriteFrontend", "clangDynamicASTMatchers",
+        "clangFrontend", "clangASTMatchers", "clangParse", "clangSerialization",
+        "clangRewrite", "clangSema", "clangEdit", "clangAnalysis",
+        "clangAST", "clangLex", "clangBasic"
+    ]) {
         rval ~= "-l" ~ findLibOrBackup(lib, lib);
     }
 
@@ -206,6 +206,8 @@ string[] llvmSearchPaths() {
     return [
         llvmLibdir,
         // Ubuntu
+        "/usr/lib/llvm-16/lib",
+        "/usr/lib/llvm-15/lib",
         "/usr/lib/llvm-14/lib",
         "/usr/lib/llvm-13/lib",
         "/usr/lib/llvm-12/lib",

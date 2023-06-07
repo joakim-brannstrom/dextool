@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -302,6 +302,314 @@ final class DllExport : Attribute {
 }
 
 final class DllImport : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class NsReturnsRetained : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class NsReturnsNotRetained : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class NsReturnsAutoreleased : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class NsConsumesSelf : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class NsConsumed : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCException : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCNSObject : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCIndependentClass : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCPreciseLifetime : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCReturnsInnerPointer : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCRequiresSuper : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCRootClass : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCSubclassingRestricted : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCExplicitProtocolImpl : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCDesignatedInitializer : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCRuntimeVisible : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ObjCBoxable : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class FlagEnum : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ConvergentAttr : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class WarnUnusedAttr : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class WarnUnusedResultAttr : Attribute {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class AlignedAttr : Attribute {
     import clang.Cursor : Cursor;
 
     this(scope Cursor cursor) @safe {

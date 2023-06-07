@@ -110,6 +110,94 @@ abstract class Visitor {
         visit(cast(const(Attribute)) value);
     }
 
+    void visit(scope const NsReturnsRetained value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const NsReturnsNotRetained value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const NsReturnsAutoreleased value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const NsConsumesSelf value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const NsConsumed value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCException value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCNSObject value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCIndependentClass value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCPreciseLifetime value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCReturnsInnerPointer value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCRequiresSuper value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCRootClass value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCSubclassingRestricted value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCExplicitProtocolImpl value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCDesignatedInitializer value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCRuntimeVisible value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ObjCBoxable value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const FlagEnum value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const ConvergentAttr value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const WarnUnusedAttr value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const WarnUnusedResultAttr value) {
+        visit(cast(const(Attribute)) value);
+    }
+
+    void visit(scope const AlignedAttr value) {
+        visit(cast(const(Attribute)) value);
+    }
+
     void visit(scope const Declaration) {
     }
 
@@ -263,197 +351,6 @@ abstract class Visitor {
 
     void visit(scope const CxxAccessSpecifier value) {
         visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const Directive) {
-    }
-
-    void visit(scope const OmpParallelDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpForDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpSectionsDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpSectionDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpSingleDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpParallelForDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpParallelSectionsDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTaskDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpMasterDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpCriticalDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTaskyieldDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpBarrierDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTaskwaitDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpFlushDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpOrderedDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpAtomicDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpForSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpParallelForSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTeamsDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTaskgroupDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpCancellationPointDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpCancelDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetDataDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTaskLoopDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTaskLoopSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpDistributeDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetEnterDataDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetExitDataDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetParallelDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetParallelForDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetUpdateDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpDistributeParallelForDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpDistributeParallelForSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpDistributeSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetParallelForSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTeamsDistributeDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTeamsDistributeSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTeamsDistributeParallelForSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTeamsDistributeParallelForDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsDistributeDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsDistributeParallelForDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsDistributeParallelForSimdDirective value) {
-        visit(cast(const(Directive)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsDistributeSimdDirective value) {
-        visit(cast(const(Directive)) value);
     }
 
     void visit(scope const Expression) {
@@ -655,6 +552,34 @@ abstract class Visitor {
         visit(cast(const(Expression)) value);
     }
 
+    void visit(scope const FixedPointLiteral value) {
+        visit(cast(const(Expression)) value);
+    }
+
+    void visit(scope const OmpArrayShapingExpr value) {
+        visit(cast(const(Expression)) value);
+    }
+
+    void visit(scope const OmpIteratorExpr value) {
+        visit(cast(const(Expression)) value);
+    }
+
+    void visit(scope const CxxAddrspaceCastExpr value) {
+        visit(cast(const(Expression)) value);
+    }
+
+    void visit(scope const ConceptSpecializationExpr value) {
+        visit(cast(const(Expression)) value);
+    }
+
+    void visit(scope const RequiresExpr value) {
+        visit(cast(const(Expression)) value);
+    }
+
+    void visit(scope const CxxParenListInitExpr value) {
+        visit(cast(const(Expression)) value);
+    }
+
     void visit(scope const Extra) {
     }
 
@@ -671,6 +596,14 @@ abstract class Visitor {
     }
 
     void visit(scope const FriendDecl value) {
+        visit(cast(const(Extra)) value);
+    }
+
+    void visit(scope const ConceptDecl value) {
+        visit(cast(const(Extra)) value);
+    }
+
+    void visit(scope const OverloadCandidate value) {
         visit(cast(const(Extra)) value);
     }
 
@@ -872,6 +805,238 @@ abstract class Visitor {
     }
 
     void visit(scope const SehLeaveStmt value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpOrderedDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpAtomicDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpForSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpParallelForSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTeamsDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTaskgroupDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpCancellationPointDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpCancelDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetDataDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTaskLoopDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTaskLoopSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpDistributeDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetEnterDataDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetExitDataDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetParallelDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetParallelForDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetUpdateDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpDistributeParallelForDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpDistributeParallelForSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpDistributeSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetParallelForSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTeamsDistributeDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTeamsDistributeSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTeamsDistributeParallelForSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTeamsDistributeParallelForDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetTeamsDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetTeamsDistributeDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetTeamsDistributeParallelForDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetTeamsDistributeParallelForSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetTeamsDistributeSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const BuiltinBitCastExpr value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpMasterTaskLoopDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpParallelMasterTaskLoopDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpMasterTaskLoopSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpParallelMasterTaskLoopSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpParallelMasterDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpDepobjDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpScanDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTileDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpCanonicalLoop value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpInteropDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpDispatchDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpMaskedDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpUnrollDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpMetaDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpGenericLoopDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTeamsGenericLoopDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetTeamsGenericLoopDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpParallelGenericLoopDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpTargetParallelGenericLoopDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpParallelMaskedDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpMaskedTaskLoopDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpMaskedTaskLoopSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpParallelMaskedTaskLoopDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpParallelMaskedTaskLoopSimdDirective value) {
+        visit(cast(const(Statement)) value);
+    }
+
+    void visit(scope const OmpErrorDirective value) {
         visit(cast(const(Statement)) value);
     }
 

@@ -25,7 +25,8 @@ The plugins in a standard installation of Dextool are:
 To build and run dextool, you will need the following packages:
 
  * [llvm](http://releases.llvm.org/download.html) >= 4.0
-   Tested versions are 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 13.0, 14.0.
+   Tested versions are 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 13.0, 14.0,
+   15.0, 16.0.
    Note that these are the versions that are tested or have been tested.
    Dextool usually am able to work with never versions so if you version isn't
    in this list then please just try it. Otherwise leave an issue on github.

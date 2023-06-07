@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -78,6 +78,34 @@ final class StaticAssert : Extra {
 }
 
 final class FriendDecl : Extra {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ConceptDecl : Extra {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class OverloadCandidate : Extra {
     import clang.Cursor : Cursor;
 
     this(scope Cursor cursor) @safe {
