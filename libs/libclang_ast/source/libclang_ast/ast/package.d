@@ -4,7 +4,6 @@ public import libclang_ast.ast.tree;
 
 public import libclang_ast.ast.attribute;
 public import libclang_ast.ast.declaration;
-public import libclang_ast.ast.directive;
 public import libclang_ast.ast.expression;
 public import libclang_ast.ast.extra;
 public import libclang_ast.ast.preprocessor;

@@ -13,6 +13,6 @@ libs  ":libclang.so.1"
 
 targetType "executable"
 
-importPaths "../../libclang/11/source" "../source"
-sourcePaths "source" "../../libclang/11/source"
+importPaths "../../libclang/16/source" "../source"
+sourcePaths "source" "../../libclang/16/source"
 sourceFiles "../source/libclang_ast/ast/nodes.d"

@@ -211,11 +211,6 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    override void visit(scope const Directive v) {
-        mixin(mixinNodeLog!());
-        v.accept(this);
-    }
-
     override void visit(scope const Expression v) {
         mixin(mixinNodeLog!());
         v.accept(this);

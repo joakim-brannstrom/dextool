@@ -6,6 +6,8 @@ The generator reads `libs/libclang_ast/source/libclang_ast/ast/nodes.d` to
 understand what the node categories are and what nodes to generate.
 `CXCursorKind` has to be manually analyzed and categoriesed.
 
+To generate for a new version of llvm edit dub.sdl path to point to the latest AST.
+
 ```sh
 cd tool
 dub run

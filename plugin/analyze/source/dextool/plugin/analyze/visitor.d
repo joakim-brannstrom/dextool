@@ -102,10 +102,6 @@ final class TUVisitor : Visitor {
         v.accept(this);
     }
 
-    override void visit(scope const(Directive) v) {
-        v.accept(this);
-    }
-
     override void visit(scope const(Expression) v) {
         v.accept(this);
     }

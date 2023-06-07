@@ -1,5 +1,9 @@
 # vNext
 
+Fixes
+
+ * Bindings updated to support llvm-16.
+
 Fixes for dextool mutate
 
  * It is problematic to inject mutant schema in C++ templates because it may be

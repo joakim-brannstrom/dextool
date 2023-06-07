@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2016, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -708,6 +708,104 @@ final class OmpArraySectionExpr : Expression {
 }
 
 final class ObjCAvailabilityCheckExpr : Expression {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class FixedPointLiteral : Expression {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class OmpArrayShapingExpr : Expression {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class OmpIteratorExpr : Expression {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class CxxAddrspaceCastExpr : Expression {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class ConceptSpecializationExpr : Expression {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class RequiresExpr : Expression {
+    import clang.Cursor : Cursor;
+
+    this(scope Cursor cursor) @safe {
+        super(cursor);
+    }
+
+    override void accept(scope Visitor v) @safe const scope {
+        static import libclang_ast.ast;
+
+        libclang_ast.ast.accept(cursor, v);
+    }
+}
+
+final class CxxParenListInitExpr : Expression {
     import clang.Cursor : Cursor;
 
     this(scope Cursor cursor) @safe {
