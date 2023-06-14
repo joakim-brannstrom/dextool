@@ -30,6 +30,7 @@ void fn(int x) {
    The mutant `x>42` to `false` is the same as deleting `return;`. Because
    mutation testing is a somewhat slow process it is better to generate less
    mutants wherein every mutant that is generated are useful (test something new).
+ * Add support for textual control structure in C++ such as `and`, `or`.
 
 
 # v5.0 Limestone

@@ -8,4 +8,7 @@ void logical_operators() {
 
     bool c = a || b;
     bool d = a && b;
+
+    bool e = a and b;
+    bool f = a or b;
 }

@@ -19,9 +19,9 @@ const ops = ["+", "-", "*", "/", "%"];
 @(testId ~ "shall produce all AOR operator mutations")
 unittest {
     foreach (getValue; [
-            "aor_primitive.cpp", "aor_primitive_modern_cpp.cpp",
-            "aor_object_overload.cpp"
-        ]) {
+        "aor_primitive.cpp", "aor_primitive_modern_cpp.cpp",
+        "aor_object_overload.cpp"
+    ]) {
         mixin(envSetup(globalTestdir, No.setupEnv));
         testEnv.outputSuffix(getValue);
         testEnv.setupEnv;
@@ -33,7 +33,7 @@ unittest {
         testAnyOrder!SubStr(ops.map!(a => a)
                 .permutations
                 .filter!(a => a[0] != a[1])
-                .map!(a => format!"from '%s' to '%s'"(a[0], a[1]))
+                .map!(a => format!"from '%s ' to '%s'"(a[0], a[1]))
                 .array).shouldBeIn(r.output);
     }
 }
@@ -41,9 +41,9 @@ unittest {
 @(testId ~ "shall produce all AORs operator mutations")
 unittest {
     foreach (getValue; [
-            "aor_primitive.cpp", "aor_primitive_modern_cpp.cpp",
-            "aor_object_overload.cpp"
-        ]) {
+        "aor_primitive.cpp", "aor_primitive_modern_cpp.cpp",
+        "aor_object_overload.cpp"
+    ]) {
         mixin(envSetup(globalTestdir, No.setupEnv));
         testEnv.outputSuffix(getValue);
         testEnv.setupEnv;
@@ -53,24 +53,24 @@ unittest {
         auto r = makeDextool(testEnv).addArg(["test"]).run;
 
         testAnyOrder!SubStr([
-            `from '+' to '-'`, `from '-' to '+'`, `from '/' to '*'`,
-            `from '*' to '/'`, `from '%' to '/'`,
+            `from '+ ' to '-'`, `from '- ' to '+'`, `from '/ ' to '*'`,
+            `from '* ' to '/'`, `from '% ' to '/'`,
         ]).shouldBeIn(r.output);
 
-        testAnyOrder!SubStr([`from '+' to '*'`]).shouldNotBeIn(r.output);
-        testAnyOrder!SubStr([`from '*' to '+'`]).shouldNotBeIn(r.output);
-        testAnyOrder!SubStr([`from '/' to '-'`]).shouldNotBeIn(r.output);
-        testAnyOrder!SubStr([`from '%' to '-'`]).shouldNotBeIn(r.output);
-        testAnyOrder!SubStr([`from '-' to '*'`]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '+ ' to '*'`]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '* ' to '+'`]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '/ ' to '-'`]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '% ' to '-'`]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '- ' to '*'`]).shouldNotBeIn(r.output);
     }
 }
 
 @(testId ~ "shall produce all AOR delete mutations")
 @ShouldFail unittest {
     foreach (getValue; [
-            "aor_primitive.cpp", "aor_object_overload.cpp",
-            "aor_primitive_modern_cpp.cpp"
-        ]) {
+        "aor_primitive.cpp", "aor_object_overload.cpp",
+        "aor_primitive_modern_cpp.cpp"
+    ]) {
         mixin(envSetup(globalTestdir, No.setupEnv));
         testEnv.outputSuffix(getValue);
         testEnv.setupEnv;
@@ -105,7 +105,7 @@ class ShallOnlyGenerateValidAorSchemas : SchemataFixutre {
                 .filter!(a => a[0] != a[1])
                 .filter!(a => a[0] != "%")
                 .filter!(a => a[1] != "%")
-                .map!(a => format!"from '%s' to '%s'"(a[0], a[1]))
+                .map!(a => format!"from '%s ' to '%s'"(a[0], a[1]))
                 .array).shouldBeIn(r.output);
     }
 }

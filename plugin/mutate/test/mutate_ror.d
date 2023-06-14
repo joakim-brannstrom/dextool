@@ -70,7 +70,7 @@ unittest {
 void verifyRor(string[] txt, Ex[string] tbl) {
     foreach (mut; tbl.byKeyValue) {
         foreach (op; mut.value.ops) {
-            auto expected = format("from '%s' to '%s'", mut.key, op);
+            auto expected = format("from '%s ' to '%s'", mut.key, op);
             testAnyOrder!SubStr([expected]).shouldBeIn(txt);
         }
 
@@ -111,7 +111,7 @@ void verifyFloatRor(string[] txt) {
 
     foreach (mut; tbl.byKeyValue) {
         foreach (op; mut.value.ops) {
-            auto expected = format("from '%s' to '%s'", mut.key, op);
+            auto expected = format("from '%s ' to '%s'", mut.key, op);
             logger.info("Testing: ", expected);
             txt.sliceContains(expected).shouldBeTrue;
         }
@@ -135,38 +135,38 @@ unittest {
         .run;
 
     testAnyOrder!SubStr([
-        "from '<' to '<='",
-        "from '<' to '!='",
+        "from '< ' to '<='",
+        "from '< ' to '!='",
         "from 'a < MyE::C' to 'false'",
 
-        "from '<' to '<='",
-        "from '<' to '!='",
+        "from '< ' to '<='",
+        "from '< ' to '!='",
         "from 'MyE::C < b' to 'false'",
 
-        "from '>' to '>='",
-        "from '>' to '!='",
+        "from '> ' to '>='",
+        "from '> ' to '!='",
         "from 'a > MyE::C' to 'false'",
 
-        "from '>' to '>='",
-        "from '>' to '!='",
+        "from '> ' to '>='",
+        "from '> ' to '!='",
         "from 'MyE::C > b' to 'false'",
 
-        "from '<=' to '<'",
-        "from '<=' to '=='",
+        "from '<= ' to '<'",
+        "from '<= ' to '=='",
         // this will always be true. Generating it for now because code like this should not exist
         "from 'a <= MyE::C' to 'true'",
 
         // No test case can catch this. Generating it for now because code like this should not exist
-        "from '<=' to '<'",
-        "from '<=' to '=='",
+        "from '<= ' to '<'",
+        "from '<= ' to '=='",
         "from 'MyE::C <= b' to 'true'",
 
-        "from '>=' to '>'",
-        "from '>=' to '=='",
+        "from '>= ' to '>'",
+        "from '>= ' to '=='",
         "from 'a >= MyE::C' to 'true'",
 
-        "from '>=' to '>'",
-        "from '>=' to '=='",
+        "from '>= ' to '>'",
+        "from '>= ' to '=='",
         "from 'MyE::C >= b' to 'true'",
     ]).shouldBeIn(r.output);
 }
@@ -184,34 +184,34 @@ unittest {
         .run;
 
     testAnyOrder!SubStr([
-        "from '==' to '<='",
-        "from '==' to '>='",
+        "from '== ' to '<='",
+        "from '== ' to '>='",
         "from 'a == b' to 'false'",
 
-        "from '==' to '<='",
+        "from '== ' to '<='",
         "from 'MyE::A == b' to 'false'",
 
-        "from '==' to '<='",
-        "from '==' to '>='",
+        "from '== ' to '<='",
+        "from '== ' to '>='",
         "from 'MyE::B == b' to 'false'",
 
-        "from '==' to '>='",
+        "from '== ' to '>='",
         "from 'MyE::C == b' to 'false'",
 
-        "from '==' to '>='",
+        "from '== ' to '>='",
         "from 'a == MyE::A' to 'false'",
 
-        "from '==' to '<='",
-        "from '==' to '>='",
+        "from '== ' to '<='",
+        "from '== ' to '>='",
         "from 'a == MyE::B' to 'false'",
 
-        "from '==' to '<='",
+        "from '== ' to '<='",
         "from 'a == MyE::C' to 'false'",
 
         "from 'a == MyE::C' to 'false'",
         // test that g4 do NOT generate a <= because the left side is already min
-        "from '==' to '<='",
-        "from '==' to '>='",
+        "from '== ' to '<='",
+        "from '== ' to '>='",
         "from 'a == MyE::A' to 'false'",
     ]).shouldBeIn(r.output);
 }
@@ -229,25 +229,25 @@ unittest {
         .run;
 
     testAnyOrder!SubStr([
-        "from '!=' to '<'",
-        "from '!=' to '>'",
+        "from '!= ' to '<'",
+        "from '!= ' to '>'",
         "from 'a != b' to 'true'",
 
-        "from '!=' to '<'",
+        "from '!= ' to '<'",
         "from 'MyE::A != b' to 'true'",
 
-        "from '!=' to '<'",
-        "from '!=' to '>'",
+        "from '!= ' to '<'",
+        "from '!= ' to '>'",
         "from 'MyE::B != b' to 'true'",
 
-        "from '!=' to '>'",
+        "from '!= ' to '>'",
         "from 'a != MyE::A' to 'true'",
 
-        "from '!=' to '<'",
-        "from '!=' to '>'",
+        "from '!= ' to '<'",
+        "from '!= ' to '>'",
         "from 'a != MyE::B' to 'true'",
 
-        "from '!=' to '<'",
+        "from '!= ' to '<'",
         "from 'a != MyE::C' to 'true'",
     ]).shouldBeIn(r.output);
 }
@@ -265,24 +265,24 @@ unittest {
         .run;
 
     testAnyOrder!SubStr([
-        "from '==' to '!='",
+        "from '== ' to '!='",
         "from 'a0 == a1' to 'false'",
 
-        "from '!=' to '=='",
+        "from '!= ' to '=='",
         "from 'b0 != b1' to 'true'",
 
-        "from '==' to '!='",
+        "from '== ' to '!='",
         "from 'c0 == 0' to 'false'",
 
-        "from '!=' to '=='",
+        "from '!= ' to '=='",
         "from 'd0 != 0' to 'true'",
 
-        "from '==' to '<='",
-        "from '==' to '>='",
+        "from '== ' to '<='",
+        "from '== ' to '>='",
         "from 'e0 == e1' to 'false'",
 
-        "from '!=' to '<'",
-        "from '!=' to '>'",
+        "from '!= ' to '<'",
+        "from '!= ' to '>'",
         "from 'f0 != f1' to 'true'",
     ]).shouldBeIn(r.output);
 }
@@ -300,19 +300,19 @@ unittest {
         .run;
 
     testAnyOrder!SubStr([
-        "from '!=' to '=='",
+        "from '!= ' to '=='",
         "from 'clone_ != &Foo::initRef' to 'true'",
 
-        "from '==' to '!='",
+        "from '== ' to '!='",
         "from 'a0() == a1()' to 'false'",
 
-        "from '!=' to '=='",
+        "from '!= ' to '=='",
         "from 'b0() != b1()' to 'true'",
 
-        "from '==' to '!='",
+        "from '== ' to '!='",
         "from 'c0() == 0' to 'false'",
 
-        "from '!=' to '=='",
+        "from '!= ' to '=='",
         "from 'd0() != 0' to 'true'",
     ]).shouldBeIn(r.output);
 }
@@ -330,10 +330,10 @@ unittest {
         .run;
 
     testAnyOrder!SubStr([
-        "from '==' to '!='",
+        "from '== ' to '!='",
         "from 'a0 == a1' to 'false'",
 
-        "from '!=' to '=='",
+        "from '!= ' to '=='",
         "from 'b0 != b1' to 'true'",
     ]).shouldBeIn(r.output);
 }
@@ -351,10 +351,10 @@ unittest {
         .run;
 
     testAnyOrder!SubStr([
-        "from '==' to '!='",
+        "from '== ' to '!='",
         "from 'a0() == a1()' to 'false'",
 
-        "from '!=' to '=='",
+        "from '!= ' to '=='",
         "from 'b0() != b1()' to 'true'",
     ]).shouldBeIn(r.output);
 }

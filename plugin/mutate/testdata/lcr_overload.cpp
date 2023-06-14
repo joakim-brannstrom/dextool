@@ -17,4 +17,7 @@ void logical_operators() {
 
     res = a || b;
     res = a && b;
+
+    res = a and b;
+    res = a or b;
 }
