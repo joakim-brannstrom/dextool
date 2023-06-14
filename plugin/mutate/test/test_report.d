@@ -101,12 +101,12 @@ unittest {
         [":6:9: warning: rorp: replace 'x > 3' with 'false'",
         ":6:9: note: status:unknown id:",
         `fix-it:"` ~ src.toString ~ `":{6:9-6:14}:"false"`],
-        [":6:11: warning: ror: replace '>' with '!='",
+        [":6:11: warning: ror: replace '> ' with '!='",
         ":6:11: note: status:unknown id:",
-        `fix-it:"` ~ src.toString ~ `":{6:11-6:12}:"!="`],
-        [":6:11: warning: ror: replace '>' with '>='",
+        `fix-it:"` ~ src.toString ~ `":{6:11-6:13}:"!="`],
+        [":6:11: warning: ror: replace '> ' with '>='",
         ":6:11: note: status:unknown id:",
-        `fix-it:"` ~ src.toString ~ `":{6:11-6:12}:">="`]]) {
+        `fix-it:"` ~ src.toString ~ `":{6:11-6:13}:">="`]]) {
         testConsecutiveSparseOrder!SubStr(a[]).shouldBeIn(r.output);
     }
 }

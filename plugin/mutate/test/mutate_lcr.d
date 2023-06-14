@@ -12,8 +12,8 @@ import dextool_test.utility;
 @(testId ~ "shall produce all LCR mutations for primitive types")
 unittest {
     foreach (getValue; [
-            "lcr_primitive.cpp", "lcr_in_ifstmt.cpp", "lcr_overload.cpp"
-        ]) {
+        "lcr_primitive.cpp", "lcr_in_ifstmt.cpp", "lcr_overload.cpp"
+    ]) {
         mixin(envSetup(globalTestdir, No.setupEnv));
         testEnv.outputSuffix(getValue);
         testEnv.setupEnv;
@@ -25,12 +25,18 @@ unittest {
 
         // dfmt off
         testAnyOrder!SubStr([
-            "from '&&' to '||'",
+            "from '&& ' to '||'",
+            "from 'and ' to '||'",
             "from 'a && b' to 'true'",
             "from 'a && b' to 'false'",
-            "from '||' to '&&'",
+            "from '|| ' to '&&'",
+            "from 'or ' to '&&'",
             "from 'a || b' to 'true'",
             "from 'a || b' to 'false'",
+            "from 'a and b' to 'false'",
+            "from 'a and b' to 'false'",
+            "from 'a or b' to 'false'",
+            "from 'a or b' to 'false'",
         ]).shouldBeIn(r.output);
         // dfmt on
     }
@@ -39,8 +45,8 @@ unittest {
 @(testId ~ "shall produce all LCR delete mutations for primitive types")
 @ShouldFail unittest {
     foreach (getValue; [
-            "lcr_primitive.cpp", "lcr_overload.cpp", "lcr_in_ifstmt.cpp"
-        ]) {
+        "lcr_primitive.cpp", "lcr_overload.cpp", "lcr_in_ifstmt.cpp"
+    ]) {
         mixin(envSetup(globalTestdir, No.setupEnv));
         testEnv.outputSuffix(getValue);
         testEnv.setupEnv;
@@ -56,9 +62,13 @@ unittest {
 
     testAnyOrder!SubStr([
         "from '&& b' to ''",
+        "from 'and b' to ''",
         "from 'a &&' to ''",
+        "from 'a and' to ''",
         "from '|| b' to ''",
+        "from 'or b' to ''",
         "from 'a ||' to ''",
+        "from 'a or' to ''",
     ]).shouldBeIn(r.output);
     // dfmt on
     }
@@ -78,9 +88,9 @@ unittest {
         .run;
     // dfmt on
 
-    testAnyOrder!SubStr(["from '&&' to '||'",]).shouldNotBeIn(r.output);
+    testAnyOrder!SubStr(["from '&& ' to '||'",]).shouldNotBeIn(r.output);
 
-    testAnyOrder!SubStr(["from '||' to '&&'",]).shouldNotBeIn(r.output);
+    testAnyOrder!SubStr(["from '|| ' to '&&'",]).shouldNotBeIn(r.output);
 }
 
 @(testId ~ "shall produce all lcrb mutations for primitive types when using --mutant lcr")
@@ -92,11 +102,11 @@ unittest {
 
     // dfmt off
     testAnyOrder!SubStr([
-        "from '&' to '|'",
-        "from 'a &' to ''",
+        "from '& ' to '|'",
+        "from 'a & ' to ''",
         "from '& b' to ''",
-        "from '|' to '&'",
-        "from 'a |' to ''",
+        "from '| ' to '&'",
+        "from 'a | ' to ''",
         "from '| b' to ''",
     ]).shouldBeIn(r.output);
     // dfmt on

@@ -300,6 +300,9 @@ auto getUnderlyingExprNode(scope const CXCursor expr) @trusted {
     import clang.SourceLocation;
 
     private DXOperator dx;
+    /// The value is cached.
+    private int length_ = -1;
+    private OperatorSubExprs subExp_;
 
     this(DXOperator v) {
         dx = v;
@@ -334,15 +337,13 @@ auto getUnderlyingExprNode(scope const CXCursor expr) @trusted {
      * TODO Further audit of the C++ implementation of dex_getOperatorExprs is
      * needed.
      */
-    OperatorSubExprs sides() const @trusted {
-        OperatorSubExprs r;
-
-        if (isValid) {
+    OperatorSubExprs sides() @trusted {
+        if (subExp_ == OperatorSubExprs.init && isValid) {
             auto sub_exprs = dex_getOperatorExprs(dx.cursor);
-            r = OperatorSubExprs(Cursor(sub_exprs.lhs), Cursor(sub_exprs.rhs));
+            subExp_ = OperatorSubExprs(Cursor(sub_exprs.lhs), Cursor(sub_exprs.rhs));
         }
 
-        return r;
+        return subExp_;
     }
 
     SourceLocation location() const {
@@ -350,8 +351,23 @@ auto getUnderlyingExprNode(scope const CXCursor expr) @trusted {
     }
 
     /// The character length of the operator.
-    size_t length() const {
-        return dx.opLength;
+    size_t length() {
+        import std.math : abs;
+
+        if (length_ == -1 && isValid) {
+            const e = sides();
+            length_ = dx.opLength;
+            if (e.rhs.isEmpty) {
+                // unary operator
+                length_ = abs(location.offset - e.lhs.location.offset);
+            } else if (e.rhs.location.offset > location.offset) {
+                length_ = e.rhs.location.offset - location.offset;
+            }
+        } else if (!isValid) {
+            length_ = 0;
+        }
+
+        return cast(size_t) length_;
     }
 
     void toString(Writer, Char)(scope Writer w, FormatSpec!Char fmt) const {

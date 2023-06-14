@@ -10,4 +10,8 @@ void logical_operators() {
         return;
     if (a && b)
         return;
+    if (a and b)
+        return;
+    if (a or b)
+        return;
 }
