@@ -1144,7 +1144,7 @@ class TokenStreamImpl : TokenStream {
 
     /// The context must outlive any instance of this class.
     // TODO remove @trusted when upgrading to dmd-fe 2.091.0+ and activate dip25 + 1000
-    this(ref ClangContext ctx) @trusted {
+    this(ref ClangContext ctx) scope @trusted {
         this.ctx = &ctx;
     }
 

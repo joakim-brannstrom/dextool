@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2021, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
@@ -132,7 +132,7 @@ alias ErrorHandler = void delegate(ref Actor self, ErrorMsg) @safe nothrow;
 alias ExitHandler = void delegate(ref Actor self, ExitMsg msg) @safe nothrow;
 
 /// An exception has been thrown while processing a message.
-alias ExceptionHandler = void delegate(ref Actor self, Exception e) @safe nothrow;
+alias ExceptionHandler = void delegate(ref Actor self, scope Exception e) @safe nothrow;
 
 /** Actors can monitor the lifetime of other actors by sending a `MonitorRequest`
  * to an address. This will cause the runtime system to send a `DownMsg` for
@@ -166,14 +166,14 @@ void defaultExitHandler(ref Actor self, ExitMsg msg) @safe nothrow {
     self.forceShutdown;
 }
 
-void defaultExceptionHandler(ref Actor self, Exception e) @safe nothrow {
+void defaultExceptionHandler(ref Actor self, scope Exception e) @safe nothrow {
     self.lastError = SystemError.runtimeError;
     // TODO: should log?
     self.forceShutdown;
 }
 
 // Write the name of the actor and the exception to stdout.
-void logExceptionHandler(ref Actor self, Exception e) @safe nothrow {
+void logExceptionHandler(ref Actor self, scope Exception e) @safe nothrow {
     import std.stdio : writeln;
 
     self.lastError = SystemError.runtimeError;
