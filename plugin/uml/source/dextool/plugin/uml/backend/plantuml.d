@@ -1093,7 +1093,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
 
         recv.put(result, ns_stack);
 
-        scope visitor = new UMLClassVisitor!(ControllerT, ReceiveT)(result.type,
+        auto visitor = new UMLClassVisitor!(ControllerT, ReceiveT)(result.type,
                 ns_stack, ctrl, recv, *container, indent + 1);
         v.accept(visitor);
 
