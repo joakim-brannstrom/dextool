@@ -409,7 +409,7 @@ unittest {
 
     r.success.shouldBeFalse;
     r.output.sliceContains("Invalid xml file").shouldBeTrue;
-    r.output.sliceContains("Line 2, column 1: Expected literal").shouldBeTrue;
+    r.output.sliceContains("Line 2, column 1: Element").shouldBeTrue;
 }
 
 // END   CLI Tests ###########################################################
