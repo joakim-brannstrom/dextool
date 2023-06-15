@@ -498,8 +498,14 @@ class MutantVisitor : DepthFirstVisitor {
     override void visit(Literal n) {
         import dextool.plugin.mutate.backend.mutation_type.cr;
 
-        auto loc = ast.location(n);
-        put(loc, crMutationsAll.dup, n.blacklist);
+        put(ast.location(n), crMutations(n.kind), n.blacklist);
+        accept(n, this);
+    }
+
+    override void visit(FloatLiteral n) {
+        import dextool.plugin.mutate.backend.mutation_type.cr;
+
+        put(ast.location(n), crMutations(n.kind), n.blacklist);
         accept(n, this);
     }
 

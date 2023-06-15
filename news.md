@@ -31,6 +31,8 @@ void fn(int x) {
    mutation testing is a somewhat slow process it is better to generate less
    mutants wherein every mutant that is generated are useful (test something new).
  * Add support for textual control structure in C++ such as `and`, `or`.
+ * The CR mutation operator replaced floats with an integer `0` which may
+   result in compilation errors. Fix now by replace with `0.0`.
 
 
 # v5.0 Limestone

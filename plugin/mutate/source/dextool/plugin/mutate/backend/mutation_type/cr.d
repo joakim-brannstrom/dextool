@@ -13,10 +13,22 @@ import dextool.plugin.mutate.backend.type;
 
 import dextool.plugin.mutate.backend.analyze.ast;
 
+Mutation.Kind[] crMutations(Kind kind) @safe pure nothrow {
+    switch (kind) {
+    case Kind.Literal:
+        return [Mutation.Kind.crZeroInt];
+    case Kind.FloatLiteral:
+        return [Mutation.Kind.crZeroFloat];
+    default:
+    }
+
+    return null;
+}
+
 immutable Mutation.Kind[] crMutationsAll;
 
 shared static this() {
     with (Mutation.Kind) {
-        crMutationsAll = [crZero];
+        crMutationsAll = [crZeroInt, crZeroFloat];
     }
 }
