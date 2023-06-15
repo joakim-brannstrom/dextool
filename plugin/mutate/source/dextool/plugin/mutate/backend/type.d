@@ -247,7 +247,8 @@ struct Mutation {
         aorsAddAssign,
         aorsSubAssign,
         // cr
-        crZero
+        crZeroInt,
+        crZeroFloat,
     }
 
     /// The status of a mutant.

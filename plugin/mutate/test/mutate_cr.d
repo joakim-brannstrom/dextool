@@ -13,8 +13,8 @@ unittest {
     makeDextoolAnalyze(testEnv).addArg(["--threads", "1"]).addInputArg(testData ~ "cr.cpp").run;
     auto r = makeDextool(testEnv).addArg(["test"]).run;
     testAnyOrder!SubStr([
-        "from '42' to '0'", "from '2.0' to '0'", "from '3.0' to '0'",
-        "from '28.0' to '0'", "from '23.0' to '0'", "from '55' to '0'",
+        "from '42' to '0'", "from '2.0' to '0.0'", "from '3.0' to '0.0'",
+        "from '28.0' to '0.0'", "from '23.0' to '0.0'", "from '55' to '0'",
         "from '88' to '0'"
     ]).shouldBeIn(r.output);
 }
