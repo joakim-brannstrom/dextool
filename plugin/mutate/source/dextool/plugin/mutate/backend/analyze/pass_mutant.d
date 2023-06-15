@@ -345,7 +345,7 @@ class MutantVisitor : DepthFirstVisitor {
 
     alias visit = DepthFirstVisitor.visit;
 
-    this(Ast* ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) {
+    this(Ast* ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) scope {
         this.ast = ast;
         this.fio = fio;
         this.vloc = vloc;
