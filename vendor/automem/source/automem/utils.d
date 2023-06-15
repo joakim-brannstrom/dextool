@@ -6,7 +6,7 @@ import std.traits : isStaticArray;
 // druntime, to allow for destruction attribute inference
 
 void destruct(T)(T obj) if (is(T == class)) {
-    (cast(_finalizeType!T) &rt_finalize)(cast(void*) obj);
+    (cast(_finalizeType!T) &rt_finalize)(() @trusted { return cast(void*) obj; }());
 }
 
 void destruct(T)(T obj) if (is(T == interface)) {
@@ -14,8 +14,7 @@ void destruct(T)(T obj) if (is(T == interface)) {
 }
 
 void destruct(T)(ref T obj) if (is(T == struct)) {
-    static if (__traits(hasMember, T, "__xdtor") &&
-               __traits(isSame, T, __traits(parent, obj.__xdtor)))
+    static if (__traits(hasMember, T, "__xdtor"))
         obj.__xdtor;
 }
 
@@ -46,7 +45,7 @@ if(!is(T == struct) && !is(T == class) && !is(T == interface) && !isStaticArray!
     import std.conv: text;
 
     struct A { ~this() @nogc {} }
-    struct B { ~this() {} }
+    struct B { ~this() { new int; } }
     class CA { A a; ~this() @nogc {} }
     class CB { B b; ~this() @nogc {} }
 
@@ -56,7 +55,7 @@ if(!is(T == struct) && !is(T == class) && !is(T == interface) && !isStaticArray!
 
 private:
 
-extern(C) void rt_finalize(void* p, bool det = true);
+extern(C) void rt_finalize(void* p, bool det = true) @trusted @nogc pure;
 
 // A slightly better hack than the one presented by
 // https://www.auburnsounds.com/blog/2016-11-10_Running-D-without-its-runtime.html
@@ -67,12 +66,13 @@ extern(C) void rt_finalize(void* p, bool det = true);
 // have weaker set of destruction attributes.
 extern(C)
 template _finalizeType(T) {
-    static if (is(T == Object)) {
+    import std.traits: Unqual;
+    static if (is(Unqual!T == Object)) {
         alias _finalizeType = typeof(&rt_finalize);
     } else {
         import std.traits : BaseClassesTuple;
         import std.meta : AliasSeq;
-        alias _finalizeType = typeof((void* p, bool det = true) {
+        alias _finalizeType = typeof(function void(void* p, bool det = true) {
             // generate a body that calls all the destructors in the chain,
             // compiler should infer the intersection of attributes
             foreach (B; AliasSeq!(T, BaseClassesTuple!T)) {
