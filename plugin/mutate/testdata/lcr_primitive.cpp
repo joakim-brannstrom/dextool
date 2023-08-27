@@ -1,6 +1,10 @@
 /// @copyright Boost License 1.0, http://boost.org/LICENSE_1_0.txt
-/// @date 2017
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
+
+namespace foo {
+bool a;
+bool b;
+} // namespace foo
 
 void logical_operators() {
     bool a = true;
@@ -11,4 +15,7 @@ void logical_operators() {
 
     bool e = a and b;
     bool f = a or b;
+
+    // if the below line is moved from line 20 then the test needs to be updated.
+    bool h = foo::a || foo::b;
 }

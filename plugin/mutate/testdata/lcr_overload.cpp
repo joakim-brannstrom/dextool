@@ -1,5 +1,4 @@
 /// @copyright Boost License 1.0, http://boost.org/LICENSE_1_0.txt
-/// @date 2017
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
 class OpOverload {
@@ -11,6 +10,11 @@ public:
     bool operator||(const OpOverload&);
 };
 
+namespace foo {
+OpOverload a;
+OpOverload b;
+} // namespace foo
+
 void logical_operators() {
     OpOverload a, b;
     bool res;
@@ -20,4 +24,7 @@ void logical_operators() {
 
     res = a and b;
     res = a or b;
+
+    // if the below line is moved from line 29 then the test needs to be updated.
+    res = foo::a || foo::b;
 }

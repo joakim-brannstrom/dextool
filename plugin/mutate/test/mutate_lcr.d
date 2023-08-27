@@ -1,5 +1,5 @@
 /**
-Copyright: Copyright (c) 2017, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) Joakim Brännström. All rights reserved.
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0)
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
@@ -11,67 +11,63 @@ import dextool_test.utility;
 
 @(testId ~ "shall produce all LCR mutations for primitive types")
 unittest {
-    foreach (getValue; [
-        "lcr_primitive.cpp", "lcr_in_ifstmt.cpp", "lcr_overload.cpp"
-    ]) {
-        mixin(envSetup(globalTestdir, No.setupEnv));
-        testEnv.outputSuffix(getValue);
-        testEnv.setupEnv;
+    mixin(envSetup(globalTestdir));
 
-        makeDextoolAnalyze(testEnv).addInputArg(testData ~ getValue).run;
-        auto r = makeDextool(testEnv).addArg(["test"]).addArg([
+        makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcr_primitive.cpp").addArg([
             "--mutant", "lcr"
         ]).run;
-
-        // dfmt off
-        testAnyOrder!SubStr([
-            "from '&& ' to '||'",
-            "from 'and ' to '||'",
-            "from 'a && b' to 'true'",
-            "from 'a && b' to 'false'",
-            "from '|| ' to '&&'",
-            "from 'or ' to '&&'",
-            "from 'a || b' to 'true'",
-            "from 'a || b' to 'false'",
-            "from 'a and b' to 'false'",
-            "from 'a and b' to 'false'",
-            "from 'a or b' to 'false'",
-            "from 'a or b' to 'false'",
-        ]).shouldBeIn(r.output);
-        // dfmt on
-    }
+        auto r = makeDextool(testEnv).addArg(["test"]).run;
+        checkContent(r.output);
+    testAnyOrder!Re([
+        `from '\\|\\|' to '&&'.*:20`,
+    ]).shouldBeIn(r.output);
 }
 
-@(testId ~ "shall produce all LCR delete mutations for primitive types")
-@ShouldFail unittest {
-    foreach (getValue; [
-        "lcr_primitive.cpp", "lcr_overload.cpp", "lcr_in_ifstmt.cpp"
-    ]) {
-        mixin(envSetup(globalTestdir, No.setupEnv));
-        testEnv.outputSuffix(getValue);
-        testEnv.setupEnv;
+@(testId ~ "shall produce all LCR mutations for primitive types")
+unittest {
+    mixin(envSetup(globalTestdir));
 
-        // dfmt off
-    makeDextoolAnalyze(testEnv)
-        .addInputArg(testData ~ getValue)
-        .run;
-    auto r = makeDextool(testEnv)
-        .addArg(["test"])
-        .addArg(["--mutant", "lcr"])
-        .run;
-
-    testAnyOrder!SubStr([
-        "from '&& b' to ''",
-        "from 'and b' to ''",
-        "from 'a &&' to ''",
-        "from 'a and' to ''",
-        "from '|| b' to ''",
-        "from 'or b' to ''",
-        "from 'a ||' to ''",
-        "from 'a or' to ''",
+        makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcr_in_ifstmt.cpp").addArg([
+            "--mutant", "lcr"
+        ]).run;
+        auto r = makeDextool(testEnv).addArg(["test"]).run;
+        checkContent(r.output);
+    testAnyOrder!Re([
+        `from '\\|\\|' to '&&'.*:22`,
     ]).shouldBeIn(r.output);
+}
+
+@(testId ~ "shall produce all LCR mutations for primitive types")
+unittest {
+    mixin(envSetup(globalTestdir));
+
+        makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcr_overload.cpp").addArg([
+            "--mutant", "lcr"
+        ]).run;
+        auto r = makeDextool(testEnv).addArg(["test"]).run;
+        checkContent(r.output);
+    testAnyOrder!Re([
+        `from '\\|\\|' to '&&'.*:29`,
+    ]).shouldBeIn(r.output);
+}
+
+void checkContent(string[] output) {
+    // dfmt off
+    testAnyOrder!SubStr([
+        "from '&& ' to '||'",
+        "from 'and ' to '||'",
+        "from 'a && b' to 'true'",
+        "from 'a && b' to 'false'",
+        "from '|| ' to '&&'",
+        "from 'or ' to '&&'",
+        "from 'a || b' to 'true'",
+        "from 'a || b' to 'false'",
+        "from 'a and b' to 'false'",
+        "from 'a and b' to 'false'",
+        "from 'a or b' to 'false'",
+        "from 'a or b' to 'false'",
+    ]).shouldBeIn(output);
     // dfmt on
-    }
 }
 
 @(testId ~ "shall NOT produce mutants inside template parameters")
@@ -81,15 +77,14 @@ unittest {
     // dfmt off
     makeDextoolAnalyze(testEnv)
         .addInputArg(testData ~ "lcr_inside_template_param_bug.cpp")
+        .addArg(["--mutant", "lcr"])
         .run;
     auto r = makeDextool(testEnv)
         .addArg(["test"])
-        .addArg(["--mutant", "lcr"])
         .run;
     // dfmt on
 
     testAnyOrder!SubStr(["from '&& ' to '||'",]).shouldNotBeIn(r.output);
-
     testAnyOrder!SubStr(["from '|| ' to '&&'",]).shouldNotBeIn(r.output);
 }
 
@@ -97,8 +92,9 @@ unittest {
 unittest {
     mixin(EnvSetup(globalTestdir));
 
-    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcrb_primitive.cpp").run;
-    auto r = makeDextool(testEnv).addArg(["test"]).addArg(["--mutant", "lcr"]).run;
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcrb_primitive.cpp")
+        .addArg(["--mutant", "lcr"]).run;
+    auto r = makeDextool(testEnv).addArg(["test"]).run;
 
     // dfmt off
     testAnyOrder!SubStr([
