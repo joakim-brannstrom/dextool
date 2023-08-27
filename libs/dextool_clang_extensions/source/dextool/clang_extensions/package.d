@@ -359,9 +359,9 @@ auto getUnderlyingExprNode(scope const CXCursor expr) @trusted {
             length_ = dx.opLength;
             if (e.rhs.isEmpty) {
                 // unary operator
-                length_ = abs(location.offset - e.lhs.location.offset);
-            } else if (e.rhs.location.offset > location.offset) {
-                length_ = e.rhs.location.offset - location.offset;
+                length_ = abs(location.offset - e.lhs.extent.start.offset);
+            } else if (e.rhs.extent.start.offset > location.offset) {
+                length_ = e.rhs.extent.start.offset - location.offset;
             }
         } else if (!isValid) {
             length_ = 0;
