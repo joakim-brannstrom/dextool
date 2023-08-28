@@ -1412,15 +1412,29 @@ struct SchemataBuilder {
         Index!Path index;
         auto app = appender!(Fragment[])();
         Set!CodeMutant local;
-        auto threshold = () => max(thresholdStartValue,
+        auto threshold() { return max(thresholdStartValue,
                 cast(double) local.length / cast(double) mutantsPerSchema);
+        }
 
-        while (!current.empty) {
-            if (local.length >= mutantsPerSchema) {
-                // done now so woop
-                break;
-            }
+        auto mutantsPerSchemaSmall = mutantsPerSchema;
+        auto thresholdSmall() { return max(thresholdStartValue,
+                cast(double) local.length / cast(double) mutantsPerSchemaSmall);
+        }
 
+        bool loopCond() {
+            if (current.empty || local.length >= mutantsPerSchema)
+                return false;
+
+            if (!useProbablitySmallSize)
+                return true;
+            if (local.length >= mutantsPerSchemaSmall)
+                return false;
+
+            mutantsPerSchemaSmall = max(mutantsPerSchemaSmall-minMutantsPerSchema, minMutantsPerSchema);
+            return true;
+        }
+
+        while (loopCond) {
             auto a = current.front;
             current.popFront;
 
@@ -1454,14 +1468,15 @@ struct SchemataBuilder {
                 continue;
             }
 
+            if (useProbablitySmallSize &&
+                any!(b => !schemaQ.use(a.fragment.file, b.mut.kind, thresholdSmall()))(a.mutants)) {
+                rest.put(a);
+                continue;
+            }
+
             app.put(a);
             local.add(a.mutants);
             index.put(a.fragment.file, a.fragment.offset);
-
-            if (useProbablitySmallSize && local.length > minMutantsPerSchema
-                    && any!(b => !schemaQ.use(a.fragment.file, b.mut.kind, threshold()))(a.mutants)) {
-                break;
-            }
         }
 
         if (local.length == 0 || local.length < minMutantsPerSchema) {
