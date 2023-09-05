@@ -1023,7 +1023,7 @@ struct CodeInject {
                 auto allRoots = () {
                     AbsolutePath[] tmp;
                     try {
-                        tmp = spinSql!(() => db.getRootFiles).map!(a => db.getFile(a).get)
+                        tmp = spinSql!(() => db.getRootFiles.map!(a => db.getFile(a).get))
                             .map!(a => fio.toAbsoluteRoot(a))
                             .array;
                         if (tmp.empty) {

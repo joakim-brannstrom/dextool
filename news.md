@@ -33,7 +33,10 @@ void fn(int x) {
  * Add support for textual control structure in C++ such as `and`, `or`.
  * The CR mutation operator replaced floats with an integer `0` which may
    result in compilation errors. Fix now by replace with `0.0`.
-
+ * Fix schema phase that could stop prematurely when the database is accessed
+   from multiple instances in parallel. The database locks in that case but do
+   not retry at a later time which lead to the schema not finding any files to
+   inject the schema runtime in.
 
 # v5.0 Limestone
 
