@@ -16,14 +16,30 @@ class SdlFixture : MutantFixture {
     }
 }
 
+@(testId ~ "shall not delete a whole if stmt")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto fix = new class SdlFixture {
+        override void test() {
+        }
+
+        override string programFile() {
+            return "sdl_if_stmt.cpp";
+        }
+    };
+    auto r = fix.precondition(testEnv).run;
+
+    // dfmt off
+    testAnyOrder!SubStr([
+        `from 'if (w > 1.0) {`,
+    ]).shouldNotBeIn(r.output);
+    // dfmt on
+}
+
 // shall delete the body of functions returning void.
 class ShallDeleteBodyOfFuncsReturningVoid : SdlFixture {
     override string programFile() {
         return "sdl_func_body_del.cpp";
-    }
-
-    override string op() {
-        return "sdl";
     }
 
     override void test() {

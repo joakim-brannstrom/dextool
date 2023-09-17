@@ -520,7 +520,6 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(BranchBundle n) {
-        sdlBlock(n, ast.location(n), stmtDelMutations(n.kind));
         accept(n, this);
     }
 
