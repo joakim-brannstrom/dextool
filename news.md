@@ -37,6 +37,9 @@ void fn(int x) {
    from multiple instances in parallel. The database locks in that case but do
    not retry at a later time which lead to the schema not finding any files to
    inject the schema runtime in.
+ * Remove deletion of whole if-statement. They are pretty redundant considering
+   that the bodies of each branch are deleted in turn. Less mutants that are
+   "productive" is better.
 
 # v5.0 Limestone
 
