@@ -1,24 +1,11 @@
 /**
-Copyright: Copyright (c) 2019, Joakim Brännström. All rights reserved.
+Copyright: Copyright (c) Joakim Brännström. All rights reserved.
 License: MPL-2
 Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v.2.0. If a copy of the MPL was not distributed with this file, You can obtain
 one at http://mozilla.org/MPL/2.0/.
-
-# Analyze
-
-The worklist should not be cleared during an analyze phase.
-Any mutant that has been removed in the source code will be automatically
-removed from the worklist because the tables is setup with ON DELETE CASCADE.
-
-Thus by not removing it old timeout mutants that need more work will be
-"resumed".
-
-# Test
-
-TODO: describe the test phase and FSM
 */
 module dextool.plugin.mutate.backend.test_mutant.timeout;
 
@@ -95,10 +82,7 @@ std_.datetime.Duration calculateTimeout(const long iter,
     import core.time : dur;
     import std.math : sqrt;
 
-    static immutable double constant_factor = 1.5;
-    const double n = iter;
-
-    const double scale = constant_factor + sqrt(n) * timeoutScaleFactor;
+    const double scale = timeoutScaleFactor + sqrt(cast(double) iter) * 2.0;
     return (1L + (cast(long)(base.total!"msecs" * scale))).dur!"msecs";
 }
 

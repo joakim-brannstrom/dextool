@@ -186,8 +186,8 @@ struct ArgParser {
         app.put("check_schemata = true");
         app.put(null);
         app.put(
-                "# scale factor used when calculating the timeout for tests when they are executed with a schema injected.");
-        app.put(format!"# the default scale factor is %s but that may not be enough for scheman because"(
+                "# multiplier used when calculating the timeout for tests when they are executed with a schema injected.");
+        app.put(format!"# the default multiplier is %s but that may not be enough for scheman because"(
                 schema.timeoutScaleFactor));
         app.put("# the now modified source code with the schema, containing 1000ths of mutants, result in a significantly slower test");
         app.put(format!"# timeout_scale = %s"(schema.timeoutScaleFactor));
