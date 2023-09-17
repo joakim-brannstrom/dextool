@@ -99,9 +99,6 @@ struct FinalResult {
     int alive;
 }
 
-struct ConfTesters {
-}
-
 // dfmt off
 alias SchemaActor = typedActor!(
     void function(Init, AbsolutePath database, ShellCommand, Duration),
@@ -124,7 +121,6 @@ alias SchemaActor = typedActor!(
     void function(StartTestMsg),
     void function(ScheduleTestMsg),
     void function(CheckStopCondMsg),
-    void function(ConfTesters),
     // Queue up a msg that set isRunning to false. Convenient to ensure that a
     // RestoreMsg has been processed before setting to false.
     void function(Stop),
@@ -281,9 +277,9 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
     }
 
-    static void confTesters(ref Ctx ctx, ConfTesters _) {
-        foreach (a; ctx.state.get.scheduler.testers) {
-            send(a, ctx.state.get.timeoutConf);
+    static void confTesters(ref ScheduleTest scheduler, TimeoutConfig conf) {
+        foreach (a; scheduler.testers) {
+            send(a, conf);
         }
     }
 
@@ -460,7 +456,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 if (sanity.isOk) {
                     if (ctx.state.get.timeoutConf.base < sanity.runtime) {
                         ctx.state.get.timeoutConf.set(sanity.runtime);
-                        send(ctx.self, ConfTesters.init);
+                        confTesters(ctx.state.get.scheduler, ctx.state.get.timeoutConf);
                     }
 
                     logger.info("Ok".color(Color.green), ". Using test suite timeout ",
@@ -626,7 +622,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     return impl(self, &init_, st, &isDone, st, &updateWlist, st,
             &doneStatus, st, &save, st, &mark, st, &injectAndCompile, st,
             &restore, st, &startTest, st, &test, st, &checkHaltCond, st,
-            &confTesters, st, &generateSchema, st, &runSchema, st, &stop, st);
+            &generateSchema, st, &runSchema, st, &stop, st);
 }
 
 private SchemaSizeQ getSchemaSizeQ(ref Database db, const long userInit, const long minSize) @trusted nothrow {
