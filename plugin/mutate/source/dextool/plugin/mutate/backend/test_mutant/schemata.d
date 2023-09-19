@@ -277,12 +277,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
     }
 
-    static void confTesters(ref ScheduleTest scheduler, TimeoutConfig conf) {
-        foreach (a; scheduler.testers) {
-            send(a, conf);
-        }
-    }
-
     static bool isDone(ref Ctx ctx, IsDone _) {
         return !ctx.state.get.isRunning;
     }
@@ -456,7 +450,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 if (sanity.isOk) {
                     if (ctx.state.get.timeoutConf.base < sanity.runtime) {
                         ctx.state.get.timeoutConf.set(sanity.runtime);
-                        confTesters(ctx.state.get.scheduler, ctx.state.get.timeoutConf);
+                        ctx.state.get.scheduler.configure(ctx.state.get.timeoutConf);
                     }
 
                     logger.info("Ok".color(Color.green), ". Using test suite timeout ",
@@ -1164,6 +1158,12 @@ struct ScheduleTest {
     in (x < testers.length) {
         return testers[x];
     }
+
+    void configure(TimeoutConfig conf) {
+        foreach (a; testers)
+            send(a, conf);
+    }
+
 }
 
 struct SchemaTestResult {
