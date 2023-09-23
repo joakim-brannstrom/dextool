@@ -1331,7 +1331,7 @@ struct DbMutant {
 
             return MutationStatus(MutationStatusId(res.peek!long(0)),
                     res.peek!long(1).to!(Mutation.Status), res.peek!long(2)
-                    .MutantPrio, res.peek!string(3).fromSqLiteDateTime, added,);
+                        .MutantPrio, res.peek!string(3).fromSqLiteDateTime, added,);
         }
 
         return MutationStatus.init;
@@ -1946,8 +1946,8 @@ struct DbMarkMutant {
 
         auto app = appender!(MarkedMutant[])();
         foreach (m; db.run(select!MarkedMutantTbl.orderBy(OrderingTermSort.ASC, [
-                    "path"
-                ]))) {
+            "path"
+        ]))) {
             app.put(.make(m));
         }
 

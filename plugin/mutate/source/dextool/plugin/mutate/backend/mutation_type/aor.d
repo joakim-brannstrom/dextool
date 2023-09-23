@@ -49,23 +49,23 @@ auto aorMutations(AorInfo info) @safe {
         break;
     case Kind.OpAssignAdd:
         rval = Rval([aorDivAssign, aorRemAssign,
-                aorMulAssign, aorSubAssign], null, null);
+            aorMulAssign, aorSubAssign], null, null);
         break;
     case Kind.OpAssignDiv:
         rval = Rval([aorAddAssign, aorRemAssign,
-                aorMulAssign, aorSubAssign], null, null);
+            aorMulAssign, aorSubAssign], null, null);
         break;
     case Kind.OpAssignMod:
         rval = Rval([aorAddAssign, aorDivAssign,
-                aorMulAssign, aorSubAssign], null, null);
+            aorMulAssign, aorSubAssign], null, null);
         break;
     case Kind.OpAssignMul:
         rval = Rval([aorAddAssign, aorDivAssign,
-                aorRemAssign, aorSubAssign], null, null);
+            aorRemAssign, aorSubAssign], null, null);
         break;
     case Kind.OpAssignSub:
         rval = Rval([aorAddAssign, aorDivAssign,
-                aorRemAssign, aorMulAssign], null, null);
+            aorRemAssign, aorMulAssign], null, null);
         break;
     default:
     }

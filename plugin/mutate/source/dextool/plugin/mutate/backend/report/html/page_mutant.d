@@ -160,8 +160,8 @@ void makeAllMutantsPage(ref Database db, const AbsolutePath pageFname) @system {
             .addClass("tabcontent_" ~ tabGroupName).setAttribute("id", status.to!string);
         div.addChild("p", statusDescription[status]);
         tabContent[status] = tmplSortableTable(div, [
-                "Link", "Priority", "ExitCode", "Tests", "Tested"
-                ], &addPopupHelp);
+            "Link", "Priority", "ExitCode", "Tests", "Tested"
+        ], &addPopupHelp);
     }
 
     long[MutantStatus] statusCnt;
@@ -219,8 +219,8 @@ void makeHighInterestMutants(ref Database db,
                 sample.highestPrio.length));
         auto tbl_container = root.addChild("div").addClass("tbl_container");
         auto tbl = tmplDefaultTable(tbl_container, [
-                "Link", "Tested", "Priority"
-                ]);
+            "Link", "Tested", "Priority"
+        ]);
 
         foreach (const mutst; sample.highestPrio) {
             const mut = sample.mutants[mutst.statusId];

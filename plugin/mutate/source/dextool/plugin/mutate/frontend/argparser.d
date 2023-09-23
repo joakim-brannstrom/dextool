@@ -526,8 +526,8 @@ struct ArgParser {
                 mutationTest.maxAlive = maxAlive;
             if (mutationTester.length != 0)
                 mutationTest.mutationTester = mutationTester.map!(a => ShellCommand([
-                        a
-                        ])).array;
+                a
+            ])).array;
             if (mutationCompile.length != 0)
                 mutationTest.mutationCompile = ShellCommand([mutationCompile]);
             if (mutationTestCaseAnalyze.length != 0)
@@ -925,8 +925,8 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
             c.analyze.idGenConfig = v.str.to!MutantIdGeneratorConfig;
         } catch (Exception e) {
             logger.info("Available algorithms are ", [
-                    EnumMembers!MutantIdGeneratorConfig
-                    ]);
+                EnumMembers!MutantIdGeneratorConfig
+            ]);
             logger.warning(e.msg);
         }
     };
@@ -975,8 +975,8 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
             c.coverage.runtime = v.str.to!CoverageRuntime;
         } catch (Exception e) {
             logger.info("Available options for coverage.runtime ", [
-                    EnumMembers!CoverageRuntime
-                    ]);
+                EnumMembers!CoverageRuntime
+            ]);
             logger.warning(e.msg);
         }
     };
@@ -997,8 +997,8 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
             c.schema.runtime = v.str.to!SchemaRuntime;
         } catch (Exception e) {
             logger.info("Available options for schema.runtime ", [
-                    EnumMembers!SchemaRuntime
-                    ]);
+                EnumMembers!SchemaRuntime
+            ]);
             logger.warning(e.msg);
         }
     };
@@ -1125,8 +1125,8 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
             c.mutationTest.onOldMutants = v.str.to!(ConfigMutationTest.OldMutant);
         } catch (Exception e) {
             logger.info("Available alternatives: ", [
-                    EnumMembers!(ConfigMutationTest.OldMutant)
-                    ]);
+                EnumMembers!(ConfigMutationTest.OldMutant)
+            ]);
             logger.error(e.msg);
         }
     };
@@ -1174,8 +1174,8 @@ ArgParser loadConfig(ArgParser rval, ref TOMLDocument doc) @trusted {
             c.report.reportSection = v.array.map!(a => a.str.to!ReportSection).array;
         } catch (Exception e) {
             logger.info("Available mutation kinds ", [
-                    EnumMembers!ReportSection
-                    ]);
+                EnumMembers!ReportSection
+            ]);
             logger.error(e.msg);
         }
     };
@@ -1274,8 +1274,8 @@ analyze_cmd = %s
             ShellCommand(["test1.sh"]), ShellCommand(["test2.sh"])
         ]);
         ap.mutationTest.mutationCompile.shouldEqual(ShellCommand([
-                "build.sh", "-y"
-                ]));
+            "build.sh", "-y"
+        ]));
         ap.mutationTest.mutationTestCaseAnalyze.shouldEqual([
             ShellCommand(["analyze.sh", "-z"])
         ]);

@@ -495,8 +495,8 @@ void toIndex(FileIndex[] files, Element root, string htmlFileDir) @trusted {
     auto tbl = () {
         Table tbl;
         tbl = tmplSortableTable(root, [
-                "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
-                ], &shortColumn);
+            "Path", "Score", "Change", "Alive", "NoMut", "Total", "Time (min)"
+        ], &shortColumn);
         fltr.addChild("input").setAttribute("type", "text").setAttribute("id",
                 "changeTimeFrameInput").setAttribute("onkeyup",
                 "update_change(changeTimeFrameInput.value)").addClass("form-control")
@@ -780,7 +780,7 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
             line = lines.addChild("tr").addChild("td");
             line.setAttribute("id", format("%s-%s", "loc", lastLoc.line + i + 1))
                 .addClass("loc").addChild("span", format("%s:",
-                        lastLoc.line + i + 1)).addClass("line_nr");
+                    lastLoc.line + i + 1)).addClass("line_nr");
 
             if (auto v = (lastLoc.line + i + 1) in lineList) {
                 if (*v)
@@ -1061,8 +1061,8 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
 
     self.request(flowCtrl, infTimeout).send(TakeTokenMsg.init)
         .capture(self.address, dbPath, logFilesDir).then((ref Tuple!(FileReportActor.Address,
-                AbsolutePath, AbsolutePath) ctx, my.actor.utility.limiter.Token _) => send(ctx[0],
-                InitMsg.init, ctx[1], ctx[2]));
+            AbsolutePath, AbsolutePath) ctx, my.actor.utility.limiter.Token _) => send(ctx[0],
+            InitMsg.init, ctx[1], ctx[2]));
 
     return impl(self, &init_, capture(st), &start, capture(st), &done,
             capture(st), &run, capture(st), &failed, capture(st));
@@ -1383,11 +1383,11 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
 
         ctx.self.request(collector, infTimeout).send(GetPagesMsg.init)
             .capture(ctx).then((ref Ctx ctx, SubPage[] sp, SubContent[] sc) {
-                ctx.state.get.subPages = sp;
-                ctx.state.get.subContent = sc;
-                ctx.state.get.reportsDone = true;
-                send(ctx.self, IndexWaitMsg.init);
-            });
+            ctx.state.get.subPages = sp;
+            ctx.state.get.subContent = sc;
+            ctx.state.get.reportsDone = true;
+            send(ctx.self, IndexWaitMsg.init);
+        });
     }
 
     static void startFileReportes(ref Ctx ctx, StartReporterMsg, AbsolutePath dbPath) {
@@ -1401,10 +1401,10 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
 
         ctx.self.request(ctx.state.get.fileCollector, infTimeout)
             .send(GetIndexesMsg.init).capture(ctx).then((ref Ctx ctx, FileIndex[] a) {
-                ctx.state.get.files = a;
-                ctx.state.get.filesDone = true;
-                send(ctx.self, IndexWaitMsg.init);
-            });
+            ctx.state.get.files = a;
+            ctx.state.get.filesDone = true;
+            send(ctx.self, IndexWaitMsg.init);
+        });
     }
 
     static void indexWait(ref Ctx ctx, IndexWaitMsg) {

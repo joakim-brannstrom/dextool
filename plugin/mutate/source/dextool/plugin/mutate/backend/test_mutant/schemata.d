@@ -230,17 +230,17 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
             ctx.self.request(ctx.state.get.genSchema, infTimeout)
                 .send(GenSchema.init).capture(ctx).then((ref Ctx ctx, GenSchemaResult result) nothrow{
-                    if (result.noMoreScheman) {
+                if (result.noMoreScheman) {
+                    ctx.state.get.isRunning = false;
+                } else {
+                    try {
+                        send(ctx.self, RunSchema.init, result.schema, result.injectIds);
+                    } catch (Exception e) {
                         ctx.state.get.isRunning = false;
-                    } else {
-                        try {
-                            send(ctx.self, RunSchema.init, result.schema, result.injectIds);
-                        } catch (Exception e) {
-                            ctx.state.get.isRunning = false;
-                            logger.error(e.msg).collectException;
-                        }
+                        logger.error(e.msg).collectException;
                     }
-                });
+                }
+            });
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
@@ -419,8 +419,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         // for more than a minute.
         ctx.self.request(ctx.state.get.stat, delay(5.dur!"seconds"))
             .send(GetMutantsLeft.init).then((long x) {
-                logger.infof("%s mutants left to test.", x);
-            }, (ref Actor self, ErrorMsg) {});
+            logger.infof("%s mutants left to test.", x);
+        }, (ref Actor self, ErrorMsg) {});
 
         if (ctx.state.get.injectIds.empty && ctx.state.get.scheduler.full) {
             logger.trace("done saving result for schema ",
@@ -687,8 +687,8 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
 
             ctx.self.request(ctx.state.get.sizeQUpdater, infTimeout)
                 .send(GetSchemaSizeMsg.init).capture(ctx).then((ref Ctx ctx, long sz) nothrow{
-                    ctx.state.get.schemaBuild.mutantsPerSchema.get = sz;
-                });
+                ctx.state.get.schemaBuild.mutantsPerSchema.get = sz;
+            });
         } catch (Exception e) {
         }
     }
@@ -1013,9 +1013,8 @@ struct CodeInject {
                 auto allRoots = () {
                     AbsolutePath[] tmp;
                     try {
-                        tmp = spinSql!(() => db.getRootFiles.map!(a => db.getFile(a).get))
-                            .map!(a => fio.toAbsoluteRoot(a))
-                            .array;
+                        tmp = spinSql!(() => db.getRootFiles.map!(a => db.getFile(a).get)).map!(
+                                a => fio.toAbsoluteRoot(a)).array;
                         if (tmp.empty) {
                             // no root found. Inject the runtime in all files and "hope for
                             // the best". it will be less efficient but the weak symbol
@@ -1408,13 +1407,14 @@ struct SchemataBuilder {
         Index!Path index;
         auto app = appender!(Fragment[])();
         Set!CodeMutant local;
-        auto threshold() { return max(thresholdStartValue,
-                cast(double) local.length / cast(double) mutantsPerSchema);
+        auto threshold() {
+            return max(thresholdStartValue, cast(double) local.length / cast(double) mutantsPerSchema);
         }
 
         auto mutantsPerSchemaSmall = mutantsPerSchema;
-        auto thresholdSmall() { return max(thresholdStartValue,
-                cast(double) local.length / cast(double) mutantsPerSchemaSmall);
+        auto thresholdSmall() {
+            return max(thresholdStartValue,
+                    cast(double) local.length / cast(double) mutantsPerSchemaSmall);
         }
 
         bool loopCond() {
@@ -1426,7 +1426,8 @@ struct SchemataBuilder {
             if (local.length >= mutantsPerSchemaSmall)
                 return false;
 
-            mutantsPerSchemaSmall = max(mutantsPerSchemaSmall-minMutantsPerSchema, minMutantsPerSchema);
+            mutantsPerSchemaSmall = max(mutantsPerSchemaSmall - minMutantsPerSchema,
+                    minMutantsPerSchema);
             return true;
         }
 
@@ -1464,8 +1465,8 @@ struct SchemataBuilder {
                 continue;
             }
 
-            if (useProbablitySmallSize &&
-                any!(b => !schemaQ.use(a.fragment.file, b.mut.kind, thresholdSmall()))(a.mutants)) {
+            if (useProbablitySmallSize && any!(b => !schemaQ.use(a.fragment.file,
+                    b.mut.kind, thresholdSmall()))(a.mutants)) {
                 rest.put(a);
                 continue;
             }

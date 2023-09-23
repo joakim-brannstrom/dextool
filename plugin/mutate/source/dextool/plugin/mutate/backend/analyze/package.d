@@ -104,9 +104,9 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const AbsolutePath confFil
 
     auto store = sys.spawn(&spawnStoreActor, flowCtrl, db,
             StoreConfig(analyzeConf, schemaConf, covConf), fio, changedDeps.byKeyValue
-            .filter!(a => !a.value)
-            .map!(a => a.key)
-            .array, needFullAnalyzeRes);
+                .filter!(a => !a.value)
+                .map!(a => a.key)
+                .array, needFullAnalyzeRes);
     db.release;
     // it crashes if the store actor try to call dextoolBinaryId. I don't know
     // why... TLS store trashed? But it works, somehow, if I put some writeln
@@ -1087,8 +1087,8 @@ unittest {
     auto okParseTypes = ["", "BEGIN", "END", "NEXT"];
     // NOMUT in other type of comments should NOT match.
     foreach (line; [
-            "/// %s", "// stuff with %s in it", "/* stuff with %s in it */"
-        ]) {
+        "/// %s", "// stuff with %s in it", "/* stuff with %s in it */"
+    ]) {
         foreach (type; types) {
             matchFirst(format(line, type), reNomut).whichPattern.shouldEqual(0);
         }

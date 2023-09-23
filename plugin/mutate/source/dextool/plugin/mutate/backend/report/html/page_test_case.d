@@ -304,8 +304,8 @@ void addSimilarity(ref Database db, TestCaseSimilarityAnalyse.Similarity[] simil
     }
 
     auto tbl = tmplDefaultTable(root, [
-            "Test Case", "Similarity", "Difference", "Intersection"
-            ]);
+        "Test Case", "Similarity", "Difference", "Intersection"
+    ]);
     foreach (const sim; similarities) {
         auto r = tbl.appendRow();
 

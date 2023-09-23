@@ -52,19 +52,19 @@ void overallStat(const MutationStat s, Element base) {
     }
 
     PieGraph("score", [
-            PieGraph.Item("alive", "red", s.alive - s.aliveNoMut),
-            PieGraph.Item("killed", "green", s.killed),
-            PieGraph.Item("Untested", "grey", s.untested),
-            PieGraph.Item("Timeout", "lightgreen", s.timeout)
-            ]).html(base, PieGraph.Width(50));
+        PieGraph.Item("alive", "red", s.alive - s.aliveNoMut),
+        PieGraph.Item("killed", "green", s.killed),
+        PieGraph.Item("Untested", "grey", s.untested),
+        PieGraph.Item("Timeout", "lightgreen", s.timeout)
+    ]).html(base, PieGraph.Width(50));
 
     auto tbl = tmplDefaultTable(base, ["Type", "Value"]);
 
     foreach (const d; [
-            tuple("Total", s.total),
-            tuple("Killed by compiler", cast(long) s.killedByCompiler),
-            tuple("Skipped", s.skipped), tuple("Equivalent", s.equivalent),
-        ]) {
+        tuple("Total", s.total),
+        tuple("Killed by compiler", cast(long) s.killedByCompiler),
+        tuple("Skipped", s.skipped), tuple("Equivalent", s.equivalent),
+    ]) {
         tbl.appendRow(d[0], d[1]);
     }
     {

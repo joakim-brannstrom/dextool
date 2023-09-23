@@ -85,8 +85,8 @@ void toHtml(ref Database db, TestGroupSimilarity result, Element root) {
         auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
         tbl_container.setAttribute("style", "display: none;");
         auto tbl = tmplDefaultTable(tbl_container, [
-                "Test Group", "Similarity", "Difference", "Intersection"
-                ]);
+            "Test Group", "Similarity", "Difference", "Intersection"
+        ]);
         foreach (const d; result.similarities[tg]) {
             auto r = tbl.appendRow();
             r.addChild("td", d.comparedTo.name);

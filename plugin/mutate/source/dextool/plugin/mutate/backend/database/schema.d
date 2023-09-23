@@ -2210,10 +2210,10 @@ void upgradeV54(ref Miniorm db) {
 // 2022-08-23
 void upgradeV55(ref Miniorm db) {
     foreach (tbl; [
-            srcMetadataTable, mutationTable, killedTestCaseTable,
-            mutantWorklistTable, mutantMemOverloadWorklistTable,
-            mutantTimeoutWorklistTable, schemataMutantTable, testCmdRelMutantTable
-        ]) {
+        srcMetadataTable, mutationTable, killedTestCaseTable, mutantWorklistTable,
+        mutantMemOverloadWorklistTable, mutantTimeoutWorklistTable,
+        schemataMutantTable, testCmdRelMutantTable
+    ]) {
         db.run("DELETE FROM " ~ tbl);
     }
 
@@ -2248,9 +2248,9 @@ void upgradeV59(ref Miniorm db) {
 // 2022-10-09
 void upgradeV60(ref Miniorm db) {
     foreach (a; [
-            schemataFragmentTable, schemataUsedTable, schemataMutantTable,
-            schemataTable
-        ])
+        schemataFragmentTable, schemataUsedTable, schemataMutantTable,
+        schemataTable
+    ])
         db.run("DROP TABLE " ~ a);
 }
 
