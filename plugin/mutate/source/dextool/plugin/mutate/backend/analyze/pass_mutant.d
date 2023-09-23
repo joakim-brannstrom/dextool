@@ -481,6 +481,8 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Function n) {
+        if (n.children.empty)
+            return;
         auto cs = ContextScope(this, n);
         accept(n, this);
     }
@@ -510,11 +512,15 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Block n) {
+        if (n.children.empty)
+            return;
         sdlBlock(n, ast.location(n), stmtDelMutations(n.kind));
         accept(n, this);
     }
 
     override void visit(Loop n) {
+        if (n.children.empty)
+            return;
         sdlBlock(n, ast.location(n), stmtDelMutations(n.kind));
         accept(n, this);
     }
