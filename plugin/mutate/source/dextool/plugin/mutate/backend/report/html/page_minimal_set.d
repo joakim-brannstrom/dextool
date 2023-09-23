@@ -68,8 +68,8 @@ void toHtml(MinimalTestSet min_set, Element root) {
         auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
         tbl_container.setAttribute("style", "display: none;");
         auto tbl = tmplDefaultTable(tbl_container, [
-                "Test Case", "Killed", "Sum of test time"
-                ]);
+            "Test Case", "Killed", "Sum of test time"
+        ]);
 
         Duration sum;
         foreach (const tc; min_set.redundant) {
@@ -93,8 +93,8 @@ void toHtml(MinimalTestSet min_set, Element root) {
         auto tbl_container = comp_container.addChild("div").addClass("tbl_container");
         tbl_container.setAttribute("style", "display: none;");
         auto tbl = tmplDefaultTable(tbl_container, [
-                "Test Case", "Killed", "Sum of test time"
-                ]);
+            "Test Case", "Killed", "Sum of test time"
+        ]);
 
         Duration sum;
         foreach (const tc; min_set.minimalSet) {

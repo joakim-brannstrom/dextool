@@ -342,7 +342,7 @@ ExitStatusType modeAdmin(ref ArgParser conf, ref DataAccess dacc) {
     return makeAdmin().operation(conf.admin.adminOp).mutations(conf.admin.mutation)
         .mutationsSubKind(conf.admin.subKind).fromStatus(conf.admin.mutantStatus)
         .toStatus(conf.admin.mutantToStatus).testCaseRegex(conf.admin.testCaseRegex).markMutantData(NamedType!(long,
-                Tag!"MutationStatusId", 0, Comparable, Hashable, ConvertStringable)(
-                conf.admin.mutationStatusId), conf.admin.mutantRationale, dacc.io).database(conf.db)
+            Tag!"MutationStatusId", 0, Comparable, Hashable, ConvertStringable)(
+            conf.admin.mutationStatusId), conf.admin.mutantRationale, dacc.io).database(conf.db)
         .run;
 }

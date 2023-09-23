@@ -182,9 +182,9 @@ unittest {
     testData3.each!(a => parser.process(a, app));
 
     shouldEqual(app.found.toArray.sort, [
-            TestCase("Comp.A", ""), TestCase("Comp.B", ""), TestCase("Comp.C",
-                ""), TestCase("Comp.D", ""), TestCase("Comp.E", ""),
-            ]);
+        TestCase("Comp.A", ""), TestCase("Comp.B", ""), TestCase("Comp.C", ""),
+        TestCase("Comp.D", ""), TestCase("Comp.E", ""),
+    ]);
 }
 
 @("shall report the failed test cases")
@@ -195,9 +195,9 @@ unittest {
     testData4.each!(a => parser.process(a, app));
 
     shouldEqual(app.failed.toArray.sort, [
-            TestCase("Foo.A", ""), TestCase("Foo.B", ""), TestCase("Foo.C",
-                ""), TestCase("Foo.D", ""), TestCase("Foo.E", ""),
-            ]);
+        TestCase("Foo.A", ""), TestCase("Foo.B", ""), TestCase("Foo.C", ""),
+        TestCase("Foo.D", ""), TestCase("Foo.E", ""),
+    ]);
 }
 
 @("shall report the failed test cases")

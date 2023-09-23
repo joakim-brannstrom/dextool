@@ -154,7 +154,7 @@ class ShallGenerateValidSchemaForOverload : SchemataFixutre {
 
         makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11")
             .addPostArg([
-            "--mutant", "sdl", "--mutant", "aor", "--mutant", "rorp"
+                "--mutant", "sdl", "--mutant", "aor", "--mutant", "rorp"
         ]).run;
 
         auto r = runDextoolTest(testEnv).addFlag("-std=c++11").run;

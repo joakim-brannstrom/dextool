@@ -51,10 +51,10 @@ void testGroups(const TestGroupStat test_g, Element root) {
 
     auto stat_tbl = tmplDefaultTable(root, ["Property", "Value"]);
     foreach (const d; [
-            tuple("Mutation Score", test_g.stats.score.to!string),
-            tuple("Alive", test_g.stats.alive.to!string),
-            tuple("Total", test_g.stats.total.to!string)
-        ]) {
+        tuple("Mutation Score", test_g.stats.score.to!string),
+        tuple("Alive", test_g.stats.alive.to!string),
+        tuple("Total", test_g.stats.total.to!string)
+    ]) {
         auto r = stat_tbl.appendRow();
         r.addChild("td", d[0]);
         r.addChild("td", d[1]);

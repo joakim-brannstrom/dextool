@@ -278,10 +278,10 @@ void syncStatus(ref Database db) {
     Table!2 tbl;
     tbl.heading = ["Type", "Updated"];
     foreach (r; [
-            tuple("Test", status.test), tuple("Code", status.code),
-            tuple("Coverage", status.coverage),
-            tuple("Oldest Mutant", status.mutants[0].updated)
-        ].sort!((a, b) => a[1] < b[1])) {
+        tuple("Test", status.test), tuple("Code", status.code),
+        tuple("Coverage", status.coverage),
+        tuple("Oldest Mutant", status.mutants[0].updated)
+    ].sort!((a, b) => a[1] < b[1])) {
         typeof(tbl).Row row = [r[0], r[1].to!string];
         tbl.put(row);
     }

@@ -93,8 +93,8 @@ void makePage(ref Database db, const AbsolutePath pageFname) @system {
     }
 
     auto tbl = tmplSortableTable(root, [
-            "Order", "ID", "Link", "Priority", "Tested", "Status", "Finished"
-            ], &addPopupHelp);
+        "Order", "ID", "Link", "Priority", "Tested", "Status", "Finished"
+    ], &addPopupHelp);
 
     static string toLinkPath(Path path, MutationStatusId id) {
         return format!"%s#%s"(buildPath(HtmlStyle.fileDir, pathToHtmlLink(path)), id);

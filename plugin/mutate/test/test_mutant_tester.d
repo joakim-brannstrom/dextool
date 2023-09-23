@@ -168,9 +168,9 @@ class ShallParseTestReportForFilePrio : SimpleFixture {
 
         auto r = dextool_test.makeDextool(testEnv).setWorkdir(workDir)
             .args(["mutate"]).addArg(["test"]).addPostArg([
-                "--metadata", prioPath
-            ]).addPostArg("--dry-run").addPostArg(["--build-cmd",
-                compileScript]).addPostArg(["--test-cmd", testScript]).run;
+            "--metadata", prioPath
+        ]).addPostArg("--dry-run").addPostArg(["--build-cmd", compileScript])
+            .addPostArg(["--test-cmd", testScript]).run;
 
         testConsecutiveSparseOrder!SubStr([
             `Increasing prio on all mutants in the files from build/mutate_tests/dextool_test.test_mutant_tester.ShallParseTestReportForFilePrio.test/file-prio.json`,
@@ -764,8 +764,8 @@ class ShallRemoveDetectDroppedTestCases : DroppedTestCases {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
         auto r1 = run(testEnv, [
-                "-c", (testData ~ "config/remove_dropped_test_cases.toml").toString
-                ]);
+            "-c", (testData ~ "config/remove_dropped_test_cases.toml").toString
+        ]);
 
         testConsecutiveSparseOrder!SubStr([
             "Detected test cases that has been removed",
@@ -826,8 +826,8 @@ class ShallRetrieveOldestMutant : DatabaseFixture {
 
         // act
         const oldest = db.mutantApi.getOldestMutants(2, [
-                EnumMembers!(Mutation.Status)
-                ]);
+            EnumMembers!(Mutation.Status)
+        ]);
 
         // assert
         oldest.length.shouldEqual(2);

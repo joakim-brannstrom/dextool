@@ -13,42 +13,33 @@ import dextool_test.utility;
 unittest {
     mixin(envSetup(globalTestdir));
 
-        makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcr_primitive.cpp").addArg([
-            "--mutant", "lcr"
-        ]).run;
-        auto r = makeDextool(testEnv).addArg(["test"]).run;
-        checkContent(r.output);
-    testAnyOrder!Re([
-        `from '\\|\\|' to '&&'.*:20`,
-    ]).shouldBeIn(r.output);
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcr_primitive.cpp")
+        .addArg(["--mutant", "lcr"]).run;
+    auto r = makeDextool(testEnv).addArg(["test"]).run;
+    checkContent(r.output);
+    testAnyOrder!Re([`from '\\|\\|' to '&&'.*:20`,]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce all LCR mutations for primitive types")
 unittest {
     mixin(envSetup(globalTestdir));
 
-        makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcr_in_ifstmt.cpp").addArg([
-            "--mutant", "lcr"
-        ]).run;
-        auto r = makeDextool(testEnv).addArg(["test"]).run;
-        checkContent(r.output);
-    testAnyOrder!Re([
-        `from '\\|\\|' to '&&'.*:22`,
-    ]).shouldBeIn(r.output);
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcr_in_ifstmt.cpp")
+        .addArg(["--mutant", "lcr"]).run;
+    auto r = makeDextool(testEnv).addArg(["test"]).run;
+    checkContent(r.output);
+    testAnyOrder!Re([`from '\\|\\|' to '&&'.*:22`,]).shouldBeIn(r.output);
 }
 
 @(testId ~ "shall produce all LCR mutations for primitive types")
 unittest {
     mixin(envSetup(globalTestdir));
 
-        makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcr_overload.cpp").addArg([
-            "--mutant", "lcr"
-        ]).run;
-        auto r = makeDextool(testEnv).addArg(["test"]).run;
-        checkContent(r.output);
-    testAnyOrder!Re([
-        `from '\\|\\|' to '&&'.*:29`,
-    ]).shouldBeIn(r.output);
+    makeDextoolAnalyze(testEnv).addInputArg(testData ~ "lcr_overload.cpp")
+        .addArg(["--mutant", "lcr"]).run;
+    auto r = makeDextool(testEnv).addArg(["test"]).run;
+    checkContent(r.output);
+    testAnyOrder!Re([`from '\\|\\|' to '&&'.*:29`,]).shouldBeIn(r.output);
 }
 
 void checkContent(string[] output) {
