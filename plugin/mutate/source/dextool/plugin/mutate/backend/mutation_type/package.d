@@ -73,9 +73,9 @@ immutable MutationKind[Mutation.Kind] fromInteralKindToUserKind;
 shared static this() {
     import std.traits : EnumMembers;
 
-    static foreach (const user_kind; EnumMembers!MutationKind) {
-        foreach (const internal_kind; toInternal([user_kind])) {
-            fromInteralKindToUserKind[internal_kind] = user_kind;
+    static foreach (const group; EnumMembers!MutationKind) {
+        foreach (const internal; toInternal([group])) {
+            fromInteralKindToUserKind[internal] = group;
         }
     }
 

@@ -180,6 +180,7 @@ class CodeMutantIndex {
 struct FragmentBuilder {
     static struct Part {
         CodeMutant mutant;
+        // ID used to activate the mutant.
         ulong id;
         const(ubyte)[] mod;
     }
@@ -239,20 +240,39 @@ struct FragmentBuilder {
             }
         }
 
-        foreach (p; parts.data) {
+        void useFragment(Part p) {
+            schema.put(p.id, p.mod);
+            m.put(p.mutant);
+            mutantIds.add(p.id);
+        }
+
+        auto queue = parts.data[];
+        typeof(queue) repeat;
+        bool popQueue() {
+            queue = queue[0 .. $ - 1];
+            const rval = queue.empty && !repeat.empty;
+            if (queue.empty) {
+                queue = repeat;
+                repeat = null;
+            }
+            return rval;
+        }
+
+        while (!queue.empty) {
+            auto p = queue[$ - 1];
+            const forceMake = popQueue;
+
             if (!sq.use(file, p.mutant.mut.kind, 0.01)) {
                 // do not add any fragments that are almost certain to fail.
                 // but keep it at 1 because then they will be randomly tested
                 // for succes now and then.
                 makeFragment;
-            } else if (p.id !in mutantIds) {
-                // the ID cannot be duplicated because then two mutants would
-                // be activated at the same time.
-                schema.put(p.id, p.mod);
-                m.put(p.mutant);
-                mutantIds.add(p.id);
+                useFragment(p);
+                makeFragment;
             } else if (sq.isZero(file, p.mutant.mut.kind)) {
                 // isolate always failing fragments.
+                makeFragment;
+                useFragment(p);
                 makeFragment;
             } else if (mutantIds.length > 0 && schema.length > 100000) {
                 // too large fragments blow up the compilation time. Must check that
@@ -269,7 +289,17 @@ struct FragmentBuilder {
                 // 1 milj results in 4 shceman and 147 mutants left after executed.
                 // thus 100k is chosen.
                 makeFragment;
+                repeat ~= p;
+            } else if (p.id in mutantIds) {
+                // the ID cannot be duplicated because then two mutants would
+                // be activated at the same time.
+                repeat ~= p;
+            } else {
+                useFragment(p);
             }
+
+            if (forceMake)
+                makeFragment;
         }
 
         makeFragment;
@@ -312,6 +342,8 @@ class CppSchemataVisitor : DepthFirstVisitor {
     FilesysIO fio;
 
     private {
+        // when fragments should be collected and saved. used to avoid e.g.
+        // template conditions.
         bool saveFragment;
         FragmentBuilder fragment;
 
