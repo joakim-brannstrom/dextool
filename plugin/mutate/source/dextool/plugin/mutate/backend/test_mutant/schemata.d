@@ -1071,11 +1071,14 @@ struct CodeInject {
                     return makeHdr;
                 }();
 
-                logger.info("Injecting schema in ", fname);
-
                 // writing the schemata.
-                auto s = makeSchemata(f, fragments(fio.toRelativeRoot(fname)), extra);
+                auto frags = fragments(fio.toRelativeRoot(fname));
+                auto s = makeSchemata(f, frags, extra);
                 fio.makeOutput(fname).write(s);
+                if (!frags.empty) {
+                    logger.infof("Injecting schema of size %s in %s",
+                            frags.map!"a.text.length".sum, fname);
+                }
 
                 if (logSchema) {
                     const ext = fname.toString.extension;
