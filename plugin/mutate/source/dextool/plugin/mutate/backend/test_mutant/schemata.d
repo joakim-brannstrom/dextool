@@ -192,6 +192,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
             ctx.state.get.timeoutConf.timeoutScaleFactor = ctx.state.get.conf.timeoutScaleFactor;
             logger.tracef("Timeout Scale Factor: %s", ctx.state.get.timeoutConf.timeoutScaleFactor);
+            ctx.state.get.runner.timeout = ctx.state.get.timeoutConf.value;
 
             ctx.state.get.scheduler = () {
                 TestMutantActor.Address[] testers;
@@ -444,13 +445,14 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                     ctx.state.get.activeSchema);
             codeInject.compile(ctx.state.get.buildCmd, ctx.state.get.buildCmdTimeout);
 
+            auto timeoutConf = ctx.state.get.timeoutConf;
+
             if (ctx.state.get.conf.sanityCheckSchemata) {
                 logger.info("Sanity check of the generated schemata");
                 const sanity = sanityCheck(ctx.state.get.runner);
                 if (sanity.isOk) {
                     if (ctx.state.get.timeoutConf.base < sanity.runtime) {
-                        ctx.state.get.timeoutConf.set(sanity.runtime);
-                        ctx.state.get.scheduler.configure(ctx.state.get.timeoutConf);
+                        timeoutConf.set(sanity.runtime);
                     }
 
                     logger.info("Ok".color(Color.green), ". Using test suite timeout ",
@@ -465,6 +467,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             } else {
                 send(ctx.self, StartTestMsg.init);
             }
+            ctx.state.get.scheduler.configure(timeoutConf);
         } catch (Exception e) {
             send(ctx.self, MarkMsg.init, FinalResult.Status.invalidSchema).collectException;
             send(ctx.self, RestoreMsg.init).collectException;

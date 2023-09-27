@@ -40,6 +40,7 @@ void fn(int x) {
  * Remove deletion of whole if-statement. They are pretty redundant considering
    that the bodies of each branch are deleted in turn. Less mutants that are
    "productive" is better.
+ * Timeout scale factor is now always applied in the schema phase.
 
 # v5.0 Limestone
 
