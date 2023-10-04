@@ -148,7 +148,7 @@ Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
 
     // the arguments and the operator
     void exprPoint() {
-        res.isOverload = op.cursor.spelling.length > 8; // number of letters in "operator"
+        res.isOverload = op.cursor.kind == CXCursorKind.callExpr;
 
         auto sr = op.cursor.extent;
         res.exprLoc = analyze.Location(path, Interval(sr.start.offset,

@@ -466,7 +466,9 @@ alias Nodes = AliasSeq!(
     Condition,
     Constructor,
     Expr,
+    FloatLiteral,
     Function,
+    Literal,
     Loop,
     Node,
     OpAdd,
@@ -480,6 +482,7 @@ alias Nodes = AliasSeq!(
     OpAssignMul,
     OpAssignOrBitwise,
     OpAssignSub,
+    OpCmp,
     OpDiv,
     OpEqual,
     OpGreater,
@@ -501,8 +504,6 @@ alias Nodes = AliasSeq!(
     UnaryOp,
     VarDecl,
     VarRef,
-    Literal,
-    FloatLiteral,
 );
 
 // It should be possible to generate the enum from Nodes. How?
@@ -531,6 +532,7 @@ enum Kind {
     OpAssignMul,
     OpAssignOrBitwise,
     OpAssignSub,
+    OpCmp,
     OpDiv,
     OpEqual,
     OpGreater,
@@ -564,6 +566,7 @@ alias ExpressionKind = AliasSeq!(
     Kind.OpAnd,
     Kind.OpAndBitwise,
     Kind.OpAssign,
+    Kind.OpCmp,
     Kind.OpDiv,
     Kind.OpEqual,
     Kind.OpGreater,
@@ -806,6 +809,10 @@ class OpSub : BinaryOp {
 }
 
 class OpMul : BinaryOp {
+    mixin(nodeImpl!(typeof(this)));
+}
+
+class OpCmp : BinaryOp {
     mixin(nodeImpl!(typeof(this)));
 }
 

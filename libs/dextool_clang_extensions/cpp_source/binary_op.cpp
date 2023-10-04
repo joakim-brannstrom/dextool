@@ -30,6 +30,8 @@ enum class OpKind {
     // [C99 6.5.7] Bitwise shift operators.
     Shl, // "<<"
     Shr, // ">>"
+    // C++20 [expr.spaceship] Three-way comparison operator.
+    Cmp, // <=>
     // [C99 6.5.8] Relational operators.
     LT, // "<"
     GT, // ">"
@@ -182,6 +184,12 @@ static bool toOpKind(clang::BinaryOperatorKind opcode, DXOperator& rval) {
         rval.kind = OpKind::Shr;
         rval.opLength = 2;
         break;
+#if CINDEX_VERSION > 61
+    case clang::BO_Cmp:
+        rval.kind = OpKind::Cmp;
+        rval.opLength = 3;
+        break;
+#endif
     case clang::BO_LT:
         rval.kind = OpKind::LT;
         rval.opLength = 1;

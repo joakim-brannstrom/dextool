@@ -684,6 +684,11 @@ class MutantVisitor : DepthFirstVisitor {
         accept(n, this);
     }
 
+    override void visit(OpCmp n) {
+        visitComparisonBinaryOp(n);
+        accept(n, this);
+    }
+
     override void visit(OpAdd n) {
         visitArithmeticBinaryOp(n);
         accept(n, this);
