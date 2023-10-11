@@ -649,9 +649,8 @@ nothrow:
         if (!conf.useSkipMutant)
             status ~= Mutation.Status.skipped;
 
-        spinSql!(() {
-            db.worklistApi.update(status, unknownWeight, mutationOrder);
-        });
+        spinSql!(() => db.worklistApi.update(status, unknownWeight, mutationOrder));
+        spinSql!(() => db.timeoutApi.reduceMutantTimeoutWorklist);
 
         // detect if the system is overloaded before trying to do something
         // slow such as compiling the SUT.

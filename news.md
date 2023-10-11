@@ -41,6 +41,8 @@ void fn(int x) {
    that the bodies of each branch are deleted in turn. Less mutants that are
    "productive" is better.
  * Timeout scale factor is now always applied in the schema phase.
+ * Fix bug where the timeout worklist wasn't purged of mutants that no longer
+   had the `timeout` status.
 
 # v5.0 Limestone
 

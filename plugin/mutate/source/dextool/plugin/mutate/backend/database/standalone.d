@@ -1992,15 +1992,14 @@ struct DbTimeout {
         stmt.get.execute;
     }
 
-    /** Remove all mutants that are in the worklist of the iteration run `iter`
-     * that do NOT have the mutation status timeout.
+    /** Remove all mutants that are in the worklist that do NOT have the
+     * mutation status timeout.
      */
-    void reduceMutantTimeoutWorklist(const long iter) @trusted {
-        static immutable sql = "DELETE FROM " ~ mutantTimeoutWorklistTable ~ " WHERE id IN (SELECT id FROM "
-            ~ mutationStatusTable ~ " WHERE status != :status)" ~ " AND iter=:iter";
+    void reduceMutantTimeoutWorklist() @trusted {
+        static immutable sql = "DELETE FROM " ~ mutantTimeoutWorklistTable
+            ~ " WHERE id IN (SELECT id FROM " ~ mutationStatusTable ~ " WHERE status != :status)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":status", cast(ubyte) Mutation.Status.timeout);
-        stmt.get.bind(":iter", iter);
         stmt.get.execute;
     }
 
