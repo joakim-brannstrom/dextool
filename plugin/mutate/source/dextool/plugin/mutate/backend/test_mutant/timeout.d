@@ -297,7 +297,7 @@ struct TimeoutFsm {
     }
 
     void opCall(ref Purge data) {
-        global.db.timeoutApi.reduceMutantTimeoutWorklist(global.ctx.iter);
+        global.db.timeoutApi.reduceMutantTimeoutWorklist;
 
         if (global.db.timeoutApi.countMutantTimeoutWorklist == global.ctx.worklistCount) {
             data.ev = Purge.Event.same;
