@@ -9,7 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.test_mutant.schemata.test;
 
-import logger = std.logger;
+import logger = std.experimental.logger;
 import std.algorithm : min, max;
 import std.array : array;
 import std.conv : to;

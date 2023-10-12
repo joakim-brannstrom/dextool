@@ -673,6 +673,8 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
         Database db;
         SchemaBuildState schemaBuild;
         Set!MutationStatusId whiteList;
+        // never use fragments that contain a mutant in this list.
+        Set!MutationStatusId denyList;
     }
 
     auto st = tuple!("self", "state")(self, refCounted(State(conf, sizeQUpdater)));
@@ -683,6 +685,10 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
 
         try {
             ctx.state.get.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
+
+            ctx.state.get.denyList = spinSql!(
+                    () => ctx.state.get.db.mutantApi.getAllMutationStatus(
+                    Mutation.Status.killedByCompiler)).toSet;
 
             ctx.state.get.schemaBuild.minMutantsPerSchema = ctx.state.get.conf.minMutantsPerSchema;
             ctx.state.get.schemaBuild.mutantsPerSchema.get = ctx.state.get.conf
@@ -722,7 +728,8 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
             }, (None a) {});
         }
 
-        static void processFile(ref Ctx ctx, ref Set!MutationStatusId whiteList) @trusted nothrow {
+        static void processFile(ref Ctx ctx, ref Set!MutationStatusId whiteList,
+                ref Set!MutationStatusId denyList) @trusted nothrow {
             if (ctx.state.get.schemaBuild.files.isDone)
                 return;
 
@@ -733,7 +740,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
                 frags = spinSql!(() {
                     auto trans = ctx.state.get.db.transaction;
                     return ctx.state.get.schemaBuild.updateFiles(whiteList,
-                        (FileId id) => spinSql!(() => ctx.state.get.db.schemaApi.getFragments(id)),
+                        denyList, (FileId id) => spinSql!(() => ctx.state.get.db.schemaApi.getFragments(id)),
                         (FileId id) => spinSql!(() => ctx.state.get.db.getFile(id)),
                         (MutationStatusId id) => spinSql!(
                         () => ctx.state.get.db.mutantApi.getKind(id)));
@@ -752,7 +759,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
                 break;
             case SchemaBuildState.State.processFiles:
                 try {
-                    processFile(ctx, ctx.state.get.whiteList);
+                    processFile(ctx, ctx.state.get.whiteList, ctx.state.get.denyList);
                     process(ctx, result, ctx.state.get.whiteList);
                 } catch (Exception e) {
                     logger.trace(e.msg).collectException;
@@ -777,7 +784,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
                 goto case;
             case SchemaBuildState.State.finalize2:
                 try {
-                    processFile(ctx, ctx.state.get.whiteList);
+                    processFile(ctx, ctx.state.get.whiteList, ctx.state.get.denyList);
                     process(ctx, result, ctx.state.get.whiteList);
                 } catch (Exception e) {
                     logger.trace(e.msg).collectException;

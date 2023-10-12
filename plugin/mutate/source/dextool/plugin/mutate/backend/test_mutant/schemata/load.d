@@ -12,7 +12,7 @@ system and the set value. Its purpose is to make sure the system do not overload
 */
 module dextool.plugin.mutate.backend.test_mutant.schemata.load;
 
-import logger = std.logger;
+import logger = std.experimental.logger;
 import std.algorithm : min, max;
 import std.datetime : dur;
 import std.exception : collectException;

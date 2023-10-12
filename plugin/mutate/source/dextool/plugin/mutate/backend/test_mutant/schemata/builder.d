@@ -400,9 +400,11 @@ struct SchemaBuildState {
     /// Add all fragments from one of the files to process to those to be
     /// incorporated into future schemas.
     /// Returns: number of fragments added.
-    size_t updateFiles(ref Set!MutationStatusId whiteList, scope SchemaFragmentV2[]delegate(
-            FileId) @safe fragmentsFn, scope Nullable!Path delegate(FileId) @safe fnameFn,
+    size_t updateFiles(ref Set!MutationStatusId whiteList, ref Set!MutationStatusId denyList,
+            scope SchemaFragmentV2[]delegate(FileId) @safe fragmentsFn,
+            scope Nullable!Path delegate(FileId) @safe fnameFn,
             scope Mutation.Kind delegate(MutationStatusId) @safe kindFn) @safe nothrow {
+        import std.algorithm : any;
         import dextool.plugin.mutate.backend.type : CodeChecksum, Mutation;
         import dextool.plugin.mutate.backend.database : toChecksum;
 
@@ -416,7 +418,7 @@ struct SchemaBuildState {
 
             auto app = appender!(SchemataBuilder.Fragment[])();
             auto frags = fragmentsFn(id);
-            foreach (a; frags) {
+            foreach (a; frags.filter!(a => !any!(b => b in denyList)(a.mutants))) {
                 auto cm = a.mutants
                     .filter!(a => a in whiteList)
                     .map!(a => CodeMutant(CodeChecksum(a.toChecksum),
