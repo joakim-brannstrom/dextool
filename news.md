@@ -43,6 +43,9 @@ void fn(int x) {
  * Timeout scale factor is now always applied in the schema phase.
  * Fix bug where the timeout worklist wasn't purged of mutants that no longer
    had the `timeout` status.
+ * Add support for the spaceship operator in C++. Should improve the success
+   rate of compiling mutant scheman which in the end mean that the time to
+   finish mutation testing is faster.
 
 # v5.0 Limestone
 
