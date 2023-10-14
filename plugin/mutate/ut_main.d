@@ -25,6 +25,7 @@ int main(string[] args) {
                           "dextool.plugin.mutate.backend.test_mutant.test_cmd_runner",
                           "dextool.plugin.mutate.backend.type",
                           "dextool.plugin.mutate.frontend.argparser",
+                          "dextool.plugin.mutate.backend.test_mutant.schemata.load",
                           );
     //dfmt on
 }

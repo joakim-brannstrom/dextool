@@ -1149,6 +1149,18 @@ struct DbMutant {
     }
 
     /// Returns: all mutation status IDs.
+    MutationStatusId[] getAllMutationStatus(const Mutation.Status status) @trusted {
+        static immutable sql = "SELECT id FROM " ~ mutationStatusTable ~ " WHERE status=:st";
+
+        auto app = appender!(MutationStatusId[])();
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":st", cast(long) status);
+        foreach (r; stmt.get.execute)
+            app.put(MutationStatusId(r.peek!long(0)));
+        return app.data;
+    }
+
+    /// Returns: all mutants with the specified status.
     MutationStatusId[] getAllMutationStatus() @trusted {
         static immutable sql = "SELECT id FROM " ~ mutationStatusTable;
 

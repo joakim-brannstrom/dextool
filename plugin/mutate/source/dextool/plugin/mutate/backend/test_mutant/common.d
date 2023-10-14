@@ -596,6 +596,10 @@ struct TestStopCheck {
         return HaltReason.none;
     }
 
+    double getLoadThreshold() @safe pure nothrow const @nogc {
+        return baseLoadThreshold.get;
+    }
+
     /// The system is overloaded and the user has configured the tool to slowdown.
     bool isOverloaded() @safe nothrow const @nogc {
         if (loadBehavior == ConfigMutationTest.LoadBehavior.slowdown && load15 > loadThreshold.get)
