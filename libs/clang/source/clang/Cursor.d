@@ -33,9 +33,6 @@ import clang.Visitor;
 @safe struct Cursor {
     mixin CX;
 
-    // for example primitive types are predefined
-    private static const CXCursorKind[string] predefined;
-
     /// Retrieve the NULL cursor, which represents no entity.
     @property static Cursor empty() @trusted {
         auto r = clang_getNullCursor();
@@ -122,6 +119,40 @@ import clang.Visitor;
      */
     @property CXCursor templateCursor() const @trusted scope {
         return clang_getSpecializedCursorTemplate(cx);
+    }
+
+    /** Determine the set of methods that are overridden by the given
+     * method.
+     *
+     * In both Objective-C and C++, a method (aka virtual member function, in
+     * C++) can override a virtual method in a base class. For Objective-C, a
+     * method is said to override any method in the class's base class, its
+     * protocols, or its categories' protocols, that has the same selector and
+     * is of the same kind (class or instance). If no such method exists, the
+     * search continues to the class's superclass, its protocols, and its
+     * categories, and so on. A method from an Objective-C implementation is
+     * considered to override the same methods as its corresponding method in
+     * the interface.
+     *
+     * For C++, a virtual member function overrides any virtual member function
+     * with the same signature that occurs in its base classes. With multiple
+     * inheritance, a virtual member function can override several virtual
+     * member functions coming from different base classes.
+     *
+     * In all cases, this function determines the immediate overridden method,
+     * rather than all of the overridden methods. For example, if a method is
+     * originally declared in a class A, then overridden in B (which in
+     * inherits from A) and also in C (which inherited from B), then the only
+     * overridden method returned from this function when invoked on C's method
+     * will be B's method. The client may then invoke this function again,
+     * given the previously-found overridden methods, to map out the complete
+     * method-override set.
+     */
+    @property OverriddenSet overridden() const @trusted scope {
+        CXCursor* overridden;
+        uint num;
+        clang_getOverriddenCursors(cx, &overridden, &num);
+        return OverriddenSet(OverriddenSet.make(overridden), num);
     }
 
     /** Retrieve the string representing the mangled name of the cursor.
@@ -412,8 +443,7 @@ import clang.Visitor;
 
         if (ignorePredefined && isTranslationUnit) {
             foreach (cursor, _; T(this)) {
-                if (!cursor.isPredefined)
-                    app.put(cursor);
+                app.put(cursor);
             }
         } else {
             foreach (cursor, _; T(this))
@@ -581,11 +611,6 @@ import clang.Visitor;
     /// Returns: if the base class specified by the cursor with kind CX_CXXBaseSpecifier is virtual.
     @property bool isVirtualBase() const @trusted scope {
         return clang_isVirtualBase(cx) != 0;
-    }
-
-    bool isPredefined() const @trusted scope {
-        auto xkind = usr in predefined;
-        return xkind !is null && *xkind == kind;
     }
 
     /** Determine whether a CXCursor that is a macro, is function like.
@@ -844,6 +869,42 @@ struct EnumCursor {
     }
 }
 
+struct OverriddenSet {
+    import std.typecons : RefCounted;
+
+    private struct Container {
+        CXCursor* overridden;
+        ~this() {
+            if (overridden != null)
+                clang_disposeOverriddenCursors(overridden);
+        }
+    }
+
+    private RefCounted!Container data;
+    private CXCursor[] overridden;
+
+    static private RefCounted!Container make(CXCursor* overridden) {
+        RefCounted!Container rval;
+        rval.overridden = overridden;
+        return rval;
+    }
+
+    private this(RefCounted!Container data, uint numOverloads) {
+        this.data = data;
+        this.overridden = data.overridden[0 .. numOverloads];
+    }
+
+    bool empty() const { return overridden.length == 0; }
+
+    CXCursor front() { return overridden[0]; }
+
+    void popFront() {
+        overridden = overridden[1..$];
+    }
+
+    size_t length() const { return overridden.length; }
+}
+
 import std.array : appender, Appender;
 
 string dump(ref const(Cursor) c) @trusted {
@@ -909,13 +970,12 @@ void dumpAST(ref const(Cursor) c, ref Appender!string result, size_t indent, Fil
 
     if (file) {
         foreach (cursor, _; c.all) {
-            if (!cursor.isPredefined() && cursor.location.file == *file)
+            if (cursor.location.file == *file)
                 dumpAST(cursor, result, indent + step);
         }
     } else {
         foreach (cursor, _; c.all) {
-            if (!cursor.isPredefined())
-                cursor.dumpAST(result, indent + step);
+            cursor.dumpAST(result, indent + step);
         }
     }
 }

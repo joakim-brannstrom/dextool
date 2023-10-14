@@ -11,6 +11,9 @@ public:
     OpOverload operator++(int);
     OpOverload operator--();
     OpOverload operator--(int);
+
+    // TODO: activate test of spaceship when libclang is version 16
+    // auto operator<=>(const OpOverload&) const { return 1; }
 };
 
 void unary_arithmetic_operators() {
@@ -26,6 +29,12 @@ void unary_arithmetic_operators() {
     ++oa;
     oa--;
     --oa;
+
+    OpOverload ob;
+    // TODO: activate test of spaceship when libclang is version 16
+    // if (oa == ob) {
+    // return;
+    // }
 }
 
 void g(int x) {}
@@ -38,6 +47,9 @@ void func() {
     int d = a + 3;
 
     if (a > b) {
+        return;
+    }
+    if (a != b) {
         return;
     }
 

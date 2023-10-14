@@ -14,6 +14,7 @@ unittest {
     mixin(EnvSetup(globalTestdir));
 
     makeDextoolAnalyze(testEnv)
+        // .addFlag("-std=c++20")
         .addInputArg(testData ~ "uoi.cpp")
         .run;
     auto r = makeDextool(testEnv)

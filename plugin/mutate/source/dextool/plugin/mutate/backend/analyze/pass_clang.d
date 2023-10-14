@@ -148,6 +148,8 @@ Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
 
     // the arguments and the operator
     void exprPoint() {
+        res.isOverload = op.cursor.kind == CXCursorKind.callExpr;
+
         auto sr = op.cursor.extent;
         res.exprLoc = analyze.Location(path, Interval(sr.start.offset,
                 sr.end.offset), SourceLocRange(SourceLoc(sr.start.line,
@@ -155,145 +157,124 @@ Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
         res.exprTy = deriveCursorType(ast, op.cursor);
         switch (op.kind) with (OpKind) {
         case OO_Star: // "*"
-            res.isOverload = true;
             goto case;
         case Mul: // "*"
             res.astOp = ast.make!(analyze.OpMul);
             break;
         case OO_Slash: // "/"
-            res.isOverload = true;
             goto case;
         case Div: // "/"
             res.astOp = ast.make!(analyze.OpDiv);
             break;
         case OO_Percent: // "%"
-            res.isOverload = true;
             goto case;
         case Rem: // "%"
             res.astOp = ast.make!(analyze.OpMod);
             break;
         case OO_Plus: // "+"
-            res.isOverload = true;
             goto case;
         case Add: // "+"
             res.astOp = ast.make!(analyze.OpAdd);
             break;
         case OO_Minus: // "-"
-            res.isOverload = true;
             goto case;
         case Sub: // "-"
             res.astOp = ast.make!(analyze.OpSub);
             break;
+        case Cmp: // <=>
+            res.astOp = ast.make!(analyze.OpCmp);
+            break;
         case OO_Less: // "<"
-            res.isOverload = true;
             goto case;
         case LT: // "<"
             res.astOp = ast.make!(analyze.OpLess);
             break;
         case OO_Greater: // ">"
-            res.isOverload = true;
             goto case;
         case GT: // ">"
             res.astOp = ast.make!(analyze.OpGreater);
             break;
         case OO_LessEqual: // "<="
-            res.isOverload = true;
             goto case;
         case LE: // "<="
             res.astOp = ast.make!(analyze.OpLessEq);
             break;
         case OO_GreaterEqual: // ">="
-            res.isOverload = true;
             goto case;
         case GE: // ">="
             res.astOp = ast.make!(analyze.OpGreaterEq);
             break;
         case OO_EqualEqual: // "=="
-            res.isOverload = true;
             goto case;
         case EQ: // "=="
             res.astOp = ast.make!(analyze.OpEqual);
             break;
         case OO_Exclaim: // "!"
-            res.isOverload = true;
             goto case;
         case LNot: // "!"
             res.astOp = ast.make!(analyze.OpNegate);
             break;
         case OO_ExclaimEqual: // "!="
-            res.isOverload = true;
             goto case;
         case NE: // "!="
             res.astOp = ast.make!(analyze.OpNotEqual);
             break;
         case OO_AmpAmp: // "&&"
-            res.isOverload = true;
             goto case;
         case LAnd: // "&&"
             res.astOp = ast.make!(analyze.OpAnd);
             break;
         case OO_PipePipe: // "||"
-            res.isOverload = true;
             goto case;
         case LOr: // "||"
             res.astOp = ast.make!(analyze.OpOr);
             break;
         case OO_Amp: // "&"
-            res.isOverload = true;
             goto case;
         case And: // "&"
             res.astOp = ast.make!(analyze.OpAndBitwise);
             break;
         case OO_Pipe: // "|"
-            res.isOverload = true;
             goto case;
         case Or: // "|"
             res.astOp = ast.make!(analyze.OpOrBitwise);
             break;
         case OO_StarEqual: // "*="
-            res.isOverload = true;
             goto case;
         case MulAssign: // "*="
             res.astOp = ast.make!(analyze.OpAssignMul);
             break;
         case OO_SlashEqual: // "/="
-            res.isOverload = true;
             goto case;
         case DivAssign: // "/="
             res.astOp = ast.make!(analyze.OpAssignDiv);
             break;
         case OO_PercentEqual: // "%="
-            res.isOverload = true;
             goto case;
         case RemAssign: // "%="
             res.astOp = ast.make!(analyze.OpAssignMod);
             break;
         case OO_PlusEqual: // "+="
-            res.isOverload = true;
             goto case;
         case AddAssign: // "+="
             res.astOp = ast.make!(analyze.OpAssignAdd);
             break;
         case OO_MinusEqual: // "-="
-            res.isOverload = true;
             goto case;
         case SubAssign: // "-="
             res.astOp = ast.make!(analyze.OpAssignSub);
             break;
         case OO_AmpEqual: // "&="
-            res.isOverload = true;
             goto case;
         case AndAssign: // "&="
             res.astOp = ast.make!(analyze.OpAssignAndBitwise);
             break;
         case OO_PipeEqual: // "|="
-            res.isOverload = true;
             goto case;
         case OrAssign: // "|="
             res.astOp = ast.make!(analyze.OpAssignOrBitwise);
             break;
         case OO_CaretEqual: // "^="
-            res.isOverload = true;
             goto case;
         case OO_Equal: // "="
             goto case;
