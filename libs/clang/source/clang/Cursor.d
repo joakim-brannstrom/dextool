@@ -33,9 +33,6 @@ import clang.Visitor;
 @safe struct Cursor {
     mixin CX;
 
-    // for example primitive types are predefined
-    private static const CXCursorKind[string] predefined;
-
     /// Retrieve the NULL cursor, which represents no entity.
     @property static Cursor empty() @trusted {
         auto r = clang_getNullCursor();
@@ -412,8 +409,7 @@ import clang.Visitor;
 
         if (ignorePredefined && isTranslationUnit) {
             foreach (cursor, _; T(this)) {
-                if (!cursor.isPredefined)
-                    app.put(cursor);
+                app.put(cursor);
             }
         } else {
             foreach (cursor, _; T(this))
@@ -581,11 +577,6 @@ import clang.Visitor;
     /// Returns: if the base class specified by the cursor with kind CX_CXXBaseSpecifier is virtual.
     @property bool isVirtualBase() const @trusted scope {
         return clang_isVirtualBase(cx) != 0;
-    }
-
-    bool isPredefined() const @trusted scope {
-        auto xkind = usr in predefined;
-        return xkind !is null && *xkind == kind;
     }
 
     /** Determine whether a CXCursor that is a macro, is function like.
@@ -909,13 +900,12 @@ void dumpAST(ref const(Cursor) c, ref Appender!string result, size_t indent, Fil
 
     if (file) {
         foreach (cursor, _; c.all) {
-            if (!cursor.isPredefined() && cursor.location.file == *file)
+            if (cursor.location.file == *file)
                 dumpAST(cursor, result, indent + step);
         }
     } else {
         foreach (cursor, _; c.all) {
-            if (!cursor.isPredefined())
-                cursor.dumpAST(result, indent + step);
+            cursor.dumpAST(result, indent + step);
         }
     }
 }
