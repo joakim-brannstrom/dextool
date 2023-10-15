@@ -206,6 +206,7 @@ string[] llvmSearchPaths() {
     return [
         llvmLibdir,
         // Ubuntu
+        "/usr/lib/llvm-17/lib",
         "/usr/lib/llvm-16/lib",
         "/usr/lib/llvm-15/lib",
         "/usr/lib/llvm-14/lib",

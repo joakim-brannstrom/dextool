@@ -2,7 +2,7 @@
 
 Fixes
 
- * Bindings updated to support llvm-16.
+ * Bindings updated to support llvm-16 and 17.
 
 Fixes for dextool mutate
 
