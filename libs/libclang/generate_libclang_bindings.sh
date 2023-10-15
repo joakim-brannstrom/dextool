@@ -12,7 +12,7 @@ fi
 cwd=$(pwd)
 pushd "$1"/clang-c
 dstep ./*.h \
-  -I"$1" \
+  -I"$cwd/$1" \
   --public-submodules \
   --package clang.c \
   --space-after-function-name=false \
