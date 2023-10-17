@@ -32,7 +32,7 @@ import clang.c.Index : CXTypeKind, CXCursorKind, CXEvalResultKind, CXTokenKind;
 import libclang_ast.ast : Visitor;
 import libclang_ast.cursor_logger : logNode, mixinNodeLog;
 
-import dextool.clang_extensions : getUnderlyingExprNode;
+import dextool.clang_extensions : getUnderlyingExprNode, OpKind;
 
 import dextool.type : Path, AbsolutePath;
 
@@ -119,6 +119,10 @@ Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
     auto op = getExprOperator(node.cursor);
     if (!op.isValid)
         return typeof(return)();
+    if (isUnayASpaceshipOp(op.cursor, op.kind)) {
+        // unable to resolve correctly
+        return typeof(return)();
+    }
 
     auto path = op.cursor.location.path.Path;
     if (path.empty)
@@ -1418,6 +1422,18 @@ void rewriteSwitch(ref analyze.Ast ast, analyze.BranchBundle root,
 
     root.children = beforeCase ~ block;
     block.children = rest;
+}
+
+bool isUnayASpaceshipOp(Cursor c, OpKind kind) {
+    if (kind != OpKind.LNot)
+        return false;
+
+    auto children = c.children;
+    if (children.empty)
+        return false;
+    if (children[0].kind == CXCursorKind.callExpr && children[0].spelling == "operator==")
+        return true;
+    return false;
 }
 
 enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind.char16,
