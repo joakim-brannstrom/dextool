@@ -357,10 +357,10 @@ final class BaseVisitor : ExtendedVisitor {
     /// Keep track of visited nodes to avoid circulare references.
     Set!size_t isVisited;
 
+    Blacklist blacklist;
+
     FilesysIO fio;
     ValidateLoc vloc;
-
-    Blacklist blacklist;
 
     this(FilesysIO fio, ValidateLoc vloc) nothrow {
         this.fio = fio;
@@ -724,6 +724,7 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const FloatingLiteral v) {
         mixin(mixinNodeLog!());
+
         pushStack(ast.get.make!(analyze.FloatLiteral), v);
         v.accept(this);
     }
@@ -1268,6 +1269,9 @@ final class BaseVisitor : ExtendedVisitor {
             return;
 
         auto n = ast.get.make!(analyze.Call);
+        // TODO: user defined literal. Can't generate correct mutants for them
+        // yet thus they are all killed by the compiler.
+        n.blacklist = n.blacklist || isUserLIteral(v.cursor);
         pushStack(n, v);
 
         auto ty = deriveType(ast.get, v.cursor.type);
@@ -1445,6 +1449,15 @@ bool isUnayASpaceshipOp(Cursor c, OpKind kind) {
     if (children[0].kind == CXCursorKind.callExpr && children[0].spelling == "operator==")
         return true;
     return false;
+}
+
+bool isUserLIteral(Cursor c) {
+    import std.string : startsWith;
+
+    if (!c.kind.among(CXCursorKind.functionDecl,
+            CXCursorKind.functionTemplate, CXCursorKind.callExpr))
+        return false;
+    return c.spelling.startsWith(`operator""`);
 }
 
 enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind.char16,
