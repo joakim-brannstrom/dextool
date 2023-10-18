@@ -476,6 +476,17 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(scope const CxxFunctionalCastExpr v) @trusted {
+        // auto foo = std::array<int, 2>{3,4};
+        // it is correct to mutate 2->0 for CR mutant but it must be
+        // blacklisted from schema.
+        mixin(mixinNodeLog!());
+        auto n = ast.get.make!(analyze.Poison);
+        n.schemaBlacklist = true;
+        pushStack(n, v);
+        v.accept(this);
+    }
+
     override void visit(scope const ParmDecl v) @trusted {
         mixin(mixinNodeLog!());
         visitVar(v);
