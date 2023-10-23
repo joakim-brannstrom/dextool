@@ -825,6 +825,11 @@ final class BaseVisitor : ExtendedVisitor {
     override void visit(scope const CallExpr v) {
         mixin(mixinNodeLog!());
 
+        // clang-AST magic. unspecified type or something which often lead to
+        // killedByCompiler mutants.
+        if (v.cursor.spelling == "__unspec")
+            return;
+
         if (!visitOp(v, v.cursor.kind)) {
             visitCall(v);
         }
