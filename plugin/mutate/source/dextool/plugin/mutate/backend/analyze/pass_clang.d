@@ -604,7 +604,9 @@ final class BaseVisitor : ExtendedVisitor {
     }
 
     private void visitVar(T)(T v) @trusted {
-        pushStack(ast.get.make!(analyze.VarDecl), v);
+        auto n = ast.get.make!(analyze.VarDecl);
+        n.schemaBlacklist = isTemplateDecl(v.cursor);
+        pushStack(n, v);
     }
 
     override void visit(scope const InclusionDirective v) @trusted {
@@ -1463,6 +1465,15 @@ bool isUserLIteral(Cursor c) {
             CXCursorKind.functionTemplate, CXCursorKind.callExpr))
         return false;
     return c.spelling.startsWith(`operator""`);
+}
+
+bool isTemplateDecl(Cursor c) {
+    import std.algorithm : count;
+
+    auto children = c.children;
+    if (children.empty)
+        return false;
+    return children.filter!(a => a.kind.among(CXCursorKind.templateRef)).count != 0;
 }
 
 enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind.char16,
