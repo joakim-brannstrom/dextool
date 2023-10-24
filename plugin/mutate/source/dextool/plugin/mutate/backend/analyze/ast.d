@@ -466,6 +466,8 @@ alias Nodes = AliasSeq!(
     Condition,
     Constructor,
     Expr,
+    FieldDecl,
+    FieldRef,
     FloatLiteral,
     Function,
     Literal,
@@ -516,9 +518,11 @@ enum Kind {
     Condition,
     Constructor,
     Expr,
+    FieldDecl,
+    FieldRef,
+    FloatLiteral,
     Function,
     Literal,
-    FloatLiteral,
     Loop,
     Node,
     OpAdd,
@@ -562,6 +566,10 @@ alias ExpressionKind = AliasSeq!(
     Kind.Condition,
     Kind.Constructor,
     Kind.Expr,
+    Kind.FieldDecl,
+    Kind.FieldRef,
+    Kind.FloatLiteral,
+    Kind.Literal,
     Kind.OpAdd,
     Kind.OpAnd,
     Kind.OpAndBitwise,
@@ -584,8 +592,6 @@ alias ExpressionKind = AliasSeq!(
     Kind.UnaryOp,
     Kind.VarDecl,
     Kind.VarRef,
-    Kind.Literal,
-    Kind.FloatLiteral,
 );
 // dfmt on
 
@@ -727,6 +733,26 @@ class VarRef : Expr {
     VarDecl to;
 
     this(VarDecl to) {
+        this();
+        this.to = to;
+    }
+
+    invariant {
+        assert(to !is null);
+    }
+}
+
+class FieldDecl : Expr {
+    mixin(nodeImpl!(typeof(this)));
+    bool isConst;
+}
+
+class FieldRef : Expr {
+    mixin(nodeImpl!(typeof(this)));
+    // should always refer to something
+    FieldDecl to;
+
+    this(FieldDecl to) {
         this();
         this.to = to;
     }
