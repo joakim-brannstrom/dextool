@@ -476,6 +476,14 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(scope const FieldDecl v) @trusted {
+        mixin(mixinNodeLog!());
+        auto n = ast.get.make!(analyze.FieldDecl);
+        n.schemaBlacklist = isTemplateDecl(v.cursor);
+        pushStack(n, v);
+        v.accept(this);
+    }
+
     override void visit(scope const CxxFunctionalCastExpr v) @trusted {
         // auto foo = std::array<int, 2>{3,4};
         // it is correct to mutate 2->0 for CR mutant but it must be
@@ -672,6 +680,47 @@ final class BaseVisitor : ExtendedVisitor {
             dispatch(ue.expr, this);
         } else {
             pushStack(n, v);
+            v.accept(this);
+        }
+    }
+
+    // TODO overlapping logic with Expression. deduplicate
+    override void visit(scope const MemberRefExpr v) @trusted {
+        import libclang_ast.ast : dispatch;
+
+        mixin(mixinNodeLog!());
+
+        if (shouldSkipOrMark(v.cursor.toHash))
+            return;
+
+        auto n = ast.get.make!(analyze.Expr);
+        n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
+                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
+
+        void updateNode(Cursor c) {
+            auto cty = c.type.canonicalType;
+            auto ty = deriveType(ast.get, cty);
+            ty.put(ast.get);
+            if (ty.type !is null)
+                ast.get.put(n, ty.id);
+            n.schemaBlacklist = n.schemaBlacklist || isTemplateDecl(c);
+        }
+
+        auto r = v.cursor.referenced;
+        if (r.isValid) {
+            updateNode(r);
+        } else {
+            updateNode(v.cursor);
+        }
+
+        pushStack(n, v);
+
+        if (r.isValid) {
+            incr;
+            scope (exit)
+                decr;
+            dispatch(r, this);
+        } else {
             v.accept(this);
         }
     }
@@ -1108,13 +1157,11 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
-        const blockSchema = op.isOverload || isBlacklist(cursor, op.opLoc) || isParent(CXCursorKind.classTemplate,
+        auto blockSchema = op.isOverload || isBlacklist(cursor, op.opLoc) || isParent(CXCursorKind.classTemplate,
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
-        astOp.schemaBlacklist = blockSchema;
         astOp.operator = op.operator;
         astOp.operator.blacklist = isBlacklist(cursor, op.opLoc);
-        astOp.operator.schemaBlacklist = blockSchema;
 
         op.put(nstack.back, ast.get);
         pushStack(cursor, astOp, op.exprLoc, cKind);
@@ -1133,6 +1180,7 @@ final class BaseVisitor : ExtendedVisitor {
                 return null;
             }();
             if (b !is null && b != astOp) {
+                blockSchema = blockSchema || b.schemaBlacklist;
                 astOp.lhs = b;
                 auto ty = deriveCursorType(ast.get, op.lhs);
                 ty.put(ast.get);
@@ -1155,6 +1203,7 @@ final class BaseVisitor : ExtendedVisitor {
                 return null;
             }();
             if (b !is null && b != astOp) {
+                blockSchema = blockSchema || b.schemaBlacklist;
                 astOp.rhs = b;
                 auto ty = deriveCursorType(ast.get, op.rhs);
                 ty.put(ast.get);
@@ -1166,6 +1215,9 @@ final class BaseVisitor : ExtendedVisitor {
                 }
             }
         }
+
+        astOp.schemaBlacklist = blockSchema;
+        astOp.operator.schemaBlacklist = blockSchema;
 
         return true;
     }
