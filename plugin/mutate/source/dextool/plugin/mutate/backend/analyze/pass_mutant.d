@@ -770,14 +770,6 @@ class MutantVisitor : DepthFirstVisitor {
             rhs ~= m.rhs;
         }
         {
-            import dextool.plugin.mutate.backend.mutation_type.lcrb;
-
-            auto m = lcrbMutations(n.kind);
-            op ~= m.op;
-            lhs ~= m.lhs;
-            rhs ~= m.rhs;
-        }
-        {
             auto nty = ast.type(n);
             expr ~= dcrMutations(DcrInfo(n.kind, ast.type(n)));
         }
