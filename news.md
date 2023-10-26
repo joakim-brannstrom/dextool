@@ -46,6 +46,9 @@ void fn(int x) {
  * Add support for the spaceship operator in C++. Should improve the success
    rate of compiling mutant scheman which in the end mean that the time to
    finish mutation testing is faster.
+ * Major fixes to mutant schema generation. Many of the scheman led to
+   compilation errors. All known problems have been fixed which should speedup
+   mutation testing alot.
 
 # v5.0 Limestone
 

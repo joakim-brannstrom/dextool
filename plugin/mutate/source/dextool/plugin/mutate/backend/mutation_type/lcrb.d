@@ -15,32 +15,6 @@ import dextool.plugin.mutate.backend.type;
 
 import dextool.plugin.mutate.backend.analyze.ast;
 
-auto lcrbMutations(Kind operator) @safe pure nothrow {
-    alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "lhs", Mutation.Kind[], "rhs");
-    Rval rval;
-
-    // TODO should the same lhs and rhs from lcr bli implemented for lcrb
-    // too?
-
-    switch (operator) with (Mutation.Kind) {
-    case Kind.OpAndBitwise:
-        rval = Rval([lcrbOr], [lcrbLhs], [lcrbRhs]);
-        break;
-    case Kind.OpOrBitwise:
-        rval = Rval([lcrbAnd], [lcrbLhs], [lcrbRhs]);
-        break;
-    case Kind.OpAssignAndBitwise:
-        rval = Rval([lcrbOrAssign], null, null);
-        break;
-    case Kind.OpAssignOrBitwise:
-        rval = Rval([lcrbAndAssign], null, null);
-        break;
-    default:
-    }
-
-    return rval;
-}
-
 immutable Mutation.Kind[] lcrbMutationsAll;
 immutable Mutation.Kind[] lcrbAssignMutationsAll;
 

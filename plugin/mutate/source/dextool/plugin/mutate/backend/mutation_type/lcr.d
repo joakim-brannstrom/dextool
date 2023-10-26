@@ -29,10 +29,12 @@ auto lcrMutations(Kind operator) {
         break;
         // TODO: add assign
     case Kind.OpAndBitwise:
-        rval = Rval([lcrbOr], null, [lcrbLhs], [lcrbRhs]);
+        rval = Rval([lcrbOr], null, null, null);
         break;
     case Kind.OpOrBitwise:
-        rval = Rval([lcrbAnd], null, [lcrbLhs], [lcrbRhs]);
+        // TODO: add back [lcrbLhs], [lcrbRhs] mutants but have to consider the functions this type of function:
+        // bool fun(int* x, int* y) { return y != x; }
+        rval = Rval([lcrbAnd], null, null, null);
         break;
     case Kind.OpAssignAndBitwise:
         rval = Rval([lcrbOrAssign], null, null, null);

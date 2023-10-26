@@ -90,11 +90,11 @@ unittest {
     // dfmt off
     testAnyOrder!SubStr([
         "from '& ' to '|'",
-        "from 'a & ' to ''",
-        "from '& b' to ''",
+        // "from 'a & ' to ''",
+        // "from '& b' to ''",
         "from '| ' to '&'",
-        "from 'a | ' to ''",
-        "from '| b' to ''",
+        // "from 'a | ' to ''",
+        // "from '| b' to ''",
     ]).shouldBeIn(r.output);
     // dfmt on
 }
