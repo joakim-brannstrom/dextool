@@ -358,6 +358,14 @@ class CppRootVisitor : DepthFirstVisitor {
     }
 }
 
+mixin template isInsideRoot(alias fragmentRoot) {
+    bool isInsideRoot(Location l) {
+        // can occur when a Call refer to an inline function.
+        return fragmentRoot.file == l.file && fragmentRoot.interval.begin <= l.interval.begin
+            && l.interval.end <= fragmentRoot.interval.end;
+    }
+}
+
 class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
@@ -391,7 +399,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         return nstack.back.kind.among(kinds) != 0;
     }
 
-    }
+    mixin isInsideRoot!fragmentRoot;
 
     void startVisit(Function n) @trusted {
         auto firstBlock = () {
@@ -404,20 +412,21 @@ class CppSchemataVisitor : DepthFirstVisitor {
         auto loc = ast.location(firstBlock);
         if (loc.interval.isZero)
             return;
+        fragmentRoot = loc;
 
         fragment.start(fio.toRelativeRoot(loc.file), loc, () {
             auto fin = fio.makeInput(loc.file);
             // must be at least length 1 because ChainT look at the last
             // value
-            if (loc.interval.begin >= loc.interval.end)
+            if (fragmentRoot.interval.begin >= fragmentRoot.interval.end)
                 return " ".rewrite;
-            return fin.content[loc.interval.begin .. loc.interval.end];
+            return fin.content[fragmentRoot.interval.begin .. fragmentRoot.interval.end];
         }());
 
         visit(firstBlock);
 
         foreach (f; fragment.finalize) {
-            result.putFragment(loc.file, f);
+            result.putFragment(fragmentRoot.file, f);
         }
     }
 
@@ -597,7 +606,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         auto loc = ast.location(n);
         auto mutants = index.get(loc.file, loc.interval);
 
-        if (loc.interval.isZero || mutants.empty)
+        if (loc.interval.isZero || mutants.empty || !isInsideRoot(loc))
             return;
 
         auto fin = fio.makeInput(loc.file);
@@ -622,7 +631,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         auto offs = loc.interval;
         auto mutants = index.get(loc.file, offs);
 
-        if (loc.interval.isZero || mutants.empty)
+        if (loc.interval.isZero || mutants.empty || !isInsideRoot(loc))
             return;
 
         auto fin = fio.makeInput(loc.file);
@@ -654,7 +663,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         auto loc = ast.location(n);
         auto mutants = index.get(loc.file, loc.interval);
 
-        if (loc.interval.isZero || mutants.empty)
+        if (loc.interval.isZero || mutants.empty || !isInsideRoot(loc))
             return;
 
         auto fin = fio.makeInput(loc.file);
@@ -668,6 +677,9 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     private void visitBinaryOp(T)(T n) @trusted {
+        if (!isInsideRoot(ast.location(n)))
+            return;
+
         try {
             scope v = new BinaryOpVisitor(ast, &index, fio, &fragment);
             v.startVisit(n);
@@ -718,7 +730,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
         visit(n);
     }
 
-    alias visit = DepthFirstVisitor.visit;
+    mixin isInsideRoot!rootLoc;
 
     override void visit(OpAndBitwise n) {
         visitBinaryOp(n);
@@ -802,7 +814,8 @@ class BinaryOpVisitor : DepthFirstVisitor {
         auto locExpr = ast.location(n);
         auto locOp = ast.location(n.operator);
 
-        if (locExpr.interval.isZero || locOp.interval.isZero)
+        if (locExpr.interval.isZero || locOp.interval.isZero
+                || !isInsideRoot(locExpr) || !isInsideRoot(locOp))
             return;
 
         auto left = contentOrNull(root.begin, locExpr.interval.begin, content);
