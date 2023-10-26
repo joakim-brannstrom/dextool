@@ -65,7 +65,7 @@ SchemataResult toSchemata(scope Ast* ast, FilesysIO fio, CodeMutantsResult cresu
     case Language.assumeCpp:
         goto case;
     case Language.cpp:
-        scope visitor = new CppSchemataVisitor(ast, index, sq, fio, rval);
+        scope visitor = new CppRootVisitor(ast, index, sq, fio, rval);
         ast.accept(visitor);
         break;
     }
@@ -333,6 +333,45 @@ struct MutantHelper {
     const(ubyte)[] post;
 }
 
+class CppRootVisitor : DepthFirstVisitor {
+    Ast* ast;
+    CodeMutantIndex index;
+    SchemataResult result;
+    FilesysIO fio;
+
+    private {
+        SchemaQ sq;
+        Stack!(Node) nstack;
+        uint depth;
+    }
+
+    alias visit = DepthFirstVisitor.visit;
+
+    this(Ast* ast, CodeMutantIndex index, SchemaQ sq, FilesysIO fio, SchemataResult result)
+    in (ast !is null) {
+        this.ast = ast;
+        this.index = index;
+        this.fio = fio;
+        this.result = result;
+        this.sq = sq;
+    }
+
+    override void visitPush(Node n) {
+        nstack.put(n, ++depth);
+    }
+
+    override void visitPop(Node n) {
+        nstack.pop;
+        --depth;
+    }
+
+    override void visit(Function n) @trusted {
+        scope funcVisitor = new CppSchemataVisitor(ast, index, sq, fio, result, nstack, depth);
+        funcVisitor.visit(n);
+        accept(n, this);
+    }
+}
+
 class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
@@ -353,13 +392,16 @@ class CppSchemataVisitor : DepthFirstVisitor {
 
     alias visit = DepthFirstVisitor.visit;
 
-    this(Ast* ast, CodeMutantIndex index, SchemaQ sq, FilesysIO fio, SchemataResult result)
+    this(Ast* ast, CodeMutantIndex index, SchemaQ sq, FilesysIO fio,
+            SchemataResult result, Stack!Node nstack, uint depth)
     in (ast !is null) {
         this.ast = ast;
         this.index = index;
         this.fio = fio;
         this.result = result;
-        fragment.sq = sq;
+        this.fragment.sq = sq;
+        this.nstack = nstack;
+        this.depth = depth;
     }
 
     /// Returns: if the previous nodes is of kind `k`.
@@ -379,10 +421,8 @@ class CppSchemataVisitor : DepthFirstVisitor {
     }
 
     override void visit(Function n) @trusted {
-        if (saveFragment) {
-            accept(n, this);
+        if (saveFragment)
             return;
-        }
 
         auto firstBlock = () {
             foreach (c; n.children.filter!(a => a.kind == Kind.Block))
@@ -390,10 +430,8 @@ class CppSchemataVisitor : DepthFirstVisitor {
             return null;
         }();
 
-        if (firstBlock is null) {
-            accept(n, this);
+        if (firstBlock is null)
             return;
-        }
 
         auto loc = ast.location(firstBlock);
 
@@ -416,8 +454,6 @@ class CppSchemataVisitor : DepthFirstVisitor {
             foreach (f; fragment.finalize) {
                 result.putFragment(loc.file, f);
             }
-
-            saveFragment = false;
         }
     }
 
