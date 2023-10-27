@@ -1218,6 +1218,9 @@ final class BaseVisitor : ExtendedVisitor {
 
         astOp.schemaBlacklist = blockSchema;
         astOp.operator.schemaBlacklist = blockSchema;
+        visitAllChildren(astOp, (Node c) {
+            c.schemaBlacklist = c.schemaBlacklist || blockSchema;
+        });
 
         return true;
     }
@@ -1421,23 +1424,12 @@ final class FindVisitor(T) : Visitor {
         return nodes[0];
     }
 
-    //uint indent;
-    //override void incr() @safe {
-    //    ++indent;
-    //}
-    //
-    //override void decr() @safe {
-    //    --indent;
-    //}
-
     override void visit(scope const Statement v) {
-        //mixin(mixinNodeLog!());
         if (nodes.empty)
             v.accept(this);
     }
 
     override void visit(scope const T v) @trusted {
-        //mixin(mixinNodeLog!());
         // nodes are scope allocated thus it needs to be duplicated.
         if (nodes.empty)
             nodes = [new T(v.cursor)];
@@ -1526,6 +1518,16 @@ bool isTemplateDecl(Cursor c) {
     if (children.empty)
         return false;
     return children.filter!(a => a.kind.among(CXCursorKind.templateRef)).count != 0;
+}
+
+void visitAllChildren(analyze.Node root, void delegate(Node child) @safe callback) {
+    Vector!Node nodes;
+    nodes.put(root.children);
+    while (!nodes.empty) {
+        callback(nodes.front);
+        nodes.put(nodes.front.children);
+        nodes.popFront;
+    }
 }
 
 enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind.char16,
