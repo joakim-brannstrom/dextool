@@ -9,47 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type.aors;
 
-import dextool.plugin.mutate.backend.type;
-import dextool.plugin.mutate.backend.analyze.ast;
-
-Mutation.Kind aorsMutations(Kind operand) @safe {
-    Mutation.Kind rval;
-    switch (operand) with (Mutation.Kind) {
-    case Kind.OpAdd:
-        rval = aorsSub;
-        break;
-    case Kind.OpDiv:
-        rval = aorsMul;
-        break;
-    case Kind.OpMod:
-        rval = aorsDiv;
-        break;
-    case Kind.OpMul:
-        rval = aorsDiv;
-        break;
-    case Kind.OpSub:
-        rval = aorsAdd;
-        break;
-    case Kind.OpAssignAdd:
-        rval = aorsSubAssign;
-        break;
-    case Kind.OpAssignDiv:
-        rval = aorsMulAssign;
-        break;
-    case Kind.OpAssignMod:
-        rval = aorsDivAssign;
-        break;
-    case Kind.OpAssignMul:
-        rval = aorsDivAssign;
-        break;
-    case Kind.OpAssignSub:
-        rval = aorsAddAssign;
-        break;
-    default:
-    }
-
-    return rval;
-}
+import dextool.plugin.mutate.backend.type : Mutation;
 
 immutable Mutation.Kind[] aorsMutationsAll;
 immutable Mutation.Kind[] aorsAssignMutationsAll;

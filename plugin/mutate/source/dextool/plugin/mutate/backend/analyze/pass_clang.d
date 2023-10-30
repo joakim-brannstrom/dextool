@@ -1161,6 +1161,7 @@ final class BaseVisitor : ExtendedVisitor {
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
         astOp.operator = op.operator;
+        astOp.operator.isOverloaded = op.isOverload;
         astOp.operator.blacklist = isBlacklist(cursor, op.opLoc);
 
         op.put(nstack.back, ast.get);
@@ -1237,6 +1238,7 @@ final class BaseVisitor : ExtendedVisitor {
                 CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
 
         astOp.operator = op.operator;
+        astOp.operator.isOverloaded = op.isOverload;
         astOp.operator.blacklist = isBlacklist(cursor, op.opLoc);
         astOp.operator.schemaBlacklist = blockSchema;
 
