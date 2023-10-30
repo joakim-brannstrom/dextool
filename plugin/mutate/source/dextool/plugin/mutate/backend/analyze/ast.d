@@ -258,6 +258,9 @@ class AstPrintVisitor : DepthFirstVisitor {
             }
         }
 
+        if (auto tmp = cast(Operator) n)
+            formattedWrite(buf, " o:%s", tmp.isOverloaded);
+
         if (auto tmp = cast(BinaryOp) n) {
             if (tmp.lhs !is null)
                 formattedWrite(buf, " l:%s", tmp.lhs.id);
@@ -678,6 +681,10 @@ class FloatLiteral : Expr {
 /// The operator itself in a binary operator expression.
 class Operator : Node {
     mixin(nodeImpl!(typeof(this)));
+
+    // TODO: crude way of carrying operator overload info but needed. Refactor
+    // in the future to be more precise.
+    bool isOverloaded;
 }
 
 /** A block of code such such as a local scope enclosed by brackets, `{}`.
