@@ -29,19 +29,6 @@ void set_env_mutid(unsigned int v) {
     assert(putenv(s) == 0);
 }
 
-void test_id_read() {
-    start_test();
-
-    msg("Setting env to " << 42);
-    set_env_mutid(42);
-
-    msg("Let dextool_init_mutid read from env");
-    dextool_init_mutid();
-
-    msg("global variable gDEXTOOL_MUTID is " << gDEXTOOL_MUTID);
-    assert(gDEXTOOL_MUTID == 42);
-}
-
 void test_read_largest() {
     start_test();
 
@@ -50,14 +37,28 @@ void test_read_largest() {
 
     dextool_init_mutid();
 
-    msg("global variable gDEXTOOL_MUTID is " << gDEXTOOL_MUTID);
-    assert(gDEXTOOL_MUTID == 4294967295);
+    msg("global variable gDEXTOOL_MUTID is " << dextool_get_mutid());
+    assert(dextool_get_mutid() == 4294967295);
+}
+
+void test_init_once() {
+    start_test();
+
+    msg("Setting env to " << 42);
+    set_env_mutid(42);
+
+    msg("dextool_init_mutid should NOT change the ID");
+    const unsigned int prev = dextool_get_mutid();
+
+    msg("global variable gDEXTOOL_MUTID is " << dextool_get_mutid());
+    msg("previous value is " << prev);
+    assert(dextool_get_mutid() == prev);
 }
 
 int main(int argc, char** argv) {
     assert(getenv(EnvKey) == nullptr);
 
-    test_id_read();
     test_read_largest();
+    test_init_once();
     return 0;
 }
