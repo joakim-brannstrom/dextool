@@ -358,14 +358,6 @@ class CppRootVisitor : DepthFirstVisitor {
     }
 }
 
-mixin template isInsideRoot(alias fragmentRoot) {
-    bool isInsideRoot(Location l) {
-        // can occur when a Call refer to an inline function.
-        return fragmentRoot.file == l.file && fragmentRoot.interval.begin <= l.interval.begin
-            && l.interval.end <= fragmentRoot.interval.end;
-    }
-}
-
 class CppSchemataVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.generate_mutant : makeMutation;
 
@@ -399,7 +391,7 @@ class CppSchemataVisitor : DepthFirstVisitor {
         return nstack.back.kind.among(kinds) != 0;
     }
 
-    mixin isInsideRoot!fragmentRoot;
+    mixin isInsideRootMixin!fragmentRoot;
 
     void startVisit(Function n) @trusted {
         auto firstBlock = () {
@@ -730,7 +722,7 @@ class BinaryOpVisitor : DepthFirstVisitor {
         visit(n);
     }
 
-    mixin isInsideRoot!rootLoc;
+    mixin isInsideRootMixin!rootLoc;
 
     override void visit(OpAndBitwise n) {
         visitBinaryOp(n);

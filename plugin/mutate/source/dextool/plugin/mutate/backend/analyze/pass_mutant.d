@@ -434,6 +434,14 @@ class MutantVisitor : DepthFirstVisitor {
         return false;
     }
 
+    /// Returns: if the parent function is void returning.
+    bool isParentVoidFunc() {
+        auto f = getClosestFunc;
+        if (f is null)
+            return true;
+        return f.return_ is null;
+    }
+
     /// Returns: the depth (1+) if any of the parent nodes is `k`.
     uint isParent(Kind k) {
         return nstack.isParent(k);
@@ -824,9 +832,11 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     private void sdlBlock(T)(T n, Location delLoc, Mutation.Kind[] op) @trusted {
+        if (!isParentVoidFunc)
+            return;
+
         scope sdlAnalyze = new DeleteBlockVisitor(ast);
         sdlAnalyze.startVisit(n, delLoc);
-
         if (sdlAnalyze.canRemove)
             put(delLoc, op, n.blacklist);
     }
@@ -840,14 +850,18 @@ class MutantVisitor : DepthFirstVisitor {
  *  * not contain a `Return` that returns a type other than void.
  */
 class DeleteBlockVisitor : DepthFirstVisitor {
+    import dextool.plugin.mutate.backend.analyze.utility : isInsideRootMixin;
+
     Ast* ast;
 
     private {
         bool hasReturn;
         bool hasInnerNodes;
+        Location root;
     }
 
     alias visit = DepthFirstVisitor.visit;
+    mixin isInsideRootMixin!root;
 
     this(Ast* ast) {
         this.ast = ast;
@@ -862,13 +876,15 @@ class DeleteBlockVisitor : DepthFirstVisitor {
 
     /// The node to start analysis from.
     void startVisit(Node n, Location l) {
+        root = l;
         hasInnerNodes = !n.children.empty;
-
         if (hasInnerNodes && l.interval.begin < l.interval.end)
             visit(n);
     }
 
     override void visit(Return n) {
+        if (!isInsideRoot(ast.location(n)))
+            return;
         if (n.children.empty)
             accept(n, this);
         else
