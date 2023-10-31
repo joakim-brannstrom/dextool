@@ -157,3 +157,13 @@ struct Index(KeyT) {
         return false;
     }
 }
+
+/// Check if a location is fully inside another location.
+mixin template isInsideRootMixin(alias root) {
+    import dextool.plugin.mutate.backend.analyze.ast : Location;
+    bool isInsideRoot(Location l) {
+        // can occur when a Call refer to an inline function.
+        return root.file == l.file && root.interval.begin <= l.interval.begin
+            && l.interval.end <= root.interval.end;
+    }
+}
