@@ -832,12 +832,10 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     private void sdlBlock(T)(T n, Location delLoc, Mutation.Kind[] op) @trusted {
-        if (!isParentVoidFunc)
-            return;
-
-        scope sdlAnalyze = new DeleteBlockVisitor(ast);
-        sdlAnalyze.startVisit(n, delLoc);
-        if (sdlAnalyze.canRemove)
+        scope sdlAnalyze = new DeleteBlockVisitor(ast, delLoc);
+        sdlAnalyze.startVisit(n);
+        const isVoid = isParentVoidFunc;
+        if (sdlAnalyze.canRemove && (isVoid || (!isVoid && !sdlAnalyze.hasReturn)))
             put(delLoc, op, n.blacklist);
     }
 }
@@ -855,39 +853,36 @@ class DeleteBlockVisitor : DepthFirstVisitor {
     Ast* ast;
 
     private {
-        bool hasReturn;
         bool hasInnerNodes;
         Location root;
     }
 
+    bool hasReturn;
+
     alias visit = DepthFirstVisitor.visit;
     mixin isInsideRootMixin!root;
 
-    this(Ast* ast) {
+    this(Ast* ast, Location root) {
         this.ast = ast;
+        this.root = root;
     }
 
     // if the analyzer has determined that this node in the tree can be removed
     // with SDL. Note though that it doesn't know anything about the parent
     // node.
     bool canRemove() {
-        return !hasReturn && hasInnerNodes;
+        return hasInnerNodes;
     }
 
     /// The node to start analysis from.
-    void startVisit(Node n, Location l) {
-        root = l;
+    void startVisit(Node n) {
         hasInnerNodes = !n.children.empty;
-        if (hasInnerNodes && l.interval.begin < l.interval.end)
+        if (hasInnerNodes)
             visit(n);
     }
 
     override void visit(Return n) {
-        if (!isInsideRoot(ast.location(n)))
-            return;
-        if (n.children.empty)
-            accept(n, this);
-        else
+        if (isInsideRoot(ast.location(n)))
             hasReturn = true;
     }
 }
