@@ -834,24 +834,22 @@ class BinaryOpVisitor : DepthFirstVisitor {
         if (opMutants.empty && lhsMutants.empty && rhsMutants.empty && exprMutants.empty)
             return;
 
-        auto helper = MutantHelper(*fragment, locExpr.interval);
-
         if (locExpr.interval.begin < locOp.interval.begin
                 && locOp.interval.end < locExpr.interval.end) {
+            auto helper = MutantHelper(*fragment, locOp.interval);
+
             foreach (mutant; opMutants) {
                 // dfmt off
                 fragment.put(mutant, mutant.id.c0,
                         helper.pre,
-                        left,
-                        content[locExpr.interval.begin .. locOp.interval.begin],
                         makeMutation(mutant.mut.kind, ast.lang).mutate(content[locOp.interval.begin .. locOp.interval.end]),
-                        content[locOp.interval.end .. locExpr.interval.end],
-                        right,
                         helper.post
                         );
                 // dfmt on
             }
         }
+
+        auto helper = MutantHelper(*fragment, locExpr.interval);
 
         if (offsLhs.end < locExpr.interval.end) {
             foreach (mutant; lhsMutants) {
