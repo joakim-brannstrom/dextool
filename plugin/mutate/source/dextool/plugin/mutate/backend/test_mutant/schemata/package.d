@@ -434,7 +434,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
         // an error handler is required because the stat actor can be held up
         // for more than a minute.
-        ctx.self.request(ctx.state.get.stat, delay(5.dur!"seconds"))
+        ctx.self.request(ctx.state.get.stat, delay(30.dur!"seconds"))
             .send(GetMutantsLeft.init).then((long x) {
             logger.infof("%s mutants left to test.", x);
         }, (ref Actor self, ErrorMsg) {});
