@@ -165,6 +165,11 @@ auto rorMutations(RorInfo info) {
         continuesSchema;
     else if (isAny(TypeKind.discrete))
         discreteSchema;
+    else if (isAny(TypeKind.bottom)) {
+        // use the most restrictive schema when unknown type to reduce the
+        // amount of junk mutants.
+        boolSchema;
+    }
 
     return rval;
 }
