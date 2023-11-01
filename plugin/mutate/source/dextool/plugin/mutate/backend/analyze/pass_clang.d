@@ -661,17 +661,14 @@ final class BaseVisitor : ExtendedVisitor {
 
         // only deref a node which is a self-reference
         auto r = v.cursor.referenced;
-        if (r.isValid && r != v.cursor && intersects(v.cursor.extent, r.extent)
-                && r.toHash !in isVisited) {
-            isVisited.add(r.toHash);
+        if (r.isValid) {
             pushStack(n, v);
 
             incr;
             scope (exit)
                 decr;
             dispatch(r, this);
-        } else if (ue.expr.isValid && ue.expr != v.cursor && ue.expr.toHash !in isVisited) {
-            isVisited.add(ue.expr.toHash);
+        } else if (ue.expr.isValid) {
             pushStack(n, ue.expr);
 
             incr;
