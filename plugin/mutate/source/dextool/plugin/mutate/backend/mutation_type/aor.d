@@ -30,44 +30,44 @@ struct AorInfo {
 auto aorMutations(AorInfo info) @safe {
     // TODO: for AORs it is probably better to do one op and then lhs+rhs.
     alias Rval = Tuple!(Mutation.Kind[], "op", Mutation.Kind[], "lhs",
-            Mutation.Kind[], "rhs", Mutation.Kind, "simple");
+            Mutation.Kind[], "rhs", Mutation.Kind[], "simple");
 
     Rval rval;
     switch (info.operator) with (Mutation.Kind) {
     case Kind.OpAdd:
-        rval = Rval([aorMul, aorDiv, aorRem, aorSub], null, null, aorsSub);
+        rval = Rval([aorMul, aorDiv, aorRem, aorSub], null, null, [aorsSub]);
         break;
     case Kind.OpDiv:
-        rval = Rval([aorMul, aorRem, aorAdd, aorSub], null, null, aorsMul);
+        rval = Rval([aorMul, aorRem, aorAdd, aorSub], null, null, [aorsMul]);
         break;
     case Kind.OpMod:
-        rval = Rval([aorMul, aorDiv, aorAdd, aorSub], null, null, aorsDiv);
+        rval = Rval([aorMul, aorDiv, aorAdd, aorSub], null, null, [aorsDiv]);
         break;
     case Kind.OpMul:
-        rval = Rval([aorDiv, aorRem, aorAdd, aorSub], null, null, aorsDiv);
+        rval = Rval([aorDiv, aorRem, aorAdd, aorSub], null, null, [aorsDiv]);
         break;
     case Kind.OpSub:
-        rval = Rval([aorMul, aorDiv, aorRem, aorAdd], null, null, aorsAdd);
+        rval = Rval([aorMul, aorDiv, aorRem, aorAdd], null, null, [aorsAdd]);
         break;
     case Kind.OpAssignAdd:
         rval = Rval([aorDivAssign, aorRemAssign,
-                aorMulAssign, aorSubAssign], null, null, aorsSubAssign);
+            aorMulAssign, aorSubAssign], null, null, [aorsSubAssign]);
         break;
     case Kind.OpAssignDiv:
         rval = Rval([aorAddAssign, aorRemAssign,
-                aorMulAssign, aorSubAssign], null, null, aorsMulAssign);
+            aorMulAssign, aorSubAssign], null, null, [aorsMulAssign]);
         break;
     case Kind.OpAssignMod:
         rval = Rval([aorAddAssign, aorDivAssign,
-                aorMulAssign, aorSubAssign], null, null, aorsDivAssign);
+            aorMulAssign, aorSubAssign], null, null, [aorsDivAssign]);
         break;
     case Kind.OpAssignMul:
         rval = Rval([aorAddAssign, aorDivAssign,
-                aorRemAssign, aorSubAssign], null, null, aorsDivAssign);
+            aorRemAssign, aorSubAssign], null, null, [aorsDivAssign]);
         break;
     case Kind.OpAssignSub:
         rval = Rval([aorAddAssign, aorDivAssign,
-                aorRemAssign, aorMulAssign], null, null, aorsAddAssign);
+            aorRemAssign, aorMulAssign], null, null, [aorsAddAssign]);
         break;
     default:
     }

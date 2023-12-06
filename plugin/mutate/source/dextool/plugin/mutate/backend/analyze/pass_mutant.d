@@ -158,9 +158,8 @@ class MutantsResult {
     }
 
     private void put(AbsolutePath p, MutationPoint mp, Mutation.Kind kind) @safe {
-        if (kind !in kinds) {
+        if (kind !in kinds)
             return;
-        }
 
         if (auto a = p in points) {
             if (auto b = mp in *a) {
