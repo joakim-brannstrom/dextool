@@ -639,6 +639,20 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
+    override void visit(scope const VariableRef v) @trusted {
+        mixin(mixinNodeLog!());
+
+        auto n = ast.get.make!(analyze.VarRef);
+        pushStack(n, v);
+
+        v.accept(this);
+
+        visitAllChildren(n, (Node c) {
+            if (c.kind == analyze.Kind.VarDecl)
+                n.to = cast(analyze.VarDecl) c;
+        }, (Node c) => true, (Node c) => n.to is null);
+    }
+
     // TODO overlapping logic with Expression. deduplicate
     override void visit(scope const DeclRefExpr v) @trusted {
         import libclang_ast.ast : dispatch;
@@ -648,6 +662,10 @@ final class BaseVisitor : ExtendedVisitor {
 
         if (shouldSkipOrMark(v.cursor.toHash))
             return;
+
+        // TODO: maybe a new node, DeclRef, is needed?
+        auto ref_ = ast.get.make!(analyze.DeclRef);
+        pushStack(ref_, v);
 
         auto n = ast.get.make!(analyze.Expr);
         n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
@@ -679,6 +697,11 @@ final class BaseVisitor : ExtendedVisitor {
             pushStack(n, v);
             v.accept(this);
         }
+
+        visitAllChildren(n, (Node c) {
+            if (c.kind != analyze.Kind.Expr)
+                ref_.to = c;
+        }, (Node c) => true, (Node c) => ref_.to is null);
     }
 
     // TODO overlapping logic with Expression. deduplicate
@@ -689,6 +712,9 @@ final class BaseVisitor : ExtendedVisitor {
 
         if (shouldSkipOrMark(v.cursor.toHash))
             return;
+
+        auto ref_ = ast.get.make!(analyze.FieldRef);
+        pushStack(ref_, v);
 
         auto n = ast.get.make!(analyze.Expr);
         n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
@@ -720,6 +746,11 @@ final class BaseVisitor : ExtendedVisitor {
         } else {
             v.accept(this);
         }
+
+        visitAllChildren(n, (Node c) {
+            if (c.kind == analyze.Kind.FieldDecl)
+                ref_.to = cast(analyze.FieldDecl) c;
+        }, (Node c) => true, (Node c) => ref_.to is null);
     }
 
     override void visit(scope const Statement v) {
@@ -1218,7 +1249,7 @@ final class BaseVisitor : ExtendedVisitor {
         astOp.operator.schemaBlacklist = blockSchema;
         visitAllChildren(astOp, (Node c) {
             c.schemaBlacklist = c.schemaBlacklist || blockSchema;
-        });
+        }, (Node c) => true, (Node c) => true);
 
         return true;
     }
@@ -1519,11 +1550,17 @@ bool isTemplateDecl(Cursor c) {
     return children.filter!(a => a.kind.among(CXCursorKind.templateRef)).count != 0;
 }
 
-void visitAllChildren(analyze.Node root, void delegate(Node child) @safe callback) {
+void visitAllChildren(analyze.Node root, void delegate(Node child) @safe callback,
+        bool delegate(Node child) @safe preCond, bool delegate(Node child) @safe postCond) {
     Vector!Node nodes;
     nodes.put(root.children);
     while (!nodes.empty) {
+        if (!preCond(nodes.front))
+            return;
         callback(nodes.front);
+        if (!postCond(nodes.front))
+            return;
+
         nodes.put(nodes.front.children);
         nodes.popFront;
     }

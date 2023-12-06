@@ -240,6 +240,13 @@ class AstPrintVisitor : DepthFirstVisitor {
             }
         }
 
+        void printRef(T)(Node n) {
+            printNode;
+            if ((cast(T) n).to !is null) {
+                formattedWrite(buf, " ref:%s", (cast(T) n).to.id);
+            }
+        }
+
         switch (n.kind) {
         case Kind.Function:
             printNode;
@@ -250,6 +257,15 @@ class AstPrintVisitor : DepthFirstVisitor {
             if ((cast(VarDecl) n).isConst) {
                 put(buf, " const");
             }
+            break;
+        case Kind.VarRef:
+            printRef!VarRef(n);
+            break;
+        case Kind.FieldRef:
+            printRef!FieldRef(n);
+            break;
+        case Kind.DeclRef:
+            printRef!DeclRef(n);
             break;
         default:
             printNode;
@@ -447,6 +463,11 @@ private string mixinSwitch(string nodeName) {
  * The parent will always have been the last pushed.
  */
 void accept(VisitorT)(Node n, VisitorT v) {
+    static if (__traits(hasMember, VisitorT, "preconditionVisit")) {
+        if (!v.preconditionVisit(n))
+            return;
+    }
+
     static if (__traits(hasMember, VisitorT, "visitPush"))
         v.visitPush(n);
     foreach (c; n.children) {
@@ -468,6 +489,7 @@ alias Nodes = AliasSeq!(
     Call,
     Condition,
     Constructor,
+    DeclRef,
     Expr,
     FieldDecl,
     FieldRef,
@@ -520,6 +542,7 @@ enum Kind {
     Call,
     Condition,
     Constructor,
+    DeclRef,
     Expr,
     FieldDecl,
     FieldRef,
@@ -570,7 +593,6 @@ alias ExpressionKind = AliasSeq!(
     Kind.Constructor,
     Kind.Expr,
     Kind.FieldDecl,
-    Kind.FieldRef,
     Kind.FloatLiteral,
     Kind.Literal,
     Kind.OpAdd,
@@ -594,7 +616,6 @@ alias ExpressionKind = AliasSeq!(
     Kind.Return,
     Kind.UnaryOp,
     Kind.VarDecl,
-    Kind.VarRef,
 );
 // dfmt on
 
@@ -736,16 +757,11 @@ class VarDecl : Expr {
 
 class VarRef : Expr {
     mixin(nodeImpl!(typeof(this)));
-    // should always refer to something
     VarDecl to;
 
     this(VarDecl to) {
         this();
         this.to = to;
-    }
-
-    invariant {
-        assert(to !is null);
     }
 }
 
@@ -756,16 +772,21 @@ class FieldDecl : Expr {
 
 class FieldRef : Expr {
     mixin(nodeImpl!(typeof(this)));
-    // should always refer to something
     FieldDecl to;
 
     this(FieldDecl to) {
         this();
         this.to = to;
     }
+}
 
-    invariant {
-        assert(to !is null);
+class DeclRef : Expr {
+    mixin(nodeImpl!(typeof(this)));
+    Node to;
+
+    this(Node to) {
+        this();
+        this.to = to;
     }
 }
 
