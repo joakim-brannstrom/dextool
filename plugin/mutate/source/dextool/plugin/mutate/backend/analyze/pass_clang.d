@@ -480,6 +480,14 @@ final class BaseVisitor : ExtendedVisitor {
         mixin(mixinNodeLog!());
         auto n = ast.get.make!(analyze.FieldDecl);
         n.schemaBlacklist = isTemplateDecl(v.cursor);
+
+        auto ty = deriveType(ast.get, v.cursor.type.canonicalType);
+        ty.put(ast.get);
+        if (ty.type !is null)
+            ast.get.put(n, ty.id);
+        if (ty.symbol !is null)
+            ast.get.put(n, ty.symId);
+
         pushStack(n, v);
         v.accept(this);
     }
@@ -1652,6 +1660,9 @@ DeriveCursorTypeResult deriveCursorType(ref Ast ast, scope const Cursor baseCurs
 
     auto rval = DeriveCursorTypeResult(c);
     auto cty = c.type.canonicalType;
+    if (!cty.isValid)
+        return DeriveCursorTypeResult.init;
+
     rval.typeResult = deriveType(ast, cty);
 
     // evaluate the cursor to add a value for the symbol

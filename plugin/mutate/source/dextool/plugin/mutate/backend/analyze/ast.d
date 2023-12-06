@@ -113,10 +113,23 @@ struct Ast {
         return Location.init;
     }
 
-    Type type(Node n) {
-        if (auto v = n in nodeTypes) {
-            return types.get(*v);
+    Type type(Node n) @trusted {
+        if (n is null)
+            return null;
+
+        auto useNode = n;
+        switch (n.kind) {
+        case Kind.VarRef:
+            useNode = (cast(VarRef) n).to;
+            break;
+        case Kind.FieldRef:
+            useNode = (cast(FieldRef) n).to;
+            break;
+        default:
         }
+
+        if (auto v = useNode in nodeTypes)
+            return types.get(*v);
         return null;
     }
 
