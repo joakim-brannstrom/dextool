@@ -49,6 +49,7 @@ void fn(int x) {
  * Major fixes to mutant schema generation. Many of the scheman led to
    compilation errors. All known problems have been fixed which should speedup
    mutation testing alot.
+ * Update jquery to v3.7.1 to fix three potential security vulnerabilities.
 
 # v5.0 Limestone
 
