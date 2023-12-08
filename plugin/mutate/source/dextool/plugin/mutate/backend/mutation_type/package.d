@@ -9,6 +9,9 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.backend.mutation_type;
 
+import std.algorithm : filter;
+import std.array : array;
+
 import dextool.plugin.mutate.backend.type;
 import dextool.plugin.mutate.type : MutationKind;
 
@@ -32,7 +35,7 @@ Mutation.Kind[] toInternal(const MutationKind[] k) @safe pure nothrow {
     auto kinds(const MutationKind k) {
         final switch (k) with (MutationKind) {
         case all:
-            return [EnumMembers!(Mutation.Kind)];
+            return [EnumMembers!(Mutation.Kind)].filter!(a => a != Mutation.Kind.none).array;
         case ror:
             return rorMutationsAll.dup;
         case rorp:

@@ -38,7 +38,7 @@ shared static this() {
 
 /// Find mutants.
 MutantsResult toMutants(Ast* ast, FilesysIO fio, ValidateLoc vloc, Mutation.Kind[] kinds) {
-    scope visitor = new MutantVisitor(ast, fio, vloc, kinds);
+    scope visitor = new FindRootVisitor(ast, fio, vloc, kinds);
     () @trusted { ast.accept(visitor); }();
     return visitor.result;
 }
@@ -158,9 +158,8 @@ class MutantsResult {
     }
 
     private void put(AbsolutePath p, MutationPoint mp, Mutation.Kind kind) @safe {
-        if (kind !in kinds) {
+        if (kind !in kinds)
             return;
-        }
 
         if (auto a = p in points) {
             if (auto b = mp in *a) {
@@ -322,9 +321,19 @@ class CodeMutantsResult {
 
 private:
 
-class MutantVisitor : DepthFirstVisitor {
+struct ContextData {
+    Offset pos;
+    AbsolutePath path;
+
+    bool isInsideScope(Location l) {
+        return l.file == path && l.interval.begin >= pos.begin && l.interval.end <= pos.end;
+    }
+}
+
+class FindRootVisitor : DepthFirstVisitor {
     import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutations, DcrInfo;
     import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutations;
+    import my.container.vector;
 
     Ast* ast;
     MutantsResult result;
@@ -334,13 +343,9 @@ class MutantVisitor : DepthFirstVisitor {
     private {
         uint depth;
         Stack!Node nstack;
+        Vector!ContextData context;
 
-        static struct ContextData {
-            Offset pos;
-            AbsolutePath path;
-        }
-
-        Stack!ContextData context;
+        ulong dontVisitNodeId;
     }
 
     alias visit = DepthFirstVisitor.visit;
@@ -361,58 +366,125 @@ class MutantVisitor : DepthFirstVisitor {
     override void visitPush(Node n) {
         ++depth;
         nstack.put(n, depth);
-        updateContextOnFileChange(n);
     }
 
     override void visitPop(Node n) {
         nstack.pop;
-        context.pop;
         --depth;
     }
 
-    void updateContextOnFileChange(Node n) nothrow {
-        // a value must be added to the stack each a node is visited otherwise
-        // pop will be out of sync.
-
+    override void visit(TranslationUnit n) nothrow {
         try {
             const l = ast.location(n);
-            if (!vloc.isInsideOutputDir(l.file)) {
-                context.put(ContextData.init, depth);
-            } else if (context.empty || l.file != context.back.path) {
-                auto fin = fio.makeInput(l.file);
-                auto pos = Offset(0, cast(uint) fin.content.length);
-                context.put(ContextData(pos, l.file), depth);
-            } else {
-                context.put(context.back, depth);
+            if (vloc.isInsideOutputDir(l.file)) {
+                context.put(getContextOfFile(l.file));
+                accept(n, this);
+                context.popBack;
             }
         } catch (Exception e) {
-            logger.info(e.msg).collectException;
-            context.put(ContextData.init, depth);
+            logger.warning(e.msg).collectException;
         }
     }
 
-    static struct ContextScope {
-        MutantVisitor parent;
-        bool doPop;
+    override void visit(Function n) {
+        if (!n.children.empty)
+            subVisit(n);
+    }
 
-        this(MutantVisitor parent, Node n) nothrow {
-            this.parent = parent;
-            try {
-                if (n.context) {
-                    const l = parent.ast.location(n);
-                    parent.context.put(ContextData(l.interval, l.file), parent.depth);
-                    doPop = true;
-                }
-            } catch (Exception e) {
-                logger.info(e.msg).collectException;
-            }
+    override void visit(Poison n) {
+        if (n.context)
+            subVisit(n);
+    }
+
+    override void visit(DeclRef n) {
+        if (n.to !is null)
+            dontVisitNodeId = n.to.id;
+        accept(n, this);
+    }
+
+    override void visit(VarDecl n) {
+        const l = ast.location(n);
+        if (!vloc.isInsideOutputDir(l.file))
+            return;
+
+        auto c = () {
+            if (l.file == context.back.path)
+                return context.back;
+            return getContextOfFile(l.file);
+        }();
+        logger.tracef("Start analyze of %s:%s with context %s", n.kind, n.id, c);
+        scope visitor = new MutantVisitor(ast, fio, vloc, result, c, depth, nstack);
+        visitor.start(n);
+
+        accept(n, this);
+    }
+
+    void subVisit(T)(T n) {
+        if (n.id == dontVisitNodeId) {
+            dontVisitNodeId = 0;
+            return;
         }
 
-        ~this() nothrow {
-            if (doPop) {
-                parent.context.pop;
-            }
-        }
+        const l = ast.location(n);
+        if (!vloc.isInsideOutputDir(l.file))
+            return;
+
+        context.put(ContextData(l.interval, l.file));
+        logger.tracef("Start analyze of %s:%s with context %s", n.kind, n.id, l);
+        scope visitor = new MutantVisitor(ast, fio, vloc, result, context.back, depth, nstack);
+        visitor.start(n);
+        accept(n, this);
+        context.popBack;
+    }
+
+    ContextData getContextOfFile(AbsolutePath file) {
+        auto fin = fio.makeInput(file);
+        auto offset = Offset(0, cast(uint) fin.content.length);
+        return ContextData(offset, file);
+    }
+}
+
+class MutantVisitor : DepthFirstVisitor {
+    import dextool.plugin.mutate.backend.mutation_type.dcr : dcrMutations, DcrInfo;
+    import dextool.plugin.mutate.backend.mutation_type.sdl : stmtDelMutations;
+
+    Ast* ast;
+    MutantsResult result;
+    FilesysIO fio;
+    ValidateLoc vloc;
+
+    private {
+        uint depth;
+        Stack!Node nstack;
+
+        ContextData context;
+    }
+
+    alias visit = DepthFirstVisitor.visit;
+
+    this(Ast* ast, FilesysIO fio, ValidateLoc vloc, MutantsResult result,
+            ContextData context, uint depth, Stack!Node nstack) scope {
+        this.ast = ast;
+        this.fio = fio;
+        this.vloc = vloc;
+        this.result = result;
+        this.context = context;
+        this.depth = depth;
+        this.nstack = nstack;
+    }
+
+    override void visitPush(Node n) {
+        ++depth;
+        nstack.put(n, depth);
+    }
+
+    override void visitPop(Node n) {
+        nstack.pop;
+        --depth;
+    }
+
+    bool preconditionVisit(T)(T n) {
+        return context.isInsideScope(ast.location(n));
     }
 
     /// Returns: the closest function from the current node.
@@ -476,22 +548,18 @@ class MutantVisitor : DepthFirstVisitor {
 
         foreach (kind; kinds) {
             result.put(loc.file, MutantsResult.MutationPoint(loc.interval,
-                    loc.sloc, context.back.pos), kind);
+                    loc.sloc, context.pos), kind);
         }
     }
 
-    override void visit(TranslationUnit n) {
-        accept(n, this);
-    }
-
-    override void visit(Constructor n) {
+    void start(NodeT)(NodeT n) scope @trusted {
         accept(n, this);
     }
 
     override void visit(Function n) {
-        if (n.children.empty)
-            return;
-        auto cs = ContextScope(this, n);
+    }
+
+    override void visit(Constructor n) {
         accept(n, this);
     }
 
@@ -502,6 +570,22 @@ class MutantVisitor : DepthFirstVisitor {
             put(loc, dcrMutations(DcrInfo(n.kind, ast.type(n))), n.blacklist);
         }
 
+        accept(n, this);
+    }
+
+    override void visit(FieldRef n) {
+        accept(n, this);
+    }
+
+    override void visit(FieldDecl n) {
+        accept(n, this);
+    }
+
+    override void visit(VarRef n) {
+        accept(n, this);
+    }
+
+    override void visit(VarDecl n) {
         accept(n, this);
     }
 
@@ -577,8 +661,8 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     override void visit(Poison n) {
-        auto cs = ContextScope(this, n);
-        accept(n, this);
+        if (!n.context)
+            accept(n, this);
     }
 
     override void visit(OpAssign n) {

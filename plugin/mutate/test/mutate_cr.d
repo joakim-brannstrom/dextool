@@ -23,7 +23,13 @@ unittest {
 unittest {
     import std.json;
     import std.file : readText;
-    import std.stdio : writeln;
+    import std.string : endsWith;
+    import std.algorithm : filter, count;
+    import clang.c.Index : CINDEX_VERSION_MAJOR, CINDEX_VERSION_MINOR;
+
+    // tests only passes with clang-15
+    static if (!(CINDEX_VERSION_MAJOR > 0 || CINDEX_VERSION_MINOR >= 62))
+        return;
 
     mixin(EnvSetup(globalTestdir));
     makeDextoolAnalyze(testEnv).addInputArg(testData ~ "cr_complex.cpp")
@@ -35,14 +41,15 @@ unittest {
         "--logdir", testEnv.outdir.toString
     ]).run;
 
-    try {
-        auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
-        j["files"].array.length.shouldEqual(2);
-        foreach (jj; j["files"].array) {
+    auto j = parseJSON(readText((testEnv.outdir ~ "report.json").toString));
+    j["files"].array.length.shouldEqual(3);
+    foreach (jj; j["files"].array) {
+        if (jj["filename"].str.endsWith("cr_complex.hpp")) {
+            jj["mutants"].array.filter!(a => a["kind"].str == "crZeroInt").count.shouldEqual(6);
+        } else if (jj["filename"].str.endsWith("cr_complex.cpp")) {
+            jj["mutants"].array.filter!(a => a["kind"].str == "crZeroInt").count.shouldEqual(2);
+        } else {
             jj["mutants"].array.length.shouldEqual(1);
-            jj["mutants"].array[0]["kind"].str.shouldEqual("crZero");
         }
-    } catch (Exception e) {
-        writeln(e.msg);
     }
 }

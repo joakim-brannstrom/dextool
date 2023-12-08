@@ -20,6 +20,7 @@ import my.set;
 
 import dextool.plugin.mutate.backend.mutation_type.aor;
 import dextool.plugin.mutate.backend.mutation_type.aors;
+import dextool.plugin.mutate.backend.mutation_type.cr;
 import dextool.plugin.mutate.backend.mutation_type.dcr;
 import dextool.plugin.mutate.backend.mutation_type.lcr;
 import dextool.plugin.mutate.backend.mutation_type.ror;
@@ -54,6 +55,8 @@ shared static this() {
         s[Cover(k, Mutation.Status.alive)] = aorMutationsAll.dup;
     foreach (k; aorsMutationsAll)
         s[Cover(k, Mutation.Status.alive)] = aorsMutationsAll.dup;
+    foreach (k; crMutationsAll)
+        s[Cover(k, Mutation.Status.alive)] = crMutationsAll.dup;
     foreach (k; dcrMutationsAll)
         s[Cover(k, Mutation.Status.alive)] = dcrMutationsAll.dup;
     foreach (k; lcrMutationsAll)
