@@ -11,4 +11,6 @@ void fun() {
     foo::Bar<int> g;
     g.y = f.x;
     g.x = foo::fun<int>(3);
+
+    auto h = foo::Smurf::a;
 }
