@@ -88,7 +88,7 @@ struct Ast {
     }
 
     void accept(VisitorT)(VisitorT v) {
-        mixin(mixinSwitch("root"));
+        mixin(mixinSwitch("root", getPreconditionFunc!VisitorT));
     }
 
     void put(Node n, Location l) {
@@ -457,18 +457,34 @@ abstract class Node {
     }
 }
 
-private string mixinSwitch(string nodeName) {
+private string mixinSwitch(string nodeName, string preconFunc) {
     import std.conv : text;
     import std.traits : EnumMembers;
+
+    string precondition = () {
+        if (preconFunc.empty)
+            return "{";
+        return "if (v." ~ preconFunc ~ "(" ~ nodeName ~ ")) " ~ "{";
+    }();
 
     string s;
     s ~= "final switch(" ~ nodeName ~ ".kind) {\n";
     foreach (kind; [EnumMembers!Kind]) {
         const k = text(kind);
-        s ~= format!"case Kind." ~ k ~ ": v.visit(cast(" ~ k ~ ") " ~ nodeName ~ "); break;\n";
+        s ~= format!"case Kind." ~ k ~ ":" ~ precondition ~ " v.visit(cast(" ~ k
+            ~ ") " ~ nodeName ~ ");} break;\n";
     }
     s ~= "}";
     return s;
+}
+
+string getPreconditionFunc(VisitorT)() {
+    static if (__traits(hasMember, VisitorT, "preconditionVisit")) {
+        enum PreconFunc = "preconditionVisit";
+    } else {
+        enum PreconFunc = null;
+    }
+    return PreconFunc;
 }
 
 /**
@@ -484,7 +500,7 @@ void accept(VisitorT)(Node n, VisitorT v) {
     static if (__traits(hasMember, VisitorT, "visitPush"))
         v.visitPush(n);
     foreach (c; n.children) {
-        mixin(mixinSwitch("c"));
+        mixin(mixinSwitch("c", getPreconditionFunc!VisitorT));
     }
 
     static if (__traits(hasMember, VisitorT, "visitPop"))

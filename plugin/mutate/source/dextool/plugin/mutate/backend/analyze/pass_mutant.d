@@ -484,7 +484,12 @@ class MutantVisitor : DepthFirstVisitor {
     }
 
     bool preconditionVisit(T)(T n) {
-        return context.isInsideScope(ast.location(n));
+        const auto loc = ast.location(n);
+        const auto res = context.isInsideScope(loc);
+        if (!res)
+            logger.tracef("Stop analyze of %s:%s (%s) because outside scope %s",
+                    n.kind, n.id, loc, context);
+        return res;
     }
 
     /// Returns: the closest function from the current node.

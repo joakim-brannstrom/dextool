@@ -18,4 +18,11 @@ template <typename T> int fun(T x) {
     x = x + 1;
     return x;
 }
+
+enum class Smurf {
+    // should not be mutated
+    a = 1,
+    b = 2
+};
+
 } // namespace foo
