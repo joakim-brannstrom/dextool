@@ -24,6 +24,11 @@ abstract class Visitor {
     void decr() scope {
     }
 
+    // called on each node to check if it should be visited
+    bool precondition() scope {
+        return true;
+    }
+
     void visit(scope const TranslationUnit) {
     }
 

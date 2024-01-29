@@ -393,6 +393,12 @@ final class BaseVisitor : ExtendedVisitor {
         return false;
     }
 
+    override bool precondition() scope @safe {
+        // to avoid infinite recursion, which may occur in e.g. postgresql, block
+        // segfault on 300
+        return indent < 150;
+    }
+
     override void incr() scope @safe {
         ++indent;
         lastDecr.clear;
@@ -1107,12 +1113,6 @@ final class BaseVisitor : ExtendedVisitor {
 
     override void visit(scope const IfStmt v) @trusted {
         mixin(mixinNodeLog!());
-        // to avoid infinite recursion, which may occur in e.g. postgresql, block
-        // segfault on 300
-        if (indent > 100) {
-            throw new Exception("max analyze depth reached (100)");
-        }
-
         auto n = ast.get.make!(analyze.BranchBundle);
         if (isConstExpr(v))
             n.schemaBlacklist = true;

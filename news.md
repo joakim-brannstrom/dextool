@@ -50,6 +50,8 @@ void fn(int x) {
    compilation errors. All known problems have been fixed which should speedup
    mutation testing alot.
  * Update jquery to v3.7.1 to fix three potential security vulnerabilities.
+ * Allow analysis of more complext code by not discarding the whole AST because
+   some AST branches have a "too high" depth.
 
 # v5.0 Limestone
 
