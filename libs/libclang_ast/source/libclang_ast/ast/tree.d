@@ -63,6 +63,9 @@ struct ClangAST(VisitorT) {
 void accept(VisitorT)(scope const Cursor cursor, scope VisitorT visitor) @safe {
     import clang.Visitor : Visitor;
 
+    if (!visitor.precondition)
+        return;
+
     visitor.incr();
     scope (exit)
         visitor.decr();
@@ -89,6 +92,9 @@ void dispatch(VisitorT)(scope const Cursor cursor, scope VisitorT visitor) @trus
     import clang.Visitor : Visitor;
     import libclang_ast.ast.nodes;
     import std.conv : to;
+
+    if (!visitor.precondition)
+        return;
 
     static if (__traits(hasMember, VisitorT, "ignoreCursors")) {
         const h = cursor.toHash;
