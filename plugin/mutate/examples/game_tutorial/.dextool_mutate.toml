@@ -16,7 +16,7 @@ exclude = []
 # **FOR THE READER**
 # The config only uses lcr/lcrb so **you** will get feedback fast.
 # As an example to play around with more operators shouldn't be used.
-mutants = ["lcr", "lcrb"]
+mutants = ["ror", "rorp", "lcr", "aor", "uoi", "sdl", "dcr", "lcrb", "aors", "cr"]
 
 [analyze]
 
