@@ -95,8 +95,10 @@ string[] systemCompilerArg(const string[] cmd, const Compiler compiler) {
 
 SystemIncludePath[] parseCompilerOutput(const string output) {
     auto lines = output.splitLines;
-    const start = lines.countUntil("#include <...> search starts here:") + 1;
-    const end = lines.countUntil("End of search list.");
+    const start = lines.countUntil!(a => a.startsWith("#include <...>")) + 1;
+    if (start >= lines.length)
+        return null;
+    const end = lines[start .. $].countUntil!(a => a.empty || a[0] != ' ') + start;
     if (start == 0 || end == 0 || start > end)
         return null;
 
@@ -105,13 +107,15 @@ SystemIncludePath[] parseCompilerOutput(const string output) {
 
 SystemIncludePath[][Compiler] cacheSysIncludes;
 
-// assumes that compilers adher to the gcc and llvm commands use of --sysroot / -isysroot.
-// depends on the fact that CompileCommand.Command always splits e.g. a --isysroot=foo to ["--sysroot", "foo"].
+// assumes that compilers adher to the gcc and llvm commands use of --sysroot /
+// -isysroot.
+// depends on the fact that CompileCommand.Command always splits e.g. a
+// --isysroot=foo to ["--sysroot", "foo"].
 const(string[]) sysroot(const string[] cmd) {
     foreach (flag; ["--sysroot", "-isysroot"]) {
-        auto index = cmd.countUntil!(a => a.startsWith(flag)) + 1;
-        if (index > 0 && (index + 1) < cmd.length)
-            return cmd[index .. index + 1];
+        auto index = cmd.countUntil!(a => a.startsWith(flag));
+        if (index >= 0 && (index + 2) <= cmd.length)
+            return cmd[index .. index + 2];
     }
 
     return null;

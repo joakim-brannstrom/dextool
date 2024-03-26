@@ -30,7 +30,7 @@ import std.json : JSONValue;
 import std.path : buildPath;
 import std.typecons : Nullable;
 
-import dextool.type : AbsolutePath, Path;
+import my.path : AbsolutePath, Path;
 
 public import dextool.compilation_db.user_filerange;
 public import dextool.compilation_db.system_compiler : deduceSystemIncludes,
@@ -257,7 +257,10 @@ Nullable!CompileCommand toCompileCommand(string directory, string file,
             abs_output);
         // dfmt on
     } catch (Exception ex) {
-        logger.error("Unable to parse json: ", ex.msg).collectException;
+        try {
+            logger.error("Unable to parse json: ", ex.msg);
+        } catch (Exception e) {
+        }
     }
 
     return rval;
@@ -274,7 +277,6 @@ private void parseCommands(T)(string raw_input, CompileDbFile db, ref T out_rang
     import std.json : parseJSON, JSONException;
 
     static void put(T)(JSONValue v, AbsoluteCompileDbDirectory dbdir, ref T out_range) nothrow {
-
         try {
             // dfmt off
             foreach (e; v.array()
@@ -287,7 +289,10 @@ private void parseCommands(T)(string raw_input, CompileDbFile db, ref T out_rang
             }
             // dfmt on
         } catch (Exception ex) {
-            logger.error("Unable to parse json:", ex.msg).collectException;
+            try {
+                logger.error("Unable to parse json:", ex.msg);
+            } catch (Exception e) {
+            }
         }
     }
 
@@ -302,7 +307,10 @@ private void parseCommands(T)(string raw_input, CompileDbFile db, ref T out_rang
         // out_range takes care of the validation and other security aspects.
         () @trusted { put(json, as_dir, out_range); }();
     } catch (Exception ex) {
-        logger.error("Error while parsing compilation database: " ~ ex.msg).collectException;
+        try {
+            logger.error("Error while parsing compilation database: " ~ ex.msg);
+        } catch (Exception e) {
+        }
     }
 }
 
@@ -778,9 +786,9 @@ struct FilterClangFlag {
 @("Should be cflags with all unnecessary flags removed")
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
-            "g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun", "-c",
-            "a_filename.c"
-            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
+        "g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun", "-c",
+        "a_filename.c"
+    ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
     auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
     s.includes.shouldEqual(["/home/bar", "/home/gun"]);
@@ -789,8 +797,8 @@ unittest {
 @("Should be cflags with some excess spacing")
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
-            "g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun"
-            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
+        "g++", "-MD", "-lfoo.a", "-l", "bar.a", "-I", "bar", "-Igun"
+    ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
@@ -800,9 +808,9 @@ unittest {
 @("Should be cflags with machine dependent removed")
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
-            "g++", "-mfoo", "-m", "bar", "-MD", "-lfoo.a", "-l", "bar.a", "-I",
-            "bar", "-Igun", "-c", "a_filename.c"
-            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
+        "g++", "-mfoo", "-m", "bar", "-MD", "-lfoo.a", "-l", "bar.a", "-I",
+        "bar", "-Igun", "-c", "a_filename.c"
+    ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
@@ -812,9 +820,9 @@ unittest {
 @("Should be cflags with all -f removed")
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
-            "g++", "-fmany-fooo", "-I", "bar", "-fno-fooo", "-Igun", "-flolol",
-            "-c", "a_filename.c"
-            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
+        "g++", "-fmany-fooo", "-I", "bar", "-fno-fooo", "-Igun", "-flolol", "-c",
+        "a_filename.c"
+    ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-I", "/home/bar", "-I", "/home/gun"]);
@@ -824,8 +832,8 @@ unittest {
 @("shall NOT remove -std=xyz flags")
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
-            "g++", "-std=c++11", "-c", "a_filename.c"
-            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
+        "g++", "-std=c++11", "-c", "a_filename.c"
+    ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-std=c++11"]);
@@ -834,8 +842,8 @@ unittest {
 @("shall remove -mfloat-gprs=double")
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", [
-            "g++", "-std=c++11", "-mfloat-gprs=double", "-c", "a_filename.c"
-            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
+        "g++", "-std=c++11", "-mfloat-gprs=double", "-c", "a_filename.c"
+    ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
     auto my_filter = CompileCommandFilter(defaultCompilerFlagFilter, 0);
     my_filter.filter ~= FilterClangFlag("-mfloat-gprs=double", FilterClangFlag.Kind.exclude);
     auto s = cmd.get.parseFlag(my_filter);
@@ -845,7 +853,7 @@ unittest {
 @("Shall keep all compiler flags as they are")
 unittest {
     auto cmd = toCompileCommand("/home", "file1.cpp", ["g++", "-Da", "-D",
-            "b"], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
+        "b"], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
 
     auto s = cmd.get.parseFlag(defaultCompilerFilter);
     s.cflags.shouldEqual(["-Da", "-D", "b"]);
@@ -1124,8 +1132,8 @@ unittest {
 @("shall extract filepath from includes correctly when there is spaces in the path")
 unittest {
     auto cmd = toCompileCommand("/home", "file.cpp", [
-            "-I", `"dir with spaces"`, "-I", `\"dir with spaces\"`
-            ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
+        "-I", `"dir with spaces"`, "-I", `\"dir with spaces\"`
+    ], AbsoluteCompileDbDirectory("/home".Path.AbsolutePath), null);
     auto pargs = cmd.get.parseFlag(defaultCompilerFilter);
     pargs.cflags.shouldEqual([
         "-I", "/home/dir with spaces", "-I", "/home/dir with spaces"
@@ -1138,9 +1146,9 @@ unittest {
 @("shall handle path with spaces, both as separate string and combined with backslash")
 unittest {
     auto cmd = toCompileCommand("/project", "file.cpp", [
-            "-I", `"separate dir/with space"`, "-I", `\"separate dir/with space\"`,
-            `-I"combined dir/with space"`, `-I\"combined dir/with space\"`,
-            ], AbsoluteCompileDbDirectory("/project".Path.AbsolutePath), null);
+        "-I", `"separate dir/with space"`, "-I", `\"separate dir/with space\"`,
+        `-I"combined dir/with space"`, `-I\"combined dir/with space\"`,
+    ], AbsoluteCompileDbDirectory("/project".Path.AbsolutePath), null);
     auto pargs = cmd.get.parseFlag(defaultCompilerFilter);
     pargs.cflags.shouldEqual([
         "-I", "/project/separate dir/with space", "-I",
@@ -1162,7 +1170,7 @@ unittest {
                 `-I\"one space/lots of     space\"`, `-I`,
                 `"one space/lots of     space"`, `-I`,
                 `\"one space/lots of     space\"`,
-            ], AbsoluteCompileDbDirectory("/project".Path.AbsolutePath), null);
+    ], AbsoluteCompileDbDirectory("/project".Path.AbsolutePath), null);
     auto pargs = cmd.get.parseFlag(defaultCompilerFilter);
     pargs.cflags.shouldEqual([
         "-I", "/project/one space/lots of     space", "-I",
