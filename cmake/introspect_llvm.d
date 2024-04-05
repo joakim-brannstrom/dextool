@@ -40,6 +40,7 @@ int main(string[] args) {
     cmds["libclang"] = &llvmLibClang;
     cmds["libclang-flags"] = &llvmClangFlags;
     cmds["print-llvm-config-candidates"] = &llvmPrintCandidates;
+    cmds["includedir"] = &llvmIncludeDir;
 
     if (auto f = args[2] in cmds)
         write((*f)().strip);
@@ -126,6 +127,11 @@ string llvmMajorVersion() {
 
 string llvmCppFlags() {
     const flags = execute([llvmCmd.cmd, "--cxxflags"]);
+    return flags.output.strip;
+}
+
+string llvmIncludeDir() {
+    const flags = execute([llvmCmd.cmd, "--includedir"]);
     return flags.output.strip;
 }
 

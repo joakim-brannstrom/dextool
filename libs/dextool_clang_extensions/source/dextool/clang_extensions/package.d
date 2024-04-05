@@ -266,8 +266,8 @@ Operator getExprOperator(scope const CXCursor expr) @trusted {
     // that THIS function is correctly implemented.
     // This function is safe for all possible inputs.
     // Note: CXXOperatorCallExpr is denoted callExpr in the C API.
-    if (clang_getCursorKind(expr).among(CXCursorKind.binaryOperator,
-            CXCursorKind.unaryOperator, CXCursorKind.callExpr)) {
+    if (clang_getCursorKind(expr).among(CXCursorKind.CXCursor_BinaryOperator,
+            CXCursorKind.CXCursor_UnaryOperator, CXCursorKind.CXCursor_CallExpr)) {
         return Operator(dex_getExprOperator(expr));
     }
 
@@ -387,7 +387,7 @@ auto getUnderlyingExprNode(scope const CXCursor expr) @trusted {
 }
 
 IfStmt getIfStmt(scope const CXCursor cx) @trusted {
-    if (clang_getCursorKind(cx) == CXCursorKind.ifStmt)
+    if (clang_getCursorKind(cx) == CXCursorKind.CXCursor_IfStmt)
         return IfStmt(cx, dex_getIfStmt(cx));
 
     return IfStmt();
@@ -482,7 +482,7 @@ IfStmt getIfStmt(scope const CXCursor cx) @trusted {
                 // only one case here and that is a `return foo;`. The trailing
                 // `;` is not part of the token range so an extra has to be
                 // appended at the end.
-                bool is_keyword = toks.length > 0 && toks[0].kind == CXTokenKind.keyword;
+                bool is_keyword = toks.length > 0 && toks[0].kind == CXTokenKind.CXToken_Keyword;
                 c.tokens.map!(a => a.spelling).joiner(" ").copy(w);
                 if (is_keyword)
                     put(w, "; ");
@@ -546,7 +546,7 @@ IfStmt getIfStmt(scope const CXCursor cx) @trusted {
 CaseStmt getCaseStmt(const CXCursor c) @trusted {
     // This check is technically not needed because the C++ source code perform a dynamic cast.
     // But extra safety can't hurt?
-    if (clang_getCursorKind(c) == CXCursorKind.caseStmt) {
+    if (clang_getCursorKind(c) == CXCursorKind.CXCursor_CaseStmt) {
         return CaseStmt(dex_getCaseStmt(c));
     }
 

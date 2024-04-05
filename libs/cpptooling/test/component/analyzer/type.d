@@ -299,7 +299,7 @@ final class ClassVisitor : Visitor {
         }
     }
 
-    override void visit(scope const CxxMethod v) @trusted {
+    override void visit(scope const CXXMethod v) @trusted {
         mixin(mixinNodeLog!());
 
         auto tmp = analyzeCxxMethod(v, container, indent);
@@ -316,12 +316,11 @@ final class ClassVisitor : Visitor {
 @Tags("slow")  // execution time is >500ms
 unittest {
     foreach (getValue; [
-            "int", "signed int", "unsigned int", "unsigned", "char", "signed char",
-            "unsigned char", "short", "signed short", "unsigned short",
-            "long", "signed long", "unsigned long", "long long",
-            "signed long long", "unsigned long long", "float", "double",
-            "long double", "wchar_t", "bool"
-        ]) {
+        "int", "signed int", "unsigned int", "unsigned", "char", "signed char",
+        "unsigned char", "short", "signed short", "unsigned short", "long",
+        "signed long", "unsigned long", "long long", "signed long long",
+        "unsigned long long", "float", "double", "long double", "wchar_t", "bool"
+    ]) {
         enum code = "%s fun(%s);";
 
         // arrange
@@ -586,8 +585,8 @@ class A_ByCtor { A_ByCtor(A a); };";
 @("Should not crash on an anonymous type")
 unittest {
     foreach (getValue; [
-            "struct A { union { int x; }; };", "struct A { struct { int x; }; };"
-        ]) {
+        "struct A { union { int x; }; };", "struct A { struct { int x; }; };"
+    ]) {
         // arrange
         auto visitor = new TestDeclVisitor;
         auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);

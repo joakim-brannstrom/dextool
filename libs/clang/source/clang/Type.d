@@ -99,47 +99,27 @@ struct Type {
     }
 
     @property bool isTypedef() const @safe {
-        return kind == CXTypeKind.typedef_;
+        return kind == CXTypeKind.CXType_Typedef;
     }
 
     @property bool isEnum() const @safe {
-        return kind == CXTypeKind.enum_;
+        return kind == CXTypeKind.CXType_Enum;
     }
 
     @property bool isValid() const @safe {
-        return kind != CXTypeKind.invalid;
+        return kind != CXTypeKind.CXType_Invalid;
     }
 
     @property bool isFunctionType() @safe {
-        return canonicalType.kind == CXTypeKind.functionProto;
+        return canonicalType.kind == CXTypeKind.CXType_FunctionProto;
     }
 
     @property bool isFunctionPointerType() @safe {
-        return kind == CXTypeKind.pointer && pointeeType.isFunctionType;
-    }
-
-    @property bool isObjCIdType() @safe {
-        return isTypedef && canonicalType.kind == CXTypeKind.objCObjectPointer && spelling == "id";
-    }
-
-    @property bool isObjCClassType() @safe {
-        return isTypedef && canonicalType.kind == CXTypeKind.objCObjectPointer && spelling == "Class";
-    }
-
-    @property bool isObjCSelType() @safe {
-        if (isTypedef) {
-            auto c = canonicalType;
-            return c.kind == CXTypeKind.pointer && c.pointeeType.kind == CXTypeKind.objCSel;
-        } else
-            return false;
-    }
-
-    @property bool isObjCBuiltinType() @safe {
-        return isObjCIdType || isObjCClassType || isObjCSelType;
+        return kind == CXTypeKind.CXType_Pointer && pointeeType.isFunctionType;
     }
 
     @property bool isWideCharType() const @safe {
-        return kind == CXTypeKind.wChar;
+        return kind == CXTypeKind.CXType_WChar;
     }
 
     /** Determine whether a CXType has the "const" qualifier set, without
@@ -151,13 +131,13 @@ struct Type {
     }
 
     @property bool isExposed() const @safe {
-        return kind != CXTypeKind.unexposed;
+        return kind != CXTypeKind.CXType_Unexposed;
     }
 
     @property bool isArray() const @safe {
         import std.algorithm : among;
 
-        return kind.among(CXTypeKind.constantArray, CXTypeKind.incompleteArray) != 0;
+        return kind.among(CXTypeKind.CXType_ConstantArray, CXTypeKind.CXType_IncompleteArray) != 0;
     }
 
     @property bool isAnonymous() @safe {
@@ -189,8 +169,8 @@ struct Type {
         import std.algorithm : among;
 
         with (CXTypeKind) {
-            return kind.among(pointer, blockPointer, memberPointer,
-                    lValueReference, rValueReference) != 0;
+            return kind.among(CXType_Pointer, CXType_BlockPointer, CXType_MemberPointer,
+                    CXType_LValueReference, CXType_RValueReference) != 0;
         }
     }
 
@@ -198,9 +178,9 @@ struct Type {
     bool isSigned() const @trusted {
         import std.algorithm : among;
 
-        return kind.among(CXTypeKind.charU, CXTypeKind.char16, CXTypeKind.char32,
-                CXTypeKind.charS, CXTypeKind.sChar, CXTypeKind.wChar, CXTypeKind.short_,
-                CXTypeKind.int_, CXTypeKind.long_, CXTypeKind.longLong, CXTypeKind.int128) != 0;
+        return kind.among(CXTypeKind.CXType_Char_U, CXTypeKind.CXType_Char16, CXTypeKind.CXType_Char32,
+                CXTypeKind.CXType_Char_S, CXTypeKind.CXType_SChar, CXTypeKind.CXType_WChar, CXTypeKind.CXType_Short,
+                CXTypeKind.CXType_Int, CXTypeKind.CXType_Long, CXTypeKind.CXType_LongLong, CXTypeKind.CXType_Int128) != 0;
     }
 }
 
@@ -306,21 +286,20 @@ struct Arguments {
 
 @property bool isUnsigned(CXTypeKind kind) {
     switch (kind) with (CXTypeKind) {
-    case charU:
+    case CXType_Char_U:
         return true;
-    case uChar:
+    case CXType_UChar:
         return true;
-    case uShort:
+    case CXType_UShort:
         return true;
-    case uInt:
+    case CXType_UInt:
         return true;
-    case uLong:
+    case CXType_ULong:
         return true;
-    case uLongLong:
+    case CXType_ULongLong:
         return true;
-    case uInt128:
+    case CXType_UInt128:
         return true;
-
     default:
         return false;
     }

@@ -175,132 +175,6 @@ final class ParmDecl : Declaration {
     }
 }
 
-final class ObjCInterfaceDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCCategoryDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCProtocolDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCPropertyDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCIvarDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCInstanceMethodDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCClassMethodDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCImplementationDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCCategoryImplDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
 final class TypedefDecl : Declaration {
     import clang.Cursor : Cursor;
 
@@ -315,7 +189,7 @@ final class TypedefDecl : Declaration {
     }
 }
 
-final class CxxMethod : Declaration {
+final class CXXMethod : Declaration {
     import clang.Cursor : Cursor;
 
     this(scope Cursor cursor) @safe {
@@ -525,35 +399,7 @@ final class TypeAliasDecl : Declaration {
     }
 }
 
-final class ObjCSynthesizeDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCDynamicDecl : Declaration {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class CxxAccessSpecifier : Declaration {
+final class CXXAccessSpecifier : Declaration {
     import clang.Cursor : Cursor;
 
     this(scope Cursor cursor) @safe {

@@ -71,7 +71,7 @@ final class TUVisitor : Visitor {
     import std.meta : AliasSeq;
 
     private alias callbackKinds = AliasSeq!(FunctionDecl, Constructor,
-            Destructor, CxxMethod, ConversionFunction, FunctionTemplate, ClassTemplate);
+            Destructor, CXXMethod, ConversionFunction, FunctionTemplate, ClassTemplate);
 
     // debugging
     //pragma(msg, makeCallbacks!callbackKinds);

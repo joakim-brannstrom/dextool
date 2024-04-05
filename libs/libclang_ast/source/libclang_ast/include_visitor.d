@@ -36,7 +36,8 @@ Path[] extractIncludes(Cursor root, int depth = 2) {
 
     auto r = appender!(Path[])();
 
-    foreach (c; root.visitBreathFirst.filter!(a => a.kind == CXCursorKind.inclusionDirective)) {
+    foreach (c; root.visitBreathFirst.filter!(
+            a => a.kind == CXCursorKind.CXCursor_InclusionDirective)) {
         r.put(Path(c.spelling));
     }
 
@@ -53,7 +54,8 @@ Path[] extractIncludes(Cursor root, int depth = 2) {
 Nullable!Path hasInclude(alias matcher)(Cursor root, int depth = 2) @trusted {
     Nullable!Path r;
 
-    foreach (c; root.visitBreathFirst.filter!(a => a.kind == CXCursorKind.inclusionDirective)) {
+    foreach (c; root.visitBreathFirst.filter!(
+            a => a.kind == CXCursorKind.CXCursor_InclusionDirective)) {
         if (matcher(c.spelling)) {
             r = Path(c.include.file.name);
             break;

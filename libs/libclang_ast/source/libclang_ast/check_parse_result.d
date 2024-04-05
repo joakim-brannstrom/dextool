@@ -27,12 +27,12 @@ bool hasParseErrors(ref TranslationUnit tu) @trusted {
         auto severity = diag.severity;
 
         final switch (severity) with (CXDiagnosticSeverity) {
-        case ignored:
-        case note:
-        case warning:
+        case CXDiagnostic_Ignored:
+        case CXDiagnostic_Note:
+        case CXDiagnostic_Warning:
             break;
-        case error:
-        case fatal:
+        case CXDiagnostic_Error:
+        case CXDiagnostic_Fatal:
             return true;
         }
     }
@@ -53,19 +53,19 @@ void logDiagnostic(ref TranslationUnit tu) @trusted {
         auto severity = diag.severity;
 
         final switch (severity) with (CXDiagnosticSeverity) {
-        case ignored:
+        case CXDiagnostic_Ignored:
             logger.info(diag.format);
             break;
-        case note:
+        case CXDiagnostic_Note:
             logger.info(diag.format);
             break;
-        case warning:
+        case CXDiagnostic_Warning:
             logger.warning(diag.format);
             break;
-        case error:
+        case CXDiagnostic_Error:
             logger.error(diag.format);
             break;
-        case fatal:
+        case CXDiagnostic_Fatal:
             logger.error(diag.format);
             break;
         }

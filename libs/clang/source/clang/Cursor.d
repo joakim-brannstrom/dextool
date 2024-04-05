@@ -411,10 +411,6 @@ import clang.Visitor;
         return result.stripRight!(token => !intersects(extent, token.extent));
     }
 
-    @property ObjcCursor objc() const return scope {
-        return ObjcCursor(this);
-    }
-
     @property FunctionCursor func() const return scope {
         return FunctionCursor(this);
     }
@@ -682,43 +678,6 @@ import clang.Visitor;
      */
     CXVisibilityKind visibility() const @trusted {
         return clang_getCursorVisibility(cx);
-    }
-}
-
-struct ObjcCursor {
-    Cursor cursor;
-    alias cursor this;
-
-    @property ObjCInstanceMethodVisitor instanceMethods() {
-        return ObjCInstanceMethodVisitor(cursor);
-    }
-
-    @property ObjCClassMethodVisitor classMethods() {
-        return ObjCClassMethodVisitor(cursor);
-    }
-
-    @property ObjCPropertyVisitor properties() {
-        return ObjCPropertyVisitor(cursor);
-    }
-
-    @property Cursor superClass() {
-        foreach (cursor, parent; TypedVisitor!(CXCursorKind.objCSuperClassRef)(cursor))
-            return cursor;
-
-        return Cursor.empty();
-    }
-
-    @property ObjCProtocolVisitor protocols() {
-        return ObjCProtocolVisitor(cursor);
-    }
-
-    @property Cursor category() {
-        assert(cursor.kind == CXCursorKind.objCCategoryDecl);
-
-        foreach (c, _; TypedVisitor!(CXCursorKind.objCClassRef)(cursor))
-            return c;
-
-        assert(0, "This cursor does not have a class reference.");
     }
 }
 
