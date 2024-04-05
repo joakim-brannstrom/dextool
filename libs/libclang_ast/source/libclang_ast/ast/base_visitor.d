@@ -24,7 +24,7 @@ abstract class Visitor {
     void decr() scope {
     }
 
-    // called on each node to check if it should be visited
+    /// Only visist the node if the condition is true
     bool precondition() scope {
         return true;
     }
@@ -39,23 +39,11 @@ abstract class Visitor {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(scope const IbActionAttr value) {
+    void visit(scope const CXXFinalAttr value) {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(scope const IbOutletAttr value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const IbOutletCollectionAttr value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const CxxFinalAttr value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const CxxOverrideAttr value) {
+    void visit(scope const CXXOverrideAttr value) {
         visit(cast(const(Attribute)) value);
     }
 
@@ -83,103 +71,7 @@ abstract class Visitor {
         visit(cast(const(Attribute)) value);
     }
 
-    void visit(scope const CudaConstantAttr value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const CudaDeviceAttr value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const CudaGlobalAttr value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const CudaHostAttr value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const CudaSharedAttr value) {
-        visit(cast(const(Attribute)) value);
-    }
-
     void visit(scope const VisibilityAttr value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const DllExport value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const DllImport value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const NsReturnsRetained value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const NsReturnsNotRetained value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const NsReturnsAutoreleased value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const NsConsumesSelf value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const NsConsumed value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCException value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCNSObject value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCIndependentClass value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCPreciseLifetime value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCReturnsInnerPointer value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCRequiresSuper value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCRootClass value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCSubclassingRestricted value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCExplicitProtocolImpl value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCDesignatedInitializer value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCRuntimeVisible value) {
-        visit(cast(const(Attribute)) value);
-    }
-
-    void visit(scope const ObjCBoxable value) {
         visit(cast(const(Attribute)) value);
     }
 
@@ -246,47 +138,11 @@ abstract class Visitor {
         visit(cast(const(Declaration)) value);
     }
 
-    void visit(scope const ObjCInterfaceDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const ObjCCategoryDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const ObjCProtocolDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const ObjCPropertyDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const ObjCIvarDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const ObjCInstanceMethodDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const ObjCClassMethodDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const ObjCImplementationDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const ObjCCategoryImplDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
     void visit(scope const TypedefDecl value) {
         visit(cast(const(Declaration)) value);
     }
 
-    void visit(scope const CxxMethod value) {
+    void visit(scope const CXXMethod value) {
         visit(cast(const(Declaration)) value);
     }
 
@@ -346,15 +202,7 @@ abstract class Visitor {
         visit(cast(const(Declaration)) value);
     }
 
-    void visit(scope const ObjCSynthesizeDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const ObjCDynamicDecl value) {
-        visit(cast(const(Declaration)) value);
-    }
-
-    void visit(scope const CxxAccessSpecifier value) {
+    void visit(scope const CXXAccessSpecifier value) {
         visit(cast(const(Declaration)) value);
     }
 
@@ -374,10 +222,6 @@ abstract class Visitor {
     }
 
     void visit(scope const CallExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const ObjCMessageExpr value) {
         visit(cast(const(Expression)) value);
     }
 
@@ -453,79 +297,59 @@ abstract class Visitor {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const GnuNullExpr value) {
+    void visit(scope const GNUNullExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxStaticCastExpr value) {
+    void visit(scope const CXXStaticCastExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxDynamicCastExpr value) {
+    void visit(scope const CXXDynamicCastExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxReinterpretCastExpr value) {
+    void visit(scope const CXXReinterpretCastExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxConstCastExpr value) {
+    void visit(scope const CXXConstCastExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxFunctionalCastExpr value) {
+    void visit(scope const CXXFunctionalCastExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxTypeidExpr value) {
+    void visit(scope const CXXTypeidExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxBoolLiteralExpr value) {
+    void visit(scope const CXXBoolLiteralExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxNullPtrLiteralExpr value) {
+    void visit(scope const CXXNullPtrLiteralExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxThisExpr value) {
+    void visit(scope const CXXThisExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxThrowExpr value) {
+    void visit(scope const CXXThrowExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxNewExpr value) {
+    void visit(scope const CXXNewExpr value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxDeleteExpr value) {
+    void visit(scope const CXXDeleteExpr value) {
         visit(cast(const(Expression)) value);
     }
 
     void visit(scope const UnaryExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const ObjCStringLiteral value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const ObjCEncodeExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const ObjCSelectorExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const ObjCProtocolExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const ObjCBridgedCastExpr value) {
         visit(cast(const(Expression)) value);
     }
 
@@ -541,35 +365,11 @@ abstract class Visitor {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const ObjCBoolLiteralExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const ObjCSelfExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const OmpArraySectionExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const ObjCAvailabilityCheckExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
     void visit(scope const FixedPointLiteral value) {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const OmpArrayShapingExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const OmpIteratorExpr value) {
-        visit(cast(const(Expression)) value);
-    }
-
-    void visit(scope const CxxAddrspaceCastExpr value) {
+    void visit(scope const CXXAddrspaceCastExpr value) {
         visit(cast(const(Expression)) value);
     }
 
@@ -581,7 +381,7 @@ abstract class Visitor {
         visit(cast(const(Expression)) value);
     }
 
-    void visit(scope const CxxParenListInitExpr value) {
+    void visit(scope const CXXParenListInitExpr value) {
         visit(cast(const(Expression)) value);
     }
 
@@ -634,23 +434,11 @@ abstract class Visitor {
     void visit(scope const Reference) {
     }
 
-    void visit(scope const ObjCSuperClassRef value) {
-        visit(cast(const(Reference)) value);
-    }
-
-    void visit(scope const ObjCProtocolRef value) {
-        visit(cast(const(Reference)) value);
-    }
-
-    void visit(scope const ObjCClassRef value) {
-        visit(cast(const(Reference)) value);
-    }
-
     void visit(scope const TypeRef value) {
         visit(cast(const(Reference)) value);
     }
 
-    void visit(scope const CxxBaseSpecifier value) {
+    void visit(scope const CXXBaseSpecifier value) {
         visit(cast(const(Reference)) value);
     }
 
@@ -745,59 +533,31 @@ abstract class Visitor {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(scope const ObjCAtTryStmt value) {
+    void visit(scope const CXXCatchStmt value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(scope const ObjCAtCatchStmt value) {
+    void visit(scope const CXXTryStmt value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(scope const ObjCAtFinallyStmt value) {
+    void visit(scope const CXXForRangeStmt value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(scope const ObjCAtThrowStmt value) {
+    void visit(scope const SEHTryStmt value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(scope const ObjCAtSynchronizedStmt value) {
+    void visit(scope const SEHExceptStmt value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(scope const ObjCAutoreleasePoolStmt value) {
+    void visit(scope const SEHFinallyStmt value) {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(scope const ObjCForCollectionStmt value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const CxxCatchStmt value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const CxxTryStmt value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const CxxForRangeStmt value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const SehTryStmt value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const SehExceptStmt value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const SehFinallyStmt value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const MsAsmStmt value) {
+    void visit(scope const MSAsmStmt value) {
         visit(cast(const(Statement)) value);
     }
 
@@ -809,239 +569,11 @@ abstract class Visitor {
         visit(cast(const(Statement)) value);
     }
 
-    void visit(scope const SehLeaveStmt value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpOrderedDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpAtomicDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpForSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpParallelForSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTeamsDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTaskgroupDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpCancellationPointDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpCancelDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetDataDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTaskLoopDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTaskLoopSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpDistributeDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetEnterDataDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetExitDataDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetParallelDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetParallelForDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetUpdateDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpDistributeParallelForDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpDistributeParallelForSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpDistributeSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetParallelForSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTeamsDistributeDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTeamsDistributeSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTeamsDistributeParallelForSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTeamsDistributeParallelForDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsDistributeDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsDistributeParallelForDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsDistributeParallelForSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsDistributeSimdDirective value) {
+    void visit(scope const SEHLeaveStmt value) {
         visit(cast(const(Statement)) value);
     }
 
     void visit(scope const BuiltinBitCastExpr value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpMasterTaskLoopDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpParallelMasterTaskLoopDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpMasterTaskLoopSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpParallelMasterTaskLoopSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpParallelMasterDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpDepobjDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpScanDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTileDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpCanonicalLoop value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpInteropDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpDispatchDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpMaskedDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpUnrollDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpMetaDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpGenericLoopDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTeamsGenericLoopDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetTeamsGenericLoopDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpParallelGenericLoopDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpTargetParallelGenericLoopDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpParallelMaskedDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpMaskedTaskLoopDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpMaskedTaskLoopSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpParallelMaskedTaskLoopDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpParallelMaskedTaskLoopSimdDirective value) {
-        visit(cast(const(Statement)) value);
-    }
-
-    void visit(scope const OmpErrorDirective value) {
         visit(cast(const(Statement)) value);
     }
 

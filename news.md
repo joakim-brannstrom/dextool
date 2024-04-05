@@ -10,7 +10,10 @@ Fixes
  * Fix segfault with dmd-2.106.0+
  * Officially dropped support for llvm v4-13 because they are no longer tested
    by CI. They may or may not work.
-
+ * Replace D bindings for libclang with ImportC. This should both make dextool
+   almost, automatically work with any future version of LLVM/Clang as long as
+   no existing C API functions are removed and reduce annoying bugs wherein the
+   enum's have changed.
 Fixes for dextool mutate
 
  * It is problematic to inject mutant schema in C++ templates because it may be

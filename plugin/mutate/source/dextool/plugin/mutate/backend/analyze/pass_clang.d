@@ -152,7 +152,7 @@ Nullable!OperatorCursor operatorCursor(T)(ref Ast ast, T node) {
 
     // the arguments and the operator
     void exprPoint() {
-        res.isOverload = op.cursor.kind == CXCursorKind.callExpr;
+        res.isOverload = op.cursor.kind == CXCursorKind.CXCursor_CallExpr;
 
         auto sr = op.cursor.extent;
         res.exprLoc = analyze.Location(path, Interval(sr.start.offset,
@@ -448,11 +448,11 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(v.cursor, ast.root, loc, v.cursor.kind);
 
         // it is most often invalid
-        switch (v.cursor.language) {
-        case CXLanguageKind.c:
+        switch (v.cursor.language) with (CXLanguageKind) {
+        case CXLanguage_C:
             ast.lang = Language.c;
             break;
-        case CXLanguageKind.cPlusPlus:
+        case CXLanguage_CPlusPlus:
             ast.lang = Language.cpp;
             break;
         default:
@@ -494,7 +494,7 @@ final class BaseVisitor : ExtendedVisitor {
         v.accept(this);
     }
 
-    override void visit(scope const CxxFunctionalCastExpr v) @trusted {
+    override void visit(scope const CXXFunctionalCastExpr v) @trusted {
         // auto foo = std::array<int, 2>{3,4};
         // it is correct to mutate 2->0 for CR mutant but it must be
         // blacklisted from schema.
@@ -571,8 +571,8 @@ final class BaseVisitor : ExtendedVisitor {
         // by adding the node it is possible to search for it in cstack
         auto n = ast.make!(analyze.Poison);
         n.context = true;
-        n.schemaBlacklist = n.schemaBlacklist
-            || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
+        n.schemaBlacklist = n.schemaBlacklist || isParent(CXCursorKind.CXCursor_FunctionTemplate,
+                CXCursorKind.CXCursor_FunctionDecl);
         pushStack(n, v);
         v.accept(this);
     }
@@ -582,8 +582,8 @@ final class BaseVisitor : ExtendedVisitor {
         // by adding the node it is possible to search for it in cstack
         auto n = ast.make!(analyze.Poison);
         n.context = true;
-        n.schemaBlacklist = n.schemaBlacklist
-            || isParent(CXCursorKind.functionTemplate, CXCursorKind.functionDecl);
+        n.schemaBlacklist = n.schemaBlacklist || isParent(CXCursorKind.CXCursor_FunctionTemplate,
+                CXCursorKind.CXCursor_FunctionDecl);
         pushStack(n, v);
         v.accept(this);
     }
@@ -614,7 +614,7 @@ final class BaseVisitor : ExtendedVisitor {
         // block mutants inside template parameters
     }
 
-    override void visit(scope const CxxBaseSpecifier v) {
+    override void visit(scope const CXXBaseSpecifier v) {
         mixin(mixinNodeLog!());
         // block mutants inside template parameters.
         // the only mutants that are inside an inheritance is template
@@ -678,8 +678,9 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(ref_, v);
 
         auto n = ast.make!(analyze.Expr);
-        n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
-                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
+        n.schemaBlacklist = isParent(CXCursorKind.CXCursor_ClassTemplate,
+                CXCursorKind.CXCursor_ClassTemplatePartialSpecialization,
+                CXCursorKind.CXCursor_FunctionTemplate) != 0;
 
         auto ue = deriveCursorType(*ast, v.cursor);
         ue.put(*ast);
@@ -727,8 +728,9 @@ final class BaseVisitor : ExtendedVisitor {
         pushStack(ref_, v);
 
         auto n = ast.make!(analyze.Expr);
-        n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
-                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
+        n.schemaBlacklist = isParent(CXCursorKind.CXCursor_ClassTemplate,
+                CXCursorKind.CXCursor_ClassTemplatePartialSpecialization,
+                CXCursorKind.CXCursor_FunctionTemplate) != 0;
 
         void updateNode(Cursor c) {
             auto cty = c.type.canonicalType;
@@ -792,8 +794,9 @@ final class BaseVisitor : ExtendedVisitor {
             return;
 
         auto n = ast.make!(analyze.Expr);
-        n.schemaBlacklist = isParent(CXCursorKind.classTemplate,
-                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
+        n.schemaBlacklist = isParent(CXCursorKind.CXCursor_ClassTemplate,
+                CXCursorKind.CXCursor_ClassTemplatePartialSpecialization,
+                CXCursorKind.CXCursor_FunctionTemplate) != 0;
 
         auto ue = deriveCursorType(*ast, v.cursor);
         ue.put(*ast);
@@ -872,7 +875,7 @@ final class BaseVisitor : ExtendedVisitor {
         // destructor. For some versions of clang a CompoundStmt is generated
     }
 
-    override void visit(scope const CxxMethod v) {
+    override void visit(scope const CXXMethod v) {
         mixin(mixinNodeLog!());
 
         // model C++ methods as functions. It should be enough to know that it
@@ -882,7 +885,7 @@ final class BaseVisitor : ExtendedVisitor {
         if (!v.cursor.isDefaulted) {
             auto n = visitFunc(v);
             // context only set for methods defined outside of a class.
-            if (n && isParent(CXCursorKind.classDecl, CXCursorKind.structDecl) == 0) {
+            if (n && isParent(CXCursorKind.CXCursor_ClassDecl, CXCursorKind.CXCursor_StructDecl) == 0) {
                 n.context = true;
             }
         }
@@ -924,7 +927,7 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
-    override void visit(scope const CxxThrowExpr v) {
+    override void visit(scope const CXXThrowExpr v) {
         mixin(mixinNodeLog!());
         // model a C++ exception as a return expression because that is
         // "basically" what happens.
@@ -968,7 +971,7 @@ final class BaseVisitor : ExtendedVisitor {
             return begin;
         }
 
-        if (isDirectParent(CXCursorKind.switchStmt)) {
+        if (isDirectParent(CXCursorKind.CXCursor_SwitchStmt)) {
             // the CompoundStmt statement {} directly inside a switch statement
             // isn't useful to manipulate as a block. The useful part is the
             // smaller blocks that the case and default break down the block
@@ -1050,7 +1053,7 @@ final class BaseVisitor : ExtendedVisitor {
         }
     }
 
-    override void visit(scope const CxxForRangeStmt v) {
+    override void visit(scope const CXXForRangeStmt v) {
         mixin(mixinNodeLog!());
         pushStack(ast.make!(analyze.Loop), v);
 
@@ -1093,7 +1096,7 @@ final class BaseVisitor : ExtendedVisitor {
             auto block = ast.make!(analyze.Block);
             auto l = ast.location(n);
             l.interval.end = l.interval.begin;
-            pushStack(v.cursor, block, l, CXCursorKind.unexposedDecl);
+            pushStack(v.cursor, block, l, CXCursorKind.CXCursor_UnexposedDecl);
             rewriteSwitch(*ast, n, block, caseVisitor.node.cursor.toLocation);
         }
     }
@@ -1189,8 +1192,10 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
-        auto blockSchema = op.isOverload || isBlacklist(cursor, op.opLoc) || isParent(CXCursorKind.classTemplate,
-                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
+        auto blockSchema = op.isOverload || isBlacklist(cursor, op.opLoc)
+            || isParent(CXCursorKind.CXCursor_ClassTemplate,
+                    CXCursorKind.CXCursor_ClassTemplatePartialSpecialization,
+                    CXCursorKind.CXCursor_FunctionTemplate) != 0;
 
         astOp.operator = op.operator;
         astOp.operator.isOverloaded = op.isOverload;
@@ -1266,8 +1271,10 @@ final class BaseVisitor : ExtendedVisitor {
         if (astOp is null)
             return false;
 
-        const blockSchema = op.isOverload || isBlacklist(cursor, op.opLoc) || isParent(CXCursorKind.classTemplate,
-                CXCursorKind.classTemplatePartialSpecialization, CXCursorKind.functionTemplate) != 0;
+        const blockSchema = op.isOverload || isBlacklist(cursor, op.opLoc)
+            || isParent(CXCursorKind.CXCursor_ClassTemplate,
+                    CXCursorKind.CXCursor_ClassTemplatePartialSpecialization,
+                    CXCursorKind.CXCursor_FunctionTemplate) != 0;
 
         astOp.operator = op.operator;
         astOp.operator.isOverloaded = op.isOverload;
@@ -1335,7 +1342,8 @@ final class BaseVisitor : ExtendedVisitor {
             return null;
 
         auto n = ast.make!(analyze.Function);
-        n.schemaBlacklist = v.cursor.kind == CXCursorKind.functionTemplate || isConstExpr(v);
+        n.schemaBlacklist = v.cursor.kind == CXCursorKind.CXCursor_FunctionTemplate
+            || isConstExpr(v);
         nstack.back.children ~= n;
         pushStack(v.cursor, n, loc, v.cursor.kind);
 
@@ -1531,7 +1539,7 @@ bool isUnayASpaceshipOp(Cursor c, OpKind kind) {
     auto children = c.children;
     if (children.empty)
         return false;
-    if (children[0].kind == CXCursorKind.callExpr && children[0].spelling == "operator==")
+    if (children[0].kind == CXCursorKind.CXCursor_CallExpr && children[0].spelling == "operator==")
         return true;
     return false;
 }
@@ -1539,8 +1547,8 @@ bool isUnayASpaceshipOp(Cursor c, OpKind kind) {
 bool isUserLIteral(Cursor c) {
     import std.string : startsWith;
 
-    if (!c.kind.among(CXCursorKind.functionDecl,
-            CXCursorKind.functionTemplate, CXCursorKind.callExpr))
+    if (!c.kind.among(CXCursorKind.CXCursor_FunctionDecl,
+            CXCursorKind.CXCursor_FunctionTemplate, CXCursorKind.CXCursor_CallExpr))
         return false;
     return c.spelling.startsWith(`operator""`);
 }
@@ -1551,7 +1559,7 @@ bool isTemplateDecl(Cursor c) {
     auto children = c.children;
     if (children.empty)
         return false;
-    return children.filter!(a => a.kind.among(CXCursorKind.templateRef)).count != 0;
+    return children.filter!(a => a.kind.among(CXCursorKind.CXCursor_TemplateRef)).count != 0;
 }
 
 void visitAllChildren(analyze.Node root, void delegate(Node child) @safe callback,
@@ -1570,18 +1578,22 @@ void visitAllChildren(analyze.Node root, void delegate(Node child) @safe callbac
     }
 }
 
-enum discreteCategory = AliasSeq!(CXTypeKind.charU, CXTypeKind.uChar, CXTypeKind.char16,
-            CXTypeKind.char32, CXTypeKind.uShort, CXTypeKind.uInt, CXTypeKind.uLong, CXTypeKind.uLongLong,
-            CXTypeKind.uInt128, CXTypeKind.charS, CXTypeKind.sChar, CXTypeKind.wChar, CXTypeKind.short_,
-            CXTypeKind.int_, CXTypeKind.long_, CXTypeKind.longLong,
-            CXTypeKind.int128, CXTypeKind.enum_,);
-enum floatCategory = AliasSeq!(CXTypeKind.float_, CXTypeKind.double_,
-            CXTypeKind.longDouble, CXTypeKind.float128, CXTypeKind.half, CXTypeKind.float16,);
-enum pointerCategory = AliasSeq!(CXTypeKind.nullPtr, CXTypeKind.pointer,
-            CXTypeKind.blockPointer, CXTypeKind.memberPointer, CXTypeKind.record);
-enum boolCategory = AliasSeq!(CXTypeKind.bool_);
+enum discreteCategory = AliasSeq!(CXTypeKind.CXType_Char_U,
+            CXTypeKind.CXType_UChar, CXTypeKind.CXType_Char16, CXTypeKind.CXType_Char32,
+            CXTypeKind.CXType_UShort, CXTypeKind.CXType_UInt, CXTypeKind.CXType_ULong,
+            CXTypeKind.CXType_ULongLong, CXTypeKind.CXType_UInt128,
+            CXTypeKind.CXType_Char_S, CXTypeKind.CXType_SChar, CXTypeKind.CXType_WChar,
+            CXTypeKind.CXType_Short, CXTypeKind.CXType_Int,
+            CXTypeKind.CXType_Long, CXTypeKind.CXType_LongLong,
+            CXTypeKind.CXType_Int128, CXTypeKind.CXType_Enum);
+enum floatCategory = AliasSeq!(CXTypeKind.CXType_Float, CXTypeKind.CXType_Double, CXTypeKind.CXType_LongDouble,
+            CXTypeKind.CXType_Float128, CXTypeKind.CXType_Half, CXTypeKind.CXType_Float16);
+enum pointerCategory = AliasSeq!(CXTypeKind.CXType_NullPtr, CXTypeKind.CXType_Pointer,
+            CXTypeKind.CXType_BlockPointer, CXTypeKind.CXType_MemberPointer,
+            CXTypeKind.CXType_Record);
+enum boolCategory = AliasSeq!(CXTypeKind.CXType_Bool);
 
-enum voidCategory = AliasSeq!(CXTypeKind.void_);
+enum voidCategory = AliasSeq!(CXTypeKind.CXType_Void);
 
 struct DeriveTypeResult {
     analyze.TypeId id;
@@ -1663,7 +1675,7 @@ DeriveCursorTypeResult deriveCursorType(ref Ast ast, scope const Cursor baseCurs
 
     // evaluate the cursor to add a value for the symbol
     void eval(const ref Eval e) {
-        if (!e.kind.among(CXEvalResultKind.int_))
+        if (!e.kind.among(CXEvalResultKind.CXEval_Int))
             return;
 
         const long value = () {
@@ -1692,7 +1704,7 @@ DeriveCursorTypeResult deriveCursorType(ref Ast ast, scope const Cursor baseCurs
         if (!cref.isValid)
             return rval;
 
-        if (cref.kind == CXCursorKind.enumConstantDecl) {
+        if (cref.kind == CXCursorKind.CXCursor_EnumConstantDecl) {
             const long value = cref.enum_.signedValue;
             rval.symId = make!(analyze.SymbolId)(c);
             rval.symbol = ast.make!(analyze.DiscretSymbol)(
@@ -1732,7 +1744,7 @@ uint findTokenOffset(T)(T toks, Offset sr, CXTokenKind kind) @trusted {
 
 import dextool.clang_extensions : dex_isPotentialConstExpr, dex_isFunctionTemplateConstExpr;
 import libclang_ast.ast : FunctionTemplate, FunctionDecl, IfStmt, Constructor,
-    Destructor, CxxMethod, LambdaExpr;
+    Destructor, CXXMethod, LambdaExpr;
 
 bool isConstExpr(scope const Constructor v) @trusted {
     return dex_isPotentialConstExpr(v.cursor);
@@ -1742,7 +1754,7 @@ bool isConstExpr(scope const Destructor v) @trusted {
     return dex_isPotentialConstExpr(v.cursor);
 }
 
-bool isConstExpr(scope const CxxMethod v) @trusted {
+bool isConstExpr(scope const CXXMethod v) @trusted {
     return dex_isPotentialConstExpr(v.cursor);
 }
 
@@ -1777,8 +1789,8 @@ struct Blacklist {
         Interval[][string] macros;
 
         foreach (c, parent; root.all) {
-            if (!c.kind.among(CXCursorKind.macroExpansion,
-                    CXCursorKind.macroDefinition) || c.isMacroBuiltin)
+            if (!c.kind.among(CXCursorKind.CXCursor_MacroExpansion,
+                    CXCursorKind.CXCursor_MacroDefinition) || c.isMacroBuiltin)
                 continue;
             add(c, macros);
         }

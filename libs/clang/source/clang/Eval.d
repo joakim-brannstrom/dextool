@@ -38,7 +38,7 @@ import clang.Util;
      * kind is Int.
      */
     int asInt() const @trusted
-    in(kind == CXEvalResultKind.int_, "must be CXEvalResultKind.int_") {
+    in(kind == CXEvalResultKind.CXEval_Int, "must be CXEvalResultKind.int_") {
         return clang_EvalResult_getAsInt(cast(void*) cx);
     }
 
@@ -49,7 +49,7 @@ import clang.Util;
      * with clang_EvalResult_getAsInt.
      */
     long asLong() const @trusted
-    in(kind == CXEvalResultKind.int_, "must be CXEvalResultKind.int_") {
+    in(kind == CXEvalResultKind.CXEval_Int, "must be CXEvalResultKind.int_") {
         return clang_EvalResult_getAsLongLong(cast(void*) cx);
     }
 
@@ -57,13 +57,13 @@ import clang.Util;
      * Int and clang_EvalResult_isUnsignedInt is non-zero.
      */
     ulong asUnsigned() const @trusted
-    in(kind == CXEvalResultKind.int_, "must be CXEvalResultKind.int_") {
+    in(kind == CXEvalResultKind.CXEval_Int, "must be CXEvalResultKind.int_") {
         return clang_EvalResult_getAsUnsigned(cast(void*) cx);
     }
 
     /// Returns: the evaluation result as double if the kind is double.
     double asDouble() const @trusted
-    in(kind == CXEvalResultKind.float_, "must be CXEvalResultKind.float_") {
+    in(kind == CXEvalResultKind.CXEval_Float, "must be CXEvalResultKind.float_") {
         return clang_EvalResult_getAsDouble(cast(void*) cx);
     }
 
@@ -74,7 +74,7 @@ import clang.Util;
      * on the CXEvalResult returned by clang_Cursor_Evaluate.
      */
     string asStr() const @trusted
-    in(kind != CXEvalResultKind.int_ && kind != CXEvalResultKind.float_,
+    in(kind != CXEvalResultKind.CXEval_Int && kind != CXEvalResultKind.CXEval_Float,
             "must NOT be CXEvalResultKind.int_ or float_") {
         import std.conv : to;
 
@@ -86,7 +86,7 @@ import clang.Util;
     /** Returns: true if the evaluation result resulted in an unsigned integer.
      */
     bool isUnsignedInt() const @trusted
-    in(kind == CXEvalResultKind.int_, "must be CXEvalResultKind.int_") {
+    in(kind == CXEvalResultKind.CXEval_Int, "must be CXEvalResultKind.int_") {
         return clang_EvalResult_isUnsignedInt(cast(void*) cx) != 0;
     }
 }

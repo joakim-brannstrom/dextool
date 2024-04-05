@@ -1028,8 +1028,8 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     import std.array : Appender;
     import std.typecons : scoped, NullableRef;
 
-    import libclang_ast.ast : ClassDecl, CxxBaseSpecifier, Constructor, Destructor,
-        CxxMethod, FieldDecl, CxxAccessSpecifier, generateIndentIncrDecr;
+    import libclang_ast.ast : ClassDecl, CXXBaseSpecifier, Constructor, Destructor,
+        CXXMethod, FieldDecl, CXXAccessSpecifier, generateIndentIncrDecr;
     import cpptooling.analyzer.clang.analyze_helper : analyzeRecord, analyzeConstructor, analyzeDestructor,
         analyzeCxxMethod, analyzeFieldDecl, analyzeCxxBaseSpecified, toAccessType;
     import libclang_ast.cursor_logger : logNode, mixinNodeLog;
@@ -1102,7 +1102,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
     }
 
     /// Analyze the inheritance(s).
-    override void visit(scope const CxxBaseSpecifier v) {
+    override void visit(scope const CXXBaseSpecifier v) {
         import cpptooling.data : TypeKind;
 
         mixin(mixinNodeLog!());
@@ -1151,7 +1151,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result, access);
     }
 
-    override void visit(scope const CxxMethod v) {
+    override void visit(scope const CXXMethod v) {
         mixin(mixinNodeLog!());
 
         auto result = analyzeCxxMethod(v, *container, indent);
@@ -1188,7 +1188,7 @@ private final class UMLClassVisitor(ControllerT, ReceiveT) : Visitor {
         recv.put(this.type, result, access);
     }
 
-    override void visit(scope const CxxAccessSpecifier v) {
+    override void visit(scope const CXXAccessSpecifier v) {
         mixin(mixinNodeLog!());
         access = CppAccess(toAccessType(v.cursor.access.accessSpecifier));
     }

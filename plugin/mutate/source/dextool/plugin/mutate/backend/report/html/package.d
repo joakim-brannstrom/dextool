@@ -330,7 +330,7 @@ struct Spanner {
     import std.range;
     import clang.c.Index : CXTokenKind;
 
-    auto toks = zip(iota(10), iota(10, 20)).map!(a => Token(CXTokenKind.comment,
+    auto toks = zip(iota(10), iota(10, 20)).map!(a => Token(CXTokenKind.CXToken_Comment,
             Offset(a[0], a[1]), SourceLoc.init, SourceLoc.init, a[0].to!string)).retro.array;
     auto span = Spanner(toks);
 
@@ -439,8 +439,8 @@ struct Span {
 
     auto offsets = zip(iota(0, 150, 10), iota(10, 160, 10)).map!(a => Offset(a[0], a[1])).array;
 
-    auto toks = offsets.map!(a => Token(CXTokenKind.comment, a, SourceLoc.init,
-            SourceLoc.init, a.begin.to!string)).retro.array;
+    auto toks = offsets.map!(a => Token(CXTokenKind.CXToken_Comment, a,
+            SourceLoc.init, SourceLoc.init, a.begin.to!string)).retro.array;
     auto span = Spanner(toks);
 
     span.put(FileMutant(MutationStatusId(2), Offset(11, 15), "token enclosing mutant"));

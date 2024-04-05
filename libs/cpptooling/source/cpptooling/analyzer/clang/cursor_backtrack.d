@@ -52,8 +52,9 @@ auto backtrackScopeRange(NodeT)(const(NodeT) node) {
     import std.algorithm : among, filter;
     import clang.c.Index : CXCursorKind;
 
-    return BacktrackResult(c).filter!(a => a.kind.among(CXCursorKind.unionDecl,
-            CXCursorKind.structDecl, CXCursorKind.classDecl, CXCursorKind.namespace));
+    return BacktrackResult(c).filter!(a => a.kind.among(CXCursorKind.CXCursor_UnionDecl,
+            CXCursorKind.CXCursor_StructDecl, CXCursorKind.CXCursor_ClassDecl,
+            CXCursorKind.CXCursor_Namespace));
 }
 
 /// Backtrack a cursor until the top cursor is reached.
@@ -72,14 +73,14 @@ auto backtrack(NodeT)(const NodeT node) @trusted {
 /// Determine if a kind creates a local scope.
 bool isLocalScope(CXCursorKind kind) @safe pure nothrow @nogc {
     switch (kind) with (CXCursorKind) {
-    case classTemplate:
-    case structDecl:
-    case unionDecl:
-    case classDecl:
-    case cxxMethod:
-    case functionDecl:
-    case constructor:
-    case destructor:
+    case CXCursor_ClassTemplate:
+    case CXCursor_StructDecl:
+    case CXCursor_UnionDecl:
+    case CXCursor_ClassDecl:
+    case CXCursor_CXXMethod:
+    case CXCursor_FunctionDecl:
+    case CXCursor_Constructor:
+    case CXCursor_Destructor:
         return true;
     default:
         return false;
@@ -94,7 +95,7 @@ bool isGlobalOrNamespaceScope(scope const Cursor c) @trusted {
 
     // if the loop is never ran it is in the global namespace
     foreach (bt; c.backtrack) {
-        if (bt.kind.among(CXCursorKind.namespace, CXCursorKind.translationUnit)) {
+        if (bt.kind.among(CXCursorKind.CXCursor_Namespace, CXCursorKind.CXCursor_TranslationUnit)) {
             return true;
         } else if (bt.kind.isLocalScope) {
             return false;

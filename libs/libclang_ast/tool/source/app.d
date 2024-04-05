@@ -227,6 +227,9 @@ abstract class Visitor {
     void decr() scope {
     }
 
+    /// Only visist the node if the condition is true
+    bool precondition() scope { return true; }
+
     void visit(scope const TranslationUnit) {
     }
 %s
