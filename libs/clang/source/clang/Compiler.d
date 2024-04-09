@@ -16,7 +16,7 @@ module clang.Compiler;
 
 private const(string) uniquePathId;
 
-static this() {
+shared static this() {
     import std.conv : text;
     import std.random;
 
