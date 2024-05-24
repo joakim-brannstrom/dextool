@@ -92,8 +92,6 @@ struct Ast {
     }
 
     void put(Node n, Location l) {
-        // TODO: deduplicate the path because it will otherwise take up so much
-        // memory.....
         l.file = paths.dedup(l.file);
         locs[n] = l;
     }

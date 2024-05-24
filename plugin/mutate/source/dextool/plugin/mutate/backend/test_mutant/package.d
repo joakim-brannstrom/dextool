@@ -19,7 +19,7 @@ import std.exception : collectException;
 import std.format : format;
 import std.random : randomCover;
 import std.traits : EnumMembers;
-import std.typecons : Nullable, Tuple, Yes, tuple;
+import std.typecons : Nullable, Tuple, Yes, tuple, SafeRefCounted, safeRefCounted, borrow;
 import std.sumtype;
 
 import blob_model : Blob;
@@ -27,7 +27,6 @@ import miniorm : spinSql, silentLog;
 import my.actor;
 import my.container.vector;
 import my.fsm : Fsm, next, act, get, TypeDataMap;
-import my.gc.refc;
 import my.hash : Checksum64;
 import my.named_type;
 import my.optional;
@@ -734,7 +733,7 @@ nothrow:
         isRunning_ = false;
     }
 
-    void opCall(Done data) {
+    void opCall(Done data) @trusted {
         import dextool.plugin.mutate.backend.test_mutant.common_actors : IsDone;
 
         try {
@@ -1496,7 +1495,7 @@ nothrow:
         }
     }
 
-    void opCall(ref SchemataTest data) {
+    void opCall(ref SchemataTest data) @trusted {
         import core.thread : Thread;
         import core.time : dur;
         import dextool.plugin.mutate.backend.test_mutant.schemata;
@@ -1609,7 +1608,7 @@ nothrow:
         spinSql!(() => propagate);
     }
 
-    void saveTestResult(MutationTestResult[] results) @safe nothrow {
+    void saveTestResult(MutationTestResult[] results) @trusted nothrow {
         import dextool.plugin.mutate.backend.test_mutant.common_actors : GetMutantsLeft,
             UnknownMutantTested;
 
@@ -1721,12 +1720,12 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
         Database db;
     }
 
-    auto st = tuple!("self", "state")(self, refCounted(State.init));
+    auto st = tuple!("self", "state")(self, safeRefCounted(State.init));
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath) nothrow {
         try {
-            ctx.state.get.db = spinSql!(() => Database.make(dbPath), silentLog)(dbOpenTimeout);
+            ctx.state.db = spinSql!(() => Database.make(dbPath), silentLog)(dbOpenTimeout);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
             ctx.self.shutdown;
@@ -1741,21 +1740,21 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
         }
     }
 
-    static void save(ref Ctx ctx, MutationTestResult result, long timeoutIter) @safe nothrow {
-        void statusUpdate(MutationTestResult result) @safe {
+    static void save(ref Ctx ctx, MutationTestResult result, long timeoutIter) @trusted nothrow {
+        void statusUpdate(MutationTestResult result) {
             import dextool.plugin.mutate.backend.test_mutant.timeout : updateMutantStatus;
 
-            updateMutantStatus(ctx.state.get.db, result.id, result.status,
+            updateMutantStatus(ctx.state.db, result.id, result.status,
                     result.exitStatus, timeoutIter);
-            ctx.state.get.db.mutantApi.update(result.id, result.profile);
+            ctx.state.db.mutantApi.update(result.id, result.profile);
             foreach (a; result.testCmds)
-                ctx.state.get.db.mutantApi.relate(result.id, a.toString);
-            ctx.state.get.db.testCaseApi.updateMutationTestCases(result.id, result.testCases);
-            ctx.state.get.db.worklistApi.remove(result.id);
+                ctx.state.db.mutantApi.relate(result.id, a.toString);
+            ctx.state.db.testCaseApi.updateMutationTestCases(result.id, result.testCases);
+            ctx.state.db.worklistApi.remove(result.id);
         }
 
-        spinSql!(() @trusted {
-            auto t = ctx.state.get.db.transaction;
+        spinSql!(() {
+            auto t = ctx.state.db.transaction;
             statusUpdate(result);
             t.commit;
         });
@@ -1763,9 +1762,9 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
 
     static void save3(ref Ctx ctx, SchemaQ result) @safe nothrow {
         spinSql!(() @trusted {
-            auto t = ctx.state.get.db.transaction;
+            auto t = ctx.state.db.transaction;
             foreach (p; result.state.byKeyValue) {
-                ctx.state.get.db.schemaApi.saveMutantProbability(p.key, p.value, SchemaQ.MaxState);
+                ctx.state.db.schemaApi.saveMutantProbability(p.key, p.value, SchemaQ.MaxState);
                 debug logger.tracef("schemaq saving %s with %s values", p.key, p.value.length);
                 debug logger.trace(p.value);
             }
@@ -1774,11 +1773,9 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
         logger.trace("Saved schemaq").collectException;
     }
 
-    static void save4(ref Ctx ctx, SchemaSizeQ result) @safe nothrow {
+    static void save4(ref Ctx ctx, SchemaSizeQ result) @trusted nothrow {
         logger.trace("Saving schema size ", result.currentSize).collectException;
-        spinSql!(() @safe {
-            ctx.state.get.db.schemaApi.saveSchemaSize(result.currentSize);
-        });
+        spinSql!(() { ctx.state.db.schemaApi.saveSchemaSize(result.currentSize); });
     }
 
     static bool isDone(IsDone _) @safe nothrow {
@@ -1800,12 +1797,12 @@ auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {
         long worklistCount;
     }
 
-    auto st = tuple!("self", "state")(self, refCounted(State.init));
+    auto st = tuple!("self", "state")(self, safeRefCounted(State.init));
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath) nothrow {
         try {
-            ctx.state.get.db = spinSql!(() => Database.make(dbPath), silentLog)(dbOpenTimeout);
+            ctx.state.db = spinSql!(() => Database.make(dbPath), silentLog)(dbOpenTimeout);
             send(ctx.self, Tick.init);
         } catch (Exception e) {
             logger.error(e.msg).collectException;
@@ -1813,9 +1810,9 @@ auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {
         }
     }
 
-    static void tick(ref Ctx ctx, Tick _) @safe nothrow {
+    static void tick(ref Ctx ctx, Tick _) @trusted nothrow {
         try {
-            ctx.state.get.worklistCount = spinSql!(() => ctx.state.get.db.worklistApi.getCount,
+            ctx.state.worklistCount = spinSql!(() => ctx.state.db.worklistApi.getCount,
                     logger.trace);
             delayedSend(ctx.self, delay(30.dur!"seconds"), Tick.init);
         } catch (Exception e) {
@@ -1823,16 +1820,16 @@ auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {
         }
     }
 
-    static void unknownTested(ref Ctx ctx, UnknownMutantTested _, long tested) @safe nothrow {
-        ctx.state.get.worklistCount = max(0, ctx.state.get.worklistCount - tested);
+    static void unknownTested(ref Ctx ctx, UnknownMutantTested _, long tested) @trusted nothrow {
+        ctx.state.worklistCount = max(0, ctx.state.worklistCount - tested);
     }
 
     static void forceUpdate(ref Ctx ctx, ForceUpdate _) @safe nothrow {
         tick(ctx, Tick.init);
     }
 
-    static long left(ref Ctx ctx, GetMutantsLeft _) @safe nothrow {
-        return ctx.state.get.worklistCount;
+    static long left(ref Ctx ctx, GetMutantsLeft _) @trusted nothrow {
+        return ctx.state.worklistCount;
     }
 
     self.name = "stat";

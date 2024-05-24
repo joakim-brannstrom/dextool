@@ -58,7 +58,7 @@ import clang.c.Index;
  * (which gives the indexer the same performance benefit as the compiler).
  */
 struct Index {
-    import my.gc.refc;
+    import std.typecons : SafeRefCounted, safeRefCounted;
     import clang.Util;
 
     static private struct ContainIndex {
@@ -79,10 +79,10 @@ struct Index {
         }
     }
 
-    RefCounted!ContainIndex cx;
+    SafeRefCounted!ContainIndex cx;
 
-    ref ContainIndex get() @safe {
-        return cx.get;
+    ref ContainIndex get() @trusted {
+        return cx.refCountedPayload;
     }
 
     alias get this;

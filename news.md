@@ -4,6 +4,7 @@ Fixes
 
  * Bindings updated to support llvm-16 and 17.
  * Fix failed parsing of internal compiler flags when the console languages isn't English.
+ * Fix segfault with dmd-2.106.0+
  * Officially dropped support for llvm v4-13 because they are no longer tested
    by CI. They may or may not work.
 
