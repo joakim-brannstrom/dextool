@@ -6,4 +6,3 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module my.gc;
 
 public import my.gc.memfree;
-public import my.gc.refc;

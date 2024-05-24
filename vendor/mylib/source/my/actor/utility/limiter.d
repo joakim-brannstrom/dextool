@@ -19,12 +19,12 @@ the limier.
 module my.actor.utility.limiter;
 
 import std.array : empty;
-import std.typecons : Tuple, tuple;
+import std.typecons : Tuple, tuple, safeRefCounted, SafeRefCounted,
+    RefCountedAutoInitialize, borrow;
 
 import my.actor.actor;
 import my.actor.typed;
 import my.actor.msg;
-import my.gc.refc;
 
 /// A token of work.
 struct Token {
@@ -58,33 +58,33 @@ FlowControlActor.Impl spawnFlowControl(FlowControlActor.Impl self, const uint to
     }
 
     self.name = "limiter";
-    auto st = tuple!("self", "state")(self, refCounted(State(tokens)));
+    auto st = tuple!("self", "state")(self, safeRefCounted(State(tokens)));
     alias CT = typeof(st);
 
     static RequestResult!Token takeMsg(ref CT ctx, TakeTokenMsg) {
         typeof(return) rval;
 
-        if (ctx.state.get.tokens > 0) {
-            ctx.state.get.tokens--;
+        if (ctx.state.tokens > 0) {
+            ctx.state.tokens--;
             rval = typeof(return)(Token.init);
         } else {
             auto p = makePromise!Token;
-            ctx.state.get.takeReq ~= p;
+            ctx.state.takeReq ~= p;
             rval = typeof(return)(p);
         }
         return rval;
     }
 
     static void returnMsg(ref CT ctx, ReturnTokenMsg) {
-        ctx.state.get.tokens++;
+        ctx.state.tokens++;
         send(ctx.self, RefreshMsg.init);
     }
 
     static void refreshMsg(ref CT ctx, RefreshMsg) {
-        while (ctx.state.get.tokens > 0 && !ctx.state.get.takeReq.empty) {
-            ctx.state.get.tokens--;
-            ctx.state.get.takeReq[$ - 1].deliver(Token.init);
-            ctx.state.get.takeReq = ctx.state.get.takeReq[0 .. $ - 1];
+        while (ctx.state.tokens > 0 && !ctx.state.takeReq.empty) {
+            ctx.state.tokens--;
+            ctx.state.takeReq[$ - 1].deliver(Token.init);
+            ctx.state.takeReq = ctx.state.takeReq[0 .. $ - 1];
         }
 
         // extra caution to refresh in case something is missed.
@@ -122,35 +122,36 @@ unittest {
         }
 
         senders ~= sys.spawn((Actor* self) {
-            auto st = tuple!("self", "state")(self, refCounted(State(WeakAddress.init, limiter)));
+            auto st = tuple!("self", "state")(self,
+                safeRefCounted(State(WeakAddress.init, limiter)));
             alias CT = typeof(st);
 
             return build(self).set((ref CT ctx, WeakAddress recv) {
-                ctx.state.get.recv = recv;
+                ctx.state.recv = recv;
                 send(ctx.self.address, Tick.init);
             }, capture(st)).set((ref CT ctx, Tick _) {
-                ctx.self.request(ctx.state.get.limiter, infTimeout)
+                ctx.self.request(ctx.state.limiter, infTimeout)
                 .send(TakeTokenMsg.init).capture(ctx).then((ref CT ctx, Token t) {
                     send(ctx.self, Tick.init);
-                    send(ctx.state.get.recv, t, 42);
+                    send(ctx.state.recv, t, 42);
                 });
             }, capture(st)).finalize;
         });
     }
 
-    auto counter = refCounted(0);
+    auto counter = safeRefCounted(0);
     auto consumer = sys.spawn((Actor* self) {
         auto st = tuple!("self", "limiter", "count")(self, limiter, counter);
         alias CT = typeof(st);
 
         return impl(self, (ref CT ctx, Tick _) {
-            if (ctx.count.get == 100)
+            if (ctx.count == 100)
                 ctx.self.shutdown;
             else
                 delayedSend(ctx.self, delay(100.dur!"msecs"), Tick.init);
         }, capture(st), (ref CT ctx, Token t, int _) {
             delayedSend(ctx.limiter, delay(100.dur!"msecs"), ReturnTokenMsg.init);
-            ctx.count.get++;
+            ctx.count++;
             send(ctx.self, Tick.init);
         }, capture(st));
     });
@@ -163,11 +164,11 @@ unittest {
     foreach (s; senders)
         send(s, consumer);
 
-    while (counter.get < 100 && sw.peek < 4.dur!"seconds") {
+    while (counter < 100 && sw.peek < 4.dur!"seconds") {
         Thread.sleep(1.dur!"msecs");
     }
 
-    assert(counter.get >= 100);
+    assert(counter >= 100);
     // 40 tokens mean that it will trigger at least two "slowdown" which is at least 200 ms.
     assert(sw.peek > 200.dur!"msecs");
 }

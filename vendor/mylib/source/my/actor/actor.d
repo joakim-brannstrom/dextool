@@ -7,6 +7,7 @@ module my.actor.actor;
 
 import std.stdio : writeln, writefln;
 
+import core.sync.mutex : Mutex;
 import core.thread : Thread;
 import logger = std.experimental.logger;
 import std.algorithm : schwartzSort, max, min, among;
@@ -17,7 +18,8 @@ import std.functional : toDelegate;
 import std.meta : staticMap;
 import std.sumtype;
 import std.traits : Parameters, Unqual, ReturnType, isFunctionPointer, isFunction;
-import std.typecons : Tuple, tuple;
+import std.typecons : Tuple, tuple, safeRefCounted, SafeRefCounted,
+    RefCountedAutoInitialize, borrow;
 import std.variant : Variant;
 
 import my.actor.common : ExitReason, SystemError, makeSignature;
@@ -25,7 +27,6 @@ import my.actor.mailbox;
 import my.actor.msg;
 import my.actor.system : System;
 import my.actor.typed : isTypedAddress, isTypedActorImpl;
-import my.gc.refc;
 
 private struct PromiseData {
     WeakAddress replyTo;
@@ -43,7 +44,7 @@ private struct PromiseData {
 // deliver can only be called one time.
 struct Promise(T) {
     package {
-        RefCounted!PromiseData data;
+        SafeRefCounted!(PromiseData, RefCountedAutoInitialize.no) data;
     }
 
     void deliver(T reply) {
@@ -56,19 +57,19 @@ struct Promise(T) {
      * A promise can only be delivered once.
      */
     void deliver(ref T reply) @trusted
-    in (!data.empty, "promise must be initialized") {
-        if (data.empty)
+    in (data.refCountedStore.isInitialized, "promise must be initialized") {
+        if (!data.refCountedStore.isInitialized)
             return;
         scope (exit)
-            data.release;
+            data = typeof(data).init;
 
         // TODO: should probably call delivering actor with an ErrorMsg if replyTo is closed.
-        if (auto replyTo = data.get.replyTo.lock.get) {
+        if (auto replyTo = data.replyTo.lock.get) {
             enum wrapInTuple = !is(T : Tuple!U, U);
             static if (wrapInTuple)
-                replyTo.put(Reply(data.get.replyId, Variant(tuple(reply))));
+                replyTo.put(Reply(data.borrow!((ref a) => a.replyId), Variant(tuple(reply))));
             else
-                replyTo.put(Reply(data.get.replyId, Variant(reply)));
+                replyTo.put(Reply(data.borrow!((ref a) => a.replyId), Variant(reply)));
         }
     }
 
@@ -78,17 +79,17 @@ struct Promise(T) {
 
     /// True if the promise is not initialized.
     bool empty() {
-        return data.empty || data.get.replyId == 0;
+        return !data.refCountedStore.isInitialized || data.borrow!((ref a) => a.replyId) == 0;
     }
 
     /// Clear the promise.
     void clear() {
-        data.release;
+        data = typeof(data).init;
     }
 }
 
 auto makePromise(T)() {
-    return Promise!T(refCounted(PromiseData.init));
+    return Promise!T(safeRefCounted(PromiseData.init));
 }
 
 struct RequestResult(T) {
@@ -112,7 +113,7 @@ private alias RequestHandler = void delegate(void* ctx, ref Variant msg,
         ulong replyId, WeakAddress replyTo) @safe;
 private alias ReplyHandler = void delegate(void* ctx, ref Variant msg) @safe;
 
-alias DefaultHandler = void delegate(ref Actor self, ref Variant msg) @safe nothrow;
+alias DefaultHandler = void delegate(scope ref Actor self, ref Variant msg) @safe nothrow;
 
 /** Actors send error messages to others by returning an error (see Errors)
  * from a message handler. Similar to exit messages, error messages usually
@@ -120,7 +121,7 @@ alias DefaultHandler = void delegate(ref Actor self, ref Variant msg) @safe noth
  * installed. The default handler is used as fallback if request is used
  * without error handler.
  */
-alias ErrorHandler = void delegate(ref Actor self, ErrorMsg) @safe nothrow;
+alias ErrorHandler = void delegate(scope ref Actor self, scope ErrorMsg) @safe nothrow;
 
 /** Bidirectional monitoring with a strong lifetime coupling is established by
  * calling a `LinkRequest` to an address. This will cause the runtime to send
@@ -129,10 +130,10 @@ alias ErrorHandler = void delegate(ref Actor self, ErrorMsg) @safe nothrow;
  * This mechanism propagates failure states in an actor system. Linked actors
  * form a sub system in which an error causes all actors to fail collectively.
  */
-alias ExitHandler = void delegate(ref Actor self, ExitMsg msg) @safe nothrow;
+alias ExitHandler = void delegate(scope ref Actor self, scope ExitMsg msg) @safe nothrow;
 
 /// An exception has been thrown while processing a message.
-alias ExceptionHandler = void delegate(ref Actor self, scope Exception e) @safe nothrow;
+alias ExceptionHandler = void delegate(scope ref Actor self, scope Exception e) @safe nothrow;
 
 /** Actors can monitor the lifetime of other actors by sending a `MonitorRequest`
  * to an address. This will cause the runtime system to send a `DownMsg` for
@@ -140,13 +141,13 @@ alias ExceptionHandler = void delegate(ref Actor self, scope Exception e) @safe 
  *
  * Actors drop down messages unless they provide a custom handler.
  */
-alias DownHandler = void delegate(ref Actor self, DownMsg msg) @safe nothrow;
+alias DownHandler = void delegate(scope ref Actor self, scope DownMsg msg) @safe nothrow;
 
-void defaultHandler(ref Actor self, ref Variant msg) @safe nothrow {
+void defaultHandler(scope ref Actor self, ref Variant msg) @safe nothrow {
 }
 
 /// Write the name of the actor and the message type to the console.
-void logAndDropHandler(ref Actor self, ref Variant msg) @trusted nothrow {
+void logAndDropHandler(scope ref Actor self, ref Variant msg) @trusted nothrow {
     import std.stdio : writeln;
 
     try {
@@ -156,30 +157,31 @@ void logAndDropHandler(ref Actor self, ref Variant msg) @trusted nothrow {
     }
 }
 
-void defaultErrorHandler(ref Actor self, ErrorMsg msg) @safe nothrow {
+void defaultErrorHandler(scope ref Actor self, scope ErrorMsg msg) @safe nothrow {
     self.lastError = msg.reason;
     self.shutdown;
 }
 
-void defaultExitHandler(ref Actor self, ExitMsg msg) @safe nothrow {
+void defaultExitHandler(scope ref Actor self, scope ExitMsg msg) @safe nothrow {
     self.lastError = msg.reason;
     self.forceShutdown;
 }
 
-void defaultExceptionHandler(ref Actor self, scope Exception e) @safe nothrow {
+void defaultExceptionHandler(scope ref Actor self, scope Exception e) @safe nothrow {
     self.lastError = SystemError.runtimeError;
     // TODO: should log?
     self.forceShutdown;
 }
 
 // Write the name of the actor and the exception to stdout.
-void logExceptionHandler(ref Actor self, scope Exception e) @safe nothrow {
+void logExceptionHandler(scope ref Actor self, scope Exception e) @safe nothrow {
     import std.stdio : writeln;
 
     self.lastError = SystemError.runtimeError;
 
     try {
-        writeln("EXCEPTION thrown by actor ", self.name);
+        const name = self.name.idup;
+        writeln("EXCEPTION thrown by actor ", name);
         writeln(e.msg);
         writeln("TERMINATING");
     } catch (Exception e) {
@@ -222,6 +224,8 @@ struct Actor {
     package ActorState state_ = ActorState.stopped;
 
     private {
+        Mutex mtx;
+
         // TODO: rename to behavior.
         Closure!(MsgHandler, void*)[ulong] incoming;
         Closure!(RequestHandler, void*)[ulong] reqBehavior;
@@ -265,17 +269,18 @@ struct Actor {
         DefaultHandler defaultHandler_;
     }
 
-    invariant () {
-        if (addr && !state_.among(ActorState.waiting, ActorState.shutdown)) {
-            assert(errorHandler_);
-            assert(exitHandler_);
-            assert(exceptionHandler_);
-            assert(defaultHandler_);
-        }
-    }
+    // invariant () {
+    //     if (addr && !state_.among(ActorState.waiting, ActorState.shutdown)) {
+    //         assert(errorHandler_);
+    //         assert(exitHandler_);
+    //         assert(exceptionHandler_);
+    //         assert(defaultHandler_);
+    //     }
+    // }
 
     this(StrongAddress a) @trusted
     in (!a.empty, "address is empty") {
+        mtx = new Mutex();
         state_ = ActorState.waiting;
 
         addr = a;
@@ -306,7 +311,7 @@ struct Actor {
      * Stopping incoming messages from triggering new behavior and finish all
      * awaited respones.
      */
-    void shutdown() @safe nothrow {
+    void shutdown() @safe nothrow scope {
         if (state_.among(ActorState.waiting, ActorState.active))
             state_ = ActorState.shutdown;
     }
@@ -316,7 +321,7 @@ struct Actor {
      * Stopping incoming messages from triggering new behavior and finish all
      * awaited respones.
      */
-    void forceShutdown() @safe nothrow {
+    void forceShutdown() @safe nothrow scope {
         if (state_.among(ActorState.waiting, ActorState.active, ActorState.shutdown))
             state_ = ActorState.forceShutdown;
     }
@@ -326,34 +331,34 @@ struct Actor {
     }
 
     /// Returns: the name of the actor.
-    string name() @safe pure nothrow const @nogc {
+    string name() @safe pure nothrow const return scope {
         return name_;
     }
 
     // dfmt off
 
     /// Set name name of the actor.
-    void name(string n) @safe pure nothrow @nogc {
+    void name(string n) @safe pure nothrow @nogc scope {
         this.name_ = n;
     }
 
-    void errorHandler(ErrorHandler v) @safe pure nothrow @nogc {
+    void errorHandler(ErrorHandler v) @safe pure nothrow @nogc scope {
         errorHandler_ = v;
     }
 
-    void downHandler(DownHandler v) @safe pure nothrow @nogc {
+    void downHandler(DownHandler v) @safe pure nothrow @nogc scope {
         downHandler_ = v;
     }
 
-    void exitHandler(ExitHandler v) @safe pure nothrow @nogc {
+    void exitHandler(ExitHandler v) @safe pure nothrow @nogc scope {
         exitHandler_ = v;
     }
 
-    void exceptionHandler(ExceptionHandler v) @safe pure nothrow @nogc {
+    void exceptionHandler(ExceptionHandler v) @safe pure nothrow @nogc scope {
         exceptionHandler_ = v;
     }
 
-    void defaultHandler(DefaultHandler v) @safe pure nothrow @nogc {
+    void defaultHandler(DefaultHandler v) @safe pure nothrow @nogc scope {
         defaultHandler_ = v;
     }
 
@@ -361,7 +366,13 @@ struct Actor {
 
 package:
     bool hasMessage() @safe pure nothrow @nogc {
-        return addr && addr.get.hasMessage;
+        try {
+            synchronized (mtx) {
+                return (cast() addr) && addr.get.hasMessage;
+            }
+        } catch (Exception e) {
+        }
+        return false;
     }
 
     /// How long until a delayed message or a timeout fires.
@@ -383,7 +394,7 @@ package:
         homeSystem_ = sys;
     }
 
-    void cleanupBehavior() @trusted nothrow {
+    void cleanupBehavior() @trusted nothrow scope {
         foreach (ref a; incoming.byValue) {
             try {
                 a.free;
@@ -401,7 +412,7 @@ package:
         reqBehavior = null;
     }
 
-    void cleanupAwait() @trusted nothrow {
+    void cleanupAwait() @trusted nothrow scope {
         foreach (ref a; awaitedResponses.byValue) {
             try {
                 a.behavior.free;
@@ -411,7 +422,7 @@ package:
         awaitedResponses = null;
     }
 
-    void cleanupDelayed() @trusted nothrow {
+    void cleanupDelayed() @trusted nothrow scope {
         foreach (const _; 0 .. delayed.length) {
             try {
                 delayed.front.msg = Msg.init;
@@ -422,7 +433,7 @@ package:
         .destroy(delayed);
     }
 
-    bool isAlive() @safe pure nothrow const @nogc {
+    bool isAlive() @safe pure nothrow const @nogc scope {
         final switch (state_) {
         case ActorState.waiting:
             goto case;
@@ -440,7 +451,7 @@ package:
     }
 
     /// Accepting messages.
-    bool isAccepting() @safe pure nothrow const @nogc {
+    bool isAccepting() @safe pure nothrow const @nogc scope {
         final switch (state_) {
         case ActorState.waiting:
             goto case;
@@ -461,14 +472,14 @@ package:
         return nextReplyId++;
     }
 
-    void process(const SysTime now) @safe nothrow {
+    void process(const SysTime now) @safe nothrow scope {
         import core.memory : GC;
 
         assert(!GC.inFinalizer);
 
         messages_ = 0;
 
-        void tick() {
+        void tick() @safe scope {
             // philosophy of the order is that a timeout should only trigger if it
             // is really required thus it is checked last. This order then mean
             // that a request may have triggered a timeout but because
@@ -536,7 +547,7 @@ package:
         }
     }
 
-    void sendToMonitors(DownMsg msg) @safe nothrow {
+    void sendToMonitors(scope DownMsg msg) @safe nothrow scope {
         foreach (ref a; monitors.byValue) {
             try {
                 auto tmp = a.lock;
@@ -551,7 +562,7 @@ package:
         monitors = null;
     }
 
-    void sendToLinks(ExitMsg msg) @safe nothrow {
+    void sendToLinks(scope ExitMsg msg) @safe nothrow scope {
         foreach (ref a; links.byValue) {
             try {
                 auto tmp = a.lock;
@@ -566,7 +577,7 @@ package:
         links = null;
     }
 
-    void checkReplyTimeout(const SysTime now) @safe {
+    void checkReplyTimeout(const SysTime now) @safe scope {
         if (replyTimeouts.empty)
             return;
 
@@ -596,7 +607,7 @@ package:
         }
     }
 
-    void processIncoming() @safe {
+    void processIncoming() @safe scope {
         if (addr.get.empty!Msg)
             return;
         messages_++;
@@ -638,7 +649,7 @@ package:
      *    and limited. Other types of input such as a developer trying to break
      *    the actor system is out of scope.
      */
-    void processSystemMsg() @safe {
+    void processSystemMsg() @safe scope {
         //() @trusted {
         //logger.infof("run %X", cast(void*) &this);
         //}();
@@ -685,7 +696,7 @@ package:
         }
     }
 
-    void processReply() @safe {
+    void processReply() @safe scope {
         if (addr.get.empty!Reply)
             return;
         messages_++;
@@ -709,7 +720,7 @@ package:
         }
     }
 
-    void processDelayed(const SysTime now) @trusted {
+    void processDelayed(const SysTime now) @trusted scope {
         if (!addr.get.empty!DelayedMsg) {
             // count as a message because handling them are "expensive".
             // Ignoring the case that the message right away is moved to the
@@ -731,7 +742,7 @@ package:
         }
     }
 
-    private void removeReplyTimeout(ulong id) @safe nothrow {
+    private void removeReplyTimeout(ulong id) @trusted nothrow scope {
         import std.algorithm : remove;
 
         foreach (const i; 0 .. replyTimeouts.length) {
@@ -893,7 +904,7 @@ package auto makeAction(T, CtxT = void)(T handler) @safe
     else {
         alias CtxParam = Parameters!T[0];
         alias Params = Parameters!T[1 .. $];
-        checkMatchingCtx!(CtxParam, CtxT);
+        // checkMatchingCtx!(CtxParam, CtxT);
         checkRefForContext!handler;
     }
 
@@ -917,7 +928,7 @@ package Closure!(ReplyHandler, void*) makeReply(T, CtxT)(T handler) @safe {
     else {
         alias CtxParam = Parameters!T[0];
         alias Params = Parameters!T[1 .. $];
-        checkMatchingCtx!(CtxParam, CtxT);
+        // checkMatchingCtx!(CtxParam, CtxT);
         checkRefForContext!handler;
     }
 
@@ -979,7 +990,7 @@ package auto makeRequest(T, CtxT = void)(T handler) @safe {
     else {
         alias CtxParam = Parameters!T[0];
         alias Params = Parameters!T[1 .. $];
-        checkMatchingCtx!(CtxParam, CtxT);
+        // checkMatchingCtx!(CtxParam, CtxT);
         checkRefForContext!handler;
     }
 
@@ -995,9 +1006,10 @@ package auto makeRequest(T, CtxT = void)(T handler) @safe {
 
         static if (isReqResult) {
             r.value.match!((ErrorMsg a) { sendSystemMsg(replyTo, a); }, (Promise!ReqT a) {
-                assert(!a.data.empty, "the promise MUST be constructed before it is returned");
-                a.data.get.replyId = replyId;
-                a.data.get.replyTo = replyTo;
+                assert(a.data.refCountedStore.isInitialized,
+                    "the promise MUST be constructed before it is returned");
+                a.data.borrow!((ref a) => a.replyId = replyId);
+                a.data.borrow!((ref a) => a.replyTo = replyTo);
             }, (data) {
                 enum wrapInTuple = !is(typeof(data) : Tuple!U, U);
                 if (auto rc = replyTo.lock.get) {
@@ -1008,8 +1020,8 @@ package auto makeRequest(T, CtxT = void)(T handler) @safe {
                 }
             });
         } else static if (isPromise) {
-            r.data.get.replyId = replyId;
-            r.data.get.replyTo = replyTo;
+            r.data.replyId = replyId;
+            r.data.replyTo = replyTo;
         } else {
             // TODO: is this syntax for U one variable or variable. I want it to be variable.
             enum wrapInTuple = !is(RType : Tuple!U, U);
@@ -1246,32 +1258,32 @@ unittest {
 @system unittest {
     // checking capture is correctly setup/teardown by using captured rc.
 
-    auto rcReq = refCounted(42);
+    auto rcReq = safeRefCounted(42);
     bool calledOk;
-    static string fn(ref Tuple!(bool*, "calledOk", RefCounted!int) ctx, const string s,
-            const string b) {
-        assert(2 == ctx[1].refCount);
+    static string fn(ref Tuple!(bool*, "calledOk", SafeRefCounted!int) ctx,
+            const string s, const string b) {
+        assert(2 == ctx[1].refCountedStore.refCount);
         if (s == "apa")
             *ctx.calledOk = true;
         return "foo";
     }
 
-    auto rcReply = refCounted(42);
+    auto rcReply = safeRefCounted(42);
     bool calledReply;
-    static void reply(ref Tuple!(bool*, RefCounted!int) ctx, const string s) {
+    static void reply(ref Tuple!(bool*, SafeRefCounted!int) ctx, const string s) {
         *ctx[0] = s == "foo";
-        assert(2 == ctx[1].refCount);
+        assert(2 == ctx[1].refCountedStore.refCount);
     }
 
     auto aa1 = Actor(makeAddress2);
     auto actor = build(&aa1).set(&fn, capture(&calledOk, rcReq)).finalize;
 
-    assert(2 == rcReq.refCount);
-    assert(1 == rcReply.refCount);
+    assert(2 == rcReq.refCountedStore.refCount);
+    assert(1 == rcReply.refCountedStore.refCount);
 
     actor.request(actor.address, infTimeout).send("apa", "foo")
         .capture(&calledReply, rcReply).then(&reply);
-    assert(2 == rcReply.refCount);
+    assert(2 == rcReply.refCountedStore.refCount);
 
     assert(!actor.addr.get.empty!Msg);
     assert(actor.addr.get.empty!Reply);
@@ -1280,8 +1292,9 @@ unittest {
     assert(actor.addr.get.empty!Msg);
     assert(actor.addr.get.empty!Reply);
 
-    assert(2 == rcReq.refCount);
-    assert(1 == rcReply.refCount, "after the message is consumed the refcount should go back");
+    assert(2 == rcReq.refCountedStore.refCount);
+    assert(1 == rcReply.refCountedStore.refCount,
+            "after the message is consumed the refcount should go back");
 
     assert(calledOk);
     assert(calledReply);
@@ -1381,49 +1394,48 @@ struct ScopedActor {
     import my.actor.typed : underlyingAddress, underlyingWeakAddress;
 
     private {
-        static struct Data {
-            Actor self;
-            ScopedActorError errSt;
-
-            ~this() @safe {
-                if (self.addr.empty)
-                    return;
-
-                () @trusted {
-                    self.downHandler = null;
-                    self.defaultHandler = toDelegate(&.defaultHandler);
-                    self.errorHandler = toDelegate(&defaultErrorHandler);
-                }();
-
-                self.shutdown;
-                while (self.isAlive) {
-                    self.process(Clock.currTime);
-                }
-            }
-        }
-
-        RefCounted!Data data;
+        Actor actor;
+        ScopedActorError errSt;
     }
 
     this(StrongAddress addr, string name) @safe {
-        data = refCounted(Data(Actor(addr)));
-        data.get.self.name = name;
+        actor = Actor(addr);
+        actor.name = name;
     }
 
-    private void reset() @safe nothrow {
-        data.get.errSt = ScopedActorError.none;
+    ~this() @safe {
+        if (actor.addr.empty)
+            return;
+
+        () @trusted {
+            actor.downHandler = null;
+            actor.defaultHandler = toDelegate(&.defaultHandler);
+            actor.errorHandler = toDelegate(&defaultErrorHandler);
+        }();
+
+        actor.shutdown;
+        while (actor.isAlive) {
+            actor.process(Clock.currTime);
+        }
     }
 
-    SRequestSend request(TAddress)(TAddress requestTo, SysTime timeout)
+    @disable this(this);
+
+    private void reset() @safe {
+        errSt = ScopedActorError.none;
+    }
+
+    SRequestSend request(TAddress)(scope TAddress requestTo, SysTime timeout) @safe
             if (isAddress!TAddress) {
         reset;
-        auto rs = .request(&data.get.self, underlyingWeakAddress(requestTo), timeout);
-        return SRequestSend(rs, this);
+        auto rs = .request(() @trusted { return &actor; }(),
+                underlyingWeakAddress(requestTo), timeout);
+        return SRequestSend(() @trusted { return rs; }(), &this);
     }
 
     private static struct SRequestSend {
         RequestSend rs;
-        ScopedActor self;
+        ScopedActor* self;
 
         /// Copy constructor
         this(ref return typeof(this) rhs) @safe pure nothrow @nogc {
@@ -1431,16 +1443,19 @@ struct ScopedActor {
             self = rhs.self;
         }
 
+        ~this() scope @safe {
+        }
+
         @disable this(this);
 
-        SRequestSendThen send(Args...)(auto ref Args args) {
+        SRequestSendThen send(Args...)(auto ref Args args) return scope @trusted {
             return SRequestSendThen(.send(rs, args), self);
         }
     }
 
     private static struct SRequestSendThen {
         RequestSendThen rs;
-        ScopedActor self;
+        ScopedActor* self;
         uint backoff;
 
         /// Copy constructor
@@ -1450,9 +1465,12 @@ struct ScopedActor {
             backoff = rhs.backoff;
         }
 
+        ~this() scope {
+        }
+
         @disable this(this);
 
-        void dynIntervalSleep() @trusted {
+        void dynIntervalSleep() scope @trusted {
             // +100 usecs "feels good", magic number. current OS and
             // implementation of message passing isn't that much faster than
             // 100us. A bit slow behavior, ehum, for a scoped actor is OK. They
@@ -1462,42 +1480,51 @@ struct ScopedActor {
         }
 
         private static struct ValueCapture {
-            RefCounted!Data data;
+            ScopedActor* self;
 
-            void downHandler(ref Actor, DownMsg) @safe nothrow {
-                data.get.errSt = ScopedActorError.down;
+            void downHandler(scope ref Actor, scope DownMsg) @safe nothrow {
+                try {
+                    self.errSt = ScopedActorError.down;
+                } catch (Exception e) {
+                }
             }
 
-            void errorHandler(ref Actor, ErrorMsg msg) @safe nothrow {
-                if (msg.reason == SystemError.requestTimeout)
-                    data.get.errSt = ScopedActorError.timeout;
-                else
-                    data.get.errSt = ScopedActorError.fatal;
+            void errorHandler(scope ref Actor, scope ErrorMsg msg) @safe nothrow {
+                try {
+                    if (msg.reason == SystemError.requestTimeout)
+                        self.errSt = ScopedActorError.timeout;
+                    else
+                        self.errSt = ScopedActorError.fatal;
+                } catch (Exception e) {
+                }
             }
 
-            void unknownMsgHandler(ref Actor a, ref Variant msg) @safe nothrow {
+            void unknownMsgHandler(scope ref Actor a, ref Variant msg) @safe nothrow {
                 logAndDropHandler(a, msg);
-                data.get.errSt = ScopedActorError.unknownMsg;
+                try {
+                    self.errSt = ScopedActorError.unknownMsg;
+                } catch (Exception e) {
+                }
             }
         }
 
-        void then(T)(T handler, ErrorHandler onError = null) {
+        void then(T)(T handler, ErrorHandler onError = null) scope @safe {
             scope (exit)
                 demonitor(rs.rs.self, rs.rs.requestTo);
             monitor(rs.rs.self, rs.rs.requestTo);
 
-            auto callback = new ValueCapture(self.data);
-            self.data.get.self.downHandler = &callback.downHandler;
-            self.data.get.self.defaultHandler = &callback.unknownMsgHandler;
-            self.data.get.self.errorHandler = &callback.errorHandler;
+            auto callback = new ValueCapture(() @trusted { return self; }());
+            self.actor.downHandler = &callback.downHandler;
+            self.actor.defaultHandler = &callback.unknownMsgHandler;
+            self.actor.errorHandler = &callback.errorHandler;
 
             () @trusted { .thenUnsafe!(T, void)(rs, handler, null, onError); }();
 
             scope (exit)
                 () @trusted {
-                self.data.get.self.downHandler = null;
-                self.data.get.self.defaultHandler = toDelegate(&.defaultHandler);
-                self.data.get.self.errorHandler = toDelegate(&defaultErrorHandler);
+                self.actor.downHandler = null;
+                self.actor.defaultHandler = toDelegate(&.defaultHandler);
+                self.actor.errorHandler = toDelegate(&defaultErrorHandler);
             }();
 
             auto requestTo = rs.rs.requestTo.lock;
@@ -1511,14 +1538,14 @@ struct ScopedActor {
                 // force the actor to be alive even though there are no behaviors.
                 rs.rs.self.state_ = ActorState.waiting;
 
-                if (self.data.get.errSt == ScopedActorError.none) {
+                if (self.errSt == ScopedActorError.none) {
                     dynIntervalSleep;
                 } else {
-                    throw new ScopedActorException(self.data.get.errSt);
+                    throw new ScopedActorException(self.errSt);
                 }
 
             }
-            while (self.data.get.self.waitingForReply);
+            while (self.actor.waitingForReply);
         }
     }
 }

@@ -12,7 +12,6 @@ import std.sumtype;
 import std.variant : Variant;
 
 import my.actor.common;
-import my.gc.refc;
 public import my.actor.system_msg;
 
 struct MsgOneShot {
@@ -206,7 +205,7 @@ struct Address {
 struct WeakAddress {
     private Address* addr;
 
-    StrongAddress lock() @safe nothrow @nogc {
+    StrongAddress lock() scope @trusted nothrow @nogc {
         return StrongAddress(addr);
     }
 
@@ -234,15 +233,13 @@ struct WeakAddress {
 /** Messages can be sent to a strong address.
  */
 struct StrongAddress {
-    package {
-        Address* addr;
-    }
+    package Address* addr;
 
     private this(Address* addr) @safe nothrow @nogc {
         this.addr = addr;
     }
 
-    void release() @safe nothrow @nogc {
+    void release() @safe nothrow @nogc scope {
         addr = null;
     }
 
@@ -262,15 +259,15 @@ struct StrongAddress {
         return cast(bool) addr;
     }
 
-    bool empty() @safe pure nothrow const @nogc {
+    bool empty() @safe pure nothrow const @nogc scope {
         return addr is null;
     }
 
-    WeakAddress weakRef() @safe nothrow {
+    WeakAddress weakRef() @safe nothrow return scope {
         return WeakAddress(addr);
     }
 
-    package Address* get() @safe pure nothrow @nogc return {
+    package Address* get() return scope @safe pure nothrow @nogc {
         return addr;
     }
 }
