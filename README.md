@@ -160,6 +160,7 @@ The following variables are defined:
 * LIBLLVM_CXX_EXTRA_FLAGS   - extra flags to use when build C++ code using LLVM
 * LIBLLVM_FLAGS             - the required flags by llvm-d such as version
 * LIBLLVM_LIBS              - the required libraries for linking LLVM
+* LIBCLANG_INC              - the libclang-c headers such as Index.h
 
 Lets say you have version `8.0.1` of LLVM installed but llvm-config returns
 `0.0.0`. `introspect_llvm.d` will in this case fail to detect the version of
@@ -190,6 +191,8 @@ is in `$PATH`.
 # use llvm-config --libs and llvm-config --system-libs to find all libraries to link with.
 # all those that are prefixed with libLLVM.
 -DLIBLLVM_LIBS="-lLLVMXRay -lLLVMTextApi /*and maaaany more or just one depending on how you have installed LLVM*/"
+# where the libclang-c headers are located
+-DLIBCLANG_INC=""
 ```
 
 #### SQLite link or missing
