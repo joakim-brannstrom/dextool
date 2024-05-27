@@ -35,7 +35,6 @@ import std.typecons : Nullable, Flag, No;
 import d2sqlite3 : SqlDatabase = Database;
 import miniorm : Miniorm, select, insert, insertOrReplace, delete_,
     insertOrIgnore, toSqliteDateTime, fromSqLiteDateTime, Bind;
-import my.gc.refc;
 import my.named_type;
 import my.optional;
 import my.set;

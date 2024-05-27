@@ -17,12 +17,12 @@ apt search clang-
 apt search libclang-
 ```
 
-You should see for example `libclang-15-dev`.
+You should see for example `libclang-18-dev`.
 
 **Step 3:** Install the dependencies:
 
 ```
-sudo apt install build-essential cmake llvm-15 llvm-15-dev clang-15 libclang-15-dev libsqlite3-dev
+sudo apt install build-essential cmake llvm-18 llvm-18-dev clang-18 libclang-18-dev libsqlite3-dev
 ```
 
 **Step 4:** Install the D compiler:

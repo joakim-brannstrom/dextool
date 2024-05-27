@@ -46,7 +46,7 @@ struct TranslationUnit {
         // Trusted: on the assumption that the LLVM team are competent. That
         // any problems that exist would have been found by now.
         auto p = clang_parseTranslationUnit(
-                                       index.cx.get,
+                                       index.cx,
                                        sourceFilename.toStringz,
                                        strToCArray(commandLineArgs),
                                        cast(int) commandLineArgs.length,

@@ -13,57 +13,23 @@ import std.algorithm : filter, count, joiner, map;
 import std.array : appender, empty, array;
 import std.exception : collectException;
 import std.stdio : File, fileno, writeln;
-import std.typecons : Flag, Yes;
+import std.typecons : Flag, Yes, SafeRefCounted, safeRefCounted, RefCountedAutoInitialize, borrow;
 static import std.process;
 static import std.stdio;
 
-import my.gc.refc;
 import my.from_;
 import my.path;
 import my.named_type;
 
+import std.stdio;
+
 public import proc.channel;
 public import proc.pid;
+
 // public import proc.tty;
 
 version (unittest) {
     import std.file : remove;
-}
-
-/** Manage a process by reference counting so that it is terminated when the it
- * stops being used such as the instance going out of scope.
- */
-auto rcKill(T)(T p, int signal = SIGKILL) {
-    return ScopeKill!T(p, signal);
-}
-
-// backward compatibility.
-alias scopeKill = rcKill;
-
-struct ScopeKill(T) {
-    private {
-        static struct Payload {
-            T process;
-            int signal = SIGKILL;
-            bool hasProcess;
-
-            ~this() @safe {
-                if (hasProcess)
-                    process.dispose();
-            }
-        }
-
-        RefCounted!Payload payload_;
-    }
-
-    alias process this;
-    ref T process() {
-        return payload_.get.process;
-    }
-
-    this(T process, int signal) @safe {
-        payload_ = refCounted(Payload(process, signal, true));
-    }
 }
 
 /// Async process wrapper for a std.process SpawnProcess
@@ -98,7 +64,7 @@ struct SpawnProcess {
     }
 
     /// Kill and cleanup the process.
-    void dispose() @safe {
+    void dispose() scope @safe {
         final switch (st) {
         case State.running:
             this.kill;
@@ -119,7 +85,7 @@ struct SpawnProcess {
      * Param:
      *  signal = a signal from `core.sys.posix.signal`
      */
-    void kill(int signal = SIGKILL) nothrow @trusted {
+    void kill(int signal = SIGKILL) scope nothrow @trusted {
         final switch (st) {
         case State.running:
             break;
@@ -139,7 +105,7 @@ struct SpawnProcess {
 
     /// Blocking wait for the process to terminated.
     /// Returns: the exit status.
-    int wait() @safe {
+    int wait() scope @trusted {
         final switch (st) {
         case State.running:
             status_ = std.process.wait(process);
@@ -158,7 +124,7 @@ struct SpawnProcess {
 
     /// Non-blocking wait for the process termination.
     /// Returns: `true` if the process has terminated.
-    bool tryWait() @safe {
+    bool tryWait() scope @trusted {
         final switch (st) {
         case State.running:
             auto s = std.process.tryWait(process);
@@ -244,22 +210,22 @@ struct PipeProcess {
     }
 
     /// Access to stdout.
-    ref FileWriteChannel stdin() nothrow @safe return {
+    ref FileWriteChannel stdin() @safe nothrow return {
         return stdin_;
     }
 
     /// Access to stdout.
-    ref FileReadChannel stdout() nothrow @safe return {
+    ref FileReadChannel stdout() @safe nothrow return {
         return stdout_;
     }
 
     /// Access stderr.
-    ref FileReadChannel stderr() nothrow @safe return {
+    ref FileReadChannel stderr() @safe nothrow return {
         return stderr_;
     }
 
     /// Kill and cleanup the process.
-    void dispose() @safe {
+    void dispose() scope @trusted {
         final switch (st) {
         case State.running:
             this.kill;
@@ -282,7 +248,7 @@ struct PipeProcess {
      * Param:
      *  signal = a signal from `core.sys.posix.signal`
      */
-    void kill(int signal = SIGKILL) nothrow @trusted {
+    void kill(int signal = SIGKILL) scope nothrow @trusted {
         final switch (st) {
         case State.running:
             break;
@@ -302,7 +268,7 @@ struct PipeProcess {
 
     /// Blocking wait for the process to terminated.
     /// Returns: the exit status.
-    int wait() @safe {
+    int wait() scope @trusted {
         final switch (st) {
         case State.running:
             status_ = std.process.wait(pid);
@@ -449,7 +415,7 @@ PipeProcess pipeShell(scope const(char)[] command,
         }
     }
 
-    void dispose() @safe {
+    void dispose() scope @safe {
         // this also reaps the children thus cleaning up zombies
         this.kill;
         p.dispose;
@@ -486,6 +452,10 @@ PipeProcess pipeShell(scope const(char)[] command,
 
     bool terminated() @safe {
         return p.terminated;
+    }
+
+    ref auto process() @trusted {
+        return p;
     }
 }
 
@@ -547,21 +517,22 @@ sleep 10m
             Reply backgroundReply;
         }
 
-        RefCounted!Payload rc;
+        SafeRefCounted!Payload rc;
     }
 
     this(ProcessT p, Duration timeout) @trusted {
         import std.algorithm : move;
 
         auto pid = p.osHandle;
-        rc = refCounted(Payload(move(p), pid));
-        rc.get.background = new Background(&rc.get.p, timeout);
-        rc.get.background.isDaemon = true;
-        rc.get.background.start;
+        rc = safeRefCounted(Payload(move(p), pid));
+        rc.background = new Background(&rc.p, timeout);
+        rc.background.isDaemon = true;
+        rc.background.start;
     }
 
     ~this() @trusted {
-        rc.release;
+        .destroy(rc.background);
+        rc = typeof(rc).init;
     }
 
     private static class Background : Thread {
@@ -684,34 +655,34 @@ sleep 10m
     }
 
     RawPid osHandle() nothrow @trusted {
-        return rc.get.pid;
+        return rc.pid;
     }
 
     static if (__traits(hasMember, ProcessT, "stdin")) {
-        ref FileWriteChannel stdin() nothrow @safe {
-            return rc.get.p.stdin;
+        ref FileWriteChannel stdin() nothrow @trusted {
+            return rc.p.stdin;
         }
     }
 
     static if (__traits(hasMember, ProcessT, "stdout")) {
-        ref FileReadChannel stdout() nothrow @safe {
-            return rc.get.p.stdout;
+        ref FileReadChannel stdout() nothrow @trusted {
+            return rc.p.stdout;
         }
     }
 
     static if (__traits(hasMember, ProcessT, "stderr")) {
         ref FileReadChannel stderr() nothrow @trusted {
-            return rc.get.p.stderr;
+            return rc.p.stderr;
         }
     }
 
-    void dispose() @trusted {
-        if (rc.get.backgroundReply.among(Reply.none, Reply.running)) {
-            rc.get.background.put(Msg.stop);
-            rc.get.background.join;
-            rc.get.backgroundReply = rc.get.background.reply;
+    void dispose() scope @trusted {
+        if (rc.backgroundReply.among(Reply.none, Reply.running)) {
+            rc.background.put(Msg.stop);
+            rc.background.join;
+            rc.backgroundReply = rc.background.reply;
         }
-        rc.get.p.dispose;
+        rc.p.dispose;
     }
 
     /** Send `signal` to the process.
@@ -720,35 +691,39 @@ sleep 10m
      *  signal = a signal from `core.sys.posix.signal`
      */
     void kill(int signal = SIGKILL) nothrow @trusted {
-        rc.get.background.setSignal(signal);
-        rc.get.background.kill();
+        rc.background.setSignal(signal);
+        rc.background.kill();
     }
 
     int wait() @trusted {
         while (!this.tryWait) {
             Thread.sleep(20.dur!"msecs");
         }
-        return rc.get.p.wait;
+        return rc.p.wait;
     }
 
     bool tryWait() @trusted {
-        return rc.get.p.tryWait;
+        return rc.p.tryWait;
     }
 
     int status() @trusted {
-        return rc.get.p.status;
+        return rc.p.status;
     }
 
     bool terminated() @trusted {
-        return rc.get.p.terminated;
+        return rc.p.terminated;
+    }
+
+    ref auto process() @trusted {
+        return rc.p;
     }
 
     bool timeoutTriggered() @trusted {
-        if (rc.get.backgroundReply.among(Reply.none, Reply.running)) {
-            rc.get.background.put(Msg.status);
-            rc.get.backgroundReply = rc.get.background.reply;
+        if (rc.backgroundReply.among(Reply.none, Reply.running)) {
+            rc.background.put(Msg.status);
+            rc.backgroundReply = rc.background.reply;
         }
-        return rc.get.backgroundReply == Reply.killedByTimeout;
+        return rc.backgroundReply == Reply.killedByTimeout;
     }
 }
 
@@ -1266,12 +1241,12 @@ Address[AbsolutePath] parseLddOutput(T)(T input) if (std_.range.isInputRange!T) 
 @("shall parse the output of ldd")
 unittest {
     auto res = parseLddOutput([
-            "linux-vdso.so.1 =>  (0x00007fffbf5fe000)",
-            "libtinfo.so.5 => /lib/x86_64-linux-gnu/libtinfo.so.5 (0x00007fe28117f000)",
-            "libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007fe280f7b000)",
-            "libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fe280bb4000)",
-            "/lib64/ld-linux-x86-64.so.2 (0x00007fe2813dd000)"
-            ]);
+        "linux-vdso.so.1 =>  (0x00007fffbf5fe000)",
+        "libtinfo.so.5 => /lib/x86_64-linux-gnu/libtinfo.so.5 (0x00007fe28117f000)",
+        "libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007fe280f7b000)",
+        "libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fe280bb4000)",
+        "/lib64/ld-linux-x86-64.so.2 (0x00007fe2813dd000)"
+    ]);
     assert(res.length == 3);
     assert(res[AbsolutePath("/lib/x86_64-linux-gnu/libtinfo.so.5")].get == 140610805166080);
 }

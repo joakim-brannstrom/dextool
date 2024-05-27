@@ -1,4 +1,4 @@
-FROM ubuntu:lunar
+FROM ubuntu:noble
 MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
 
 RUN apt-get update && \
@@ -7,7 +7,7 @@ RUN apt-get update && \
         git \
         sqlite3 libsqlite3-dev \
         make cmake ninja-build \
-        llvm-15 llvm-15-dev clang-15 libclang-15-dev
+        llvm-18 llvm-18-dev clang-18 libclang-18-dev
 
 RUN apt-get -y --no-install-recommends install \
         gcc g++ \

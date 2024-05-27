@@ -25,7 +25,5 @@ jobs:
         TEST_GROUP: dmd-ubuntu-latest-test
       ldc-ubuntu-latest-dub:
         TEST_GROUP: ldc-ubuntu-latest-dub
-      ldc-centos8-min-release:
-        TEST_GROUP: ldc-centos8-min-release
       ldc-fedora-latest-release:
         TEST_GROUP: ldc-fedora-latest-release

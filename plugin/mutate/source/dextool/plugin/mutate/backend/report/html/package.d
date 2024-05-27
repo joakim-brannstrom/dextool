@@ -19,14 +19,13 @@ import std.functional : toDelegate;
 import std.path : buildPath, baseName, relativePath;
 import std.range : only;
 import std.stdio : File;
-import std.typecons : tuple, Tuple;
+import std.typecons : tuple, Tuple, safeRefCounted, SafeRefCounted, borrow;
 import std.utf : toUTF8, byChar;
 import std.conv;
 
 import arsd.dom : Document, Element, require, Table, RawSource, Link;
 import my.actor;
 import my.actor.utility.limiter;
-import my.gc.refc;
 import my.optional;
 import my.set;
 
@@ -962,36 +961,35 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
         FileCtx ctx;
     }
 
-    auto st = tuple!("self", "state", "fio")(self, refCounted(State(conf,
+    auto st = tuple!("self", "state", "fio")(self, safeRefCounted(State(conf,
             flowCtrl, collector, fr)), fio.dup);
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, InitMsg, AbsolutePath dbPath, AbsolutePath logFilesDir) @trusted {
-        ctx.state.get.db = Database.make(dbPath);
+        ctx.state.db = Database.make(dbPath);
         send(ctx.self, logFilesDir);
     }
 
-    static void start(ref Ctx ctx, AbsolutePath logFilesDir) @safe nothrow {
+    static void start(ref Ctx ctx, AbsolutePath logFilesDir) @trusted nothrow {
         import dextool.plugin.mutate.backend.report.html.utility : pathToHtml;
 
         try {
-            const original = ctx.state.get.fileRow.file.idup.pathToHtml;
+            const original = ctx.state.borrow!(a => a.fileRow.file.idup.pathToHtml);
             const report = (original ~ HtmlStyle.ext).Path;
-            ctx.state.get.reportFile = report;
+            ctx.state.reportFile = report;
 
             const out_path = buildPath(logFilesDir, report).Path.AbsolutePath;
 
             auto raw = ctx.fio.makeInput(AbsolutePath(buildPath(ctx.fio.getOutputDir,
-                    ctx.state.get.fileRow.file)));
+                    ctx.state.fileRow.file)));
 
-            auto tc_info = spinSql!(() => ctx.state.get.db.testCaseApi.getAllTestCaseInfo2(
-                    ctx.state.get.fileRow.id));
+            auto tc_info = spinSql!(
+                    () => ctx.state.db.testCaseApi.getAllTestCaseInfo2(ctx.state.fileRow.id));
 
-            ctx.state.get.ctx = FileCtx.make(original, ctx.state.get.fileRow.id, raw, tc_info);
-            ctx.state.get.ctx.processFile = ctx.state.get.fileRow.file;
-            ctx.state.get.ctx.out_ = File(out_path, "w");
-            ctx.state.get.ctx.span = Spanner(tokenize(ctx.fio.getOutputDir,
-                    ctx.state.get.fileRow.file));
+            ctx.state.ctx = FileCtx.make(original, ctx.state.fileRow.id, raw, tc_info);
+            ctx.state.ctx.processFile = ctx.state.fileRow.file;
+            ctx.state.ctx.out_ = File(out_path, "w");
+            ctx.state.ctx.span = Spanner(tokenize(ctx.fio.getOutputDir, ctx.state.fileRow.file));
 
             send(ctx.self, GenerateReportMsg.init);
         } catch (Exception e) {
@@ -1000,8 +998,8 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
         }
     }
 
-    static void run(ref Ctx ctx, GenerateReportMsg) @safe nothrow {
-        auto profile = Profile("html file report " ~ ctx.state.get.fileRow.file);
+    static void run(ref Ctx ctx, GenerateReportMsg) @trusted nothrow {
+        auto profile = Profile("html file report " ~ ctx.state.fileRow.file);
         void fn(const ref FileMutantRow fr) {
             import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
@@ -1015,16 +1013,15 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
                 return raw.byChar.filter!(a => a != '\0').array.idup;
             }
 
-            auto txt = makeMutationText(ctx.state.get.ctx.raw,
+            auto txt = makeMutationText(ctx.state.ctx.raw,
                     fr.mutationPoint.offset, fr.mutation.kind, fr.lang);
-            ctx.state.get.ctx.span.put(FileMutant(fr.stId,
-                    fr.mutationPoint.offset, cleanup(txt.original),
-                    cleanup(txt.mutation), fr.mutation));
+            ctx.state.ctx.span.put(FileMutant(fr.stId, fr.mutationPoint.offset,
+                    cleanup(txt.original), cleanup(txt.mutation), fr.mutation));
         }
 
         try {
-            ctx.state.get.db.iterateFileMutants(ctx.state.get.fileRow.file, &fn);
-            generateFile(ctx.state.get.db, ctx.state.get.ctx);
+            ctx.state.db.iterateFileMutants(ctx.state.fileRow.file, &fn);
+            generateFile(ctx.state.db, ctx.state.ctx);
 
             send(ctx.self, DoneMsg.init);
         } catch (Exception e) {
@@ -1033,13 +1030,13 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
         }
     }
 
-    static void done(ref Ctx ctx, DoneMsg) @safe nothrow {
+    static void done(ref Ctx ctx, DoneMsg) @trusted nothrow {
         import dextool.plugin.mutate.backend.report.analyzers : reportScore;
 
         try {
-            auto stat = reportScore(ctx.state.get.db, ctx.state.get.fileRow.file);
-            send(ctx.state.get.collector, FileIndex(ctx.state.get.reportFile,
-                    ctx.state.get.fileRow.file, stat));
+            auto stat = reportScore(ctx.state.db, ctx.state.fileRow.file);
+            send(ctx.state.collector, FileIndex(ctx.state.reportFile,
+                    ctx.state.fileRow.file, stat));
 
             ctx.self.shutdown;
         } catch (Exception e) {
@@ -1048,12 +1045,13 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
         }
     }
 
-    static void failed(ref Ctx ctx, FailMsg) @safe {
+    static void failed(ref Ctx ctx, FailMsg) @trusted {
         import dextool.plugin.mutate.backend.report.analyzers : MutationScore;
 
-        logger.warning("Failed to generate a HTML report for ", ctx.state.get.fileRow.file);
-        send(ctx.state.get.collector, FileIndex(ctx.state.get.reportFile,
-                ctx.state.get.fileRow.file, MutationScore.init));
+        logger.warning("Failed to generate a HTML report for ",
+                ctx.state.borrow!(a => a.fileRow.file));
+        send(ctx.state.collector, FileIndex(ctx.state.reportFile,
+                ctx.state.fileRow.file, MutationScore.init));
         ctx.self.shutdown;
     }
 
@@ -1097,40 +1095,40 @@ auto spawnFileReportCollector(FileReportCollectorActor.Impl self, FlowControlAct
         }
     }
 
-    auto st = tuple!("self", "state")(self, refCounted(State(flow)));
+    auto st = tuple!("self", "state")(self, safeRefCounted(State(flow)));
     alias Ctx = typeof(st);
 
     static void started(ref Ctx ctx, StartReporterMsg) {
-        ctx.state.get.reporters++;
+        ctx.state.reporters++;
     }
 
     static void doneStarting(ref Ctx ctx, DoneStartingReportersMsg) {
-        ctx.state.get.doneStarting = true;
+        ctx.state.doneStarting = true;
     }
 
     static void index(ref Ctx ctx, FileIndex fi) {
-        ctx.state.get.files ~= fi;
+        ctx.state.files ~= fi;
 
-        send(ctx.state.get.flow, ReturnTokenMsg.init);
+        send(ctx.state.flow, ReturnTokenMsg.init);
         logger.infof("Generated %s (%s)", fi.display, fi.stat.score);
 
-        if (ctx.state.get.done && !ctx.state.get.promise.empty) {
-            ctx.state.get.promise.deliver(ctx.state.get.files);
+        if (ctx.state.done && !ctx.state.promise.empty) {
+            ctx.state.promise.deliver(ctx.state.files);
             ctx.self.shutdown;
         }
     }
 
     static RequestResult!(FileIndex[]) getIndexes(ref Ctx ctx, GetIndexesMsg) {
-        if (ctx.state.get.done) {
-            if (!ctx.state.get.promise.empty)
-                ctx.state.get.promise.deliver(ctx.state.get.files);
+        if (ctx.state.done) {
+            if (!ctx.state.promise.empty)
+                ctx.state.promise.deliver(ctx.state.files);
             ctx.self.shutdown;
-            return typeof(return)(ctx.state.get.files);
+            return typeof(return)(ctx.state.files);
         }
 
-        assert(ctx.state.get.promise.empty, "can only be one active request at a time");
-        ctx.state.get.promise = makePromise!(FileIndex[]);
-        return typeof(return)(ctx.state.get.promise);
+        assert(ctx.state.promise.empty, "can only be one active request at a time");
+        ctx.state.promise = makePromise!(FileIndex[]);
+        return typeof(return)(ctx.state.promise);
     }
 
     self.exceptionHandler = () @trusted {
@@ -1168,55 +1166,54 @@ auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
         }
     }
 
-    auto st = tuple!("self", "state")(self, refCounted(State(flow)));
+    auto st = tuple!("self", "state")(self, safeRefCounted(State(flow)));
     alias Ctx = typeof(st);
 
     static void started(ref Ctx ctx, StartReporterMsg) {
-        ctx.state.get.awaitingReports++;
+        ctx.state.awaitingReports++;
     }
 
     static void doneStarting(ref Ctx ctx, DoneStartingReportersMsg) {
-        ctx.state.get.doneStarting = true;
+        ctx.state.doneStarting = true;
     }
 
     static void subPage(ref Ctx ctx, SubPage p) {
-        ctx.state.get.subPages ~= p;
+        ctx.state.subPages ~= p;
         send(ctx.self, CheckDoneMsg.init);
-        send(ctx.state.get.flow, ReturnTokenMsg.init);
+        send(ctx.state.flow, ReturnTokenMsg.init);
         logger.infof("Generated %s", p.linkTxt);
     }
 
     static void subContent(ref Ctx ctx, SubContent p) {
-        ctx.state.get.subContent ~= p;
+        ctx.state.subContent ~= p;
         send(ctx.self, CheckDoneMsg.init);
-        send(ctx.state.get.flow, ReturnTokenMsg.init);
+        send(ctx.state.flow, ReturnTokenMsg.init);
         logger.infof("Generated %s", p.name);
     }
 
     static void checkDone(ref Ctx ctx, CheckDoneMsg) {
         // defensive programming in case a promise request arrive after the last page is generated.
         delayedSend(ctx.self, delay(1.dur!"seconds"), CheckDoneMsg.init);
-        if (!ctx.state.get.done)
+        if (!ctx.state.done)
             return;
 
-        if (!ctx.state.get.promise.empty) {
-            ctx.state.get.promise.deliver(tuple(ctx.state.get.subPages, ctx.state.get.subContent));
+        if (!ctx.state.promise.empty) {
+            ctx.state.promise.deliver(tuple(ctx.state.subPages, ctx.state.subContent));
             ctx.self.shutdown;
         }
     }
 
     static RequestResult!Result getPages(ref Ctx ctx, GetPagesMsg) {
-        if (ctx.state.get.done) {
-            if (!ctx.state.get.promise.empty)
-                ctx.state.get.promise.deliver(tuple(ctx.state.get.subPages,
-                        ctx.state.get.subContent));
+        if (ctx.state.done) {
+            if (!ctx.state.promise.empty)
+                ctx.state.promise.deliver(tuple(ctx.state.subPages, ctx.state.subContent));
             ctx.self.shutdown;
-            return typeof(return)(tuple(ctx.state.get.subPages, ctx.state.get.subContent));
+            return typeof(return)(tuple(ctx.state.subPages, ctx.state.subContent));
         }
 
-        assert(ctx.state.get.promise.empty, "can only be one active request at a time");
-        ctx.state.get.promise = makePromise!Result;
-        return typeof(return)(ctx.state.get.promise);
+        assert(ctx.state.promise.empty, "can only be one active request at a time");
+        ctx.state.promise = makePromise!Result;
+        return typeof(return)(ctx.state.promise);
     }
 
     self.exceptionHandler = () @trusted {
@@ -1290,7 +1287,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         Promise!bool waitForDone;
     }
 
-    auto st = tuple!("self", "state", "fio")(self, refCounted(State(flowCtrl,
+    auto st = tuple!("self", "state", "fio")(self, safeRefCounted(State(flowCtrl,
             fileCollector, conf, diff, conf.reportSection.toSet)), fio.dup);
     alias Ctx = typeof(st);
 
@@ -1299,22 +1296,19 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         import dextool.plugin.mutate.backend.mutation_type : toInternal;
         import dextool.plugin.mutate.backend.report.analyzers : parseTestCaseMetadata;
 
-        ctx.state.get.db = Database.make(dbPath);
+        ctx.state.db = Database.make(dbPath);
 
-        ctx.state.get.logDir = buildPath(ctx.state.get.conf.logDir, HtmlStyle.dir)
-            .Path.AbsolutePath;
-        ctx.state.get.logFilesDir = buildPath(ctx.state.get.logDir,
-                HtmlStyle.fileDir).Path.AbsolutePath;
-        ctx.state.get.logTestCasesDir = buildPath(ctx.state.get.logDir,
+        ctx.state.logDir = buildPath(ctx.state.conf.logDir, HtmlStyle.dir).Path.AbsolutePath;
+        ctx.state.logFilesDir = buildPath(ctx.state.logDir, HtmlStyle.fileDir).Path.AbsolutePath;
+        ctx.state.logTestCasesDir = buildPath(ctx.state.logDir,
                 HtmlStyle.testCaseDir).Path.AbsolutePath;
 
-        if (ctx.state.get.conf.testMetadata.hasValue)
-            ctx.state.get.metaData = parseTestCaseMetadata((cast(Optional!(
-                    ConfigReport.TestMetaData)) ctx.state.get.conf.testMetadata).orElse(
-                    ConfigReport.TestMetaData(AbsolutePath.init)).get);
+        if (ctx.state.conf.testMetadata.hasValue)
+            ctx.state.metaData = parseTestCaseMetadata(
+                    (cast(Optional!(ConfigReport.TestMetaData)) ctx.state.conf.testMetadata)
+                    .orElse(ConfigReport.TestMetaData(AbsolutePath.init)).get);
 
-        foreach (a; only(ctx.state.get.logDir, ctx.state.get.logFilesDir,
-                ctx.state.get.logTestCasesDir))
+        foreach (a; only(ctx.state.logDir, ctx.state.logFilesDir, ctx.state.logTestCasesDir))
             mkdirRecurse(a);
 
         send(ctx.self, StartReporterMsg.init, dbPath);
@@ -1333,104 +1327,102 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         import dextool.plugin.mutate.backend.report.html.trend;
 
         string makeFname(string name) {
-            return buildPath(ctx.state.get.logDir, name ~ HtmlStyle.ext);
+            return buildPath(ctx.state.logDir, name ~ HtmlStyle.ext);
         }
 
-        auto collector = ctx.self.homeSystem.spawn(&spawnAnalyzeReportCollector,
-                ctx.state.get.flow);
+        auto collector = ctx.self.homeSystem.spawn(&spawnAnalyzeReportCollector, ctx.state.flow);
 
-        runAnalyzer!makeStats(ctx.self, ctx.state.get.flow, collector,
-                SubContent("Overview", "#overview", null), dbPath,
-                AbsolutePath(ctx.state.get.logDir ~ Path("worklist" ~ HtmlStyle.ext)));
+        runAnalyzer!makeStats(ctx.self, ctx.state.flow, collector, SubContent("Overview",
+                "#overview", null), dbPath,
+                AbsolutePath(ctx.state.logDir ~ Path("worklist" ~ HtmlStyle.ext)));
 
-        runAnalyzer!makeMutantPage(ctx.self, ctx.state.get.flow, collector,
-                SubContent("Mutants", "#mutants", null), dbPath, ctx.state.get.conf,
-                AbsolutePath(ctx.state.get.logDir ~ Path("mutants" ~ HtmlStyle.ext)));
+        runAnalyzer!makeMutantPage(ctx.self, ctx.state.flow, collector,
+                SubContent("Mutants", "#mutants", null), dbPath, ctx.state.conf,
+                AbsolutePath(ctx.state.logDir ~ Path("mutants" ~ HtmlStyle.ext)));
 
-        runAnalyzer!makeTestCases(ctx.self, ctx.state.get.flow, collector,
-                SubContent("Test Cases", "#test_cases", null), dbPath, ctx.state.get.conf,
-                ctx.state.get.metaData, ctx.state.get.logTestCasesDir);
+        runAnalyzer!makeTestCases(ctx.self, ctx.state.flow, collector,
+                SubContent("Test Cases", "#test_cases", null), dbPath,
+                ctx.state.conf, ctx.state.metaData, ctx.state.logTestCasesDir);
 
-        runAnalyzer!makeTrend(ctx.self, ctx.state.get.flow, collector,
+        runAnalyzer!makeTrend(ctx.self, ctx.state.flow, collector,
                 SubContent("Trend", "#trend", null), dbPath);
 
-        if (!ctx.state.get.diff.empty) {
-            runAnalyzer!makeDiffView(ctx.self, ctx.state.get.flow, collector,
+        if (!ctx.state.diff.empty) {
+            runAnalyzer!makeDiffView(ctx.self, ctx.state.flow, collector,
                     SubPage(makeFname("diff_view"), "Diff View"), dbPath,
-                    ctx.state.get.conf, ctx.state.get.diff, ctx.fio.getOutputDir);
+                    ctx.state.conf, ctx.state.diff, ctx.fio.getOutputDir);
         }
-        if (ReportSection.tc_groups in ctx.state.get.sections) {
-            runAnalyzer!makeTestGroups(ctx.self, ctx.state.get.flow, collector,
-                    SubPage(makeFname("test_groups"), "Test Groups"), dbPath, ctx.state.get.conf);
-        }
-
-        if (ReportSection.tc_min_set in ctx.state.get.sections) {
-            runAnalyzer!makeMinimalSetAnalyse(ctx.self, ctx.state.get.flow, collector,
-                    SubPage(makeFname("minimal_set"), "Minimal Test Set"),
-                    dbPath, ctx.state.get.conf);
+        if (ReportSection.tc_groups in ctx.state.sections) {
+            runAnalyzer!makeTestGroups(ctx.self, ctx.state.flow, collector,
+                    SubPage(makeFname("test_groups"), "Test Groups"), dbPath, ctx.state.conf);
         }
 
-        if (ReportSection.tc_groups_similarity in ctx.state.get.sections) {
-            runAnalyzer!makeTestGroupSimilarityAnalyse(ctx.self, ctx.state.get.flow, collector,
+        if (ReportSection.tc_min_set in ctx.state.sections) {
+            runAnalyzer!makeMinimalSetAnalyse(ctx.self, ctx.state.flow, collector,
+                    SubPage(makeFname("minimal_set"), "Minimal Test Set"), dbPath, ctx.state.conf);
+        }
+
+        if (ReportSection.tc_groups_similarity in ctx.state.sections) {
+            runAnalyzer!makeTestGroupSimilarityAnalyse(ctx.self, ctx.state.flow, collector,
                     SubPage(makeFname("test_group_similarity"), "Test Group Similarity"),
-                    dbPath, ctx.state.get.conf);
+                    dbPath, ctx.state.conf);
         }
 
-        runAnalyzer!makeNomut(ctx.self, ctx.state.get.flow, collector,
-                SubPage(makeFname("nomut"), "NoMut Details"), dbPath, ctx.state.get.conf);
+        runAnalyzer!makeNomut(ctx.self, ctx.state.flow, collector,
+                SubPage(makeFname("nomut"), "NoMut Details"), dbPath, ctx.state.conf);
 
         send(collector, DoneStartingReportersMsg.init);
 
         ctx.self.request(collector, infTimeout).send(GetPagesMsg.init)
             .capture(ctx).then((ref Ctx ctx, SubPage[] sp, SubContent[] sc) {
-            ctx.state.get.subPages = sp;
-            ctx.state.get.subContent = sc;
-            ctx.state.get.reportsDone = true;
+            ctx.state.subPages = sp;
+            ctx.state.subContent = sc;
+            ctx.state.reportsDone = true;
             send(ctx.self, IndexWaitMsg.init);
         });
     }
 
     static void startFileReportes(ref Ctx ctx, StartReporterMsg, AbsolutePath dbPath) {
-        foreach (f; ctx.state.get.db.getDetailedFiles) {
+        foreach (f; ctx.state.db.getDetailedFiles) {
             auto fa = ctx.self.homeSystem.spawn(&spawnFileReport,
-                    ctx.state.get.flow, ctx.state.get.fileCollector, dbPath,
-                    ctx.fio.dup, ctx.state.get.conf, ctx.state.get.logFilesDir, f);
-            send(ctx.state.get.fileCollector, StartReporterMsg.init);
+                    ctx.state.flow, ctx.state.fileCollector, dbPath,
+                    ctx.fio.dup, ctx.state.conf, ctx.state.logFilesDir, f);
+            send(ctx.state.fileCollector, StartReporterMsg.init);
         }
-        send(ctx.state.get.fileCollector, DoneStartingReportersMsg.init);
+        send(ctx.state.fileCollector, DoneStartingReportersMsg.init);
 
-        ctx.self.request(ctx.state.get.fileCollector, infTimeout)
+        ctx.self.request(ctx.state.fileCollector, infTimeout)
             .send(GetIndexesMsg.init).capture(ctx).then((ref Ctx ctx, FileIndex[] a) {
-            ctx.state.get.files = a;
-            ctx.state.get.filesDone = true;
+            ctx.state.files = a;
+            ctx.state.filesDone = true;
             send(ctx.self, IndexWaitMsg.init);
         });
     }
 
     static void indexWait(ref Ctx ctx, IndexWaitMsg) {
-        if (ctx.state.get.reportsDone && ctx.state.get.filesDone)
+        if (ctx.state.reportsDone && ctx.state.filesDone)
             send(ctx.self, GenerateIndexMsg.init);
     }
 
     static void checkDone(ref Ctx ctx, CheckDoneMsg) {
-        if (!ctx.state.get.done) {
+        if (!ctx.state.done) {
             delayedSend(ctx.self, delay(1.dur!"seconds"), CheckDoneMsg.init);
             return;
         }
 
-        if (!ctx.state.get.waitForDone.empty)
-            ctx.state.get.waitForDone.deliver(true);
+        if (!ctx.state.waitForDone.empty)
+            ctx.state.waitForDone.deliver(true);
     }
 
     static Promise!bool waitForDone(ref Ctx ctx, WaitForDoneMsg) {
         send(ctx.self, CheckDoneMsg.init);
-        ctx.state.get.waitForDone = makePromise!bool;
-        return ctx.state.get.waitForDone;
+        ctx.state.waitForDone = makePromise!bool;
+        return ctx.state.waitForDone;
     }
 
     static void genIndex(ref Ctx ctx, GenerateIndexMsg) {
         scope (exit)
-            () { ctx.state.get.done = true; send(ctx.self, CheckDoneMsg.init); }();
+            () { ctx.state.done = true; send(ctx.self, CheckDoneMsg.init); }();
 
         import std.datetime : Clock;
 
@@ -1443,7 +1435,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
 
         NavbarItem[] navbarItems;
         void addSubPage(Fn)(Fn fn, string name, string linkTxt) {
-            const fname = buildPath(ctx.state.get.logDir, name ~ HtmlStyle.ext);
+            const fname = buildPath(ctx.state.logDir, name ~ HtmlStyle.ext);
             logger.infof("Generating %s (%s)", linkTxt, name);
             File(fname, "w").write(fn());
             navbarItems ~= NavbarItem(linkTxt, fname.baseName);
@@ -1451,7 +1443,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
 
         // content must be added in a specific order such as statistics first
         SubContent[string] subContent;
-        foreach (sc; ctx.state.get.subContent)
+        foreach (sc; ctx.state.subContent)
             subContent[sc.tag] = sc;
         void addContent(string tag) {
             auto item = subContent[tag];
@@ -1467,17 +1459,16 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         foreach (tag; subContent.byKey.array.sort)
             addContent(tag);
 
-        foreach (sp; ctx.state.get.subPages.sort!((a, b) => a.fileName < b.fileName)) {
-            const link = relativePath(sp.fileName, ctx.state.get.logDir);
+        foreach (sp; ctx.state.subPages.sort!((a, b) => a.fileName < b.fileName)) {
+            const link = relativePath(sp.fileName, ctx.state.logDir);
             navbarItems ~= NavbarItem(sp.linkTxt, link);
         }
 
-        ctx.state.get.files.toIndex(content, HtmlStyle.fileDir);
+        ctx.state.files.toIndex(content, HtmlStyle.fileDir);
 
         addNavbarItems(navbarItems, index.mainBody.getElementById("navbar-sidebar"));
 
-        File(buildPath(ctx.state.get.logDir, "index" ~ HtmlStyle.ext), "w").write(
-                index.toPrettyString);
+        File(buildPath(ctx.state.logDir, "index" ~ HtmlStyle.ext), "w").write(index.toPrettyString);
     }
 
     self.exceptionHandler = toDelegate(&logExceptionHandler);

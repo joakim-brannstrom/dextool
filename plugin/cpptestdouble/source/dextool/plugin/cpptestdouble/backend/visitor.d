@@ -45,7 +45,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
     import std.typecons : scoped, NullableRef;
 
     import libclang_ast.ast : UnexposedDecl, VarDecl, FunctionDecl, ClassDecl,
-        Namespace, TranslationUnit, generateIndentIncrDecr, StructDecl;
+        Namespace, TranslationUnit, generateIndentIncrDecr, StructDecl, LinkageSpec;
     import cpptooling.analyzer.clang.analyze_helper : analyzeFunctionDecl, analyzeVarDecl;
     import cpptooling.data : CppRoot, CxGlobalVariable, CppNsStack,
         CxReturnType, CppNs, TypeKindVariable;
@@ -117,14 +117,11 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
     }
 
     override void visit(scope const FunctionDecl v) {
-        mixin(mixinNodeLog!());
+        visitFunc(v);
+    }
 
-        auto result = analyzeFunctionDecl(v, container, indent);
-        if (result.isValid) {
-            auto func = CFunction(result.type.kind.usr, result.name, result.params,
-                    CxReturnType(result.returnType), result.isVariadic, result.storageClass);
-            root.put(func);
-        }
+    override void visit(scope const LinkageSpec v) {
+        visitFunc(v);
     }
 
     override void visit(scope const ClassDecl v) {
@@ -158,6 +155,17 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
 
             root.put(visitor.root);
             analyze_data.putForLookup(visitor.root);
+        }
+    }
+
+    void visitFunc(T)(scope const T v) @trusted {
+        mixin(mixinNodeLog!());
+
+        auto result = analyzeFunctionDecl(v, container, indent);
+        if (result.isValid) {
+            auto func = CFunction(result.type.kind.usr, result.name, result.params,
+                    CxReturnType(result.returnType), result.isVariadic, result.storageClass);
+            root.put(func);
         }
     }
 

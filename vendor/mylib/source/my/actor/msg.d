@@ -89,7 +89,7 @@ void monitor(AddressT0, AddressT1)(AddressT0 self, AddressT1 sendTo) @safe
 }
 
 /// Remove `self` as a monitor of the actor using `sendTo`.
-void demonitor(AddressT0, AddressT1)(AddressT0 self, AddressT1 sendTo) @safe
+void demonitor(AddressT0, AddressT1)(scope AddressT0 self, scope AddressT1 sendTo) @safe
         if ((isActor!AddressT0 || isAddress!AddressT0) && (isActor!AddressT1
             || isAddress!AddressT1)) {
     import my.actor.system_msg : MonitorRequest;
@@ -108,7 +108,7 @@ in (!sendTo.empty, "cannot send to an empty address") {
         addr.put(SystemMsg(msg));
 }
 
-package void sendSystemMsg(AddressT, T)(AddressT sendTo, T msg) @safe
+package void sendSystemMsg(AddressT, T)(scope AddressT sendTo, scope T msg) @safe
         if (isAddress!AddressT) {
     auto tmp = underlyingAddress(sendTo);
     auto addr = tmp.get;
@@ -161,13 +161,16 @@ package struct RequestSendThen {
     RequestSend rs;
     Msg msg;
 
-    @disable this(this);
-
     /// Copy constructor
     this(ref return typeof(this) rhs) {
         rs = rhs.rs;
         msg = rhs.msg;
     }
+
+    ~this() scope {
+    }
+
+    @disable this(this);
 }
 
 RequestSend request(ActorT)(ActorT self, WeakAddress requestTo, SysTime timeout)

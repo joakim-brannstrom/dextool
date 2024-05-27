@@ -24,14 +24,13 @@ The plugins in a standard installation of Dextool are:
 
 To build and run dextool, you will need the following packages:
 
- * [llvm](http://releases.llvm.org/download.html) >= 4.0
-   Tested versions are 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 11.0, 12.0, 13.0, 14.0,
-   15.0, 16.0.
+ * [llvm](http://releases.llvm.org/download.html) >= 14.0
+   Tested versions are 14.0, 15.0, 16.0., 17.0, 18.0
    Note that these are the versions that are tested or have been tested.
    Dextool usually am able to work with never versions so if you version isn't
    in this list then please just try it. Otherwise leave an issue on github.
- * llvm-xyz-dev >= 4.0
- * libclang-xyz-dev >= 4.0
+ * llvm-xyz-dev >= 14.0
+ * libclang-xyz-dev >= 14.0
  * [cmake](https://cmake.org/download) >= 3.5
  * [sqlite3](https://sqlite.org/download.html) >= 3.24.0
  * [D compiler](https://dlang.org/download.html). See the following files for
@@ -161,6 +160,7 @@ The following variables are defined:
 * LIBLLVM_CXX_EXTRA_FLAGS   - extra flags to use when build C++ code using LLVM
 * LIBLLVM_FLAGS             - the required flags by llvm-d such as version
 * LIBLLVM_LIBS              - the required libraries for linking LLVM
+* LIBCLANG_INC              - the libclang-c headers such as Index.h
 
 Lets say you have version `8.0.1` of LLVM installed but llvm-config returns
 `0.0.0`. `introspect_llvm.d` will in this case fail to detect the version of
@@ -191,6 +191,8 @@ is in `$PATH`.
 # use llvm-config --libs and llvm-config --system-libs to find all libraries to link with.
 # all those that are prefixed with libLLVM.
 -DLIBLLVM_LIBS="-lLLVMXRay -lLLVMTextApi /*and maaaany more or just one depending on how you have installed LLVM*/"
+# where the libclang-c headers are located
+-DLIBCLANG_INC=""
 ```
 
 #### SQLite link or missing

@@ -195,7 +195,9 @@ struct BuildDextoolRun {
 
         auto sw = StopWatch(AutoStart.yes);
         try {
-            auto p = pipeProcess(cmd).sandbox.scopeKill;
+            auto p = pipeProcess(cmd).sandbox;
+            scope (exit)
+                p.dispose;
             if (!stdin_data.empty) {
                 p.stdin.write(cast(const(ubyte)[]) stdin_data);
                 p.stdin.closeWrite;
@@ -358,7 +360,9 @@ struct BuildCommandRun {
 
         auto sw = StopWatch(AutoStart.yes);
         try {
-            auto p = pipeProcess(cmd).sandbox.scopeKill;
+            auto p = pipeProcess(cmd).sandbox;
+            scope (exit)
+                p.dispose;
             if (!stdin_data.empty) {
                 p.stdin.write(cast(const(ubyte)[]) stdin_data);
                 p.stdin.closeWrite;

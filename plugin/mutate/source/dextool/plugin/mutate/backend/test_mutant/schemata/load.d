@@ -16,10 +16,9 @@ import logger = std.experimental.logger;
 import std.algorithm : min, max;
 import std.datetime : dur;
 import std.exception : collectException;
-import std.typecons : Tuple, tuple;
+import std.typecons : Tuple, tuple, SafeRefCounted, safeRefCounted, borrow;
 
 import my.actor;
-import my.gc.refc;
 import my.named_type;
 
 private struct Tick {
@@ -40,10 +39,10 @@ auto spawnLoadCtrlActor(LoadCtrlActor.Impl self, TargetLoad setValue) @trusted {
         LoadController ctrl;
     }
 
-    auto st = tuple!("self", "state")(self, refCounted(State.init));
+    auto st = tuple!("self", "state")(self, safeRefCounted(State.init));
     alias Ctx = typeof(st);
 
-    st.state.get.ctrl.setValue = setValue.get;
+    st.state.ctrl.setValue = setValue.get;
 
     static void tick(ref Ctx ctx, Tick _) nothrow {
         import my.libc : getloadavg;
@@ -54,16 +53,16 @@ auto spawnLoadCtrlActor(LoadCtrlActor.Impl self, TargetLoad setValue) @trusted {
             double[3] load;
             const nr = getloadavg(&load[0], 3);
             if (nr >= 1)
-                ctx.state.get.ctrl.tick(load[0]);
+                ctx.state.ctrl.tick(load[0]);
         } catch (Exception e) {
-            ctx.state.get.ctrl.output = ctx.state.get.ctrl.setValue;
+            ctx.state.ctrl.output = ctx.state.ctrl.setValue;
         }
 
-        logger.trace("loadctrl output: ", ctx.state.get.ctrl.output).collectException;
+        logger.trace("loadctrl output: ", ctx.state.ctrl.output).collectException;
     }
 
     static auto getCtrlSignal(ref Ctx ctx, GetCtrlSignal _) {
-        return ctx.state.get.ctrl.output.Output;
+        return ctx.state.ctrl.output.Output;
     }
 
     send(self, Tick.init);

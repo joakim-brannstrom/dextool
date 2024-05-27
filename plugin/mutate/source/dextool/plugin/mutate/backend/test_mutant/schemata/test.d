@@ -16,10 +16,9 @@ import std.conv : to;
 import std.datetime : dur, Duration;
 import std.exception : collectException;
 import std.sumtype;
-import std.typecons : Tuple, tuple;
+import std.typecons : Tuple, tuple, safeRefCounted, borrow;
 
 import my.actor;
-import my.gc.refc;
 import my.named_type;
 import my.container.vector;
 import proc : DrainElement;
@@ -94,7 +93,7 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
         TestCaseAnalyzer analyzer;
     }
 
-    auto st = tuple!("self", "state")(self, refCounted(State(runner, analyzer)));
+    auto st = tuple!("self", "state")(self, safeRefCounted(State(runner, analyzer)));
     alias Ctx = typeof(st);
 
     static SchemaTestResult run(ref Ctx ctx, InjectIdResult.InjectId id) @safe nothrow {
@@ -105,7 +104,8 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
                 ref DrainElement[][ShellCommand] output) @safe nothrow {
             foreach (testCmd; output.byKeyValue) {
                 try {
-                    auto analyze = ctx.state.get.analyzer.analyze(testCmd.key, testCmd.value);
+                    auto analyze = ctx.state.borrow!(a => a.analyzer.analyze(testCmd.key,
+                            testCmd.value));
 
                     analyze.match!((TestCaseAnalyzer.Success a) {
                         rval.result.testCases ~= a.failed ~ a.testCmd;
@@ -127,26 +127,29 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
         auto sw = StopWatch(AutoStart.yes);
 
         SchemaTestResult rval;
+        try {
+            auto env = ctx.state.borrow!((ref a) { return a.runner.getDefaultEnv; });
+            env[schemataMutantEnvKey] = id.injectId.to!string;
 
-        rval.result.id = id.statusId;
+            auto res = ctx.state.borrow!((ref a) {
+                return runTester(a.runner, env);
+            });
+            rval.result.id = id.statusId;
+            rval.result.status = res.status;
+            rval.result.exitStatus = res.exitStatus;
+            rval.result.testCmds = res.output.byKey.array;
 
-        auto env = ctx.state.get.runner.getDefaultEnv;
-        env[schemataMutantEnvKey] = id.injectId.to!string;
+            if (!ctx.state.borrow!(a => a.analyzer.empty))
+                rval = analyzeForTestCase(rval, res.output);
 
-        auto res = runTester(ctx.state.get.runner, env);
-        rval.result.status = res.status;
-        rval.result.exitStatus = res.exitStatus;
-        rval.result.testCmds = res.output.byKey.array;
-
-        if (!ctx.state.get.analyzer.empty)
-            rval = analyzeForTestCase(rval, res.output);
-
-        rval.testTime = sw.peek;
+            rval.testTime = sw.peek;
+        } catch (Exception e) {
+        }
         return rval;
     }
 
-    static void doConf(ref Ctx ctx, TimeoutConfig conf) @safe nothrow {
-        ctx.state.get.runner.timeout = conf.value;
+    static void doConf(ref Ctx ctx, TimeoutConfig conf) @safe {
+        ctx.state.borrow!((ref a) { a.runner.timeout = conf.value; });
     }
 
     self.name = "testMutant";

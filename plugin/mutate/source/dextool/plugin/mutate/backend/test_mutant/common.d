@@ -301,7 +301,7 @@ unittest {
  * Returns: True if it successfully analyzed the output
  */
 bool externalProgram(ShellCommand cmd, DrainElement[] output,
-        ref GatherTestCase report, AutoCleanup cleanup) @safe nothrow {
+        ref GatherTestCase report, AutoCleanup cleanup) @trusted nothrow {
     import std.datetime : dur;
     import std.algorithm : copy;
     import std.ascii : newline;
@@ -343,7 +343,9 @@ bool externalProgram(ShellCommand cmd, DrainElement[] output,
     try {
         cleanup.add(tmpdir.Path.AbsolutePath);
         cmd = writeOutput(cmd);
-        auto p = pipeProcess(cmd.value).sandbox.rcKill;
+        auto p = pipeProcess(cmd.value).sandbox;
+        scope (exit)
+            p.dispose;
         foreach (l; p.process.drainByLineCopy().map!(a => a.strip)
                 .filter!(a => !a.empty)) {
             if (l.startsWith(passed))
@@ -450,10 +452,12 @@ CompileResult compile(ShellCommand cmd, Duration timeout, PrintCompileOnFailure 
     int runCompilation(bool print) {
         auto p = () {
             if (cmd.value.length == 1) {
-                return pipeShell(cmd.value[0]).sandbox.timeout(timeout).rcKill;
+                return pipeShell(cmd.value[0]).sandbox.timeout(timeout);
             }
-            return pipeProcess(cmd.value).sandbox.timeout(timeout).rcKill;
+            return pipeProcess(cmd.value).sandbox.timeout(timeout);
         }();
+        scope (exit)
+            p.dispose;
 
         foreach (a; p.process.drain) {
             if (!a.empty && print) {

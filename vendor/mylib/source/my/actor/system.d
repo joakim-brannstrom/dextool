@@ -183,7 +183,7 @@ unittest {
 }
 
 @("shall spawn two typed actors which are connected, execute and shutdow")
-@safe unittest {
+unittest {
     import std.typecons : Tuple;
 
     auto sys = makeSystem;

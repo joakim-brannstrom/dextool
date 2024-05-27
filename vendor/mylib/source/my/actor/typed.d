@@ -371,10 +371,10 @@ unittest {
             ToTypedMsg!(string delegate(int), false)));
 }
 
-package StrongAddress underlyingAddress(T)(T address)
+package StrongAddress underlyingAddress(T)(scope T address) @safe
         if (is(T == Actor*) || is(T == StrongAddress) || is(T == WeakAddress)
             || isTypedAddress!T || isTypedActorImpl!T) {
-    static StrongAddress toStrong(WeakAddress wa) {
+    static StrongAddress toStrong(scope WeakAddress wa) @safe {
         if (auto a = wa.lock)
             return a;
         return StrongAddress.init;
@@ -392,7 +392,7 @@ package StrongAddress underlyingAddress(T)(T address)
         return address;
 }
 
-package WeakAddress underlyingWeakAddress(T)(T x)
+package WeakAddress underlyingWeakAddress(T)(scope T x) @safe
         if (is(T == Actor*) || is(T == StrongAddress) || is(T == WeakAddress)
             || isTypedAddress!T || isTypedActorImpl!T) {
     static if (isTypedAddress!T) {
@@ -407,7 +407,7 @@ package WeakAddress underlyingWeakAddress(T)(T x)
         return x;
 }
 
-package auto underlyingTypedAddress(T)(T address)
+package auto underlyingTypedAddress(T)(scope T address) @safe
         if (isTypedAddress!T || isTypedActorImpl!T) {
     static if (isTypedAddress!T)
         return address;
@@ -415,7 +415,8 @@ package auto underlyingTypedAddress(T)(T address)
         return address.address;
 }
 
-package Actor* underlyingActor(T)(T actor) if (is(T == Actor*) || isTypedActorImpl!T) {
+package Actor* underlyingActor(T)(scope T actor) @safe
+        if (is(T == Actor*) || isTypedActorImpl!T) {
     static if (isTypedActorImpl!T)
         return actor.actor;
     else
