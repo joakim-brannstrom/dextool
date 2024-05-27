@@ -148,18 +148,17 @@ unittest {
 ";
 
     foreach (getValueString; [
-            "int", "signed int", "unsigned int", "unsigned", "char", "signed char",
-            "unsigned char", "short", "signed short", "unsigned short",
-            "long", "signed long", "unsigned long", "long long",
-            "signed long long", "unsigned long long", "float", "double",
-            "long double", "wchar_t", "bool"
-        ]) {
+        "int", "signed int", "unsigned int", "unsigned", "char", "signed char",
+        "unsigned char", "short", "signed short", "unsigned short", "long",
+        "signed long", "unsigned long", "long long", "signed long long",
+        "unsigned long long", "float", "double", "long double", "wchar_t", "bool"
+    ]) {
         foreach (getValueStringArray; [
                 ["", ""], ["*", ""], ["&", " = d0"], ["*&", " = d1"]
             ]) {
             // arrange
             auto visitor = new TestVisitor;
-            auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+            auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
             auto code = format(raw_code, getValueString,
                     getValueStringArray[0], getValueStringArray[1]);
             ctx.vfs.open(new Blob(Uri("issue.hpp"), code));

@@ -147,9 +147,9 @@ struct RawConfiguration {
 --config            :%s
 CFLAGS              :%s
 
-xmlConfig           :%s", header, headerFile, fileInclude, prefix, gmock,
-                out_, fileExclude, mainName, stripInclude,
-                mainFileName, inFiles, compileDb, genPostInclude, generatePreInclude, help, locationAsComment,
+xmlConfig           :%s", header, headerFile, fileInclude, prefix, gmock, out_,
+                fileExclude, mainName, stripInclude, mainFileName,
+                inFiles, compileDb, genPostInclude, generatePreInclude, help, locationAsComment,
                 testDoubleInclude, !generateZeroGlobals, config, cflags, xmlConfig);
     }
 }
@@ -629,7 +629,7 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] userCflags,
     import dextool.utility : prependDefaultFlags, PreferLang, analyzeFile;
 
     scope visitor = new CVisitor(variant, variant);
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     auto generator = Generator(variant, variant, variant);
 
     auto compDbRange() {
@@ -641,8 +641,8 @@ ExitStatusType genCstub(CTestDoubleVariant variant, string[] userCflags,
 
     auto fixedDb = compDbRange.parse(variant.getCompileCommandFilter)
         .addCompiler(variant.getMissingFileCompiler).replaceCompiler(
-                variant.getSystemCompiler).addSystemIncludes.prependFlags(
-                prependDefaultFlags(userCflags, PreferLang.c)).array;
+            variant.getSystemCompiler).addSystemIncludes.prependFlags(
+            prependDefaultFlags(userCflags, PreferLang.c)).array;
 
     auto limitRange = limitOrAllRange(fixedDb, inFiles.map!(a => cast(string) a).array)
         .reduceMissingFiles(fixedDb);

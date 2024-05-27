@@ -1,7 +1,6 @@
 # vim: filetype=cmake
 
 set(SRC_FILES
-    ${CMAKE_CURRENT_LIST_DIR}/source/clang/Compiler.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Cursor.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Diagnostic.d
     ${CMAKE_CURRENT_LIST_DIR}/source/clang/Eval.d
@@ -18,7 +17,7 @@ set(SRC_FILES
 )
 
 set(flags
-    "-J${CMAKE_CURRENT_LIST_DIR}/resources -I${LIBCLANG_INC} -I${CMAKE_SOURCE_DIR}/vendor/mylib/source"
+    "${LIBCLANG_INC} -I${CMAKE_SOURCE_DIR}/vendor/mylib/source"
 )
 
 compile_d_static_lib(dextool_clang "${SRC_FILES}" "${flags}" "" "dextool_libclang;dextool_mylib")

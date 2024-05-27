@@ -35,48 +35,6 @@ abstract class Reference : Node {
     }
 }
 
-final class ObjCSuperClassRef : Reference {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCProtocolRef : Reference {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
-final class ObjCClassRef : Reference {
-    import clang.Cursor : Cursor;
-
-    this(scope Cursor cursor) @safe {
-        super(cursor);
-    }
-
-    override void accept(scope Visitor v) @safe const scope {
-        static import libclang_ast.ast;
-
-        libclang_ast.ast.accept(cursor, v);
-    }
-}
-
 final class TypeRef : Reference {
     import clang.Cursor : Cursor;
 
@@ -91,7 +49,7 @@ final class TypeRef : Reference {
     }
 }
 
-final class CxxBaseSpecifier : Reference {
+final class CXXBaseSpecifier : Reference {
     import clang.Cursor : Cursor;
 
     this(scope Cursor cursor) @safe {

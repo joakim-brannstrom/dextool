@@ -469,7 +469,8 @@ struct Token {
 @safe unittest {
     import clang.c.Index : CXTokenKind;
 
-    auto tok = Token(CXTokenKind.comment, Offset(1, 2), SourceLoc(1, 2), SourceLoc(1, 2), "smurf");
+    auto tok = Token(CXTokenKind.CXToken_Comment, Offset(1, 2), SourceLoc(1,
+            2), SourceLoc(1, 2), "smurf");
 }
 
 alias ExitStatus = NamedType!(int, Tag!"ExitStatus", int.init, TagStringable);

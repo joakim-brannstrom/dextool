@@ -63,7 +63,7 @@ ExitStatusType runPlugin(string[] args) {
     import std.typecons : Yes;
     import libclang_ast.context : ClangContext;
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     auto visitor = new TUVisitor;
 
     import dextool.utility : analyzeFile;

@@ -132,7 +132,7 @@ string wrapCursor(alias visitor, alias cursor)(immutable(string)[] cases) {
     string result;
 
     foreach (case_; cases) {
-        result ~= format("case CXCursorKind.%s: scope wrapped = new %s(%s); %s.visit(wrapped); break;\n",
+        result ~= format("case CXCursorKind.CXCursor_%s: scope wrapped = new %s(%s); %s.visit(wrapped); break;\n",
                 case_, makeNodeClassName(case_), cursor.stringof, visitor.stringof);
     }
     return result;
@@ -210,15 +210,15 @@ case Dummy.xCase2: scope wrapped = new Case2(cursor); visitor.visit(wrapped); br
     Cursor cursor;
 
     foreach (kind; [
-        __traits(getMember, CXCursorKind, AttributeSeq[0]),
-        __traits(getMember, CXCursorKind, DeclarationSeq[0]),
-        __traits(getMember, CXCursorKind, ExpressionSeq[0]),
-        __traits(getMember, CXCursorKind, ExtraSeq[0]),
-        __traits(getMember, CXCursorKind, PreprocessorSeq[0]),
-        __traits(getMember, CXCursorKind, ReferenceSeq[0]),
-        __traits(getMember, CXCursorKind, StatementSeq[0]),
-        __traits(getMember, CXCursorKind, TranslationUnitSeq[0])
-    ]) {
+            __traits(getMember, CXCursorKind, AttributeSeq[0]),
+            __traits(getMember, CXCursorKind, DeclarationSeq[0]),
+            __traits(getMember, CXCursorKind, ExpressionSeq[0]),
+            __traits(getMember, CXCursorKind, ExtraSeq[0]),
+            __traits(getMember, CXCursorKind, PreprocessorSeq[0]),
+            __traits(getMember, CXCursorKind, ReferenceSeq[0]),
+            __traits(getMember, CXCursorKind, StatementSeq[0]),
+            __traits(getMember, CXCursorKind, TranslationUnitSeq[0])
+        ]) {
         switch (kind) {
             mixin(wrapCursor!(test, cursor)(AttributeSeq));
             mixin(wrapCursor!(test, cursor)(DeclarationSeq));

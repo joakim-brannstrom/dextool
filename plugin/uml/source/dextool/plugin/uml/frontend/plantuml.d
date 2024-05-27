@@ -348,7 +348,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
             variant, Lookup(&container), generator.umlComponent, generator.umlClass);
 
     auto visitor = new UMLVisitor!(Controller, typeof(transform))(variant, transform, container);
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
 
     auto compDbRange() {
         if (compile_db.empty) {
@@ -392,7 +392,7 @@ ExitStatusType genUml(PlantUMLFrontend variant, string[] in_cflags,
 
         logger.errorf("Compile errors in the following files:\n%s\n",
                 unable_to_parse.map!(a => (cast(string) a))
-                .roundRobin(newline.repeat(unable_to_parse.length)).joiner().text);
+                    .roundRobin(newline.repeat(unable_to_parse.length)).joiner().text);
     }
 
     transform.finalize();

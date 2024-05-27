@@ -26,7 +26,7 @@ set(dextool_mutate_database_flags
 -I${CMAKE_SOURCE_DIR}/libs/clang/source
 -I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool/source
--I${LIBCLANG_INC}
+${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -I${CMAKE_SOURCE_DIR}/vendor/d2sqlite3/source
 -I${CMAKE_SOURCE_DIR}/vendor/miniorm/source
@@ -45,7 +45,7 @@ set(dextool_mutate_analyze_flags
 -I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool_clang_extensions/source
--I${LIBCLANG_INC}
+${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/plugin/source
 -I${CMAKE_SOURCE_DIR}/source
 -I${CMAKE_SOURCE_DIR}/vendor/automem/source
@@ -57,7 +57,6 @@ set(dextool_mutate_analyze_flags
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/proc/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
--J${CMAKE_SOURCE_DIR}/libs/clang/resources
 -version=SqliteEnableColumnMetadata
 -version=SqliteEnableUnlockNotify
 ")
@@ -69,7 +68,7 @@ set(flags "
 -I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool/source
 -I${CMAKE_SOURCE_DIR}/libs/dextool_clang_extensions/source
--I${LIBCLANG_INC}
+${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/plugin/source
 -I${CMAKE_SOURCE_DIR}/source
 -I${CMAKE_SOURCE_DIR}/vendor/arsd
@@ -84,7 +83,6 @@ set(flags "
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
 -I${CMAKE_SOURCE_DIR}/vendor/toml/src
 -I${CMAKE_SOURCE_DIR}/vendor/undead/src
--J${CMAKE_SOURCE_DIR}/libs/clang/resources
 -version=SqliteEnableColumnMetadata
 -version=SqliteEnableUnlockNotify
 "
@@ -98,7 +96,7 @@ build_d_executable(
     "${SRC};${CMAKE_SOURCE_DIR}/plugin/source/dextool/plugin/main/standard.d"
     "${flags}"
     "${LIBCLANG_LDFLAGS} ${LIBCLANG_LIBS}"
-    "dextool_mutate_analyze;dextool_mutate_database;dextool_proc;dextool_automem;dextool_blob_model;dextool_dextool;dextool_libclang_ast;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_colorlog;dextool_toml;dextool_arsd;dextool_cachetools;dextool_mylib;dextool_undead"
+    "dextool_mutate_analyze;dextool_mutate_database;dextool_proc;dextool_automem;dextool_blob_model;dextool_dextool;dextool_libclang_ast;dextool_clang_extensions;dextool_miniorm;dextool_d2sqlite3;dextool_colorlog;dextool_toml;dextool_arsd;dextool_cachetools;dextool_mylib;dextool_undead;dextool_clang;dextool_clang_extensions"
 )
 
 collect_binary_in_root(${EXE_NAME})
