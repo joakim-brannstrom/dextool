@@ -57,7 +57,6 @@ ${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/proc/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
--J${CMAKE_SOURCE_DIR}/libs/clang/resources
 -version=SqliteEnableColumnMetadata
 -version=SqliteEnableUnlockNotify
 ")
@@ -84,7 +83,6 @@ ${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
 -I${CMAKE_SOURCE_DIR}/vendor/toml/src
 -I${CMAKE_SOURCE_DIR}/vendor/undead/src
--J${CMAKE_SOURCE_DIR}/libs/clang/resources
 -version=SqliteEnableColumnMetadata
 -version=SqliteEnableUnlockNotify
 "

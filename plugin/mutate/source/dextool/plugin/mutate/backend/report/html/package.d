@@ -181,7 +181,7 @@ auto tokenize(AbsolutePath base_dir, Path f) @trusted {
     static import dextool.plugin.mutate.backend.utility;
 
     const fpath = buildPath(base_dir, f).Path.AbsolutePath;
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     return dextool.plugin.mutate.backend.utility.tokenize!(Yes.splitMultiLineTokens)(ctx, fpath);
 }
 

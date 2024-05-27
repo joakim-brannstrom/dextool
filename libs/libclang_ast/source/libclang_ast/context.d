@@ -70,20 +70,9 @@ struct ClangContext {
      *   useInternalHeaders = load the VFS with in-memory system headers.
      *   prependParamSyntaxOnly = prepend the flag -fsyntax-only to instantiated translation units.
      */
-    this(Flag!"useInternalHeaders" useInternalHeaders,
-            Flag!"prependParamSyntaxOnly" prependParamSyntaxOnly) @trusted {
+    this(Flag!"prependParamSyntaxOnly" prependParamSyntaxOnly) @trusted {
         this.index = Index(false, false);
         this.vfs = new BlobVfs;
-
-        if (useInternalHeaders) {
-            import clang.Compiler : Compiler;
-
-            Compiler compiler;
-            this.internal_header_arg = compiler.extraIncludeFlags;
-            foreach (hdr; compiler.extraHeaders) {
-                auto f = vfs.open(new Blob(Uri(hdr.filename), hdr.content));
-            }
-        }
 
         if (prependParamSyntaxOnly) {
             this.syntax_only_arg = ["-fsyntax-only"];
@@ -134,7 +123,7 @@ struct ClangContext {
 @system unittest {
     import std.typecons : Yes;
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
 }
 
 /** Convert to an array that can be passed on to clang to use as in-memory source code.

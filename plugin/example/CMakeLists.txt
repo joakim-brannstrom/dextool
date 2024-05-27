@@ -17,7 +17,6 @@ build_d_executable(
     ${LIBCLANG_INC}
     -I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
     -I${CMAKE_SOURCE_DIR}/plugin/source
-    -J${CMAKE_SOURCE_DIR}/libs/clang/resources
     -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
     -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
     -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src

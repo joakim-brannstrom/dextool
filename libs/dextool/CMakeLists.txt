@@ -21,7 +21,6 @@ ${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
 -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -I${CMAKE_SOURCE_DIR}/vendor/undead/src
--J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
 compile_d_static_lib(dextool_dextool
