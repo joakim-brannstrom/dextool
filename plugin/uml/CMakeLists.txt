@@ -19,7 +19,6 @@ ${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
 -I${CMAKE_SOURCE_DIR}/vendor/taggedalgebraic/source
--J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
 build_d_executable(

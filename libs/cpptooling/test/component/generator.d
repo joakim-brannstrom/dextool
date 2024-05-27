@@ -99,7 +99,7 @@ struct pod {
 ";
 
     // arrange
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
@@ -141,7 +141,7 @@ private:
 ";
 
     // arrange
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;

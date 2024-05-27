@@ -49,7 +49,6 @@ ${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
--J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
 compile_d_static_lib(dextool_cpptooling

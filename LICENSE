@@ -377,5 +377,4 @@ Google Test         test/testdata/stage_4/fused_gtest/
 deimos-libclang     libclang/
 dsrcgen             dsrcgen/
 dstep               clang/
-clang hdrs          clang/resources/
 unit-threaded       unit-threaded/

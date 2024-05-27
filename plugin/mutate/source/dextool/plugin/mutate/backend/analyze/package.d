@@ -848,7 +848,7 @@ struct Analyze {
         try {
             result.rootCs = checksum(result.root);
 
-            auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+            auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
             scope tstream = new TokenStreamImpl(ctx);
 
             analyzeForMutants(commandsForFileToAnalyze, result.root, ctx, tstream, idGenConf);

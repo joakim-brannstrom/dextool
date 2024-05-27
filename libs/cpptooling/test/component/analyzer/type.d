@@ -325,7 +325,7 @@ unittest {
 
         // arrange
         auto visitor = new TestVisitor;
-        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+        auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
         ctx.vfs.open(new Blob(Uri("issue.hpp"), format(code, getValue, getValue)));
         auto tu = ctx.makeTranslationUnit("issue.hpp");
 
@@ -375,7 +375,7 @@ extern gun_type gun_func;
     auto visitor = new TestVisitor;
     visitor.find = "c:@F@gun_func#I#";
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
@@ -405,7 +405,7 @@ int* p1;
 
     // arrange
     auto visitor = new TestVisitor;
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
@@ -435,7 +435,7 @@ const void* const func(const MadeUp** const zzzz, const Struct** const yyyy);
     auto visitor = new TestVisitor;
     visitor.find = "c:@F@func#1**1d#1**1$@S@Struct#";
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
@@ -489,7 +489,7 @@ void gun() {}
     auto visitor = new TestVisitor;
     visitor.find = "c:@F@fun";
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
@@ -516,7 +516,7 @@ fun_ptr *f;
     // arrange
     auto visitor = new TestVisitor;
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("issue.hpp");
 
@@ -557,7 +557,7 @@ class A_ByCtor { A_ByCtor(A a); };";
     // arrange
     auto visitor = new TestRecordVisitor;
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     ctx.vfs.open(new Blob(Uri("/def.hpp"), code_def));
     auto tu0 = ctx.makeTranslationUnit("/issue.hpp");
@@ -589,7 +589,7 @@ unittest {
     ]) {
         // arrange
         auto visitor = new TestDeclVisitor;
-        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+        auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
         ctx.vfs.open(new Blob(Uri("/issue.hpp"), getValue));
         auto tu = ctx.makeTranslationUnit("/issue.hpp");
 
@@ -619,7 +619,7 @@ class A {
 
     // arrange
     auto visitor = new TestFunctionBodyVisitor;
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
 
@@ -646,7 +646,7 @@ struct A {
 
     // arrange
     auto visitor = new TestUnionVisitor;
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
 
@@ -671,7 +671,7 @@ const some_array& some_func();
 ";
 
     // arrange
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("/issue.hpp");
     auto visitor = new TestVisitor;
@@ -699,7 +699,7 @@ void my_func(myString3 s);
 ";
 
     // arrange
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("/issue.hpp"), code));
     auto tu = ctx.makeTranslationUnit("/issue.hpp", ["-std=c++11"]);
     auto visitor = new TestVisitor;
@@ -738,7 +738,7 @@ class Class {
 
     foreach (getValue; ["int", "int*", "int&", "MyInt", "MyInt*", "MyInt&"]) {
         // arrange
-        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+        auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
         ctx.vfs.open(new Blob(Uri("/issue.hpp"), format(code, getValue)));
         auto tu = ctx.makeTranslationUnit("/issue.hpp");
         auto visitor = new ClassVisitor;
