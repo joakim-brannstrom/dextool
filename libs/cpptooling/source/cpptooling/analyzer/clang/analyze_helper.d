@@ -28,7 +28,8 @@ import clang.SourceLocation : SourceLocation;
 
 import libclang_ast.ast : ClassTemplate, ClassTemplatePartialSpecialization,
     Constructor, CxxMethod, ClassDecl, CxxBaseSpecifier,
-    Destructor, FieldDecl, FunctionDecl, StructDecl, TranslationUnit, UnionDecl, VarDecl, Visitor;
+    Destructor, FieldDecl, FunctionDecl, StructDecl, TranslationUnit,
+    UnionDecl, VarDecl, Visitor, LinkageSpec;
 
 import cpptooling.analyzer.clang.type : retrieveType, TypeKind, TypeKindAttr,
     TypeResult, TypeResults, logTypeResult, TypeAttr;
@@ -182,6 +183,17 @@ struct FunctionDeclResult {
 FunctionDeclResult analyzeFunctionDecl(scope const FunctionDecl v,
         ref Container container, in uint indent) @safe {
     return analyzeFunctionDecl(v.cursor, container, indent);
+}
+
+FunctionDeclResult analyzeFunctionDecl(scope const LinkageSpec v,
+        ref Container container, in uint indent) @safe {
+    import std.algorithm : filter;
+    import clang.c.Index : CXCursorKind;
+
+    foreach (c; v.cursor.children.filter!(a => a.kind == CXCursorKind.functionDecl)) {
+        return analyzeFunctionDecl(c, container, indent);
+    }
+    return FunctionDeclResult.init;
 }
 
 // added trusted to get the compiler to shut up. the code works, just... needs scope.
