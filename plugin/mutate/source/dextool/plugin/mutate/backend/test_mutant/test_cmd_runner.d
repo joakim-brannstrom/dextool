@@ -34,8 +34,6 @@ import proc;
 import dextool.plugin.mutate.type : ShellCommand;
 import dextool.plugin.mutate.backend.type : ExitStatus;
 
-import std.stdio;
-
 version (unittest) {
     import unit_threaded.assertions;
 }
@@ -404,7 +402,6 @@ RunResult spawnRunTest(ShellCommand cmd, Duration timeout, string[string] env, T
                 break;
             }
         }
-        writeln(cmd, " | ", p.timeoutTriggered, " | ", output.data);
 
         if (p.timeoutTriggered) {
             rval.status = RunResult.Status.timeout;
@@ -529,7 +526,7 @@ unittest {
     }();
 
     auto runner = TestRunner.make(0);
-    // runner.put([script, "foo", "0"].ShellCommand);
+    runner.put([script, "foo", "0"].ShellCommand);
     runner.put([script, "foo", "1", "timeout"].ShellCommand);
     auto res = runner.run(1.dur!"seconds");
 
