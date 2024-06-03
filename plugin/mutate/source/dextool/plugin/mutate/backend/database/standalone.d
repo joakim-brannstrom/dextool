@@ -2214,6 +2214,13 @@ struct DbSchema {
         db.run("DELETE FROM " ~ schemaFragmentV2Table);
     }
 
+    /// If there are any schema fragments with mutants.
+    bool hasMutants() @trusted {
+        auto stmt = db.prepare("SELECT count(*) FROM " ~ schemaMutantV2Table);
+        auto res = stmt.get.execute;
+        return res.oneValue!long != 0;
+    }
+
     /// Fragments in `file` which contains mutants that are in the worklist.
     SchemaFragmentV2[] getFragments(const FileId file) @trusted {
         import std.zlib : uncompress;

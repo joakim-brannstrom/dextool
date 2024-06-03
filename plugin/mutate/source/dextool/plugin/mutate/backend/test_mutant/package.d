@@ -469,6 +469,7 @@ struct TestDriver {
         this.conf = conf;
         this.covConf = coverage;
         this.schemaConf = schema;
+        this.schemaConf.use = this.schemaConf.use && db.schemaApi.hasMutants;
 
         this.timeoutFsm.setLogLevel;
 
