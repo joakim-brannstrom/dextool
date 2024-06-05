@@ -1,13 +1,15 @@
 # vNext
 
+# v5.1 Hematite
+
 Fixes
 
  * Bindings updated to support llvm-16 and 17.
- * Fix failed parsing of internal compiler flags when the console languages isn't English.
+ * Fix failed parsing of internal compiler flags when the console languages
+   isn't English.
  * Fix segfault with dmd-2.106.0+
  * Officially dropped support for llvm v4-13 because they are no longer tested
    by CI. They may or may not work.
-
 
 Fixes for dextool mutate
 
@@ -34,7 +36,8 @@ void fn(int x) {
 ```
    The mutant `x>42` to `false` is the same as deleting `return;`. Because
    mutation testing is a somewhat slow process it is better to generate less
-   mutants wherein every mutant that is generated are useful (test something new).
+   mutants wherein every mutant that is generated are useful (exhibit a new
+   behavior giving useful insights to how the test suite can be improved).
  * Add support for textual control structure in C++ such as `and`, `or`.
  * The CR mutation operator replaced floats with an integer `0` which may
    result in compilation errors. Fix now by replace with `0.0`.
@@ -57,6 +60,8 @@ void fn(int x) {
  * Update jquery to v3.7.1 to fix three potential security vulnerabilities.
  * Allow analysis of more complext code by not discarding the whole AST because
    some AST branches have a "too high" depth.
+ * Fix crash when running `dextool mutate test` with schemata activated but
+   there are no scheman.
 
 # v5.0 Limestone
 
