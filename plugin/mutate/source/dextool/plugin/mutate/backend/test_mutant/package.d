@@ -658,7 +658,7 @@ nothrow:
             data.halt = true;
         }
 
-        logger.infof("Memory limit set minium %s Mbyte",
+        logger.infof("Memory limit set minimum %s Mbyte",
                 cast(ulong)(toMinMemory(conf.maxMemUsage.get) / (1024.0 * 1024.0)))
             .collectException;
 
