@@ -141,9 +141,13 @@ string llvmLibClang() {
         "clangFrontendTool", "clangRewriteFrontend", "clangDynamicASTMatchers",
         "clangFrontend", "clangASTMatchers", "clangParse", "clangSerialization",
         "clangRewrite", "clangSema", "clangEdit", "clangAnalysis",
-        "clangAST", "clangLex", "clangBasic"
+        "clangAST", "clangLex", "clangBasic","clang-cpp"
     ]) {
-        rval ~= "-l" ~ findLibOrBackup(lib, lib);
+        string foundLib= findLibOrSkip(lib);
+        if( foundLib !is null){
+            rval ~= "-l" ~ foundLib;
+        }
+  
     }
 
     rval ~= findLib("libclang.so", PartialLibrary("clang")).visit!(
@@ -182,7 +186,7 @@ Library findLib(string lib, PartialLibrary backup) {
     return backup.Library;
 }
 
-string findLibOrBackup(string lib, string backup) {
+string findLibOrSkip(string lib) {
     // dfmt off
     foreach (p; llvmSearchPaths
              .filter!(a => exists(a))
@@ -195,7 +199,7 @@ string findLibOrBackup(string lib, string backup) {
     }
     // dfmt on
 
-    return backup;
+    return null;
 }
 
 /** The order the paths are listed affects the priority. The higher up the
