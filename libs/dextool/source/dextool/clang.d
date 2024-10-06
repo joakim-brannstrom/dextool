@@ -59,7 +59,7 @@ Nullable!IncludeResult findCompileCommandFromIncludes(ParsedCompileCommand[] com
     import libclang_ast.context : ClangContext;
     import libclang_ast.include_visitor : hasInclude;
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
 
     string find_file = fname.baseName;
 

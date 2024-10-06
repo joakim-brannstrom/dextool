@@ -108,7 +108,7 @@ final class CppVisitor(VisitorKind RootT) : Visitor {
 
         // TODO investigate if linkage() == CXLinkage_External should be used
         // instead.
-        if (v.cursor.storageClass() == CX_StorageClass.extern_) {
+        if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
             auto result = analyzeVarDecl(v, container, indent);
             auto var = CxGlobalVariable(result.instanceUSR,
                     TypeKindVariable(result.type, result.name));

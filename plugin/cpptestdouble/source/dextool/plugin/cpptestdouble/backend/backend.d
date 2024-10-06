@@ -54,7 +54,7 @@ struct Backend {
 
     ///
     this(Controller ctrl, Parameters params, Products products, Transform transform) {
-        this.ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+        this.ctx = ClangContext(Yes.prependParamSyntaxOnly);
         this.ctrl = ctrl;
         this.params = params;
         this.products = products;
@@ -193,8 +193,8 @@ CppT rawFilter(CppT, LookupT, LookupT2)(CppT input, Controller ctrl,
     // dfmt on
 
     foreach (a; input.classRange // ask controller (the user) if the file should be mocked
-        .filterAnyLocation!(a => ctrl.doFile(a.location.file,
-            cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)) {
+            .filterAnyLocation!(a => ctrl.doFile(a.location.file,
+                cast(string) a.value.name ~ " " ~ a.location.toString))(lookup)) {
 
         if (ctrl.doGoogleMock && a.value.isVirtual) {
         } else if (ctrl.doGoogleTestPODPrettyPrint && a.value.memberPublicRange.length != 0) {

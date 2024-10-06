@@ -26,12 +26,11 @@ set(SRC_FILES
 
 set(flags "-I${CMAKE_CURRENT_LIST_DIR}/source
 -I${CMAKE_SOURCE_DIR}/libs/clang/source
--I${LIBCLANG_INC}
+${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
--J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
 compile_d_static_lib(dextool_libclang_ast

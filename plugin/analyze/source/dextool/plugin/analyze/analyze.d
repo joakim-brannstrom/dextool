@@ -177,7 +177,7 @@ void analyzeWorker(Tid owner, AnalyzeBuilder analyze_builder, size_t file_idx,
     try {
         analyzers = analyze_builder.finalize;
         analyzers.register(visitor);
-        auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+        auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
         if (analyzeFile(pdata.cmd.absoluteFile, pdata.flags.completeFlags,
                 visitor, ctx) == ExitStatusType.Errors) {
             logger.error("Unable to analyze: ", cast(string) pdata.cmd.absoluteFile);
@@ -322,7 +322,7 @@ struct AnalyzeCollection {
     void register(TUVisitor v) @trusted {
         if (doMcCabe) {
             v.onFunctionDecl ~= &mcCabe.analyze!FunctionDecl;
-            v.onCxxMethod ~= &mcCabe.analyze!CxxMethod;
+            v.onCXXMethod ~= &mcCabe.analyze!CXXMethod;
             v.onConstructor ~= &mcCabe.analyze!Constructor;
             v.onDestructor ~= &mcCabe.analyze!Destructor;
             v.onConversionFunction ~= &mcCabe.analyze!ConversionFunction;

@@ -14,14 +14,13 @@ set(SRC_FILES
 
 set(flags "-I${CMAKE_SOURCE_DIR}/source
 -I${CMAKE_SOURCE_DIR}/libs/clang/source
--I${LIBCLANG_INC}
+${LIBCLANG_INC}
 -I${CMAKE_SOURCE_DIR}/libs/libclang_ast/source
 -I${CMAKE_SOURCE_DIR}/vendor/blob_model/source
 -I${CMAKE_SOURCE_DIR}/vendor/mylib/source
 -I${CMAKE_SOURCE_DIR}/vendor/sumtype/src
 -I${CMAKE_SOURCE_DIR}/vendor/colorlog/source
 -I${CMAKE_SOURCE_DIR}/vendor/undead/src
--J${CMAKE_SOURCE_DIR}/libs/clang/resources
 ")
 
 compile_d_static_lib(dextool_dextool

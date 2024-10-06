@@ -124,7 +124,7 @@ int dumpAst(string filename, string[] flags) {
     import cpptooling.analyzer.clang.context;
     import clang.TranslationUnit : dumpAST;
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     auto tu = ctx.makeTranslationUnit(filename, flags);
     writeln(dumpAST(tu));
 
@@ -138,7 +138,7 @@ int dumpIncludes(string filename, string[] flags) {
     import cpptooling.analyzer.clang.include_visitor;
     import cpptooling.analyzer.clang.cursor_visitor;
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     auto tu = ctx.makeTranslationUnit(filename, flags);
 
     foreach (c; tu.cursor.visitBreathFirst.filter!(a => a.kind == CXCursorKind.inclusionDirective)) {
@@ -153,8 +153,7 @@ int dumpBody(string fname, string[] flags) {
     import cpptooling.analyzer.clang.analyze_helper;
     import cpptooling.analyzer.clang.ast;
     import cpptooling.analyzer.clang.context;
-    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors,
-        logDiagnostic;
+    import cpptooling.analyzer.clang.check_parse_result : hasParseErrors, logDiagnostic;
     import cpptooling.analyzer.clang.cursor_logger : logNode, mixinNodeLog;
     import cpptooling.data.symbol : Container;
 
@@ -191,10 +190,10 @@ int dumpBody(string fname, string[] flags) {
 
             if (c_func.kind == CXCursorKind.functionDecl) {
                 auto result = analyzeFunctionDecl(c_func, container, indent);
-                () @trusted{ logger.trace("result: ", result); }();
+                () @trusted { logger.trace("result: ", result); }();
             } else if (c_func.kind == CXCursorKind.cxxMethod) {
                 auto result = analyzeCxxMethod(c_func, container, indent);
-                () @trusted{ logger.trace("result: ", result); }();
+                () @trusted { logger.trace("result: ", result); }();
             } else {
                 logger.trace("unknown callexpr: ", c_func.kind.to!string());
             }
@@ -259,7 +258,7 @@ int dumpBody(string fname, string[] flags) {
         }
     }
 
-    auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+    auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     auto tu = ctx.makeTranslationUnit(fname, flags);
 
     if (tu.hasParseErrors) {

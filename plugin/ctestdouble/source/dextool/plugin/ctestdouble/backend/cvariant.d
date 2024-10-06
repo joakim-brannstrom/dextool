@@ -306,7 +306,7 @@ final class CVisitor : Visitor {
 
         //TODO ugly hack. Move this information to the representation. But for
         //now skipping all definitions
-        if (v.cursor.storageClass() == CX_StorageClass.extern_) {
+        if (v.cursor.storageClass() == CX_StorageClass.CX_SC_Extern) {
             auto result = analyzeVarDecl(v, container, indent);
             auto var = CxGlobalVariable(result.instanceUSR,
                     TypeKindVariable(result.type, result.name));

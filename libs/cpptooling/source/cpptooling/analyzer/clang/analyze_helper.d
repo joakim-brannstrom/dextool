@@ -27,7 +27,7 @@ import clang.Cursor : Cursor;
 import clang.SourceLocation : SourceLocation;
 
 import libclang_ast.ast : ClassTemplate, ClassTemplatePartialSpecialization,
-    Constructor, CxxMethod, ClassDecl, CxxBaseSpecifier,
+    Constructor, CXXMethod, ClassDecl, CXXBaseSpecifier,
     Destructor, FieldDecl, FunctionDecl, StructDecl, TranslationUnit,
     UnionDecl, VarDecl, Visitor, LinkageSpec;
 
@@ -61,22 +61,22 @@ private CppVirtualMethod classify(T)(T c) @safe if (is(Unqual!T == Cursor)) {
 /// Convert a clang access specifier to dextool representation.
 AccessType toAccessType(CX_CXXAccessSpecifier accessSpec) @safe {
     final switch (accessSpec) with (CX_CXXAccessSpecifier) {
-    case cxxInvalidAccessSpecifier:
+    case CX_CXXInvalidAccessSpecifier:
         return AccessType.Public;
-    case cxxPublic:
+    case CX_CXXPublic:
         return AccessType.Public;
-    case cxxProtected:
+    case CX_CXXProtected:
         return AccessType.Protected;
-    case cxxPrivate:
+    case CX_CXXPrivate:
         return AccessType.Private;
     }
 }
 
 StorageClass toStorageClass(CX_StorageClass storageClass) @safe pure nothrow @nogc {
     switch (storageClass) with (CX_StorageClass) {
-    case extern_:
+    case CX_SC_Extern:
         return StorageClass.Extern;
-    case static_:
+    case CX_SC_Static:
         return StorageClass.Static;
     default:
         return StorageClass.None;
@@ -156,13 +156,13 @@ do {
     }
 
     final switch (c.language) with (CXLanguageKind) {
-    case invalid:
+    case CXLanguage_Invalid:
         return Language.unknown;
-    case c:
+    case CXLanguage_C:
         return Language.c;
-    case objC:
+    case CXLanguage_ObjC:
         return Language.unknown;
-    case cPlusPlus:
+    case CXLanguage_CPlusPlus:
         return Language.cpp;
     }
 }
@@ -190,7 +190,7 @@ FunctionDeclResult analyzeFunctionDecl(scope const LinkageSpec v,
     import std.algorithm : filter;
     import clang.c.Index : CXCursorKind;
 
-    foreach (c; v.cursor.children.filter!(a => a.kind == CXCursorKind.functionDecl)) {
+    foreach (c; v.cursor.children.filter!(a => a.kind == CXCursorKind.CXCursor_FunctionDecl)) {
         return analyzeFunctionDecl(c, container, indent);
     }
     return FunctionDeclResult.init;
@@ -202,7 +202,7 @@ FunctionDeclResult analyzeFunctionDecl(scope const Cursor c_in, ref Container co
 in {
     import clang.c.Index : CXCursorKind;
 
-    () @trusted { assert(c_in.kind == CXCursorKind.functionDecl); }();
+    () @trusted { assert(c_in.kind == CXCursorKind.CXCursor_FunctionDecl); }();
 }
 do {
     import std.algorithm : among;
@@ -331,7 +331,7 @@ VarDeclResult analyzeVarDecl(scope const Cursor v, ref Container container, in u
 in {
     import clang.c.Index : CXCursorKind;
 
-    assert(v.kind == CXCursorKind.varDecl);
+    assert(v.kind == CXCursorKind.CXCursor_VarDecl);
 }
 do {
     import clang.Cursor : Cursor;
@@ -410,7 +410,7 @@ struct CxxMethodResult {
     LocationTag location;
 }
 
-CxxMethodResult analyzeCxxMethod(scope const CxxMethod v, ref Container container, in uint indent) @safe {
+CxxMethodResult analyzeCxxMethod(scope const CXXMethod v, ref Container container, in uint indent) @safe {
     return analyzeCxxMethod(v.cursor, container, indent);
 }
 
@@ -482,7 +482,7 @@ struct CxxBaseSpecifierResult {
  * It is possible to inherit from for example a typedef. canonicalUSR would be
  * the class the typedef refers.
  */
-auto analyzeCxxBaseSpecified(scope const CxxBaseSpecifier v, ref Container container, in uint indent) @safe {
+auto analyzeCxxBaseSpecified(scope const CXXBaseSpecifier v, ref Container container, in uint indent) @safe {
     import clang.c.Index : CXCursorKind;
     import std.array : array;
     import std.algorithm : map;
@@ -503,7 +503,7 @@ auto analyzeCxxBaseSpecified(scope const CxxBaseSpecifier v, ref Container conta
 
     CppNs[] namespace;
     auto c_ref = v.cursor.referenced;
-    if (c_ref.kind == CXCursorKind.noDeclFound) {
+    if (c_ref.kind == CXCursorKind.CXCursor_NoDeclFound) {
         namespace = backtrackScopeRange(c_ref).map!(a => CppNs(a.spelling)).array();
     } else {
         // TODO: remove this workaround.
@@ -591,7 +591,7 @@ final class ClassVisitor : Visitor {
         this.root.usr = result.type.kind.usr;
     }
 
-    override void visit(scope const(CxxBaseSpecifier) v) {
+    override void visit(scope const(CXXBaseSpecifier) v) {
         import std.range : retro;
         import std.array : appender;
         import clang.c.Index : CXCursorKind;
@@ -631,7 +631,7 @@ final class ClassVisitor : Visitor {
         debug logger.trace("dtor: ", tor.toString);
     }
 
-    override void visit(scope const(CxxMethod) v) {
+    override void visit(scope const(CXXMethod) v) {
         import cpptooling.data : CppMethodOp;
 
         mixin(mixinNodeLog!());
@@ -653,7 +653,7 @@ final class ClassVisitor : Visitor {
         }
     }
 
-    override void visit(scope const(CxxAccessSpecifier) v) {
+    override void visit(scope const(CXXAccessSpecifier) v) {
         mixin(mixinNodeLog!());
 
         accessType = CppAccess(toAccessType(v.cursor.access.accessSpecifier));

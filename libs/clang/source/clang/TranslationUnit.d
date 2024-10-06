@@ -40,7 +40,7 @@ struct TranslationUnit {
      */
     static TranslationUnit parse(ref Index index, string sourceFilename, string[] commandLineArgs,
             CXUnsavedFile[] unsavedFiles = null,
-            uint options = CXTranslationUnit_Flags.detailedPreprocessingRecord) @trusted {
+            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) @trusted {
 
         // dfmt off
         // Trusted: on the assumption that the LLVM team are competent. That
@@ -70,11 +70,11 @@ struct TranslationUnit {
      */
     static TranslationUnit parseString(ref Index index, string source, string[] commandLineArgs,
             CXUnsavedFile[] unsavedFiles = null,
-            uint options = CXTranslationUnit_Flags.detailedPreprocessingRecord) @safe {
+            uint options = CXTranslationUnit_Flags.CXTranslationUnit_DetailedPreprocessingRecord) @safe {
         import std.string : toStringz;
 
         string path = randomSourceFileName;
-        CXUnsavedFile file;
+        auto file = CXUnsavedFile.init;
         if (source.length == 0) {
             file = CXUnsavedFile(path.toStringz, null, source.length);
         } else {
@@ -115,8 +115,8 @@ struct TranslationUnit {
     bool isCompiled() {
         import std.algorithm;
 
-        alias predicate = x => x.severity != CXDiagnosticSeverity.error
-            && x.severity != CXDiagnosticSeverity.fatal;
+        alias predicate = x => x.severity != CXDiagnosticSeverity.CXDiagnostic_Error
+            && x.severity != CXDiagnosticSeverity.CXDiagnostic_Fatal;
 
         return diagnosticSet.all!predicate();
     }
@@ -200,7 +200,7 @@ struct TranslationUnit {
         SourceLocation[] locations = [location("", 0), location(file.name, 0)];
 
         foreach (idx, cursor; cursors) {
-            if (cursor.kind == CXCursorKind.inclusionDirective) {
+            if (cursor.kind == CXCursorKind.CXCursor_InclusionDirective) {
                 auto path = cursor.location.spelling.file.name;
                 auto ptr = path in stacked;
 

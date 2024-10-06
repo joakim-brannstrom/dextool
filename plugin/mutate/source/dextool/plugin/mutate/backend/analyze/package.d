@@ -848,7 +848,7 @@ struct Analyze {
         try {
             result.rootCs = checksum(result.root);
 
-            auto ctx = ClangContext(Yes.useInternalHeaders, Yes.prependParamSyntaxOnly);
+            auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
             scope tstream = new TokenStreamImpl(ctx);
 
             analyzeForMutants(commandsForFileToAnalyze, result.root, ctx, tstream, idGenConf);
@@ -963,7 +963,7 @@ struct Analyze {
             int sectionStart = -1;
             LineMetadata sectionData;
 
-            foreach (t; tstream.getTokens(file).filter!(a => a.kind == CXTokenKind.comment)) {
+            foreach (t; tstream.getTokens(file).filter!(a => a.kind == CXTokenKind.CXToken_Comment)) {
                 auto m = matchFirst(t.spelling, re_nomut);
 
                 if (m.whichPattern == 0)
@@ -1163,7 +1163,7 @@ class TokenStreamImpl : TokenStream {
         import clang.c.Index : CXTokenKind;
 
         // Filter a stream of tokens for those that should affect the checksum.
-        return tokenize(*ctx, p).filter!(a => a.kind != CXTokenKind.comment).array;
+        return tokenize(*ctx, p).filter!(a => a.kind != CXTokenKind.CXToken_Comment).array;
     }
 }
 

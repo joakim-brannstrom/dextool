@@ -1,5 +1,15 @@
 # vNext
 
+ * Dropped manually maintained bindings for libclang in favor of using D's support to directly import C files.
+   It has been a major source of bugs and annoyance at manually maintaining the
+   bindings. Some hard to find crashes originated from a mismatch between the D
+   libclang bindings and the lib linked. This was most prominent when new AST
+   nodes where added to the `CXCursorKind` enum. The manually maintained
+   bindings also slowed down the compatibility with newer versions of clang
+   because they had to be manually updated.
+   The migration to using the C headers directly should alleviate these problems
+   and make dextool easier to maintain in the future.
+
 # v5.1 Hematite
 
 Fixes
@@ -10,7 +20,10 @@ Fixes
  * Fix segfault with dmd-2.106.0+
  * Officially dropped support for llvm v4-13 because they are no longer tested
    by CI. They may or may not work.
-
+ * Replace D bindings for libclang with ImportC. This should both make dextool
+   almost, automatically work with any future version of LLVM/Clang as long as
+   no existing C API functions are removed and reduce annoying bugs wherein the
+   enum's have changed.
 Fixes for dextool mutate
 
  * It is problematic to inject mutant schema in C++ templates because it may be

@@ -30,7 +30,6 @@ configuration "tok" {
     excludedSourceFiles "source/generate_clang_ast_nodes.d"
     sourcePaths "source" "../../libs/libclang/source" "../../libs/clang/source" "../../libs/cpptooling/source" "../../libs/dextool/source"
     importPaths "../../libs/libclang/source" "../../libs/clang/source" "../../libs/dsrcgen/source" "../../libs/cpptooling/source" "../../libs/dextool/source"
-    stringImportPaths "../../libs/clang/resources"
 }
 
 configuration "generate" {
@@ -39,5 +38,4 @@ configuration "generate" {
     excludedSourceFiles "source/tok_main.d"
     sourcePaths "source" "../../libs/libclang/source" "../../libs/clang/source" "../../libs/cpptooling/source" "../../libs/dextool/source"
     importPaths "../../libs/libclang/source" "../../libs/clang/source" "../../libs/dsrcgen/source" "../../libs/cpptooling/source" "../../libs/dextool/source"
-    stringImportPaths "../../libs/clang/resources"
 }
