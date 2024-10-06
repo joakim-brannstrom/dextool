@@ -9,6 +9,9 @@
    because they had to be manually updated.
    The migration to using the C headers directly should alleviate these problems
    and make dextool easier to maintain in the future.
+ * Fix building on ArchLinux
+   ([#1738](https://github.com/joakim-brannstrom/dextool/issues/1738)), thanks
+   to chengjackjelly.
 
 # v5.1 Hematite
 
