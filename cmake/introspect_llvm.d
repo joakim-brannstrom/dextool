@@ -143,13 +143,19 @@ string llvmLibClang() {
     import std.conv : text;
 
     string[] rval;
-    foreach (lib; [
-        "clangFrontendTool", "clangRewriteFrontend", "clangDynamicASTMatchers",
-        "clangFrontend", "clangASTMatchers", "clangParse", "clangSerialization",
-        "clangRewrite", "clangSema", "clangEdit", "clangAnalysis",
-        "clangAST", "clangLex", "clangBasic"
-    ]) {
-        rval ~= "-l" ~ findLibOrBackup(lib, lib);
+    if (auto lib = findLibOrSkip("clang-cpp")) {
+        rval ~= "-l:" ~ lib;
+    } else {
+        // fallback for older linux distributions for how clang is distributed
+        foreach (lib; [
+            "clangFrontendTool", "clangRewriteFrontend", "clangDynamicASTMatchers",
+            "clangFrontend", "clangASTMatchers", "clangParse",
+            "clangSerialization", "clangRewrite", "clangSema", "clangEdit",
+            "clangAnalysis", "clangAST", "clangLex", "clangBasic"
+        ].map!(a => findLibOrSkip(a))
+                .filter!"!a.empty") {
+            rval ~= "-l" ~ lib[3 .. $];
+        }
     }
 
     rval ~= findLib("libclang.so", PartialLibrary("clang")).visit!(
@@ -188,7 +194,7 @@ Library findLib(string lib, PartialLibrary backup) {
     return backup.Library;
 }
 
-string findLibOrBackup(string lib, string backup) {
+string findLibOrSkip(string lib) {
     // dfmt off
     foreach (p; llvmSearchPaths
              .filter!(a => exists(a))
@@ -197,32 +203,34 @@ string findLibOrBackup(string lib, string backup) {
              .filter!(a => a.isFile)
              .map!(a => std.path.baseName(a.name))
              .filter!(a => a.canFind(lib))) {
-        return lib;
+        return p;
     }
     // dfmt on
-
-    return backup;
+    return null;
 }
 
 /** The order the paths are listed affects the priority. The higher up the
  * higher priority because only the first match is used.
  */
 string[] llvmSearchPaths() {
+    string[] makeUbuntu() {
+        const stopAt = llvmLibdir;
+        const base = "/usr/lib/llvm-%s/lib";
+        string[] rval;
+        for (int i = 7; i < 100; ++i) {
+            auto p = format(base, i);
+            if (p == stopAt)
+                break;
+            if (exists(p))
+                rval ~= p;
+        }
+        return rval.retro.array;
+    }
+
     // dfmt off
     return [
         llvmLibdir,
-        // Ubuntu
-        "/usr/lib/llvm-17/lib",
-        "/usr/lib/llvm-16/lib",
-        "/usr/lib/llvm-15/lib",
-        "/usr/lib/llvm-14/lib",
-        "/usr/lib/llvm-13/lib",
-        "/usr/lib/llvm-12/lib",
-        "/usr/lib/llvm-11/lib",
-        "/usr/lib/llvm-10/lib",
-        "/usr/lib/llvm-9/lib",
-        "/usr/lib/llvm-8/lib",
-        "/usr/lib/llvm-7/lib",
+        ] ~ makeUbuntu ~ [
         "/usr/lib/llvm-6.0/lib",
         "/usr/lib/llvm-5.0/lib",
         "/usr/lib/llvm-4.0/lib",
