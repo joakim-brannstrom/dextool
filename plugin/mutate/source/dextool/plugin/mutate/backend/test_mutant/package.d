@@ -360,6 +360,7 @@ struct TestDriver {
     }
 
     static struct SchemataTest {
+        bool noSchema;
         bool fatalError;
         // stop mutation testing because the last schema has been used and the
         // user has configured that the testing should stop now.
@@ -1502,12 +1503,14 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         try {
+            logger.info("smurf");
             auto driver = system.spawn(&spawnSchema, filesysIO, runner,
                     dbPath, testCaseAnalyzer, schemaConf, stopCheck,
                     conf.mutationCompile, conf.buildCmdTimeout, dbSave, stat, timeout);
             scope (exit)
                 sendExit(driver, ExitReason.userShutdown);
             auto self = scopedActor;
+            logger.info("smurf");
 
             {
                 bool waiting = true;
@@ -1517,6 +1520,7 @@ nothrow:
                             waiting = !x;
                         });
                     } catch (ScopedActorException e) {
+                        logger.info("an error ", e.error);
                         if (e.error != ScopedActorError.timeout) {
                             logger.trace(e.error);
                             return;
@@ -1525,6 +1529,7 @@ nothrow:
                     () @trusted { Thread.sleep(100.dur!"msecs"); }();
                 }
             }
+            logger.info("smurf");
 
             FinalResult fr;
             {
@@ -1534,11 +1539,16 @@ nothrow:
                     logger.trace("final schema status ", fr.status);
                 } catch (ScopedActorException e) {
                     logger.trace(e.error);
+                    data.fatalError = true;
                     return;
                 }
             }
+            logger.info("smurf");
 
             final switch (fr.status) with (FinalResult.Status) {
+            case noSchema:
+                data.noSchema = true;
+                break;
             case fatalError:
                 data.fatalError = true;
                 break;
@@ -1548,6 +1558,7 @@ nothrow:
             case ok:
                 break;
             }
+            //Thread.sleep(5.dur!"seconds");
 
             stopCheck.incrAliveMutants(fr.alive);
         } catch (Exception e) {

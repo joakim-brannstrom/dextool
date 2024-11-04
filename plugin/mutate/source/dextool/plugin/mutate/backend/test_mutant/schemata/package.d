@@ -97,6 +97,7 @@ struct GetDoneStatus {
 
 struct FinalResult {
     enum Status {
+        noSchema,
         fatalError,
         invalidSchema,
         ok
@@ -201,11 +202,11 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             logger.tracef("Timeout Scale Factor: %s", ctx.state.timeoutConf.timeoutScaleFactor);
             ctx.state.runner.timeout = ctx.state.timeoutConf.value;
 
-            ctx.state.loadCtrl = ctx.self.homeSystem.spawn(
-                    &dextool.plugin.mutate.backend.test_mutant.schemata.load.spawnLoadCtrlActor,
-                    dextool.plugin.mutate.backend.test_mutant.schemata.load.TargetLoad(
-                        ctx.state.stopCheck.getLoadThreshold));
-            linkTo(ctx.self, ctx.state.loadCtrl);
+            // ctx.state.loadCtrl = ctx.self.homeSystem.spawn(
+            //         &dextool.plugin.mutate.backend.test_mutant.schemata.load.spawnLoadCtrlActor,
+            //         dextool.plugin.mutate.backend.test_mutant.schemata.load.TargetLoad(
+            //             ctx.state.stopCheck.getLoadThreshold));
+            // linkTo(ctx.self, ctx.state.loadCtrl);
 
             ctx.state.scheduler = () {
                 TestMutantActor.Address[] testers;
@@ -231,6 +232,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             send(ctx.self, CheckStopCondMsg.init);
             send(ctx.self, GenSchema.init);
             ctx.state.isRunning = true;
+            logger.info("init done");
         } catch (Exception e) {
             ctx.state.hasFatalError = true;
             logger.error(e.msg).collectException;
@@ -239,6 +241,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
     static void generateSchema(ref Ctx ctx, GenSchema _) @trusted nothrow {
         try {
+            logger.info("call genschema");
             ctx.state.activeSchema = typeof(ctx.state.activeSchema).init;
             ctx.state.injectIds = typeof(ctx.state.injectIds).init;
 
@@ -255,6 +258,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                     }
                 }
             });
+            logger.info("call genschema");
         } catch (Exception e) {
             logger.warning(e.msg).collectException;
         }
@@ -332,6 +336,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 goto case;
             case invalidSchema:
                 return SchemaStatus.broken;
+            case noSchema:
+                goto case;
             case ok:
                 // TODO: remove SchemaStatus.allKilled
                 return SchemaStatus.ok;
@@ -371,6 +377,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
     static FinalResult doneStatus(ref Ctx ctx, GetDoneStatus _) @trusted nothrow {
         try {
+            logger.info("get done status ", ctx.state.alive);
             FinalResult.Status status = () {
                 if (ctx.state.borrow!((ref a) => a.hasFatalError))
                     return FinalResult.Status.fatalError;
@@ -614,6 +621,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
     static void checkHaltCond(ref Ctx ctx, CheckStopCondMsg _) @safe nothrow {
         try {
+            logger.info("stop cond");
             if (ctx.state.borrow!((ref a) => !a.isRunning))
                 return;
 
@@ -701,6 +709,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
         import dextool.plugin.mutate.backend.database : dbOpenTimeout;
 
         try {
+            logger.info("gen schema init");
             ctx.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
 
             ctx.state.denyList = spinSql!(() => ctx.db.mutantApi.getAllMutationStatus(
@@ -709,6 +718,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
             ctx.state.schemaBuild.minMutantsPerSchema = ctx.state.conf.minMutantsPerSchema;
             ctx.state.schemaBuild.mutantsPerSchema.get = ctx.state.conf.mutantsPerSchema.get;
             ctx.state.schemaBuild.initFiles(spinSql!(() => ctx.db.fileApi.getFileIds));
+            logger.info("gen schema init done");
         } catch (Exception e) {
             logger.error(e.msg).collectException;
             // TODO: should terminate?
