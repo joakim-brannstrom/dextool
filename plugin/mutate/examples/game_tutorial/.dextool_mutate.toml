@@ -62,7 +62,7 @@ use = true
 # inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]
 
 # Number of schema mutants to test in parallel (default is the number of cores).
-# parallel_mutants = 8
+parallel_mutants = 1
 
 # minimum number of mutants per schema.
 # min_mutants_per_schema = 3
@@ -187,7 +187,7 @@ oldest_mutants = "test"
 oldest_mutants_percentage = 100.0
 
 # number of threads to be used when running tests in parallel (default is the number of cores).
-# parallel_test = 1
+parallel_test = 1
 
 # stop executing tests as soon as a test command fails.
 # This speed up the test phase but the report of test cases killing mutants is less accurate

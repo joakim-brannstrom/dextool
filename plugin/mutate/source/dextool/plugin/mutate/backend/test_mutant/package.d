@@ -1503,33 +1503,33 @@ nothrow:
         import dextool.plugin.mutate.backend.test_mutant.schemata;
 
         try {
-            logger.info("smurf");
+            logger.info("schemadriver init");
             auto driver = system.spawn(&spawnSchema, filesysIO, runner,
                     dbPath, testCaseAnalyzer, schemaConf, stopCheck,
                     conf.mutationCompile, conf.buildCmdTimeout, dbSave, stat, timeout);
             scope (exit)
                 sendExit(driver, ExitReason.userShutdown);
             auto self = scopedActor;
-            logger.info("smurf");
+            logger.info("schemadriver init done");
 
             {
                 bool waiting = true;
                 while (waiting) {
                     try {
-                        self.request(driver, infTimeout).send(IsDone.init).then((bool x) {
-                            waiting = !x;
-                        });
+                        self.request(driver, 3.dur!"seconds".timeout)
+                            .send(IsDone.init).then((bool x) { waiting = !x; });
                     } catch (ScopedActorException e) {
-                        logger.info("an error ", e.error);
-                        if (e.error != ScopedActorError.timeout) {
+                        if (e.error == ScopedActorError.timeout) {
                             logger.trace(e.error);
+                        } else {
+                            logger.info("an error ", e.error);
                             return;
                         }
                     }
                     () @trusted { Thread.sleep(100.dur!"msecs"); }();
                 }
             }
-            logger.info("smurf");
+            logger.info("schemadriver done");
 
             FinalResult fr;
             {

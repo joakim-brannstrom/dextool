@@ -9,7 +9,7 @@ import std.stdio : writeln, writefln;
 
 import core.sync.mutex : Mutex;
 import core.thread : Thread;
-import logger = std.experimental.logger;
+import logger = std.logger;
 import std.algorithm : schwartzSort, max, min, among;
 import std.array : empty;
 import std.datetime : SysTime, Clock, dur;
@@ -158,35 +158,36 @@ void logAndDropHandler(scope ref Actor self, ref Variant msg) @trusted nothrow {
 }
 
 void defaultErrorHandler(scope ref Actor self, scope ErrorMsg msg) @safe nothrow {
-    self.lastError = msg.reason;
+    debug {
+        logger.tracef("%X [%s] source %s shutdown: error: %s (source %s)",
+                self.id, self.name, msg.source.toHash, msg.reason).collectException;
+    }
+    self.errorReason = msg.reason;
     self.shutdown;
 }
 
 void defaultExitHandler(scope ref Actor self, scope ExitMsg msg) @safe nothrow {
-    self.lastError = msg.reason;
+    debug {
+        logger.tracef("%X [%s] source %s shutdown: exit: %s", self.id,
+                self.name, msg.source.toHash, msg.reason).collectException;
+    }
+    self.errorReason = msg.reason;
     self.forceShutdown;
 }
 
 void defaultExceptionHandler(scope ref Actor self, scope Exception e) @safe nothrow {
-    self.lastError = SystemError.runtimeError;
-    // TODO: should log?
+    debug {
+        logger.tracef("%X [%s] shutdown: exception: %s", self.id, self.name,
+                e.msg).collectException;
+    }
+    self.errorReason = SystemError.runtimeError;
     self.forceShutdown;
 }
 
 // Write the name of the actor and the exception to stdout.
 void logExceptionHandler(scope ref Actor self, scope Exception e) @safe nothrow {
-    import std.stdio : writeln;
-
-    self.lastError = SystemError.runtimeError;
-
-    try {
-        const name = self.name.idup;
-        writeln("EXCEPTION thrown by actor ", name);
-        writeln(e.msg);
-        writeln("TERMINATING");
-    } catch (Exception e) {
-    }
-
+    self.errorReason = SystemError.runtimeError;
+    logger.info("[%s] shutdown: exception: %s: ", self.name, e.msg).collectException;
     self.forceShutdown;
 }
 
@@ -216,6 +217,15 @@ private struct AwaitReponse {
     ErrorHandler onError;
 }
 
+private struct Behavior(HandlerT) {
+    Closure!(HandlerT, void*) behavior;
+    string name;
+
+    string toString() @safe const {
+        return name;
+    }
+}
+
 struct Actor {
     import std.container.rbtree : RedBlackTree, redBlackTree;
 
@@ -226,9 +236,11 @@ struct Actor {
     private {
         Mutex mtx;
 
+        ActorState lastState_ = ActorState.stopped;
+
         // TODO: rename to behavior.
-        Closure!(MsgHandler, void*)[ulong] incoming;
-        Closure!(RequestHandler, void*)[ulong] reqBehavior;
+        Behavior!(MsgHandler)[ulong] incoming;
+        Behavior!(RequestHandler)[ulong] reqBehavior;
 
         // callbacks for awaited responses key:ed on their id.
         AwaitReponse[ulong] awaitedResponses;
@@ -241,7 +253,7 @@ struct Actor {
         RedBlackTree!(DelayedMsg*, "a.triggerAt < b.triggerAt", true) delayed;
 
         /// Used during shutdown to signal monitors and links why this actor is terminating.
-        SystemError lastError;
+        SystemError lastError_;
 
         /// monitoring the actor lifetime.
         WeakAddress[size_t] monitors;
@@ -362,6 +374,11 @@ struct Actor {
         defaultHandler_ = v;
     }
 
+    /// Error reason to signal to monitors and links why the actor is terminated when forceShutdown is called.
+    void errorReason(SystemError e) @safe pure nothrow @nogc scope {
+        lastError_ = e;
+    }
+
     // dfmt on
 
 package:
@@ -397,7 +414,7 @@ package:
     void cleanupBehavior() @trusted nothrow scope {
         foreach (ref a; incoming.byValue) {
             try {
-                a.free;
+                a.behavior.free;
             } catch (Exception e) {
                 // TODO: call exceptionHandler?
             }
@@ -405,7 +422,7 @@ package:
         incoming = null;
         foreach (ref a; reqBehavior.byValue) {
             try {
-                a.free;
+                a.behavior.free;
             } catch (Exception e) {
             }
         }
@@ -504,6 +521,13 @@ package:
 
         assert(state_ == ActorState.stopped || addr, "no address");
 
+        debug {
+            if (state_ != lastState_) {
+                lastState_ = state_;
+                logger.tracef("%X [%s] %s", id, name, state_).collectException;
+            }
+        }
+
         final switch (state_) {
         case ActorState.waiting:
             state_ = ActorState.active;
@@ -530,9 +554,8 @@ package:
         case ActorState.finishShutdown:
             state_ = ActorState.stopped;
 
-            sendToMonitors(DownMsg(addr.weakRef, lastError));
-
-            sendToLinks(ExitMsg(addr.weakRef, lastError));
+            sendToMonitors(DownMsg(addr.weakRef, lastError_));
+            sendToLinks(ExitMsg(addr.weakRef, lastError_));
 
             replyTimeouts = null;
             cleanupDelayed;
@@ -618,7 +641,10 @@ package:
 
         void doSend(ref MsgOneShot msg) {
             if (auto v = front.get.signature in incoming) {
-                (*v)(msg.data);
+                debug {
+                    logger.tracef("%X [%s] incoming %s", id, name, v.name).collectException;
+                }
+                v.behavior(msg.data);
             } else {
                 defaultHandler_(this, msg.data);
             }
@@ -626,7 +652,11 @@ package:
 
         void doRequest(ref MsgRequest msg) @trusted {
             if (auto v = front.get.signature in reqBehavior) {
-                (*v)(msg.data, msg.replyId, msg.replyTo);
+                debug {
+                    logger.tracef("%X [%s] from %s request %s", id, name,
+                            msg.replyTo.toHash, v.name).collectException;
+                }
+                v.behavior(msg.data, msg.replyId, msg.replyTo);
             } else {
                 defaultHandler_(this, msg.data);
             }
@@ -650,15 +680,15 @@ package:
      *    the actor system is out of scope.
      */
     void processSystemMsg() @safe scope {
-        //() @trusted {
-        //logger.infof("run %X", cast(void*) &this);
-        //}();
         while (!addr.get.empty!SystemMsg) {
             messages_++;
-            //logger.infof("%X %s %s", addr.toHash, state_, messages_);
             auto front = addr.get.pop!SystemMsg;
             scope (exit)
                 .destroy(front);
+
+            debug {
+                logger.tracef("%X [%s] system: %s", id, name, front.get).collectException;
+            }
 
             front.get.match!((ref DownMsg a) {
                 if (downHandler_)
@@ -753,34 +783,37 @@ package:
         }
     }
 
-    void register(ulong signature, Closure!(MsgHandler, void*) handler) @trusted {
+    void register(string name, ulong signature, Closure!(MsgHandler, void*) handler) @trusted
+    in (!name.empty) {
         if (!isAccepting)
             return;
 
         if (auto v = signature in incoming) {
             try {
-                v.free;
+                v.behavior.free;
             } catch (Exception e) {
             }
         }
-        incoming[signature] = handler;
+        incoming[signature] = Behavior!MsgHandler(handler, name);
     }
 
-    void register(ulong signature, Closure!(RequestHandler, void*) handler) @trusted {
+    void register(string name, ulong signature, Closure!(RequestHandler, void*) handler) @trusted
+    in (!name.empty) {
         if (!isAccepting)
             return;
 
         if (auto v = signature in reqBehavior) {
             try {
-                v.free;
+                v.behavior.free;
             } catch (Exception e) {
             }
         }
-        reqBehavior[signature] = handler;
+        reqBehavior[signature] = Behavior!RequestHandler(handler, name);
     }
 
     void register(ulong replyId, SysTime timeout, Closure!(ReplyHandler,
-            void*) reply, ErrorHandler onError) @safe {
+            void*) reply, ErrorHandler onError) @safe
+    in (!name.empty) {
         if (!isAccepting)
             return;
 
@@ -1132,41 +1165,41 @@ private struct BuildActor {
         return this;
     }
 
-    auto set(BehaviorT)(BehaviorT behavior)
+    auto set(BehaviorT)(string name, BehaviorT behavior)
             if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
                 && !is(ReturnType!BehaviorT == void)) {
         auto act = makeRequest(behavior);
-        actor.register(act.signature, act.request);
+        actor.register(name, act.signature, act.request);
         return this;
     }
 
-    auto set(BehaviorT, CT)(BehaviorT behavior, CT c)
+    auto set(BehaviorT, CT)(string name, BehaviorT behavior, CT c)
             if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
                 && !is(ReturnType!BehaviorT == void)) {
         auto act = makeRequest!(BehaviorT, CT)(behavior);
         // for now just use the GC to allocate the context on.
         // TODO: use an allocator.
         act.request.ctx = cast(void*) new CT(c);
-        actor.register(act.signature, act.request);
+        actor.register(name, act.signature, act.request);
         return this;
     }
 
-    auto set(BehaviorT)(BehaviorT behavior)
+    auto set(BehaviorT)(string name, BehaviorT behavior)
             if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
                 && is(ReturnType!BehaviorT == void)) {
         auto act = makeAction(behavior);
-        actor.register(act.signature, act.action);
+        actor.register(name, act.signature, act.action);
         return this;
     }
 
-    auto set(BehaviorT, CT)(BehaviorT behavior, CT c)
+    auto set(BehaviorT, CT)(string name, BehaviorT behavior, CT c)
             if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
                 && is(ReturnType!BehaviorT == void)) {
         auto act = makeAction!(BehaviorT, CT)(behavior);
         // for now just use the GC to allocate the context on.
         // TODO: use an allocator.
         act.action.ctx = cast(void*) new CT(c);
-        actor.register(act.signature, act.action);
+        actor.register(name, act.signature, act.action);
         return this;
     }
 }
@@ -1189,9 +1222,9 @@ Actor* impl(Behavior...)(Actor* self, Behavior behaviors) {
                     static assert(0, "behavior may only be functions, not delgates: " ~ b.stringof);
 
                 static if (i + 1 < Behavior.length && isCapture!(Behavior[i + 1])) {
-                    bactor.set(behaviors[i], behaviors[i + 1]);
+                    bactor.set("foo" ~ behaviors[i].stringof, behaviors[i], behaviors[i + 1]);
                 } else
-                    bactor.set(behaviors[i]);
+                    bactor.set("foo" ~ behaviors[i].stringof, behaviors[i]);
             }
         }
     }

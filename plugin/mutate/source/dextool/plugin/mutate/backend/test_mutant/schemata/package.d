@@ -298,10 +298,12 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static bool isDone(ref Ctx ctx, IsDone _) @safe {
+        logger.info("called").collectException;
         return ctx.state.borrow!((ref a) => !a.isRunning);
     }
 
     static void mark(ref Ctx ctx, MarkMsg _, FinalResult.Status status) @safe nothrow {
+        logger.info("called").collectException;
         import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
 
         static void updateSchemaQ(ref SchemaQ sq, ref SchemataBuilder.ET schema,
@@ -356,15 +358,19 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void updateWlist(ref Ctx ctx, UpdateWorkList _, bool repeat) @safe nothrow {
+        logger.info("called ", ctx.state.borrow!((ref a) => a.isRunning)).collectException;
         try {
             if (ctx.state.borrow!((ref a) => !a.isRunning))
                 return;
             if (repeat)
                 delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkList.init, true);
+            logger.info("smurf");
 
             ctx.state.borrow!((ref a) => a.whiteList = spinSql!(() => ctx.db.worklistApi.getAll)
                     .map!"a.id".toSet);
+            logger.info("smurf");
             ctx.state.borrow!((ref a) => send(a.genSchema, a.whiteList.toArray));
+            logger.info("smurf");
 
             logger.trace("update schema worklist: ",
                     ctx.state.borrow!((ref a) => a.whiteList.length));
@@ -373,9 +379,11 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
+        logger.info("called done").collectException;
     }
 
     static FinalResult doneStatus(ref Ctx ctx, GetDoneStatus _) @trusted nothrow {
+        logger.info("called").collectException;
         try {
             logger.info("get done status ", ctx.state.alive);
             FinalResult.Status status = () {
@@ -390,6 +398,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void save(ref Ctx ctx, SchemaTestResult data) {
+        logger.info("called").collectException;
         import dextool.plugin.mutate.backend.test_mutant.common_actors : GetMutantsLeft,
             UnknownMutantTested;
 
@@ -458,6 +467,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void injectAndCompile(ref Ctx ctx, InjectAndCompile _) @safe nothrow {
+        logger.info("called").collectException;
         try {
             auto sw = StopWatch(AutoStart.yes);
             scope (exit)
@@ -505,6 +515,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void restore(ref Ctx ctx, RestoreMsg _) @safe nothrow {
+        logger.info("called").collectException;
         import dextool.plugin.mutate.backend.test_mutant.common : restoreFiles;
 
         try {
@@ -520,6 +531,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void startTest(ref Ctx ctx, StartTestMsg _) @safe nothrow {
+        logger.info("called").collectException;
         try {
             ctx.state.borrow!(
                     (ref a) => a.activeSchemaCheck = State.ActiveSchemaCheck.noMutantTested);
@@ -535,6 +547,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void test(ref Ctx ctx, ScheduleTestMsg _) @safe nothrow {
+        logger.info("called").collectException;
         // TODO: move this printer to another thread because it perform
         // significant DB lookup and can potentially slow down the testing.
         void print(MutationStatusId statusId) @safe {
@@ -620,8 +633,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void checkHaltCond(ref Ctx ctx, CheckStopCondMsg _) @safe nothrow {
+        logger.info("called").collectException;
         try {
-            logger.info("stop cond");
             if (ctx.state.borrow!((ref a) => !a.isRunning))
                 return;
 
@@ -643,6 +656,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void stop(ref Ctx ctx, Stop _) @trusted nothrow {
+        logger.info("called").collectException;
         ctx.state.isRunning = false;
     }
 
@@ -726,6 +740,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
     }
 
     static void updateWhiteList(ref Ctx ctx, MutationStatusId[] whiteList) @trusted nothrow {
+        logger.info("called").collectException;
         try {
             ctx.state.whiteList = whiteList.toSet;
             send(ctx.state.sizeQUpdater, MutantsToTestMsg.init,

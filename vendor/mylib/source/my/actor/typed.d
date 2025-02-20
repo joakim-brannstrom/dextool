@@ -182,9 +182,9 @@ auto impl(TActor, Behavior...)(TActor actor, Behavior behaviors)
                     static assert(0, "behavior may only be functions, not delgates: " ~ b.stringof);
 
                 static if (i + 1 < Behavior.length && isCapture!(Behavior[i + 1])) {
-                    bactor.set(behaviors[i], behaviors[i + 1]);
+                    bactor.set("foo" ~ behaviors[i].stringof, behaviors[i], behaviors[i + 1]);
                 } else
-                    bactor.set(behaviors[i]);
+                    bactor.set("foo" ~ behaviors[i].stringof, behaviors[i]);
             }
         }
     }

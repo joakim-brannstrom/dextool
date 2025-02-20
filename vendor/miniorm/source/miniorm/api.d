@@ -82,7 +82,8 @@ struct Miniorm {
         }
         auto r = db.prepare(sql);
         cachedStmt[sql] = LentCntStatement(r);
-        return RefCntStatement(cachedStmt[sql]);
+        auto rval = RefCntStatement(cachedStmt[sql]);
+        return rval;
     }
 
     /// Toggle logging.
@@ -587,9 +588,10 @@ struct RefCntStatement {
     static struct Payload {
         LentCntStatement* stmt;
 
-        this(LentCntStatement* stmt) {
+        this(LentCntStatement* stmt)
+        in (stmt !is null) {
             this.stmt = stmt;
-            stmt.count++;
+            this.stmt.count++;
         }
 
         ~this() nothrow {
@@ -600,6 +602,7 @@ struct RefCntStatement {
                 (*stmt).stmt.clearBindings;
                 (*stmt).stmt.reset;
             } catch (Exception e) {
+                logger.info(e.msg).collectException;
             }
             stmt.count--;
             stmt = null;
