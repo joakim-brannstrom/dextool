@@ -453,7 +453,7 @@ unittest
     immutable C s1v = new immutable C(1);
     icv.put("one", s1v);
     auto s11v = icv.get("one");
-    assert(s11v is s1v);
+    assert(s11v.get() is s1v);
 }
 
 unittest
