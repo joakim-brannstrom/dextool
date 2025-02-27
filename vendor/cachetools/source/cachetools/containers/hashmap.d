@@ -356,12 +356,28 @@ struct HashMap(K, V, Allocator = Mallocator, bool GCRangesAllowed = true) {
         //
         return _allocated + (_allocated << 2) > _buckets_num << 2;
     }
-
+    ///
+    /// inserts allowed until next authomatic resize
+    ///
     public auto capacity() pure const @safe @nogc {
         // capacity = 0.8*buckets_num - _allocated;
         return (( _buckets_num << 2 ) / 5) - _allocated;
     }
-
+    ///
+    /// resize hashmap to new size
+    ///
+    /// actual new size - closest power of 2
+    ///
+    public void resize(int new_size) {
+        if ( new_size <= 0 ) {
+            assert(0, "new size must be greater than 0");
+        }
+        if (popcnt(new_size) > 1) {
+            immutable p = bsr(new_size);
+            new_size = 1 << (p + 1);
+        }
+        doResize(new_size);
+    }
     private void doResize(int dest) {
         immutable _new_buckets_num = dest;
         immutable _new_mask = dest - 1;
@@ -744,7 +760,7 @@ struct HashMap(K, V, Allocator = Mallocator, bool GCRangesAllowed = true) {
 
     private struct _kvRange {
         int             _pos;
-        ulong           _buckets_num;
+        size_t          _buckets_num;
         BucketStorage   _buckets;
         this(this) {
             if (_buckets_num) {
@@ -2070,4 +2086,12 @@ unittest {
     map2.clear;
     assertThrown!Exception(map2[1] = fcc1);
     assert(map2.length == 0);
+}
+
+@("L" ~ to!string(__LINE__) ~ "test resize()")
+@safe
+unittest {
+    HashMap!(int, int) map;
+    map.resize(7);
+    assert(map.size == 8, "expected 8 got %s".format(map.size));
 }
