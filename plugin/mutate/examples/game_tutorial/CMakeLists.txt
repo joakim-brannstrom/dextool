@@ -27,6 +27,7 @@ target_link_libraries(gtest pthread)
 
 add_library(termbox ${TERMBOX_SRC})
 target_include_directories(termbox PUBLIC "deps/termbox")
+target_compile_options(termbox PRIVATE "-Wno-implicit-function-declaration")
 
 add_library(variant INTERFACE)
 target_include_directories(variant INTERFACE "deps")
