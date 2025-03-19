@@ -22,10 +22,13 @@ import std.conv : to;
 import std.exception : enforce;
 import std.string : format, toStringz;
 import std.typecons : Nullable;
+import logger = std.logger;
 
 /// Set _UnlockNotify version if compiled with SqliteEnableUnlockNotify or SqliteFakeUnlockNotify
-version (SqliteEnableUnlockNotify) version = _UnlockNotify;
-else version (SqliteFakeUnlockNotify) version = _UnlockNotify;
+version (SqliteEnableUnlockNotify)
+    version = _UnlockNotify;
+else version (SqliteFakeUnlockNotify)
+    version = _UnlockNotify;
 
 /++
 A prepared statement.
@@ -33,8 +36,7 @@ A prepared statement.
 This struct is a reference-counted wrapper around a `sqlite3_stmt*` pointer.
 Instances of this struct are typically returned by `Database.prepare()`.
 +/
-struct Statement
-{
+struct Statement {
     import std.meta : allSatisfy;
     import std.traits : isIntegral, isSomeChar, isBoolean, isFloatingPoint,
         isSomeString, isStaticArray, isDynamicArray, isIterable;
@@ -43,20 +45,21 @@ struct Statement
 private:
 
     /// Returns $(D true) if the value can be directly bound to the statement
-    enum bool isBindable(T) =
-        is(T == typeof(null)) || is(T == void*) || isIntegral!T || isSomeChar!T
-        || isBoolean!T || isFloatingPoint!T || isSomeString!T || isStaticArray!T
-        || isDynamicArray!T || is(T == Nullable!U, U...);
+    enum bool isBindable(T) = is(T == typeof(null)) || is(T == void*) || isIntegral!T
+        || isSomeChar!T || isBoolean!T || isFloatingPoint!T || isSomeString!T
+        || isStaticArray!T || isDynamicArray!T || is(T == Nullable!U, U...);
 
-    struct Payload
-    {
+    struct Payload {
         Database db;
         sqlite3_stmt* handle; // null if error or empty statement
         int paramCount;
-        debug string sql;
+        string sql;
 
-        ~this() nothrow
-        {
+        ~this() nothrow {
+            try {
+                logger.tracef("sqlite stmt dtor %X %s", handle, sql);
+            } catch (Exception e) {
+            }
             debug ensureNotInGC!Statement(sql);
             sqlite3_finalize(handle);
         }
@@ -64,52 +67,48 @@ private:
 
     RefCounted!(Payload, RefCountedAutoInitialize.no) p;
 
-    void checkResult(int result)
-    {
+    void checkResult(int result) {
         enforce(result == SQLITE_OK, new SqliteException(errmsg(p.handle), result));
     }
 
-    version (_UnlockNotify)
-    {
-        auto sqlite3_blocking_prepare_v2(Database db, const char *zSql, int nByte,
-                                         sqlite3_stmt **ppStmt, const char **pzTail)
-        {
+    version (_UnlockNotify) {
+        auto sqlite3_blocking_prepare_v2(Database db, const char* zSql, int nByte,
+                sqlite3_stmt** ppStmt, const char** pzTail) {
             int rc;
-            while(SQLITE_LOCKED == (rc = sqlite3_prepare_v2(db.handle(), zSql, nByte, ppStmt, pzTail)))
-            {
+            while (SQLITE_LOCKED == (rc = sqlite3_prepare_v2(db.handle(), zSql,
+                    nByte, ppStmt, pzTail))) {
                 rc = db.waitForUnlockNotify();
-                if(rc != SQLITE_OK) break;
+                if (rc != SQLITE_OK)
+                    break;
             }
             return rc;
         }
     }
 
 package(d2sqlite3):
-    this(Database db, string sql)
-    {
+    this(Database db, string sql) {
         sqlite3_stmt* handle;
         enforce(sql.length <= int.max, "Length of SQL statement exceeds `int.max`");
-        version (_UnlockNotify)
-        {
-            auto result = sqlite3_blocking_prepare_v2(db, sql.ptr, cast(int) sql.length,
-                &handle, null);
+        version (_UnlockNotify) {
+            logger.tracef("sqlite stmt 2.1 %X %s", db.handle, sql);
+            auto result = sqlite3_blocking_prepare_v2(db, sql.ptr,
+                    cast(int) sql.length, &handle, null);
+        } else {
+            logger.tracef("sqlite stmt 2.2 %X %s", db.handle, sql);
+            auto result = sqlite3_prepare_v2(db.handle(), sql.ptr,
+                    cast(int) sql.length, &handle, null);
         }
-        else
-        {
-            auto result = sqlite3_prepare_v2(db.handle(), sql.ptr, cast(int) sql.length,
-                &handle, null);
-        }
+        logger.tracef("sqlite stmt 3 %s", sql);
         enforce(result == SQLITE_OK, new SqliteException(errmsg(db.handle()), result, sql));
         p = Payload(db, handle);
         p.paramCount = sqlite3_bind_parameter_count(p.handle);
-        debug p.sql = sql;
+        p.sql = sql;
+        logger.tracef("sqlite stmt %X %s", p.handle, sql);
     }
 
-    version (_UnlockNotify)
-    {
+    version (_UnlockNotify) {
         /// Setup and waits for unlock notify using the provided `IUnlockNotifyHandler`
-        auto waitForUnlockNotify()
-        {
+        auto waitForUnlockNotify() {
             return p.db.waitForUnlockNotify();
         }
     }
@@ -118,8 +117,7 @@ public:
     /++
     Gets the SQLite internal _handle of the statement.
     +/
-    inout(sqlite3_stmt)* handle() inout @safe pure nothrow @nogc
-    {
+    inout(sqlite3_stmt)* handle() inout @safe pure nothrow @nogc {
         return p.handle;
     }
 
@@ -128,21 +126,18 @@ public:
 
     After a call to `finalize()`, the `Statement` object is destroyed and cannot be used.
     +/
-    void finalize()
-    {
+    void finalize() {
         destroy(p);
     }
 
     /++
     Tells whether the statement is empty (no SQL statement).
     +/
-    bool empty() const @safe pure nothrow @nogc
-    {
+    bool empty() const @safe pure nothrow @nogc {
         return p.handle is null;
     }
     ///
-    unittest
-    {
+    unittest {
         auto db = Database(":memory:");
         auto statement = db.prepare(" ; ");
         assert(statement.empty);
@@ -159,12 +154,10 @@ public:
         or a Nullable!T where T is any of the previous types.
     +/
     void bind(T)(int index, T value)
-    in
-    {
+    in {
         assert(index > 0 && index <= p.paramCount, "parameter index out of range");
     }
-    do
-    {
+    do {
         assert(p.handle);
 
         static if (is(T == typeof(null)) || is(T == void*))
@@ -172,51 +165,39 @@ public:
 
         // Handle nullable before user-provided hook as we don't want to write
         // `Nullable.null` when the value `isNull`.
-        else static if (is(T == Nullable!U, U...))
-        {
+        else static if (is(T == Nullable!U, U...)) {
             if (value.isNull)
                 checkResult(sqlite3_bind_null(p.handle, index));
             else
                 this.bind(index, value.get);
-        }
-
-        // Check for user-defined hook
-        else static if (is(typeof(value.toString((in char[]) {}))))
-        {
+        } // Check for user-defined hook
+        else static if (is(typeof(value.toString((in char[]) {})))) {
             string str = format("%s", value);
             auto ptr = anchorMem(cast(void*) str.ptr);
-            checkResult(sqlite3_bind_text64(p.handle, index, cast(const(char)*) ptr,
-                                            str.length, &releaseMem, SQLITE_UTF8));
-        }
-        else static if (is(typeof(value.toString()) : string))
-        {
+            checkResult(sqlite3_bind_text64(p.handle, index,
+                    cast(const(char)*) ptr, str.length, &releaseMem, SQLITE_UTF8));
+        } else static if (is(typeof(value.toString()) : string)) {
             string str = value.toString();
             auto ptr = anchorMem(cast(void*) str.ptr);
-            checkResult(sqlite3_bind_text64(p.handle, index, cast(const(char)*) ptr,
-                                            str.length, &releaseMem, SQLITE_UTF8));
-        }
-
-        else static if (isIntegral!T || isSomeChar!T || isBoolean!T)
+            checkResult(sqlite3_bind_text64(p.handle, index,
+                    cast(const(char)*) ptr, str.length, &releaseMem, SQLITE_UTF8));
+        } else static if (isIntegral!T || isSomeChar!T || isBoolean!T)
             checkResult(sqlite3_bind_int64(p.handle, index, value.to!long));
         else static if (isFloatingPoint!T)
             checkResult(sqlite3_bind_double(p.handle, index, value.to!double));
-        else static if (isSomeString!T)
-        {
+        else static if (isSomeString!T) {
             string str = value.to!string;
             auto ptr = anchorMem(cast(void*) str.ptr);
-            checkResult(sqlite3_bind_text64(p.handle, index, cast(const(char)*) ptr,
-                                            str.length, &releaseMem, SQLITE_UTF8));
-        }
-        else static if (isStaticArray!T)
-            checkResult(sqlite3_bind_blob64(p.handle, index, cast(void*) value.ptr,
-                                            value.sizeof, SQLITE_TRANSIENT));
-        else static if (isDynamicArray!T)
-        {
+            checkResult(sqlite3_bind_text64(p.handle, index,
+                    cast(const(char)*) ptr, str.length, &releaseMem, SQLITE_UTF8));
+        } else static if (isStaticArray!T)
+            checkResult(sqlite3_bind_blob64(p.handle, index,
+                    cast(void*) value.ptr, value.sizeof, SQLITE_TRANSIENT));
+        else static if (isDynamicArray!T) {
             const void[] arr = value;
-            checkResult(sqlite3_bind_blob64(p.handle, index, anchorMem(arr.ptr),
-                                            arr.length, &releaseMem));
-        }
-        else
+            checkResult(sqlite3_bind_blob64(p.handle, index,
+                    anchorMem(arr.ptr), arr.length, &releaseMem));
+        } else
             static assert(0, "Don't know how to bind an instance of type: " ~ T.stringof);
     }
 
@@ -236,12 +217,10 @@ public:
         `sqlite3_bind_parameter_index`.
     +/
     void bind(T)(string name, T value)
-    in
-    {
+    in {
         assert(name.length);
     }
-    do
-    {
+    do {
         assert(p.handle);
         auto index = sqlite3_bind_parameter_index(p.handle, name.toStringz);
         assert(index > 0, "no parameter named '%s'".format(name));
@@ -252,12 +231,10 @@ public:
     Binds all the arguments at once in order.
     +/
     void bindAll(Args...)(Args args)
-    in
-    {
+    in {
         assert(Args.length == this.parameterCount, "parameter count mismatch");
     }
-    do
-    {
+    do {
         foreach (index, _; Args)
             bind(index + 1, args[index]);
     }
@@ -267,8 +244,7 @@ public:
 
     This does not reset the statement. Use `Statement.reset()` for this.
     +/
-    void clearBindings()
-    {
+    void clearBindings() {
         assert(p.handle);
         checkResult(sqlite3_clear_bindings(p.handle));
     }
@@ -276,8 +252,7 @@ public:
     /++
     Executes the statement and return a (possibly empty) range of results.
     +/
-    ResultRange execute()
-    {
+    ResultRange execute() {
         return ResultRange(this);
     }
 
@@ -289,8 +264,7 @@ public:
 
     This does not clear the bindings. Use `Statement.clearBindings()` for this.
     +/
-    void reset()
-    {
+    void reset() {
         assert(p.handle);
         checkResult(sqlite3_reset(p.handle));
     }
@@ -305,9 +279,7 @@ public:
     reset();
     ---
     +/
-    void inject(Args...)(Args args)
-        if (allSatisfy!(isBindable, Args))
-    {
+    void inject(Args...)(Args args) if (allSatisfy!(isBindable, Args)) {
         bindAll(args);
         execute();
         reset();
@@ -316,9 +288,7 @@ public:
     /++
     Binds the fields of a struct in order, executes and resets the statement, in one call.
     +/
-    void inject(T)(auto ref const T obj)
-        if (is(T == struct))
-    {
+    void inject(T)(auto ref const T obj) if (is(T == struct)) {
         import std.meta : Filter;
         import std.traits : FieldNameTuple;
 
@@ -336,31 +306,29 @@ public:
     /++
     Binds iterable values in order, executes and resets the statement, in one call.
     +/
-    void inject(T)(auto ref T obj)
-        if (!isBindable!T && isIterable!T)
-    in
-    {
+    void inject(T)(auto ref T obj) if (!isBindable!T && isIterable!T)
+    in {
         static if (__traits(compiles, obj.length))
             assert(obj.length == this.parameterCount, "parameter count mismatch");
     }
-    do
-    {
-        static if (__traits(compiles, { foreach (string k, ref v; obj) {} }))
-        {
-            foreach (string k, ref v; obj) bind(k, v);
-        }
-        else
-        {
+    do {
+        static if (__traits(compiles, {
+                foreach (string k, ref v; obj) {
+                }
+            })) {
+            foreach (string k, ref v; obj)
+                bind(k, v);
+        } else {
             int i = 1;
-            foreach (ref v; obj) bind(i++, v);
+            foreach (ref v; obj)
+                bind(i++, v);
         }
         execute();
         reset();
     }
 
     /// Gets the count of bind parameters.
-    int parameterCount() nothrow
-    {
+    int parameterCount() nothrow {
         assert(p.handle);
         return p.paramCount;
     }
@@ -374,12 +342,10 @@ public:
     Returns: The name of the parameter or null is not found or out of range.
     +/
     string parameterName(int index)
-    in
-    {
+    in {
         assert(index > 0 && index <= p.paramCount, "parameter index out of range");
     }
-    do
-    {
+    do {
         assert(p.handle);
         return sqlite3_bind_parameter_name(p.handle, index).to!string;
     }
@@ -391,12 +357,10 @@ public:
     or 0 is not found or out of range.
     +/
     int parameterIndex(string name)
-    in
-    {
+    in {
         assert(name.length);
     }
-    do
-    {
+    do {
         assert(p.handle);
         return sqlite3_bind_parameter_index(p.handle, name.toStringz);
     }
@@ -405,8 +369,7 @@ public:
 /++
 Turns $(D_PARAM value) into a _literal that can be used in an SQLite expression.
 +/
-string literal(T)(T value)
-{
+string literal(T)(T value) {
     import std.string : replace;
     import std.traits : isBoolean, isNumeric, isSomeString, isArray;
 
@@ -424,8 +387,7 @@ string literal(T)(T value)
         static assert(false, "cannot make a literal of a value of type " ~ T.stringof);
 }
 ///
-unittest
-{
+unittest {
     assert(null.literal == "NULL");
     assert(false.literal == "0");
     assert(true.literal == "1");
@@ -434,6 +396,7 @@ unittest
     assert("foo".literal == "'foo'");
     assert("a'b'".literal == "'a''b'''");
     import std.conv : hexString;
+
     auto a = cast(Blob) hexString!"DEADBEEF";
     assert(a.literal == "'XDEADBEEF'");
 }

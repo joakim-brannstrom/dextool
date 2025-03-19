@@ -1852,11 +1852,10 @@ struct DbWorklist {
 
     /// All mutants in the worklist ordred by their priority
     WorklistItem[] getAll() @trusted {
-        logger.info("hej");
         static immutable sql = "SELECT id,prio FROM " ~ mutantWorklistTable ~ " ORDER BY prio DESC";
-        auto stmt = db.prepare(sql);
+        auto stmt = db.prepare2(sql);
         logger.info("hej");
-        auto res = stmt.get.execute;
+        auto res = stmt.execute;
         logger.info("hej");
         return res.map!(a => WorklistItem(a.peek!long(0).MutationStatusId,
                 a.peek!long(1).MutantPrio)).array;

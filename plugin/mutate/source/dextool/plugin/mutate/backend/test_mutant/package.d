@@ -1516,7 +1516,7 @@ nothrow:
                 bool waiting = true;
                 while (waiting) {
                     try {
-                        self.request(driver, 3.dur!"seconds".timeout)
+                        self.request(driver, 30.dur!"seconds".timeout)
                             .send(IsDone.init).then((bool x) { waiting = !x; });
                     } catch (ScopedActorException e) {
                         if (e.error == ScopedActorError.timeout) {

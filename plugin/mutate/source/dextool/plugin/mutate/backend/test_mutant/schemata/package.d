@@ -229,8 +229,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             linkTo(ctx.self, ctx.state.genSchema);
 
             send(ctx.self, UpdateWorkList.init, true);
-            send(ctx.self, CheckStopCondMsg.init);
             send(ctx.self, GenSchema.init);
+            send(ctx.self, CheckStopCondMsg.init);
             ctx.state.isRunning = true;
             logger.info("init done");
         } catch (Exception e) {
@@ -298,7 +298,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static bool isDone(ref Ctx ctx, IsDone _) @safe {
-        logger.info("called").collectException;
+        // logger.info("called").collectException;
         return ctx.state.borrow!((ref a) => !a.isRunning);
     }
 
@@ -358,16 +358,16 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void updateWlist(ref Ctx ctx, UpdateWorkList _, bool repeat) @safe nothrow {
-        logger.info("called ", ctx.state.borrow!((ref a) => a.isRunning)).collectException;
+        logger.infof("called %s", ctx.state.borrow!((ref a) => a.isRunning)).collectException;
         try {
             if (ctx.state.borrow!((ref a) => !a.isRunning))
                 return;
             if (repeat)
                 delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkList.init, true);
-            logger.info("smurf");
 
-            ctx.state.borrow!((ref a) => a.whiteList = spinSql!(() => ctx.db.worklistApi.getAll)
-                    .map!"a.id".toSet);
+            logger.info("smurf");
+            ctx.state.borrow!((ref a) => a.whiteList = spinSql!(
+                    () => ctx.db.worklistApi.getAll.map!"a.id".toSet));
             logger.info("smurf");
             ctx.state.borrow!((ref a) => send(a.genSchema, a.whiteList.toArray));
             logger.info("smurf");
@@ -782,6 +782,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
                         (FileId id) => spinSql!(() => ctx.db.getFile(id)),
                         (MutationStatusId id) => spinSql!(() => ctx.db.mutantApi.getKind(id)));
                 });
+                logger.trace("Files left foo").collectException;
             }
         }
 

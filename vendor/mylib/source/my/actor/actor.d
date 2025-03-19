@@ -653,7 +653,7 @@ package:
         void doRequest(ref MsgRequest msg) @trusted {
             if (auto v = front.get.signature in reqBehavior) {
                 debug {
-                    logger.tracef("%X [%s] from %s request %s", id, name,
+                    logger.tracef("%X [%s] from %X request %s", id, name,
                             msg.replyTo.toHash, v.name).collectException;
                 }
                 v.behavior(msg.data, msg.replyId, msg.replyTo);
@@ -1222,9 +1222,10 @@ Actor* impl(Behavior...)(Actor* self, Behavior behaviors) {
                     static assert(0, "behavior may only be functions, not delgates: " ~ b.stringof);
 
                 static if (i + 1 < Behavior.length && isCapture!(Behavior[i + 1])) {
-                    bactor.set("foo" ~ behaviors[i].stringof, behaviors[i], behaviors[i + 1]);
+                    bactor.set((Parameters!(behaviors[i])[1 .. $]).stringof,
+                            behaviors[i], behaviors[i + 1]);
                 } else
-                    bactor.set("foo" ~ behaviors[i].stringof, behaviors[i]);
+                    bactor.set(Parameters!(behaviors[i]).stringof, behaviors[i]);
             }
         }
     }

@@ -62,6 +62,7 @@ struct Miniorm {
     }
 
     RefCntStatement prepare(string sql) {
+        logger.info("miniorm.prepare enter ", sql);
         if (cachedStmt.length > cacheSize) {
             auto keys = appender!(string[])();
             foreach (p; cachedStmt.byKeyValue) {
@@ -78,12 +79,22 @@ struct Miniorm {
         }
 
         if (auto v = sql in cachedStmt) {
+            logger.info("miniorm.prepare exit ", sql);
             return RefCntStatement(*v);
         }
+        logger.info("miniorm.prepare log ", sql);
         auto r = db.prepare(sql);
+        logger.info("miniorm.prepare log ", sql);
         cachedStmt[sql] = LentCntStatement(r);
+        logger.info("miniorm.prepare log ", sql);
         auto rval = RefCntStatement(cachedStmt[sql]);
+        logger.info("miniorm.prepare exit ", sql);
         return rval;
+    }
+
+    Statement prepare2(string sql) {
+        logger.info("miniorm.prepare2 enter ", sql);
+        return db.prepare(sql);
     }
 
     /// Toggle logging.
