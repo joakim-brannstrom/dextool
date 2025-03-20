@@ -186,15 +186,20 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     auto st = tuple!("self", "state", "db")(self, safeRefCounted(State(stopCheck, dbSave, stat,
-            timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf)), Database.init);
+            timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf)), Database.make());
     alias Ctx = typeof(st);
+
+    logger.infof("pre %s %s", st.db.isInitialized, st.db.db_.refCountedStore);
 
     static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath,
             ShellCommand buildCmd, Duration buildCmdTimeout) nothrow {
         import dextool.plugin.mutate.backend.database : dbOpenTimeout;
 
         try {
+            logger.infof("init begin %s %s", ctx.db.isInitialized, ctx.db.db_.refCountedStore);
             ctx.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
+            logger.infof("init begin %s %s", ctx.db.isInitialized, ctx.db.db_.refCountedStore);
+
             ctx.state.buildCmd = buildCmd;
             ctx.state.buildCmdTimeout = buildCmdTimeout;
 
@@ -232,7 +237,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             send(ctx.self, GenSchema.init);
             send(ctx.self, CheckStopCondMsg.init);
             ctx.state.isRunning = true;
-            logger.info("init done");
+            logger.info("init end ", ctx.db.isInitialized);
         } catch (Exception e) {
             ctx.state.hasFatalError = true;
             logger.error(e.msg).collectException;
@@ -302,7 +307,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         return ctx.state.borrow!((ref a) => !a.isRunning);
     }
 
-    static void mark(ref Ctx ctx, MarkMsg _, FinalResult.Status status) @safe nothrow {
+    static void mark(ref Ctx ctx, MarkMsg _, FinalResult.Status status) @trusted nothrow {
         logger.info("called").collectException;
         import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
 
@@ -357,15 +362,14 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
     }
 
-    static void updateWlist(ref Ctx ctx, UpdateWorkList _, bool repeat) @safe nothrow {
-        logger.infof("called %s", ctx.state.borrow!((ref a) => a.isRunning)).collectException;
+    static void updateWlist(ref Ctx ctx, UpdateWorkList _, bool repeat) @trusted nothrow {
         try {
             if (ctx.state.borrow!((ref a) => !a.isRunning))
                 return;
             if (repeat)
                 delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkList.init, true);
 
-            logger.info("smurf");
+            logger.infof("smurf %s %s", ctx.db.isInitialized, ctx.db.db_.refCountedStore);
             ctx.state.borrow!((ref a) => a.whiteList = spinSql!(
                     () => ctx.db.worklistApi.getAll.map!"a.id".toSet));
             logger.info("smurf");
@@ -466,7 +470,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
     }
 
-    static void injectAndCompile(ref Ctx ctx, InjectAndCompile _) @safe nothrow {
+    static void injectAndCompile(ref Ctx ctx, InjectAndCompile _) @trusted nothrow {
         logger.info("called").collectException;
         try {
             auto sw = StopWatch(AutoStart.yes);
@@ -546,11 +550,11 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
     }
 
-    static void test(ref Ctx ctx, ScheduleTestMsg _) @safe nothrow {
+    static void test(ref Ctx ctx, ScheduleTestMsg _) @trusted nothrow {
         logger.info("called").collectException;
         // TODO: move this printer to another thread because it perform
         // significant DB lookup and can potentially slow down the testing.
-        void print(MutationStatusId statusId) @safe {
+        void print(MutationStatusId statusId) @trusted {
             import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
             auto entry_ = spinSql!(() => ctx.db.mutantApi.getMutation(statusId));

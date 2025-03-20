@@ -141,6 +141,10 @@ public:
         destroy(p);
     }
 
+    bool isInitialized() @safe nothrow {
+        return p.refCountedStore.isInitialized;
+    }
+
     /++
     Gets the SQLite internal _handle of the database connection.
     +/
@@ -269,7 +273,7 @@ public:
     The statement becomes invalid if the Database goes out of scope and is destroyed.
     +/
     Statement prepare(string sql) {
-        logger.trace("db prepare ", sql);
+        logger.tracef("sqlite prepare %s %s", p.refCountedStore.isInitialized, sql);
         return Statement(this, sql);
     }
 

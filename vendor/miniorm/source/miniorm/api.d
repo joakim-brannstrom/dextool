@@ -38,18 +38,20 @@ struct Miniorm {
         return db;
     }
 
-    ///
     this(Database db) {
         this.db = db;
     }
 
-    ///
     this(string path, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE) {
         this(Database(path, flags));
     }
 
     ~this() {
         cleanupCache;
+    }
+
+    bool isInitialized() @trusted nothrow {
+        return db.isInitialized;
     }
 
     /// Start a RAII handled transaction.
@@ -116,6 +118,7 @@ struct Miniorm {
 
     void opAssign(ref typeof(this) rhs) {
         cleanupCache;
+        log_ = rhs.log_;
         db = rhs.db;
     }
 

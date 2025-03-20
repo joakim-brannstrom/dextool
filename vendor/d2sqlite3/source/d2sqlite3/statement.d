@@ -170,7 +170,7 @@ public:
                 checkResult(sqlite3_bind_null(p.handle, index));
             else
                 this.bind(index, value.get);
-        } // Check for user-defined hook
+        }  // Check for user-defined hook
         else static if (is(typeof(value.toString((in char[]) {})))) {
             string str = format("%s", value);
             auto ptr = anchorMem(cast(void*) str.ptr);
