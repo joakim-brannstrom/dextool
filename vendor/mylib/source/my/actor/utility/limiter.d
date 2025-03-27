@@ -126,10 +126,10 @@ unittest {
                 safeRefCounted(State(WeakAddress.init, limiter)));
             alias CT = typeof(st);
 
-            return build(self).set((ref CT ctx, WeakAddress recv) {
+            return build(self).set("actor", (ref CT ctx, WeakAddress recv) {
                 ctx.state.recv = recv;
                 send(ctx.self.address, Tick.init);
-            }, capture(st)).set((ref CT ctx, Tick _) {
+            }, capture(st)).set("actor", (ref CT ctx, Tick _) {
                 ctx.self.request(ctx.state.limiter, infTimeout)
                 .send(TakeTokenMsg.init).capture(ctx).then((ref CT ctx, Token t) {
                     send(ctx.self, Tick.init);

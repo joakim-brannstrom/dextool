@@ -226,6 +226,15 @@ private struct Behavior(HandlerT) {
     }
 }
 
+private struct Behavior2(HandlerT) {
+    Closure2!HandlerT behavior;
+    string name;
+
+    string toString() @safe const {
+        return name;
+    }
+}
+
 struct Actor {
     import std.container.rbtree : RedBlackTree, redBlackTree;
 
@@ -240,6 +249,7 @@ struct Actor {
 
         // TODO: rename to behavior.
         Behavior!(MsgHandler)[ulong] incoming;
+        Behavior2!(MsgHandler)[ulong] incoming2;
         Behavior!(RequestHandler)[ulong] reqBehavior;
 
         // callbacks for awaited responses key:ed on their id.
@@ -425,7 +435,7 @@ package:
         if (context_) {
             try {
                 cleanupContext_(context_);
-            } catch(Exception e) {
+            } catch (Exception e) {
             }
             context_ = null;
             cleanupContext_ = null;
@@ -558,7 +568,7 @@ package:
         case ActorState.active:
             tick;
             // self terminate if the actor has no behavior.
-            if (incoming.empty && awaitedResponses.empty && reqBehavior.empty)
+            if (incoming.empty && incoming2.empty && awaitedResponses.empty && reqBehavior.empty)
                 state_ = ActorState.forceShutdown;
             break;
         case ActorState.shutdown:
@@ -667,6 +677,14 @@ package:
                     logger.tracef("%X [%s] incoming %s", id, name, v.name).collectException;
                 }
                 v.behavior(msg.data);
+            } else {
+                defaultHandler_(this, msg.data);
+            }
+            if (auto v = front.get.signature in incoming2) {
+                debug {
+                    logger.tracef("%X [%s] incoming %s", id, name, v.name).collectException;
+                }
+                v.behavior(context_, msg.data);
             } else {
                 defaultHandler_(this, msg.data);
             }
@@ -819,6 +837,13 @@ package:
         incoming[signature] = Behavior!MsgHandler(handler, name);
     }
 
+    void register(string name, ulong signature, Closure2!MsgHandler handler) @trusted
+    in (!name.empty) {
+        if (!isAccepting)
+            return;
+        incoming2[signature] = Behavior!MsgHandler(handler, name);
+    }
+
     void register(string name, ulong signature, Closure!(RequestHandler, void*) handler) @trusted
     in (!name.empty) {
         if (!isAccepting)
@@ -886,12 +911,35 @@ unittest {
         processedIncoming = true;
     }
 
-    actor.register(1, Closure!(MsgHandler, void*)(&fn));
+    actor.register("foo", 1, Closure!(MsgHandler, void*)(&fn));
     addr.get.put(Msg(1, MsgType(MsgOneShot(Variant(42)))));
 
     actor.process(Clock.currTime);
 
     assert(processedIncoming);
+}
+
+@("shall register a behavior to be called when msg received matching signature")
+unittest {
+    auto addr = makeAddress2;
+    auto actor = Actor(addr);
+
+    struct LocalContext {
+        bool processedIncoming;
+    }
+
+    LocalContext ctx;
+    void fn(void* ctx, ref Variant msg) @trusted {
+        (cast(LocalContext*) ctx).processedIncoming = true;
+    }
+
+    actor.setContext(&ctx, (void*) {});
+    actor.register("foo", 1, Closure2!MsgHandler(&fn));
+    addr.get.put(Msg(1, MsgType(MsgOneShot(Variant(42)))));
+
+    actor.process(Clock.currTime);
+
+    assert(ctx.processedIncoming);
 }
 
 private void cleanupCtx(CtxT)(void* ctx)
@@ -1007,15 +1055,13 @@ package struct Request {
 }
 
 struct Closure2(Fn) {
-    alias FreeFn = void function(CtxT);
-
     Fn fn;
 
     this(Fn fn) {
         this.fn = fn;
     }
 
-    void opCall(void* ctx, Args...)(auto ref Args args) {
+    void opCall(Args...)(void* ctx, auto ref Args args) {
         assert(fn !is null);
         fn(ctx, args);
     }
@@ -1052,7 +1098,7 @@ package auto makeAction2(T, CtxT = void)(T handler) @safe
     return Action(typeof(Action2.action)(&fn), makeSignature!HArgs);
 }
 
-package Closure!(ReplyHandler, void*) makeReply2(T, CtxT)(T handler) @safe {
+package Closure2!ReplyHandler makeReply2(T, CtxT = void)(T handler) @safe {
     static if (is(CtxT == void))
         alias Params = Parameters!T;
     else {
@@ -1068,16 +1114,16 @@ package Closure!(ReplyHandler, void*) makeReply2(T, CtxT)(T handler) @safe {
         static if (is(CtxT == void)) {
             handler(msg.get!(Tuple!HArgs).expand);
         } else {
-            auto userCtx = cast(CtxParam*) cast(CtxT*) ctx;
+            auto userCtx = cast(CtxT*) ctx;
             handler(*userCtx, msg.get!(Tuple!HArgs).expand);
         }
     }
 
-    return typeof(return)(&fn, null, &cleanupCtx!CtxT);
+    return typeof(return)(&fn);
 }
 
-package struct Request {
-    Closure!(RequestHandler, void*) request;
+package struct Request2 {
+    Closure2!RequestHandler request;
     ulong signature;
 }
 
@@ -1167,6 +1213,65 @@ package auto makeRequest(T, CtxT = void)(T handler) @safe {
     return Request(typeof(Request.request)(&fn, null, &cleanupCtx!CtxT), makeSignature!HArgs);
 }
 
+package auto makeRequest2(T, CtxT = void)(T handler) @safe {
+    static assert(!is(ReturnType!T == void), "handler returns void, not allowed");
+
+    alias RType = ReturnType!T;
+    enum isReqResult = is(RType : RequestResult!ReqT, ReqT);
+    enum isPromise = is(RType : Promise!PromT, PromT);
+
+    static if (is(CtxT == void))
+        alias Params = Parameters!T;
+    else {
+        alias CtxParam = Parameters!T[0];
+        alias Params = Parameters!T[1 .. $];
+        // checkMatchingCtx!(CtxParam, CtxT);
+        checkRefForContext!handler;
+    }
+
+    alias HArgs = staticMap!(Unqual, Params);
+
+    void fn(void* rawCtx, ref Variant msg, ulong replyId, WeakAddress replyTo) @trusted {
+        static if (is(CtxT == void)) {
+            auto r = handler(msg.get!(Tuple!HArgs).expand);
+        } else {
+            auto ctx = cast(CtxT*) rawCtx;
+            auto r = handler(*ctx, msg.get!(Tuple!HArgs).expand);
+        }
+
+        static if (isReqResult) {
+            r.value.match!((ErrorMsg a) { sendSystemMsg(replyTo, a); }, (Promise!ReqT a) {
+                assert(a.data.refCountedStore.isInitialized,
+                    "the promise MUST be constructed before it is returned");
+                a.data.borrow!((ref a) => a.replyId = replyId);
+                a.data.borrow!((ref a) => a.replyTo = replyTo);
+            }, (data) {
+                enum wrapInTuple = !is(typeof(data) : Tuple!U, U);
+                if (auto rc = replyTo.lock.get) {
+                    static if (wrapInTuple)
+                        rc.put(Reply(replyId, Variant(tuple(data))));
+                    else
+                        rc.put(Reply(replyId, Variant(data)));
+                }
+            });
+        } else static if (isPromise) {
+            r.data.replyId = replyId;
+            r.data.replyTo = replyTo;
+        } else {
+            // TODO: is this syntax for U one variable or variable. I want it to be variable.
+            enum wrapInTuple = !is(RType : Tuple!U, U);
+            if (auto rc = replyTo.lock.get) {
+                static if (wrapInTuple)
+                    rc.put(Reply(replyId, Variant(tuple(r))));
+                else
+                    rc.put(Reply(replyId, Variant(r)));
+            }
+        }
+    }
+
+    return Request2(typeof(Request2.request)(&fn), makeSignature!HArgs);
+}
+
 @("shall link two actors lifetime")
 unittest {
     int count;
@@ -1176,9 +1281,9 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto a1 = build(&aa1).set((int x) {}).exitHandler_(&countExits).finalize;
+    auto a1 = build(&aa1).set("foo1", (int x) {}).exitHandler_(&countExits).finalize;
     auto aa2 = Actor(makeAddress2);
-    auto a2 = build(&aa2).set((int x) {}).exitHandler_(&countExits).finalize;
+    auto a2 = build(&aa2).set("foo2", (int x) {}).exitHandler_(&countExits).finalize;
 
     a1.linkTo(a2.address);
     a1.process(Clock.currTime);
@@ -1206,9 +1311,9 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto a1 = build(&aa1).set((int x) {}).downHandler_(&downMsg).finalize;
+    auto a1 = build(&aa1).set("a1", (int x) {}).downHandler_(&downMsg).finalize;
     auto aa2 = Actor(makeAddress2);
-    auto a2 = build(&aa2).set((int x) {}).finalize;
+    auto a2 = build(&aa2).set("a2", (int x) {}).finalize;
 
     a1.monitor(a2.address);
     a1.process(Clock.currTime);
@@ -1348,7 +1453,7 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto a1 = build(&aa1).set(&fn3).set(&fn4).set(&fn5).finalize;
+    auto a1 = build(&aa1).set("a1", &fn3).set("a1", &fn4).set("a1", &fn5).finalize;
 }
 
 unittest {
@@ -1363,8 +1468,8 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto actor = build(&aa1).set(&fn1, capture(&delayOk)).set(&fn2,
-            capture(&delayShouldNeverHappen)).finalize;
+    auto actor = build(&aa1).set("actor", &fn1, capture(&delayOk))
+        .set("actor", &fn2, capture(&delayShouldNeverHappen)).finalize;
     delayedSend(actor.address, Clock.currTime - 1.dur!"seconds", "foo");
     delayedSend(actor.address, Clock.currTime + 1.dur!"hours", 42);
 
@@ -1411,7 +1516,7 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto actor = build(&aa1).set(&fn, capture(&calledOk, rcReq)).finalize;
+    auto actor = build(&aa1).set("actor", &fn, capture(&calledOk, rcReq)).finalize;
 
     assert(2 == rcReq.refCountedStore.refCount);
     assert(1 == rcReply.refCountedStore.refCount);
@@ -1470,8 +1575,8 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto actor = build(&aa1).set(&fn1, capture(&calledOk, fn1p)).set(&fn2,
-            capture(&calledOk, fn2p)).finalize;
+    auto actor = build(&aa1).set("actor", &fn1, capture(&calledOk, fn1p))
+        .set("actor", &fn2, capture(&calledOk, fn2p)).finalize;
 
     actor.request(actor.address, infTimeout).send(A("apa")).capture(&calledReply).then(&reply);
     actor.request(actor.address, infTimeout).send(B("apa")).capture(&calledReply).then(&reply);
