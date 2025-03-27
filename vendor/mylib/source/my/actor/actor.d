@@ -267,7 +267,12 @@ struct Actor {
         /// System the actor belongs to.
         System* homeSystem_;
 
+        /// Name of the actor
         string name_;
+
+        /// Context used by behaviors.
+        void* context_;
+        void function(void* ctx) cleanupContext_;
 
         ErrorHandler errorHandler_;
 
@@ -409,6 +414,22 @@ package:
 
     void setHomeSystem(System* sys) @safe pure nothrow @nogc {
         homeSystem_ = sys;
+    }
+
+    void setContext(void* context, void function(void*) cleanup) @trusted {
+        this.context_ = context;
+        this.cleanupContext_ = cleanup;
+    }
+
+    void cleanupContext() @trusted nothrow scope {
+        if (context_) {
+            try {
+                cleanupContext_(context_);
+            } catch(Exception e) {
+            }
+            context_ = null;
+            cleanupContext_ = null;
+        }
     }
 
     void cleanupBehavior() @trusted nothrow scope {
@@ -560,6 +581,7 @@ package:
             replyTimeouts = null;
             cleanupDelayed;
             cleanupAwait;
+            cleanupContext;
 
             // must be last because sendToLinks and sendToMonitors uses addr.
             addr.get.shutdown();
@@ -984,6 +1006,81 @@ package struct Request {
     ulong signature;
 }
 
+struct Closure2(Fn) {
+    alias FreeFn = void function(CtxT);
+
+    Fn fn;
+
+    this(Fn fn) {
+        this.fn = fn;
+    }
+
+    void opCall(void* ctx, Args...)(auto ref Args args) {
+        assert(fn !is null);
+        fn(ctx, args);
+    }
+}
+
+package struct Action2 {
+    Closure2!MsgHandler action;
+    ulong signature;
+}
+
+/// An behavior for an actor when it receive a message of `signature`.
+package auto makeAction2(T, CtxT = void)(T handler) @safe
+        if (isFunction!T || isFunctionPointer!T) {
+    static if (is(CtxT == void))
+        alias Params = Parameters!T;
+    else {
+        alias CtxParam = Parameters!T[0];
+        alias Params = Parameters!T[1 .. $];
+        // checkMatchingCtx!(CtxParam, CtxT);
+        checkRefForContext!handler;
+    }
+
+    alias HArgs = staticMap!(Unqual, Params);
+
+    void fn(void* ctx, ref Variant msg) @trusted {
+        static if (is(CtxT == void)) {
+            handler(msg.get!(Tuple!HArgs).expand);
+        } else {
+            auto userCtx = cast(CtxT*) ctx;
+            handler(*userCtx, msg.get!(Tuple!HArgs).expand);
+        }
+    }
+
+    return Action(typeof(Action2.action)(&fn), makeSignature!HArgs);
+}
+
+package Closure!(ReplyHandler, void*) makeReply2(T, CtxT)(T handler) @safe {
+    static if (is(CtxT == void))
+        alias Params = Parameters!T;
+    else {
+        alias CtxParam = Parameters!T[0];
+        alias Params = Parameters!T[1 .. $];
+        // checkMatchingCtx!(CtxParam, CtxT);
+        checkRefForContext!handler;
+    }
+
+    alias HArgs = staticMap!(Unqual, Params);
+
+    void fn(void* ctx, ref Variant msg) @trusted {
+        static if (is(CtxT == void)) {
+            handler(msg.get!(Tuple!HArgs).expand);
+        } else {
+            auto userCtx = cast(CtxParam*) cast(CtxT*) ctx;
+            handler(*userCtx, msg.get!(Tuple!HArgs).expand);
+        }
+    }
+
+    return typeof(return)(&fn, null, &cleanupCtx!CtxT);
+}
+
+package struct Request {
+    Closure!(RequestHandler, void*) request;
+    ulong signature;
+}
+
 private string locToString(Loc...)() {
     import std.conv : to;
 
@@ -1163,6 +1260,10 @@ private struct BuildActor {
     auto defaultHandler_(DefaultHandler a) {
         actor.defaultHandler_ = a;
         return this;
+    }
+
+    auto context(CtxT)(CtxT ctx) {
+        actor.setContext(cast(void*) new CtxT(ctx), &cleanupCtx!CtxT);
     }
 
     auto set(BehaviorT)(string name, BehaviorT behavior)
