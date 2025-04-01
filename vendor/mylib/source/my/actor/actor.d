@@ -251,6 +251,7 @@ struct Actor {
         Behavior!(MsgHandler)[ulong] incoming;
         Behavior2!(MsgHandler)[ulong] incoming2;
         Behavior!(RequestHandler)[ulong] reqBehavior;
+        Behavior2!(RequestHandler)[ulong] reqBehavior2;
 
         // callbacks for awaited responses key:ed on their id.
         AwaitReponse[ulong] awaitedResponses;
@@ -426,7 +427,7 @@ package:
         homeSystem_ = sys;
     }
 
-    void setContext(void* context, void function(void*) cleanup) @trusted {
+    void setContext(void* context, void function(void*) cleanup = null) @trusted {
         this.context_ = context;
         this.cleanupContext_ = cleanup;
     }
@@ -434,7 +435,8 @@ package:
     void cleanupContext() @trusted nothrow scope {
         if (context_) {
             try {
-                cleanupContext_(context_);
+                if (cleanupContext_)
+                    cleanupContext_(context_);
             } catch (Exception e) {
             }
             context_ = null;
@@ -451,6 +453,7 @@ package:
             }
         }
         incoming = null;
+        incoming2 = null;
         foreach (ref a; reqBehavior.byValue) {
             try {
                 a.behavior.free;
@@ -458,6 +461,7 @@ package:
             }
         }
         reqBehavior = null;
+        reqBehavior2 = null;
     }
 
     void cleanupAwait() @trusted nothrow scope {
@@ -568,7 +572,8 @@ package:
         case ActorState.active:
             tick;
             // self terminate if the actor has no behavior.
-            if (incoming.empty && incoming2.empty && awaitedResponses.empty && reqBehavior.empty)
+            if (incoming.empty && incoming2.empty && awaitedResponses.empty
+                    && reqBehavior.empty && reqBehavior2.empty)
                 state_ = ActorState.forceShutdown;
             break;
         case ActorState.shutdown:
@@ -671,16 +676,13 @@ package:
         scope (exit)
             .destroy(front);
 
-        void doSend(ref MsgOneShot msg) {
+        void doSend(ref MsgOneShot msg) @trusted {
             if (auto v = front.get.signature in incoming) {
                 debug {
                     logger.tracef("%X [%s] incoming %s", id, name, v.name).collectException;
                 }
                 v.behavior(msg.data);
-            } else {
-                defaultHandler_(this, msg.data);
-            }
-            if (auto v = front.get.signature in incoming2) {
+            } else if (auto v = front.get.signature in incoming2) {
                 debug {
                     logger.tracef("%X [%s] incoming %s", id, name, v.name).collectException;
                 }
@@ -697,6 +699,12 @@ package:
                             msg.replyTo.toHash, v.name).collectException;
                 }
                 v.behavior(msg.data, msg.replyId, msg.replyTo);
+            } else if (auto v = front.get.signature in reqBehavior2) {
+                debug {
+                    logger.tracef("%X [%s] from %X request %s", id, name,
+                            msg.replyTo.toHash, v.name).collectException;
+                }
+                v.behavior(context_, msg.data, msg.replyId, msg.replyTo);
             } else {
                 defaultHandler_(this, msg.data);
             }
@@ -839,9 +847,8 @@ package:
 
     void register(string name, ulong signature, Closure2!MsgHandler handler) @trusted
     in (!name.empty) {
-        if (!isAccepting)
-            return;
-        incoming2[signature] = Behavior!MsgHandler(handler, name);
+        if (isAccepting)
+            incoming2[signature] = Behavior2!MsgHandler(handler, name);
     }
 
     void register(string name, ulong signature, Closure!(RequestHandler, void*) handler) @trusted
@@ -858,9 +865,15 @@ package:
         reqBehavior[signature] = Behavior!RequestHandler(handler, name);
     }
 
-    void register(ulong replyId, SysTime timeout, Closure!(ReplyHandler,
-            void*) reply, ErrorHandler onError) @safe
+    void register(string name, ulong signature, Closure2!RequestHandler handler) @trusted
     in (!name.empty) {
+        if (isAccepting)
+            reqBehavior2[signature] = Behavior2!RequestHandler(handler, name);
+    }
+
+    void register(ulong replyId, SysTime timeout, Closure!(ReplyHandler,
+            void*) reply, ErrorHandler onError) @safe //in (!name.empty)
+            {
         if (!isAccepting)
             return;
 
@@ -907,11 +920,12 @@ unittest {
     auto actor = Actor(addr);
 
     bool processedIncoming;
-    void fn(void* ctx, ref Variant msg) {
-        processedIncoming = true;
+    void fn(void* ctx, ref Variant msg) @trusted {
+        *(cast(bool*) ctx) = true;
     }
 
-    actor.register("foo", 1, Closure!(MsgHandler, void*)(&fn));
+    actor.setContext(cast(void*)&processedIncoming, null);
+    actor.register("foo", 1, Closure2!MsgHandler(&fn));
     addr.get.put(Msg(1, MsgType(MsgOneShot(Variant(42)))));
 
     actor.process(Clock.currTime);
@@ -933,7 +947,7 @@ unittest {
         (cast(LocalContext*) ctx).processedIncoming = true;
     }
 
-    actor.setContext(&ctx, (void*) {});
+    actor.setContext(&ctx);
     actor.register("foo", 1, Closure2!MsgHandler(&fn));
     addr.get.put(Msg(1, MsgType(MsgOneShot(Variant(42)))));
 
@@ -1090,12 +1104,12 @@ package auto makeAction2(T, CtxT = void)(T handler) @safe
         static if (is(CtxT == void)) {
             handler(msg.get!(Tuple!HArgs).expand);
         } else {
-            auto userCtx = cast(CtxT*) ctx;
+            auto userCtx = cast(CtxParam*) cast(CtxT*) ctx;
             handler(*userCtx, msg.get!(Tuple!HArgs).expand);
         }
     }
 
-    return Action(typeof(Action2.action)(&fn), makeSignature!HArgs);
+    return Action2(typeof(Action2.action)(&fn), makeSignature!HArgs);
 }
 
 package Closure2!ReplyHandler makeReply2(T, CtxT = void)(T handler) @safe {
@@ -1114,7 +1128,7 @@ package Closure2!ReplyHandler makeReply2(T, CtxT = void)(T handler) @safe {
         static if (is(CtxT == void)) {
             handler(msg.get!(Tuple!HArgs).expand);
         } else {
-            auto userCtx = cast(CtxT*) ctx;
+            auto userCtx = cast(CtxParam*) cast(CtxT*) ctx;
             handler(*userCtx, msg.get!(Tuple!HArgs).expand);
         }
     }
@@ -1369,23 +1383,26 @@ private struct BuildActor {
 
     auto context(CtxT)(CtxT ctx) {
         actor.setContext(cast(void*) new CtxT(ctx), &cleanupCtx!CtxT);
+        return this;
+    }
+
+    auto context(CtxT)(CtxT* ctx) {
+        actor.setContext(cast(void*) ctx, &cleanupCtx!CtxT);
+        return this;
     }
 
     auto set(BehaviorT)(string name, BehaviorT behavior)
             if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
                 && !is(ReturnType!BehaviorT == void)) {
-        auto act = makeRequest(behavior);
+        auto act = makeRequest2(behavior);
         actor.register(name, act.signature, act.request);
         return this;
     }
 
-    auto set(BehaviorT, CT)(string name, BehaviorT behavior, CT c)
+    auto set(BehaviorT, CT)(string name, BehaviorT behavior)
             if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
                 && !is(ReturnType!BehaviorT == void)) {
-        auto act = makeRequest!(BehaviorT, CT)(behavior);
-        // for now just use the GC to allocate the context on.
-        // TODO: use an allocator.
-        act.request.ctx = cast(void*) new CT(c);
+        auto act = makeRequest2!(BehaviorT, CT)(behavior);
         actor.register(name, act.signature, act.request);
         return this;
     }
@@ -1393,7 +1410,7 @@ private struct BuildActor {
     auto set(BehaviorT)(string name, BehaviorT behavior)
             if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
                 && is(ReturnType!BehaviorT == void)) {
-        auto act = makeAction(behavior);
+        auto act = makeAction2(behavior);
         actor.register(name, act.signature, act.action);
         return this;
     }
@@ -1401,10 +1418,7 @@ private struct BuildActor {
     auto set(BehaviorT, CT)(string name, BehaviorT behavior, CT c)
             if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
                 && is(ReturnType!BehaviorT == void)) {
-        auto act = makeAction!(BehaviorT, CT)(behavior);
-        // for now just use the GC to allocate the context on.
-        // TODO: use an allocator.
-        act.action.ctx = cast(void*) new CT(c);
+        auto act = makeAction2!(BehaviorT, CT)(behavior);
         actor.register(name, act.signature, act.action);
         return this;
     }
@@ -1419,20 +1433,27 @@ Actor* impl(Behavior...)(Actor* self, Behavior behaviors) {
     import my.actor.msg : isCapture, Capture;
 
     auto bactor = build(self);
-    static foreach (const i; 0 .. Behavior.length) {
+
+    static if (Behavior.length > 1) {
+        static if (isCapture!(Behavior[0])) {
+            immutable startIdx = 1;
+            bactor.context(behaviors[0]);
+        } else {
+            immutable startIdx = 0;
+        }
+    } else {
+        immutable startIdx = 0;
+    }
+    pragma(msg, startIdx);
+
+    static foreach (const i; startIdx .. Behavior.length) {
         {
             alias b = Behavior[i];
 
-            static if (!isCapture!b) {
-                static if (!(isFunction!(b) || isFunctionPointer!(b)))
-                    static assert(0, "behavior may only be functions, not delgates: " ~ b.stringof);
+            static if (!(isFunction!(b) || isFunctionPointer!(b)))
+                static assert(0, "behavior may only be functions, not delgates: " ~ b.stringof);
 
-                static if (i + 1 < Behavior.length && isCapture!(Behavior[i + 1])) {
-                    bactor.set((Parameters!(behaviors[i])[1 .. $]).stringof,
-                            behaviors[i], behaviors[i + 1]);
-                } else
-                    bactor.set(Parameters!(behaviors[i]).stringof, behaviors[i]);
-            }
+            bactor.set(Parameters!(b).stringof, behaviors[i]);
         }
     }
 
@@ -1468,8 +1489,8 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto actor = build(&aa1).set("actor", &fn1, capture(&delayOk))
-        .set("actor", &fn2, capture(&delayShouldNeverHappen)).finalize;
+    auto actor = build(&aa1).context(capture(&delayOk, &delayShouldNeverHappen))
+        .set("actor", &fn1).set("actor", &fn2).finalize;
     delayedSend(actor.address, Clock.currTime - 1.dur!"seconds", "foo");
     delayedSend(actor.address, Clock.currTime + 1.dur!"hours", 42);
 
@@ -1516,7 +1537,7 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto actor = build(&aa1).set("actor", &fn, capture(&calledOk, rcReq)).finalize;
+    auto actor = build(&aa1).context(capture(&calledOk, rcReq)).set("actor", &fn).finalize;
 
     assert(2 == rcReq.refCountedStore.refCount);
     assert(1 == rcReply.refCountedStore.refCount);
@@ -1575,8 +1596,8 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto actor = build(&aa1).set("actor", &fn1, capture(&calledOk, fn1p))
-        .set("actor", &fn2, capture(&calledOk, fn2p)).finalize;
+    auto actor = build(&aa1).context(capture(&calledOk, fn1p)).set("actor",
+            &fn1).set("actor", &fn2).finalize;
 
     actor.request(actor.address, infTimeout).send(A("apa")).capture(&calledReply).then(&reply);
     actor.request(actor.address, infTimeout).send(B("apa")).capture(&calledReply).then(&reply);
@@ -1804,11 +1825,13 @@ unittest {
     auto sys = makeSystem;
 
     auto a0 = sys.spawn((Actor* self) {
-        return impl(self, (ref CSelf!() ctx, int x) {
+        return impl(self, capture(self), (ref CSelf!() ctx, int x) {
             Thread.sleep(50.dur!"msecs");
             return 42;
-        }, capture(self), (ref CSelf!() ctx, double x) {}, capture(self),
-            (ref CSelf!() ctx, string x) { ctx.self.shutdown; return 42; }, capture(self));
+        }, (ref CSelf!() ctx, double x) {}, (ref CSelf!() ctx, string x) {
+            ctx.self.shutdown;
+            return 42;
+        });
     });
 
     {

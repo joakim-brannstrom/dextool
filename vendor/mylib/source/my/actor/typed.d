@@ -173,20 +173,26 @@ auto impl(TActor, Behavior...)(TActor actor, Behavior behaviors)
     import my.actor.msg : isCapture, Capture;
 
     auto bactor = build(actor.actor);
-    static foreach (const i; 0 .. Behavior.length) {
+
+    static if (Behavior.length > 1) {
+        static if (isCapture!(Behavior[0])) {
+            immutable startIdx = 1;
+            bactor.context(behaviors[0]);
+        } else {
+            immutable startIdx = 0;
+        }
+    } else {
+        immutable startIdx = 0;
+    }
+
+    static foreach (const i; startIdx .. Behavior.length) {
         {
             alias b = Behavior[i];
 
-            static if (!isCapture!b) {
-                static if (!(isFunction!(b) || isFunctionPointer!(b)))
-                    static assert(0, "behavior may only be functions, not delgates: " ~ b.stringof);
+            static if (!(isFunction!(b) || isFunctionPointer!(b)))
+                static assert(0, "behavior may only be functions, not delgates: " ~ b.stringof);
 
-                static if (i + 1 < Behavior.length && isCapture!(Behavior[i + 1])) {
-                    bactor.set((Parameters!(behaviors[i])[1 .. $]).stringof,
-                            behaviors[i], behaviors[i + 1]);
-                } else
-                    bactor.set(Parameters!(behaviors[i]).stringof, behaviors[i]);
-            }
+            bactor.set(Parameters!(b).stringof, behaviors[i]);
         }
     }
     return TypedActorImpl!(TActor.AllowedMessages)(bactor.finalize);
