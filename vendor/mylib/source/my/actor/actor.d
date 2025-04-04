@@ -1436,15 +1436,14 @@ Actor* impl(Behavior...)(Actor* self, Behavior behaviors) {
 
     static if (Behavior.length > 1) {
         static if (isCapture!(Behavior[0])) {
-            immutable startIdx = 1;
+            enum startIdx = 1;
             bactor.context(behaviors[0]);
         } else {
-            immutable startIdx = 0;
+            enum startIdx = 0;
         }
     } else {
-        immutable startIdx = 0;
+        enum startIdx = 0;
     }
-    pragma(msg, startIdx);
 
     static foreach (const i; startIdx .. Behavior.length) {
         {
