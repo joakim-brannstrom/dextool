@@ -132,7 +132,7 @@ class CacheLRU(K, V, Allocator = Mallocator)
             if ( __reportCacheEvents )
             {
                 // store in event list
-                CacheEvent!(K,V) cache_event = {EventType.Expired, k, store_ptr.value};
+                auto cache_event = CacheEvent!(K,V)(EventType.Expired, k, store_ptr.value);
                 __events.insertBack(cache_event);
             }
             // and remove from storage and list
@@ -190,7 +190,7 @@ class CacheLRU(K, V, Allocator = Mallocator)
                 if ( __reportCacheEvents )
                 {
                     auto value_ptr = e.key in __map;
-                    CacheEvent!(K,V) cache_event = {EventType.Evicted, e.key, value_ptr.value};
+                    auto cache_event = CacheEvent!(K,V)(EventType.Evicted, e.key, value_ptr.value);
                     __events.insertBack(cache_event);
                 }
                 __map.remove(e.key);
@@ -198,7 +198,7 @@ class CacheLRU(K, V, Allocator = Mallocator)
                 result |= PutResultFlag.Evicted;
             }
             auto order_node = __elements.insert_last(ListElement(k, exp_time));
-            MapElement e = {value:v, expired_at: exp_time, list_element_ptr: order_node};
+            auto e = MapElement(v, exp_time, order_node);
             __map.put(k, e);
         }
         else // update element
@@ -211,7 +211,7 @@ class CacheLRU(K, V, Allocator = Mallocator)
             if ( __reportCacheEvents )
             {
                 auto v_ptr = e.key in __map;
-                CacheEvent!(K,V) cache_event = {EventType.Updated, e.key, v_ptr.value};
+                auto cache_event = CacheEvent!(K,V)(EventType.Updated, e.key, v_ptr.value);
                 __events.insertBack(cache_event);
             }
             store_ptr.value = v;
@@ -233,7 +233,7 @@ class CacheLRU(K, V, Allocator = Mallocator)
         if ( __reportCacheEvents )
         {
             auto v_ptr = e.key in __map;
-            CacheEvent!(K,V) cache_event = {EventType.Removed, e.key, v_ptr.value};
+            auto cache_event = CacheEvent!(K,V)(EventType.Removed, e.key, v_ptr.value);
             __events.insertBack(cache_event);
         }
         __map.remove(e.key);
@@ -248,7 +248,7 @@ class CacheLRU(K, V, Allocator = Mallocator)
         {
             foreach(pair; __map.byPair)
             {
-                CacheEvent!(K,V) cache_event = {EventType.Removed, pair.key, pair.value.value};
+                auto cache_event = CacheEvent!(K,V)(EventType.Removed, pair.key, pair.value.value);
                 __events.insertBack(cache_event);
             }
         }
