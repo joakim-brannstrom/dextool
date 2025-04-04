@@ -15,7 +15,7 @@ module clang.File;
 
 import core.stdc.time;
 
-import clang.c.Index;
+static import clang.c.Index;
 
 import clang.Util;
 
@@ -26,13 +26,13 @@ struct File {
     /// Returns: the complete file and path name of the file.
     @property string name() const @trusted {
         // OK to throw away const because the C functions do not change the ptr.
-        return toD(clang_getFileName(cast(CType) cx));
+        return toD(clang.c.Index.clang_getFileName(cast(CType) cx));
     }
 
     /// Return the last modification time of the file.
     @property time_t time() const @trusted {
         // OK to throw away const because the C functions do not change the ptr.
-        return clang_getFileTime(cast(CType) cx);
+        return clang.c.Index.clang_getFileTime(cast(CType) cx);
     }
 
     string absolutePath() {
