@@ -227,10 +227,6 @@ CXCursor dex_MakeCXCursor(const clang::Stmt* S, const clang::Decl* Parent, CXTra
         K = CXCursor_ArraySubscriptExpr;
         break;
 
-    case Stmt::OMPArraySectionExprClass:
-        K = CXCursor_OMPArraySectionExpr;
-        break;
-
     case Stmt::BinaryOperatorClass:
         K = CXCursor_BinaryOperator;
         break;

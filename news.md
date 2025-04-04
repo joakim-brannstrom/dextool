@@ -1,17 +1,18 @@
 # vNext
 
- * Dropped manually maintained bindings for libclang in favor of using D's support to directly import C files.
-   It has been a major source of bugs and annoyance at manually maintaining the
-   bindings. Some hard to find crashes originated from a mismatch between the D
-   libclang bindings and the lib linked. This was most prominent when new AST
-   nodes where added to the `CXCursorKind` enum. The manually maintained
-   bindings also slowed down the compatibility with newer versions of clang
-   because they had to be manually updated.
-   The migration to using the C headers directly should alleviate these problems
-   and make dextool easier to maintain in the future.
+ * Dropped manually maintained bindings for libclang in favor of using D's
+   support to directly import C files. It has been a major source of bugs and
+   annoyance at manually maintaining the bindings. Some hard to find crashes
+   originated from a mismatch between the D libclang bindings and the lib
+   linked. This was most prominent when new AST nodes where added to the
+   `CXCursorKind` enum. The manually maintained bindings also slowed down the
+   compatibility with newer versions of clang because they had to be manually
+   updated. The migration to using the C headers directly should alleviate
+   these problems and make dextool easier to maintain in the future.
  * Fix building on ArchLinux
    ([#1738](https://github.com/joakim-brannstrom/dextool/issues/1738)), thanks
    to chengjackjelly.
+ * Support llvm-19
 
 # v5.1 Hematite
 
