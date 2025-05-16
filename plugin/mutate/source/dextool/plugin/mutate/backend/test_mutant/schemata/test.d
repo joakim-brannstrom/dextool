@@ -153,5 +153,5 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
     }
 
     self.name = "testMutant";
-    return impl(self, &run, st, &doConf, st);
+    return impl(self, st, &run, &doConf);
 }

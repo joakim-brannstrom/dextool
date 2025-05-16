@@ -14,7 +14,7 @@ public import std.datetime : SysTime, Duration, dur;
 
 import my.actor.mailbox;
 import my.actor.common : ExitReason, makeSignature, SystemError;
-import my.actor.actor : Actor, makeAction, makeRequest, makeReply, makePromise,
+import my.actor.actor : Actor, makeRequest, makeReply2, makePromise,
     ErrorHandler, Promise, RequestResult;
 import my.actor.system_msg;
 import my.actor.typed : isTypedAddress, isTypedActor, isTypedActorImpl,
@@ -226,7 +226,7 @@ package void thenUnsafe(T, CtxT = void)(scope RequestSendThen r, T handler,
     // this order ensure that there is always a handler that can receive the message.
 
     () @safe {
-        auto reply = makeReply!(T, CtxT)(handler);
+        auto reply = makeReply2!(T, CtxT)(handler);
         reply.ctx = ctx;
         r.rs.self.register(r.rs.replyId, timeout, reply, onError);
     }();

@@ -66,7 +66,7 @@ auto spawnLoadCtrlActor(LoadCtrlActor.Impl self, TargetLoad setValue) @trusted {
     }
 
     send(self, Tick.init);
-    return impl(self, &tick, st, &getCtrlSignal, st);
+    return impl(self, st, &tick, &getCtrlSignal);
 }
 
 private struct LoadController {

@@ -1790,14 +1790,14 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
         spinSql!(() { ctx.state.db.schemaApi.saveSchemaSize(result.currentSize); });
     }
 
-    static bool isDone(IsDone _) @safe nothrow {
+    static bool isDone(ref Ctx ctx, IsDone _) @safe nothrow {
         // the mailbox is a FIFO queue. all results have been saved if this returns true.
         return true;
     }
 
     self.name = "db";
     send(self, Init.init, dbPath);
-    return impl(self, &init_, st, &save, st, &save2, st, &isDone, &save3, st, &save4, st);
+    return impl(self, st, &init_, &save, &save2, &isDone, &save3, &save4);
 }
 
 auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {
@@ -1846,5 +1846,5 @@ auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {
 
     self.name = "stat";
     send(self, Init.init, dbPath);
-    return impl(self, &init_, st, &tick, st, &left, st, &forceUpdate, st, &unknownTested, st);
+    return impl(self, st, &init_, &tick, &left, &forceUpdate, &unknownTested);
 }

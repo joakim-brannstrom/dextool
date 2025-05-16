@@ -217,15 +217,6 @@ private struct AwaitReponse {
     ErrorHandler onError;
 }
 
-private struct Behavior(HandlerT) {
-    Closure!(HandlerT, void*) behavior;
-    string name;
-
-    string toString() @safe const {
-        return name;
-    }
-}
-
 private struct Behavior2(HandlerT) {
     Closure2!HandlerT behavior;
     string name;
@@ -248,9 +239,7 @@ struct Actor {
         ActorState lastState_ = ActorState.stopped;
 
         // TODO: rename to behavior.
-        Behavior!(MsgHandler)[ulong] incoming;
         Behavior2!(MsgHandler)[ulong] incoming2;
-        Behavior!(RequestHandler)[ulong] reqBehavior;
         Behavior2!(RequestHandler)[ulong] reqBehavior2;
 
         // callbacks for awaited responses key:ed on their id.
@@ -445,22 +434,7 @@ package:
     }
 
     void cleanupBehavior() @trusted nothrow scope {
-        foreach (ref a; incoming.byValue) {
-            try {
-                a.behavior.free;
-            } catch (Exception e) {
-                // TODO: call exceptionHandler?
-            }
-        }
-        incoming = null;
         incoming2 = null;
-        foreach (ref a; reqBehavior.byValue) {
-            try {
-                a.behavior.free;
-            } catch (Exception e) {
-            }
-        }
-        reqBehavior = null;
         reqBehavior2 = null;
     }
 
@@ -572,8 +546,7 @@ package:
         case ActorState.active:
             tick;
             // self terminate if the actor has no behavior.
-            if (incoming.empty && incoming2.empty && awaitedResponses.empty
-                    && reqBehavior.empty && reqBehavior2.empty)
+            if (incoming2.empty && awaitedResponses.empty && reqBehavior2.empty)
                 state_ = ActorState.forceShutdown;
             break;
         case ActorState.shutdown:
@@ -677,12 +650,7 @@ package:
             .destroy(front);
 
         void doSend(ref MsgOneShot msg) @trusted {
-            if (auto v = front.get.signature in incoming) {
-                debug {
-                    logger.tracef("%X [%s] incoming %s", id, name, v.name).collectException;
-                }
-                v.behavior(msg.data);
-            } else if (auto v = front.get.signature in incoming2) {
+            if (auto v = front.get.signature in incoming2) {
                 debug {
                     logger.tracef("%X [%s] incoming %s", id, name, v.name).collectException;
                 }
@@ -693,13 +661,7 @@ package:
         }
 
         void doRequest(ref MsgRequest msg) @trusted {
-            if (auto v = front.get.signature in reqBehavior) {
-                debug {
-                    logger.tracef("%X [%s] from %X request %s", id, name,
-                            msg.replyTo.toHash, v.name).collectException;
-                }
-                v.behavior(msg.data, msg.replyId, msg.replyTo);
-            } else if (auto v = front.get.signature in reqBehavior2) {
+            if (auto v = front.get.signature in reqBehavior2) {
                 debug {
                     logger.tracef("%X [%s] from %X request %s", id, name,
                             msg.replyTo.toHash, v.name).collectException;
@@ -831,38 +793,10 @@ package:
         }
     }
 
-    void register(string name, ulong signature, Closure!(MsgHandler, void*) handler) @trusted
-    in (!name.empty) {
-        if (!isAccepting)
-            return;
-
-        if (auto v = signature in incoming) {
-            try {
-                v.behavior.free;
-            } catch (Exception e) {
-            }
-        }
-        incoming[signature] = Behavior!MsgHandler(handler, name);
-    }
-
     void register(string name, ulong signature, Closure2!MsgHandler handler) @trusted
     in (!name.empty) {
         if (isAccepting)
             incoming2[signature] = Behavior2!MsgHandler(handler, name);
-    }
-
-    void register(string name, ulong signature, Closure!(RequestHandler, void*) handler) @trusted
-    in (!name.empty) {
-        if (!isAccepting)
-            return;
-
-        if (auto v = signature in reqBehavior) {
-            try {
-                v.behavior.free;
-            } catch (Exception e) {
-            }
-        }
-        reqBehavior[signature] = Behavior!RequestHandler(handler, name);
     }
 
     void register(string name, ulong signature, Closure2!RequestHandler handler) @trusted
@@ -1008,66 +942,6 @@ unittest {
     }
 }
 
-package struct Action {
-    Closure!(MsgHandler, void*) action;
-    ulong signature;
-}
-
-/// An behavior for an actor when it receive a message of `signature`.
-package auto makeAction(T, CtxT = void)(T handler) @safe
-        if (isFunction!T || isFunctionPointer!T) {
-    static if (is(CtxT == void))
-        alias Params = Parameters!T;
-    else {
-        alias CtxParam = Parameters!T[0];
-        alias Params = Parameters!T[1 .. $];
-        // checkMatchingCtx!(CtxParam, CtxT);
-        checkRefForContext!handler;
-    }
-
-    alias HArgs = staticMap!(Unqual, Params);
-
-    void fn(void* ctx, ref Variant msg) @trusted {
-        static if (is(CtxT == void)) {
-            handler(msg.get!(Tuple!HArgs).expand);
-        } else {
-            auto userCtx = cast(CtxParam*) cast(CtxT*) ctx;
-            handler(*userCtx, msg.get!(Tuple!HArgs).expand);
-        }
-    }
-
-    return Action(typeof(Action.action)(&fn, null, &cleanupCtx!CtxT), makeSignature!HArgs);
-}
-
-package Closure!(ReplyHandler, void*) makeReply(T, CtxT)(T handler) @safe {
-    static if (is(CtxT == void))
-        alias Params = Parameters!T;
-    else {
-        alias CtxParam = Parameters!T[0];
-        alias Params = Parameters!T[1 .. $];
-        // checkMatchingCtx!(CtxParam, CtxT);
-        checkRefForContext!handler;
-    }
-
-    alias HArgs = staticMap!(Unqual, Params);
-
-    void fn(void* ctx, ref Variant msg) @trusted {
-        static if (is(CtxT == void)) {
-            handler(msg.get!(Tuple!HArgs).expand);
-        } else {
-            auto userCtx = cast(CtxParam*) cast(CtxT*) ctx;
-            handler(*userCtx, msg.get!(Tuple!HArgs).expand);
-        }
-    }
-
-    return typeof(return)(&fn, null, &cleanupCtx!CtxT);
-}
-
-package struct Request {
-    Closure!(RequestHandler, void*) request;
-    ulong signature;
-}
-
 struct Closure2(Fn) {
     Fn fn;
 
@@ -1112,7 +986,7 @@ package auto makeAction2(T, CtxT = void)(T handler) @safe
     return Action2(typeof(Action2.action)(&fn), makeSignature!HArgs);
 }
 
-package Closure2!ReplyHandler makeReply2(T, CtxT = void)(T handler) @safe {
+package Closure!(ReplyHandler, void*) makeReply2(T, CtxT = void)(T handler) @safe {
     static if (is(CtxT == void))
         alias Params = Parameters!T;
     else {
@@ -1133,7 +1007,7 @@ package Closure2!ReplyHandler makeReply2(T, CtxT = void)(T handler) @safe {
         }
     }
 
-    return typeof(return)(&fn);
+    return typeof(return)(&fn, null, &cleanupCtx!CtxT);
 }
 
 package struct Request2 {
@@ -1399,26 +1273,10 @@ private struct BuildActor {
         return this;
     }
 
-    auto set(BehaviorT, CT)(string name, BehaviorT behavior)
-            if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
-                && !is(ReturnType!BehaviorT == void)) {
-        auto act = makeRequest2!(BehaviorT, CT)(behavior);
-        actor.register(name, act.signature, act.request);
-        return this;
-    }
-
     auto set(BehaviorT)(string name, BehaviorT behavior)
             if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
                 && is(ReturnType!BehaviorT == void)) {
         auto act = makeAction2(behavior);
-        actor.register(name, act.signature, act.action);
-        return this;
-    }
-
-    auto set(BehaviorT, CT)(string name, BehaviorT behavior, CT c)
-            if ((isFunction!BehaviorT || isFunctionPointer!BehaviorT)
-                && is(ReturnType!BehaviorT == void)) {
-        auto act = makeAction2!(BehaviorT, CT)(behavior);
         actor.register(name, act.signature, act.action);
         return this;
     }

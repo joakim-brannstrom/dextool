@@ -300,7 +300,7 @@ auto spawnAnalyzer(AnalyzeActor.Impl self, FlowControlActor.Address flowCtrl, St
 
     self.name = "analyze";
     send(self, WaitForToken.init);
-    return impl(self, &run, capture(st), &wait, capture(st));
+    return impl(self, capture(st), &run, &wait);
 }
 
 class TestFileResult {
@@ -364,7 +364,7 @@ auto spawnTestPathActor(TestPathActor.Impl self, StoreActor.Address store,
 
     self.name = "test path";
     send(self, Start.init, store);
-    return impl(self, &start, capture(st));
+    return impl(self, capture(st), &start);
 }
 
 struct Start {
@@ -783,10 +783,9 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl, Sa
 
     self.name = "store";
 
-    auto s = impl(self, &start, capture(st), &isDone, capture(st),
-            &startedAnalyzers, capture(st), &save, capture(st), &doneStartAnalyzers,
-            capture(st), &savedTestFileResult, capture(st), &checkPostProcess,
-            capture(st), &postProcess, capture(st), &failedFileAnalyze, capture(st));
+    auto s = impl(self, capture(st), &start, &isDone, &startedAnalyzers, &save,
+            &doneStartAnalyzers, &savedTestFileResult, &checkPostProcess,
+            &postProcess, &failedFileAnalyze);
     s.exceptionHandler = toDelegate(&logExceptionHandler);
     return s;
 }

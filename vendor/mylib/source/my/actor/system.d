@@ -144,8 +144,8 @@ struct System {
             (*c.hasExecutedWith42)++;
     }
 
-    auto addr = sys.spawn((Actor* a) => build(a).set("actor", &fn,
-            capture(&hasExecutedWith42)).finalize);
+    auto addr = sys.spawn((Actor* a) => build(a).set("actor", &fn)
+            .context(capture(&hasExecutedWith42)).finalize);
     send(addr, 42);
     send(addr, 43);
 

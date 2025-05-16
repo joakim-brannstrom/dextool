@@ -675,10 +675,9 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         self.shutdown;
     }
 
-    return impl(self, &init_, st, &isDone, st, &updateWlist, st,
-            &doneStatus, st, &save, st, &mark, st, &injectAndCompile, st,
-            &restore, st, &startTest, st, &test, st, &checkHaltCond, st,
-            &generateSchema, st, &runSchema, st, &stop, st);
+    return impl(self, st, &init_, &isDone, &updateWlist, &doneStatus,
+            &save, &mark, &injectAndCompile, &restore, &startTest, &test,
+            &checkHaltCond, &generateSchema, &runSchema, &stop);
 }
 
 private SchemaSizeQ getSchemaSizeQ(ref Database db, const long userInit, const long minSize) @trusted nothrow {
@@ -854,7 +853,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
         self.shutdown;
     }
 
-    return impl(self, &init_, st, &genSchema, st, &updateWhiteList, st);
+    return impl(self, st, &init_, &genSchema, &updateWhiteList);
 }
 
 private {
@@ -934,8 +933,7 @@ private auto spawnSchemaSizeQ(SchemaSizeQUpdateActor.Impl self,
 
     self.name = "schemaSizeQUpdater";
 
-    return impl(self, &updateMutantsNumber, st, &getSize, st, &genStatus,
-            st, &fullGenDone, st);
+    return impl(self, st, &updateMutantsNumber, &getSize, &genStatus, &fullGenDone);
 }
 
 /** Generate schemata injection IDs (32bit) from mutant checksums (128bit).

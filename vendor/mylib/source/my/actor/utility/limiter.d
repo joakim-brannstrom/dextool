@@ -129,13 +129,13 @@ unittest {
             return build(self).set("actor", (ref CT ctx, WeakAddress recv) {
                 ctx.state.recv = recv;
                 send(ctx.self.address, Tick.init);
-            }, capture(st)).set("actor", (ref CT ctx, Tick _) {
+            }).set("actor", (ref CT ctx, Tick _) {
                 ctx.self.request(ctx.state.limiter, infTimeout)
                 .send(TakeTokenMsg.init).capture(ctx).then((ref CT ctx, Token t) {
                     send(ctx.self, Tick.init);
                     send(ctx.state.recv, t, 42);
                 });
-            }, capture(st)).finalize;
+            }).context(capture(st)).finalize;
         });
     }
 
