@@ -300,7 +300,7 @@ auto spawnAnalyzer(AnalyzeActor.Impl self, FlowControlActor.Address flowCtrl, St
 
     self.name = "analyze";
     send(self, WaitForToken.init);
-    return impl(self, capture(st), &run, &wait);
+    return impl(self, st, &run, &wait);
 }
 
 class TestFileResult {

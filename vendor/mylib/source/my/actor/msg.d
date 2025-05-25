@@ -5,6 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module my.actor.msg;
 
+import logger = std.logger;
 import std.meta : staticMap, AliasSeq;
 import std.traits : Unqual, Parameters, isFunction, isFunctionPointer;
 import std.typecons : Tuple, tuple;
@@ -14,8 +15,7 @@ public import std.datetime : SysTime, Duration, dur;
 
 import my.actor.mailbox;
 import my.actor.common : ExitReason, makeSignature, SystemError;
-import my.actor.actor : Actor, makeRequest, makeReply2, makePromise,
-    ErrorHandler, Promise, RequestResult;
+import my.actor.actor : Actor, makeReply2, makePromise, ErrorHandler, Promise, RequestResult;
 import my.actor.system_msg;
 import my.actor.typed : isTypedAddress, isTypedActor, isTypedActorImpl,
     typeCheckMsg, ParamsToTuple, ReturnToTupleOrVoid,
@@ -194,15 +194,13 @@ RequestSendThen send(Args...)(RequestSend r, auto ref Args args) {
     return () @trusted { return RequestSendThen(r, msg); }();
 }
 
-private struct ThenContext(Captures...) {
-    alias Ctx = Tuple!Captures;
-
+private struct ThenContext(CtxT, Captures...) {
     RequestSendThen r;
-    Ctx* ctx;
+    CtxT* ctx;
 
     void then(T)(T handler, ErrorHandler onError = null)
             if (isFunction!T || isFunctionPointer!T) {
-        thenUnsafe!(T, Ctx)(r, handler, cast(void*) ctx, onError);
+        thenUnsafe!(T, CtxT)(r, handler, cast(void*) ctx, onError);
         ctx = null;
     }
 }
@@ -226,6 +224,7 @@ package void thenUnsafe(T, CtxT = void)(scope RequestSendThen r, T handler,
     // this order ensure that there is always a handler that can receive the message.
 
     () @safe {
+        logger.info("thenUnsafe ", CtxT.stringof);
         auto reply = makeReply2!(T, CtxT)(handler);
         reply.ctx = ctx;
         r.rs.self.register(r.rs.replyId, timeout, reply, onError);
@@ -286,13 +285,11 @@ void then(TR, T, CtxT = void)(scope TR tr, T handler, ErrorHandler onError = nul
     then(tr.rs, handler, onError);
 }
 
-private struct TypedThenContext(TR, Captures...) {
+private struct TypedThenContext(TR, CtxT, Captures...) {
     import my.actor.actor : checkRefForContext, checkMatchingCtx;
 
-    alias Ctx = Tuple!Captures;
-
     TR r;
-    Ctx* ctx;
+    CtxT* ctx;
 
     void then(T)(T handler, ErrorHandler onError = null)
             if ((isFunction!T || isFunctionPointer!T) && typeCheckMsg!(TR.TypeAddress,
@@ -300,9 +297,9 @@ private struct TypedThenContext(TR, Captures...) {
         // better error message for the user by checking in the body instead of
         // the constraint because the constraint gagges the static assert
         // messages.
-        checkMatchingCtx!(Parameters!T[0], Ctx);
+        checkMatchingCtx!(Parameters!T[0], CtxT);
         checkRefForContext!handler;
-        .thenUnsafe!(T, Ctx)(r.rs, handler, cast(void*) ctx, onError);
+        .thenUnsafe!(T, CtxT)(r.rs, handler, cast(void*) ctx, onError);
         ctx = null;
     }
 }
@@ -314,21 +311,37 @@ enum isFirstParamCtx(Fn, CtxT) = is(Parameters!Fn[0] == CtxT);
 /// Convenient function for capturing the actor itself when spawning.
 alias CSelf(T = Actor*) = Capture!(T, "self");
 
-Capture!T capture(T...)(auto ref T args)
+auto capture(T...)(auto ref T args)
         if (!is(T[0] == RequestSendThen)
             && !is(T[0] == TypedRequestSendThen!(TAddress, Params), TAddress, Params...)) {
-    return Tuple!T(args);
+    static if (T.length == 1 && isCapture!(T[0])) {
+        return args[0];
+    } else {
+        return Tuple!T(args);
+    }
 }
 
 auto capture(Captures...)(RequestSendThen r, auto ref Captures captures) {
-    // TODO: how to read the identifiers from captures? Using
-    // ParameterIdentifierTuple didn't work.
-    auto ctx = new Tuple!Captures(captures);
-    return ThenContext!Captures(r, ctx);
+    static if (Captures.length == 1 && isCapture!(Captures[0])) {
+        alias CtxT = Captures[0];
+        auto ctx = new CtxT;
+        *ctx = captures;
+        return ThenContext!(CtxT, Captures)(r, ctx);
+    } else {
+        auto ctx = new Tuple!Captures(captures);
+        return ThenContext!(Tuple!Captures, Captures)(r, ctx);
+    }
 }
 
 auto capture(TR, Captures...)(TR r, auto ref Captures captures)
         if (is(TR : TypedRequestSendThen!(TAddress, Params), TAddress, Params...)) {
-    auto ctx = new Tuple!Captures(captures);
-    return TypedThenContext!(TR, Captures)(r, ctx);
+    static if (Captures.length == 1 && isCapture!(Captures[0])) {
+        alias CtxT = Captures[0];
+        auto ctx = new CtxT;
+        *ctx = captures;
+        return TypedThenContext!(TR, CtxT, Captures)(r, ctx);
+    } else {
+        auto ctx = new Tuple!Captures(captures);
+        return TypedThenContext!(TR, Tuple!Captures, Captures)(r, ctx);
+    }
 }

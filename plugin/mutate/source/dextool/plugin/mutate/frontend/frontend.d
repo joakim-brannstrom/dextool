@@ -144,10 +144,15 @@ final class FrontendIO : FilesysIO {
     private AbsolutePath root;
     private bool dry_run;
 
+    // invariant {
+    // assert(vfs !is null);
+    // }
+
     this(AbsolutePath root, bool dry_run) {
         this.root = root;
         this.dry_run = dry_run;
         this.vfs = new BlobVfs;
+        () @trusted { logger.info("smurf ", cast(void*) vfs); }();
     }
 
     override FilesysIO dup() {
@@ -187,8 +192,11 @@ final class FrontendIO : FilesysIO {
     override Blob makeInput(AbsolutePath p) @safe scope {
         if (!verifyPathInsideRoot(root, p, dry_run))
             throw singletonException;
+        if (vfs is null)
+            throw new Exception("smurf " ~ p.toString);
 
         const uri = Uri(cast(string) p);
+        () @trusted { logger.info(uri, " ", vfs); }();
         if (!vfs.exists(uri)) {
             auto blob = vfs.get(Uri(cast(string) p));
             vfs.open(blob);

@@ -126,7 +126,7 @@ unittest {
                 safeRefCounted(State(WeakAddress.init, limiter)));
             alias CT = typeof(st);
 
-            return build(self).set("actor", (ref CT ctx, WeakAddress recv) {
+            return build(self).context(st).set("actor", (ref CT ctx, WeakAddress recv) {
                 ctx.state.recv = recv;
                 send(ctx.self.address, Tick.init);
             }).set("actor", (ref CT ctx, Tick _) {
@@ -135,7 +135,7 @@ unittest {
                     send(ctx.self, Tick.init);
                     send(ctx.state.recv, t, 42);
                 });
-            }).context(capture(st)).finalize;
+            }).finalize;
         });
     }
 

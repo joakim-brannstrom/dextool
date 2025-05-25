@@ -193,6 +193,16 @@ struct Address {
         return false;
     }
 
+    package size_t length() @safe pure nothrow const {
+        try {
+            synchronized (mtx) {
+                return incoming.length + sysMsg.length + delayed.length + replies.length;
+            }
+        } catch (Exception e) {
+        }
+        return 0;
+    }
+
     package void setOpen() @safe pure nothrow @nogc {
         open_ = true;
     }
