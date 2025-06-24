@@ -17,7 +17,7 @@ import std.traits : Parameters, ReturnType;
 import my.optional;
 
 public import my.actor.typed;
-public import my.actor.actor : Actor, build, makePromise, Promise, scopedActor, impl;
+public import my.actor.actor : Actor, build, makePromise, Promise, scopedActor, impl, ErrorMsg;
 public import my.actor.mailbox : Address, makeAddress2, WeakAddress;
 public import my.actor.msg;
 import my.actor.common;
@@ -221,6 +221,58 @@ unittest {
     self.request(a2, infTimeout).send(10).then((int x) { ok = x; });
 
     assert(ok == 30);
+}
+
+@("shall spawn actor using user provided context and keep the values")
+@system unittest {
+    import std.typecons : tuple;
+    import my.actor.typed : impl;
+
+    class AClassWithInnerPtr {
+        int* v;
+        this(int v) {
+            this.v = new int;
+            *this.v = v;
+        }
+    }
+
+    auto sys = makeSystem;
+
+    alias A1 = typedActor!(int function(int));
+
+    auto spawnA1(A1.Impl self, AClassWithInnerPtr c) {
+        auto ctx = tuple!("inner")(c);
+        alias CT = typeof(ctx);
+
+        static int tick(ref CT ctx, int s) @safe {
+            assert(ctx.inner !is null);
+            assert(ctx.inner.v !is null);
+            assert(*ctx.inner.v == s);
+            return *ctx.inner.v;
+        }
+
+        return impl(self, ctx, &tick);
+    }
+
+    auto inner = new AClassWithInnerPtr(42);
+    A1.Address[] actors;
+    foreach (_; 0 .. 10)
+        actors ~= sys.spawn(&spawnA1, inner);
+
+    foreach (a1; actors) {
+        auto self = scopedActor;
+        bool isCalled;
+        self.request(a1.address, infTimeout).send(42).then((int x) {
+            isCalled = true;
+            assert(x == 42);
+        }, (scope ref Actor self, scope ErrorMsg e) { assert(false); });
+        assert(isCalled);
+    }
+
+    foreach (a; actors) {
+        sendExit(a, ExitReason.userShutdown);
+        .destroy(a);
+    }
 }
 
 private:

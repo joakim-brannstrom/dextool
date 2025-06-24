@@ -18,8 +18,7 @@ import std.functional : toDelegate;
 import std.meta : staticMap;
 import std.sumtype;
 import std.traits : Parameters, Unqual, ReturnType, isFunctionPointer, isFunction;
-import std.typecons : Tuple, tuple, safeRefCounted, SafeRefCounted,
-    RefCountedAutoInitialize, borrow;
+import std.typecons : Tuple, tuple;
 import std.variant : Variant;
 
 import my.actor.common : ExitReason, SystemError, makeSignature;
@@ -27,6 +26,9 @@ import my.actor.mailbox;
 import my.actor.msg;
 import my.actor.system : System;
 import my.actor.typed : isTypedAddress, isTypedActorImpl;
+import my.gc.refc;
+
+public import my.actor.system_msg;
 
 private struct PromiseData {
     WeakAddress replyTo;
@@ -43,8 +45,29 @@ private struct PromiseData {
 
 // deliver can only be called one time.
 struct Promise(T) {
-    package {
-        SafeRefCounted!(PromiseData, RefCountedAutoInitialize.no) data;
+    private RefCounted!PromiseData data;
+
+    private this(PromiseData data) {
+        this.data = refCounted(data);
+    }
+
+    private this(RefCounted!PromiseData data) {
+        this.data = data;
+    }
+
+    package void set(WeakAddress replyTo, ulong replyId)
+    in (!data.empty, "promise must be initialized") {
+        data.borrow!((ref a) { a.replyTo = replyTo; a.replyId = replyId; });
+    }
+
+    package WeakAddress replyTo() @safe
+    in (!data.empty, "promise must be initialized") {
+        return data.get.replyTo;
+    }
+
+    package ulong replyId() @safe
+    in (!data.empty, "promise must be initialized") {
+        return data.get.replyId;
     }
 
     void deliver(T reply) {
@@ -57,19 +80,19 @@ struct Promise(T) {
      * A promise can only be delivered once.
      */
     void deliver(ref T reply) @trusted
-    in (data.refCountedStore.isInitialized, "promise must be initialized") {
-        if (!data.refCountedStore.isInitialized)
+    in (!data.empty, "promise must be initialized") {
+        if (data.empty)
             return;
         scope (exit)
-            data = typeof(data).init;
+            data.release;
 
         // TODO: should probably call delivering actor with an ErrorMsg if replyTo is closed.
-        if (auto replyTo = data.replyTo.lock.get) {
+        if (auto replyTo = data.get.replyTo.lock.get) {
             enum wrapInTuple = !is(T : Tuple!U, U);
             static if (wrapInTuple)
-                replyTo.put(Reply(data.borrow!((ref a) => a.replyId), Variant(tuple(reply))));
+                replyTo.put(Reply(data.get.replyId, Variant(tuple(reply))));
             else
-                replyTo.put(Reply(data.borrow!((ref a) => a.replyId), Variant(reply)));
+                replyTo.put(Reply(data.get.replyId, Variant(reply)));
         }
     }
 
@@ -77,19 +100,20 @@ struct Promise(T) {
         data = rhs.data;
     }
 
-    /// True if the promise is not initialized.
+    /// True if the promise is not initialized and thus unusalbe.
     bool empty() {
-        return !data.refCountedStore.isInitialized || data.borrow!((ref a) => a.replyId) == 0;
+        debug logger.info(data.empty ? -1 : data.get.replyId);
+        return data.empty || data.get.replyId != 0;
     }
 
     /// Clear the promise.
     void clear() {
-        data = typeof(data).init;
+        data.release;
     }
 }
 
 auto makePromise(T)() {
-    return Promise!T(safeRefCounted(PromiseData.init));
+    return Promise!T(PromiseData.init);
 }
 
 struct RequestResult(T) {
@@ -176,10 +200,9 @@ void defaultExitHandler(scope ref Actor self, scope ExitMsg msg) @safe nothrow {
 }
 
 void defaultExceptionHandler(scope ref Actor self, scope Exception e) @safe nothrow {
-    try {
+    debug {
         logger.tracef("%X [%s] shutdown: exception: %s", self.id, self.name,
                 e.msg).collectException;
-    } catch (Exception e) {
     }
     self.errorReason = SystemError.runtimeError;
     self.forceShutdown;
@@ -251,7 +274,7 @@ struct Actor {
         ReplyHandlerTimeout[] replyTimeouts;
 
         // important that it start at 1 because then zero is known to not be initialized.
-        ulong nextReplyId = 1;
+        ulong nextReplyId_ = 1;
 
         /// Delayed messages ordered by their trigger time.
         RedBlackTree!(DelayedMsg*, "a.triggerAt < b.triggerAt", true) delayed;
@@ -290,14 +313,14 @@ struct Actor {
         DefaultHandler defaultHandler_;
     }
 
-    // invariant () {
-    //     if (addr && !state_.among(ActorState.waiting, ActorState.shutdown)) {
-    //         assert(errorHandler_);
-    //         assert(exitHandler_);
-    //         assert(exceptionHandler_);
-    //         assert(defaultHandler_);
-    //     }
-    // }
+    invariant () {
+        if (addr && !state_.among(ActorState.waiting, ActorState.shutdown)) {
+            assert(errorHandler_);
+            assert(exitHandler_);
+            assert(exceptionHandler_);
+            assert(defaultHandler_);
+        }
+    }
 
     this(StrongAddress a) @trusted
     in (!a.empty, "address is empty") {
@@ -347,7 +370,7 @@ struct Actor {
             state_ = ActorState.forceShutdown;
     }
 
-    ulong id() @trusted pure nothrow const @nogc scope {
+    ulong id() @safe pure nothrow const @nogc {
         return addr.id;
     }
 
@@ -498,8 +521,8 @@ package:
         }
     }
 
-    ulong replyId() @safe {
-        return nextReplyId++;
+    ulong nextReplyId() @safe {
+        return nextReplyId_++;
     }
 
     void process(const SysTime now) @safe nothrow scope {
@@ -540,7 +563,7 @@ package:
                 logger.tracef("%X [%s] %s", id, name, state_).collectException;
             }
         }
-        if (addr.get.hasMessage) {
+        if (state_ != ActorState.stopped && addr.get.hasMessage) {
             debug logger.tracef("mailbox length %s", addr.get.length).collectException;
         }
 
@@ -912,6 +935,7 @@ private void cleanupCtx(CtxT)(void* ctx)
         if (is(CtxT == Tuple!T, T) || is(CtxT == void)) {
     import std.traits;
     import my.actor.typed;
+    import core.memory : GC;
 
     static if (!is(CtxT == void)) {
         // trust that any use of this also pass on the correct context type.
@@ -933,7 +957,9 @@ private void cleanupCtx(CtxT)(void* ctx)
 
                 static if (is(UT == T)) {
                     pragma(msg, "cleanupCtx destroy: ", T);
-                    .destroy((*userCtx)[i]);
+                    if (!GC.inFinalizer) {
+                        .destroy((*userCtx)[i]);
+                    }
                 } else {
                     pragma(msg, "error cleanupCtx: ", UT);
                     pragma(msg, "error cleanupCtx: ", T);
@@ -1178,13 +1204,12 @@ package auto makeRequest2(T, CtxT = void)(T handler) @safe {
 
         static if (isReqResult) {
             r.value.match!((ErrorMsg a) { sendSystemMsg(replyTo, a); }, (Promise!ReqT a) {
-                assert(a.data.refCountedStore.isInitialized,
-                    "the promise MUST be constructed before it is returned");
-                a.data.borrow!((ref a) => a.replyId = replyId);
-                a.data.borrow!((ref a) => a.replyTo = replyTo);
-                logger.info("promise is empty? ", a.empty, " ",
-                    a.data.borrow!((ref a) => a.replyId), " ",
-                    a.data.borrow!((ref a) => a.replyTo));
+                debug logger.infof("promise is empty? %s %s ", a.data.empty, a.empty);
+                if (!a.data.empty)
+                    debug logger.infof("promise is? %s %s ",
+                        a.data.get.replyId, a.data.get.replyTo);
+                assert(!a.data.empty, "the promise MUST be constructed before it is returned");
+                a.set(replyTo, replyId);
             }, (data) {
                 enum wrapInTuple = !is(typeof(data) : Tuple!U, U);
                 if (auto rc = replyTo.lock.get) {
@@ -1195,8 +1220,7 @@ package auto makeRequest2(T, CtxT = void)(T handler) @safe {
                 }
             });
         } else static if (isPromise) {
-            r.data.replyId = replyId;
-            r.data.replyTo = replyTo;
+            r.set(replyTo, replyId);
         } else {
             // TODO: is this syntax for U one variable or variable. I want it to be variable.
             enum wrapInTuple = !is(RType : Tuple!U, U);
@@ -1454,6 +1478,35 @@ unittest {
     auto a1 = build(&aa1).set("a1", &fn3).set("a1", &fn4).set("a1", &fn5).finalize;
 }
 
+@("shall copy and use the context in the actor")
+unittest {
+    class AClassWithInnerPtr {
+        int* v;
+        this(int v) {
+            this.v = new int;
+            *this.v = v;
+        }
+    }
+
+    bool tickCalled;
+    auto ctx = tuple!("inner", "tickCalled")(new AClassWithInnerPtr(42), &tickCalled);
+    alias CT = typeof(ctx);
+
+    static void tick(ref CT ctx, int s) @safe {
+        assert(ctx.inner !is null);
+        assert(ctx.inner.v !is null);
+        assert(*ctx.inner.v == 42);
+        *ctx.tickCalled = true;
+    }
+
+    auto base = Actor(makeAddress2);
+    auto actor = build(&base).context(ctx).set("tick", &tick).finalize;
+    send(actor.address, 42);
+    foreach (_; 0 .. 10)
+        actor.process(Clock.currTime);
+    assert(ctx.tickCalled);
+}
+
 shared static this() {
     version (unittest) {
         import logger = std.logger;
@@ -1543,34 +1596,33 @@ unittest {
 @("shall process a request->then chain xyz")
 @system unittest {
     // checking capture is correctly setup/teardown by using captured rc.
-    auto rcReq = safeRefCounted(42);
+    auto rcReq = refCounted(42);
     bool calledOk;
-    static string fn(ref Tuple!(bool*, "calledOk", SafeRefCounted!(int,
-            RefCountedAutoInitialize.no)) ctx, const string s, const string b) {
-        assert(2 == ctx[1].refCountedStore.refCount);
+    static string fn(ref Tuple!(bool*, "calledOk", RefCounted!int) ctx, const string s,
+            const string b) {
+        assert(2 == ctx[1].refCount);
         if (s == "apa")
             *ctx.calledOk = true;
         return "foo";
     }
 
-    auto rcReply = safeRefCounted(42);
+    auto rcReply = refCounted(42);
     bool calledReply;
-    static void reply(ref Tuple!(bool*, "calledOk", SafeRefCounted!(int,
-            RefCountedAutoInitialize.no)) ctx, const string s) {
+    static void reply(ref Tuple!(bool*, "calledOk", RefCounted!int) ctx, const string s) {
         *ctx[0] = s == "foo";
-        assert(2 == ctx[1].refCountedStore.refCount);
+        assert(2 == ctx[1].refCount);
     }
 
     auto aa1 = Actor(makeAddress2);
     auto actor = build(&aa1).context(capture(&calledOk, rcReq)).set("actor", &fn).finalize;
 
-    assert(2 == rcReq.refCountedStore.refCount);
-    assert(1 == rcReply.refCountedStore.refCount);
+    assert(2 == rcReq.refCount);
+    assert(1 == rcReply.refCount);
 
-    logger.info("smurf ", rcReply.refCountedStore.refCount);
+    logger.info("smurf ", rcReply.refCount);
     actor.request(actor.address, infTimeout).send("apa", "foo")
         .capture(&calledReply, rcReply).then(&reply);
-    assert(2 == rcReply.refCountedStore.refCount);
+    assert(2 == rcReply.refCount);
 
     assert(!actor.addr.get.empty!Msg);
     assert(actor.addr.get.empty!Reply);
@@ -1580,10 +1632,9 @@ unittest {
     assert(actor.addr.get.empty!Msg);
     assert(actor.addr.get.empty!Reply);
 
-    assert(2 == rcReq.refCountedStore.refCount);
-    logger.info("smurf ", rcReply.refCountedStore.refCount);
-    assert(1 == rcReply.refCountedStore.refCount,
-            "after the message is consumed the refcount should go back");
+    assert(2 == rcReq.refCount);
+    logger.info("smurf ", rcReply.refCount);
+    assert(1 == rcReply.refCount, "after the message is consumed the refcount should go back");
 
     assert(calledOk);
     assert(calledReply);

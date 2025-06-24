@@ -6,7 +6,6 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module my.actor.mailbox;
 
 import core.sync.mutex : Mutex;
-import logger = std.experimental.logger;
 import std.datetime : SysTime;
 import std.sumtype;
 import std.variant : Variant;
@@ -183,7 +182,8 @@ struct Address {
         }
     }
 
-    package bool hasMessage() @safe pure nothrow const @nogc {
+    package bool hasMessage() @safe pure nothrow const @nogc
+    in (mtx !is null) {
         try {
             synchronized (mtx) {
                 return !(incoming.empty && sysMsg.empty && delayed.empty && replies.empty);

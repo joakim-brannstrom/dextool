@@ -153,8 +153,6 @@ package struct RequestSend {
         timeout = rhs.timeout;
         replyId = rhs.replyId;
     }
-
-    @disable this(this);
 }
 
 package struct RequestSendThen {
@@ -169,13 +167,11 @@ package struct RequestSendThen {
 
     ~this() scope {
     }
-
-    @disable this(this);
 }
 
 RequestSend request(ActorT)(ActorT self, WeakAddress requestTo, SysTime timeout)
         if (is(ActorT == Actor*)) {
-    return RequestSend(self, requestTo, timeout, self.replyId);
+    return RequestSend(self, requestTo, timeout, self.nextReplyId);
 }
 
 RequestSendThen send(Args...)(RequestSend r, auto ref Args args) {
@@ -269,8 +265,6 @@ private struct TypedRequestSendThen(TAddress, Params_...) {
     this(ref return scope typeof(this) rhs) {
         rs = rhs.rs;
     }
-
-    @disable this(this);
 }
 
 auto send(TR, Args...)(scope TR tr, auto ref Args args)
@@ -343,5 +337,51 @@ auto capture(TR, Captures...)(TR r, auto ref Captures captures)
     } else {
         auto ctx = new Tuple!Captures(captures);
         return TypedThenContext!(TR, Tuple!Captures, Captures)(r, ctx);
+    }
+}
+
+@("a new context should copy the provided values")
+unittest {
+    class AClass {
+        int v;
+        this(int v) {
+            this.v = v;
+        }
+    }
+
+    class AClassWithInnerPtr {
+        int* v;
+        this(int v) {
+            this.v = new int;
+            *this.v = v;
+        }
+    }
+
+    struct AStruct {
+        int v;
+    }
+
+    { // common user pattern when there is uncertainty of what "capture()" do
+        auto userValues = tuple!("aint", "aclass", "astruct", "ainner")(42,
+                new AClass(42), AStruct(42), new AClassWithInnerPtr(42));
+        auto userCtx = capture(userValues);
+
+        assert(userCtx.aint == 42);
+        assert(userCtx.aclass !is null);
+        assert(userCtx.aclass.v == 42);
+        assert(userCtx.astruct.v == 42);
+        assert(userCtx.ainner !is null);
+        assert(userCtx.ainner.v !is null);
+        assert(*userCtx.ainner.v == 42);
+    }
+    { // how capture can be used
+        auto userCtx = capture(42, new AClass(42), AStruct(42), new AClassWithInnerPtr(42));
+
+        assert(userCtx[0] == 42);
+        assert(userCtx[1].v == 42);
+        assert(userCtx[2].v == 42);
+        assert(userCtx[3]!is null);
+        assert(userCtx[3].v !is null);
+        assert(*userCtx[3].v == 42);
     }
 }
