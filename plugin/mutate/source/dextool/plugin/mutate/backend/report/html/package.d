@@ -19,7 +19,7 @@ import std.functional : toDelegate;
 import std.path : buildPath, baseName, relativePath;
 import std.range : only;
 import std.stdio : File;
-import std.typecons : tuple, Tuple, safeRefCounted, SafeRefCounted, borrow;
+import std.typecons : tuple, Tuple;
 import std.utf : toUTF8, byChar;
 import std.conv;
 
@@ -28,6 +28,7 @@ import my.actor;
 import my.actor.utility.limiter;
 import my.optional;
 import my.set;
+import my.gc.refc;
 
 import dextool.plugin.mutate.backend.database : Database, FileRow,
     FileMutantRow, MutationStatusId;
@@ -963,7 +964,7 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
         FileCtx ctx;
     }
 
-    auto st = tuple!("self", "state", "fio")(self, safeRefCounted(State(conf,
+    auto st = tuple!("self", "state", "fio")(self, refCounted(State(conf,
             flowCtrl, collector, fr)), fio.dup);
     alias Ctx = typeof(st);
 
@@ -1096,7 +1097,7 @@ auto spawnFileReportCollector(FileReportCollectorActor.Impl self, FlowControlAct
         }
     }
 
-    auto st = tuple!("self", "state")(self, safeRefCounted(State(flow)));
+    auto st = tuple!("self", "state")(self, refCounted(State(flow)));
     alias Ctx = typeof(st);
 
     static void started(ref Ctx ctx, StartReporterMsg) {
@@ -1166,7 +1167,7 @@ auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
         }
     }
 
-    auto st = tuple!("self", "state")(self, safeRefCounted(State(flow)));
+    auto st = tuple!("self", "state")(self, refCounted(State(flow)));
     alias Ctx = typeof(st);
 
     static void started(ref Ctx ctx, StartReporterMsg) {
@@ -1286,7 +1287,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         Promise!bool waitForDone;
     }
 
-    auto st = tuple!("self", "state", "fio")(self, safeRefCounted(State(flowCtrl,
+    auto st = tuple!("self", "state", "fio")(self, refCounted(State(flowCtrl,
             fileCollector, conf, diff, conf.reportSection.toSet)), fio.dup);
     alias Ctx = typeof(st);
 

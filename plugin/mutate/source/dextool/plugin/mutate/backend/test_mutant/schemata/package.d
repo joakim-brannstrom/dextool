@@ -19,18 +19,18 @@ import std.exception : collectException;
 import std.format : format;
 import std.format : formattedWrite, format;
 import std.sumtype;
-import std.typecons : Tuple, tuple, Nullable, SafeRefCounted, safeRefCounted, borrow;
+import std.typecons : Tuple, tuple, Nullable;
 
 import blob_model;
 import colorlog;
 import miniorm : spinSql, silentLog;
 import my.actor;
-import my.optional;
 import my.container.vector;
-import proc : DrainElement;
-
+import my.gc.refc;
+import my.optional;
 import my.path;
 import my.set;
+import proc : DrainElement;
 
 import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ, SchemaSizeQ, SchemaStatus;
 import dextool.plugin.mutate.backend.analyze.utility;
@@ -185,7 +185,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         bool isRunning;
     }
 
-    auto st = tuple!("self", "state", "db")(self, safeRefCounted(State(stopCheck, dbSave, stat,
+    auto st = tuple!("self", "state", "db")(self, refCounted(State(stopCheck, dbSave, stat,
             timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf)), Database.make());
     alias Ctx = typeof(st);
 
@@ -718,7 +718,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
         Set!MutationStatusId denyList;
     }
 
-    auto st = tuple!("self", "state", "db")(self, safeRefCounted(State(conf,
+    auto st = tuple!("self", "state", "db")(self, refCounted(State(conf,
             sizeQUpdater)), Database.init);
     alias Ctx = typeof(st);
 
@@ -896,7 +896,7 @@ private auto spawnSchemaSizeQ(SchemaSizeQUpdateActor.Impl self,
         long genCount;
     }
 
-    auto st = tuple!("self", "state")(self, safeRefCounted(State(dbSave, sizeQ)));
+    auto st = tuple!("self", "state")(self, refCounted(State(dbSave, sizeQ)));
     alias Ctx = typeof(st);
 
     static void updateMutantsNumber(ref Ctx ctx, MutantsToTestMsg _, long number) @safe {

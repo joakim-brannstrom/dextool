@@ -15,11 +15,12 @@ import std.array : empty, array, appender, Appender;
 import std.exception : collectException;
 import std.format : formattedWrite;
 import std.meta : AliasSeq;
-import std.typecons : Nullable, SafeRefCounted, safeRefCounted, borrow, RefCountedAutoInitialize;
+import std.typecons : Nullable;
 
 import blob_model : Blob;
 import my.container.vector : vector, Vector;
 import my.optional;
+import my.gc.refc;
 
 static import colorlog;
 
@@ -57,10 +58,8 @@ shared static this() {
 ClangResult toMutateAst(const Cursor root, FilesysIO fio, ValidateLoc vloc) @safe {
     import libclang_ast.ast;
 
-    auto mutantAst = safeRefCounted(analyze.Ast.init);
-    auto visitor = new BaseVisitor(fio, vloc, () @trusted {
-        return &mutantAst.refCountedPayload();
-    }());
+    auto mutantAst = refCounted(analyze.Ast.init);
+    auto visitor = new BaseVisitor(fio, vloc, () @trusted { return mutantAst.ptr; }());
     auto ast = ClangAST!BaseVisitor(root);
     ast.accept(visitor);
     mutantAst.borrow!((ref a) => a.releaseCache);
@@ -70,7 +69,7 @@ ClangResult toMutateAst(const Cursor root, FilesysIO fio, ValidateLoc vloc) @saf
 }
 
 struct ClangResult {
-    SafeRefCounted!(analyze.Ast, RefCountedAutoInitialize.no) ast;
+    RefCounted!(analyze.Ast) ast;
 
     /// All dependencies that the root has.
     Path[] dependencies;

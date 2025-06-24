@@ -19,7 +19,7 @@ import std.exception : collectException;
 import std.format : format;
 import std.random : randomCover;
 import std.traits : EnumMembers;
-import std.typecons : Nullable, Tuple, Yes, tuple, SafeRefCounted, safeRefCounted, borrow;
+import std.typecons : Nullable, Tuple, Yes, tuple;
 import std.sumtype;
 
 import blob_model : Blob;
@@ -27,6 +27,7 @@ import miniorm : spinSql, silentLog;
 import my.actor;
 import my.container.vector;
 import my.fsm : Fsm, next, act, get, TypeDataMap;
+import my.gc.refc;
 import my.hash : Checksum64;
 import my.named_type;
 import my.optional;
@@ -679,7 +680,7 @@ nothrow:
         if (conf.metadataPath.length == 0) {
             return;
         } else if (!exists(conf.metadataPath)) {
-            logger.error("File: " ~ conf.metadataPath ~ " does not exist").collectException;
+            logger.errorf("File: %s does not exist", conf.metadataPath).collectException;
             return;
         }
 
@@ -687,7 +688,7 @@ nothrow:
         try {
             fileContent = readText(conf.metadataPath);
         } catch (Exception e) {
-            logger.error("Unable to read file " ~ conf.metadataPath).collectException;
+            logger.error("Unable to read file ", conf.metadataPath).collectException;
             return;
         }
 
@@ -696,8 +697,8 @@ nothrow:
             jContent = parseJSON(fileContent, JSONOptions.doNotEscapeSlashes);
         } catch (Exception e) {
             logger.info(e.msg).collectException;
-            logger.error("Failed to parse filecontent of " ~ conf.metadataPath ~ "into JSON")
-                .collectException;
+            logger.errorf("Failed to parse filecontent of %s into JSON",
+                    conf.metadataPath).collectException;
             return;
         }
 
@@ -706,8 +707,8 @@ nothrow:
             objectData = jContent["file-prio"];
         } catch (Exception e) {
             logger.info(e.msg).collectException;
-            logger.error("Object 'file-prio' not found in file " ~ conf.metadataPath)
-                .collectException;
+            logger.error("Object 'file-prio' not found in file ",
+                    conf.metadataPath).collectException;
             return;
         }
 
@@ -718,13 +719,13 @@ nothrow:
             }
         } catch (Exception e) {
             logger.info(e.msg).collectException;
-            logger.error("'file-prio' JSON object not a valid array in file " ~ conf.metadataPath)
-                .collectException;
+            logger.error("'file-prio' JSON object not a valid array in file ",
+                    conf.metadataPath).collectException;
             return;
         }
 
-        logger.info("Increasing prio on all mutants in the files from " ~ conf.metadataPath)
-            .collectException;
+        logger.info("Increasing prio on all mutants in the files from ",
+                conf.metadataPath).collectException;
         foreach (prioFilePath; prioFiles) {
             logger.info(prioFilePath).collectException;
             spinSql!(() @trusted { db.mutantApi.increaseFilePrio(prioFilePath); });
@@ -1732,7 +1733,7 @@ auto spawnDbSaveActor(DbSaveActor.Impl self, AbsolutePath dbPath) @trusted {
         Database db;
     }
 
-    auto st = tuple!("self", "state")(self, safeRefCounted(State.init));
+    auto st = tuple!("self", "state")(self, refCounted(State.init));
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath) nothrow {
@@ -1809,7 +1810,7 @@ auto spawnStatActor(StatActor.Impl self, AbsolutePath dbPath) @trusted {
         long worklistCount;
     }
 
-    auto st = tuple!("self", "state")(self, safeRefCounted(State.init));
+    auto st = tuple!("self", "state")(self, refCounted(State.init));
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath) nothrow {
