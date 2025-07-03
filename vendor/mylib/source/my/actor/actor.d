@@ -102,8 +102,8 @@ struct Promise(T) {
 
     /// True if the promise is not initialized and thus unusalbe.
     bool empty() {
-        debug logger.info(data.empty ? -1 : data.get.replyId);
-        return data.empty || data.get.replyId != 0;
+        debug logger.info("promise: is empty or replyId: ", data.empty ? -1 : data.get.replyId);
+        return data.empty || data.get.replyId == 0;
     }
 
     /// Clear the promise.
@@ -954,29 +954,23 @@ private void cleanupCtx(CtxT)(void* ctx)
                             "WeakAddress must NEVER be const or immutable: " ~ T.stringof);
                 }
                 // TODO: add a -version actor_ctx_diagnostic that prints when it is unable to deinit?
-
-                static if (is(UT == T)) {
-                    pragma(msg, "cleanupCtx destroy: ", T);
-                    if (!GC.inFinalizer) {
-                        .destroy((*userCtx)[i]);
-                    }
-                } else {
-                    pragma(msg, "error cleanupCtx: ", UT);
-                    pragma(msg, "error cleanupCtx: ", T);
-                }
             }
+        }
+        pragma(msg, "cleanupCtx destroy: ", CtxT);
+        if (!GC.inFinalizer) {
+            .destroy(*userCtx);
         }
         logger.info("Cleanup called for ", CtxT.stringof);
     }
 }
 
-@("shall default initialize when possible, skipping const/immutable")
+@("shall cleanup all tuples values")
 unittest {
     {
         auto x = tuple(cast(const) 42, 43);
         alias T = typeof(x);
         cleanupCtx!T(cast(void*)&x);
-        assert(x[0] == 42); // can't assign to const
+        assert(x[0] == 0);
         assert(x[1] == 0);
     }
 
@@ -987,7 +981,7 @@ unittest {
         alias T = typeof(x);
         cleanupCtx!T(cast(void*)&x);
         assert(x[0] == Path.init);
-        assert(x[1] == Path("foo"));
+        assert(x[1] == Path.init);
     }
 }
 

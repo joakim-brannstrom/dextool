@@ -43,8 +43,11 @@ struct ReturnTokenMsg {
 private struct RefreshMsg {
 }
 
+private struct TickRefreshMsg {
+}
+
 alias FlowControlActor = typedActor!(Token function(TakeTokenMsg),
-        void function(ReturnTokenMsg), void function(RefreshMsg));
+        void function(ReturnTokenMsg), void function(RefreshMsg), void function(TickRefreshMsg));
 
 /// Initialize the flow controller to total cpu's + 1.
 FlowControlActor.Impl spawnFlowControlTotalCPUs(FlowControlActor.Impl self) {
@@ -83,9 +86,6 @@ FlowControlActor.Impl spawnFlowControl(FlowControlActor.Impl self, const uint to
     }
 
     static void refreshMsg(ref CT ctx, RefreshMsg) {
-        // extra caution to refresh in case something is missed.
-        delayedSend(ctx.self, delay(50.dur!"msecs"), RefreshMsg.init);
-
         while (ctx.state.get.tokens > 0 && !ctx.state.get.takeReq.empty) {
             ctx.state.borrow!((ref state) {
                 state.tokens--;
@@ -96,7 +96,15 @@ FlowControlActor.Impl spawnFlowControl(FlowControlActor.Impl self, const uint to
         }
     }
 
-    return impl(self, st, &takeMsg, &returnMsg, &refreshMsg);
+    static void tickRefreshMsg(ref CT ctx, TickRefreshMsg) {
+        // extra caution to refresh in case something is missed.
+        delayedSend(ctx.self, delay(200.dur!"msecs"), TickRefreshMsg.init);
+        send(ctx.self, RefreshMsg.init);
+    }
+
+    send(self, TickRefreshMsg.init);
+
+    return impl(self, st, &takeMsg, &returnMsg, &refreshMsg, &tickRefreshMsg);
 }
 
 @("shall limit the message rate of senders by using a limiter to control the flow")

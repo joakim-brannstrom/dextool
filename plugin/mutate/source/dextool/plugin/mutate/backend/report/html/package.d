@@ -1142,12 +1142,15 @@ auto spawnFileReportCollector(FileReportCollectorActor.Impl self, FlowControlAct
 struct GetPagesMsg {
 }
 
+struct TickCheckPromiseMsg {
+}
+
 alias SubPage = Tuple!(string, "fileName", string, "linkTxt");
 alias SubContent = Tuple!(string, "name", string, "tag", string, "content");
 
 alias AnalyzeReportCollectorActor = typedActor!(void function(StartReporterMsg), void function(DoneStartingReportersMsg), /// Collects an index.
         void function(SubPage), void function(SubContent), void function(CheckDoneMsg),
-        Tuple!(SubPage[], SubContent[]) function(GetPagesMsg));
+        Tuple!(SubPage[], SubContent[]) function(GetPagesMsg), void function(TickCheckPromiseMsg));
 
 auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
         FlowControlActor.Address flow) {
@@ -1193,15 +1196,22 @@ auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
     }
 
     static void checkDone(ref Ctx ctx, CheckDoneMsg) {
-        // defensive programming in case a promise request arrive after the last page is generated.
-        delayedSend(ctx.self, delay(1.dur!"seconds"), CheckDoneMsg.init);
         if (!ctx.state.done)
             return;
 
         if (!ctx.state.promise.empty) {
+            logger.info("collector pages promise delivered");
             ctx.state.promise.deliver(tuple(ctx.state.subPages, ctx.state.subContent));
             ctx.self.shutdown;
         }
+    }
+
+    static void tickCheckPromise(ref Ctx ctx, TickCheckPromiseMsg) {
+        // defensive programming in case a promise request arrive after the
+        // last page is generated. This code will then trigger, see that the
+        // program is done and deliver the promise.
+        delayedSend(ctx.self, delay(1.dur!"seconds"), CheckDoneMsg.init);
+        send(ctx.self, CheckDoneMsg.init);
     }
 
     static RequestResult!Result getPages(ref Ctx ctx, GetPagesMsg) {
@@ -1212,16 +1222,20 @@ auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
             return typeof(return)(tuple(ctx.state.subPages, ctx.state.subContent));
         }
 
+        logger.info("collector pages promise");
         assert(ctx.state.promise.empty, "can only be one active request at a time");
         ctx.state.promise = makePromise!Result;
         return typeof(return)(ctx.state.promise);
     }
 
+    delayedSend(self, delay(1.dur!"seconds"), TickCheckPromiseMsg.init);
+
+    self.name = "report_collector";
     self.exceptionHandler = () @trusted {
         return toDelegate(&logExceptionHandler);
     }();
-    return impl(self, capture(st), &started, &doneStarting, &subPage,
-            &checkDone, &getPages, &subContent);
+    return impl(self, st, &started, &doneStarting, &subPage, &checkDone,
+            &getPages, &subContent, &tickCheckPromise);
 }
 
 struct StartAnalyzersMsg {
@@ -1373,8 +1387,10 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
 
         send(collector, DoneStartingReportersMsg.init);
 
+        logger.info("collector pages request");
         ctx.self.request(collector, infTimeout).send(GetPagesMsg.init)
             .capture(ctx).then((ref Ctx ctx, SubPage[] sp, SubContent[] sc) {
+            logger.info("collector pages");
             ctx.state.subPages = sp;
             ctx.state.subContent = sc;
             ctx.state.reportsDone = true;
