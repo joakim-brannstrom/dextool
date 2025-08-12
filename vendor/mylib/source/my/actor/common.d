@@ -5,6 +5,8 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module my.actor.common;
 
+import logger = std.logger;
+
 import core.sync.mutex : Mutex;
 
 /** Multiple producer, "single" consumer thread safe queue.

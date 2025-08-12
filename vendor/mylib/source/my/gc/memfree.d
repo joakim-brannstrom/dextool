@@ -9,9 +9,9 @@ it and then tell malloc to further free it back to the OS.
 module my.gc.memfree;
 
 import std.concurrency : send, spawn, receiveTimeout, Tid;
-import std.typecons : SafeRefCounted;
 
 import my.libc;
+import my.gc.refc;
 
 /// Returns: a started instance of MemFree.
 MemFree memFree() @safe {
@@ -31,7 +31,7 @@ struct MemFree {
         Tid bg;
     }
 
-    private SafeRefCounted!Data data;
+    private RefCounted!Data data;
 
     this(bool startNow) @safe {
         if (startNow)
@@ -39,7 +39,7 @@ struct MemFree {
     }
 
     ~this() @trusted {
-        if (!data.refCountedStore.isInitialized || !data.isRunning)
+        if (!data.empty || !data.isRunning)
             return;
 
         scope (exit)

@@ -6,7 +6,6 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 module my.actor.mailbox;
 
 import core.sync.mutex : Mutex;
-import logger = std.experimental.logger;
 import std.datetime : SysTime;
 import std.sumtype;
 import std.variant : Variant;
@@ -183,7 +182,8 @@ struct Address {
         }
     }
 
-    package bool hasMessage() @safe pure nothrow const @nogc {
+    package bool hasMessage() @safe pure nothrow const @nogc
+    in (mtx !is null) {
         try {
             synchronized (mtx) {
                 return !(incoming.empty && sysMsg.empty && delayed.empty && replies.empty);
@@ -191,6 +191,16 @@ struct Address {
         } catch (Exception e) {
         }
         return false;
+    }
+
+    package size_t length() @safe pure nothrow const {
+        try {
+            synchronized (mtx) {
+                return incoming.length + sysMsg.length + delayed.length + replies.length;
+            }
+        } catch (Exception e) {
+        }
+        return 0;
     }
 
     package void setOpen() @safe pure nothrow @nogc {
@@ -243,7 +253,7 @@ struct StrongAddress {
         addr = null;
     }
 
-    ulong id() @safe pure nothrow const @nogc {
+    ulong id() @safe pure nothrow const @nogc scope {
         return cast(ulong) addr;
     }
 
