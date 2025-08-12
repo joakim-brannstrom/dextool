@@ -12,7 +12,8 @@
  * Fix building on ArchLinux
    ([#1738](https://github.com/joakim-brannstrom/dextool/issues/1738)), thanks
    to chengjackjelly.
- * Support llvm-19
+ * Tested and verified to work with llvm-19 and 20.
+ * Fix deadlock in mutant schemata.
 
 # v5.1 Hematite
 
