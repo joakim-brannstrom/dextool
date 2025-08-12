@@ -16,10 +16,11 @@ import logger = std.experimental.logger;
 import std.algorithm : min, max;
 import std.datetime : dur;
 import std.exception : collectException;
-import std.typecons : Tuple, tuple, SafeRefCounted, safeRefCounted, borrow;
+import std.typecons : Tuple, tuple;
 
 import my.actor;
 import my.named_type;
+import my.gc.refc;
 
 private struct Tick {
 }
@@ -39,7 +40,7 @@ auto spawnLoadCtrlActor(LoadCtrlActor.Impl self, TargetLoad setValue) @trusted {
         LoadController ctrl;
     }
 
-    auto st = tuple!("self", "state")(self, safeRefCounted(State.init));
+    auto st = tuple!("self", "state")(self, refCounted(State.init));
     alias Ctx = typeof(st);
 
     st.state.ctrl.setValue = setValue.get;
@@ -66,7 +67,7 @@ auto spawnLoadCtrlActor(LoadCtrlActor.Impl self, TargetLoad setValue) @trusted {
     }
 
     send(self, Tick.init);
-    return impl(self, &tick, st, &getCtrlSignal, st);
+    return impl(self, st, &tick, &getCtrlSignal);
 }
 
 private struct LoadController {
