@@ -418,7 +418,7 @@ int* p1;
     visitor.vars[0].type.kind.usr.shouldNotEqual(visitor.vars[1].type.kind.usr);
 }
 
-@("Should be a ptr-ptr at a typedef")
+@("Should be a ptr-ptr as a typedef")
 unittest {
     enum code = `
 typedef double MadeUp;
@@ -429,11 +429,9 @@ struct Struct {
 const void* const func(const MadeUp** const zzzz, const Struct** const yyyy);
 `;
 
-    import std.variant : visit;
-
     // arrange
     auto visitor = new TestVisitor;
-    visitor.find = "c:@F@func#1**1d#1**1$@S@Struct#";
+    visitor.find = "c:@F@func#**1d#**1$@S@Struct#";
 
     auto ctx = ClangContext(Yes.prependParamSyntaxOnly);
     ctx.vfs.open(new Blob(Uri("issue.hpp"), code));
@@ -443,6 +441,8 @@ const void* const func(const MadeUp** const zzzz, const Struct** const yyyy);
     auto ast = ClangAST!(typeof(visitor))(tu.cursor);
     ast.accept(visitor);
 
+    assert(visitor.funcs.length >= 1);
+    assert(visitor.funcs[0].params.length >= 1);
     visitor.funcs[0].params[0].match!((TypeKindVariable a) => writelnUt(a.type.kind.usr),
             (TypeKindAttr a) => writelnUt(a.kind.usr), (VariadicType a) => writelnUt("variadic"));
 
