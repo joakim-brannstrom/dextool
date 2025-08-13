@@ -73,10 +73,22 @@ int main(string[] args) {
                 "prepare_release_build_ubuntu", "build_release"
                 ]), tag.next);
     };
+    tests["ldc-ubuntu-min-test"] ~= () {
+        build(mergeFiles([
+                "ubuntu_minimal_base", "ldc_min_version", "ldc", "fix_repo",
+                "prepare_test_build_ubuntu", "build_test"
+                ]), tag.next);
+    };
     tests["ldc-ubuntu-latest-release"] ~= () {
         build(mergeFiles([
                 "ubuntu_latest_base", "ldc_latest_version", "ldc", "fix_repo",
                 "prepare_release_build_ubuntu", "build_release"
+                ]), tag.next);
+    };
+    tests["ldc-ubuntu-latest-test"] ~= () {
+        build(mergeFiles([
+                "ubuntu_latest_base", "ldc_latest_version", "ldc", "fix_repo",
+                "prepare_test_build_ubuntu", "build_test"
                 ]), tag.next);
     };
     tests["ldc-fedora-latest-release"] ~= () {

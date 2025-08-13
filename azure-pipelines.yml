@@ -19,10 +19,14 @@ jobs:
     matrix:
       ldc-ubuntu-min-release:
         TEST_GROUP: ldc-ubuntu-min-release
-      dmd-ubuntu-min-test:
-        TEST_GROUP: dmd-ubuntu-min-test
-      dmd-ubuntu-latest-test:
-        TEST_GROUP: dmd-ubuntu-latest-test
+      ldc-ubuntu-min-test:
+        TEST_GROUP: ldc-ubuntu-min-test
+      ldc-ubuntu-latest-test:
+        TEST_GROUP: ldc-ubuntu-latest-test
+      # dmd-ubuntu-min-test:
+        # TEST_GROUP: dmd-ubuntu-min-test
+      # dmd-ubuntu-latest-test:
+        # TEST_GROUP: dmd-ubuntu-latest-test
       ldc-ubuntu-latest-dub:
         TEST_GROUP: ldc-ubuntu-latest-dub
       ldc-fedora-latest-release:
