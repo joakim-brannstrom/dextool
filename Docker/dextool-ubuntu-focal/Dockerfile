@@ -1,6 +1,6 @@
 # Stage 1
 FROM ubuntu:focal AS base
-MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+LABEL authors="Joakim Brännström <joakim.brannstrom@gmx.com>"
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" --no-install-recommends install \
@@ -22,8 +22,8 @@ ENV LDC_VERSION=1.27.1
 
 # ldc
 RUN curl -fsS https://dlang.org/install.sh | bash -s ldc-$LDC_VERSION
-ENV PATH "/root/dlang/ldc-$LDC_VERSION/bin:$PATH"
-ENV DC "ldc2"
+ENV PATH="/root/dlang/ldc-$LDC_VERSION/bin:$PATH"
+ENV DC="ldc2"
 RUN apt remove -y curl
 
 # fix_repo
@@ -37,11 +37,11 @@ RUN cd build && make all VERBOSE=1
 RUN cd build && make install VERBOSE=1
 RUN rm -rf build dextool
 
-ENV PATH "/opt/dextool_install/bin:$PATH"
+ENV PATH="/opt/dextool_install/bin:$PATH"
 
 # Stage 2
 FROM ubuntu:focal AS final
-MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+LABEL authors="Joakim Brännström <joakim.brannstrom@gmx.com>"
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" --no-install-recommends install \
@@ -55,4 +55,4 @@ WORKDIR /opt
 
 COPY --from=0 /opt/dextool_install /opt/dextool_install
 
-ENV PATH "/opt/dextool_install/bin:$PATH"
+ENV PATH="/opt/dextool_install/bin:$PATH"

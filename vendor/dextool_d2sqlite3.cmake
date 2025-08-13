@@ -20,10 +20,13 @@ compile_d_static_lib(
 )
 target_link_libraries(dextool_d2sqlite3 ${SQLITE3_LIB})
 
-compile_d_unittest(
-    dextool_d2sqlite3_tests
-    "${CMAKE_CURRENT_LIST_DIR}/d2sqlite3/source/tests.d;${SRC_FILES};"
-    "${flags} -main"
-    ""
-    "${SQLITE3_LIB}"
-)
+# compilation segfault with dmd 2.111.0
+if("${D_COMPILER_ID}" STREQUAL "LDMD")
+    compile_d_unittest(
+        dextool_d2sqlite3_tests
+        "${CMAKE_CURRENT_LIST_DIR}/d2sqlite3/source/tests.d;${SRC_FILES};"
+        "${flags} -main"
+        ""
+        "${SQLITE3_LIB}"
+    )
+endif()

@@ -23,7 +23,7 @@ import std.exception : collectException;
 import std.functional : toDelegate;
 import std.parallelism : TaskPool, totalCPUs;
 import std.range : tee, enumerate;
-import std.typecons : tuple, SafeRefCounted, borrow, RefCountedAutoInitialize, safeRefCounted;
+import std.typecons : tuple;
 
 import colorlog;
 import my.actor.utility.limiter;
@@ -32,6 +32,7 @@ import my.filter : GlobFilter;
 import my.named_type;
 import my.optional;
 import my.set;
+import my.gc.refc;
 
 static import colorlog;
 
@@ -97,7 +98,7 @@ ExitStatusType runAnalyzer(const AbsolutePath dbPath, const AbsolutePath confFil
     bool[Path] changedDeps;
     StoreActor.Address store;
     {
-        auto db = safeRefCounted(Database.make(dbPath));
+        auto db = refCounted(Database.make(dbPath));
 
         auto needFullAnalyzeRes = needFullAnalyze(db, confFile);
 
@@ -250,7 +251,8 @@ alias AnalyzeActor = typedActor!(void function(WaitForToken), void function(RunA
 /// Start an analyze of a file
 auto spawnAnalyzer(AnalyzeActor.Impl self, FlowControlActor.Address flowCtrl, StoreActor.Address storeAddr,
         Mutation.Kind[] kinds, ParsedCompileCommand fileToAnalyze,
-        ValidateLoc vloc, FilesysIO fio, AnalyzeConfig conf) {
+        ValidateLoc vloc, FilesysIO fio, AnalyzeConfig conf)
+in (fio !is null) {
     auto st = tuple!("self", "flowCtrl", "storeAddr", "kinds", "fileToAnalyze",
             "vloc", "fio", "conf")(self, flowCtrl, storeAddr, kinds,
             fileToAnalyze, vloc, fio.dup, conf);
@@ -263,12 +265,11 @@ auto spawnAnalyzer(AnalyzeActor.Impl self, FlowControlActor.Address flowCtrl, St
 
     static void run(ref Ctx ctx, RunAnalyze) @safe {
         auto profile = Profile("analyze file " ~ ctx.fileToAnalyze.cmd.absoluteFile);
-
         bool onlyValidFiles = true;
 
         try {
             log.tracef("%s begin", ctx.fileToAnalyze.cmd.absoluteFile);
-            auto analyzer = Analyze(ctx.kinds, ctx.vloc, ctx.fio,
+            auto analyzer = Analyze(ctx.kinds, ctx.vloc, ctx.fio.dup,
                     Analyze.Config(ctx.conf.compiler.forceSystemIncludes,
                         ctx.conf.coverage.use, ctx.conf.compiler.allowErrors.get, *ctx.conf.sq));
             analyzer.process(ctx.fileToAnalyze, ctx.conf.analyze.idGenConfig);
@@ -300,7 +301,7 @@ auto spawnAnalyzer(AnalyzeActor.Impl self, FlowControlActor.Address flowCtrl, St
 
     self.name = "analyze";
     send(self, WaitForToken.init);
-    return impl(self, &run, capture(st), &wait, capture(st));
+    return impl(self, st, &run, &wait);
 }
 
 class TestFileResult {
@@ -364,7 +365,7 @@ auto spawnTestPathActor(TestPathActor.Impl self, StoreActor.Address store,
 
     self.name = "test path";
     send(self, Start.init, store);
-    return impl(self, &start, capture(st));
+    return impl(self, capture(st), &start);
 }
 
 struct Start {
@@ -396,9 +397,8 @@ alias StoreActor = typedActor!(void function(Start, ToolVersion), bool function(
         void function(CheckPostProcess), void function(PostProcess),);
 
 /// Store the result of the analyze.
-auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl, SafeRefCounted!(Database,
-        RefCountedAutoInitialize.no) db, StoreConfig conf, FilesysIO fio,
-        Path[] rootFiles, NeedFullAnalyzeResult needFullAnalyze) @trusted {
+auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl, RefCounted!Database db,
+        StoreConfig conf, FilesysIO fio, Path[] rootFiles, NeedFullAnalyzeResult needFullAnalyze) @trusted {
     static struct State {
         import dextool.plugin.mutate.backend.type : CodeMutant;
 
@@ -432,8 +432,8 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl, Sa
         Set!AbsolutePath clearedFiles;
     }
 
-    auto st = tuple!("self", "db", "state", "fio", "conf", "rootFiles", "flowCtrl")(self, db,
-            safeRefCounted(State(needFullAnalyze)), fio.dup, conf, rootFiles, flowCtrl);
+    auto st = tuple!("self", "db", "state", "fio", "conf", "rootFiles", "flowCtrl")(self,
+            db, refCounted(State(needFullAnalyze)), fio.dup, conf, rootFiles, flowCtrl);
     alias Ctx = typeof(st);
 
     static void start(ref Ctx ctx, Start, ToolVersion toolVersion) {
@@ -783,10 +783,8 @@ auto spawnStoreActor(StoreActor.Impl self, FlowControlActor.Address flowCtrl, Sa
 
     self.name = "store";
 
-    auto s = impl(self, &start, capture(st), &isDone, capture(st),
-            &startedAnalyzers, capture(st), &save, capture(st), &doneStartAnalyzers,
-            capture(st), &savedTestFileResult, capture(st), &checkPostProcess,
-            capture(st), &postProcess, capture(st), &failedFileAnalyze, capture(st));
+    auto s = impl(self, st, &start, &isDone, &startedAnalyzers, &save, &doneStartAnalyzers,
+            &savedTestFileResult, &checkPostProcess, &postProcess, &failedFileAnalyze);
     s.exceptionHandler = toDelegate(&logExceptionHandler);
     return s;
 }
@@ -873,7 +871,7 @@ struct Analyze {
         import libclang_ast.check_parse_result : hasParseErrors, logDiagnostic;
 
         log.info("Analyzing ", fileToAnalyze);
-        SafeRefCounted!(Ast, RefCountedAutoInitialize.no) ast;
+        RefCounted!Ast ast;
         {
             auto tu = ctx.makeTranslationUnit(fileToAnalyze,
                     commandsForFileToAnalyze.flags.completeFlags);
@@ -893,9 +891,7 @@ struct Analyze {
         }
 
         auto codeMutants = () {
-            auto mutants = toMutants(() @trusted {
-                return &ast.refCountedPayload();
-            }(), fio, valLoc, kinds);
+            auto mutants = toMutants(() @trusted { return ast.ptr; }(), fio, valLoc, kinds);
             log!"analyze.pass_mutant".trace(mutants);
 
             log!"analyze.pass_filter".trace("filter mutants");
@@ -907,9 +903,8 @@ struct Analyze {
         debug logger.trace(codeMutants);
 
         {
-            auto schemas = toSchemata(() @trusted {
-                return &ast.refCountedPayload();
-            }(), fio, codeMutants, conf.sq);
+            auto schemas = toSchemata(() @trusted { return ast.ptr; }(), fio,
+                    codeMutants, conf.sq);
             log!"analyze.pass_schema".trace(schemas);
             log.tracef("path dedup count:%s length_acc:%s",
                     ast.borrow!((ref a) => a.paths.count),
@@ -935,7 +930,7 @@ struct Analyze {
         }
 
         if (conf.saveCoverage) {
-            auto cov = toCoverage(() @trusted { return &ast.refCountedPayload(); }(), fio, valLoc);
+            auto cov = toCoverage(() @trusted { return ast.ptr; }(), fio, valLoc);
             debug logger.trace(cov);
 
             foreach (a; cov.points.byKeyValue) {

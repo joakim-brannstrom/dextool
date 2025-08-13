@@ -5,6 +5,7 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module my.actor.typed;
 
+import logger = std.logger;
 import std.datetime : SysTime, Clock;
 import std.meta : AliasSeq, staticMap;
 import std.traits : Unqual, isFunction, isDelegate, Parameters, ReturnType, isFunctionPointer;
@@ -169,26 +170,9 @@ package bool IsEqual(TypedMsg1, TypedMsg2)() {
  */
 auto impl(TActor, Behavior...)(TActor actor, Behavior behaviors)
         if (isTypedActorImpl!TActor && typeCheckImpl!(TActor, Behavior)) {
-    import my.actor.actor : build;
-    import my.actor.msg : isCapture, Capture;
+    import my.actor.actor : impl;
 
-    auto bactor = build(actor.actor);
-    static foreach (const i; 0 .. Behavior.length) {
-        {
-            alias b = Behavior[i];
-
-            static if (!isCapture!b) {
-                static if (!(isFunction!(b) || isFunctionPointer!(b)))
-                    static assert(0, "behavior may only be functions, not delgates: " ~ b.stringof);
-
-                static if (i + 1 < Behavior.length && isCapture!(Behavior[i + 1])) {
-                    bactor.set(behaviors[i], behaviors[i + 1]);
-                } else
-                    bactor.set(behaviors[i]);
-            }
-        }
-    }
-    return TypedActorImpl!(TActor.AllowedMessages)(bactor.finalize);
+    return TypedActorImpl!(TActor.AllowedMessages)(impl(actor.actor, behaviors));
 }
 
 private string prettify(T)() if (is(T : TypedMsg!(U, V), U, V)) {
@@ -210,6 +194,17 @@ private string prettify(T)() if (is(T : TypedMsg!(U, V), U, V)) {
 }
 
 private bool typeCheckImpl(TActor, Behavior...)() {
+    static if (Behavior.length > 1) {
+        static if (isCapture!(Behavior[0])) {
+            enum StartIdx = 1;
+        } else {
+            enum StartIdx = 0;
+        }
+    } else {
+        enum StartIdx = 0;
+    }
+    enum HasContext = StartIdx == 1;
+
     // check that the specification is implemented and no duplications.
     // will allow an actor have more behaviors than the specification allow.
     foreach (T; TActor.AllowedMessages) {
@@ -217,31 +212,23 @@ private bool typeCheckImpl(TActor, Behavior...)() {
         // only one parameter match is allowed or else req/rep is overwritten
         // when constructing the actor.
         bool paramsMatch;
-        static foreach (const i; 0 .. Behavior.length) {
+        static foreach (const i; StartIdx .. Behavior.length) {
             {
                 alias bh = Behavior[i];
-                // look ahead one step to determine if it is a capture. If so then the parameters are reduced
-                static if (i + 1 < Behavior.length && isCapture!(Behavior[i + 1]))
-                    enum HasContext = true;
-                else
-                    enum HasContext = false;
+                alias Msg = ToTypedMsg!(bh, HasContext);
 
-                static if (!isCapture!bh) {
-                    alias Msg = ToTypedMsg!(bh, HasContext);
-
-                    static if (is(T.Params == Msg.Params)) {
-                        if (paramsMatch) {
-                            assert(false, "duplicate implementation parameters of " ~ prettify!T);
-                        }
-                        paramsMatch = true;
+                static if (is(T.Params == Msg.Params)) {
+                    if (paramsMatch) {
+                        assert(false, "duplicate implementation parameters of " ~ prettify!T);
                     }
+                    paramsMatch = true;
+                }
 
-                    static if (IsEqual!(T, Msg)) {
-                        if (reqRepOk) {
-                            assert(false, "duplicate implementation of " ~ prettify!T);
-                        }
-                        reqRepOk = true;
+                static if (IsEqual!(T, Msg)) {
+                    if (reqRepOk) {
+                        assert(false, "duplicate implementation of " ~ prettify!T);
                     }
+                    reqRepOk = true;
                 }
             }
         }
@@ -286,11 +273,11 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto actor = impl(MyActor.Impl(&aa1), &fn1, capture(&called),
+    auto actor = impl(MyActor.Impl(&aa1), capture(&called), &fn1,
             (ref Capture!(int*, "called") ctx, int, double) {
         (*ctx.called)++;
         return tuple("hej", 42);
-    }, capture(&called));
+    });
 
     actor.request(actor.address, infTimeout).send(42).capture(&called)
         .then((ref Capture!(int*, "called") ctx, int x) {
@@ -331,8 +318,8 @@ unittest {
     }
 
     auto aa1 = Actor(makeAddress2);
-    auto actor = impl(MyActor.Impl(&aa1), &fn1, capture(&called),
-            (ref Capture!(int*, "called") c, int, double) { (*c.called)++; }, capture(&called));
+    auto actor = impl(MyActor.Impl(&aa1), capture(&called), &fn1,
+            (ref Capture!(int*, "called") c, int, double) { (*c.called)++; });
 
     send(actor.address, 42);
     send(actor, 42, 43.0);
@@ -342,8 +329,8 @@ unittest {
     // check that the type check works, rejecting the message because the actor do not accept it.
     static assert(!__traits(compiles, { send(actor.address, 43.0); }));
 
-    actor.actor.process(Clock.currTime);
-    actor.actor.process(Clock.currTime);
+    foreach (_; 0 .. 10)
+        actor.actor.process(Clock.currTime);
 
     assert(called == 2);
 }

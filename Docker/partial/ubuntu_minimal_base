@@ -1,5 +1,5 @@
 FROM ubuntu:jammy
-MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+LABEL authors="Joakim Brännström <joakim.brannstrom@gmx.com>"
 
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \

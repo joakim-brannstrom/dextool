@@ -19,7 +19,7 @@ import std.functional : toDelegate;
 import std.path : buildPath, baseName, relativePath;
 import std.range : only;
 import std.stdio : File;
-import std.typecons : tuple, Tuple, safeRefCounted, SafeRefCounted, borrow;
+import std.typecons : tuple, Tuple;
 import std.utf : toUTF8, byChar;
 import std.conv;
 
@@ -28,6 +28,7 @@ import my.actor;
 import my.actor.utility.limiter;
 import my.optional;
 import my.set;
+import my.gc.refc;
 
 import dextool.plugin.mutate.backend.database : Database, FileRow,
     FileMutantRow, MutationStatusId;
@@ -281,17 +282,19 @@ struct Spanner {
     alias BTree(T) = RedBlackTree!(T, "a < b", true);
 
     BTree!Token tokens;
-    BTree!FileMutant muts;
+    BTree!(FileMutant*) muts;
 
     this(Token[] tokens) @trusted {
         this.tokens = new typeof(this.tokens);
-        this.muts = new typeof(this.muts)();
+        this.muts = new typeof(this.muts);
 
         this.tokens.insert(tokens);
     }
 
-    void put(const FileMutant fm) @trusted {
-        muts.insert(fm);
+    void put(FileMutant fm) @trusted {
+        auto a = new FileMutant;
+        *a = fm;
+        muts.insert(a);
     }
 
     SpannerRange toRange() @safe {
@@ -363,9 +366,9 @@ struct SpannerRange {
     alias BTree = Spanner.BTree;
 
     BTree!Token tokens;
-    BTree!FileMutant muts;
+    BTree!(FileMutant*) muts;
 
-    this(BTree!Token tokens, BTree!FileMutant muts) @safe {
+    this(BTree!Token tokens, BTree!(FileMutant*) muts) @safe {
         this.tokens = tokens;
         this.muts = muts;
         dropMutants;
@@ -377,7 +380,7 @@ struct SpannerRange {
         if (muts.empty)
             return Span(t);
 
-        auto app = appender!(FileMutant[])();
+        auto app = appender!(FileMutant*[])();
         foreach (m; muts) {
             if (m.offset.begin < t.offset.end)
                 app.put(m);
@@ -413,7 +416,7 @@ struct Span {
     import std.range : isOutputRange;
 
     Token tok;
-    FileMutant[] muts;
+    FileMutant*[] muts;
 
     string toString() @safe pure const {
         auto buf = appender!string;
@@ -604,14 +607,14 @@ struct MetaSpan {
     string onClick;
     MutationLength clickPrio;
 
-    this(const(FileMutant)[] muts) {
+    this(const(FileMutant*)[] muts) {
         status = StatusColor.none;
         if (muts.length != 0) {
             clickPrio = MutationLength(muts[0].txt.mutation.length,
                     muts[0].stId, muts[0].mut.status);
         }
         foreach (ref const m; muts) {
-            status = pickColor(m, status);
+            status = pickColor(*m, status);
             if (m.mut.status == Mutation.Status.alive && clickPrio.status != Mutation.Status.alive) {
                 clickPrio = MutationLength(m.txt.mutation.length, m.stId, m.mut.status);
             } else if (m.txt.mutation.length < clickPrio.length
@@ -628,7 +631,7 @@ struct MetaSpan {
 }
 
 /// Choose a color for a mutant span by prioritizing alive mutants above all.
-MetaSpan.StatusColor pickColor(const FileMutant m,
+MetaSpan.StatusColor pickColor(const ref FileMutant m,
         MetaSpan.StatusColor status = MetaSpan.StatusColor.none) {
     final switch (m.mut.status) {
     case Mutation.Status.noCoverage:
@@ -961,7 +964,7 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
         FileCtx ctx;
     }
 
-    auto st = tuple!("self", "state", "fio")(self, safeRefCounted(State(conf,
+    auto st = tuple!("self", "state", "fio")(self, refCounted(State(conf,
             flowCtrl, collector, fr)), fio.dup);
     alias Ctx = typeof(st);
 
@@ -1062,8 +1065,7 @@ auto spawnFileReport(FileReportActor.Impl self, FlowControlActor.Address flowCtr
             AbsolutePath, AbsolutePath) ctx, my.actor.utility.limiter.Token _) => send(ctx[0],
             InitMsg.init, ctx[1], ctx[2]));
 
-    return impl(self, &init_, capture(st), &start, capture(st), &done,
-            capture(st), &run, capture(st), &failed, capture(st));
+    return impl(self, capture(st), &init_, &start, &done, &run, &failed);
 }
 
 struct GetIndexesMsg {
@@ -1095,7 +1097,7 @@ auto spawnFileReportCollector(FileReportCollectorActor.Impl self, FlowControlAct
         }
     }
 
-    auto st = tuple!("self", "state")(self, safeRefCounted(State(flow)));
+    auto st = tuple!("self", "state")(self, refCounted(State(flow)));
     alias Ctx = typeof(st);
 
     static void started(ref Ctx ctx, StartReporterMsg) {
@@ -1134,11 +1136,13 @@ auto spawnFileReportCollector(FileReportCollectorActor.Impl self, FlowControlAct
     self.exceptionHandler = () @trusted {
         return toDelegate(&logExceptionHandler);
     }();
-    return impl(self, &started, capture(st), &doneStarting, capture(st),
-            &index, capture(st), &getIndexes, capture(st));
+    return impl(self, capture(st), &started, &doneStarting, &index, &getIndexes);
 }
 
 struct GetPagesMsg {
+}
+
+struct TickCheckPromiseMsg {
 }
 
 alias SubPage = Tuple!(string, "fileName", string, "linkTxt");
@@ -1146,7 +1150,7 @@ alias SubContent = Tuple!(string, "name", string, "tag", string, "content");
 
 alias AnalyzeReportCollectorActor = typedActor!(void function(StartReporterMsg), void function(DoneStartingReportersMsg), /// Collects an index.
         void function(SubPage), void function(SubContent), void function(CheckDoneMsg),
-        Tuple!(SubPage[], SubContent[]) function(GetPagesMsg));
+        Tuple!(SubPage[], SubContent[]) function(GetPagesMsg), void function(TickCheckPromiseMsg));
 
 auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
         FlowControlActor.Address flow) {
@@ -1166,7 +1170,7 @@ auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
         }
     }
 
-    auto st = tuple!("self", "state")(self, safeRefCounted(State(flow)));
+    auto st = tuple!("self", "state")(self, refCounted(State(flow)));
     alias Ctx = typeof(st);
 
     static void started(ref Ctx ctx, StartReporterMsg) {
@@ -1192,8 +1196,6 @@ auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
     }
 
     static void checkDone(ref Ctx ctx, CheckDoneMsg) {
-        // defensive programming in case a promise request arrive after the last page is generated.
-        delayedSend(ctx.self, delay(1.dur!"seconds"), CheckDoneMsg.init);
         if (!ctx.state.done)
             return;
 
@@ -1201,6 +1203,14 @@ auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
             ctx.state.promise.deliver(tuple(ctx.state.subPages, ctx.state.subContent));
             ctx.self.shutdown;
         }
+    }
+
+    static void tickCheckPromise(ref Ctx ctx, TickCheckPromiseMsg) {
+        // defensive programming in case a promise request arrive after the
+        // last page is generated. This code will then trigger, see that the
+        // program is done and deliver the promise.
+        delayedSend(ctx.self, delay(1.dur!"seconds"), CheckDoneMsg.init);
+        send(ctx.self, CheckDoneMsg.init);
     }
 
     static RequestResult!Result getPages(ref Ctx ctx, GetPagesMsg) {
@@ -1216,12 +1226,14 @@ auto spawnAnalyzeReportCollector(AnalyzeReportCollectorActor.Impl self,
         return typeof(return)(ctx.state.promise);
     }
 
+    delayedSend(self, delay(1.dur!"seconds"), TickCheckPromiseMsg.init);
+
+    self.name = "report_collector";
     self.exceptionHandler = () @trusted {
         return toDelegate(&logExceptionHandler);
     }();
-    return impl(self, &started, capture(st), &doneStarting, capture(st),
-            &subPage, capture(st), &checkDone, capture(st), &getPages,
-            capture(st), &subContent, capture(st));
+    return impl(self, st, &started, &doneStarting, &subPage, &checkDone,
+            &getPages, &subContent, &tickCheckPromise);
 }
 
 struct StartAnalyzersMsg {
@@ -1287,7 +1299,7 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
         Promise!bool waitForDone;
     }
 
-    auto st = tuple!("self", "state", "fio")(self, safeRefCounted(State(flowCtrl,
+    auto st = tuple!("self", "state", "fio")(self, refCounted(State(flowCtrl,
             fileCollector, conf, diff, conf.reportSection.toSet)), fio.dup);
     alias Ctx = typeof(st);
 
@@ -1373,8 +1385,10 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
 
         send(collector, DoneStartingReportersMsg.init);
 
+        logger.info("collector pages request");
         ctx.self.request(collector, infTimeout).send(GetPagesMsg.init)
             .capture(ctx).then((ref Ctx ctx, SubPage[] sp, SubContent[] sc) {
+            logger.info("collector pages");
             ctx.state.subPages = sp;
             ctx.state.subContent = sc;
             ctx.state.reportsDone = true;
@@ -1473,9 +1487,8 @@ auto spawnOverviewActor(OverviewActor.Impl self, FlowControlActor.Address flowCt
 
     self.exceptionHandler = toDelegate(&logExceptionHandler);
     send(self, InitMsg.init, dbPath);
-    return impl(self, &init_, capture(st), &startFileReportes, capture(st),
-            &waitForDone, capture(st), &checkDone, capture(st), &genIndex,
-            capture(st), &startAnalyzers, capture(st), &indexWait, capture(st));
+    return impl(self, capture(st), &init_, &startFileReportes, &waitForDone,
+            &checkDone, &genIndex, &startAnalyzers, &indexWait);
 }
 
 void runAnalyzer(alias fn, Args...)(OverviewActor.Impl self, FlowControlActor.Address flow,
@@ -1499,14 +1512,14 @@ void runAnalyzer(alias fn, Args...)(OverviewActor.Impl self, FlowControlActor.Ad
             ctx[1].self.homeSystem.spawn((Actor* self, typeof(params) params, typeof(ctx[1]) ctx) {
                 // tells the actor to actually do the work
                 send(self, self, ctx.db, ctx.collector, ctx.sp);
-                return impl(self, (ref typeof(params) ctx, Actor* self, AbsolutePath dbPath,
-                AnalyzeReportCollectorActor.Address collector, SubPage sp) {
+                return impl(self, capture(params), (ref typeof(params) ctx, Actor* self,
+                AbsolutePath dbPath, AnalyzeReportCollectorActor.Address collector, SubPage sp) {
                     auto db = Database.make(dbPath);
                     auto content = fn(db, ctx.expand);
                     File(sp.fileName, "w").write(content);
                     send(collector, sp);
                     self.shutdown;
-                }, capture(params));
+                });
             }, ctx[0], ctx[1]);
         });
 }
@@ -1534,8 +1547,8 @@ void runAnalyzer(alias fn, Args...)(OverviewActor.Impl self, FlowControlActor.Ad
             ctx[1].self.homeSystem.spawn((Actor* self, typeof(params) params, typeof(ctx[1]) ctx) {
                 // tells the actor to actually do the work
                 send(self, self, ctx.db, ctx.collector, ctx.sc);
-                return impl(self, (ref typeof(params) ctx, Actor* self, AbsolutePath dbPath,
-                AnalyzeReportCollectorActor.Address collector, SubContent sc) {
+                return impl(self, capture(params), (ref typeof(params) ctx, Actor* self,
+                AbsolutePath dbPath, AnalyzeReportCollectorActor.Address collector, SubContent sc) {
                     auto db = Database.make(dbPath);
                     auto doc = tmplBasicPage;
                     auto root = doc.mainBody.addChild("div");
@@ -1543,7 +1556,7 @@ void runAnalyzer(alias fn, Args...)(OverviewActor.Impl self, FlowControlActor.Ad
                     sc.content = root.toPrettyString;
                     send(collector, sc);
                     self.shutdown;
-                }, capture(params));
+                });
             }, ctx[0], ctx[1]);
         });
 }

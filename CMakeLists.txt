@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 project(dextool)
@@ -49,7 +49,7 @@ endif()
 file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR})
 
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
-set(DDMD_DFLAGS "-w -wi -vcolumns -preview=dip1000")
+set(DDMD_DFLAGS "-w -wi -vcolumns -preview=dip1000 -verrors=0")
 set(DDMD_LFLAGS "")
 set(DDMD_COV_FLAG "-cov")
 
@@ -57,7 +57,7 @@ set(DDMD_COV_FLAG "-cov")
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
     append("-g -debug" DDMD_DFLAGS)
     if("${D_COMPILER_ID}" STREQUAL "LDMD")
-        append("-link-debuglib" DDMD_DFLAGS)
+        append("-O0 -link-debuglib" DDMD_DFLAGS)
     elseif("${D_COMPILER_ID}" STREQUAL "DMD")
         append("-verrors=context" DDMD_DFLAGS)
     endif()

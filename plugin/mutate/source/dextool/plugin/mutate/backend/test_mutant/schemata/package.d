@@ -19,18 +19,18 @@ import std.exception : collectException;
 import std.format : format;
 import std.format : formattedWrite, format;
 import std.sumtype;
-import std.typecons : Tuple, tuple, Nullable, SafeRefCounted, safeRefCounted, borrow;
+import std.typecons : Tuple, tuple, Nullable;
 
 import blob_model;
 import colorlog;
 import miniorm : spinSql, silentLog;
 import my.actor;
-import my.optional;
 import my.container.vector;
-import proc : DrainElement;
-
+import my.gc.refc;
+import my.optional;
 import my.path;
 import my.set;
+import proc : DrainElement;
 
 import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ, SchemaSizeQ, SchemaStatus;
 import dextool.plugin.mutate.backend.analyze.utility;
@@ -97,6 +97,7 @@ struct GetDoneStatus {
 
 struct FinalResult {
     enum Status {
+        noSchema,
         fatalError,
         invalidSchema,
         ok
@@ -184,8 +185,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         bool isRunning;
     }
 
-    auto st = tuple!("self", "state", "db")(self, safeRefCounted(State(stopCheck, dbSave, stat,
-            timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf)), Database.init);
+    auto st = tuple!("self", "state", "db")(self, refCounted(State(stopCheck, dbSave, stat,
+            timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf)), Database.make());
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath,
@@ -194,6 +195,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
         try {
             ctx.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
+
             ctx.state.buildCmd = buildCmd;
             ctx.state.buildCmdTimeout = buildCmdTimeout;
 
@@ -201,11 +203,11 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             logger.tracef("Timeout Scale Factor: %s", ctx.state.timeoutConf.timeoutScaleFactor);
             ctx.state.runner.timeout = ctx.state.timeoutConf.value;
 
-            ctx.state.loadCtrl = ctx.self.homeSystem.spawn(
-                    &dextool.plugin.mutate.backend.test_mutant.schemata.load.spawnLoadCtrlActor,
-                    dextool.plugin.mutate.backend.test_mutant.schemata.load.TargetLoad(
-                        ctx.state.stopCheck.getLoadThreshold));
-            linkTo(ctx.self, ctx.state.loadCtrl);
+            // ctx.state.loadCtrl = ctx.self.homeSystem.spawn(
+            //         &dextool.plugin.mutate.backend.test_mutant.schemata.load.spawnLoadCtrlActor,
+            //         dextool.plugin.mutate.backend.test_mutant.schemata.load.TargetLoad(
+            //             ctx.state.stopCheck.getLoadThreshold));
+            // linkTo(ctx.self, ctx.state.loadCtrl);
 
             ctx.state.scheduler = () {
                 TestMutantActor.Address[] testers;
@@ -297,7 +299,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         return ctx.state.borrow!((ref a) => !a.isRunning);
     }
 
-    static void mark(ref Ctx ctx, MarkMsg _, FinalResult.Status status) @safe nothrow {
+    static void mark(ref Ctx ctx, MarkMsg _, FinalResult.Status status) @trusted nothrow {
         import dextool.plugin.mutate.backend.analyze.schema_ml : SchemaQ;
 
         static void updateSchemaQ(ref SchemaQ sq, ref SchemataBuilder.ET schema,
@@ -332,6 +334,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 goto case;
             case invalidSchema:
                 return SchemaStatus.broken;
+            case noSchema:
+                goto case;
             case ok:
                 // TODO: remove SchemaStatus.allKilled
                 return SchemaStatus.ok;
@@ -356,8 +360,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             if (repeat)
                 delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkList.init, true);
 
-            ctx.state.borrow!((ref a) => a.whiteList = spinSql!(() => ctx.db.worklistApi.getAll)
-                    .map!"a.id".toSet);
+            ctx.state.borrow!((ref a) => a.whiteList = spinSql!(
+                    () => ctx.db.worklistApi.getAll.map!"a.id".toSet));
             ctx.state.borrow!((ref a) => send(a.genSchema, a.whiteList.toArray));
 
             logger.trace("update schema worklist: ",
@@ -369,7 +373,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
     }
 
-    static FinalResult doneStatus(ref Ctx ctx, GetDoneStatus _) @trusted nothrow {
+    static FinalResult doneStatus(ref Ctx ctx, GetDoneStatus _) @safe nothrow {
         try {
             FinalResult.Status status = () {
                 if (ctx.state.borrow!((ref a) => a.hasFatalError))
@@ -382,7 +386,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         return FinalResult(FinalResult.Status.fatalError, 0);
     }
 
-    static void save(ref Ctx ctx, SchemaTestResult data) {
+    static void save(ref Ctx ctx, SchemaTestResult data) @trusted {
         import dextool.plugin.mutate.backend.test_mutant.common_actors : GetMutantsLeft,
             UnknownMutantTested;
 
@@ -530,7 +534,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     static void test(ref Ctx ctx, ScheduleTestMsg _) @safe nothrow {
         // TODO: move this printer to another thread because it perform
         // significant DB lookup and can potentially slow down the testing.
-        void print(MutationStatusId statusId) @safe {
+        void print(MutationStatusId statusId) @trusted {
             import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
 
             auto entry_ = spinSql!(() => ctx.db.mutantApi.getMutation(statusId));
@@ -649,10 +653,9 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         self.shutdown;
     }
 
-    return impl(self, &init_, st, &isDone, st, &updateWlist, st,
-            &doneStatus, st, &save, st, &mark, st, &injectAndCompile, st,
-            &restore, st, &startTest, st, &test, st, &checkHaltCond, st,
-            &generateSchema, st, &runSchema, st, &stop, st);
+    return impl(self, st, &init_, &isDone, &updateWlist, &doneStatus,
+            &save, &mark, &injectAndCompile, &restore, &startTest, &test,
+            &checkHaltCond, &generateSchema, &runSchema, &stop);
 }
 
 private SchemaSizeQ getSchemaSizeQ(ref Database db, const long userInit, const long minSize) @trusted nothrow {
@@ -693,7 +696,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
         Set!MutationStatusId denyList;
     }
 
-    auto st = tuple!("self", "state", "db")(self, safeRefCounted(State(conf,
+    auto st = tuple!("self", "state", "db")(self, refCounted(State(conf,
             sizeQUpdater)), Database.init);
     alias Ctx = typeof(st);
 
@@ -757,6 +760,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
                         (FileId id) => spinSql!(() => ctx.db.getFile(id)),
                         (MutationStatusId id) => spinSql!(() => ctx.db.mutantApi.getKind(id)));
                 });
+                logger.trace("Files left foo").collectException;
             }
         }
 
@@ -824,7 +828,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
         self.shutdown;
     }
 
-    return impl(self, &init_, st, &genSchema, st, &updateWhiteList, st);
+    return impl(self, st, &init_, &genSchema, &updateWhiteList);
 }
 
 private {
@@ -867,7 +871,7 @@ private auto spawnSchemaSizeQ(SchemaSizeQUpdateActor.Impl self,
         long genCount;
     }
 
-    auto st = tuple!("self", "state")(self, safeRefCounted(State(dbSave, sizeQ)));
+    auto st = tuple!("self", "state")(self, refCounted(State(dbSave, sizeQ)));
     alias Ctx = typeof(st);
 
     static void updateMutantsNumber(ref Ctx ctx, MutantsToTestMsg _, long number) @safe {
@@ -904,8 +908,7 @@ private auto spawnSchemaSizeQ(SchemaSizeQUpdateActor.Impl self,
 
     self.name = "schemaSizeQUpdater";
 
-    return impl(self, &updateMutantsNumber, st, &getSize, st, &genStatus,
-            st, &fullGenDone, st);
+    return impl(self, st, &updateMutantsNumber, &getSize, &genStatus, &fullGenDone);
 }
 
 /** Generate schemata injection IDs (32bit) from mutant checksums (128bit).

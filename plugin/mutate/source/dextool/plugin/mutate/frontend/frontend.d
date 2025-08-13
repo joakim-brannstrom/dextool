@@ -9,6 +9,7 @@ one at http://mozilla.org/MPL/2.0/.
 */
 module dextool.plugin.mutate.frontend.frontend;
 
+import core.sync.mutex;
 import logger = std.experimental.logger;
 import std.array : empty, array;
 import std.exception : collectException;
@@ -131,27 +132,31 @@ struct DataAccess {
  * Any kind of file shall be readable and "emulated" that it is writtable.
  *
  * Dryrun is used for testing the mutate plugin.
- *
- * #SPC-file_security-single_output
  */
 final class FrontendIO : FilesysIO {
     import std.stdio : File;
     import blob_model;
     import dextool.plugin.mutate.backend : SafeOutput, Blob;
 
-    BlobVfs vfs;
+    shared BlobVfs vfs;
 
     private AbsolutePath root;
-    private bool dry_run;
+    private bool dryRun;
+    private Mutex mtx;
 
-    this(AbsolutePath root, bool dry_run) {
+    invariant {
+        assert(vfs !is null);
+    }
+
+    this(AbsolutePath root, bool dryRun) {
+        this.mtx = new Mutex;
         this.root = root;
-        this.dry_run = dry_run;
+        this.dryRun = dryRun;
         this.vfs = new BlobVfs;
     }
 
     override FilesysIO dup() {
-        return new FrontendIO(root, dry_run);
+        return new FrontendIO(root, dryRun);
     }
 
     override File getDevNull() const scope {
@@ -179,41 +184,48 @@ final class FrontendIO : FilesysIO {
     }
 
     override SafeOutput makeOutput(AbsolutePath p) @trusted scope {
-        if (!verifyPathInsideRoot(root, p, dry_run))
+        if (!verifyPathInsideRoot(root, p, dryRun))
             throw singletonException;
-        return SafeOutput(p, this);
+        synchronized (mtx) {
+            return SafeOutput(p, this);
+        }
     }
 
-    override Blob makeInput(AbsolutePath p) @safe scope {
-        if (!verifyPathInsideRoot(root, p, dry_run))
+    override Blob makeInput(AbsolutePath p) @trusted scope {
+        if (!verifyPathInsideRoot(root, p, dryRun))
             throw singletonException;
 
         const uri = Uri(cast(string) p);
-        if (!vfs.exists(uri)) {
-            auto blob = vfs.get(Uri(cast(string) p));
-            vfs.open(blob);
+
+        synchronized (mtx) {
+            if (!(cast() vfs).exists(uri)) {
+                auto blob = (cast() vfs).get(Uri(cast(string) p));
+                (cast() vfs).open(blob);
+            }
+            return (cast() vfs).get(uri);
         }
-        return vfs.get(uri);
     }
 
     override void putFile(AbsolutePath fname, const(ubyte)[] data) @safe {
         import std.stdio : File;
 
-        // because a Blob/SafeOutput could theoretically be created via
-        // other means than a FilesysIO.
-        // TODO fix so this validate is not needed.
-        if (!dry_run && verifyPathInsideRoot(root, fname, dry_run))
-            File(fname, "w").rawWrite(data);
+        synchronized (mtx) {
+            // because a Blob/SafeOutput could theoretically be created via
+            // other means than a FilesysIO.
+            // TODO fix so this validate is not needed.
+            if (!dryRun && verifyPathInsideRoot(root, fname, dryRun))
+                File(fname, "w").rawWrite(data);
+        }
     }
 
 private:
     // assuming that root is already a realpath
     // TODO: replace this function with dextool.utility.isPathInsideRoot
-    static bool verifyPathInsideRoot(AbsolutePath root, AbsolutePath p, bool dry_run) {
+    static bool verifyPathInsideRoot(AbsolutePath root, AbsolutePath p, bool dryRun) {
         import std.format : format;
         import std.string : startsWith;
 
-        if (!dry_run && !p.toString.startsWith(root.toString)) {
+        if (!dryRun && !p.toString.startsWith(root.toString)) {
             debug logger.tracef(format("Path '%s' escaping output directory (--out) '%s'",
                     p, root));
             return false;

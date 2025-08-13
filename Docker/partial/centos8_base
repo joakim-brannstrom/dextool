@@ -1,5 +1,5 @@
 FROM centos:8
-MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+LABEL authors="Joakim Brännström <joakim.brannstrom@gmx.com>"
 
 RUN cd /etc/yum.repos.d/
 RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*

@@ -38,12 +38,10 @@ struct Miniorm {
         return db;
     }
 
-    ///
     this(Database db) {
         this.db = db;
     }
 
-    ///
     this(string path, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE) {
         this(Database(path, flags));
     }
@@ -62,6 +60,9 @@ struct Miniorm {
     }
 
     RefCntStatement prepare(string sql) {
+        version (miniorm_trace) {
+            logger.trace("miniorm.prepare enter ", sql);
+        }
         if (cachedStmt.length > cacheSize) {
             auto keys = appender!(string[])();
             foreach (p; cachedStmt.byKeyValue) {
@@ -104,6 +105,7 @@ struct Miniorm {
 
     void opAssign(ref typeof(this) rhs) {
         cleanupCache;
+        log_ = rhs.log_;
         db = rhs.db;
     }
 
@@ -587,9 +589,10 @@ struct RefCntStatement {
     static struct Payload {
         LentCntStatement* stmt;
 
-        this(LentCntStatement* stmt) {
+        this(LentCntStatement* stmt)
+        in (stmt !is null) {
             this.stmt = stmt;
-            stmt.count++;
+            this.stmt.count++;
         }
 
         ~this() nothrow {
@@ -600,6 +603,7 @@ struct RefCntStatement {
                 (*stmt).stmt.clearBindings;
                 (*stmt).stmt.reset;
             } catch (Exception e) {
+                logger.info(e.msg).collectException;
             }
             stmt.count--;
             stmt = null;

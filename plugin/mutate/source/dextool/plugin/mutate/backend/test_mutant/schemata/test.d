@@ -16,11 +16,12 @@ import std.conv : to;
 import std.datetime : dur, Duration;
 import std.exception : collectException;
 import std.sumtype;
-import std.typecons : Tuple, tuple, safeRefCounted, borrow;
+import std.typecons : Tuple, tuple;
 
 import my.actor;
-import my.named_type;
 import my.container.vector;
+import my.gc.refc;
+import my.named_type;
 import proc : DrainElement;
 
 import dextool.plugin.mutate.backend.test_mutant.common;
@@ -93,7 +94,7 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
         TestCaseAnalyzer analyzer;
     }
 
-    auto st = tuple!("self", "state")(self, safeRefCounted(State(runner, analyzer)));
+    auto st = tuple!("self", "state")(self, refCounted(State(runner, analyzer)));
     alias Ctx = typeof(st);
 
     static SchemaTestResult run(ref Ctx ctx, InjectIdResult.InjectId id) @safe nothrow {
@@ -153,5 +154,5 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
     }
 
     self.name = "testMutant";
-    return impl(self, &run, st, &doConf, st);
+    return impl(self, st, &run, &doConf);
 }

@@ -58,6 +58,7 @@ template cxName(T) {
 }
 
 mixin template CX(string name = "") {
+    import clang.c.Index;
     static if (name.length == 0) {
         mixin("private alias CType = " ~ cxName!(typeof(this)) ~ ";");
     } else {

@@ -52,6 +52,10 @@ struct Database {
         return Database(SDatabase.make(db));
     }
 
+    static auto make() @trusted {
+        return Database(SDatabase.make());
+    }
+
     /** Get the next mutation from the worklist to test by the highest
      * priority.
      *

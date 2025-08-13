@@ -19,12 +19,14 @@ the limier.
 module my.actor.utility.limiter;
 
 import std.array : empty;
-import std.typecons : Tuple, tuple, safeRefCounted, SafeRefCounted,
-    RefCountedAutoInitialize, borrow;
+import std.typecons : Tuple, tuple;
+import logger = std.logger;
+import std.container : Array;
 
 import my.actor.actor;
 import my.actor.typed;
 import my.actor.msg;
+import my.gc.refc;
 
 /// A token of work.
 struct Token {
@@ -41,8 +43,11 @@ struct ReturnTokenMsg {
 private struct RefreshMsg {
 }
 
+private struct TickRefreshMsg {
+}
+
 alias FlowControlActor = typedActor!(Token function(TakeTokenMsg),
-        void function(ReturnTokenMsg), void function(RefreshMsg));
+        void function(ReturnTokenMsg), void function(RefreshMsg), void function(TickRefreshMsg));
 
 /// Initialize the flow controller to total cpu's + 1.
 FlowControlActor.Impl spawnFlowControlTotalCPUs(FlowControlActor.Impl self) {
@@ -54,44 +59,52 @@ FlowControlActor.Impl spawnFlowControlTotalCPUs(FlowControlActor.Impl self) {
 FlowControlActor.Impl spawnFlowControl(FlowControlActor.Impl self, const uint tokens) {
     static struct State {
         uint tokens;
-        Promise!Token[] takeReq;
+        Array!(Promise!Token) takeReq;
     }
 
     self.name = "limiter";
-    auto st = tuple!("self", "state")(self, safeRefCounted(State(tokens)));
+    auto st = tuple!("self", "state")(self, refCounted(State(tokens)));
     alias CT = typeof(st);
 
     static RequestResult!Token takeMsg(ref CT ctx, TakeTokenMsg) {
         typeof(return) rval;
 
-        if (ctx.state.tokens > 0) {
-            ctx.state.tokens--;
+        if (ctx.state.get.tokens > 0) {
+            ctx.state.get.tokens--;
             rval = typeof(return)(Token.init);
         } else {
             auto p = makePromise!Token;
-            ctx.state.takeReq ~= p;
+            ctx.state.get.takeReq.insertBack(p);
             rval = typeof(return)(p);
         }
         return rval;
     }
 
     static void returnMsg(ref CT ctx, ReturnTokenMsg) {
-        ctx.state.tokens++;
+        ctx.state.get.tokens++;
         send(ctx.self, RefreshMsg.init);
     }
 
     static void refreshMsg(ref CT ctx, RefreshMsg) {
-        while (ctx.state.tokens > 0 && !ctx.state.takeReq.empty) {
-            ctx.state.tokens--;
-            ctx.state.takeReq[$ - 1].deliver(Token.init);
-            ctx.state.takeReq = ctx.state.takeReq[0 .. $ - 1];
+        while (ctx.state.get.tokens > 0 && !ctx.state.get.takeReq.empty) {
+            ctx.state.borrow!((ref state) {
+                state.tokens--;
+                state.takeReq.back.deliver(Token.init);
+                state.takeReq.back.clear;
+                state.takeReq.removeBack;
+            });
         }
-
-        // extra caution to refresh in case something is missed.
-        delayedSend(ctx.self, delay(50.dur!"msecs"), RefreshMsg.init);
     }
 
-    return impl(self, &takeMsg, capture(st), &returnMsg, capture(st), &refreshMsg, capture(st));
+    static void tickRefreshMsg(ref CT ctx, TickRefreshMsg) {
+        // extra caution to refresh in case something is missed.
+        delayedSend(ctx.self, delay(200.dur!"msecs"), TickRefreshMsg.init);
+        send(ctx.self, RefreshMsg.init);
+    }
+
+    send(self, TickRefreshMsg.init);
+
+    return impl(self, st, &takeMsg, &returnMsg, &refreshMsg, &tickRefreshMsg);
 }
 
 @("shall limit the message rate of senders by using a limiter to control the flow")
@@ -122,38 +135,37 @@ unittest {
         }
 
         senders ~= sys.spawn((Actor* self) {
-            auto st = tuple!("self", "state")(self,
-                safeRefCounted(State(WeakAddress.init, limiter)));
+            auto st = tuple!("self", "state")(self, refCounted(State(WeakAddress.init, limiter)));
             alias CT = typeof(st);
 
-            return build(self).set((ref CT ctx, WeakAddress recv) {
-                ctx.state.recv = recv;
+            return build(self).context(st).set("WeakAddress recv", (ref CT ctx, WeakAddress recv) {
+                ctx.state.get.recv = recv;
                 send(ctx.self.address, Tick.init);
-            }, capture(st)).set((ref CT ctx, Tick _) {
-                ctx.self.request(ctx.state.limiter, infTimeout)
+            }).set("Tick", (ref CT ctx, Tick _) {
+                ctx.self.request(ctx.state.get.limiter, infTimeout)
                 .send(TakeTokenMsg.init).capture(ctx).then((ref CT ctx, Token t) {
                     send(ctx.self, Tick.init);
-                    send(ctx.state.recv, t, 42);
+                    send(ctx.state.get.recv, t, 42);
                 });
-            }, capture(st)).finalize;
+            }).finalize;
         });
     }
 
-    auto counter = safeRefCounted(0);
+    auto counter = refCounted(0);
     auto consumer = sys.spawn((Actor* self) {
         auto st = tuple!("self", "limiter", "count")(self, limiter, counter);
         alias CT = typeof(st);
 
-        return impl(self, (ref CT ctx, Tick _) {
-            if (ctx.count == 100)
+        return impl(self, st, (ref CT ctx, Tick _) {
+            if (ctx.count.get == 100)
                 ctx.self.shutdown;
             else
                 delayedSend(ctx.self, delay(100.dur!"msecs"), Tick.init);
-        }, capture(st), (ref CT ctx, Token t, int _) {
+        }, (ref CT ctx, Token t, int _) {
             delayedSend(ctx.limiter, delay(100.dur!"msecs"), ReturnTokenMsg.init);
-            ctx.count++;
+            ctx.count.get++;
             send(ctx.self, Tick.init);
-        }, capture(st));
+        });
     });
 
     foreach (s; senders)
@@ -164,11 +176,11 @@ unittest {
     foreach (s; senders)
         send(s, consumer);
 
-    while (counter < 100 && sw.peek < 4.dur!"seconds") {
+    while (counter.get < 100 && sw.peek < 4.dur!"seconds") {
         Thread.sleep(1.dur!"msecs");
     }
 
-    assert(counter >= 100);
+    assert(counter.get >= 100);
     // 40 tokens mean that it will trigger at least two "slowdown" which is at least 200 ms.
     assert(sw.peek > 200.dur!"msecs");
 }

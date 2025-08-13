@@ -1,4 +1,4 @@
 FROM joakimbse/dextool-ubuntu
 
 WORKDIR /opt
-ENV PATH "/opt/dextool_install/bin:$PATH"
+ENV PATH="/opt/dextool_install/bin:$PATH"

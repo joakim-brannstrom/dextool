@@ -1,7 +1,7 @@
-ENV DC "dmd"
+ENV DC="dmd"
 RUN curl -OL http://downloads.dlang.org/releases/2.x/${DMD_VERSION}/dmd.${DMD_VERSION}.linux.tar.xz
 RUN set -ex && \
     tar xf dmd.${DMD_VERSION}.linux.tar.xz && \
     rm -f dmd.${DMD_VERSION}*.tar.xz
-ENV PATH "/opt/dmd2/linux/bin64:$PATH"
+ENV PATH="/opt/dmd2/linux/bin64:$PATH"
 RUN dmd --version && dub --version

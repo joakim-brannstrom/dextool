@@ -30,7 +30,8 @@ import std.format : format;
 import std.path : relativePath;
 import std.range : enumerate;
 import std.regex : Regex, matchFirst;
-import std.typecons : Nullable, Flag, No;
+import std.typecons : Nullable, Flag, No, SafeRefCounted, safeRefCounted,
+    RefCountedAutoInitialize;
 
 import d2sqlite3 : SqlDatabase = Database;
 import miniorm : Miniorm, select, insert, insertOrReplace, delete_,
@@ -51,8 +52,8 @@ import dextool.plugin.mutate.type : MutationOrder;
 /** Database wrapper with minimal dependencies.
  */
 struct Database {
-    private {
-        Miniorm db_;
+    public {
+        SafeRefCounted!(Miniorm, RefCountedAutoInitialize.no) db_;
         DbCoverage dbCoverage_;
         DbDependency dbDependency_;
         DbFile dbFile_;
@@ -74,12 +75,24 @@ struct Database {
      * Params:
      *  db = path to the database
      */
-    static auto make(string db) @trusted {
-        return Database(initializeDB(db));
+    static auto make(string dbPath) @trusted {
+        return Database(safeRefCounted(initializeDB(dbPath)));
     }
 
-    ref Miniorm db() return @safe {
-        return db_;
+    static auto make() @trusted {
+        return Database(safeRefCounted(Miniorm.init));
+    }
+
+    void opAssign(ref typeof(this) rhs) @trusted {
+        db_ = rhs.db_;
+    }
+
+    ref Miniorm db() return @trusted {
+        return db_.refCountedPayload;
+    }
+
+    bool isInitialized() @trusted nothrow {
+        return db_.refCountedStore.isInitialized;
     }
 
     scope auto transaction() @trusted {
@@ -296,72 +309,72 @@ struct Database {
     }
 
     ref DbDependency dependencyApi() return @trusted {
-        dbDependency_ = typeof(return)(&db_, &this);
+        dbDependency_ = typeof(return)(&db_.refCountedPayload(), &this);
         return dbDependency_;
     }
 
     ref DbTestCmd testCmdApi() return @trusted {
-        dbTestCmd_ = typeof(return)(&db_);
+        dbTestCmd_ = typeof(return)(&db_.refCountedPayload());
         return dbTestCmd_;
     }
 
     ref DbTestCase testCaseApi() return @trusted {
-        dbTestCase_ = typeof(return)(&db_);
+        dbTestCase_ = typeof(return)(&db_.refCountedPayload());
         return dbTestCase_;
     }
 
     ref DbMutant mutantApi() return @trusted {
-        dbMutant_ = typeof(return)(&db_, &this);
+        dbMutant_ = typeof(return)(&db_.refCountedPayload(), &this);
         return dbMutant_;
     }
 
     ref DbWorklist worklistApi() return @trusted {
-        dbWorklist_ = typeof(return)(&db_);
+        dbWorklist_ = typeof(return)(&db_.refCountedPayload());
         return dbWorklist_;
     }
 
     ref DbMemOverload memOverloadApi() return @trusted {
-        dbMemOverload_ = typeof(return)(&db_);
+        dbMemOverload_ = typeof(return)(&db_.refCountedPayload());
         return dbMemOverload_;
     }
 
     ref DbMarkMutant markMutantApi() return @trusted {
-        dbMarkMutant_ = typeof(return)(&db_);
+        dbMarkMutant_ = typeof(return)(&db_.refCountedPayload());
         return dbMarkMutant_;
     }
 
     ref DbTimeout timeoutApi() return @trusted {
-        dbTimeout_ = typeof(return)(&db_);
+        dbTimeout_ = typeof(return)(&db_.refCountedPayload());
         return dbTimeout_;
     }
 
     ref DbCoverage coverageApi() return @trusted {
-        dbCoverage_ = typeof(return)(&db_);
+        dbCoverage_ = typeof(return)(&db_.refCountedPayload());
         return dbCoverage_;
     }
 
     ref DbSchema schemaApi() return @trusted {
-        dbSchema_ = typeof(return)(&db_, &this);
+        dbSchema_ = typeof(return)(&db_.refCountedPayload(), &this);
         return dbSchema_;
     }
 
     ref DbTestFile testFileApi() return @trusted {
-        dbTestFile_ = typeof(return)(&db_);
+        dbTestFile_ = typeof(return)(&db_.refCountedPayload());
         return dbTestFile_;
     }
 
     ref DbMetaData metaDataApi() return @trusted {
-        dbMetaData_ = typeof(return)(&db_);
+        dbMetaData_ = typeof(return)(&db_.refCountedPayload());
         return dbMetaData_;
     }
 
     ref DbFile fileApi() return @trusted {
-        dbFile_ = typeof(return)(&db_);
+        dbFile_ = typeof(return)(&db_.refCountedPayload());
         return dbFile_;
     }
 
     ref DbMisc miscApi() return @trusted {
-        dbMisc_ = typeof(return)(&db_);
+        dbMisc_ = typeof(return)(&db_.refCountedPayload());
         return dbMisc_;
     }
 }
