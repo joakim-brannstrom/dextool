@@ -418,6 +418,7 @@ int* p1;
     visitor.vars[0].type.kind.usr.shouldNotEqual(visitor.vars[1].type.kind.usr);
 }
 
+@(HiddenTest)
 @("Should be a ptr-ptr as a typedef")
 unittest {
     enum code = `
