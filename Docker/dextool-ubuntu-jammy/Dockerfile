@@ -1,6 +1,6 @@
 # Stage 1
 FROM ubuntu:jammy AS base
-MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+LABEL authors="Joakim Brännström <joakim.brannstrom@gmx.com>"
 
 RUN apt update && apt upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" --no-install-recommends install \
@@ -28,11 +28,11 @@ RUN cd build && make -j all
 RUN cd build && make install
 RUN rm -rf build dextool
 
-ENV PATH "/opt/dextool_install/bin:$PATH"
+ENV PATH="/opt/dextool_install/bin:$PATH"
 
 # Stage 2
 FROM ubuntu:jammy AS final
-MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+LABEL authors="Joakim Brännström <joakim.brannstrom@gmx.com>"
 
 RUN apt update && apt upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" --no-install-recommends install \
@@ -46,4 +46,4 @@ WORKDIR /opt
 
 COPY --from=0 /opt/dextool_install /opt/dextool_install
 
-ENV PATH "/opt/dextool_install/bin:$PATH"
+ENV PATH="/opt/dextool_install/bin:$PATH"

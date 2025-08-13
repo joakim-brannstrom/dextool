@@ -1,5 +1,5 @@
 FROM fedora:34
-MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+LABEL authors="Joakim Brännström <joakim.brannstrom@gmx.com>"
 
 RUN dnf -y install ca-certificates
 RUN update-ca-trust enable

@@ -1,6 +1,6 @@
 # fedora_base
 FROM fedora:34
-MAINTAINER Joakim Brännström <joakim.brannstrom@gmx.com>
+LABEL authors="Joakim Brännström <joakim.brannstrom@gmx.com>"
 
 RUN dnf -y install ca-certificates
 RUN update-ca-trust enable
@@ -29,8 +29,8 @@ ENV LDC_VERSION=1.27.1
 
 # ldc
 RUN curl -fsS https://dlang.org/install.sh | bash -s ldc-$LDC_VERSION
-ENV PATH "/root/dlang/ldc-$LDC_VERSION/bin:$PATH"
-ENV DC "ldc2"
+ENV PATH="/root/dlang/ldc-$LDC_VERSION/bin:$PATH"
+ENV DC="ldc2"
 
 # fix_repo
 RUN git clone --depth 1 https://github.com/joakim-brannstrom/dextool.git
@@ -48,4 +48,4 @@ RUN cd build && make all VERBOSE=1
 RUN cd build && make install VERBOSE=1
 RUN rm -rf build dextool
 
-ENV PATH "/opt/dextool_install/bin:$PATH"
+ENV PATH="/opt/dextool_install/bin:$PATH"
