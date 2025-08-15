@@ -24,6 +24,19 @@ function init() {
     update_change('7');
 }
 
+function detect_column_type(value) {
+    // Check if it's a valid number
+    if (!isNaN(parseFloat(value)) && isFinite(value)) {
+        return 'number';
+    }
+    // Check if it's a valid date
+    const date = new Date(value);
+    if (!isNaN(date.getTime())) {
+        return 'date';
+    }
+    return 'string';
+}
+
 function sortable_table_onclick(e) {
     var col = e.target.id.split('-', 2)[1];
     if (!col) {
@@ -36,15 +49,13 @@ function sortable_table_onclick(e) {
     var tbl_container = e.target.closest(".table-sortable-div");
     var arrows = tbl_container.getElementsByTagName("i");
     var extractSortKey = function(str) {
-        if (Date.parse(str)) {
-            var parts = str.split("-");
-            return new Date(parts[0], parts[1] - 1, parts[2]);
+        switch (detect_column_type(str)) {
+            case 'number': return parseFloat(str);
+            case 'date':
+                var parts = str.split("-");
+                return new Date(parts[0], parts[1] - 1, parts[2]);
+            default: return str;
         }
-        var num = parseFloat(str);
-        if (isNaN(num)) {
-            return str;
-        }
-        return num;
     }
     for (var i = 0; i < arrows.length; i++) {
         arrows[i].classList.remove("up");

@@ -9,11 +9,14 @@
    compatibility with newer versions of clang because they had to be manually
    updated. The migration to using the C headers directly should alleviate
    these problems and make dextool easier to maintain in the future.
+ * Tested and verified to work with llvm-19 and 20.
+
+Fixes
  * Fix building on ArchLinux
    ([#1738](https://github.com/joakim-brannstrom/dextool/issues/1738)), thanks
    to chengjackjelly.
- * Tested and verified to work with llvm-19 and 20.
  * Fix deadlock in mutant schemata.
+ * Fix table sort in html report
 
 # v5.1 Hematite
 
