@@ -16,8 +16,8 @@ import std.conv : to;
 import std.datetime : Duration, dur, Clock, SysTime;
 import std.datetime.stopwatch : StopWatch, AutoStart;
 import std.exception : collectException;
-import std.format : format;
 import std.format : formattedWrite, format;
+import std.random : uniform;
 import std.sumtype;
 import std.typecons : Tuple, tuple, Nullable;
 
@@ -116,21 +116,11 @@ alias SchemaActor = typedActor!(
     /// Quary the schema actor to see if it is done
     bool function(IsDone),
     /// Update the list of mutants that are still in the worklist.
-    void function(UpdateWorkList, bool),
+    void function(UpdateWorkList),
     FinalResult function(GetDoneStatus),
-    /// Save the result of running the schema to the DB.
-    void function(SchemaTestResult),
     void function(MarkMsg, FinalResult.Status),
-    /// Inject the schema in the source code and compile it.
-    void function(InjectAndCompile),
-    /// Restore the source code.
-    void function(RestoreMsg),
-    /// Start running the schema.
-    void function(StartTestMsg),
-    void function(ScheduleTestMsg),
     void function(CheckStopCondMsg),
-    // Queue up a msg that set isRunning to false. Convenient to ensure that a
-    // RestoreMsg has been processed before setting to false.
+    // Queue up a msg that set isRunning to false
     void function(Stop),
     );
 // dfmt on
@@ -149,6 +139,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         TestRunner runner;
         TestCaseAnalyzer analyzer;
         ConfigSchema conf;
+        AbsolutePath dbPath;
 
         dextool.plugin.mutate.backend.test_mutant.schemata.load.LoadCtrlActor.Address loadCtrl;
 
@@ -159,34 +150,17 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         Duration buildCmdTimeout;
 
         SchemataBuilder.ET activeSchema;
-        enum ActiveSchemaCheck {
-            noMutantTested,
-            testing,
-            triggerRestoreOnce,
-        }
-        // used to detect a corner case which is that no mutant in the schema is in the whitelist.
-        ActiveSchemaCheck activeSchemaCheck;
         Set!Checksum usedScheman;
-
-        AbsolutePath[] modifiedFiles;
-
-        InjectIdResult injectIds;
-
-        ScheduleTest scheduler;
 
         Set!MutationStatusId whiteList;
 
-        Duration compileTime;
-
         int alive;
-
         bool hasFatalError;
-
         bool isRunning;
     }
 
     auto st = tuple!("self", "state", "db")(self, refCounted(State(stopCheck, dbSave, stat,
-            timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf)), Database.make());
+            timeoutConf, fio.dup, runner.dup, testCaseAnalyzer, conf, dbPath)), Database.make());
     alias Ctx = typeof(st);
 
     static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath,
@@ -209,17 +183,6 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
             //             ctx.state.stopCheck.getLoadThreshold));
             // linkTo(ctx.self, ctx.state.loadCtrl);
 
-            ctx.state.scheduler = () {
-                TestMutantActor.Address[] testers;
-                foreach (_0; 0 .. ctx.state.conf.parallelMutants) {
-                    auto a = ctx.self.homeSystem.spawn(&spawnTestMutant,
-                            ctx.state.runner.dup, ctx.state.analyzer);
-                    a.linkTo(ctx.self.address);
-                    testers ~= a;
-                }
-                return ScheduleTest(testers);
-            }();
-
             ctx.state.sizeQUpdater = ctx.self.homeSystem.spawn(&spawnSchemaSizeQ,
                     getSchemaSizeQ(ctx.db, ctx.state.conf.mutantsPerSchema.get,
                         ctx.state.conf.minMutantsPerSchema.get), ctx.state.dbSave);
@@ -229,8 +192,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                     dbPath, ctx.state.conf, ctx.state.sizeQUpdater);
             linkTo(ctx.self, ctx.state.genSchema);
 
-            send(ctx.self, UpdateWorkList.init, true);
-            send(ctx.self, CheckStopCondMsg.init);
+            send(ctx.self, UpdateWorkList.init);
             send(ctx.self, GenSchema.init);
             ctx.state.isRunning = true;
         } catch (Exception e) {
@@ -240,21 +202,25 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void generateSchema(ref Ctx ctx, GenSchema _) @trusted nothrow {
+        if (!ctx.state.isRunning) {
+            // CheckStopCondMsg has triggered. Stop new scheman from being generated in that case.
+            return;
+        }
+
         try {
             ctx.state.activeSchema = typeof(ctx.state.activeSchema).init;
-            ctx.state.injectIds = typeof(ctx.state.injectIds).init;
 
             ctx.self.request(ctx.state.genSchema, infTimeout)
                 .send(GenSchema.init).capture(ctx).then((ref Ctx ctx, GenSchemaResult result) nothrow{
-                if (result.noMoreScheman) {
-                    ctx.state.isRunning = false;
-                } else {
-                    try {
+                try {
+                    if (result.noMoreScheman) {
+                        send(ctx.self, Stop.init);
+                    } else {
                         send(ctx.self, RunSchema.init, result.schema, result.injectIds);
-                    } catch (Exception e) {
-                        ctx.state.isRunning = false;
-                        logger.error(e.msg).collectException;
                     }
+                } catch (Exception e) {
+                    send(ctx.self, Stop.init).collectException;
+                    logger.error(e.msg).collectException;
                 }
             });
         } catch (Exception e) {
@@ -263,7 +229,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static void runSchema(ref Ctx ctx, RunSchema _, SchemataBuilder.ET schema,
-            InjectIdResult injectIds) @safe nothrow {
+            InjectIdResult injectIds) @trusted nothrow {
         try {
             if (!ctx.state.borrow!((ref a) => a.isRunning)) {
                 return;
@@ -273,6 +239,8 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                 send(ctx.self, GenSchema.init);
                 return;
             }
+
+            injectIds.ids = injectIds.ids.filter!(a => a.statusId in ctx.state.whiteList).array;
 
             ctx.state.borrow!((ref a) => a.usedScheman.add(schema.checksum.value));
 
@@ -286,9 +254,21 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
                         (ref a) => a.conf.minMutantsPerSchema.get)) {
                 send(ctx.self, GenSchema.init);
             } else {
+                auto tester = ctx.self.homeSystem.spawn(&spawnSchemaTester,
+                        ctx.state.fio.dup, ctx.state.runner, ctx.state.analyzer,
+                        ctx.state.conf, ctx.state.stopCheck, ctx.state.buildCmd,
+                        ctx.state.buildCmdTimeout, ctx.state.dbPath,
+                        ctx.state.dbSave, ctx.state.stat, ctx.state.timeoutConf);
+                ctx.self.request(tester, infTimeout).send(RunSchema.init,
+                        schema, injectIds).capture(ctx).then((ref Ctx ctx, FinalResult result) {
+                    ctx.state.alive += result.alive;
+                    ctx.state.stopCheck.incrAliveMutants(result.alive);
+                    send(ctx.self, MarkMsg.init, result.status);
+                    send(ctx.self, UpdateWorkList.init);
+                    send(ctx.self, CheckStopCondMsg.init);
+                    send(ctx.self, GenSchema.init);
+                });
                 ctx.state.borrow!((ref a) => a.activeSchema = schema);
-                ctx.state.borrow!((ref a) => a.injectIds = injectIds);
-                send(ctx.self, InjectAndCompile.init);
             }
         } catch (Exception e) {
             logger.error(e.msg).collectException;
@@ -296,7 +276,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     static bool isDone(ref Ctx ctx, IsDone _) @safe {
-        return ctx.state.borrow!((ref a) => !a.isRunning);
+        return !ctx.state.isRunning;
     }
 
     static void mark(ref Ctx ctx, MarkMsg _, FinalResult.Status status) @trusted nothrow {
@@ -353,21 +333,16 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         }
     }
 
-    static void updateWlist(ref Ctx ctx, UpdateWorkList _, bool repeat) @safe nothrow {
+    static void updateWlist(ref Ctx ctx, UpdateWorkList _) @safe nothrow {
         try {
             if (ctx.state.borrow!((ref a) => !a.isRunning))
                 return;
-            if (repeat)
-                delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkList.init, true);
 
-            ctx.state.borrow!((ref a) => a.whiteList = spinSql!(
-                    () => ctx.db.worklistApi.getAll.map!"a.id".toSet));
+            ctx.state.whiteList = spinSql!(() => ctx.db.worklistApi.getAll.map!"a.id".toSet);
             ctx.state.borrow!((ref a) => send(a.genSchema, a.whiteList.toArray));
 
-            logger.trace("update schema worklist: ",
-                    ctx.state.borrow!((ref a) => a.whiteList.length));
-            debug logger.trace("update schema worklist: ",
-                    ctx.state.borrow!((ref a) => a.whiteList.toRange));
+            logger.trace("update schema worklist: ", ctx.state.whiteList.length);
+            debug logger.trace("update schema worklist: ", ctx.state.whiteList.toRange);
         } catch (Exception e) {
             logger.trace(e.msg).collectException;
         }
@@ -376,7 +351,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     static FinalResult doneStatus(ref Ctx ctx, GetDoneStatus _) @safe nothrow {
         try {
             FinalResult.Status status = () {
-                if (ctx.state.borrow!((ref a) => a.hasFatalError))
+                if (ctx.state.hasFatalError)
                     return FinalResult.Status.fatalError;
                 return FinalResult.Status.ok;
             }();
@@ -386,249 +361,13 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
         return FinalResult(FinalResult.Status.fatalError, 0);
     }
 
-    static void save(ref Ctx ctx, SchemaTestResult data) @trusted {
-        import dextool.plugin.mutate.backend.test_mutant.common_actors : GetMutantsLeft,
-            UnknownMutantTested;
-
-        void update(MutationTestResult a) {
-            final switch (a.status) with (Mutation.Status) {
-            case skipped:
-                goto case;
-            case unknown:
-                goto case;
-            case equivalent:
-                goto case;
-            case noCoverage:
-                goto case;
-            case alive:
-                ctx.state.alive++;
-                ctx.state.stopCheck.incrAliveMutants(1);
-                return;
-            case killed:
-                goto case;
-            case timeout:
-                goto case;
-            case memOverload:
-                goto case;
-            case killedByCompiler:
-                break;
-            }
-        }
-
-        debug logger.trace(data);
-
-        if (!data.unstable.empty) {
-            logger.warningf("Unstable test cases found: [%-(%s, %)]", data.unstable);
-            logger.info(
-                    "As configured the result is ignored which will force the mutant to be re-tested");
-            return;
-        }
-
-        update(data.result);
-
-        auto result = data.result;
-        result.profile = MutantTimeProfile(ctx.state.compileTime, data.testTime);
-        ctx.state.compileTime = Duration.zero;
-
-        logger.infof("%s:%s (%s)", data.result.status,
-                data.result.exitStatus.get, result.profile).collectException;
-        logger.infof(!data.result.testCases.empty, `killed by [%-(%s, %)]`,
-                data.result.testCases.sort.map!"a.name").collectException;
-
-        send(ctx.state.dbSave, result, ctx.state.timeoutConf.iter);
-        send(ctx.state.stat, UnknownMutantTested.init, 1L);
-
-        // an error handler is required because the stat actor can be held up
-        // for more than a minute.
-        ctx.self.request(ctx.state.stat, delay(30.dur!"seconds"))
-            .send(GetMutantsLeft.init).then((long x) {
-            logger.infof("%s mutants left to test.", x);
-        }, (ref Actor self, ErrorMsg) {});
-
-        if (ctx.state.injectIds.empty && ctx.state.scheduler.full) {
-            logger.trace("done saving result for schema ",
-                    ctx.state.activeSchema.checksum).collectException;
-            send(ctx.self, MarkMsg.init, FinalResult.Status.ok);
-            send(ctx.self, UpdateWorkList.init, false);
-            send(ctx.self, RestoreMsg.init).collectException;
-        }
-    }
-
-    static void injectAndCompile(ref Ctx ctx, InjectAndCompile _) @safe nothrow {
-        try {
-            auto sw = StopWatch(AutoStart.yes);
-            scope (exit)
-                ctx.state.borrow!((ref a) => a.compileTime = sw.peek);
-
-            ctx.state.borrow!((ref a) => logger.infof("Using schema with %s mutants",
-                    a.injectIds.length));
-
-            auto codeInject = () @trusted {
-                return CodeInject(ctx.state.fio, ctx.state.conf);
-            }();
-            ctx.state.borrow!((ref a) => a.modifiedFiles = codeInject.inject(ctx.db,
-                    a.activeSchema));
-            codeInject.compile(ctx.state.borrow!((ref a) => a.buildCmd),
-                    ctx.state.borrow!((ref a) => a.buildCmdTimeout));
-
-            auto timeoutConf = ctx.state.borrow!((ref a) => a.timeoutConf);
-
-            if (ctx.state.borrow!((ref a) => a.conf.sanityCheckSchemata)) {
-                logger.info("Sanity check of the generated schemata");
-                const sanity = ctx.state.borrow!((ref a) => sanityCheck(a.runner));
-                if (sanity.isOk) {
-                    if (ctx.state.borrow!((ref a) => a.timeoutConf.base) < sanity.runtime) {
-                        timeoutConf.set(sanity.runtime);
-                    }
-
-                    logger.info("Ok".color(Color.green), ". Using test suite timeout ",
-                            ctx.state.borrow!((ref a) => a.timeoutConf.value)).collectException;
-                    send(ctx.self, StartTestMsg.init);
-                } else {
-                    logger.info("Skipping the schemata because the test suite failed".color(Color.yellow)
-                            .toString);
-                    send(ctx.self, MarkMsg.init, FinalResult.Status.invalidSchema);
-                    send(ctx.self, RestoreMsg.init).collectException;
-                }
-            } else {
-                send(ctx.self, StartTestMsg.init);
-            }
-            ctx.state.borrow!((ref a) => a.scheduler.configure(timeoutConf));
-        } catch (Exception e) {
-            send(ctx.self, MarkMsg.init, FinalResult.Status.invalidSchema).collectException;
-            send(ctx.self, RestoreMsg.init).collectException;
-            logger.warning(e.msg).collectException;
-        }
-    }
-
-    static void restore(ref Ctx ctx, RestoreMsg _) @safe nothrow {
-        import dextool.plugin.mutate.backend.test_mutant.common : restoreFiles;
-
-        try {
-            ctx.state.borrow!((ref a) => logger.trace("restore ", a.modifiedFiles));
-            ctx.state.borrow!((ref a) => restoreFiles(a.modifiedFiles, a.fio));
-            ctx.state.borrow!((ref a) => a.modifiedFiles = null);
-            send(ctx.self, GenSchema.init);
-        } catch (Exception e) {
-            ctx.state.borrow!((ref a) => a.hasFatalError = true).collectException;
-            ctx.state.borrow!((ref a) => a.isRunning = false).collectException;
-            logger.error(e.msg).collectException;
-        }
-    }
-
-    static void startTest(ref Ctx ctx, StartTestMsg _) @safe nothrow {
-        try {
-            ctx.state.borrow!(
-                    (ref a) => a.activeSchemaCheck = State.ActiveSchemaCheck.noMutantTested);
-            foreach (_0; 0 .. ctx.state.borrow!((ref a) => a.scheduler.testers.length))
-                send(ctx.self, ScheduleTestMsg.init);
-            ctx.state.borrow!((ref a) => logger.tracef("sent %s ScheduleTestMsg",
-                    a.scheduler.testers.length));
-        } catch (Exception e) {
-            ctx.state.borrow!((ref a) => a.hasFatalError = true).collectException;
-            ctx.state.borrow!((ref a) => a.isRunning = false).collectException;
-            logger.error(e.msg).collectException;
-        }
-    }
-
-    static void test(ref Ctx ctx, ScheduleTestMsg _) @safe nothrow {
-        // TODO: move this printer to another thread because it perform
-        // significant DB lookup and can potentially slow down the testing.
-        void print(MutationStatusId statusId) @trusted {
-            import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
-
-            auto entry_ = spinSql!(() => ctx.db.mutantApi.getMutation(statusId));
-            if (entry_.isNull)
-                return;
-            auto entry = entry_.get;
-
-            try {
-                const file = ctx.state.borrow!((ref a) => a.fio.toAbsoluteRoot(entry.file));
-                auto txt = makeMutationText(ctx.state.borrow!((ref a) => a.fio.makeInput(file)),
-                        entry.mp.offset, entry.mp.mutations[0].kind, entry.lang);
-                debug logger.trace(entry);
-                logger.infof("from '%s' to '%s' in %s:%s:%s", txt.original,
-                        txt.mutation, file, entry.sloc.line, entry.sloc.column);
-            } catch (Exception e) {
-                logger.info(e.msg).collectException;
-            }
-        }
-
-        try {
-            if (ctx.state.borrow!((ref a) => !a.isRunning))
-                return;
-        } catch (Exception e) {
-            return;
-        }
-
-        try {
-            if (ctx.state.borrow!((ref a) => a.injectIds.empty)) {
-                logger.trace("no mutants left to test ",
-                        ctx.state.borrow!((ref a) => a.scheduler.free.length));
-                if (ctx.state.borrow!((ref a) => a.activeSchemaCheck == State.ActiveSchemaCheck.noMutantTested
-                        && a.scheduler.full)) {
-                    // no mutant has been tested in the schema thus the restore in save is never triggered.
-                    send(ctx.self, RestoreMsg.init);
-                    ctx.state.borrow!(
-                            (ref a) => a.activeSchemaCheck
-                            = State.ActiveSchemaCheck.triggerRestoreOnce);
-                }
-                return;
-            }
-
-            if (ctx.state.borrow!((ref a) => a.scheduler.empty)) {
-                logger.trace("no free worker");
-                delayedSend(ctx.self, 1.dur!"seconds".delay, ScheduleTestMsg.init);
-                return;
-            }
-
-            if (ctx.state.borrow!((ref a) => a.stopCheck.isOverloaded)) {
-                logger.info(ctx.state.borrow!((ref a) => a.stopCheck.overloadToString))
-                    .collectException;
-                delayedSend(ctx.self, 30.dur!"seconds".delay, ScheduleTestMsg.init);
-                return;
-            }
-
-            auto m = ctx.state.borrow!((ref a) => a.injectIds.front);
-            ctx.state.borrow!((ref a) => a.injectIds.popFront);
-
-            if (ctx.state.borrow!((ref a) => m.statusId in a.whiteList)) {
-                ctx.state.borrow!((ref a) => a.activeSchemaCheck = State.ActiveSchemaCheck.testing);
-                auto testerId = ctx.state.borrow!((ref a) => a.scheduler.pop);
-                auto tester = ctx.state.borrow!((ref a) => a.scheduler.get(testerId));
-                print(m.statusId);
-                () @trusted {
-                    ctx.self.request(tester, infTimeout).send(m).capture(ctx,
-                            testerId).then((ref Capture!(Ctx, size_t) ctx, SchemaTestResult x) {
-                        ctx[0].state.scheduler.put(ctx[1]);
-                        send(ctx[0].self, x);
-                        send(ctx[0].self, ScheduleTestMsg.init);
-                    });
-                }();
-            } else {
-                debug logger.tracef("%s not in whitelist. Skipping", m);
-                send(ctx.self, ScheduleTestMsg.init);
-            }
-        } catch (Exception e) {
-            ctx.state.borrow!((ref a) => a.hasFatalError = true).collectException;
-            ctx.state.borrow!((ref a) => a.isRunning = false).collectException;
-            logger.error(e.msg).collectException;
-        }
-    }
-
     static void checkHaltCond(ref Ctx ctx, CheckStopCondMsg _) @safe nothrow {
         try {
-            if (ctx.state.borrow!((ref a) => !a.isRunning))
-                return;
-
-            delayedSend(ctx.self, 5.dur!"seconds".delay, CheckStopCondMsg.init).collectException;
-
             const halt = ctx.state.borrow!((ref a) => a.stopCheck.isHalt);
             if (halt == TestStopCheck.HaltReason.overloaded)
                 ctx.state.borrow!((ref a) => a.stopCheck.startBgShutdown);
 
             if (halt != TestStopCheck.HaltReason.none) {
-                send(ctx.self, RestoreMsg.init);
                 send(ctx.self, Stop.init);
                 logger.info(ctx.state.borrow!((ref a) => a.stopCheck.overloadToString));
             }
@@ -644,7 +383,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
 
     import std.functional : toDelegate;
 
-    self.name = "schemaDriver";
+    self.name = "Schema";
     self.exceptionHandler = toDelegate(&logExceptionHandler);
     try {
         send(self, Init.init, dbPath, buildCmd, buildCmdTimeout);
@@ -654,8 +393,7 @@ auto spawnSchema(SchemaActor.Impl self, FilesysIO fio, ref TestRunner runner,
     }
 
     return impl(self, st, &init_, &isDone, &updateWlist, &doneStatus,
-            &save, &mark, &injectAndCompile, &restore, &startTest, &test,
-            &checkHaltCond, &generateSchema, &runSchema, &stop);
+            &mark, &checkHaltCond, &generateSchema, &runSchema, &stop);
 }
 
 private SchemaSizeQ getSchemaSizeQ(ref Database db, const long userInit, const long minSize) @trusted nothrow {
@@ -819,7 +557,7 @@ private auto spawnGenSchema(GenSchemaActor.Impl self, AbsolutePath dbPath,
         return GenSchemaResult(true);
     }
 
-    self.name = "generateSchema";
+    self.name = "GenSchema";
 
     try {
         send(self, Init.init, dbPath, conf);
@@ -906,9 +644,464 @@ private auto spawnSchemaSizeQ(SchemaSizeQUpdateActor.Impl self,
         return ctx.state.borrow!((ref a) => a.sizeQ.currentSize);
     }
 
-    self.name = "schemaSizeQUpdater";
+    self.name = "SchemaSizeQUpdater";
 
     return impl(self, st, &updateMutantsNumber, &getSize, &genStatus, &fullGenDone);
+}
+
+private {
+    struct InjectAndCompileMsg {
+    }
+
+    struct UpdateWorkListMsg {
+    }
+
+    struct RunSingleMutantTestMsg {
+    }
+
+    struct WaitOnWorkersMsg {
+    }
+}
+
+// dfmt off
+alias SchemaTestActor = typedActor!(
+    void function(Init, AbsolutePath dbPath),
+    Promise!FinalResult function(RunSchema, SchemataBuilder.ET, InjectIdResult),
+    /// Inject the schema in the source code and compile it.
+    void function(InjectAndCompileMsg),
+    /// Restore the source code
+    void function(RestoreMsg),
+    /// Start running the schema.
+    void function(StartTestMsg),
+    void function(ScheduleTestMsg),
+    void function(RunSingleMutantTestMsg, InjectIdResult.InjectId, size_t workerId),
+    void function(WaitOnWorkersMsg),
+    void function(CheckStopCondMsg),
+    /// Update the list of mutants that are still in the worklist.
+    void function(UpdateWorkListMsg),
+    // Queue up a msg that set isRunning to false. Convenient to ensure that a
+    // RestoreMsg has been processed before setting to false.
+    void function(Stop)
+    );
+// dfmt on
+
+// Test a schema.
+// Injects, compile and run all tests. The modified files are restored upon exit.
+auto spawnSchemaTester(SchemaTestActor.Impl self, FilesysIO fio,
+        ref TestRunner runner, TestCaseAnalyzer testCaseAnalyzer, ConfigSchema conf,
+        TestStopCheck stopCheck, ShellCommand buildCmd, Duration buildCmdTimeout, AbsolutePath dbPath,
+        DbSaveActor.Address dbSave, StatActor.Address stat, TimeoutConfig timeoutConf) @trusted {
+
+    static struct State {
+        TestStopCheck stopCheck;
+        DbSaveActor.Address dbSave;
+        StatActor.Address stat;
+        TimeoutConfig timeoutConf;
+        FilesysIO fio;
+        TestRunner runner;
+        TestCaseAnalyzer analyzer;
+        ConfigSchema conf;
+
+        ShellCommand buildCmd;
+        Duration buildCmdTimeout;
+
+        SchemataBuilder.ET activeSchema;
+        enum ActiveSchemaCheck {
+            noMutantTested,
+            testing,
+            triggerRestoreOnce,
+        }
+
+        // used to detect a corner case which is that no mutant in the schema is in the whitelist.
+        ActiveSchemaCheck activeSchemaCheck;
+
+        AbsolutePath[] modifiedFiles;
+
+        InjectIdResult injectIds;
+
+        ScheduleTest scheduler;
+
+        // only saved with the first mutant result that is saved to the db
+        Duration compileTime;
+
+        FinalResult result;
+        Promise!FinalResult resultPromise;
+
+        bool hasFatalError;
+
+        bool isRunning;
+    }
+
+    auto st = tuple!("self", "state", "db")(self, refCounted(State(stopCheck, dbSave, stat, timeoutConf,
+            fio.dup, runner.dup, testCaseAnalyzer, conf, buildCmd, buildCmdTimeout)),
+            Database.make());
+    alias Ctx = typeof(st);
+
+    static void init_(ref Ctx ctx, Init _, AbsolutePath dbPath) nothrow {
+        import dextool.plugin.mutate.backend.database : dbOpenTimeout;
+
+        try {
+            ctx.db = spinSql!(() => Database.make(dbPath), logger.trace)(dbOpenTimeout);
+
+            ctx.state.timeoutConf.timeoutScaleFactor = ctx.state.conf.timeoutScaleFactor;
+            logger.tracef("Timeout Scale Factor: %s", ctx.state.timeoutConf.timeoutScaleFactor);
+            ctx.state.runner.timeout = ctx.state.timeoutConf.value;
+
+            delayedSend(ctx.self, 1.dur!"minutes".delay, UpdateWorkListMsg.init);
+            ctx.state.isRunning = true;
+        } catch (Exception e) {
+            ctx.state.hasFatalError = true;
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    static Promise!FinalResult runSchema(ref Ctx ctx, RunSchema _,
+            SchemataBuilder.ET schema, InjectIdResult injectIds) @safe nothrow {
+        ctx.state.resultPromise = makePromise!FinalResult();
+
+        try {
+            if (!ctx.state.isRunning) {
+                send(ctx.self, Stop.init);
+                return ctx.state.resultPromise;
+            }
+
+            logger.trace("running schema generated ", schema.checksum);
+            logger.trace(schema.fragments.map!"a.file");
+            logger.trace(schema.mutants);
+            logger.trace(injectIds);
+
+            if (injectIds.empty || injectIds.length < ctx.state.conf.minMutantsPerSchema.get) {
+                logger.trace("skipping schema. too few mutants in schema to test: ",
+                        injectIds.length);
+                send(ctx.self, Stop.init);
+            } else {
+                ctx.state.scheduler = () {
+                    TestMutantActor.Address[] testers;
+                    foreach (_0; 0 .. ctx.state.conf.parallelMutants) {
+                        auto a = ctx.self.homeSystem.spawn(&spawnTestMutant,
+                                ctx.state.runner.dup, ctx.state.analyzer);
+                        a.linkTo(ctx.self.address);
+                        testers ~= a;
+                    }
+                    return ScheduleTest(testers);
+                }();
+
+                ctx.state.borrow!((ref a) {
+                    a.activeSchema = schema;
+                    a.injectIds = injectIds;
+                });
+                send(ctx.self, InjectAndCompileMsg.init);
+                send(ctx.self, CheckStopCondMsg.init);
+            }
+        } catch (Exception e) {
+            logger.error(e.msg).collectException;
+            send(ctx.self, Stop.init).collectException;
+        }
+
+        return ctx.state.resultPromise;
+    }
+
+    static void injectAndCompile(ref Ctx ctx, InjectAndCompileMsg _) @safe nothrow {
+        try {
+            auto sw = StopWatch(AutoStart.yes);
+            scope (exit)
+                ctx.state.borrow!((ref a) => a.compileTime = sw.peek);
+
+            ctx.state.borrow!((ref a) => logger.infof("Using schema with %s mutants",
+                    a.injectIds.length));
+
+            auto codeInject = () @trusted {
+                return CodeInject(ctx.state.fio, ctx.state.conf);
+            }();
+            ctx.state.modifiedFiles = codeInject.inject(ctx.db, ctx.state.activeSchema);
+            codeInject.compile(ctx.state.buildCmd, ctx.state.buildCmdTimeout);
+
+            auto timeoutConf = ctx.state.timeoutConf;
+
+            if (ctx.state.conf.sanityCheckSchemata) {
+                logger.info("Sanity check of the generated schemata");
+                const sanity = sanityCheck(ctx.state.runner);
+                if (sanity.isOk) {
+                    if (ctx.state.timeoutConf.base < sanity.runtime) {
+                        timeoutConf.set(sanity.runtime);
+                    }
+
+                    logger.info("Ok".color(Color.green), ". Using test suite timeout ",
+                            timeoutConf.value).collectException;
+                    send(ctx.self, StartTestMsg.init);
+                } else {
+                    logger.info("Skipping the schemata because the test suite failed".color(Color.yellow)
+                            .toString);
+                    ctx.state.result.status = FinalResult.Status.invalidSchema;
+                    send(ctx.self, RestoreMsg.init).collectException;
+                }
+            } else {
+                send(ctx.self, StartTestMsg.init);
+            }
+            ctx.state.scheduler.configure(timeoutConf);
+        } catch (Exception e) {
+            ctx.state.result.status = FinalResult.Status.invalidSchema;
+            send(ctx.self, RestoreMsg.init).collectException;
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    // not an actor message handler.
+    static void save(ref Ctx ctx, SchemaTestResult data) @trusted {
+        import dextool.plugin.mutate.backend.test_mutant.common_actors : GetMutantsLeft,
+            UnknownMutantTested;
+
+        void update(MutationTestResult a) {
+            final switch (a.status) with (Mutation.Status) {
+            case skipped:
+                goto case;
+            case unknown:
+                goto case;
+            case equivalent:
+                goto case;
+            case noCoverage:
+                goto case;
+            case alive:
+                ctx.state.result.alive++;
+                ctx.state.stopCheck.incrAliveMutants(1);
+                return;
+            case killed:
+                goto case;
+            case timeout:
+                goto case;
+            case memOverload:
+                goto case;
+            case killedByCompiler:
+                break;
+            }
+        }
+
+        debug logger.trace(data);
+
+        if (!data.unstable.empty) {
+            logger.warningf("Unstable test cases found: [%-(%s, %)]", data.unstable);
+            logger.info(
+                    "As configured the result is ignored which will force the mutant to be re-tested");
+            return;
+        }
+
+        update(data.result);
+
+        auto result = data.result;
+        result.profile = MutantTimeProfile(ctx.state.compileTime, data.testTime);
+        ctx.state.compileTime = Duration.zero;
+
+        logger.infof("%s:%s (%s)", data.result.status,
+                data.result.exitStatus.get, result.profile).collectException;
+        logger.infof(!data.result.testCases.empty, `killed by [%-(%s, %)]`,
+                data.result.testCases.sort.map!"a.name").collectException;
+
+        send(ctx.state.dbSave, result, ctx.state.timeoutConf.iter);
+        send(ctx.state.stat, UnknownMutantTested.init, 1L);
+
+        // an error handler is required because the stat actor can be held up
+        // for more than a minute.
+        ctx.self.request(ctx.state.stat, delay(30.dur!"seconds"))
+            .send(GetMutantsLeft.init).then((long x) {
+            logger.infof("%s mutants left to test.", x);
+        }, (ref Actor self, ErrorMsg) {});
+    }
+
+    static void startTest(ref Ctx ctx, StartTestMsg _) @safe nothrow {
+        try {
+            ctx.state.activeSchemaCheck = State.ActiveSchemaCheck.noMutantTested;
+            foreach (_0; 0 .. ctx.state.scheduler.testers.length)
+                send(ctx.self, ScheduleTestMsg.init);
+        } catch (Exception e) {
+            ctx.state.borrow!((ref a) {
+                a.hasFatalError = true;
+                a.isRunning = false;
+            }).collectException;
+            logger.error(e.msg).collectException;
+            send(ctx.self, RestoreMsg.init).collectException;
+        }
+    }
+
+    static void test(ref Ctx ctx, ScheduleTestMsg _) @safe nothrow {
+        try {
+            if (ctx.state.borrow!((ref a) => !a.isRunning))
+                return;
+
+            if (ctx.state.borrow!((ref a) => a.scheduler.empty)) {
+                // robustness check.
+                // Shouldn't happen. There should only be as many ScheduleTestMsg as there are workers.
+                logger.trace("discarding excess ScheduleTestMsg");
+                return;
+            }
+
+            if (ctx.state.borrow!((ref a) => a.injectIds.empty)) {
+                send(ctx.self, WaitOnWorkersMsg.init);
+                return;
+            }
+
+            if (ctx.state.borrow!((ref a) => a.stopCheck.isOverloaded)) {
+                logger.info(ctx.state.borrow!((ref a) => a.stopCheck.overloadToString))
+                    .collectException;
+                logger.trace("overloaded: waiting random delay between 5-30s");
+                delayedSend(ctx.self, uniform(5, 30).dur!"seconds".delay, ScheduleTestMsg.init);
+                return;
+            }
+
+            auto injectId = ctx.state.borrow!((ref a) => a.injectIds.front);
+            ctx.state.borrow!((ref a) => a.injectIds.popFront);
+            auto testerId = ctx.state.borrow!((ref a) => a.scheduler.pop);
+            send(ctx.self, RunSingleMutantTestMsg.init, injectId, testerId);
+        } catch (Exception e) {
+            ctx.state.borrow!((ref a) => a.hasFatalError = true).collectException;
+            ctx.state.borrow!((ref a) => a.isRunning = false).collectException;
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    static void runSingleMutantTest(ref Ctx ctx, RunSingleMutantTestMsg _,
+            InjectIdResult.InjectId injectId, size_t workerId) @safe nothrow {
+        // TODO: move this printer to another thread because it perform
+        // significant DB lookup and can potentially slow down the testing.
+        void print(MutationStatusId statusId) @trusted {
+            import dextool.plugin.mutate.backend.generate_mutant : makeMutationText;
+
+            auto entry_ = spinSql!(() => ctx.db.mutantApi.getMutation(statusId));
+            if (entry_.isNull)
+                return;
+            auto entry = entry_.get;
+
+            try {
+                const file = ctx.state.borrow!((ref a) => a.fio.toAbsoluteRoot(entry.file));
+                auto txt = makeMutationText(ctx.state.borrow!((ref a) => a.fio.makeInput(file)),
+                        entry.mp.offset, entry.mp.mutations[0].kind, entry.lang);
+                debug logger.trace(entry);
+                logger.infof("from '%s' to '%s' in %s:%s:%s", txt.original,
+                        txt.mutation, file, entry.sloc.line, entry.sloc.column);
+            } catch (Exception e) {
+                logger.info(e.msg).collectException;
+            }
+        }
+
+        try {
+            print(injectId.statusId);
+            auto tester = ctx.state.scheduler.get(workerId);
+            () @trusted {
+                ctx.self.request(tester, infTimeout).send(injectId)
+                    .capture(ctx, workerId).then((ref Capture!(Ctx, size_t) ctx, SchemaTestResult x) {
+                    save(ctx[0], x);
+                    ctx[0].state.scheduler.put(ctx[1]);
+                    send(ctx[0].self, ScheduleTestMsg.init);
+                });
+            }();
+        } catch (Exception e) {
+            ctx.state.borrow!((ref a) {
+                a.hasFatalError = true;
+                a.isRunning = false;
+            }).collectException;
+            logger.error(e.msg).collectException;
+            send(ctx.self, RestoreMsg.init).collectException;
+        }
+    }
+
+    static void waitOnWorker(ref Ctx ctx, WaitOnWorkersMsg _) @safe nothrow {
+        if (ctx.state.scheduler.full) {
+            send(ctx.self, RestoreMsg.init).collectException;
+        } else {
+            delayedSend(ctx.self, uniform(50, 800).dur!"msecs".delay, WaitOnWorkersMsg.init)
+                .collectException;
+        }
+    }
+
+    static void checkHaltCond(ref Ctx ctx, CheckStopCondMsg _) @safe nothrow {
+        try {
+            if (!ctx.state.isRunning)
+                return;
+
+            delayedSend(ctx.self, 5.dur!"seconds".delay, CheckStopCondMsg.init).collectException;
+
+            const halt = ctx.state.borrow!((ref a) => a.stopCheck.isHalt);
+            if (halt == TestStopCheck.HaltReason.overloaded)
+                ctx.state.borrow!((ref a) => a.stopCheck.startBgShutdown);
+
+            if (halt != TestStopCheck.HaltReason.none) {
+                // clear mutants to test so the actor will stop as soon as it can
+                ctx.state.injectIds = typeof(ctx.state.injectIds).init;
+                logger.info(ctx.state.borrow!((ref a) => a.stopCheck.overloadToString));
+            }
+        } catch (Exception e) {
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    static void updateWlist(ref Ctx ctx, UpdateWorkListMsg _) @safe nothrow {
+        try {
+            if (ctx.state.borrow!((ref a) => !a.isRunning))
+                return;
+            // using random update to reduce the risk that multiple
+            // dextool-mutate instances hit the DB at the same time or "too
+            // close" in proximity to each other that they trigger DB
+            // locks.
+            delayedSend(ctx.self, uniform(45, 60).dur!"seconds".delay, UpdateWorkListMsg.init);
+
+            auto whiteList = spinSql!(() => ctx.db.worklistApi.getAll.map!"a.id".toSet);
+
+            ctx.state.injectIds.ids = ctx.state.injectIds.ids.filter!(a => a.statusId in whiteList)
+                .array;
+
+            logger.trace("removed mutants not in whitelist: ", ctx.state.injectIds.length);
+            debug logger.trace("update schema worklist: ", whiteList.toRange);
+        } catch (Exception e) {
+            // only happens if the database is broken. Other message handlers
+            // will terminate cleaner.
+            logger.warning(e.msg).collectException;
+        }
+    }
+
+    static void restore(ref Ctx ctx, RestoreMsg _) @safe nothrow {
+        import dextool.plugin.mutate.backend.test_mutant.common : restoreFiles;
+
+        try {
+            send(ctx.self, Stop.init);
+
+            ctx.state.borrow!((ref a) {
+                logger.trace("restore ", a.modifiedFiles);
+                restoreFiles(a.modifiedFiles, a.fio);
+                a.modifiedFiles = null;
+            });
+        } catch (Exception e) {
+            ctx.state.borrow!((ref a) {
+                a.hasFatalError = true;
+                a.isRunning = false;
+            }).collectException;
+            logger.error(e.msg).collectException;
+        }
+    }
+
+    static void stop(ref Ctx ctx, Stop _) @safe {
+        ctx.state.isRunning = false;
+        if (ctx.state.hasFatalError) {
+            ctx.state.result.status = FinalResult.Status.fatalError;
+        }
+        if (!ctx.state.resultPromise.empty) {
+            ctx.state.resultPromise.deliver(ctx.state.result);
+        }
+        ctx.self.shutdown;
+    }
+
+    import std.functional : toDelegate;
+
+    self.name = "SchemaTester";
+    self.exceptionHandler = toDelegate(&logExceptionHandler);
+    try {
+        send(self, Init.init, dbPath);
+    } catch (Exception e) {
+        logger.error(e.msg).collectException;
+        self.shutdown;
+    }
+
+    return impl(self, st, &init_, &runSchema, &injectAndCompile, &restore,
+            &startTest, &test, &checkHaltCond, &updateWlist, &stop,
+            &runSingleMutantTest, &waitOnWorker);
 }
 
 /** Generate schemata injection IDs (32bit) from mutant checksums (128bit).

@@ -17,6 +17,11 @@ Fixes
    to chengjackjelly.
  * Fix deadlock in mutant schemata.
  * Fix table sort in html report
+ * The transition from running mutation schema to the slow one source code
+   mutation at a time could sometimes fail restoring the source code. This lead
+   to the environment check failing and then the tool (dextool) stopped with an
+   error code.
+   This is now fixed (hopefully).
 
 # v5.1 Hematite
 

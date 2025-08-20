@@ -60,14 +60,14 @@ struct ScheduleTest {
         return free.front;
     }
 
-    void put(size_t x)
+    void put(size_t x) nothrow
     in (x < testers.length)
     out (; free.length <= testers.length)
     do {
         free.put(x);
     }
 
-    TestMutantActor.Address get(size_t x)
+    TestMutantActor.Address get(size_t x) nothrow
     in (free.length <= testers.length)
     in (x < testers.length) {
         return testers[x];
@@ -153,6 +153,6 @@ auto spawnTestMutant(TestMutantActor.Impl self, TestRunner runner, TestCaseAnaly
         ctx.state.borrow!((ref a) { a.runner.timeout = conf.value; });
     }
 
-    self.name = "testMutant";
+    self.name = "TestMutant";
     return impl(self, st, &run, &doConf);
 }
