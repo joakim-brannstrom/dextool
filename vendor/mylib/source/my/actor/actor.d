@@ -223,7 +223,7 @@ void defaultExceptionHandler(scope ref Actor self, scope Exception e) @safe noth
 void logExceptionHandler(scope ref Actor self, scope Exception e) @safe nothrow {
     self.errorReason = SystemError.runtimeError;
     try {
-        logger.info("[%s] shutdown: exception: %s: ", self.name, e.msg);
+        logger.infof("[%s] shutdown: exception: %s: ", self.name, e.msg);
     } catch (Exception e) {
     }
     self.forceShutdown;
