@@ -1509,6 +1509,8 @@ nothrow:
                     conf.mutationCompile, conf.buildCmdTimeout, dbSave, stat, timeout);
             scope (exit)
                 sendExit(driver, ExitReason.userShutdown);
+            scope (exit)
+                logger.info("Schema testing done");
             auto self = scopedActor;
 
             {
