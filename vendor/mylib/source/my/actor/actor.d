@@ -575,11 +575,16 @@ package:
 
         version (mylib_actor_trace) {
             if (state_ != lastState_) {
-                lastState_ = state_;
                 try {
-                    logger.tracef("actor:%X [%s] state:%s mailbox:%s", id, name, state_,
-                            (state_ != ActorState.stopped && addr.get.hasMessage) ? addr.get.length
-                            : 0);
+                    logger.tracef("actor:%X [%s] state: %s -> %s", id, name, lastState_, state_);
+                } catch (Exception e) {
+                }
+                lastState_ = state_;
+            }
+
+            if (state_ != ActorState.stopped && addr.get.hasMessage) {
+                try {
+                    logger.tracef("actor:%X [%s] mailbox:%s", id, name, addr.get.length);
                 } catch (Exception e) {
                 }
             }
