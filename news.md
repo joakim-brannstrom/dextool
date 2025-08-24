@@ -1,5 +1,7 @@
 # vNext
 
+# v5.2 Dolomite
+
  * Dropped manually maintained bindings for libclang in favor of using D's
    support to directly import C files. It has been a major source of bugs and
    annoyance at manually maintaining the bindings. Some hard to find crashes
