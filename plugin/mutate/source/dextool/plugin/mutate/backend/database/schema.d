@@ -114,7 +114,6 @@ immutable schemaMutantQTable = "schema_mutant_q";
 immutable schemaMutantV2Table = "schemata_mutant_v2";
 immutable schemaSizeQTable = "schema_size_q";
 immutable schemaVersionTable = "schema_version";
-immutable srcCovInfoTable = "src_cov_info";
 immutable srcCovTable = "src_cov_instr";
 immutable srcCovTimeStampTable = "src_cov_timestamp";
 immutable srcMetadataTable = "src_metadata";
@@ -124,6 +123,7 @@ immutable testCmdRelMutantTable = "test_cmd_rel_mutant";
 immutable testCmdTable = "test_cmd";
 immutable testFilesTable = "test_files";
 
+private immutable srcCovInfoTable = "src_cov_info";
 private immutable schemataTable = "schemata";
 private immutable schemataMutantTable = "schemata_mutant";
 private immutable schemataUsedTable = "schemata_used";
@@ -654,22 +654,12 @@ struct CoverageCodeRegionTable {
     @ColumnName("file_id")
     long fileId;
 
+    /// True if the region has been visited.
+    bool status;
+
     /// the region in the files, in bytes.
     uint begin;
     uint end;
-}
-
-/** Each coverage region that has a valid status has an entry in this table.
- * It do mean that there can be region that do not exist in this table. That
- * mean that something went wrong when gathering the data.
- */
-@TableName(srcCovInfoTable)
-@TableForeignKey("id", KeyRef("src_cov_instr(id)"), KeyParam("ON DELETE CASCADE"))
-struct CoverageInfoTable {
-    long id;
-
-    /// True if the region has been visited.
-    bool status;
 }
 
 /// When the coverage information was gathered.
@@ -876,9 +866,8 @@ void upgradeV0(ref Miniorm db) {
             RuntimeHistoryTable,
             MutationScoreHistoryTable,
             MutationFileScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
-            CoverageInfoTable, CoverageTimeTtampTable, DependencyFileTable,
+            CoverageTimeTtampTable, DependencyFileTable,
             DependencyRootTable, DextoolVersionTable, ConfigVersionTable,
-            TestCmdOriginalTable,
             TestCmdMutatedTable,
             MutantMemOverloadtWorklistTbl, TestCmdRelMutantTable,
             TestCmdTable, SchemaMutantV2Table, SchemaFragmentV2Table));
@@ -1750,6 +1739,20 @@ void upgradeV30(ref Miniorm db) {
 
 /// 2020-12-29
 void upgradeV31(ref Miniorm db) {
+    @TableName(srcCovTable)
+    @TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+    @TableConstraint("file_offset UNIQUE (file_id, begin, end)")
+    struct CoverageCodeRegionTable {
+        long id;
+
+        @ColumnName("file_id")
+        long fileId;
+
+        /// the region in the files, in bytes.
+        uint begin;
+        uint end;
+    }
+
     @TableName(srcCovInfoTable)
     @TableForeignKey("id", KeyRef("src_cov_info(id)"), KeyParam("ON DELETE CASCADE"))
     struct CoverageInfoTable {
@@ -2073,6 +2076,19 @@ void upgradeV50(ref Miniorm db) {
 
 // 2022-06-14
 void upgradeV51(ref Miniorm db) {
+    /** Each coverage region that has a valid status has an entry in this table.
+     * It do mean that there can be region that do not exist in this table. That
+     * mean that something went wrong when gathering the data.
+     */
+    @TableName(srcCovInfoTable)
+    @TableForeignKey("id", KeyRef("src_cov_instr(id)"), KeyParam("ON DELETE CASCADE"))
+    struct CoverageInfoTable {
+        long id;
+
+        /// True if the region has been visited.
+        bool status;
+    }
+
     db.run("DROP TABLE " ~ srcCovInfoTable);
     db.run(buildSchema!CoverageInfoTable);
 }
