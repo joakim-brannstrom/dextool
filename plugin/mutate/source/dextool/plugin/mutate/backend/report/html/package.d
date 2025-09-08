@@ -244,10 +244,6 @@ nothrow:
             return 1;
         if (offset.begin < s.offset.begin)
             return -1;
-        if (offset.end > s.offset.end)
-            return 1;
-        if (offset.end < s.offset.end)
-            return -1;
         return 0;
     }
 }
