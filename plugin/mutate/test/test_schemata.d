@@ -152,15 +152,59 @@ class ShallGenerateValidSchemaForOverload : SchemataFixutre {
         mixin(EnvSetup(globalTestdir));
         precondition(testEnv);
 
-        makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++11")
-            .addPostArg([
-                "--mutant", "sdl", "--mutant", "aor", "--mutant", "rorp"
+        makeDextoolAnalyze(testEnv).addInputArg(programCode).addPostArg([
+            "--mutant", "sdl", "--mutant", "aor", "--mutant", "rorp",
+            "--mutant", "lcr", "--mutant", "lcrb"
         ]).run;
 
-        auto r = runDextoolTest(testEnv).addFlag("-std=c++11").run;
+        auto r = runDextoolTest(testEnv).run;
 
         testAnyOrder!SubStr([`from '+'`,]).shouldNotBeIn(r.output);
         testAnyOrder!SubStr([`from '=='`,]).shouldNotBeIn(r.output);
+        testAnyOrder!SubStr([`from '&' to '|'`,]).shouldBeIn(r.output);
+        testAnyOrder!SubStr([`from '|' to '&'`,]).shouldNotBeIn(r.output);
+    }
+}
+
+@("ShallGenerateValidSchemaForOverload")
+unittest {
+    runTest!ShallGenerateValidSchemaForOverload();
+}
+
+version (have_cpp23) {
+    // TODO: add to cmake a detection if c++ stdlib is new enough to support c++23
+    // and the clang frontend. For now it can only be locally tested because not
+    // all CI-targets support c++23.
+
+    class ShallGenerateValidSchemaForCppRanges : SchemataFixutre {
+        override string programFile() {
+            return (testData ~ "schemata_cpp23_ranges.cpp").toString;
+        }
+
+        override string scriptBuild() {
+            return "#!/bin/bash
+set -e
+g++ -fsyntax-only -std=c++23 -c %s -o %s
+";
+        }
+
+        override void test() {
+            mixin(EnvSetup(globalTestdir));
+            precondition(testEnv);
+
+            makeDextoolAnalyze(testEnv).addInputArg(programCode).addFlag("-std=c++23")
+                .addPostArg(["--mutant", "lcr", "--mutant", "lcrb"]).run;
+
+            auto r = runDextoolTest(testEnv).run;
+
+            testAnyOrder!SubStr([`from '|' to '&'`,]).shouldNotBeIn(r.output);
+            testAnyOrder!Re([`from '||.* to '&&.*`,]).shouldBeIn(r.output);
+        }
+    }
+
+    @("ShallGenerateValidSchemaForCppRanges")
+    unittest {
+        runTest!ShallGenerateValidSchemaForCppRanges();
     }
 }
 

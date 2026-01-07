@@ -15,6 +15,24 @@ public import unit_threaded;
 public import dextool_test;
 public import dextool_test.config;
 
+class TestCase {
+    void setup() {
+    }
+
+    void test() {
+    }
+
+    void shutdown() {
+    }
+}
+
+void runTest(ClassT)() if (is(ClassT : TestCase)) {
+    auto tc = new ClassT;
+    tc.setup;
+    tc.test;
+    tc.shutdown;
+}
+
 auto makeDextoolAnalyze(const ref TestEnv env) {
     // dfmt off
     return dextool_test.makeDextool(env)
