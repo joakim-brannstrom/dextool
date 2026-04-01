@@ -34,12 +34,17 @@ Create a configuration file:
 ```sh
 dextool mutate admin --init
 ```
-The file should be pretty self explaining.
 
-Open the config file and change the following fields:
+Open the resulting `.dextool_mutate.toml` config file and change the following fields:
 ```toml
 [workarea]
 include = ["googlemock/include/*", "googlemock/src/*", "googletest/include/*", "googletest/src/*"]
+
+[generic]
+mutants = ["sdl"]
+
+[analyze]
+exclude = ["googletest/test/*", "googlemock/test/*"]
 
 [compiler]
 extra_flags = [ "-D_POSIX_PATH_MAX=1024" ]
@@ -48,13 +53,13 @@ extra_flags = [ "-D_POSIX_PATH_MAX=1024" ]
 search_paths = ["./build/compile_commands.json"]
 
 [mutant_test]
-test_cmd = "./test.sh"
-#test_cmd_dir = ["./build/test"]
 build_cmd = "./build.sh"
+#test_cmd_dir = ["./build/test"]
+test_cmd = "./test.sh"
 analyze_using_builtin = ["gtest"]
 ```
 
-Generate a database of containing the mutants:
+Generate a database containing all mutants:
 ```sh
 dextool mutate analyze
 ```
