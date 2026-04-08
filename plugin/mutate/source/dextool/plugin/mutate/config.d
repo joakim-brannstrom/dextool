@@ -339,6 +339,9 @@ struct ConfigCoverage {
     /// If the generated coverage files should be saved.
     bool log;
 
+    /// Import coverage from gcov --json-format output files or directories.
+    AbsolutePath[] gcovJson;
+
     /// allows a user to control exactly which files the coverage and schemata
     /// runtime is injected in.
     UserRuntime[] userRuntimeCtrl;

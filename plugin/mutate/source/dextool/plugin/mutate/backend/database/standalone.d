@@ -2186,6 +2186,12 @@ struct DbCoverage {
         stmt.get.execute;
     }
 
+    void clearCoverageInfo() @trusted {
+        static immutable sql = "DELETE FROM " ~ srcCovInfoTable;
+        auto stmt = db.prepare(sql);
+        stmt.get.execute;
+    }
+
     void putCoverageInfo(const CoverageRegionId regionId, bool status) {
         static immutable sql = "INSERT OR REPLACE INTO " ~ srcCovInfoTable
             ~ " (id, status) VALUES(:id, :status)";

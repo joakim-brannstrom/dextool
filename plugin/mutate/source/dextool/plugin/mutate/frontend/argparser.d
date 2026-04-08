@@ -197,18 +197,27 @@ struct ArgParser {
         app.put("# Use coverage to reduce the tested mutants");
         app.put("use = true");
         app.put(null);
-        app.put("# how to add the coverage runtime to the SUT");
+        app.put("# how to add the built-in coverage runtime to the SUT");
         app.put(format!"# available options are: %(%s, %)"(
                 [EnumMembers!CoverageRuntime].map!(a => a.to!string)));
         app.put("# runtime = inject");
         app.put(null);
         app.put(
-                "# Default is to inject the runtime in all roots. A root is a file either provided by --in");
+                "# Default is to inject the built-in runtime in all roots. A root is a file either provided by --in");
         app.put("# or a file in compile_commands.json.");
         app.put(
                 "# If specified then the coverage and schemata runtime is only injected in these files.");
         app.put("# paths are relative to root.");
         app.put(`# inject_runtime_impl = [["file1.c", "c"], ["file2.c", "cpp"]]`);
+        app.put(null);
+        app.put("# import coverage from gcov --json-format output");
+        app.put("# Use this when your build system already produces gcov data;");
+        app.put("# otherwise dextool gathers coverage with its built-in source instrumentation.");
+        app.put("# entries may be files or directories containing gcov json artifacts.");
+        app.put(`# 1. ["./build"]`);
+        app.put(`# 2. ["./build/file.gcov.json.gz"]`);
+        app.put(`# 3. ["./build/file1.gcov.json", "./build/file2.gcov.json"]`);
+        app.put(`# gcov_json = ["./build"]`);
         app.put(null);
 
         app.put("[database]");
@@ -470,6 +479,7 @@ struct ArgParser {
             long mutationTesterRuntime;
             string maxRuntime;
             string mutationCompile;
+            string[] gcovJson;
             string[] mutationTestCaseAnalyze;
             string[] mutationTester;
             string[] testConstraint;
@@ -491,6 +501,7 @@ struct ArgParser {
                    "diff-from-stdin", "restrict testing to the mutants in the diff", &mutationTest.unifiedDiffFromStdin,
                    "dry-run", "do not write data to the filesystem", &mutationTest.dryRun,
                    "exclude", exclude_help, &workArea.rawExclude,
+                   "gcov-json", "import coverage from gcov --json-format files or directories", &gcovJson,
                    "include", include_help, &workArea.rawInclude,
                    "load-behavior", "how to behave when the threshold is hit " ~ format("[%(%s|%)]", [EnumMembers!(ConfigMutationTest.LoadBehavior)]), &mutationTest.loadBehavior,
                    "load-threshold", format!"the 15min loadavg threshold (default: %s)"(mutationTest.loadThreshold.get), mutationTest.loadThreshold.getPtr,
@@ -537,6 +548,8 @@ struct ArgParser {
             if (mutationTestCaseAnalyze.length != 0)
                 mutationTest.mutationTestCaseAnalyze = mutationTestCaseAnalyze.map!(
                         a => ShellCommand([a])).array;
+            if (!gcovJson.empty)
+                coverage.gcovJson = gcovJson.map!(a => AbsolutePath(a)).array;
             if (mutationTesterRuntime != 0)
                 mutationTest.mutationTesterRuntime = mutationTesterRuntime.dur!"msecs";
             if (!maxRuntime.empty)
@@ -1001,6 +1014,20 @@ ArgParser loadConfig(ArgParser rval, TOMLDocument doc) @trusted {
                 EnumMembers!CoverageRuntime
             ]);
             logger.warning(e.msg);
+        }
+    };
+    callbacks["coverage.gcov_json"] = (ref ArgParser c, ref TOMLValue v) {
+        try {
+            if (v.type == TOML_TYPE.STRING) {
+                c.coverage.gcovJson = [AbsolutePath(v.str)];
+            } else if (v.type == TOML_TYPE.ARRAY) {
+                c.coverage.gcovJson = v.array.map!(a => AbsolutePath(a.str)).array;
+            } else {
+                logger.error("coverage.gcov_json: failed parsing");
+            }
+        } catch (Exception e) {
+            logger.error("coverage.gcov_json: failed parsing");
+            logger.error(e.msg);
         }
     };
     callbacks["coverage.inject_runtime_impl"] = (ref ArgParser c, ref TOMLValue v) {
@@ -1478,6 +1505,22 @@ inject_runtime_impl = [["foo", "cpp"]]
     auto ap = loadConfig(ArgParser.init, doc);
     ap.coverage.userRuntimeCtrl.shouldEqual([
         UserRuntime(Path("foo"), Language.cpp)
+    ]);
+}
+
+@("shall parse the gcov json coverage inputs")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[coverage]
+gcov_json = ["foo.gcov.json.gz", "coverage"]
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.init, doc);
+    ap.coverage.gcovJson.shouldEqual([
+        AbsolutePath("foo.gcov.json.gz"),
+        AbsolutePath("coverage")
     ]);
 }
 
