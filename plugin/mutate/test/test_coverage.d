@@ -5,15 +5,16 @@ Author: Joakim Brännström (joakim.brannstrom@gmx.com)
 */
 module dextool_test.test_coverage;
 
-import std.algorithm : any, map;
-import std.array : appender, array;
+import std.algorithm : any, canFind, map;
+import std.array : appender, array, join;
 import std.file : mkdirRecurse, read, readText, write;
 import std.format : format;
 import std.json : JSONValue, parseJSON;
-import std.path : absolutePath, buildPath, relativePath;
+import std.path : absolutePath, buildPath, pathSplitter, relativePath;
 import std.range : assumeSorted;
 import std.zlib : Compress, HeaderFormat;
 
+import dextool.plugin.mutate.backend.database.standalone : Database;
 import dextool.plugin.mutate.backend.type : ExitStatus, Mutation, Offset;
 import dextool.type : Path;
 
@@ -22,6 +23,15 @@ import dextool_test.fixtures;
 
 private final class CoverageFixtureInstance : CoverageFixutre {
     override void test() {
+    }
+}
+
+private final class PreciseImportedCoverageFixture : CoverageFixutre {
+    override void test() {
+    }
+
+    override string programFile() {
+        return (testData ~ "gcov_precise_branch.cpp").toString;
     }
 }
 
@@ -87,8 +97,28 @@ private immutable GcovLineSpec[] mainFunctionCoveredLines = [
     GcovLineSpec(69, 1, "main")
 ];
 
+private immutable GcovLineSpec[] preciseBranchCoveredLines = [
+    GcovLineSpec(2, 1, "compute"),
+    GcovLineSpec(3, 1, "compute")
+];
+
+private immutable GcovLineSpec[] preciseBranchUncoveredLines = [
+    GcovLineSpec(5, 0, "compute")
+];
+
+private immutable GcovLineSpec[] preciseMainCoveredLines = [
+    GcovLineSpec(9, 1, "main"),
+    GcovLineSpec(10, 1, "main")
+];
+
 private CoverageFixtureInstance setupCoverageFixture(ref TestEnv testEnv) {
     auto fixture = new CoverageFixtureInstance;
+    fixture.precondition(testEnv);
+    return fixture;
+}
+
+private PreciseImportedCoverageFixture setupPreciseImportedCoverageFixture(ref TestEnv testEnv) {
+    auto fixture = new PreciseImportedCoverageFixture;
     fixture.precondition(testEnv);
     return fixture;
 }
@@ -124,6 +154,10 @@ mutants = ["lcr", "lcrb", "sdl", "uoi", "dcr"]
 [mutant_test]
 test_cmd_timeout = "10 seconds"
 `;
+}
+
+private string pathToHtmlName(string p) {
+    return p.pathSplitter.join("__");
 }
 
 private JSONValue makeGcovLine(GcovLineSpec spec,
@@ -192,7 +226,7 @@ private GcovLineSpec[] withCount(const(GcovLineSpec)[] lines, long count) {
     return lines.map!(a => GcovLineSpec(a.lineNumber, count, a.functionName)).array;
 }
 
-private void analyzeCoverageProgram(ref TestEnv testEnv, CoverageFixtureInstance fixture,
+private void analyzeCoverageProgram(ref TestEnv testEnv, CoverageFixutre fixture,
         string configPath = null) {
     auto cmd = makeDextoolAnalyze(testEnv)
         .argDebug(false)
@@ -205,7 +239,7 @@ private void analyzeCoverageProgram(ref TestEnv testEnv, CoverageFixtureInstance
     cmd.run;
 }
 
-private auto makeCoverageTestCommand(ref TestEnv testEnv, CoverageFixtureInstance fixture,
+private auto makeCoverageTestCommand(ref TestEnv testEnv, CoverageFixutre fixture,
         string configPath, bool throwOnExitStatus = true) {
     auto cmd = dextool_test.makeDextool(testEnv)
         .setWorkdir(workDir)
@@ -225,7 +259,7 @@ private auto makeCoverageTestCommand(ref TestEnv testEnv, CoverageFixtureInstanc
     return cmd;
 }
 
-private auto runCoverageTest(ref TestEnv testEnv, CoverageFixtureInstance fixture, string configPath,
+private auto runCoverageTest(ref TestEnv testEnv, CoverageFixutre fixture, string configPath,
         string[][] extraPostArgs = null, bool throwOnExitStatus = true) {
     auto cmd = makeCoverageTestCommand(testEnv, fixture, configPath, throwOnExitStatus);
     foreach (args; extraPostArgs)
@@ -241,6 +275,28 @@ private JSONValue coverageReportStat(ref TestEnv testEnv) {
         .addPostArg(["--logdir", testEnv.outdir.toString])
         .run;
     return parseJSON(readText((testEnv.outdir ~ "report.json").toString))["stat"];
+}
+
+private string coverageHtmlProgramPage(ref TestEnv testEnv, CoverageFixutre fixture) {
+    makeDextoolReport(testEnv, testData.dirName)
+        .argDebug(false)
+        .addPostArg(["--style", "html"])
+        .addPostArg(["--section", "summary", "--section", "all_mut"])
+        .addPostArg(["--logdir", testEnv.outdir.toString])
+        .run;
+
+    auto db = openDatabase(testEnv);
+    const fileId = coverageFileId(db, fixture);
+    auto filePath = db.getFile(fileId);
+    filePath.isNull.shouldBeFalse;
+
+    return readText((testEnv.outdir ~ format("html/files/%s.html",
+            pathToHtmlName(filePath.get))).toString);
+}
+
+private void htmlLineShouldHaveCoverageClass(string html, uint line, string cssClass) {
+    html.canFind(format(`id="loc-%s"><span class="line_nr %s">%s:`, line, cssClass, line))
+        .shouldBeTrue;
 }
 
 private void assertCoverageInstrumentationOutput(string[] output) {
@@ -293,13 +349,12 @@ private string regionKey(Offset region) {
     return format("%s:%s", region.begin, region.end);
 }
 
-private Path dbProgramPath(CoverageFixtureInstance fixture) {
+private Path dbProgramPath(CoverageFixutre fixture) {
     const relative = relativePath(fixture.programCode, workDir.toString);
     return relative == fixture.programCode ? Path("program.cpp") : Path(relative);
 }
 
-private CoverageView loadCoverageView(ref TestEnv testEnv, CoverageFixtureInstance fixture) {
-    auto db = openDatabase(testEnv);
+private auto coverageFileId(ref Database db, CoverageFixutre fixture) {
     auto allCoverage = db.coverageApi.getCoverageMap;
     auto fileId = db.getFileId(Path("program.cpp"));
     if (fileId.isNull)
@@ -312,10 +367,18 @@ private CoverageView loadCoverageView(ref TestEnv testEnv, CoverageFixtureInstan
     }
     fileId.isNull.shouldBeFalse;
 
-    auto fileRegions = fileId.get in allCoverage;
+    return fileId.get;
+}
+
+private CoverageView loadCoverageView(ref TestEnv testEnv, CoverageFixutre fixture) {
+    auto db = openDatabase(testEnv);
+    auto allCoverage = db.coverageApi.getCoverageMap;
+    const fileId = coverageFileId(db, fixture);
+
+    auto fileRegions = fileId in allCoverage;
     (fileRegions !is null).shouldBeTrue;
 
-    auto knownStatus = db.coverageApi.getCoverageStatus(fileId.get);
+    auto knownStatus = db.coverageApi.getCoverageStatus(fileId);
     bool[string] knownByRegion;
     foreach (status; knownStatus)
         knownByRegion[regionKey(status.region)] = status.status;
@@ -333,6 +396,28 @@ private CoverageView loadCoverageView(ref TestEnv testEnv, CoverageFixtureInstan
     }
 
     return view;
+}
+
+private bool[uint] loadImportedLineCoverage(ref TestEnv testEnv, CoverageFixutre fixture) {
+    auto db = openDatabase(testEnv);
+    return db.coverageApi.getImportedLineCoverage(coverageFileId(db, fixture));
+}
+
+private Mutation.Status[] mutantStatusesAtLine(ref TestEnv testEnv, CoverageFixutre fixture, uint line) {
+    auto db = openDatabase(testEnv);
+    static immutable sql = "SELECT DISTINCT t0.status FROM mutation_status t0, mutation t1, mutation_point t2 "
+        ~ "WHERE t0.id = t1.st_id AND t1.mp_id = t2.id AND t2.file_id = :fid "
+        ~ "AND :line BETWEEN t2.line AND t2.line_end";
+
+    auto stmt = db.db.prepare(sql);
+    stmt.get.bind(":fid", coverageFileId(db, fixture).get);
+    stmt.get.bind(":line", line);
+
+    auto rval = appender!(Mutation.Status[])();
+    foreach (ref r; stmt.get.execute) {
+        rval.put(cast(Mutation.Status) r.peek!long(0));
+    }
+    return rval.data;
 }
 
 private bool intersects(LineRange range, uint beginLine, uint endLine) @safe pure nothrow {
@@ -391,6 +476,52 @@ unittest {
     stat["no_coverage"].integer.shouldBeGreaterThan(1);
 }
 
+@(testId ~ "shall render imported gcov coverage precisely in the html file report")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto fixture = setupPreciseImportedCoverageFixture(testEnv);
+
+    const gcovJson = (testEnv.outdir ~ "precise_report.gcov.json.gz").toString;
+    writeGcovJson(gcovJson, fixture.programCode,
+            preciseBranchCoveredLines ~ preciseBranchUncoveredLines ~ preciseMainCoveredLines,
+            GcovJsonWriteOptions(gzip: true));
+
+    analyzeCoverageProgram(testEnv, fixture, defaultCoverageConfig);
+
+    auto testRun = runCoverageTest(testEnv, fixture, defaultCoverageConfig,
+            [["--gcov-json", gcovJson]]);
+    assertImportedCoverageOutput(testRun.output);
+
+    const html = coverageHtmlProgramPage(testEnv, fixture);
+    htmlLineShouldHaveCoverageClass(html, 3, "loc_covered");
+    htmlLineShouldHaveCoverageClass(html, 5, "loc_noncovered");
+}
+
+@(testId ~ "shall use imported gcov line coverage when propagating no coverage mutants")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto fixture = setupPreciseImportedCoverageFixture(testEnv);
+
+    const gcovJson = (testEnv.outdir ~ "precise_no_coverage.gcov.json.gz").toString;
+    writeGcovJson(gcovJson, fixture.programCode,
+            preciseBranchCoveredLines ~ preciseBranchUncoveredLines ~ preciseMainCoveredLines,
+            GcovJsonWriteOptions(gzip: true));
+
+    analyzeCoverageProgram(testEnv, fixture, defaultCoverageConfig);
+
+    auto testRun = runCoverageTest(testEnv, fixture, defaultCoverageConfig,
+            [["--gcov-json", gcovJson]]);
+    assertImportedCoverageOutput(testRun.output);
+
+    auto uncoveredStatuses = mutantStatusesAtLine(testEnv, fixture, 5);
+    uncoveredStatuses.length.shouldBeGreaterThan(0);
+    uncoveredStatuses.canFind(Mutation.Status.noCoverage).shouldBeTrue;
+
+    auto coveredStatuses = mutantStatusesAtLine(testEnv, fixture, 2);
+    coveredStatuses.length.shouldBeGreaterThan(0);
+    coveredStatuses.canFind(Mutation.Status.noCoverage).shouldBeFalse;
+}
+
 @(testId ~ "shall map gcov counts to covered uncovered and unknown regions")
 unittest {
     mixin(EnvSetup(globalTestdir));
@@ -430,7 +561,11 @@ unittest {
 
     runCoverageTest(testEnv, fixture, defaultCoverageConfig, [["--gcov-json", firstJson]]);
     auto firstCoverage = loadCoverageView(testEnv, fixture);
+    auto firstImportedCoverage = loadImportedLineCoverage(testEnv, fixture);
+    auto firstUncoveredLine = 57u in firstImportedCoverage;
     hasKnownStatus(firstCoverage, 57, 61, false).shouldBeTrue;
+    (firstUncoveredLine !is null).shouldBeTrue;
+    (*firstUncoveredLine).shouldBeFalse;
 
     resetMutantsToUnknown(testEnv);
 
@@ -439,8 +574,14 @@ unittest {
     assertImportedCoverageOutput(secondRun.output);
 
     auto secondCoverage = loadCoverageView(testEnv, fixture);
+    auto secondImportedCoverage = loadImportedLineCoverage(testEnv, fixture);
+    auto secondUncoveredLine = 57u in secondImportedCoverage;
+    auto secondCoveredLine = 64u in secondImportedCoverage;
     hasKnownStatus(secondCoverage, 57, 61, false).shouldBeFalse;
     hasUnknownStatus(secondCoverage, 57, 61).shouldBeTrue;
+    (secondUncoveredLine is null).shouldBeTrue;
+    (secondCoveredLine !is null).shouldBeTrue;
+    (*secondCoveredLine).shouldBeTrue;
 }
 
 @(testId ~ "shall import relative source paths from uncompressed gcov json via cli")

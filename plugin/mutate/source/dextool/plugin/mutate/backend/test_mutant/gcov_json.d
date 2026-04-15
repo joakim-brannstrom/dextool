@@ -19,7 +19,7 @@ import std.zlib : HeaderFormat, UnCompress;
 import miniorm;
 import my.optional;
 
-import dextool.plugin.mutate.backend.database : CoverageRegionId;
+import dextool.plugin.mutate.backend.database : CoverageRegionId, FileId;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO;
 import dextool.plugin.mutate.backend.type : Offset;
@@ -36,6 +36,12 @@ struct GcovImportStats {
 
 private struct ImportedRegionStatus {
     CoverageRegionId id;
+    bool status;
+}
+
+private struct ImportedLineStatus {
+    FileId fileId;
+    uint line;
     bool status;
 }
 
@@ -200,6 +206,7 @@ GcovImportStats importGcovJsonCoverage(FilesysIO fio, Database* db,
     }
 
     const inputs = inputFiles.data;
+    spinSql!(() => db.coverageApi.clearImportedLineCoverage);
     if (inputs.length == 0)
         logger.warning("No gcov json input files were found").collectException;
     if (inputs.length == 0)
@@ -215,6 +222,7 @@ GcovImportStats importGcovJsonCoverage(FilesysIO fio, Database* db,
     }
 
     auto importedStatuses = appender!(ImportedRegionStatus[])();
+    auto importedLines = appender!(ImportedLineStatus[])();
     size_t matchedFiles;
 
     foreach (entry; regionsByFile.byKeyValue) {
@@ -226,6 +234,10 @@ GcovImportStats importGcovJsonCoverage(FilesysIO fio, Database* db,
             auto raw = fio.makeInput(fio.toAbsoluteRoot(relPath.get)).content;
             const starts = lineStarts(raw);
             matchedFiles++;
+
+            foreach (lineEntry; lineCounts.byKeyValue) {
+                importedLines.put(ImportedLineStatus(entry.key, lineEntry.key, lineEntry.value > 0));
+            }
 
             foreach (region; entry.value) {
                 auto status = statusForRegion(region.region, starts, *lineCounts);
@@ -245,6 +257,9 @@ GcovImportStats importGcovJsonCoverage(FilesysIO fio, Database* db,
     spinSql!(() @trusted {
         auto trans = db.transaction;
         db.coverageApi.clearCoverageInfo;
+        foreach (entry; importedLines.data) {
+            db.coverageApi.putImportedLineCoverage(entry.fileId, entry.line, entry.status);
+        }
         foreach (entry; importedStatuses.data) {
             db.coverageApi.putCoverageInfo(entry.id, entry.status);
         }

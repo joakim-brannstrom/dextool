@@ -115,6 +115,7 @@ immutable schemaMutantV2Table = "schemata_mutant_v2";
 immutable schemaSizeQTable = "schema_size_q";
 immutable schemaVersionTable = "schema_version";
 immutable srcCovInfoTable = "src_cov_info";
+immutable srcCovImportedLineTable = "src_cov_imported_line";
 immutable srcCovTable = "src_cov_instr";
 immutable srcCovTimeStampTable = "src_cov_timestamp";
 immutable srcMetadataTable = "src_metadata";
@@ -672,6 +673,25 @@ struct CoverageInfoTable {
     bool status;
 }
 
+/** Imported line-based coverage data.
+ * It is used to preserve gcov line precision for reporting and mutation
+ * propagation while keeping the existing region-based coverage tables for the
+ * built-in coverage runtime.
+ */
+@TableName(srcCovImportedLineTable)
+@TableForeignKey("file_id", KeyRef("files(id)"), KeyParam("ON DELETE CASCADE"))
+@TableConstraint("file_line UNIQUE (file_id, line)")
+struct CoverageImportedLineTable {
+    long id;
+
+    @ColumnName("file_id")
+    long fileId;
+
+    uint line;
+
+    bool status;
+}
+
 /// When the coverage information was gathered.
 @TableName(srcCovTimeStampTable)
 struct CoverageTimeTtampTable {
@@ -876,7 +896,8 @@ void upgradeV0(ref Miniorm db) {
             RuntimeHistoryTable,
             MutationScoreHistoryTable,
             MutationFileScoreHistoryTable, TestFilesTable, CoverageCodeRegionTable,
-            CoverageInfoTable, CoverageTimeTtampTable, DependencyFileTable,
+            CoverageInfoTable, CoverageImportedLineTable, CoverageTimeTtampTable,
+            DependencyFileTable,
             DependencyRootTable, DextoolVersionTable, ConfigVersionTable,
             TestCmdOriginalTable,
             TestCmdMutatedTable,
@@ -2265,6 +2286,10 @@ void upgradeV61(ref Miniorm db) {
 
 void upgradeV62(ref Miniorm db) {
     db.run(buildSchema!ConfigVersionTable);
+}
+
+void upgradeV63(ref Miniorm db) {
+    db.run(buildSchema!CoverageImportedLineTable);
 }
 
 void replaceTbl(ref Miniorm db, string src, string dst) {

@@ -382,6 +382,7 @@ nothrow:
         logger.info("Saving coverage data to database").collectException;
         void save() @trusted {
             auto trans = db.transaction;
+            db.coverageApi.clearImportedLineCoverage;
             foreach (a; data.covMap) {
                 db.coverageApi.putCoverageInfo(localId[a.id], a.status);
             }

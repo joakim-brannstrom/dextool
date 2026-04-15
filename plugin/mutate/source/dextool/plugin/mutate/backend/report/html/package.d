@@ -776,9 +776,6 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     // newlines, detect when a line changes etc.
     auto lastLoc = SourceLoc(1, 1);
 
-    // read coverage data and save covered lines in lineList
-    auto dbData = db.coverageApi.getCoverageStatus(ctx.fileId);
-
     void addMutantsTo_g_muts_data() {
         foreach (m; ctx.span.muts) {
             const metadata = db.mutantApi.getMutantMetaData(m.stId);
@@ -796,7 +793,14 @@ void generateFile(ref Database db, ref FileCtx ctx) @trusted {
     };
     addMutantsTo_g_muts_data();
 
-    auto lineList = extractLineCovData(dbData, ctx);
+    auto lineList = () {
+        auto importedLineData = db.coverageApi.getImportedLineCoverage(ctx.fileId);
+        if (importedLineData.length != 0)
+            return importedLineData;
+
+        auto dbData = db.coverageApi.getCoverageStatus(ctx.fileId);
+        return extractLineCovData(dbData, ctx);
+    }();
     void markCoverage(Element parent, int loc) {
         if (auto v = loc in lineList) {
             parent.firstChild.addClass((*v) ? "loc_covered" : "loc_noncovered");
