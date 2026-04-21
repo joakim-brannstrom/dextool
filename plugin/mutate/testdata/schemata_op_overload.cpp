@@ -1,5 +1,4 @@
 /// @copyright Boost License 1.0, http://boost.org/LICENSE_1_0.txt
-/// @date 2021
 /// @author Joakim Brännström (joakim.brannstrom@gmx.com)
 
 class Overload {
@@ -13,6 +12,8 @@ public:
     Overload operator+(const Overload& other) const { return *this; }
 };
 
+Overload operator|(const Overload& lfh, const Overload rhs) { return rhs; }
+
 int main(int argc, char** argv) {
     Overload a, b;
 
@@ -24,6 +25,17 @@ int main(int argc, char** argv) {
     {
         Overload tmp;
         tmp = a + b;
+    }
+
+    {
+        unsigned x = 1;
+        unsigned y = 1;
+        x = x & y;
+    }
+
+    {
+        Overload tmp;
+        tmp = a | b;
     }
 
     return 0;
