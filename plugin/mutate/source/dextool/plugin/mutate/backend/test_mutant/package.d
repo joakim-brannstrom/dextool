@@ -1569,7 +1569,7 @@ nothrow:
         auto covTimeStamp = spinSql!(() => db.coverageApi.getCoverageTimeStamp).orElse(
                 SysTime.init);
 
-        if (tracked < covTimeStamp) {
+        if (tracked < covTimeStamp && !covConf.metaData.hasValue) {
             logger.info("Coverage information is up to date").collectException;
             return;
         } else {
