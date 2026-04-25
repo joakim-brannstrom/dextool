@@ -207,6 +207,8 @@ span.xx_label {
 #locs {
     display: block;
     width: max-content;
+    font-family: monospace;
+    font-size: initial;
 }
 #locs  tr{
     display: block;
