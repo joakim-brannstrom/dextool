@@ -717,6 +717,9 @@ struct ArgParser {
                 analyze.rawTestExclude.map!(a => buildPath(workArea.root, a)).array);
 
         compiler.extraFlags = compiler.extraFlags ~ args.find("--").drop(1).array();
+
+        if (!coverage.gcovJson.empty)
+            coverage.use = true;
     }
 
     /**
@@ -1522,6 +1525,33 @@ gcov_json = ["foo.gcov.json.gz", "coverage"]
         AbsolutePath("foo.gcov.json.gz"),
         AbsolutePath("coverage")
     ]);
+}
+
+@("shall enable coverage use when gcov json coverage is configured")
+@system unittest {
+    import toml : parseTOML;
+
+    immutable txt = `
+[coverage]
+gcov_json = "foo.gcov.json.gz"
+`;
+    auto doc = parseTOML(txt);
+    auto ap = loadConfig(ArgParser.make, doc);
+
+    ap.parse(["dextool", "test"]);
+
+    ap.coverage.use.shouldBeTrue;
+    ap.coverage.gcovJson.shouldEqual([AbsolutePath("foo.gcov.json.gz")]);
+}
+
+@("shall enable coverage use when gcov json coverage is provided by cli")
+@system unittest {
+    auto ap = ArgParser.make;
+
+    ap.parse(["dextool", "test", "--gcov-json", "foo.gcov.json"]);
+
+    ap.coverage.use.shouldBeTrue;
+    ap.coverage.gcovJson.shouldEqual([AbsolutePath("foo.gcov.json")]);
 }
 
 @("shall parse the report sections")

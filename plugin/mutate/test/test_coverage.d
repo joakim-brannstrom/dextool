@@ -603,6 +603,53 @@ unittest {
     stat["killed"].integer.shouldBeGreaterThan(0);
 }
 
+@(testId ~ "shall enable coverage when gcov json is provided via cli")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto fixture = setupCoverageFixture(testEnv);
+
+    const gcovJson = (testEnv.outdir ~ "cli_enables_coverage.gcov.json").toString;
+    writeGcovJson(gcovJson, "program.cpp", coverFunctionCoveredLines ~ mainFunctionCoveredLines,
+            GcovJsonWriteOptions(includeCwd: false));
+
+    const configPath = writeConfig(testEnv, "test_without_coverage_use.toml",
+            analyzeWithoutCoverageConfigText);
+
+    analyzeCoverageProgram(testEnv, fixture, defaultCoverageConfig);
+
+    auto testRun = runCoverageTest(testEnv, fixture, configPath,
+            [["--gcov-json", gcovJson]]);
+    assertImportedCoverageOutput(testRun.output);
+
+    auto stat = coverageReportStat(testEnv);
+    stat["killed"].integer.shouldBeGreaterThan(0);
+}
+
+@(testId ~ "shall enable coverage when gcov json is provided via toml")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto fixture = setupCoverageFixture(testEnv);
+
+    const gcovJson = (testEnv.outdir ~ "toml_enables_coverage.gcov.json.gz").toString;
+    writeGcovJson(gcovJson, absolutePath(fixture.programCode),
+            coverFunctionCoveredLines ~ mainFunctionCoveredLines,
+            GcovJsonWriteOptions(gzip: true));
+
+    const configPath = writeConfig(testEnv, "toml_gcov_without_coverage_use.toml",
+            analyzeWithoutCoverageConfigText ~ format(`
+[coverage]
+gcov_json = "%s"
+`, gcovJson));
+
+    analyzeCoverageProgram(testEnv, fixture, defaultCoverageConfig);
+
+    auto testRun = runCoverageTest(testEnv, fixture, configPath);
+    assertImportedCoverageOutput(testRun.output);
+
+    auto stat = coverageReportStat(testEnv);
+    stat["killed"].integer.shouldBeGreaterThan(0);
+}
+
 @(testId ~ "shall import gcov json when line numbers and counts are strings")
 unittest {
     mixin(EnvSetup(globalTestdir));
@@ -752,6 +799,29 @@ unittest {
     assertCoverageInstrumentationOutput(testRun.output);
     testAnyOrder!SubStr([
         "Object 'files' not found in gcov json",
+        "None of the gcov json files matched analyzed source files in the current work area."
+    ]).shouldBeIn(testRun.output);
+}
+
+@(testId ~ "shall warn and fall back when gcov json files is not an array")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto fixture = setupCoverageFixture(testEnv);
+
+    const gcovJson = (testEnv.outdir ~ "files_not_array.gcov.json").toString;
+    JSONValue root;
+    root["files"] = "not an array";
+    writeGcovJsonRoot(gcovJson, root, false);
+
+    analyzeCoverageProgram(testEnv, fixture, defaultCoverageConfig);
+
+    auto testRun = runCoverageTest(testEnv, fixture, defaultCoverageConfig,
+            [["--gcov-json", gcovJson]], false);
+    testRun.success.shouldBeTrue;
+    assertCoverageInstrumentationOutput(testRun.output);
+    testAnyOrder!SubStr([
+        "Object 'files' in gcov json",
+        "must be an array",
         "None of the gcov json files matched analyzed source files in the current work area."
     ]).shouldBeIn(testRun.output);
 }

@@ -109,7 +109,16 @@ private long[uint][Path] loadLineCoverage(FilesysIO fio, const AbsolutePath[] in
             continue;
         }
 
-        foreach (fileEntry; files.arrayNoRef) {
+        JSONValue[] fileEntries;
+        try {
+            fileEntries = files.arrayNoRef;
+        } catch (Exception e) {
+            logger.warningf("Object 'files' in gcov json %s must be an array: %s", input, e.msg)
+                .collectException;
+            continue;
+        }
+
+        foreach (fileEntry; fileEntries) {
             try {
                 const source = resolveSourcePath(fileEntry["file"].str, gcovCwd, input);
                 auto relSource = fio.toRelativeRoot(Path(source.toString));
