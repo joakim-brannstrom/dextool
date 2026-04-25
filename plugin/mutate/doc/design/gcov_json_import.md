@@ -37,14 +37,16 @@ If no gcov JSON input is configured:
 If gcov JSON input is configured:
 
 - mutate tries to import coverage from gcov `--json-format` output
+- coverage use is enabled for `mutate test`, even when `[coverage].use` is not
+  set explicitly
 - if import succeeds, built-in instrumentation is skipped
 - if import does not produce usable coverage, mutate warns and falls back to
   the built-in coverage flow when possible
 
 The supported user-facing input forms are:
 
-- `--gcov-json <path>` on the command line
-- `[coverage].gcov_json` in TOML
+- `--gcov-json <path>` on the command line, repeatable for multiple inputs
+- `[coverage].gcov_json` in TOML, as either a string or an array of strings
 - a single gcov JSON file
 - multiple gcov JSON files
 - a directory containing `.gcov.json` and/or `.gcov.json.gz` files
@@ -53,7 +55,7 @@ The supported user-facing input forms are:
 
 The feature fits into the existing coverage flow in `mutate test`.
 
-After the normal coverage initialization step:
+Before the built-in coverage runtime is injected or otherwise prepared:
 
 - if gcov JSON input is configured, the coverage FSM tries `ImportGcovJson`
 - if gcov import succeeds, coverage collection is done
@@ -88,8 +90,12 @@ When gcov JSON is imported:
 - the importer accepts GCC `gcov --json-format` output
 - relative paths, absolute paths, and `current_working_directory` are handled
   when resolving gcov source paths
+- relative source paths without `current_working_directory` are resolved from
+  the gcov JSON input file's directory
 - the importer resolves gcov file entries to analyzed source files
 - one imported line status is stored for each gcov line present in the input
+- repeated line counts from multiple gcov JSON inputs are summed before
+  coverage status is calculated
 - `count > 0` becomes covered
 - `count == 0` becomes non-covered
 - missing gcov lines remain unknown
@@ -113,6 +119,8 @@ This includes cases such as:
 
 - bad JSON
 - missing `files`
+- `files` that is not an array
+- malformed individual file entries
 - nonexistent inputs
 - empty directories
 - unsupported filenames
@@ -161,7 +169,8 @@ it.
 
 For a mutant range:
 
-- if any known imported line in the range is covered, the mutant is covered
+- if any known imported line in the range is covered, the mutant is not marked
+  `noCoverage` by propagation
 - if at least one known imported line exists in the range and none are
   covered, the mutant is `noCoverage`
 - if no imported line exists in the range, coverage remains unknown
@@ -177,9 +186,12 @@ Added or extended integration coverage includes:
 
 - built-in instrumentation is still used when `--gcov-json` is not configured
 - gcov import bypasses built-in instrumentation when configured
+- gcov JSON configuration enables coverage use from both CLI and TOML
 - CLI and TOML configuration both work
 - `.gcov.json`, `.gcov.json.gz`, and directory inputs work
 - relative paths, absolute paths, and `current_working_directory` work
+- numeric line/count fields may be JSON numbers or strings
+- duplicate line counts across inputs are merged
 - `count > 0`, `count == 0`, and missing lines map to covered, non-covered, and
   unknown
 - re-import replaces old imported coverage instead of accumulating stale data
@@ -208,10 +220,11 @@ objects, a clean sequential rebuild of the mutate binary has been enough:
 cmake --build build-test --target dextool_debug-mutate --clean-first -j1
 ```
 
-## Remaining Manual Checks
+## Optional Manual Checks
 
-The automated tests cover the core behavior. Optional extra manual checking can
-still be useful with a small gcov-producing C++ sample:
+The automated tests cover the core behavior with generated gcov JSON. Optional
+extra manual checking can still be useful with a real GCC/gcov-producing C++
+sample:
 
 - generate gcov JSON with both covered and uncovered lines inside the same
   analyzed function
