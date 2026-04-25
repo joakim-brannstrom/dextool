@@ -737,14 +737,22 @@ This option can greatly speed up the testing of all mutants.
 It is strongly recommended to also track the test files such that the coverage
 is automatically updated when the tests are changed (`generic.test_paths`).
 
-`runtime`: The option `inject` mean that dextool inject the runtime needed for
-mutation testing in all roots or those specified by `inject_runtime_impl`. This
-is a nice and automated process. If this doesn't work because you are running
-on an embedded system and need a modified schema runtime, linking errors etc
-then you can opt to use the `library` option. It means that you precompile the
-runtime and manually link with the library. Dextool will do no magic.
+`runtime`: Controls how dextool's built-in coverage runtime is added when
+dextool gathers coverage itself. The option `inject` mean that dextool inject
+the runtime needed for mutation testing in all roots or those specified by
+`inject_runtime_impl`. This is a nice and automated process. If this doesn't
+work because you are running on an embedded system and need a modified schema
+runtime, linking errors etc then you can opt to use the `library` option. It
+means that you precompile the runtime and manually link with the library.
+Dextool will do no magic.
 
 `inject_runtime_impl`: Inject the runtime in only these files.
+
+`gcov_json`: An optional advanced path to import coverage from GCC
+`gcov --json-format` output instead of using dextool's built-in source
+instrumentation. Use this when your build already produces gcov data. The
+value may be one or more `.gcov.json` or `.gcov.json.gz` files, or directories
+containing those artifacts.
 
 ## [database]
 

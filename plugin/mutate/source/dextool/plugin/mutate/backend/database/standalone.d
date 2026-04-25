@@ -2171,6 +2171,19 @@ struct DbCoverage {
         return rval.data;
     }
 
+    bool[uint] getImportedLineCoverage(FileId fileId) @trusted {
+        static immutable sql = "SELECT line, status FROM " ~ srcCovImportedLineTable
+            ~ " WHERE file_id = :fid";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":fid", fileId.get);
+
+        typeof(return) rval;
+        foreach (ref r; stmt.get.execute) {
+            rval[cast(uint) r.peek!long(0)] = r.peek!bool(1);
+        }
+        return rval;
+    }
+
     long getCoverageMapCount() @trusted {
         static immutable sql = "SELECT count(*) FROM " ~ srcCovTable;
         auto stmt = db.prepare(sql);
@@ -2186,11 +2199,33 @@ struct DbCoverage {
         stmt.get.execute;
     }
 
+    void clearCoverageInfo() @trusted {
+        static immutable sql = "DELETE FROM " ~ srcCovInfoTable;
+        auto stmt = db.prepare(sql);
+        stmt.get.execute;
+    }
+
+    void clearImportedLineCoverage() @trusted {
+        static immutable sql = "DELETE FROM " ~ srcCovImportedLineTable;
+        auto stmt = db.prepare(sql);
+        stmt.get.execute;
+    }
+
     void putCoverageInfo(const CoverageRegionId regionId, bool status) {
         static immutable sql = "INSERT OR REPLACE INTO " ~ srcCovInfoTable
             ~ " (id, status) VALUES(:id, :status)";
         auto stmt = db.prepare(sql);
         stmt.get.bind(":id", regionId.get);
+        stmt.get.bind(":status", status);
+        stmt.get.execute;
+    }
+
+    void putImportedLineCoverage(const FileId fileId, uint line, bool status) {
+        static immutable sql = "INSERT OR REPLACE INTO " ~ srcCovImportedLineTable
+            ~ " (file_id, line, status) VALUES(:fid, :line, :status)";
+        auto stmt = db.prepare(sql);
+        stmt.get.bind(":fid", fileId.get);
+        stmt.get.bind(":line", line);
         stmt.get.bind(":status", status);
         stmt.get.execute;
     }
@@ -2215,19 +2250,40 @@ struct DbCoverage {
     }
 
     MutationStatusId[] getNotCoveredMutants() @trusted {
-        static immutable sql = format!"SELECT DISTINCT t3.st_id FROM %1$s t0, %2$s t1, %3$s t2, %4$s t3
+        static immutable importedLineSql = format!"SELECT DISTINCT t1.st_id FROM %1$s t0, %2$s t1
+            WHERE t0.id = t1.mp_id AND
+            EXISTS (SELECT 1 FROM %3$s t2 WHERE t2.file_id = t0.file_id) AND
+            EXISTS (SELECT 1 FROM %3$s t2 WHERE t2.file_id = t0.file_id
+                AND t2.line BETWEEN t0.line AND t0.line_end) AND
+            NOT EXISTS (SELECT 1 FROM %3$s t2 WHERE t2.file_id = t0.file_id
+                AND t2.line BETWEEN t0.line AND t0.line_end AND t2.status = 1)"
+            (mutationPointTable, mutationTable, srcCovImportedLineTable);
+        static immutable regionSql = format!"SELECT DISTINCT t3.st_id FROM %1$s t0, %2$s t1, %3$s t2, %4$s t3
             WHERE t0.status = 0 AND
             t0.id = t1.id AND
             t1.file_id = t2.file_id AND
+            NOT EXISTS (SELECT 1 FROM %5$s t4 WHERE t4.file_id = t2.file_id) AND
             (t2.offset_begin BETWEEN t1.begin AND t1.end) AND
             (t2.offset_end BETWEEN t1.begin AND t1.end) AND
-            t2.id = t3.mp_id"(srcCovInfoTable, srcCovTable, mutationPointTable, mutationTable);
+            t2.id = t3.mp_id"(srcCovInfoTable, srcCovTable, mutationPointTable,
+                    mutationTable, srcCovImportedLineTable);
 
+        Set!MutationStatusId seen;
         auto app = appender!(MutationStatusId[])();
-        auto stmt = db.prepare(sql);
-        foreach (ref r; stmt.get.execute) {
-            app.put(MutationStatusId(r.peek!long(0)));
+
+        void appendUnseenMutationIds(string sql) {
+            auto stmt = db.prepare(sql);
+            foreach (ref r; stmt.get.execute) {
+                const id = MutationStatusId(r.peek!long(0));
+                if (!seen.contains(id)) {
+                    seen.add(id);
+                    app.put(id);
+                }
+            }
         }
+
+        appendUnseenMutationIds(importedLineSql);
+        appendUnseenMutationIds(regionSql);
 
         return app.data;
     }

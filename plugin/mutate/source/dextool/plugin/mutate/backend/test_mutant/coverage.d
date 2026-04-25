@@ -26,6 +26,8 @@ static import my.fsm;
 import dextool.plugin.mutate.backend.database : CovRegion, CoverageRegionId, FileId;
 import dextool.plugin.mutate.backend.database : Database;
 import dextool.plugin.mutate.backend.interface_ : FilesysIO, Blob;
+import dextool.plugin.mutate.backend.test_mutant.gcov_json : GcovImportStats,
+    importGcovJsonCoverage;
 import dextool.plugin.mutate.backend.test_mutant.test_cmd_runner : TestRunner, TestResult;
 import dextool.plugin.mutate.backend.type : Mutation, Language;
 import dextool.plugin.mutate.type : ShellCommand, UserRuntime, CoverageRuntime;
@@ -42,6 +44,9 @@ struct CoverageDriver {
 
     static struct InitializeRoots {
         bool hasRoot;
+    }
+
+    static struct ImportGcovJson {
     }
 
     static struct SaveOriginal {
@@ -71,8 +76,8 @@ struct CoverageDriver {
     static struct Done {
     }
 
-    alias Fsm = my.fsm.Fsm!(None, Initialize, InitializeRoots, SaveOriginal,
-            Instrument, Compile, Run, SaveToDb, Restore, Done);
+    alias Fsm = my.fsm.Fsm!(None, Initialize, ImportGcovJson, InitializeRoots,
+            SaveOriginal, Instrument, Compile, Run, SaveToDb, Restore, Done);
 
     private {
         Fsm fsm;
@@ -108,6 +113,8 @@ struct CoverageDriver {
         Set!AbsolutePath roots;
 
         CoverageRuntime runtime;
+        AbsolutePath[] gcovJson;
+        bool importExists;
     }
 
     this(FilesysIO fio, Database* db, TestRunner* runner, ConfigCoverage conf,
@@ -119,6 +126,7 @@ struct CoverageDriver {
         this.buildCmdTimeout = buildCmdTimeout;
         this.log = conf.log;
         this.runtime = conf.runtime;
+        this.gcovJson = conf.gcovJson;
 
         foreach (a; conf.userRuntimeCtrl) {
             auto p = fio.toAbsoluteRoot(a.file);
@@ -132,6 +140,14 @@ struct CoverageDriver {
 
     static void execute_(ref CoverageDriver self) @trusted {
         self.fsm.next!((None a) => Initialize.init, (Initialize a) {
+            if (!self.gcovJson.empty)
+                return fsm(ImportGcovJson.init);
+            if (self.runtime == CoverageRuntime.inject)
+                return fsm(InitializeRoots.init);
+            return fsm(SaveOriginal.init);
+        }, (ImportGcovJson a) {
+            if (self.importExists)
+                return fsm(Done.init);
             if (self.runtime == CoverageRuntime.inject)
                 return fsm(InitializeRoots.init);
             return fsm(SaveOriginal.init);
@@ -172,6 +188,21 @@ nothrow:
     }
 
     void opCall(None data) {
+    }
+
+    void opCall(ImportGcovJson data) {
+        try {
+            GcovImportStats stats = importGcovJsonCoverage(fio, db, gcovJson);
+            if (stats.imported) {
+                logger.infof("Imported gcov json coverage (%s inputs, %s source files, %s statuses)",
+                        stats.inputFiles, stats.sourceFiles, stats.regionStatuses)
+                    .collectException;
+                importExists = true;
+            }
+        } catch (Exception e) {
+            error_ = true;
+            logger.error(e.msg).collectException;
+        }
     }
 
     void opCall(Initialize data) {
@@ -351,6 +382,7 @@ nothrow:
         logger.info("Saving coverage data to database").collectException;
         void save() @trusted {
             auto trans = db.transaction;
+            db.coverageApi.clearImportedLineCoverage;
             foreach (a; data.covMap) {
                 db.coverageApi.putCoverageInfo(localId[a.id], a.status);
             }

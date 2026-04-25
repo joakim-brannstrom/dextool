@@ -1569,9 +1569,11 @@ nothrow:
         auto covTimeStamp = spinSql!(() => db.coverageApi.getCoverageTimeStamp).orElse(
                 SysTime.init);
 
-        if (tracked < covTimeStamp) {
+        if (tracked < covTimeStamp && covConf.gcovJson.empty) {
             logger.info("Coverage information is up to date").collectException;
             return;
+        } else if (!covConf.gcovJson.empty) {
+            logger.info("Importing coverage from gcov --json-format").collectException;
         } else {
             logger.infof("Coverage is out of date with SUT/tests (%s < %s)",
                     covTimeStamp, tracked).collectException;
