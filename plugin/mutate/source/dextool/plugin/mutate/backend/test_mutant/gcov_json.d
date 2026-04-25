@@ -89,6 +89,16 @@ private long[uint][Path] loadLineCoverage(FilesysIO fio, const AbsolutePath[] in
         }
     }
 
+    long nonNegativeCount(long count, AbsolutePath source, uint lineNumber, string dataFile) {
+        if (count >= 0)
+            return count;
+
+        logger.warningf(
+                "(negative) Unexpected negative hit count '%s' for line %s:%s while importing from %s.",
+                count, source, lineNumber, dataFile).collectException;
+        return 0;
+    }
+
     foreach (input; inputs) {
         JSONValue json;
         try {
@@ -99,6 +109,7 @@ private long[uint][Path] loadLineCoverage(FilesysIO fio, const AbsolutePath[] in
         }
 
         const gcovCwd = ifThrown(json["current_working_directory"].str, string.init);
+        const dataFile = ifThrown(json["data_file"].str, input.toString);
 
         JSONValue files;
         try {
@@ -123,7 +134,8 @@ private long[uint][Path] loadLineCoverage(FilesysIO fio, const AbsolutePath[] in
                 auto relSource = fio.toRelativeRoot(Path(source.toString));
                 foreach (lineEntry; fileEntry["lines"].arrayNoRef) {
                     const lineNumber = cast(uint) jsonToLong(lineEntry["line_number"]);
-                    const count = jsonToLong(lineEntry["count"]);
+                    const count = nonNegativeCount(jsonToLong(lineEntry["count"]), source,
+                            lineNumber, dataFile);
                     addLineCoverage(relSource, lineNumber, count);
                 }
             } catch (Exception e) {

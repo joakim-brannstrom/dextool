@@ -735,6 +735,35 @@ unittest {
     hasKnownStatus(coverage, 47, 54, true).shouldBeTrue;
 }
 
+@(testId ~ "shall warn and clamp negative gcov counts before merging")
+unittest {
+    mixin(EnvSetup(globalTestdir));
+    auto fixture = setupCoverageFixture(testEnv);
+
+    const negativeJson = (testEnv.outdir ~ "negative.gcov.json").toString;
+    const positiveJson = (testEnv.outdir ~ "positive.gcov.json").toString;
+    writeGcovJson(negativeJson, "program.cpp",
+            withCount(coverFunctionCoveredLines ~ unusedFunctionUncoveredLines, -1000),
+            GcovJsonWriteOptions(includeCwd: false));
+    writeGcovJson(positiveJson, "program.cpp", withCount(coverFunctionCoveredLines, 1),
+            GcovJsonWriteOptions(includeCwd: false));
+
+    analyzeCoverageProgram(testEnv, fixture, defaultCoverageConfig);
+
+    auto testRun = runCoverageTest(testEnv, fixture, defaultCoverageConfig, [
+        ["--gcov-json", negativeJson], ["--gcov-json", positiveJson]
+    ]);
+    assertImportedCoverageOutput(testRun.output, 2);
+    testAnyOrder!SubStr([
+        "(negative) Unexpected negative hit count '-1000'",
+        "while importing from simple_coverage.gcda"
+    ]).shouldBeIn(testRun.output);
+
+    auto coverage = loadCoverageView(testEnv, fixture);
+    hasKnownStatus(coverage, 47, 54, true).shouldBeTrue;
+    hasKnownStatus(coverage, 57, 61, false).shouldBeTrue;
+}
+
 @(testId ~ "shall warn about malformed gcov file entries and import the valid ones")
 unittest {
     mixin(EnvSetup(globalTestdir));

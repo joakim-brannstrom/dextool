@@ -96,6 +96,8 @@ When gcov JSON is imported:
 - one imported line status is stored for each gcov line present in the input
 - repeated line counts from multiple gcov JSON inputs are summed before
   coverage status is calculated
+- negative line counts produce warnings and are treated as zero before merging,
+  so corrupted interrupted `.gcda` data cannot cancel valid positive coverage
 - `count > 0` becomes covered
 - `count == 0` becomes non-covered
 - missing gcov lines remain unknown
@@ -192,6 +194,7 @@ Added or extended integration coverage includes:
 - relative paths, absolute paths, and `current_working_directory` work
 - numeric line/count fields may be JSON numbers or strings
 - duplicate line counts across inputs are merged
+- negative line counts warn and are clamped before merging
 - `count > 0`, `count == 0`, and missing lines map to covered, non-covered, and
   unknown
 - re-import replaces old imported coverage instead of accumulating stale data
