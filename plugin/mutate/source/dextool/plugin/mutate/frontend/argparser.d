@@ -910,6 +910,18 @@ ArgParser loadConfig(ArgParser rval, TOMLDocument doc) @trusted {
         }
     }
 
+    static bool toGcovJsonInputs(ref TOMLValue v, ref AbsolutePath[] inputs) {
+        if (v.type == TOML_TYPE.STRING) {
+            inputs = [AbsolutePath(v.str)];
+            return true;
+        }
+        if (v.type == TOML_TYPE.ARRAY) {
+            inputs = v.array.map!(a => AbsolutePath(a.str)).array;
+            return true;
+        }
+        return false;
+    }
+
     static double toNumber(ref TOMLValue v, double default_, string errorMsg) nothrow {
         try {
             return v.floating;
@@ -1021,13 +1033,8 @@ ArgParser loadConfig(ArgParser rval, TOMLDocument doc) @trusted {
     };
     callbacks["coverage.gcov_json"] = (ref ArgParser c, ref TOMLValue v) {
         try {
-            if (v.type == TOML_TYPE.STRING) {
-                c.coverage.gcovJson = [AbsolutePath(v.str)];
-            } else if (v.type == TOML_TYPE.ARRAY) {
-                c.coverage.gcovJson = v.array.map!(a => AbsolutePath(a.str)).array;
-            } else {
+            if (!toGcovJsonInputs(v, c.coverage.gcovJson))
                 logger.error("coverage.gcov_json: failed parsing");
-            }
         } catch (Exception e) {
             logger.error("coverage.gcov_json: failed parsing");
             logger.error(e.msg);

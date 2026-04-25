@@ -56,39 +56,38 @@ private string readGcovJson(AbsolutePath path) @trusted {
     return cast(string) app.data.idup;
 }
 
-private long jsonToLong(ref const(JSONValue) value) {
-    try {
-        return value.integer;
-    } catch (JSONException e) {
-        import std.conv : to;
-
-        return value.str.to!long;
-    }
-}
-
-private AbsolutePath resolveSourcePath(string path, string gcovCwd, AbsolutePath input) {
-    if (path.isAbsolute)
-        return AbsolutePath(path);
-    if (gcovCwd.length != 0)
-        return AbsolutePath(buildPath(gcovCwd, path));
-    return AbsolutePath(buildPath(input.dirName.toString, path));
-}
-
-private void addLineCoverage(ref long[uint][Path] lineCoverage, Path source, uint lineNumber,
-        long count) {
-    if (auto fileCoverage = source in lineCoverage) {
-        if (auto existing = lineNumber in *fileCoverage) {
-            *existing += count;
-        } else {
-            (*fileCoverage)[lineNumber] = count;
-        }
-    } else {
-        lineCoverage[source] = [lineNumber: count];
-    }
-}
-
 private long[uint][Path] loadLineCoverage(FilesysIO fio, const AbsolutePath[] inputs) {
     long[uint][Path] lineCoverage;
+
+    long jsonToLong(ref const(JSONValue) value) {
+        try {
+            return value.integer;
+        } catch (JSONException e) {
+            import std.conv : to;
+
+            return value.str.to!long;
+        }
+    }
+
+    AbsolutePath resolveSourcePath(string path, string gcovCwd, AbsolutePath input) {
+        if (path.isAbsolute)
+            return AbsolutePath(path);
+        if (gcovCwd.length != 0)
+            return AbsolutePath(buildPath(gcovCwd, path));
+        return AbsolutePath(buildPath(input.dirName.toString, path));
+    }
+
+    void addLineCoverage(Path source, uint lineNumber, long count) {
+        if (auto fileCoverage = source in lineCoverage) {
+            if (auto existing = lineNumber in *fileCoverage) {
+                *existing += count;
+            } else {
+                (*fileCoverage)[lineNumber] = count;
+            }
+        } else {
+            lineCoverage[source] = [lineNumber: count];
+        }
+    }
 
     foreach (input; inputs) {
         JSONValue json;
@@ -125,7 +124,7 @@ private long[uint][Path] loadLineCoverage(FilesysIO fio, const AbsolutePath[] in
                 foreach (lineEntry; fileEntry["lines"].arrayNoRef) {
                     const lineNumber = cast(uint) jsonToLong(lineEntry["line_number"]);
                     const count = jsonToLong(lineEntry["count"]);
-                    addLineCoverage(lineCoverage, relSource, lineNumber, count);
+                    addLineCoverage(relSource, lineNumber, count);
                 }
             } catch (Exception e) {
                 logger.warningf("Skipping malformed gcov file entry in %s: %s", input, e.msg)
@@ -147,15 +146,15 @@ private uint[] lineStarts(const(ubyte)[] content) {
     return starts.data;
 }
 
-private uint lineNumberAt(const uint[] starts, uint offset) @safe pure nothrow {
-    if (starts.length == 0)
-        return 1;
-    return cast(uint)(starts.length - assumeSorted(starts).upperBound(offset).length);
-}
-
 private Optional!bool statusForRegion(const Offset region, const uint[] starts, const long[uint] lineCounts) {
-    const beginLine = lineNumberAt(starts, region.begin);
-    const endLine = lineNumberAt(starts, region.isZero ? region.begin : region.end - 1);
+    uint lineNumberAt(uint offset) {
+        if (starts.length == 0)
+            return 1;
+        return cast(uint)(starts.length - assumeSorted(starts).upperBound(offset).length);
+    }
+
+    const beginLine = lineNumberAt(region.begin);
+    const endLine = lineNumberAt(region.isZero ? region.begin : region.end - 1);
 
     bool sawLine;
     bool covered;
@@ -230,33 +229,46 @@ GcovImportStats importGcovJsonCoverage(FilesysIO fio, Database* db,
         return GcovImportStats(inputs.length, 0, 0, false);
     }
 
-    auto importedStatuses = appender!(ImportedRegionStatus[])();
-    auto importedLines = appender!(ImportedLineStatus[])();
-    size_t matchedFiles;
-
-    foreach (entry; regionsByFile.byKeyValue) {
-        auto relPath = spinSql!(() => db.getFile(entry.key));
-        if (relPath.isNull)
-            continue;
-
-        if (auto lineCounts = relPath.get in importedCoverage) {
-            auto raw = fio.makeInput(fio.toAbsoluteRoot(relPath.get)).content;
-            const starts = lineStarts(raw);
-            matchedFiles++;
-
-            foreach (lineEntry; lineCounts.byKeyValue) {
-                importedLines.put(ImportedLineStatus(entry.key, lineEntry.key, lineEntry.value > 0));
-            }
-
-            foreach (region; entry.value) {
-                auto status = statusForRegion(region.region, starts, *lineCounts);
-                if (status.hasValue)
-                    importedStatuses.put(ImportedRegionStatus(region.id, status.orElse(false)));
-            }
-        }
+    struct ImportedCoverageMatch {
+        size_t matchedFiles;
+        ImportedLineStatus[] lines;
+        ImportedRegionStatus[] statuses;
     }
 
-    if (matchedFiles == 0) {
+    ImportedCoverageMatch matchImportedCoverage() {
+        auto importedStatuses = appender!(ImportedRegionStatus[])();
+        auto importedLines = appender!(ImportedLineStatus[])();
+        size_t matchedFiles;
+
+        foreach (entry; regionsByFile.byKeyValue) {
+            auto relPath = spinSql!(() => db.getFile(entry.key));
+            if (relPath.isNull)
+                continue;
+
+            if (auto lineCounts = relPath.get in importedCoverage) {
+                auto raw = fio.makeInput(fio.toAbsoluteRoot(relPath.get)).content;
+                const starts = lineStarts(raw);
+                matchedFiles++;
+
+                foreach (lineEntry; lineCounts.byKeyValue) {
+                    importedLines.put(ImportedLineStatus(entry.key, lineEntry.key,
+                            lineEntry.value > 0));
+                }
+
+                foreach (region; entry.value) {
+                    auto status = statusForRegion(region.region, starts, *lineCounts);
+                    if (status.hasValue)
+                        importedStatuses.put(ImportedRegionStatus(region.id,
+                                status.orElse(false)));
+                }
+            }
+        }
+
+        return ImportedCoverageMatch(matchedFiles, importedLines.data, importedStatuses.data);
+    }
+
+    auto matchedCoverage = matchImportedCoverage();
+    if (matchedCoverage.matchedFiles == 0) {
         logger.warning(
                 "None of the gcov json files matched analyzed source files in the current work area.")
             .collectException;
@@ -266,15 +278,16 @@ GcovImportStats importGcovJsonCoverage(FilesysIO fio, Database* db,
     spinSql!(() @trusted {
         auto trans = db.transaction;
         db.coverageApi.clearCoverageInfo;
-        foreach (entry; importedLines.data) {
+        foreach (entry; matchedCoverage.lines) {
             db.coverageApi.putImportedLineCoverage(entry.fileId, entry.line, entry.status);
         }
-        foreach (entry; importedStatuses.data) {
+        foreach (entry; matchedCoverage.statuses) {
             db.coverageApi.putCoverageInfo(entry.id, entry.status);
         }
         db.coverageApi.updateCoverageTimeStamp;
         trans.commit;
     });
 
-    return GcovImportStats(inputs.length, matchedFiles, importedStatuses.data.length, true);
+    return GcovImportStats(inputs.length, matchedCoverage.matchedFiles,
+            matchedCoverage.statuses.length, true);
 }

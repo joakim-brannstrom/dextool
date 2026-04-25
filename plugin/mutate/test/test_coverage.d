@@ -294,11 +294,6 @@ private string coverageHtmlProgramPage(ref TestEnv testEnv, CoverageFixutre fixt
             pathToHtmlName(filePath.get))).toString);
 }
 
-private void htmlLineShouldHaveCoverageClass(string html, uint line, string cssClass) {
-    html.canFind(format(`id="loc-%s"><span class="line_nr %s">%s:`, line, cssClass, line))
-        .shouldBeTrue;
-}
-
 private void assertCoverageInstrumentationOutput(string[] output) {
     testAnyOrder!SubStr([
         "Compiling instrumented source code",
@@ -398,11 +393,6 @@ private CoverageView loadCoverageView(ref TestEnv testEnv, CoverageFixutre fixtu
     return view;
 }
 
-private bool[uint] loadImportedLineCoverage(ref TestEnv testEnv, CoverageFixutre fixture) {
-    auto db = openDatabase(testEnv);
-    return db.coverageApi.getImportedLineCoverage(coverageFileId(db, fixture));
-}
-
 private Mutation.Status[] mutantStatusesAtLine(ref TestEnv testEnv, CoverageFixutre fixture, uint line) {
     auto db = openDatabase(testEnv);
     static immutable sql = "SELECT DISTINCT t0.status FROM mutation_status t0, mutation t1, mutation_point t2 "
@@ -493,8 +483,14 @@ unittest {
     assertImportedCoverageOutput(testRun.output);
 
     const html = coverageHtmlProgramPage(testEnv, fixture);
-    htmlLineShouldHaveCoverageClass(html, 3, "loc_covered");
-    htmlLineShouldHaveCoverageClass(html, 5, "loc_noncovered");
+
+    void lineShouldHaveCoverageClass(uint line, string cssClass) {
+        html.canFind(format(`id="loc-%s"><span class="line_nr %s">%s:`, line, cssClass,
+                line)).shouldBeTrue;
+    }
+
+    lineShouldHaveCoverageClass(3, "loc_covered");
+    lineShouldHaveCoverageClass(5, "loc_noncovered");
 }
 
 @(testId ~ "shall use imported gcov line coverage when propagating no coverage mutants")
@@ -557,11 +553,16 @@ unittest {
             coverFunctionCoveredLines ~ mainFunctionCoveredLines,
             GcovJsonWriteOptions(gzip: true));
 
+    bool[uint] loadImportedLineCoverage() {
+        auto db = openDatabase(testEnv);
+        return db.coverageApi.getImportedLineCoverage(coverageFileId(db, fixture));
+    }
+
     analyzeCoverageProgram(testEnv, fixture, defaultCoverageConfig);
 
     runCoverageTest(testEnv, fixture, defaultCoverageConfig, [["--gcov-json", firstJson]]);
     auto firstCoverage = loadCoverageView(testEnv, fixture);
-    auto firstImportedCoverage = loadImportedLineCoverage(testEnv, fixture);
+    auto firstImportedCoverage = loadImportedLineCoverage();
     auto firstUncoveredLine = 57u in firstImportedCoverage;
     hasKnownStatus(firstCoverage, 57, 61, false).shouldBeTrue;
     (firstUncoveredLine !is null).shouldBeTrue;
@@ -574,7 +575,7 @@ unittest {
     assertImportedCoverageOutput(secondRun.output);
 
     auto secondCoverage = loadCoverageView(testEnv, fixture);
-    auto secondImportedCoverage = loadImportedLineCoverage(testEnv, fixture);
+    auto secondImportedCoverage = loadImportedLineCoverage();
     auto secondUncoveredLine = 57u in secondImportedCoverage;
     auto secondCoveredLine = 64u in secondImportedCoverage;
     hasKnownStatus(secondCoverage, 57, 61, false).shouldBeFalse;

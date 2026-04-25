@@ -2184,26 +2184,6 @@ struct DbCoverage {
         return rval;
     }
 
-    bool hasImportedLineCoverage(FileId fileId) @trusted {
-        static immutable sql = "SELECT count(*) FROM " ~ srcCovImportedLineTable
-            ~ " WHERE file_id = :fid LIMIT 1";
-        auto stmt = db.prepare(sql);
-        stmt.get.bind(":fid", fileId.get);
-
-        foreach (ref r; stmt.get.execute)
-            return r.peek!long(0) > 0;
-        return false;
-    }
-
-    bool hasImportedLineCoverage() @trusted {
-        static immutable sql = "SELECT count(*) FROM " ~ srcCovImportedLineTable ~ " LIMIT 1";
-        auto stmt = db.prepare(sql);
-
-        foreach (ref r; stmt.get.execute)
-            return r.peek!long(0) > 0;
-        return false;
-    }
-
     long getCoverageMapCount() @trusted {
         static immutable sql = "SELECT count(*) FROM " ~ srcCovTable;
         auto stmt = db.prepare(sql);
@@ -2290,7 +2270,8 @@ struct DbCoverage {
 
         Set!MutationStatusId seen;
         auto app = appender!(MutationStatusId[])();
-        foreach (sql; [importedLineSql, regionSql]) {
+
+        void appendUnseenMutationIds(string sql) {
             auto stmt = db.prepare(sql);
             foreach (ref r; stmt.get.execute) {
                 const id = MutationStatusId(r.peek!long(0));
@@ -2300,6 +2281,9 @@ struct DbCoverage {
                 }
             }
         }
+
+        appendUnseenMutationIds(importedLineSql);
+        appendUnseenMutationIds(regionSql);
 
         return app.data;
     }
